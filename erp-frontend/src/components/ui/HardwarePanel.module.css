@@ -1,0 +1,80 @@
+/* PATH: erp-frontend/src/components/ui/HardwarePanel.module.css */
+
+.panel {
+    position: relative;
+    padding: 30px;
+    border-radius: 12px;
+    /* Transition only the glow effects, no movement */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 25px;
+    border: 1px solid rgba(238, 140, 58, 0.2);
+    overflow: visible; /* Allows HardwareSelect dropdowns to break out */
+}
+
+/* --- INTERACTIVE STATE (GLOW ONLY) --- */
+.panel:hover {
+    border-color: var(--orange);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* --- DARK VARIANT (LITERAL PROTOTYPE GRADIENT) --- */
+.dark {
+    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, var(--navy) 100%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* --- LIGHT VARIANT (FOR LEDGER/WHITEPAPERS) --- */
+.light {
+    background: #ffffff;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    border-color: rgba(33, 62, 64, 0.1);
+    box-shadow: 0 4px 16px rgba(33, 62, 64, 0.1);
+}
+
+/* --- PANEL HEADER MODULE --- */
+.header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(238, 140, 58, 0.4);
+}
+
+.icon {
+    color: var(--orange);
+    font-size: 20px;
+    filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
+}
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: var(--orange);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Override title color for light panels to maintain readability */
+.light .title {
+    color: var(--navy);
+}
+
+/* Ensures content sits above the gradient/background layers */
+.content {
+    position: relative;
+    z-index: 2;
+}
+
+/* --- REACTIVITY --- */
+@media (max-width: 768px) {
+    .panel {
+        padding: 20px 15px;
+    }
+    
+    .title {
+        font-size: 13px;
+        letter-spacing: 1px;
+    }
+}

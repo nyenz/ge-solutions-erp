@@ -1,0 +1,77 @@
+// PATH: erp-frontend/src/pages/Dashboard/Dashboard.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import landService from '../../services/landService';
+import RootTerminal from './RootTerminal';
+import ManagerTerminal from './ManagerTerminal';
+import styles from './Dashboard.module.css';
+import { FiAlertTriangle, FiRefreshCcw } from 'react-icons/fi';
+
+const Dashboard = () => {
+    const { user } = useAuth();
+    const [stats,   setStats]   = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error,   setError]   = useState(null);
+
+    const syncCockpitData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await landService.getDashboardSummary();
+            setStats(data);
+        } catch (err) {
+            console.error('COCKPIT_SYNC_FAULT', err);
+            setError('REGISTRY SIGNAL LOST — DATABASE UNREADABLE');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { syncCockpitData(); }, [syncCockpitData]);
+
+    if (loading) return (
+        <div className={styles.bootScreen} role="status" aria-label="Loading dashboard">
+            <div className={styles.spinner} aria-hidden="true" />
+            <span className={styles.bootLabel}>INITIALIZING COMMAND COCKPIT...</span>
+        </div>
+    );
+
+    if (error) return (
+        <div className={styles.container}>
+            <div className={styles.errorHUD}>
+                <FiAlertTriangle className={styles.errorIcon} aria-hidden="true" />
+                <div className={styles.errorBody}>
+                    <strong className={styles.errorTitle}>SYSTEM FAULT</strong>
+                    <p className={styles.errorMsg}>{error}</p>
+                </div>
+                <button className={styles.rebootBtn} onClick={syncCockpitData}>
+                    <FiRefreshCcw aria-hidden="true" /> REBOOT
+                </button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className={styles.container}>
+            <header className={styles.header}>
+                <div className={styles.titleBlock}>
+                    <h1 className={styles.pageTitle}>System Dashboard</h1>
+                    <p className={styles.pageSubtitle}>
+                        {user?.isRoot ? 'ROOT FOUNDER ACCESS' : 'OPERATIONAL MANAGER ACCESS'}
+                        {' · '}SECTOR 7G ARCHIVE ACTIVE
+                    </p>
+                </div>
+                <div className={styles.syncBadge} aria-live="polite">
+                    LAST SYNC: {new Date().toLocaleTimeString()}
+                </div>
+            </header>
+
+            {user?.isRoot
+                ? <RootTerminal stats={stats} />
+                : <ManagerTerminal stats={stats} />
+            }
+        </div>
+    );
+};
+
+export default Dashboard;

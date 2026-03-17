@@ -1,0 +1,523 @@
+/* PATH: erp-frontend/src/pages/Dashboard/Dashboard.module.css */
+/* ERP Standard — design tokens, clamp() everywhere,
+   DM Sans/Space Mono/Cinzel, font-weight 800+,
+   all missing classes defined, no inline styles needed */
+
+/* ── DESIGN TOKENS + CONTAINER ─────────────────────────────────── */
+.container {
+    --orange:        #EE8C3A;
+    --orange-dim:    rgba(238, 140, 58, 0.18);
+    --orange-border: rgba(238, 140, 58, 0.28);
+    --navy:          #1a2e30;
+    --navy-mid:      #213E40;
+    --panel-bg:      linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --panel-border:  rgba(238, 140, 58, 0.2);
+    --red:           #ef4444;
+    --ruby:          #ef4444;
+    --emerald:       #10b981;
+    --cyan:          #06b6d4;
+
+    --gap-xl:    clamp(14px, 2vw, 24px);
+    --gap-lg:    clamp(10px, 1.5vw, 18px);
+    --gap-md:    clamp(7px,  1.1vw, 14px);
+    --gap-sm:    clamp(5px,  0.7vw, 9px);
+    --pad-panel: clamp(14px, 2vw, 22px);
+    --radius:    12px;
+    --radius-sm: 8px;
+
+    --fs-h1:     clamp(18px, 2.5vw, 26px);
+    --fs-sub:    clamp(8px,  0.85vw, 10px);
+    --fs-label:  clamp(7px,  0.8vw, 9px);
+    --fs-value:  clamp(22px, 3vw, 30px);
+    --fs-tile-lbl: clamp(7px, 0.78vw, 9px);
+    --fs-panel-hdr: clamp(9px, 0.9vw, 11px);
+    --fs-money:  clamp(14px, 1.8vw, 20px);
+    --fs-btn:    clamp(9px,  0.9vw, 11px);
+    --fs-meta:   clamp(8px,  0.85vw, 10px);
+    --fs-gauge:  clamp(8px,  0.85vw, 10px);
+
+    max-width: 1450px;
+    margin: 0 auto;
+    padding: clamp(14px, 3vh, 36px) clamp(12px, 2vw, 24px) clamp(60px, 8vw, 100px);
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: cockpitBoot 0.8s cubic-bezier(0.2, 1, 0.3, 1) both;
+}
+
+@keyframes cockpitBoot {
+    from { opacity: 0; filter: brightness(0.5) blur(8px); transform: translateY(16px); }
+    to   { opacity: 1; filter: brightness(1)   blur(0);   transform: translateY(0); }
+}
+
+
+/* ── HUD HEADER ─────────────────────────────────────────────────── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--gap-md);
+    margin-bottom: var(--gap-xl);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
+    background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+}
+
+.titleBlock { min-width: 0; }
+
+/* Cinzel 700 — page title per standard */
+.pageTitle {
+    font-family: 'Cinzel', serif;
+    color: var(--navy);
+    font-size: var(--fs-h1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0 0 clamp(2px, 0.3vw, 4px);
+    line-height: 1.1;
+}
+
+/* DM Sans 900 — subtitle per standard */
+.pageSubtitle {
+    font-family: 'DM Sans', sans-serif;
+    color: #64748b;
+    font-size: var(--fs-sub);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+/* Space Mono — data timestamp */
+.syncBadge {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: var(--navy);
+    opacity: 0.45;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+
+/* ── TERMINAL WRAPPER ───────────────────────────────────────────── */
+.terminalWrapper { width: 100%; }
+
+
+/* ── STAT GRID (4 → 2 → 1) ─────────────────────────────────────── */
+.statGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--gap-lg);
+    margin-bottom: var(--gap-xl);
+}
+
+/* ── STAT TILE ──────────────────────────────────────────────────── */
+.statTile {
+    background: var(--panel-bg);
+    border: 2px solid rgba(238, 140, 58, 0.15);
+    border-radius: var(--radius);
+    padding: clamp(16px, 2.2vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1vw, 12px);
+    min-height: clamp(120px, 16vw, 155px);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+}
+.statTile:hover {
+    border-color: var(--orange);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+}
+
+/* Thermal accent borders */
+.azure   { border-left: clamp(3px, 0.4vw, 5px) solid var(--cyan); }
+.gold    { border-left: clamp(3px, 0.4vw, 5px) solid var(--orange); }
+.emerald { border-left: clamp(3px, 0.4vw, 5px) solid var(--emerald); }
+.ruby    { border-left: clamp(3px, 0.4vw, 5px) solid var(--red); }
+
+/* Icon — top-right, decorative */
+.tileIconWrap {
+    position: absolute;
+    right:  clamp(12px, 1.6vw, 18px);
+    bottom: clamp(12px, 1.6vw, 18px);
+    font-size: clamp(18px, 2.2vw, 26px);
+    color: rgba(255, 255, 255, 0.1);
+    transition: color 0.25s;
+    line-height: 1;
+}
+.statTile:hover .tileIconWrap { color: rgba(238, 140, 58, 0.35); }
+
+/* Space Mono 700 — big number */
+.statValue {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-value);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+}
+
+/* DM Sans 900 — tile label */
+.statLabel {
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-tile-lbl);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+
+/* ── MAIN WORKSPACE GRID ────────────────────────────────────────── */
+.mainGrid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: var(--gap-xl);
+    align-items: start;
+}
+
+.leftCol,
+.rightCol {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-lg);
+    min-width: 0;
+}
+
+
+/* ── HW PANELS ──────────────────────────────────────────────────── */
+.hwPanel {
+    background: var(--panel-bg);
+    border: 1.5px solid var(--panel-border);
+    border-radius: var(--radius);
+    overflow: visible; /* dropdowns must escape */
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+}
+
+.panelHeader {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(11px, 1.4vw, 16px) clamp(14px, 1.8vw, 22px);
+    border-bottom: 1px solid rgba(238, 140, 58, 0.1);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-panel-hdr);
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.panelInner { padding: var(--pad-panel); }
+
+
+/* ── FINANCIAL DISPLAY ──────────────────────────────────────────── */
+.financeDisplay { display: flex; flex-direction: column; gap: var(--gap-lg); }
+
+.moneyRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-md);
+}
+
+.moneyBox {
+    background: rgba(0, 0, 0, 0.3);
+    padding: clamp(12px, 1.6vw, 18px);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.moneyBoxArrears {
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--red);
+}
+
+.moneyBox label {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(4px, 0.5vw, 6px);
+}
+
+.moneyBox strong {
+    font-family: 'Space Mono', monospace;
+    color: #fff;
+    font-size: var(--fs-money);
+    font-weight: 700;
+    display: block;
+    word-break: break-all;
+}
+
+.valueEmerald { color: var(--emerald) !important; }
+.valueRuby    { color: var(--red)     !important; }
+
+
+/* ── GAUGE ROW ──────────────────────────────────────────────────── */
+.liquidityGauge { margin-top: var(--gap-sm); }
+
+.gaugeRow { margin-bottom: var(--gap-md); }
+.gaugeRow:last-child { margin-bottom: 0; }
+
+.gaugeLabel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(5px, 0.6vw, 7px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-gauge);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.75);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gaugeTrack {
+    height: clamp(4px, 0.6vw, 7px);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.gaugeFill {
+    height: 100%;
+    background: var(--orange);
+    box-shadow: 0 0 10px rgba(238, 140, 58, 0.4);
+    border-radius: 10px;
+    transition: width 1.4s cubic-bezier(0.2, 1, 0.3, 1);
+}
+
+
+/* ── LAUNCH PAD ─────────────────────────────────────────────────── */
+.launchPad {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-md);
+}
+
+.launchBtn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    padding: clamp(12px, 1.5vw, 17px) clamp(10px, 1.2vw, 14px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 10px);
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+.launchBtn:hover {
+    border-color: var(--orange);
+    background: var(--orange-dim);
+    color: var(--orange);
+}
+.launchBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+
+/* ── AUDIT NOTE (manager info bar) ─────────────────────────────── */
+.auditNote {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(6px, 0.8vw, 10px);
+    margin-top: var(--gap-lg);
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    border-left: 3px solid var(--cyan);
+    background: rgba(6, 182, 212, 0.05);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-meta);
+    font-weight: 800;
+    color: var(--cyan);
+    line-height: 1.5;
+}
+.auditNoteIcon { flex-shrink: 0; margin-top: 1px; font-size: clamp(13px, 1.4vw, 16px); }
+
+
+/* ── ACTIVITY STREAM ────────────────────────────────────────────── */
+.activityStream {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+}
+
+.activityRow {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.3vw, 14px);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    border-left: 2px solid rgba(238, 140, 58, 0.25);
+    transition: border-color 0.2s, background 0.2s;
+}
+.activityRow:hover {
+    border-left-color: var(--orange);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.activityIcon {
+    color: var(--orange);
+    font-size: clamp(12px, 1.3vw, 15px);
+    flex-shrink: 0;
+    margin-top: 2px;
+    opacity: 0.7;
+}
+
+.activityText {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2px, 0.3vw, 3px);
+    min-width: 0;
+}
+
+.activityAction {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activityDetail {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(8px, 0.82vw, 9px);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+
+/* ── BOOT SCREEN ────────────────────────────────────────────────── */
+.bootScreen {
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 2vw, 22px);
+    color: var(--orange, #EE8C3A); /* fallback — outside container token scope */
+}
+
+.spinner {
+    width:  clamp(32px, 4.5vw, 44px);
+    height: clamp(32px, 4.5vw, 44px);
+    border: 3px solid rgba(238, 140, 58, 0.15);
+    border-top-color: #EE8C3A; /* hardcoded — outside .container */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.bootLabel {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(9px, 1vw, 12px);
+    font-weight: 700;
+    letter-spacing: clamp(2px, 0.4vw, 4px);
+    color: #EE8C3A; /* hardcoded — outside .container */
+    text-transform: uppercase;
+}
+
+
+/* ── ERROR HUD ──────────────────────────────────────────────────── */
+.errorHUD {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 1.6vw, 20px);
+    flex-wrap: wrap;
+    margin: clamp(60px, 10vh, 120px) auto;
+    max-width: clamp(320px, 50vw, 520px);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1.5px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius);
+    padding: clamp(18px, 2.5vw, 28px);
+}
+
+.errorIcon {
+    font-size: clamp(24px, 3vw, 34px);
+    color: var(--red);
+    flex-shrink: 0;
+}
+
+.errorBody { flex: 1; min-width: 0; }
+
+.errorTitle {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 900;
+    color: #fca5a5;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: clamp(4px, 0.5vw, 6px);
+}
+
+.errorMsg {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 1vw, 11px);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    margin: 0;
+    letter-spacing: 0.5px;
+    word-break: break-word;
+}
+
+.rebootBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 8px);
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: clamp(8px, 1vw, 11px) clamp(14px, 1.8vw, 20px);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+.rebootBtn:hover { background: rgba(239, 68, 68, 0.2); border-color: var(--red); color: #fff; }
+.rebootBtn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+    .statGrid { grid-template-columns: repeat(2, 1fr); }
+    .mainGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+    /* statGrid stays 2-col minimum — prevents over-scrolling on small screens */
+    .moneyRow    { grid-template-columns: 1fr; }
+    .launchPad   { grid-template-columns: 1fr; }
+    .header      { flex-direction: column; align-items: flex-start; }
+    .errorHUD    { flex-direction: column; }
+    .rebootBtn   { margin-left: 0; width: 100%; justify-content: center; }
+}

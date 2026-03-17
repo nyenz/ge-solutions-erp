@@ -1,0 +1,22 @@
+/* PATH: erp-frontend/src/styles/variables.css */
+:root {
+    /* GOLDEN SEED COLOR PALETTE - LITERAL PORT */
+    --cream: #F4F2EF;
+    --navy: #213E40;
+    --orange: #EE8C3A;
+    --beige: #D0D1BD;
+    --text-light: #F4F2EF;
+    --text-dark: #213E40;
+
+    /* RE-MAPPING FOR APP-WIDE CONSISTENCY */
+    --color-blue-primary: var(--navy);
+    --color-orange-primary: var(--orange);
+    --color-cream-white: var(--cream);
+    
+    /* Layout Constants */
+    --header-height: 72px;
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 70px;
+    --glass-bg: rgba(33, 62, 64, 0.92);
+    --glass-border: rgba(238, 140, 58, 0.3);
+}

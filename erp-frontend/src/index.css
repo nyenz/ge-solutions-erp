@@ -1,0 +1,71 @@
+/* PATH: erp-frontend/src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600;800&family=Space+Mono&display=swap');
+
+:root {
+    --cream: #F4F2EF;
+    --navy: #213E40;
+    --orange: #EE8C3A;
+    --text-light: #F4F2EF;
+    --text-dark: #213E40;
+    --glass-bg: rgba(33, 62, 64, 0.95);
+    --glass-border: rgba(238, 140, 58, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--navy); /* Fallback color before Circuit Background loads */
+    min-height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* THE HANDBRAKE: Keeps card away from edges */
+    color: var(--text-light);
+}
+
+#root {
+    height: 100vh;
+    width: 100vw;
+}
+
+/* --- THE HARDWARE SCROLLBAR (Rule 2) --- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a2e30;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--orange);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #f59a4a;
+    box-shadow: 0 0 10px var(--orange);
+}
+
+/* --- TYPOGRAPHY HANDS --- */
+h1, h2, h3, .hardware-font {
+    font-family: 'Cinzel', serif;
+    letter-spacing: 2px;
+}
+
+.mono {
+    font-family: 'Space Mono', monospace;
+}
+
+/* --- UTILITIES --- */
+.center-terminal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

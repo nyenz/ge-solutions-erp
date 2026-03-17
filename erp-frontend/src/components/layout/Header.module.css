@@ -1,0 +1,281 @@
+/* PATH: erp-frontend/src/components/layout/Header.module.css */
+/* ERP Standard V1 — clamp() everywhere, DM Sans/Space Mono/Cinzel,
+   font-weight 800-900 minimum, focus-visible on all interactive,
+   activeSensor defined, notificationGroup now a <button>             */
+
+/* ── DESIGN TOKENS ──────────────────────────────────────────────────
+   Header is a layout component — it inherits --orange / --navy etc.
+   from the app root. Declare local overrides only if needed.
+   ─────────────────────────────────────────────────────────────────── */
+.header {
+    height: var(--header-height, clamp(52px, 7vw, 64px));
+    background: linear-gradient(165deg, #3a5a5c 0%, #2a4a4c 30%, #1a2e30 70%, #162628 100%);
+    padding: 0 clamp(12px, 2vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
+    border-bottom: 2px solid rgba(238, 140, 58, 0.2);
+    position: relative;
+    z-index: 101;
+    flex-shrink: 0;
+}
+
+/* Orange under-glow accent */
+.header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #EE8C3A, transparent);
+    opacity: 0.6;
+}
+
+.headerLeft,
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 18px);
+}
+
+
+/* ── SIDEBAR TOGGLE ─────────────────────────────────────────────── */
+.sidebarToggle {
+    width:  clamp(34px, 4vw, 42px);
+    height: clamp(34px, 4vw, 42px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s, color 0.25s;
+    color: #fff;
+    font-size: clamp(17px, 2vw, 22px);
+    flex-shrink: 0;
+}
+.sidebarToggle:hover {
+    border-color: #EE8C3A;
+    background: rgba(238, 140, 58, 0.1);
+    color: #EE8C3A;
+}
+.sidebarToggle:focus-visible {
+    outline: 2px solid #EE8C3A;
+    outline-offset: 2px;
+}
+
+
+/* ── LOGO SECTION ───────────────────────────────────────────────── */
+.logoSection {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+}
+
+.logoSmallPulse {
+    width:  clamp(28px, 3.2vw, 36px);
+    height: clamp(28px, 3.2vw, 36px);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pulseInner {
+    position: relative;
+    z-index: 2;
+    font-size: clamp(16px, 2vw, 22px);
+    line-height: 1;
+}
+
+.pulseRing {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid #EE8C3A;
+    border-radius: 50%;
+    animation: hardwarePulse 2.5s infinite ease-out;
+}
+
+@keyframes hardwarePulse {
+    0%   { transform: scale(1);   opacity: 0.8; }
+    100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* Cinzel 700 — brand name, per typography standard */
+.brandName {
+    font-family: 'Cinzel', serif;
+    color: #EE8C3A;
+    font-size: clamp(13px, 1.4vw, 20px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
+    white-space: nowrap;
+}
+
+
+/* ── NOTIFICATION / RECOVERY SENSOR ────────────────────────────── */
+/* Now a <button> — removes div-as-button a11y issue */
+.notificationGroup {
+    position: relative;
+    width:  clamp(34px, 3.8vw, 42px);
+    height: clamp(34px, 3.8vw, 42px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+    flex-shrink: 0;
+}
+.notificationGroup:hover {
+    border-color: #EE8C3A;
+    background: rgba(238, 140, 58, 0.08);
+}
+.notificationGroup:focus-visible {
+    outline: 2px solid #EE8C3A;
+    outline-offset: 2px;
+}
+
+/* activeSensor — orange glow when missions are pending */
+.activeSensor {
+    border-color: rgba(238, 140, 58, 0.4);
+    box-shadow: 0 0 12px rgba(238, 140, 58, 0.2);
+    animation: sensorPulse 2s ease-in-out infinite;
+}
+@keyframes sensorPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(238, 140, 58, 0.2); }
+    50%       { box-shadow: 0 0 20px rgba(238, 140, 58, 0.45); }
+}
+
+.bellIcon {
+    color: #fff;
+    font-size: clamp(16px, 1.9vw, 21px);
+    opacity: 0.75;
+    transition: opacity 0.2s;
+}
+.activeSensor .bellIcon { color: #EE8C3A; opacity: 1; }
+
+/* Red badge counter */
+.badge {
+    position: absolute;
+    top:   clamp(-7px, -0.7vw, -5px);
+    right: clamp(-7px, -0.7vw, -5px);
+    background: #ef4444;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900;
+    min-width: clamp(15px, 1.8vw, 19px);
+    height:    clamp(15px, 1.8vw, 19px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 0 clamp(3px, 0.35vw, 5px);
+    border: 2px solid #1a2e30;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    letter-spacing: 0;
+}
+
+
+/* ── OPERATOR CARD ──────────────────────────────────────────────── */
+.userCard {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+    background: rgba(0, 0, 0, 0.25);
+    padding: clamp(4px, 0.5vw, 7px) clamp(10px, 1.4vw, 18px);
+    border-radius: 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Avatar square — orange fill, navy text, always legible */
+.avatar {
+    width:  clamp(24px, 2.8vw, 32px);
+    height: clamp(24px, 2.8vw, 32px);
+    background: #EE8C3A;
+    color: #1a2e30;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(11px, 1.2vw, 15px);
+    box-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
+    flex-shrink: 0;
+}
+
+.userMeta {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2px, 0.3vw, 4px);
+}
+
+/* DM Sans 800 — UI label per standard */
+.userName {
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* Space Mono 900 — metadata tag per standard */
+.roleTag {
+    font-family: 'Space Mono', monospace;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: clamp(7px, 0.78vw, 9px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+
+/* ── SESSION EXIT ───────────────────────────────────────────────── */
+.logoutTrigger {
+    width:  clamp(34px, 3.8vw, 42px);
+    height: clamp(34px, 3.8vw, 42px);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1.5px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: clamp(15px, 1.8vw, 19px);
+    transition: background 0.25s, color 0.25s, box-shadow 0.25s;
+    flex-shrink: 0;
+}
+.logoutTrigger:hover {
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.35);
+}
+.logoutTrigger:focus-visible {
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+}
+
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 850px) {
+    /* Brand name hides on tablet — logo pulse remains */
+    .brandName { display: none; }
+}
+
+@media (max-width: 600px) {
+    .userCard  { padding: clamp(3px, 1vw, 5px) clamp(6px, 2vw, 10px); }
+    .roleTag   { display: none; }
+    .header    { padding: 0 clamp(10px, 3vw, 15px); }
+}

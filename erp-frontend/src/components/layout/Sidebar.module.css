@@ -1,0 +1,226 @@
+/* PATH: erp-frontend/src/components/layout/Sidebar.module.css */
+/* ERP Standard V4.2 — clamp() on all fluid values,
+   DM Sans 900 / Space Mono for all text, focus-visible on nav links,
+   font-family declared on every text element                          */
+
+.sidebar {
+    --sidebar-collapsed-width: 60px;
+    --sidebar-width:           210px;
+
+    width: var(--sidebar-width);
+    /* Subtract header height so sidebar never overflows below viewport.
+       Falls back to clamp value if the token isn't set on the root.    */
+    height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
+    background: linear-gradient(180deg, #1a2e30 0%, #162a2c 50%, #1a2e30 100%);
+    border-right: 2px solid rgba(238, 140, 58, 0.3);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.collapsed { width: var(--sidebar-collapsed-width); }
+
+/* Vertical orange power-line accent */
+.sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 1px; height: 100%;
+    background: linear-gradient(180deg, transparent, #EE8C3A, transparent);
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+
+/* ── NAV SCROLL AREA ────────────────────────────────────────────── */
+.sidebarNav {
+    padding: clamp(12px, 1.8vw, 22px) 0;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+}
+.sidebarNav::-webkit-scrollbar { display: none; }
+
+
+/* ── SECTION LABEL ──────────────────────────────────────────────── */
+.navSection { margin-bottom: clamp(12px, 1.8vw, 22px); }
+
+.navSectionTitle {
+    font-family: 'Space Mono', monospace;
+    color: rgba(255, 255, 255, 0.2);
+    font-size: clamp(6px, 0.65vw, 8px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 0 clamp(10px, 1.2vw, 16px);
+    margin-bottom: clamp(8px, 1vw, 14px);
+    white-space: nowrap;
+}
+.collapsed .navSectionTitle { opacity: 0; pointer-events: none; }
+
+
+/* ── NAV ITEMS ──────────────────────────────────────────────────── */
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1.3vw, 16px);
+    padding: clamp(11px, 1.4vw, 15px) clamp(10px, 1.2vw, 16px);
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    transition: background 0.25s, color 0.25s, border-color 0.25s;
+    border-left: 3px solid transparent;
+    white-space: nowrap;
+    outline: none; /* handled by focus-visible below */
+}
+
+.collapsed .navItem {
+    padding: clamp(13px, 1.6vw, 17px) 0;
+    justify-content: center;
+    border-left-width: 0;
+    border-right: 3px solid transparent;
+}
+
+.navItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+/* Keyboard focus — orange outline matching ERP standard */
+.navItem:focus-visible {
+    outline: 2px solid #EE8C3A;
+    outline-offset: -2px;
+    background: rgba(238, 140, 58, 0.06);
+}
+
+/* Active / current route */
+.active {
+    background: rgba(238, 140, 58, 0.1);
+    color: #EE8C3A;
+    border-left-color: #EE8C3A;
+}
+.collapsed .active {
+    border-left-color: transparent;
+    border-right-color: #EE8C3A;
+}
+
+/* Locked item — muted, shows lock cursor */
+.navItemLocked {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+.navItemLocked:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+
+/* ── ICON ───────────────────────────────────────────────────────── */
+.navIcon {
+    font-size: clamp(16px, 1.8vw, 21px);
+    min-width: clamp(20px, 2.2vw, 26px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+
+/* ── LABEL ──────────────────────────────────────────────────────── */
+.navText {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 1vw, 12px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ── BRANDING FOOTER ────────────────────────────────────────────── */
+.sidebarFooter {
+    padding: clamp(16px, 2.2vw, 26px) 0;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: clamp(70px, 9vw, 100px);
+}
+
+/* Space Mono 900 — brand serial number style */
+.branding {
+    font-family: 'Space Mono', monospace;
+    color: #EE8C3A;
+    font-size: clamp(9px, 1vw, 13px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    transition: transform 0.4s ease, font-size 0.4s ease;
+    white-space: nowrap;
+}
+
+/* Rotate into vertical serial-number style when collapsed */
+.collapsed .branding {
+    transform: rotate(-90deg);
+    font-size: clamp(7px, 0.8vw, 10px);
+    letter-spacing: 8px;
+}
+
+.version {
+    font-family: 'Space Mono', monospace;
+    color: rgba(255, 255, 255, 0.15);
+    font-size: clamp(6px, 0.65vw, 8px);
+    font-weight: 700;
+    margin-top: clamp(4px, 0.6vw, 8px);
+    letter-spacing: 1px;
+}
+.collapsed .version { display: none; }
+
+
+
+/* ── MOBILE BACKDROP ────────────────────────────────────────────── */
+/* Renders behind the open sidebar on mobile so tapping outside      */
+/* dismisses it. z-index 99 — below sidebar (100) above page (10).  */
+.sidebarBackdrop {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .sidebarBackdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        background: rgba(10, 20, 22, 0.55);
+        backdrop-filter: blur(2px);
+        animation: backdropIn 0.22s ease both;
+    }
+}
+
+@keyframes backdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── MOBILE ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        /* Sit BELOW the header — top: 0 would slide under it and clip nav items */
+        top: var(--header-height, clamp(52px, 7vw, 64px));
+        height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
+        width: 210px;
+        box-shadow: 15px 0 40px rgba(0, 0, 0, 0.7);
+        overflow-y: auto;
+    }
+    .collapsed { transform: translateX(-100%); }
+}

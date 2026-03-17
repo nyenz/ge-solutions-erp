@@ -1,0 +1,87 @@
+/* PATH: erp-frontend/src/components/common/HardwareModal.module.css */
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 25, 0.85); /* Deep industrial overlay */
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999; /* Absolute top layer */
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modalBody {
+    width: 100%;
+    max-width: 500px;
+    background: linear-gradient(135deg, #3a5a5c 0%, #213e40 100%);
+    border: 2px solid var(--orange);
+    border-radius: 12px;
+    padding: 30px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(238, 140, 58, 0.3);
+}
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: var(--orange);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: white;
+    opacity: 0.5;
+    font-size: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+}
+
+.closeBtn:hover {
+    opacity: 1;
+    color: var(--orange);
+}
+
+.content {
+    position: relative;
+    z-index: 2;
+}
+
+/* DECORATIVE FOOTER ACCENT */
+.footerGlow {
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--orange), transparent);
+    box-shadow: 0 0 15px var(--orange);
+    opacity: 0.5;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 550px) {
+    .modalBody {
+        width: 90%;
+        padding: 20px;
+    }
+}

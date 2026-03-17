@@ -1,0 +1,52 @@
+/* PATH: erp-frontend/src/components/ui/CornerDecor.module.css */
+
+/* --- CORNER ACCENTS (BRACKETS) --- */
+.cornerAccent {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid var(--orange);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.cornerAccent::after {
+    content: '';
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.topLeft { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
+.topLeft::after { top: -3px; left: -3px; }
+
+.topRight { top: 8px; right: 8px; border-left: none; border-bottom: none; border-radius: 0 4px 0 0; }
+.topRight::after { top: -3px; right: -3px; }
+
+.bottomLeft { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 4px; }
+.bottomLeft::after { bottom: -3px; left: -3px; }
+
+.bottomRight { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
+.bottomRight::after { bottom: -3px; right: -3px; }
+
+/* --- BORDER PINS --- */
+.pins {
+    position: absolute;
+    display: flex;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.pins.top { top: -3px; left: 50%; transform: translateX(-50%); }
+.pins.bottom { bottom: -3px; left: 50%; transform: translateX(-50%); }
+
+.pin {
+    width: 4px;
+    height: 6px;
+    background: var(--orange);
+    box-shadow: 0 0 6px rgba(238, 140, 58, 0.4);
+    border-radius: 1px;
+}

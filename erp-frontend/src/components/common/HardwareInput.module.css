@@ -1,0 +1,81 @@
+/* PATH: erp-frontend/src/components/common/HardwareInput.module.css */
+
+.fieldWrapper { 
+    display: flex; flex-direction: column; gap: 8px; width: 100%; 
+    margin-bottom: 15px; position: relative; 
+}
+
+/* --- LABELS --- */
+.labelRow { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.label { color: #FFFFFF !important; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
+.requiredMark { color: #ef4444; margin-left: 4px; }
+
+.pinBtn { background: transparent; border: none; color: rgba(255, 255, 255, 0.3); font-size: 14px; cursor: pointer; padding: 2px; transition: 0.3s; }
+.pinBtn:hover { color: rgba(255, 255, 255, 0.8); transform: translateY(-2px); }
+.pinnedActive { color: var(--orange); opacity: 1; filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.6)); }
+
+/* --- INPUT CONTAINER --- */
+.inputContainer {
+    position: relative; background: #ffffff; border-radius: 8px;
+    border: 2px solid rgba(238, 140, 58, 0.3); transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    display: flex; align-items: center;
+}
+
+.flash { animation: flashBorder 0.5s ease-out; border-color: #10b981 !important; }
+@keyframes flashBorder {
+    0% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); }
+    50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+    100% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.input {
+    width: 100%; padding: 12px 15px; border: none; outline: none; 
+    background: transparent; color: var(--navy); font-size: 15px; font-weight: 600;
+}
+.input:disabled { color: rgba(33, 62, 64, 0.5); cursor: not-allowed; }
+.inputContainer:hover, .inputContainer:focus-within { border-color: var(--orange); box-shadow: 0 0 15px rgba(238, 140, 58, 0.2); }
+
+/* --- ICONS & HINTS --- */
+.iconZone { position: absolute; right: 12px; display: flex; align-items: center; pointer-events: none; }
+
+.glowCorner { width: 8px; height: 8px; background: var(--orange); border-radius: 50%; opacity: 0; transition: 0.3s; }
+.inputContainer:hover .glowCorner { opacity: 1; }
+
+.loadingSpinner { color: var(--orange); font-size: 18px; animation: hardwareSpin 1s linear infinite; }
+.zapIcon { color: #10b981; font-size: 18px; animation: popIn 0.3s ease-out; }
+
+/* THE GHOST HINT (Email Velocity Visual) */
+.ghostHint {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 800; color: rgba(33, 62, 64, 0.4);
+    background: rgba(33, 62, 64, 0.05); padding: 4px 8px; border-radius: 4px;
+    animation: fadeIn 0.2s ease-out;
+}
+.ghostHint svg { font-size: 12px; }
+
+@keyframes hardwareSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.5); } 100% { transform: scale(1); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+
+/* --- FILTERED SUGGESTIONS --- */
+.suggestionBox {
+    position: absolute; top: 105%; left: 0; width: 100%;
+    background: #ffffff; border: 2px solid var(--orange); border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000;
+    overflow: hidden; animation: slideDown 0.1s ease-out;
+}
+
+@keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+.suggHeader {
+    background: #f1f5f9; padding: 6px 12px; font-size: 9px; 
+    font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.suggItem {
+    padding: 10px 15px; color: var(--navy); font-weight: 600; font-size: 13px;
+    cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: 0.2s;
+}
+.suggItem:last-child { border-bottom: none; }
+.suggItem:hover { background: rgba(238, 140, 58, 0.1); color: var(--orange); padding-left: 20px; }
