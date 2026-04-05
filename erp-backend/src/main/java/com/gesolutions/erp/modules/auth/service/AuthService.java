@@ -17,12 +17,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Random;
-
 /**
- * NYENZ ERP - AUTHENTICATION & RECOVERY ENGINE
+ * NYENZ ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)
  * 
- * Manages Login Handshakes and the Root Owner's "Panic Button".
+ * Manages the Secure Identity Handshake.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,11 +31,12 @@ public class AuthService {
     private final UserRepository userRepository; 
     private final JwtService jwtService;
     private final AuditService auditService;
-    private final MailService mailService; // Link to Email Engine
+    private final MailService mailService;
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * AUTHORIZE OPERATOR (Login)
+     * AUTHORIZE OPERATOR
+     * Returns the full Identity Binder to the UI.
      */
     @Transactional
     public LoginResponse authenticate(LoginRequest request) {
@@ -46,17 +45,21 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
         } catch (Exception e) {
-            throw new BusinessException("IDENTIFICATION_FAILED: INVALID CREDENTIALS");
+            // DIAGNOSTIC: Triggered if username or password hash don't match
+            throw new BusinessException("IDENTIFICATION_FAILED: INVALID SECURITY KEY");
         }
 
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new BusinessException("REGISTRY_ERROR: OPERATOR MISSING"));
+                .orElseThrow(() -> new BusinessException("REGISTRY_ERROR: OPERATOR_MISSING"));
 
-        auditService.logAction("LOGIN_SUCCESS", 
-            String.format("Operator [%s] authorized session. Role: %s", user.getUsername(), user.getRole()));
+        if (!user.isActive()) {
+            throw new BusinessException("AUTHORITY_REVOKED: ACCOUNT_SUSPENDED");
+        }
 
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
         String token = jwtService.generateToken(userDetails);
+
+        auditService.logAction("LOGIN_SUCCESS", "Operator session established: " + user.getUsername());
 
         return LoginResponse.builder()
                 .token(token)
@@ -71,39 +74,29 @@ public class AuthService {
     }
 
     /**
-     * ROOT RECOVERY PROTOCOL (The Panic Button)
-     * 
-     * Logic:
-     * 1. Check if email exists.
-     * 2. SECURITY HANDBRAKE: Check if user is ROOT. 
-     *    - If ROOT: Generate code, save to DB, send Email.
-     *    - If MANAGER: Block request, tell them to contact Admin.
+     * ROOT RECOVERY PROTOCOL
+     * Fires SMTP reset and forces a password change.
      */
     @Transactional
     public void initiateRootRecovery(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException("IDENTITY_FAULT: EMAIL NOT FOUND IN REGISTRY"));
+                .orElseThrow(() -> new BusinessException("IDENTITY_FAULT: EMAIL_NOT_FOUND"));
 
-        // HANDBRAKE: Only Root can use self-service recovery
         if (!user.isRoot()) {
-            throw new BusinessException("ACCESS_DENIED: Standard Operators must request reset from Root Owner.");
+            throw new BusinessException("ACCESS_DENIED: ONLY MASTER FOUNDER AUTHORIZED FOR SELF-RECOVERY.");
         }
 
-        // Generate Temporary Access Code
-        String recoveryToken = generateRecoveryCode();
+        // Generate Code (Example: NY-REC-48291)
+        String recoveryToken = "NY-REC-" + (10000 + (int)(Math.random() * 90000));
         
-        // Update User Record (Force password change on next login)
+        // PHYSICALLY REWRITE HASH
         user.setPassword(passwordEncoder.encode(recoveryToken));
-        user.setMustChangePassword(true); 
+        user.setMustChangePassword(true); // RE-ENABLE THE TRAP
         userRepository.save(user);
 
-        // Physically transmit email
+        // Transmit Signal
         mailService.sendRecoveryEmail(user.getEmail(), recoveryToken);
 
-        auditService.logAction("ROOT_RECOVERY_TRIGGERED", "Emergency reset protocol initiated for: " + user.getUsername());
-    }
-
-    private String generateRecoveryCode() {
-        return "NY-REC-" + (10000 + new Random().nextInt(90000)); // e.g., NY-REC-45892
+        auditService.logAction("ROOT_RECOVERY_TRIGGERED", "Emergency token transmitted to Master Owner.");
     }
 }

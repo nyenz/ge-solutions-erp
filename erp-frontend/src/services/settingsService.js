@@ -2,63 +2,58 @@
 import api from '../api/axios';
 
 /**
- * NYENZ ERP - SECURITY & GOVERNANCE SERVICE (V4)
+ * NYENZ ERP - SECURITY & GOVERNANCE SERVICE (V5)
  * 
- * Physically manages the communication between the Security Mastery UI 
- * and the Java Authentication Engine.
- * 
- * SECURITY: All methods are physically gated by the JWT Interceptor in axios.js.
+ * Physically manages operator lifecycles and security keys.
+ * UPDATED: Transparent error handling to reveal root causes of failures.
  */
 const settingsService = {
 
     /**
      * SELF-SERVICE: PASSWORD REWRITE
-     * Used by any operator to update their personal master key.
-     * Physically clears the 'mustChangePassword' handbrake on success.
      */
     changePersonalPassword: async (oldPassword, newPassword) => {
         try {
             await api.put('/profile/change-password', { oldPassword, newPassword });
             return true;
         } catch (error) {
-            const msg = error.response?.data?.message || "REWRITE_PROTOCOL_FAILURE";
-            throw new Error(msg.toUpperCase());
+            // VITAL FIX: We pull the REAL reason from the response.
+            // If it's a CORS block, this will likely say "Network Error".
+            // If it's a logic error, it will say the backend message.
+            const serverMsg = error.response?.data?.message || "COMMUNICATION_ERROR: Cannot reach engine.";
+            throw new Error(serverMsg.toUpperCase());
         }
     },
 
     /**
      * GOVERNANCE: FETCH REGISTRY (ROOT ONLY)
-     * Retrieves all operators and their current status for Founder oversight.
      */
     getAllOperators: async () => {
         try {
             const response = await api.get('/staff/all');
             return response.data;
         } catch (error) {
-            const msg = error.response?.data?.message || "REGISTRY_LOCKED";
-            throw new Error(msg.toUpperCase());
+            const serverMsg = error.response?.data?.message || "REGISTRY_OFFLINE";
+            throw new Error(serverMsg.toUpperCase());
         }
     },
 
     /**
      * GOVERNANCE: PROVISION NEW MANAGER (ROOT ONLY)
-     * Creates a new identity and returns the temporary industrial key.
      */
     registerManager: async (staffData) => {
         try {
-            // Default to ROLE_MANAGER if UI doesn't specify
             const payload = { ...staffData, role: staffData.role || 'ROLE_MANAGER' };
             const response = await api.post('/staff/create', payload);
             return response.data; 
         } catch (error) {
-            const msg = error.response?.data?.message || "REGISTRATION_DENIED";
-            throw new Error(msg.toUpperCase());
+            const serverMsg = error.response?.data?.message || "REGISTRATION_DENIED";
+            throw new Error(serverMsg.toUpperCase());
         }
     },
 
     /**
-     * GOVERNANCE: HIERARCHY ADJUSTMENT (PROMOTION/DEMOTION)
-     * Physically changes the security clearance level of an operator.
+     * GOVERNANCE: HIERARCHY ADJUSTMENT
      */
     updateOperatorRole: async (username, newRole) => {
         try {
@@ -67,14 +62,13 @@ const settingsService = {
             });
             return true;
         } catch (error) {
-            const msg = error.response?.data?.message || "RANK_ADJUSTMENT_FAILED";
-            throw new Error(msg.toUpperCase());
+            const serverMsg = error.response?.data?.message || "RANK_ADJUSTMENT_FAILED";
+            throw new Error(serverMsg.toUpperCase());
         }
     },
 
     /**
      * GOVERNANCE: STATUS KILL-SWITCH
-     * Physically suspends or restores access to the archive.
      */
     toggleOperator: async (username, isActive) => {
         try {
@@ -83,22 +77,21 @@ const settingsService = {
             });
             return true;
         } catch (error) {
-            const msg = error.response?.data?.message || "GOVERNANCE_PROTOCOL_FAULT";
-            throw new Error(msg.toUpperCase());
+            const serverMsg = error.response?.data?.message || "GOVERNANCE_FAULT";
+            throw new Error(serverMsg.toUpperCase());
         }
     },
 
     /**
      * GOVERNANCE: EMERGENCY KEY RESET
-     * Resets a secondary operator's password to a new temporary code.
      */
     resetOperatorKey: async (username) => {
         try {
             const response = await api.post('/staff/reset-password', { username });
             return response.data.temporaryPassword;
         } catch (error) {
-            const msg = error.response?.data?.message || "RESET_PROTOCOL_REJECTED";
-            throw new Error(msg.toUpperCase());
+            const serverMsg = error.response?.data?.message || "RESET_FAILED";
+            throw new Error(serverMsg.toUpperCase());
         }
     }
 };

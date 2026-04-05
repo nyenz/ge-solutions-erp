@@ -12,10 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * NYENZ ERP - MASTER BOOTSTRAPPER (V7 - PRODUCTION LOCKDOWN)
+ * NYENZ ERP - MASTER BOOTSTRAPPER (V8 - LEAN PRODUCTION)
  * 
- * Physically ensures 3-tier identities exist without overwriting 
- * user-changed passwords on server restarts.
+ * Physically ensures only the ROOT FOUNDER account exists.
+ * Extra staff accounts have been purged to keep the registry clean.
  */
 @Component
 @RequiredArgsConstructor
@@ -28,56 +28,24 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     @SuppressWarnings("null")
     public void run(String... args) {
-        System.out.println(">>> NYENZ SYSTEM: Synchronizing Identity Protocols...");
+        System.out.println(">>> NYENZ SYSTEM: Verifying Master Identity Registry...");
 
-        // --- TIER 1: THE ROOT FOUNDER ---
+        // ROOT USER: The only account that will exist by default.
         if (userRepository.findByUsername("admin_root").isEmpty()) {
-            User newRoot = User.builder()
+            User root = User.builder()
                     .id(UUID.randomUUID())
                     .username("admin_root")
-                    .email("nyenzdav@gmail.com")
+                    .email("nyenzdav@gmail.com") // Master Recovery Email
                     .password(passwordEncoder.encode("Manager@123"))
                     .role(Role.ROLE_ADMIN)
                     .isRoot(true)
                     .isActive(true)
-                    .mustChangePassword(true) // Initial force
+                    .mustChangePassword(true) // Forces you to secure the account on first login
                     .build();
-            userRepository.save(newRoot);
-            System.out.println(">>> [INIT] Created MASTER ROOT account.");
+            userRepository.save(root);
+            System.out.println(">>> [REGISTRY] Master Founder Account Seeded.");
         }
 
-        // --- TIER 2: THE SYSTEM ADMIN ---
-        if (userRepository.findByUsername("admin_01").isEmpty()) {
-            User newAdmin = User.builder()
-                    .id(UUID.randomUUID())
-                    .username("admin_01")
-                    .email("admin@golden-seed.com")
-                    .password(passwordEncoder.encode("Manager@123"))
-                    .role(Role.ROLE_ADMIN)
-                    .isRoot(false)
-                    .isActive(true)
-                    .mustChangePassword(true)
-                    .build();
-            userRepository.save(newAdmin);
-            System.out.println(">>> [INIT] Created SYSTEM ADMIN account.");
-        }
-
-        // --- TIER 3: THE STANDARD OPERATOR ---
-        if (userRepository.findByUsername("operator_01").isEmpty()) {
-            User newOp = User.builder()
-                    .id(UUID.randomUUID())
-                    .username("operator_01")
-                    .email("staff@golden-seed.com")
-                    .password(passwordEncoder.encode("Manager@123"))
-                    .role(Role.ROLE_MANAGER)
-                    .isRoot(false)
-                    .isActive(true)
-                    .mustChangePassword(true)
-                    .build();
-            userRepository.save(newOp);
-            System.out.println(">>> [INIT] Created STANDARD OPERATOR account.");
-        }
-
-        System.out.println(">>> NYENZ SYSTEM: Identity Handshake Verified. Registry Locked.");
+        System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 }

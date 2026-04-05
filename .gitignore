@@ -1,0 +1,12 @@
+# PATH: ge solns/.gitignore
+node_modules/
+dist/
+target/
+.idea/
+.vscode/
+*.log
+.env
+.env.local
+
+# DO NOT UPLOAD THE PHYSICAL DATABASE DATA
+infra/postgres_data/

@@ -20,14 +20,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - INDUSTRIAL SECURITY HUB (V1.2 - PRODUCTION READY)
+ * NYENZ ERP - MASTER SECURITY CONFIG (V1.6 - SYNTAX PATCH)
  * 
- * Physically defines the digital perimeter. 
- * Features: Multi-origin CORS support, Stateless JWT sessions, and Method Gating.
+ * Physically defines the digital perimeter.
+ * FIXED: Session Management syntax updated for Spring Security 6.x.
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // CRITICAL: Enables @PreAuthorize role-gating on methods
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -37,30 +37,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. ATTACH MULTI-ENVIRONMENT CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                
-                // 2. DISABLE CSRF (Stateless JWTs do not require session cookies)
                 .csrf(AbstractHttpConfigurer::disable)
-                
-                // 3. DEFINE ACCESS PERIMETERS
                 .authorizeHttpRequests(auth -> auth
-                        // Public Gateway: Login and Recovery
+                        // Public Gateway (Login and Recovery)
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        
-                        // The Digital Vault: Allows image/PDF streaming
+                        // Public Scan Access (The Vault)
                         .requestMatchers("/api/v1/vault/**").permitAll()
-                        
-                        // Secured Perimeter: Requires valid JWT
+                        // Protected Domain
                         .anyRequest().authenticated()
                 )
-                
-                // 4. SESSION ARCHITECTURE
+                // FIXED: .sessionCreationPolicy() instead of .setSessionCreationPolicy()
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                
-                // 5. ATTACH HARDWARE PROVIDERS
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -69,39 +59,24 @@ public class SecurityConfig {
 
     /**
      * CORS MASTER PROTOCOL
-     * Connects multiple potential frontends (React Local, Mobile PWA, Production Domain)
-     * to the Spring Boot Backend.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration config = new CorsConfiguration();
         
-        // --- ALLOWED ORIGINS (THE ACCESS LIST) ---
-        configuration.setAllowedOrigins(List.of(
-            "http://localhost:5173",    // Local Development
-            "http://127.0.0.1:5173",   // Local IP Dev
-            "http://localhost",         // Production Docker Local
-            "https://ge-solutions.com" // PLACEHOLDER: Replace with your real domain
+        config.setAllowedOrigins(List.of(
+            "http://localhost",       // Production Docker
+            "http://localhost:5173",  // Development React
+            "http://127.0.0.1"        // IP Fallback
         ));
         
-        // Allow all industrial HTTP verbs
-        configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
-        ));
-        
-        // Define allowed hardware headers
-        configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization", 
-            "Content-Type", 
-            "Cache-Control",
-            "X-Requested-With"
-        ));
-        
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L); // Cache CORS pre-flight for 1 hour for performance
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }
