@@ -5,8 +5,8 @@ services:
     name: ge-solutions-api
     runtime: docker
     repo: https://github.com/nyenz/ge-solutions-erp
-    plan: free # We are using the free tier
-    region: ohio # Matches your Neon DB region
+    plan: free 
+    region: ohio 
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -18,7 +18,7 @@ services:
         value: update
 
   # --- BUILDING B: THE INTERFACE (FRONTEND) ---
-  - type: static
+  - type: static_site # FIXED: Must be 'static_site'
     name: ge-solutions-ui
     runtime: static
     repo: https://github.com/nyenz/ge-solutions-erp
