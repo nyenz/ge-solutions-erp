@@ -1,0 +1,32 @@
+# PATH: render.yaml
+services:
+  # --- BUILDING A: THE ENGINE (BACKEND) ---
+  - type: web
+    name: ge-solutions-api
+    runtime: docker
+    repo: https://github.com/nyenz/ge-solutions-erp
+    plan: free # We are using the free tier
+    region: ohio # Matches your Neon DB region
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: SPRING_DATASOURCE_USERNAME
+        value: neondb_owner
+      - key: SPRING_DATASOURCE_PASSWORD
+        value: npg_ws7xVYrW5GLu
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
+
+  # --- BUILDING B: THE INTERFACE (FRONTEND) ---
+  - type: static
+    name: ge-solutions-ui
+    runtime: static
+    repo: https://github.com/nyenz/ge-solutions-erp
+    buildCommand: cd erp-frontend && npm install && npm run build
+    staticPublishPath: erp-frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          name: ge-solutions-api
+          type: web
+          property: host
