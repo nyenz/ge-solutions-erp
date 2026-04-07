@@ -1,9 +1,8 @@
 # PATH: render.yaml
 services:
-  # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    env: docker # Tells Render to use your Dockerfile
+    env: docker
     repo: https://github.com/nyenz/ge-solutions-erp
     plan: free 
     region: oregon 
@@ -14,13 +13,12 @@ services:
         value: neondb_owner
       - key: SPRING_DATASOURCE_PASSWORD
         value: npg_ws7xVYrW5GLu
-      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
-        value: update
+      - key: PORT
+        value: 8080 # Tells Render to route traffic to our Java port
 
-  # --- BUILDING B: THE INTERFACE (FRONTEND) ---
   - type: web
     name: ge-solutions-ui
-    env: static # FIXED: Tells Render this is a Static Website
+    env: static
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist

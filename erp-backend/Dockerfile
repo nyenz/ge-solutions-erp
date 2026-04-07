@@ -1,19 +1,25 @@
 # PATH: erp-backend/Dockerfile
-# Switch to Eclipse Temurin - The current standard for stable Java containers
+
+# --- STAGE 1: BUILD THE ENGINE ---
+FROM maven:3.8.5-openjdk-17 AS build
+WORKDIR /app
+# Copy the pom and source code to the cloud builder
+COPY pom.xml .
+COPY src ./src
+# Physically compile the JAR in the cloud
+RUN mvn clean package -DskipTests
+
+# --- STAGE 2: RUN THE ENGINE ---
 FROM eclipse-temurin:17-jdk-alpine
+WORKDIR /app
+# Copy the JAR we just built in Stage 1
+COPY --from=build /app/target/*.jar app.jar
 
-# Physically create the folder for physical document scans
+# Create scan vault
 RUN mkdir -p /ge_uploads
-
-# Volume for cross-platform persistence
 VOLUME /ge_uploads
 
-# VITAL: This copies the Production JAR you built with Maven
-# Ensure you ran './mvnw clean package -DskipTests' inside erp-backend first!
-COPY target/erp-backend-1.0.0-PROD.jar app.jar
-
-# Define standard API port
 EXPOSE 8080
 
-# Execute the engine with optimized memory settings for small servers
-ENTRYPOINT ["java", "-Xmx512m", "-jar", "app.jar"]
+# Run with memory optimization for Render's free tier
+ENTRYPOINT ["java", "-Xmx400m", "-jar", "app.jar"]
