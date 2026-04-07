@@ -3,10 +3,10 @@ services:
   # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    runtime: docker
+    env: docker # Tells Render to use your Dockerfile
     repo: https://github.com/nyenz/ge-solutions-erp
     plan: free 
-    region: ohio 
+    region: oregon 
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -18,9 +18,9 @@ services:
         value: update
 
   # --- BUILDING B: THE INTERFACE (FRONTEND) ---
-  - type: static_site # FIXED: Changed from 'static' to 'static_site'
+  - type: web
     name: ge-solutions-ui
-    runtime: node # Static sites use Node for building
+    env: static # FIXED: Tells Render this is a Static Website
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
