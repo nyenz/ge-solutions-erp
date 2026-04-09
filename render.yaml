@@ -1,9 +1,13 @@
 # PATH: render.yaml
 services:
+  # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
     env: docker
     repo: https://github.com/nyenz/ge-solutions-erp
+    # VITAL FIX: Tell Render where the files live
+    dockerContext: erp-backend
+    dockerfilePath: Dockerfile
     plan: free 
     region: oregon 
     envVars:
@@ -14,8 +18,9 @@ services:
       - key: SPRING_DATASOURCE_PASSWORD
         value: npg_ws7xVYrW5GLu
       - key: PORT
-        value: 8080 # Tells Render to route traffic to our Java port
+        value: 8080
 
+  # --- BUILDING B: THE INTERFACE (FRONTEND) ---
   - type: web
     name: ge-solutions-ui
     env: static
