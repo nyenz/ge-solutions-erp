@@ -3,11 +3,12 @@ services:
   # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    env: docker
+    runtime: docker # Changed from 'env' to 'runtime' for strict compliance
     repo: https://github.com/nyenz/ge-solutions-erp
-    # VITAL FIX: Tell Render where the files live
-    dockerContext: erp-backend
-    dockerfilePath: Dockerfile
+    # VITAL: Start the build at the root so it can see all folders
+    dockerContext: .
+    # VITAL: Direct path to the file
+    dockerfilePath: erp-backend/Dockerfile 
     plan: free 
     region: oregon 
     envVars:
