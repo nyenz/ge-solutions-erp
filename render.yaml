@@ -20,15 +20,15 @@ services:
         value: 8080
 
   # --- BUILDING B: THE INTERFACE (FRONTEND) ---
-  - type: static_site # VITAL FIX: Changed from 'web' to 'static_site'
+  - type: static_site
     name: golden-seed
+    subdomain: golden-seed # VITAL FIX: This forces the URL to be golden-seed.onrender.com
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
-    staticPublishPath: erp-frontend/dist # Tells Render where the 'dist' folder is
+    staticPublishPath: erp-frontend/dist
     envVars:
       - key: VITE_API_BASE_URL
         fromService:
           name: ge-solutions-api
           type: web
           property: host
-          
