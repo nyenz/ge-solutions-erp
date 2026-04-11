@@ -20,10 +20,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V1.6 - SYNTAX PATCH)
+ * NYENZ ERP - MASTER SECURITY CONFIG (V1.7 - DOMAIN UPDATE)
  * 
  * Physically defines the digital perimeter.
- * FIXED: Session Management syntax updated for Spring Security 6.x.
+ * UPDATED: Authorized the new 'golden-seed' Render domain.
  */
 @Configuration
 @EnableWebSecurity
@@ -40,14 +40,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Public Gateway (Login and Recovery)
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        // Public Scan Access (The Vault)
                         .requestMatchers("/api/v1/vault/**").permitAll()
-                        // Protected Domain
                         .anyRequest().authenticated()
                 )
-                // FIXED: .sessionCreationPolicy() instead of .setSessionCreationPolicy()
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -59,15 +55,17 @@ public class SecurityConfig {
 
     /**
      * CORS MASTER PROTOCOL
+     * Authorizes specific links to talk to the engine.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
         config.setAllowedOrigins(List.of(
-            "http://localhost",       // Production Docker
-            "http://localhost:5173",  // Development React
-            "http://127.0.0.1"        // IP Fallback
+            "http://localhost",
+            "http://localhost:5173",
+            "https://golden-seed.onrender.com",    // THE NEW LINK
+            "https://ge-solutions-ui.onrender.com" // OLD LINK (FOR BACKUP)
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

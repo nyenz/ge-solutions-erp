@@ -3,11 +3,9 @@ services:
   # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    runtime: docker # Changed from 'env' to 'runtime' for strict compliance
+    runtime: docker 
     repo: https://github.com/nyenz/ge-solutions-erp
-    # VITAL: Start the build at the root so it can see all folders
     dockerContext: .
-    # VITAL: Direct path to the file
     dockerfilePath: erp-backend/Dockerfile 
     plan: free 
     region: oregon 
@@ -23,7 +21,7 @@ services:
 
   # --- BUILDING B: THE INTERFACE (FRONTEND) ---
   - type: web
-    name: ge-solutions-ui
+    name: golden-seed # FIXED: Renamed for a professional URL
     env: static
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
