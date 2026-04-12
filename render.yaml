@@ -1,13 +1,12 @@
 # PATH: render.yaml
-
-# ── BUILDING A: THE ENGINE (BACKEND) ──
 services:
+  # ── BUILDING A: THE ENGINE (BACKEND) ──
   - type: web
     name: ge-solutions-api
-    env: docker
+    env: docker 
     repo: https://github.com/nyenz/ge-solutions-erp
-    # VITAL FIXES:
-    dockerContext: erp-backend
+    # VITAL: Start from the very root and point deep into the backend folder
+    dockerContext: .
     dockerfilePath: erp-backend/Dockerfile 
     plan: free 
     region: oregon 
@@ -21,14 +20,14 @@ services:
       - key: PORT
         value: 8080
 
-# ── BUILDING B: THE INTERFACE (FRONTEND) ──
-# Note: No underscore, CamelCase 'staticSites'
-staticSites:
-  - name: golden-seed
+  # ── BUILDING B: THE INTERFACE (FRONTEND) ──
+  - type: web
+    name: golden-seed
+    env: static 
     repo: https://github.com/nyenz/ge-solutions-erp
-    buildCommand: cd erp-frontend && npm install && npm run build
-    staticPublishPath: erp-frontend/dist
-    # THE REFRESH FIX
+    rootDir: erp-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
