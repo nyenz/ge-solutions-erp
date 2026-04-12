@@ -19,12 +19,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * NYENZ ERP - MASTER SECURITY CONFIG (V1.7 - DOMAIN UPDATE)
- * 
- * Physically defines the digital perimeter.
- * UPDATED: Authorized the new 'golden-seed' Render domain.
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -44,34 +38,28 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/vault/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    /**
-     * CORS MASTER PROTOCOL
-     * Authorizes specific links to talk to the engine.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
+        // --- AUTHORIZED LINKS ---
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com"  // THE NEW LINK
+            "https://golden-seed.onrender.com",   // THE NEW BRANDED LINK
+            "https://ge-solutions-ui.onrender.com" // OLD LINK (FOR SAFETY)
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

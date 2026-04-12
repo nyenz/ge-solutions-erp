@@ -1,14 +1,14 @@
 # PATH: render.yaml
 services:
-  # --- BUILDING A: THE ENGINE (BACKEND) ---
+  # --- THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    runtime: docker 
+    runtime: docker
     repo: https://github.com/nyenz/ge-solutions-erp
     dockerContext: .
-    dockerfilePath: erp-backend/Dockerfile 
-    plan: free 
-    region: oregon 
+    dockerfilePath: erp-backend/Dockerfile
+    plan: free
+    region: oregon
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -19,13 +19,13 @@ services:
       - key: PORT
         value: 8080
 
-  # --- BUILDING B: THE INTERFACE (FRONTEND) ---
-  - type: static_site
-    name: golden-seed
+  # --- THE INTERFACE (FRONTEND) ---
+  - type: static_site # VITAL: Defines as a website
+    name: golden-seed # YOUR DESIRED NAME
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
-    # ── THE REFRESH FIX ──
+    # ── THE REFRESH (404) FIX ──
     routes:
       - type: rewrite
         source: /*
