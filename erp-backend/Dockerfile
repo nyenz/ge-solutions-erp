@@ -3,13 +3,19 @@
 # --- STAGE 1: BUILD THE ENGINE ---
 FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
-COPY erp-backend/pom.xml .
-COPY erp-backend/src ./src
+
+# Copy from current directory (which is now erp-backend)
+COPY pom.xml .
+COPY src ./src
+
+# Compile the JAR
 RUN mvn clean package -DskipTests
 
 # --- STAGE 2: RUN THE ENGINE ---
 FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
+
+# Copy the JAR from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
 # Create scan vault
@@ -18,5 +24,5 @@ VOLUME /ge_uploads
 
 EXPOSE 8080
 
-# VITAL: Set memory limit to 256MB to leave room for the OS (prevents 'OOM' crashes)
-ENTRYPOINT ["java", "-Xmx256m", "-jar", "app.jar"]
+# Production memory optimization for Free Tier (Reduced to 350MB)
+ENTRYPOINT ["java", "-Xmx350m", "-jar", "app.jar"]
