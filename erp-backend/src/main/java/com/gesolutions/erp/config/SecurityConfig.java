@@ -64,8 +64,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com",    // THE NEW LINK
-            "https://ge-solutions-ui.onrender.com" // OLD LINK (FOR BACKUP)
+            "https://golden-seed.onrender.com"  // THE NEW LINK
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
