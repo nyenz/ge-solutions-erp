@@ -25,7 +25,7 @@ services:
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
-    # VITAL FIX: Tells Render to handle React Routing correctly
+    # ── THE REFRESH FIX ──
     routes:
       - type: rewrite
         source: /*
