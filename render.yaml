@@ -20,7 +20,7 @@ services:
         value: 8080
 
   # --- THE INTERFACE (FRONTEND) ---
-  - type: static_site # VITAL: Defines as a website
+  - type: static # VITAL: Defines as a website
     name: golden-seed # YOUR DESIRED NAME
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
