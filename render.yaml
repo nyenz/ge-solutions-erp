@@ -1,13 +1,12 @@
 # PATH: render.yaml
-
-# ── BUILDING A: THE ENGINE (BACKEND) ──
 services:
+  # ── BUILDING A: THE ENGINE (BACKEND) ──
   - type: web
     name: ge-solutions-api
-    env: docker
+    env: docker 
     repo: https://github.com/nyenz/ge-solutions-erp
-    dockerContext: .
-    dockerfilePath: erp-backend/Dockerfile 
+    dockerContext: erp-backend
+    dockerfilePath: Dockerfile 
     plan: free 
     region: oregon 
     envVars:
@@ -20,13 +19,15 @@ services:
       - key: PORT
         value: 8080
 
-# ── BUILDING B: THE INTERFACE (FRONTEND) ──
-static_sites: # FIXED: Must be 'static_sites' (Plural with Underscore)
-  - name: golden-seed
+  # ── BUILDING B: THE INTERFACE (FRONTEND) ──
+  - type: web
+    name: golden-seed
+    env: static # This tells Render it's a Static Website
     repo: https://github.com/nyenz/ge-solutions-erp
-    buildCommand: cd erp-frontend && npm install && npm run build
-    staticPublishPath: erp-frontend/dist
-    # THE REFRESH FIX
+    rootDir: erp-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    # VITAL: THE REFRESH FIX (Prevents 404 on page reload)
     routes:
       - type: rewrite
         source: /*
