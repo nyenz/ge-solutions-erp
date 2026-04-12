@@ -22,10 +22,14 @@ services:
   # --- BUILDING B: THE INTERFACE (FRONTEND) ---
   - type: static_site
     name: golden-seed
-    subdomain: golden-seed # VITAL FIX: This forces the URL to be golden-seed.onrender.com
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
+    # VITAL FIX: Tells Render to handle React Routing correctly
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
         fromService:
