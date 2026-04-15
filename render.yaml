@@ -1,11 +1,10 @@
 # PATH: render.yaml
 services:
-  # ── BUILDING A: THE ENGINE (BACKEND) ──
+  # ── BUILDING A: THE ENGINE ──
   - type: web
     name: ge-solutions-api
     env: docker 
     repo: https://github.com/nyenz/ge-solutions-erp
-    # VITAL: Start from the very root and point deep into the backend folder
     dockerContext: .
     dockerfilePath: erp-backend/Dockerfile 
     plan: free 
@@ -20,7 +19,7 @@ services:
       - key: PORT
         value: 8080
 
-  # ── BUILDING B: THE INTERFACE (FRONTEND) ──
+  # ── BUILDING B: THE INTERFACE ──
   - type: web
     name: golden-seed
     env: static 
@@ -34,7 +33,5 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        fromService:
-          name: ge-solutions-api
-          type: web
-          property: host
+        # VITAL FIX: We are giving the full public address manually
+        value: https://ge-solutions-api.onrender.com/api/v1
