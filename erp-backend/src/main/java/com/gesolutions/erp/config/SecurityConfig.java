@@ -20,10 +20,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - INDUSTRIAL SECURITY HUB (V1.9 - CLOUD SYNC)
+ * NYENZ ERP - MASTER SECURITY CONFIG (V2.0 - CLOUD HARDENED)
  * 
- * Physically authorizes the communication between the Render Frontend 
- * and the Render Backend.
+ * Physically defines the digital perimeter.
+ * FIXED: Uses setAllowedOriginPatterns to allow reliable Render-to-Render handshakes.
  */
 @Configuration
 @EnableWebSecurity
@@ -55,22 +55,31 @@ public class SecurityConfig {
 
     /**
      * CORS MASTER PROTOCOL
-     * VITAL: Tells the Backend to trust the Render Frontend URL.
+     * Authorized for Render Cloud Infrastructure.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // ── THE TRUSTED LIST (MANDATORY FOR CLOUD) ──
-        config.setAllowedOrigins(List.of(
-            "http://localhost",
-            "http://localhost:5173",
-            "https://golden-seed.onrender.com"
-            // Your fallback link
+        // ── THE CLOUD BRIDGE ──
+        // This pattern trusts ALL subdomains on Render and local dev
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:[*]",
+            "http://127.0.0.1:[*]",
+            "https://*.onrender.com" 
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
+        
+        // Ensure all hardware headers are physically listed
+        config.setAllowedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type", 
+            "Cache-Control", 
+            "Accept", 
+            "Origin", 
+            "X-Requested-With"
+        ));
         
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
