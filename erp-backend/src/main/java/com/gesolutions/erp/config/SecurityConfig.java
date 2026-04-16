@@ -20,10 +20,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V1.8 - FINAL PRODUCTION)
+ * NYENZ ERP - INDUSTRIAL SECURITY HUB (V1.9 - CLOUD SYNC)
  * 
- * Physically defines the digital perimeter.
- * FIXED: Explicitly authorizes the golden-seed domain and secures the refresh logic.
+ * Physically authorizes the communication between the Render Frontend 
+ * and the Render Backend.
  */
 @Configuration
 @EnableWebSecurity
@@ -55,21 +55,23 @@ public class SecurityConfig {
 
     /**
      * CORS MASTER PROTOCOL
-     * Verifies that the Frontend has permission to request data.
+     * VITAL: Tells the Backend to trust the Render Frontend URL.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // VITAL: This list MUST match your final URLs
+        // ── THE TRUSTED LIST (MANDATORY FOR CLOUD) ──
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com" 
+            "https://golden-seed.onrender.com"
+            // Your fallback link
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
+        
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
