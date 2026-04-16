@@ -20,10 +20,9 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V2.0 - CLOUD HARDENED)
+ * NYENZ ERP - MASTER SECURITY CONFIG (V2.0 - FINAL CLOUD GATE)
  * 
- * Physically defines the digital perimeter.
- * FIXED: Uses setAllowedOriginPatterns to allow reliable Render-to-Render handshakes.
+ * Physically prioritizes CORS handshaking to prevent 403 Preflight errors.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,52 +36,57 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // 1. ACTIVATE CORS FIRST (This kills the Red Error)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                
+                // 2. DISABLE CSRF for Stateless API
                 .csrf(AbstractHttpConfigurer::disable)
+                
+                // 3. AUTHORIZE PUBLIC & PRIVATE ROUTES
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/vault/**").permitAll()
+                        // Ensure OPTIONS requests (CORS Preflight) are always allowed
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
+                
+                // 4. STATELSS SESSIONS
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    /**
-     * CORS MASTER PROTOCOL
-     * Authorized for Render Cloud Infrastructure.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // ── THE CLOUD BRIDGE ──
-        // This pattern trusts ALL subdomains on Render and local dev
-        config.setAllowedOriginPatterns(List.of(
-            "http://localhost:[*]",
-            "http://127.0.0.1:[*]",
-            "https://*.onrender.com" 
+        // ── THE MASTER TRUST LIST ──
+        config.setAllowedOrigins(List.of(
+            "http://localhost",
+            "http://localhost:5173",
+            "https://golden-seed.onrender.com",     // NEW
+            "https://ge-solutions-ui.onrender.com"  // OLD
         ));
         
+        // Allow all industrial standard verbs
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         
-        // Ensure all hardware headers are physically listed
+        // VITAL: Explicitly allow the headers your app uses
         config.setAllowedHeaders(Arrays.asList(
             "Authorization", 
             "Content-Type", 
             "Cache-Control", 
-            "Accept", 
-            "Origin", 
             "X-Requested-With"
         ));
         
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
+        config.setMaxAge(3600L); // Keep the handshake alive for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
