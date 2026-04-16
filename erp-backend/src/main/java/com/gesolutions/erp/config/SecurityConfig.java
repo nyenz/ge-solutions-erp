@@ -70,8 +70,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com",     // NEW
-            "https://ge-solutions-ui.onrender.com"  // OLD
+            "https://golden-seed.onrender.com" // OLD
         ));
         
         // Allow all industrial standard verbs

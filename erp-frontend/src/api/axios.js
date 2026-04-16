@@ -2,13 +2,13 @@
 import axios from 'axios';
 
 /**
- * NYENZ ERP - MASTER API CLIENT (V8 - CLOUD READY)
+ * NYENZ ERP - MASTER API CLIENT (V9 - CLOUD PRODUCTION)
  * 
- * Logic: Checks if there is an 'Online URL' provided by the host.
- * If not, it defaults to your laptop's engine room.
+ * Physically synchronized with the Render environment variables.
  */
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1',
+    // VITAL: Now strictly uses the baked-in variable
+    baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         'Content-Type': 'application/json'
     }

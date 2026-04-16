@@ -33,5 +33,5 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        # VITAL FIX: We are giving the full public address manually
+        # VITAL FIX: The 'https://' and '/api/v1' are now hard-baked
         value: https://ge-solutions-api.onrender.com/api/v1
