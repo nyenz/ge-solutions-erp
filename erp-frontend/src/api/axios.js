@@ -2,13 +2,14 @@
 import axios from 'axios';
 
 /**
- * NYENZ ERP - MASTER API CLIENT (V9 - CLOUD PRODUCTION)
+ * NYENZ ERP - MASTER API CLIENT (V10 - HARD-WIRED PRODUCTION)
  * 
- * Physically synchronized with the Render environment variables.
+ * FIX: Physically hard-coded the Render API URL to bypass 
+ * environment variable build-time failures.
  */
 const api = axios.create({
-    // VITAL: Now strictly uses the baked-in variable
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    // VITAL: Hard-wired to your Cloud Engine Room
+    baseURL: 'https://ge-solutions-api.onrender.com/api/v1',
     headers: {
         'Content-Type': 'application/json'
     }
