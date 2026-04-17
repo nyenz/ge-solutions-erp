@@ -19,11 +19,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * NYENZ ERP - MASTER SECURITY CONFIG (V2.0 - FINAL CLOUD GATE)
- * 
- * Physically prioritizes CORS handshaking to prevent 403 Preflight errors.
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -36,26 +31,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. ACTIVATE CORS FIRST (This kills the Red Error)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                
-                // 2. DISABLE CSRF for Stateless API
                 .csrf(AbstractHttpConfigurer::disable)
-                
-                // 3. AUTHORIZE PUBLIC & PRIVATE ROUTES
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/vault/**").permitAll()
-                        // Ensure OPTIONS requests (CORS Preflight) are always allowed
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                
-                // 4. STATELSS SESSIONS
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -66,26 +51,17 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // ── THE MASTER TRUST LIST ──
+        // VITAL: Hard-coding the production origins for the fresh build
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com" // OLD
+            "https://golden-seed.onrender.com" 
         ));
         
-        // Allow all industrial standard verbs
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // VITAL: Explicitly allow the headers your app uses
-        config.setAllowedHeaders(Arrays.asList(
-            "Authorization", 
-            "Content-Type", 
-            "Cache-Control", 
-            "X-Requested-With"
-        ));
-        
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L); // Keep the handshake alive for 1 hour
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

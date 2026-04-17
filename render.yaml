@@ -1,10 +1,11 @@
 # PATH: render.yaml
 services:
-  # ── BUILDING A: THE ENGINE ──
+  # --- BUILDING A: THE ENGINE (BACKEND) ---
   - type: web
     name: ge-solutions-api
-    env: docker 
+    env: docker
     repo: https://github.com/nyenz/ge-solutions-erp
+    # Points to the root folder then looks inside erp-backend
     dockerContext: .
     dockerfilePath: erp-backend/Dockerfile 
     plan: free 
@@ -19,19 +20,14 @@ services:
       - key: PORT
         value: 8080
 
-  # ── BUILDING B: THE INTERFACE ──
-  - type: web
-    name: golden-seed
-    env: static 
+# --- BUILDING B: THE INTERFACE (FRONTEND) ---
+staticSites:
+  - name: golden-seed
     repo: https://github.com/nyenz/ge-solutions-erp
-    rootDir: erp-frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    buildCommand: cd erp-frontend && npm install && npm run build
+    staticPublishPath: erp-frontend/dist
+    # VITAL: THE REFRESH FIX (Fixes the 'Not Found' error on refresh)
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        # VITAL FIX: The 'https://' and '/api/v1' are now hard-baked
-        value: https://ge-solutions-api.onrender.com/api/v1
