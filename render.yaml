@@ -1,11 +1,10 @@
 # PATH: render.yaml
 services:
-  # --- BUILDING A: THE ENGINE (BACKEND) ---
+  # ── BUILDING A: THE ENGINE (BACKEND) ──
   - type: web
     name: ge-solutions-api
-    env: docker
+    runtime: docker # Uses your Dockerfile
     repo: https://github.com/nyenz/ge-solutions-erp
-    # Points to the root folder then looks inside erp-backend
     dockerContext: .
     dockerfilePath: erp-backend/Dockerfile 
     plan: free 
@@ -20,14 +19,18 @@ services:
       - key: PORT
         value: 8080
 
-# --- BUILDING B: THE INTERFACE (FRONTEND) ---
-staticSites:
-  - name: golden-seed
+  # ── BUILDING B: THE INTERFACE (FRONTEND) ──
+  - type: web
+    name: golden-seed
+    runtime: static # VITAL: This tells Render it is a Static Website
     repo: https://github.com/nyenz/ge-solutions-erp
     buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
-    # VITAL: THE REFRESH FIX (Fixes the 'Not Found' error on refresh)
+    # FIX: The Refresh Issue (404 fix)
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://ge-solutions-api.onrender.com/api/v1

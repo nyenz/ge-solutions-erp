@@ -1,18 +1,10 @@
 // PATH: erp-frontend/src/api/axios.js
 import axios from 'axios';
 
-/**
- * NYENZ ERP - MASTER API CLIENT (V12 - HARD-WIRED CLOUD)
- * 
- * Physically points the interface to the Render Engine Room.
- * This kills the 'ERR_CONNECTION_REFUSED' bug by removing localhost fallbacks.
- */
 const api = axios.create({
-    // VITAL: Hard-wired to your Cloud Backend
+    // HARD-WIRED: Zero reliance on environment variables
     baseURL: 'https://ge-solutions-api.onrender.com/api/v1',
-    headers: {
-        'Content-Type': 'application/json'
-    }
+    headers: { 'Content-Type': 'application/json' }
 });
 
 api.interceptors.request.use(
