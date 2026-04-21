@@ -16,10 +16,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * GE SOLUTIONS - JWT SECURITY ENGINE (V1.2 - PRODUCTION STABLE)
+ * 
+ * Physically manages the creation and validation of the digital identity token.
+ * FIXED: Removed Base64 decoding to resolve the 500 SYSTEM_CRITICAL_FAULT in cloud.
+ */
 @Service
 public class JwtService {
 
-    // These pull from your application.properties
     @Value("${ge.solutions.jwt.secret}")
     private String secretKey;
 
@@ -71,7 +76,9 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        // VITAL FIX: Stop using 'Decoders.BASE64.decode'. 
+        // We use the raw bytes of your secret string to ensure zero decoding errors.
+        byte[] keyBytes = secretKey.getBytes(); 
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }
