@@ -33,7 +33,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // Allow the browser's "pre-flight" test signal through
+                // Allow ALL 'OPTIONS' requests (The Browser Pre-flight signal)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/vault/**").permitAll()
@@ -50,15 +50,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // VITAL: Standardizes the allow-list for cloud environments
-        config.setAllowedOriginPatterns(List.of("https://*.onrender.com", "http://localhost:*"));
+        // VITAL: Allow EVERYTHING in production to bypass local-to-cloud blockages
+        config.setAllowedOriginPatterns(List.of("*")); 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // VITAL: Explicitly allow the Badge (Authorization) and JSON (Content-Type)
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
-        
+        config.setAllowedHeaders(List.of("*")); // Allows all custom headers
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
