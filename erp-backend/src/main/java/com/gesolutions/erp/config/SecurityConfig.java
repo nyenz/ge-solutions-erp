@@ -33,7 +33,6 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // Allow ALL 'OPTIONS' requests (The Browser Pre-flight signal)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/vault/**").permitAll()
@@ -50,11 +49,20 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // VITAL: Allow EVERYTHING in production to bypass local-to-cloud blockages
-        config.setAllowedOriginPatterns(List.of("*")); 
+        // VITAL: If allowCredentials is true, we CANNOT use "*".
+        // We must list every physical building your app lives in.
+        config.setAllowedOrigins(List.of(
+            "http://localhost",
+            "http://localhost:5173",
+            "http://127.0.0.1",
+            "https://golden-seed.onrender.com",
+            "https://ge-solutions-ui.onrender.com"
+        ));
+        
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*")); // Allows all custom headers
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
