@@ -19,6 +19,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * NYENZ ERP - MASTER SECURITY CONFIG (V1.10 - CLOUD HARDENING)
+ * 
+ * Physically defines the digital perimeter.
+ * FIXED: Expanded CORS registry to resolve the 'Network Error' handshake failure.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -47,19 +53,36 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * CORS MASTER PROTOCOL
+     * VITAL: This block tells the Cloud Engine room who is allowed to enter.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // VITAL: Hard-coding the production origins for the fresh build
+        // ── THE FULL ALLOWED LIST ──
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
-            "https://golden-seed.onrender.com" 
+            "http://127.0.0.1",
+            "https://golden-seed.onrender.com",
+            "https://ge-solutions-ui.onrender.com"
         ));
         
+        // Allow all standard methods
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
+        
+        // VITAL: Allow 'Authorization' so the JWT Token can pass through the cloud gate
+        config.setAllowedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type", 
+            "Cache-Control",
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ));
+        
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
