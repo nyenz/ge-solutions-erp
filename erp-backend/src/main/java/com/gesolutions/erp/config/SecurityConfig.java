@@ -16,17 +16,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
 import java.util.List;
 
-/**
- * NYENZ ERP - MASTER SECURITY CONFIG (V1.11 - PRODUCTION FINAL)
- * 
- * Physically defines the digital perimeter.
- * FIXED: Session Management syntax corrected for Spring Security 6.
- * CLOUD: Hardened with OPTIONS permitAll and CORS Wildcards for Render.
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -39,44 +30,32 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. ENABLE CORS
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        // 2. PERMIT ALL 'OPTIONS' (Browser Pre-flight handshakes)
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/vault/**").permitAll()
-                        .anyRequest().authenticated()
-                )
-                // 3. SESSION MANAGEMENT (Syntax Fixed: Removed 'set')
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                // Allow the browser's "pre-flight" test signal through
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/vault/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    /**
-     * CORS MASTER PROTOCOL
-     * Uses 'AllowedOriginPatterns' to support Render wildcards while credentials are true.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // VITAL: Allows both Localhost and any Render subdomain
-        config.setAllowedOriginPatterns(List.of(
-            "http://localhost:*",
-            "https://*.onrender.com"
-        ));
+        // VITAL: Standardizes the allow-list for cloud environments
+        config.setAllowedOriginPatterns(List.of("https://*.onrender.com", "http://localhost:*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // Allow all headers to prevent 'Unauthorized Header' rejections
-        config.setAllowedHeaders(List.of("*"));
+        // VITAL: Explicitly allow the Badge (Authorization) and JSON (Content-Type)
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
         
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
