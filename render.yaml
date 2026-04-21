@@ -1,13 +1,14 @@
 # PATH: render.yaml
 services:
+  # ── BUILDING A: THE ENGINE ──
   - type: web
     name: ge-solutions-api
-    runtime: docker 
+    runtime: docker
     repo: https://github.com/nyenz/ge-solutions-erp
     dockerContext: .
-    dockerfilePath: erp-backend/Dockerfile 
-    plan: free 
-    region: oregon 
+    dockerfilePath: erp-backend/Dockerfile
+    plan: free
+    region: oregon
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -15,13 +16,21 @@ services:
         value: neondb_owner
       - key: SPRING_DATASOURCE_PASSWORD
         value: npg_ws7xVYrW5GLu
-      # VITAL: PORT 8080 REMOVED. Render will now auto-detect.
+      # VITAL: Forces the app to Port 10000 for faster cloud binding
+      - key: PORT
+        value: 10000
+      # VITAL: Helps Java run in tiny memory
+      - key: JAVA_OPTS
+        value: "-Xmx384m -Xms384m -XX:+UseSerialGC"
 
+  # ── BUILDING B: THE INTERFACE ──
   - type: web
     name: golden-seed
-    runtime: static
+    env: static
     repo: https://github.com/nyenz/ge-solutions-erp
-    staticPublishPath: erp-frontend/dist
+    rootDir: erp-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
