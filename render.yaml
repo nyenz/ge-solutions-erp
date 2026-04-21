@@ -1,9 +1,8 @@
 # PATH: render.yaml
 services:
-  # ── BUILDING A: THE ENGINE (BACKEND) ──
   - type: web
     name: ge-solutions-api
-    runtime: docker # Uses your Dockerfile
+    runtime: docker 
     repo: https://github.com/nyenz/ge-solutions-erp
     dockerContext: .
     dockerfilePath: erp-backend/Dockerfile 
@@ -16,17 +15,13 @@ services:
         value: neondb_owner
       - key: SPRING_DATASOURCE_PASSWORD
         value: npg_ws7xVYrW5GLu
-      - key: PORT
-        value: 8080
+      # VITAL: PORT 8080 REMOVED. Render will now auto-detect.
 
-  # ── BUILDING B: THE INTERFACE (FRONTEND) ──
   - type: web
     name: golden-seed
-    runtime: static # VITAL: This tells Render it is a Static Website
+    runtime: static
     repo: https://github.com/nyenz/ge-solutions-erp
-    buildCommand: cd erp-frontend && npm install && npm run build
     staticPublishPath: erp-frontend/dist
-    # FIX: The Refresh Issue (404 fix)
     routes:
       - type: rewrite
         source: /*
