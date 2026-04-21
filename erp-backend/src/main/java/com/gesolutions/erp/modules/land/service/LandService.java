@@ -31,7 +31,6 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("null")
 public class LandService {
 
     private final LandProjectRepository projectRepository;

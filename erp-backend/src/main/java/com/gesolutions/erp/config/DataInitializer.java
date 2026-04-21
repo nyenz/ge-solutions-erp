@@ -26,7 +26,6 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     @Transactional
-    @SuppressWarnings("null")
     public void run(String... args) {
         System.out.println(">>> NYENZ SYSTEM: Verifying Master Identity Registry...");
 

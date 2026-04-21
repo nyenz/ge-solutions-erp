@@ -23,7 +23,6 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("null")
 public class StaffManagementService {
 
     private final UserRepository userRepository;

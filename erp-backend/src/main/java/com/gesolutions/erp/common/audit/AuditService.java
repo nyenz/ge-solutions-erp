@@ -27,7 +27,6 @@ public class AuditService {
      * Even if the main technical action fails, the log remains in the DB.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @SuppressWarnings("null")
     public void logAction(String action, String details) {
         // Retrieve current operator from security context
         String currentUser = "SYSTEM";
