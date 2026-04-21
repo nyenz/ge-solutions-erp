@@ -4,6 +4,7 @@ package com.gesolutions.erp.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,10 +21,11 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V1.10 - CLOUD HARDENING)
+ * NYENZ ERP - MASTER SECURITY CONFIG (V1.11 - PRODUCTION FINAL)
  * 
  * Physically defines the digital perimeter.
- * FIXED: Expanded CORS registry to resolve the 'Network Error' handshake failure.
+ * FIXED: Session Management syntax corrected for Spring Security 6.
+ * CLOUD: Hardened with OPTIONS permitAll and CORS Wildcards for Render.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,13 +39,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // 1. ENABLE CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // 2. PERMIT ALL 'OPTIONS' (Browser Pre-flight handshakes)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/vault/**").permitAll()
                         .anyRequest().authenticated()
                 )
+                // 3. SESSION MANAGEMENT (Syntax Fixed: Removed 'set')
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -55,33 +61,22 @@ public class SecurityConfig {
 
     /**
      * CORS MASTER PROTOCOL
-     * VITAL: This block tells the Cloud Engine room who is allowed to enter.
+     * Uses 'AllowedOriginPatterns' to support Render wildcards while credentials are true.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // ── THE FULL ALLOWED LIST ──
-        config.setAllowedOrigins(List.of(
-            "http://localhost",
-            "http://localhost:5173",
-            "http://127.0.0.1",
-            "https://golden-seed.onrender.com",
-            "https://ge-solutions-ui.onrender.com"
+        // VITAL: Allows both Localhost and any Render subdomain
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",
+            "https://*.onrender.com"
         ));
         
-        // Allow all standard methods
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         
-        // VITAL: Allow 'Authorization' so the JWT Token can pass through the cloud gate
-        config.setAllowedHeaders(Arrays.asList(
-            "Authorization", 
-            "Content-Type", 
-            "Cache-Control",
-            "X-Requested-With",
-            "Accept",
-            "Origin"
-        ));
+        // Allow all headers to prevent 'Unauthorized Header' rejections
+        config.setAllowedHeaders(List.of("*"));
         
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
