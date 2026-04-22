@@ -11,10 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * NYENZ ERP - AUTHENTICATION GATEWAY
- * 
- * Physically manages the authorization portal and emergency recovery.
- * Publicly accessible (no token required) to allow login and reset requests.
+ * NYENZ ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)
+ *
+ * Publicly accessible (no token required) to allow login, reset, and health checks.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -22,6 +21,21 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+
+    /**
+     * RENDER HEALTH CHECK ENDPOINT
+     *
+     * Render's load balancer sends a GET request to this path every 30 seconds
+     * to confirm the engine is alive. It must return HTTP 200 or Render will
+     * kill the container and restart it — causing the "Timed out" failure.
+     *
+     * This endpoint requires no token, no body, no logic — just a 200 OK.
+     * It is permitted in SecurityConfig under "/api/v1/auth/**".
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> health() {
+        return ResponseEntity.ok(Map.of("status", "ENGINE_ONLINE"));
+    }
 
     /**
      * OPERATOR AUTHORIZATION
@@ -35,18 +49,15 @@ public class AuthController {
 
     /**
      * ROOT RECOVERY TRIGGER (The Panic Button)
-     * 
-     * Accepts an email address. If it matches the Root Owner, 
+     *
+     * Accepts an email address. If it matches the Root Owner,
      * sends a reset code via SMTP.
-     * 
-     * Security: Logic inside AuthService prevents this from working 
-     * for standard managers.
      */
     @PostMapping("/recover-owner")
     public ResponseEntity<Map<String, String>> recoverOwner(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         authService.initiateRootRecovery(email);
-        
+
         return ResponseEntity.ok(Map.of(
             "message", "PROTOCOL INITIATED: If this email is the Root Owner, a code has been sent."
         ));
