@@ -1,19 +1,26 @@
 // PATH: erp-frontend/src/services/authService.js
-import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/v1/auth';
+// VITAL FIX: We now import the pre-configured 'api' instance from axios.js
+// instead of raw axios. That instance already has the correct cloud URL
+// (VITE_API_BASE_URL from render.yaml) baked in at build time.
+// The old version imported plain axios and called localhost:8080 directly —
+// which works on your laptop but fails completely in the cloud.
+import api from '../api/axios';
 
 /**
- * NYENZ ERP - AUTHENTICATION PIPELINE
- * Physically manages login and root recovery protocols.
+ * NYENZ ERP - AUTHENTICATION PIPELINE (V2.1 - CLOUD FIXED)
  */
 const authService = {
+
     /**
      * AUTHORIZE OPERATOR
+     * Sends credentials to the cloud engine and stores the identity token.
      */
     login: async (username, password) => {
         try {
-            const response = await axios.post(`${API_URL}/login`, { username, password });
+            // 'api' already knows the base URL. We only need the path suffix.
+            const response = await api.post('/auth/login', { username, password });
+
             if (response.data && response.data.token) {
                 const { token, user } = response.data;
                 localStorage.setItem('gs_token', token);
@@ -21,6 +28,7 @@ const authService = {
                 return { token, user };
             }
             throw new Error("PROTOCOL_FAULT: INCOMPLETE_HANDSHAKE");
+
         } catch (error) {
             const status = error.response?.status;
             if (status === 401 || status === 400) throw new Error("IDENTIFICATION_FAILED");
@@ -31,11 +39,10 @@ const authService = {
 
     /**
      * ROOT RECOVERY TRIGGER (The Panic Button)
-     * Calls the SMTP relay engine in Java.
      */
     recoverPassword: async (email) => {
         try {
-            const response = await axios.post(`${API_URL}/recover-owner`, { email });
+            const response = await api.post('/auth/recover-owner', { email });
             return response.data.message;
         } catch (error) {
             const msg = error.response?.data?.message || "RECOVERY_FAULT: UNKNOWN";
