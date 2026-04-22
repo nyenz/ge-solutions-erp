@@ -9,6 +9,10 @@ services:
     dockerfilePath: erp-backend/Dockerfile
     plan: free
     region: oregon
+    # VITAL: We tell Render to ping this path to check if the app is alive.
+    # The root '/' returns 403 (blocked), which Render misreads as a crash.
+    # '/api/v1/auth/login' exists and accepts OPTIONS, so it returns 200.
+    healthCheckPath: /api/v1/auth/login
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -16,6 +20,10 @@ services:
         value: neondb_owner
       - key: SPRING_DATASOURCE_PASSWORD
         value: npg_ws7xVYrW5GLu
+      # VITAL: These JVM flags tell Java to use less memory.
+      # The free tier only has 512MB. Without this, Java grabs too much and gets killed.
+      - key: JAVA_OPTS
+        value: "-Xms128m -Xmx384m -XX:+UseContainerSupport"
 
   # ── BUILDING B: THE INTERFACE ──
   - type: web

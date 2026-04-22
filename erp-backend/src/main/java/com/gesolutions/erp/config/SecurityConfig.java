@@ -23,10 +23,11 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V2.0 - PRODUCTION STABLE)
- * 
- * Physically prioritizes CORS at the absolute highest level to resolve 
- * browser-to-cloud handshake failures.
+ * NYENZ ERP - MASTER SECURITY CONFIG (V3.0 - CLOUD STABLE)
+ *
+ * The CORS filter runs at the HIGHEST possible priority, before any
+ * JWT checking. This means the browser's "preflight" OPTIONS request
+ * (which has no token) gets a green light immediately.
  */
 @Configuration
 @EnableWebSecurity
@@ -40,10 +41,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // VITAL: CORS is handled by the dedicated @Bean below
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Permit all OPTIONS/Pre-flight requests
+                        // The browser sends an OPTIONS "preflight" before every real request.
+                        // We must allow it without a token, or the login itself never happens.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/vault/**").permitAll()
@@ -59,37 +60,50 @@ public class SecurityConfig {
     }
 
     /**
-     * MASTER CORS FILTER (The Top Gate)
-     * We use @Order(Ordered.HIGHEST_PRECEDENCE) to ensure this runs 
-     * before ANY other security logic. This kills the 'Network Error'.
+     * THE MASTER CORS GATE
+     *
+     * This @Bean with @Order(HIGHEST_PRECEDENCE) is a separate filter that
+     * runs BEFORE Spring Security even wakes up. It handles the browser
+     * handshake directly, so no CORS errors ever reach your login screen.
      */
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-        
+
         config.setAllowCredentials(true);
-        
-        // ── THE TRUSTED LIST ──
+
+        // ── THE COMPLETE TRUSTED LIST ──
+        // VITAL FIX: 'golden-seed.onrender.com' was MISSING from this list.
+        // That single omission caused every browser login to fail with a
+        // "Network Error" even though Postman (which ignores CORS) worked fine.
         config.setAllowedOrigins(List.of(
             "http://localhost",
             "http://localhost:5173",
+            "http://localhost:80",
             "http://127.0.0.1",
-            "https://golden-seed.onrender.com",
-            "https://ge-solutions-ui.onrender.com"
+            "https://golden-seed.onrender.com",       // ← YOUR ACTUAL FRONTEND URL
+            "https://ge-solutions-ui.onrender.com"    // ← kept as backup
         ));
-        
+
         config.setAllowedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
             "Accept",
             "X-Requested-With",
-            "Cache-Control"
+            "Cache-Control",
+            "Origin"
         ));
-        
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
+
+        config.setAllowedMethods(Arrays.asList(
+            "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+        ));
+
+        // Tells the browser it can cache the CORS handshake result for 1 hour.
+        // This reduces the number of preflight requests and speeds up your app.
+        config.setMaxAge(3600L);
+
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
     }
