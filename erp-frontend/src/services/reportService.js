@@ -1,11 +1,14 @@
 // PATH: erp-frontend/src/services/reportService.js
-import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/v1/reports';
+// VITAL FIX: Import the pre-configured 'api' instance.
+// The old version manually attached the token in every call.
+// Our 'api' instance does that automatically via the interceptor in axios.js.
+// Special note: blob responses (file downloads) need responseType: 'blob'
+// which api supports — we just pass it as a config option.
+import api from '../api/axios';
 
 /**
  * NYENZ INDUSTRIAL REPORTING SERVICE
- * 
  * Manages the conversion of binary streams into physical CSV downloads.
  * Synchronized with the 8-Pillar Intelligence Protocol.
  */
@@ -16,19 +19,20 @@ const reportService = {
      * Creates a virtual hardware bridge to the browser's download manager.
      */
     _triggerDownload: async (endpoint, fallbackName) => {
-        const token = localStorage.getItem('gs_token');
         try {
-            const response = await axios.get(`${API_URL}${endpoint}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+            const response = await api.get(`/reports${endpoint}`, {
+                // VITAL: This tells axios to treat the response as a
+                // raw binary file (blob), not as text or JSON.
+                // Without this, the downloaded CSV would be corrupted.
                 responseType: 'blob'
             });
 
-            // Create memory blob and virtual link
+            // Create a temporary invisible link and click it to trigger download
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
 
-            // Filename extraction from Hardware Headers
+            // Try to read the filename from the server's response headers
             const disposition = response.headers['content-disposition'];
             let fileName = `${fallbackName}.csv`;
             if (disposition) {
@@ -40,10 +44,11 @@ const reportService = {
             document.body.appendChild(link);
             link.click();
 
-            // Hardware Memory Cleanup
+            // Cleanup memory
             link.remove();
             window.URL.revokeObjectURL(url);
             return true;
+
         } catch {
             throw new Error("ACCESS_DENIED: REPORT_PROTOCOL_LOCKED");
         }
@@ -52,16 +57,16 @@ const reportService = {
     /* --- THE 8 PILLARS OF NYENZ INTELLIGENCE --- */
 
     // Financial Pillars (Restricted to Root)
-    downloadDebtLedger: () => reportService._triggerDownload('/debt-ledger', 'DEBT_LEDGER'),
-    downloadPerformance: () => reportService._triggerDownload('/performance', 'RECOVERY_SPEED'),
-    downloadLegalReady: () => reportService._triggerDownload('/legal-readiness', 'LEGAL_COMPLIANCE'),
-    downloadAuditTrail: () => reportService._triggerDownload('/audit-trail', 'SYSTEM_AUDIT'),
-    downloadRevenue: () => reportService._triggerDownload('/revenue', 'CASH_INFLOW_HISTORY'),
+    downloadDebtLedger:  () => reportService._triggerDownload('/debt-ledger',      'DEBT_LEDGER'),
+    downloadPerformance: () => reportService._triggerDownload('/performance',       'RECOVERY_SPEED'),
+    downloadLegalReady:  () => reportService._triggerDownload('/legal-readiness',   'LEGAL_COMPLIANCE'),
+    downloadAuditTrail:  () => reportService._triggerDownload('/audit-trail',       'SYSTEM_AUDIT'),
+    downloadRevenue:     () => reportService._triggerDownload('/revenue',           'CASH_INFLOW_HISTORY'),
 
     // Operational Pillars (Open to Managers)
-    downloadArchiveMap: () => reportService._triggerDownload('/archive-map', 'PHYSICAL_ARCHIVE_MAP'),
-    downloadBottlenecks: () => reportService._triggerDownload('/bottlenecks', 'SURVEY_STAGES'),
-    downloadReliability: () => reportService._triggerDownload('/reliability', 'CLIENT_RANKINGS')
+    downloadArchiveMap:  () => reportService._triggerDownload('/archive-map',       'PHYSICAL_ARCHIVE_MAP'),
+    downloadBottlenecks: () => reportService._triggerDownload('/bottlenecks',       'SURVEY_STAGES'),
+    downloadReliability: () => reportService._triggerDownload('/reliability',       'CLIENT_RANKINGS')
 };
 
 export default reportService;
