@@ -353,7 +353,6 @@ const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, id }) => {
     );
 };
 
-// AddressInput — plain SmartInput wrapper (uniform height)
 const AddressInput = (props) => <SmartInput {...props} placeholder="Street, Town, District" />;
 
 // ─── CURRENCY INPUT ───────────────────────────────────────────────────
@@ -379,10 +378,7 @@ const CurrencyInput = ({ label, value, onChange, error, id }) => {
     );
 };
 
-// ═══════════════════════════════════════════════════════════════
-// CONFIRM MODAL — replaces all window.confirm() calls
-// Portalled to document.body so it appears above everything.
-// ═══════════════════════════════════════════════════════════════
+// ─── CONFIRM MODAL ───────────────────────────────────────────────────
 const useConfirm = () => {
     const [state, setState] = useState({ open: false, title: '', message: '', variant: 'warn', resolve: null });
 
@@ -399,9 +395,7 @@ const useConfirm = () => {
 
 const ConfirmModal = ({ state, onAnswer }) => {
     if (!state.open || typeof document === 'undefined') return null;
-
     const isDanger = state.variant === 'danger';
-
     return createPortal(
         <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
             <div className={styles.confirmBox}>
@@ -414,19 +408,10 @@ const ConfirmModal = ({ state, onAnswer }) => {
                 </div>
                 <p id="confirm-body" className={styles.confirmMessage}>{state.message}</p>
                 <div className={styles.confirmFooter}>
-                    <button
-                        type="button"
-                        className={styles.confirmCancelBtn}
-                        onClick={() => onAnswer(false)}
-                        autoFocus
-                    >
+                    <button type="button" className={styles.confirmCancelBtn} onClick={() => onAnswer(false)} autoFocus>
                         <FiX aria-hidden="true" /> CANCEL
                     </button>
-                    <button
-                        type="button"
-                        className={`${styles.confirmOkBtn} ${isDanger ? styles.confirmOkDanger : styles.confirmOkWarn}`}
-                        onClick={() => onAnswer(true)}
-                    >
+                    <button type="button" className={`${styles.confirmOkBtn} ${isDanger ? styles.confirmOkDanger : styles.confirmOkWarn}`} onClick={() => onAnswer(true)}>
                         {isDanger
                             ? <><FiTrash2 aria-hidden="true" /> CONFIRM ERASE</>
                             : <><FiCheckCircle aria-hidden="true" /> CONFIRM</>
@@ -545,11 +530,7 @@ const FolderPage = () => {
     };
 
     const handleAbort = async () => {
-        const ok = await confirm(
-            'DISCARD CHANGES',
-            'All unsaved changes will be lost. This cannot be undone.',
-            'warn'
-        );
+        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost. This cannot be undone.', 'warn');
         if (ok) { setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };
 
@@ -569,8 +550,11 @@ const FolderPage = () => {
 
     const handleStageClick = async (num) => {
         if (!isEditing) return;
-        try { await landService.setRealityStage(id, num); await loadFolderData(); toast('STAGE SET: ' + STAGE_LABELS[num-1], 'info', 3000); }
-        catch { toast('STAGE UPDATE FAILED', 'error'); }
+        try {
+            await landService.setRealityStage(id, num);
+            await loadFolderData();
+            toast('STAGE SET: ' + STAGE_LABELS[num-1], 'info', 3000);
+        } catch { toast('STAGE UPDATE FAILED', 'error'); }
     };
 
     const handleOwnerChange = (idx, field, val) => {
@@ -593,20 +577,22 @@ const FolderPage = () => {
     const handleVaultAction = async (files) => {
         if (!files?.length) return;
         setCommitting(true);
-        try { await landService.addExtraDocuments(id, files); await loadFolderData(); toast(files.length + ' DOCUMENT(S) INGESTED', 'success', 3000); }
-        catch { toast('INGESTION FAILED', 'error', 8000); }
+        try {
+            await landService.addExtraDocuments(id, files);
+            await loadFolderData();
+            toast(files.length + ' DOCUMENT(S) INGESTED', 'success', 3000);
+        } catch { toast('INGESTION FAILED', 'error', 8000); }
         finally { setCommitting(false); }
     };
 
     const handleDeleteDoc = async (docId, fileName) => {
-        const ok = await confirm(
-            'DELETE DOCUMENT',
-            'Delete "' + fileName + '"? This cannot be undone.',
-            'danger'
-        );
+        const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"? This cannot be undone.', 'danger');
         if (!ok) return;
-        try { await landService.deleteDocument(docId); await loadFolderData(); toast('DOCUMENT REMOVED', 'warn', 3000); }
-        catch { toast('DELETE FAILED', 'error'); }
+        try {
+            await landService.deleteDocument(docId);
+            await loadFolderData();
+            toast('DOCUMENT REMOVED', 'warn', 3000);
+        } catch { toast('DELETE FAILED', 'error'); }
     };
 
     const handleNoteSave = async () => {
@@ -621,21 +607,24 @@ const FolderPage = () => {
     };
 
     const handleDeleteNote = async (noteId) => {
-        const ok = await confirm(
-            'DELETE NOTE',
-            'Delete this interaction log entry? This cannot be undone.',
-            'danger'
-        );
+        const ok = await confirm('DELETE NOTE', 'Delete this interaction log entry? This cannot be undone.', 'danger');
         if (!ok) return;
-        try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('NOTE DELETED', 'warn', 3000); }
-        catch { toast('DELETE FAILED', 'error'); }
+        try {
+            await landService.deleteStandaloneNote(noteId);
+            await loadFolderData();
+            toast('NOTE DELETED', 'warn', 3000);
+        } catch { toast('DELETE FAILED', 'error'); }
     };
 
+    // VITAL FIX: Read base URL from environment variable — never hardcode localhost.
+    // In production (Render): uses VITE_API_BASE_URL from render.yaml.
+    // In local dev: uses VITE_API_BASE_URL from your .env.local file.
     const getVaultUrl = (filePath) => {
         if (!filePath) return '#';
         const parts = filePath.split(/ge_uploads[\\/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
-        return 'http://localhost:8080/api/v1/vault/' + rel.replace(/\\/g, '/');
+        const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
+        return `${base}/vault/` + rel.replace(/\\/g, '/');
     };
 
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
@@ -823,7 +812,6 @@ const FolderPage = () => {
 
                 {/* DOCUMENTS + NOTES */}
                 <div className={styles.intelDoubleRow}>
-
                     <section className={styles.hwPanel} aria-label="Documents">
                         <DrawerHeader label="DOCUMENTS" count={docCount} isOpen={drawers.vault} onClick={() => toggleDrawer('vault')} icon={FiUploadCloud} />
                         <div className={`${styles.panelBody} ${drawers.vault ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.vault}>
@@ -901,14 +889,12 @@ const FolderPage = () => {
                 </div>
             </main>
 
-            {/* File input — outside all accordions, always mounted */}
             <input
                 ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
                 style={{ display:'none' }} aria-hidden="true" tabIndex={-1}
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value=''; }}
             />
 
-            {/* Note modal */}
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
             <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ARCHIVE LOG ENTRY">
