@@ -1,12 +1,25 @@
-# PATH: ge solns/.gitignore
-node_modules/
-dist/
-target/
-.idea/
-.vscode/
-*.log
+# UPLOAD FOLDERS - never commit uploaded files
+infra/ge_uploads/
+erp-backend/ge_uploads/
+
+# DATABASE FILES - never commit local database
+infra/postgres_data/
+
+# BUILD FOLDERS - auto generated, not needed in git
+erp-backend/target/
+erp-frontend/dist/
+erp-frontend/node_modules/
+
+# SECRET FILES
 .env
 .env.local
 
-# DO NOT UPLOAD THE PHYSICAL DATABASE DATA
-infra/postgres_data/
+# IDE FILES
+.vscode/
+.idea/
+
+# LOGS
+*.log
+
+# OLD BACKUP FILES
+*.zip
