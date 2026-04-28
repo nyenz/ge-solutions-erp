@@ -6,6 +6,7 @@ import {
     FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
+import settingsService from '../../services/settingsService';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import styles from './AuditPage.module.css';
 
@@ -15,15 +16,23 @@ const AuditPage = () => {
     const [page,       setPage]       = useState(0);
     const [expandedId, setExpandedId] = useState(null);
     const [filters,    setFilters]    = useState({ operator: '', action: '', search: '' });
+    const [operators,  setOperators]  = useState([]);
+
+    // Load real operators from database
+    useEffect(() => {
+        settingsService.getAllOperators()
+            .then(data => setOperators(data))
+            .catch(() => {});
+    }, []);
 
     const fetchForensics = useCallback(async () => {
         setLoading(true);
         try {
-            let activeAction   = filters.action;
-            if (activeAction === 'CALL LOG')          activeAction = 'RECOVERY_MISSION_COMPLETE';
-            if (activeAction === 'GOD-MODE REWRITE')  activeAction = 'MASTER_REWRITE';
-            if (activeAction === 'STAGE OVERRIDE')    activeAction = 'STAGE_OVERRIDE';
-            if (activeAction === 'ALL ACTIONS')       activeAction = null;
+            let activeAction = filters.action;
+            if (activeAction === 'CALL LOG')         activeAction = 'RECOVERY_MISSION_COMPLETE';
+            if (activeAction === 'GOD-MODE REWRITE') activeAction = 'MASTER_REWRITE';
+            if (activeAction === 'STAGE OVERRIDE')   activeAction = 'STAGE_OVERRIDE';
+            if (activeAction === 'ALL ACTIONS')      activeAction = null;
             const activeOperator = filters.operator === 'ALL STAFF' ? null : filters.operator;
 
             const data = filters.search
@@ -31,7 +40,7 @@ const AuditPage = () => {
                 : await auditService.searchForensics({ operator: activeOperator, action: activeAction }, page);
             setLogs(data.content || []);
         } catch { console.error('FORENSIC_SIGNAL_LOST'); }
-        finally   { setLoading(false); }
+        finally  { setLoading(false); }
     }, [page, filters]);
 
     useEffect(() => { fetchForensics(); }, [fetchForensics]);
@@ -50,6 +59,9 @@ const AuditPage = () => {
         if (action === 'STAGE_OVERRIDE')            return 'STAGE OVERRIDE';
         return action;
     };
+
+    // Build operator options dynamically from real database users
+    const operatorOptions = ['ALL STAFF', ...operators.map(op => op.username)];
 
     return (
         <div className={styles.container}>
@@ -85,10 +97,20 @@ const AuditPage = () => {
                 </div>
                 <div className={styles.filterGrid}>
                     <div className={styles.hwSelectWrap}>
-                        <HardwareSelect label="OPERATOR ID" options={['ALL STAFF', 'admin_root', 'admin_01', 'operator_01']} value={filters.operator || 'ALL STAFF'} onChange={val => setFilters({...filters, operator: val})} />
+                        <HardwareSelect
+                            label="OPERATOR ID"
+                            options={operatorOptions}
+                            value={filters.operator || 'ALL STAFF'}
+                            onChange={val => setFilters({...filters, operator: val})}
+                        />
                     </div>
                     <div className={styles.hwSelectWrap}>
-                        <HardwareSelect label="PROTOCOL CLASS" options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'GOD-MODE REWRITE', 'STAGE OVERRIDE', 'INTAKE']} value={filters.action || 'ALL ACTIONS'} onChange={val => setFilters({...filters, action: val})} />
+                        <HardwareSelect
+                            label="PROTOCOL CLASS"
+                            options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'GOD-MODE REWRITE', 'STAGE OVERRIDE', 'INTAKE']}
+                            value={filters.action || 'ALL ACTIONS'}
+                            onChange={val => setFilters({...filters, action: val})}
+                        />
                     </div>
                     <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:''})} aria-label="Reset all filters">
                         <FiFilter aria-hidden="true" /> RESET FILTERS

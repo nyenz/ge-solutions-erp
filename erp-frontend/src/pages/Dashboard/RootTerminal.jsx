@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiShield, FiDatabase, FiPhoneCall, FiTrendingUp,
     FiLayers, FiActivity, FiFilePlus, FiPieChart,
-    FiCreditCard, FiInfo, FiClock, FiGrid
+    FiCreditCard, FiClock, FiGrid
 } from 'react-icons/fi';
 import styles from './Dashboard.module.css';
 
@@ -87,16 +87,24 @@ const RootTerminal = ({ stats }) => {
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.activityStream}>
-                                {[
-                                    { time: '10:45 AM', action: 'MASTER_REWRITE',   user: 'admin_01',    detail: 'Plot UCL/2026/011 modified' },
-                                    { time: '09:20 AM', action: 'RECOVERY_LOG',     user: 'operator_01', detail: 'Contact logged for DIANA' },
-                                    { time: '08:05 AM', action: 'INTAKE_COMPLETE',  user: 'admin_root',  detail: 'New Batch: 12 Plots Ingested' },
-                                ].map((act, i) => (
+                                {(stats?.recentActivity || []).length === 0 ? (
+                                    <div className={styles.activityRow}>
+                                        <FiActivity className={styles.activityIcon} aria-hidden="true" />
+                                        <div className={styles.activityText}>
+                                            <strong className={styles.activityAction}>NO RECENT ACTIVITY</strong>
+                                            <span className={styles.activityDetail}>Actions will appear here</span>
+                                        </div>
+                                    </div>
+                                ) : (stats?.recentActivity || []).map((act, i) => (
                                     <div key={i} className={styles.activityRow}>
                                         <FiActivity className={styles.activityIcon} aria-hidden="true" />
                                         <div className={styles.activityText}>
-                                            <strong className={styles.activityAction}>{act.action} · {act.user}</strong>
-                                            <span className={styles.activityDetail}>{act.detail} · {act.time}</span>
+                                            <strong className={styles.activityAction}>
+                                                {act.action} · {act.performedBy}
+                                            </strong>
+                                            <span className={styles.activityDetail}>
+                                                {act.details?.substring(0, 50)} · {new Date(act.timestamp).toLocaleTimeString()}
+                                            </span>
                                         </div>
                                     </div>
                                 ))}

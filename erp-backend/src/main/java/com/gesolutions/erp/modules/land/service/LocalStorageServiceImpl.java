@@ -33,7 +33,6 @@ public class LocalStorageServiceImpl implements FileStorageService {
     @Override
     public String storeFile(@NonNull MultipartFile file,
                             @NonNull String subFolder) throws IOException {
-
         MultipartFile verified = Objects.requireNonNull(file);
         String folder = Objects.requireNonNull(subFolder);
 
@@ -51,27 +50,36 @@ public class LocalStorageServiceImpl implements FileStorageService {
     @Override
     public void deleteFile(@NonNull String filePath) {
         try {
-            // Extract public ID from the Cloudinary URL
-            String publicId = extractPublicId(filePath);
+            if (filePath == null || !filePath.contains("cloudinary.com")) {
+                System.err.println(">>> SKIP DELETE: Not a Cloudinary URL");
+                return;
+            }
+
+            // Extract everything after /upload/
+            String[] splitOnUpload = filePath.split("/upload/");
+            if (splitOnUpload.length < 2) return;
+
+            String afterUpload = splitOnUpload[1];
+
+            // Remove version segment like v1234567890/
+            if (afterUpload.matches("v\\d+/.*")) {
+                afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
+            }
+
+            // Remove file extension
+            int lastDot = afterUpload.lastIndexOf(".");
+            if (lastDot > 0) {
+                afterUpload = afterUpload.substring(0, lastDot);
+            }
+
+            String publicId = afterUpload;
+            System.out.println(">>> CLOUDINARY DELETE: " + publicId);
+
             cloudinary.uploader().destroy(publicId,
                     ObjectUtils.asMap("resource_type", "auto"));
-        } catch (Exception e) {
-            System.err.println("CLOUDINARY DELETE FAULT: " + e.getMessage());
-        }
-    }
 
-    private String extractPublicId(String cloudinaryUrl) {
-        // URL format: https://res.cloudinary.com/cloud/resource_type/upload/v123/folder/filename.ext
-        String[] parts = cloudinaryUrl.split("/upload/");
-        if (parts.length < 2) return cloudinaryUrl;
-        String afterUpload = parts[1];
-        // Remove version prefix if present (v1234567/)
-        if (afterUpload.startsWith("v") && afterUpload.contains("/")) {
-            afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
+        } catch (Exception e) {
+            System.err.println(">>> CLOUDINARY DELETE FAULT: " + e.getMessage());
         }
-        // Remove file extension
-        int dotIndex = afterUpload.lastIndexOf(".");
-        if (dotIndex > 0) afterUpload = afterUpload.substring(0, dotIndex);
-        return afterUpload;
     }
 }
