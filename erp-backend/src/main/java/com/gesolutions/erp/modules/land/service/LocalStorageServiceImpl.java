@@ -55,28 +55,37 @@ public class LocalStorageServiceImpl implements FileStorageService {
                 return;
             }
 
-            // Extract everything after /upload/
+            // Split on /upload/
             String[] splitOnUpload = filePath.split("/upload/");
-            if (splitOnUpload.length < 2) return;
+            if (splitOnUpload.length < 2) {
+                System.err.println(">>> DELETE FAULT: Cannot find /upload/ in URL");
+                return;
+            }
 
             String afterUpload = splitOnUpload[1];
 
-            // Remove version segment like v1234567890/
+            // Remove version prefix v1234567890/
             if (afterUpload.matches("v\\d+/.*")) {
                 afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
             }
 
-            // Remove file extension
+            // Remove file extension (.jpg .png .pdf etc)
             int lastDot = afterUpload.lastIndexOf(".");
             if (lastDot > 0) {
                 afterUpload = afterUpload.substring(0, lastDot);
             }
 
             String publicId = afterUpload;
-            System.out.println(">>> CLOUDINARY DELETE: " + publicId);
+            System.out.println(">>> CLOUDINARY DELETE PUBLIC ID: " + publicId);
 
-            cloudinary.uploader().destroy(publicId,
-                    ObjectUtils.asMap("resource_type", "auto"));
+            // Try image first, then raw for PDFs/docs
+            try {
+                cloudinary.uploader().destroy(publicId,
+                        ObjectUtils.asMap("resource_type", "image"));
+            } catch (Exception e) {
+                cloudinary.uploader().destroy(publicId,
+                        ObjectUtils.asMap("resource_type", "raw"));
+            }
 
         } catch (Exception e) {
             System.err.println(">>> CLOUDINARY DELETE FAULT: " + e.getMessage());

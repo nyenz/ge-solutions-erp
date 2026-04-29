@@ -5,11 +5,14 @@ import com.gesolutions.erp.modules.auth.model.Role;
 import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.common.audit.AuditLog;
 import com.gesolutions.erp.common.audit.AuditLogRepository;
 import com.gesolutions.erp.modules.land.dto.DashboardSummaryDTO;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,18 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * NYENZ ERP - ANALYTICAL COCKPIT CONTROLLER
- * 
- * 3-TIER ARCHITECTURE UPDATE:
- * - Root Owner: Full Access + Staff Governance (handled in StaffController).
- * - Admin: Full Financial Intelligence Access.
- * - Manager: Operational/Technical Access Only.
- */
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-// Allow both Admins and Managers to hit the endpoint; we filter data inside.
 @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
 public class DashboardController {
 
@@ -45,31 +39,25 @@ public class DashboardController {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
 
-    /**
-     * MASTER INTELLIGENCE READOUT
-     */
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
-        // 1. IDENTIFY OPERATOR RANK
+
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByUsername(username).orElseThrow();
-        
-        // Grant Financial Access to ROOT or ADMIN
         boolean showFinancials = currentUser.isRoot() || currentUser.getRole() == Role.ROLE_ADMIN;
 
-        // 2. FETCH OPERATIONAL METRICS (VISIBLE TO ALL)
         List<LandProject> allPlots = projectRepository.findAll();
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
         LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
 
         long totalPlots = allPlots.size();
-        
+
         long plotsGrowth = allPlots.stream()
                 .filter(p -> p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo))
                 .count();
 
         long staleCalls = clientRepository.countTotalStaleClients();
-        
+
         long readyForRelease = allPlots.stream()
                 .filter(p -> p.getAmountPaid().compareTo(p.getTotalCost()) >= 0)
                 .filter(p -> !p.getLandTitle().isReleased())
@@ -79,19 +67,27 @@ public class DashboardController {
                 .map(p -> p.getLandTitle().getPhysicalBoxNumber())
                 .distinct()
                 .count();
-        
+
         long legacyCount = allPlots.stream().filter(LandProject::isLegacy).count();
         long newSurveyCount = totalPlots - legacyCount;
 
         Map<Integer, Long> bottlenecks = allPlots.stream()
-                .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
+                .collect(Collectors.groupingBy(
+                        LandProject::getCurrentStageIndex,
+                        Collectors.counting()
+                ));
 
-        long onlineCount = userRepository.countByIsActiveTrue(); 
+        long onlineCount = userRepository.countByIsActiveTrue();
+
         long dailyActions = auditLogRepository.findAll().stream()
                 .filter(a -> a.getTimestamp().isAfter(todayStart))
                 .count();
 
-        // 3. BUILD SHARED BINDER
+        // REAL recent activity — last 5 actions
+        List<AuditLog> recentActivity = auditLogRepository.findAll(
+                PageRequest.of(0, 5, Sort.by("timestamp").descending())
+        ).getContent();
+
         DashboardSummaryDTO.DashboardSummaryDTOBuilder builder = DashboardSummaryDTO.builder()
                 .totalPlots(totalPlots)
                 .plotsGrowth(plotsGrowth)
@@ -102,9 +98,9 @@ public class DashboardController {
                 .legacyBacklogCount(legacyCount)
                 .newSurveyCount(newSurveyCount)
                 .activeManagersOnline(onlineCount)
-                .dailyAuditCount(dailyActions);
+                .dailyAuditCount(dailyActions)
+                .recentActivity(recentActivity);
 
-        // 4. INJECT FINANCIAL INTELLIGENCE (TIER 1 & 2 ONLY)
         if (showFinancials) {
             BigDecimal totalValue = allPlots.stream()
                     .map(LandProject::getTotalCost)
@@ -118,10 +114,10 @@ public class DashboardController {
 
             double velocity = 0;
             if (totalValue.compareTo(BigDecimal.ZERO) > 0) {
-                velocity = totalCollected.divide(totalValue, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+                velocity = totalCollected.divide(totalValue, 4, RoundingMode.HALF_UP)
+                        .doubleValue() * 100;
             }
 
-            // Trend Simulation (For Revenue Wave Chart)
             List<BigDecimal> inflowTrend = new ArrayList<>();
             inflowTrend.add(totalCollected.multiply(new BigDecimal("0.1")));
             inflowTrend.add(totalCollected.multiply(new BigDecimal("0.4")));
