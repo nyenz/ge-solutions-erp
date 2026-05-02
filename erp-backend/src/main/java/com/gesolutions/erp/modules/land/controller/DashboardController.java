@@ -4,12 +4,13 @@ package com.gesolutions.erp.modules.land.controller;
 import com.gesolutions.erp.modules.auth.model.Role;
 import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.common.audit.AuditLog;
 import com.gesolutions.erp.common.audit.AuditLogRepository;
 import com.gesolutions.erp.modules.land.dto.DashboardSummaryDTO;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
+import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -23,9 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -38,6 +37,7 @@ public class DashboardController {
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
@@ -51,12 +51,12 @@ public class DashboardController {
         LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
 
         long totalPlots = allPlots.size();
-
         long plotsGrowth = allPlots.stream()
                 .filter(p -> p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo))
                 .count();
 
-        long staleCalls = clientRepository.countTotalStaleClients();
+        // Stale count = unique phone numbers eligible to call today
+        long staleCalls = clientRepository.countUniqueEligiblePhones();
 
         long readyForRelease = allPlots.stream()
                 .filter(p -> p.getAmountPaid().compareTo(p.getTotalCost()) >= 0)
@@ -65,28 +65,21 @@ public class DashboardController {
 
         long uniqueBoxes = allPlots.stream()
                 .map(p -> p.getLandTitle().getPhysicalBoxNumber())
-                .distinct()
-                .count();
+                .distinct().count();
 
+        long backlogCount = projectRepository.countBacklogPlots();
         long legacyCount = allPlots.stream().filter(LandProject::isLegacy).count();
         long newSurveyCount = totalPlots - legacyCount;
 
         Map<Integer, Long> bottlenecks = allPlots.stream()
-                .collect(Collectors.groupingBy(
-                        LandProject::getCurrentStageIndex,
-                        Collectors.counting()
-                ));
+                .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
 
         long onlineCount = userRepository.countByIsActiveTrue();
-
         long dailyActions = auditLogRepository.findAll().stream()
-                .filter(a -> a.getTimestamp().isAfter(todayStart))
-                .count();
+                .filter(a -> a.getTimestamp().isAfter(todayStart)).count();
 
-        // REAL recent activity — last 5 actions
         List<AuditLog> recentActivity = auditLogRepository.findAll(
-                PageRequest.of(0, 5, Sort.by("timestamp").descending())
-        ).getContent();
+                PageRequest.of(0, 5, Sort.by("timestamp").descending())).getContent();
 
         DashboardSummaryDTO.DashboardSummaryDTOBuilder builder = DashboardSummaryDTO.builder()
                 .totalPlots(totalPlots)
@@ -94,6 +87,7 @@ public class DashboardController {
                 .staleCallCount(staleCalls)
                 .readyForReleaseCount(readyForRelease)
                 .boxCount(uniqueBoxes)
+                .backlogCount(backlogCount)
                 .stageDistribution(bottlenecks)
                 .legacyBacklogCount(legacyCount)
                 .newSurveyCount(newSurveyCount)
@@ -111,6 +105,7 @@ public class DashboardController {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal arrears = totalValue.subtract(totalCollected);
+            BigDecimal totalStorageFees = projectRepository.sumAllStorageFees();
 
             double velocity = 0;
             if (totalValue.compareTo(BigDecimal.ZERO) > 0) {
@@ -118,14 +113,19 @@ public class DashboardController {
                         .doubleValue() * 100;
             }
 
-            List<BigDecimal> inflowTrend = new ArrayList<>();
-            inflowTrend.add(totalCollected.multiply(new BigDecimal("0.1")));
-            inflowTrend.add(totalCollected.multiply(new BigDecimal("0.4")));
-            inflowTrend.add(totalCollected);
+            // Real revenue trend — last 6 months from payment_records
+            LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
+            List<Object[]> monthlyData = paymentRecordRepository.monthlyRevenueSince(sixMonthsAgo);
+            List<BigDecimal> inflowTrend = monthlyData.stream()
+                    .map(row -> row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO)
+                    .collect(Collectors.toList());
+
+            if (inflowTrend.isEmpty()) inflowTrend.add(BigDecimal.ZERO);
 
             builder.totalArchiveValue(totalValue)
                    .totalCollected(totalCollected)
                    .outstandingArrears(arrears)
+                   .totalStorageFeesAccumulated(totalStorageFees)
                    .collectionVelocity(velocity)
                    .revenueInflowTrend(inflowTrend);
         }

@@ -6,43 +6,61 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * NYENZ ERP - RECOVERY MISSION OBJECT (V3 - ASSET CENTRIC)
- * 
- * Physically structured to represent a Plot and ALL its contactable owners.
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecoveryTaskDTO {
 
-    private UUID projectId;
-    private String plotNumber;
-    private String physicalBoxNumber;
+    // The phone number this card represents — one card per unique phone
+    private String phoneNumber;
+    private String ownerName;
+    private UUID primaryClientId;
 
-    // --- AGGREGATED IDENTITY ---
-    private List<OwnerDetail> allOwners;
-    private boolean isMultiAssetProprietor; // True if any owner has other plots
-
-    // --- FINANCIAL DEMAND ---
-    private BigDecimal weeklyRequirement;
-    private BigDecimal totalArrears;
-
-    // --- INTELLIGENCE ---
-    private String lastInteractionNote;
+    // --- CALL STATUS (applies to this phone number as a whole) ---
     private String lastContactDate;
-    private String nextCallDue; 
-    private String missionStatus;
+    private String nextCallDue;
+    private String missionStatus;   // NEW ASSIGNMENT | ACTION REQUIRED | COOLING DOWN | MONTHLY LIMIT
     private boolean isLocked;
+    private int monthlyCallCount;   // How many times called this month (max 2)
+
+    // --- ALL PLOTS BELONGING TO THIS PHONE NUMBER ---
+    private List<PlotSummary> plots;
+
+    // --- AGGREGATED TOTALS ACROSS ALL PLOTS ---
+    private BigDecimal totalDemand;         // Sum of all outstanding balances
+    private BigDecimal totalOriginalDebt;   // Sum of original debts (backlog plots only)
+    private BigDecimal totalStorageFees;    // Sum of storage fees (backlog plots only)
+    private boolean hasBacklogPlots;        // True if ANY plot is in backlog
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class OwnerDetail {
-        private UUID id;
-        private String name;
-        private String phone; // Supports "/" characters
+    public static class PlotSummary {
+        private UUID projectId;
+        private String plotNumber;
+        private String physicalBoxNumber;
+        private boolean isBacklog;
+
+        // For ACTIVE plots
+        private BigDecimal totalCost;
+        private BigDecimal amountPaid;
+        private BigDecimal currentBalance;  // totalCost - amountPaid
+
+        // For BACKLOG plots
+        private BigDecimal originalDebt;
+        private BigDecimal storageFeesAccumulated;
+        private BigDecimal totalBacklogOwed; // originalDebt + fees - payments
+        private long storageMonthsCount;     // How many months of fees applied
+
+        // Payment health badge: GREEN | YELLOW | RED
+        // GREEN = payment within 14 days
+        // YELLOW = payment within 30 days
+        // RED = no payment or over 30 days
+        private String paymentHealthBadge;
+        private String lastPaymentDate;
+
+        private String lastInteractionNote;
     }
 }

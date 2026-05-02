@@ -13,29 +13,27 @@ import java.util.Map;
 @AllArgsConstructor
 public class DashboardSummaryDTO {
 
-    // PILLAR A: SHARED TACTICAL HUD
     private long totalPlots;
     private long plotsGrowth;
     private long staleCallCount;
     private long readyForReleaseCount;
     private long boxCount;
+    private long backlogCount;
 
-    // PILLAR B: TECHNICAL BOTTLENECKS
     private Map<Integer, Long> stageDistribution;
     private long legacyBacklogCount;
     private long newSurveyCount;
 
-    // PILLAR C: SYSTEMS PULSE
     private long activeManagersOnline;
     private long dailyAuditCount;
 
-    // PILLAR D: FINANCIAL INTELLIGENCE (ROOT/ADMIN ONLY)
+    // Financial (Admin/Root only)
     private BigDecimal totalArchiveValue;
     private BigDecimal totalCollected;
     private BigDecimal outstandingArrears;
+    private BigDecimal totalStorageFeesAccumulated;
     private double collectionVelocity;
-    private List<BigDecimal> revenueInflowTrend;
+    private List<BigDecimal> revenueInflowTrend;  // Now uses real payment_records data
 
-    // PILLAR E: RECENT ACTIVITY STREAM (ROOT ONLY)
     private List<AuditLog> recentActivity;
 }

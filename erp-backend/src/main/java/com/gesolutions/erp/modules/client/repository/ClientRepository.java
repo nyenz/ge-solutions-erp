@@ -10,26 +10,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * GE SOLUTIONS - CLIENT REGISTRY ACCESS
- * 
- * Physically identifies clients eligible for recovery contact based on 
- * the 2-14 Industrial Protocol.
- */
 @Repository
 public interface ClientRepository extends JpaRepository<Client, UUID> {
 
-    /**
-     * UNIFIED IDENTITY LOOKUP
-     * Used for plot ingestion and master binder overrides.
-     */
     Optional<Client> findByPhoneNumber(String phoneNumber);
 
-    /**
-     * THE 2-14-39 STALE QUERY
-     * Identifies high-priority targets for the Recovery Hub.
-     * Logic: (Contacted > 14 days ago OR never) AND (Called < 2 times this month).
-     */
     @Query(value = "SELECT * FROM clients c " +
                    "WHERE (c.last_contacted_at IS NULL " +
                    "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
@@ -37,18 +22,21 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
                    "ORDER BY c.last_contacted_at ASC", nativeQuery = true)
     List<Client> findStaleClientsForRecovery();
 
-    /**
-     * COUNTS TOTAL ELIGIBLE CALLS
-     * Drives the notification "Bell" icon in the Header.
-     */
+    // OLD — kept for compatibility
     @Query(value = "SELECT COUNT(*) FROM clients c " +
                    "WHERE (c.last_contacted_at IS NULL " +
                    "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
                    "AND c.monthly_contact_count < 2", nativeQuery = true)
     long countTotalStaleClients();
 
-    /**
-     * NIN DUPLICATE CHECK
-     */
+    // NEW — counts unique phone numbers eligible for a call today
+    // Used by dashboard bell count
+    @Query(value = "SELECT COUNT(DISTINCT c.phone_number) FROM clients c " +
+                   "WHERE (c.last_contacted_at IS NULL " +
+                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
+                   "AND c.monthly_contact_count < 2", nativeQuery = true)
+    long countUniqueEligiblePhones();
+
     boolean existsByNationalId(String nationalId);
+    long countByIsActiveTrue();
 }

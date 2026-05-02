@@ -4,6 +4,7 @@ package com.gesolutions.erp.modules.land.controller;
 import com.gesolutions.erp.modules.land.dto.*;
 import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.model.ProjectDocument;
 import com.gesolutions.erp.modules.land.service.LandService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,15 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * NYENZ ERP - MASTER CABINET CONTROLLER (V18.3 - FINAL PRODUCTION STABLE)
- * 
- * Provides unified access to all 5 Data Clusters.
- * FIXED: Removed unused AuditService to clear IDE warnings.
- */
 @RestController
 @RequestMapping("/api/v1/land")
 @RequiredArgsConstructor
@@ -33,69 +29,43 @@ public class LandController {
 
     private final LandService landService;
 
-    /**
-     * UNLOCK FORENSIC LOG
-     * Records the intent of a Manager to modify a dossier.
-     */
     @PostMapping("/projects/{id}/unlock-log")
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
-        // This method must exist in LandService.java
         landService.logUnlockAction(id);
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * INTELLIGENCE RETRIEVAL
-     */
     @GetMapping("/projects/{id}/notes")
     public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectNotes(id));
     }
 
-    /**
-     * RECOVERY HUB INTERACTION (LOG CALL)
-     */
     @PostMapping("/projects/{id}/follow-up")
-    public ResponseEntity<Void> logContact(
-            @PathVariable UUID id,
-            @RequestParam String content) {
+    public ResponseEntity<Void> logContact(@PathVariable UUID id, @RequestParam String content) {
         landService.logFollowUp(id, content);
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * ATOMIC INGESTION
-     */
     @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LandProject> ingestTitle(
-            @RequestPart("data") String jsonData, 
+            @RequestPart("data") String jsonData,
             @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
         return ResponseEntity.ok(landService.atomicIntake(request, scans));
     }
 
-    /**
-     * MASTER BINDER READOUT (DOSSIER)
-     */
     @GetMapping("/projects/{id}/deep")
     public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectDeepDetail(id));
     }
 
-    /**
-     * GOD-MODE MASTER UPDATE
-     */
     @PutMapping("/projects/{id}/full-update")
     public ResponseEntity<LandProject> updateProjectFull(
-            @PathVariable UUID id, 
-            @RequestBody LandEntryRequest request) {
+            @PathVariable UUID id, @RequestBody LandEntryRequest request) {
         return ResponseEntity.ok(landService.updateProjectFull(id, request));
     }
 
-    /**
-     * NUCLEAR PURGE (Mistake Entry Fix)
-     */
     @DeleteMapping("/projects/{id}")
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
     public ResponseEntity<Void> purgeAsset(@PathVariable UUID id) {
@@ -103,9 +73,6 @@ public class LandController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * VAULT ACCESS
-     */
     @GetMapping("/projects/{id}/documents")
     public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectDocuments(id));
@@ -125,9 +92,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * NOTE MANAGEMENT
-     */
     @PostMapping("/projects/{id}/notes")
     public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
         landService.logNewNote(id, content);
@@ -146,20 +110,13 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * REALITY OVERRIDE
-     */
     @PatchMapping("/projects/{id}/reality-override")
     public ResponseEntity<Void> manualRealityOverride(
-            @PathVariable UUID id, 
-            @RequestParam int targetStage) {
+            @PathVariable UUID id, @RequestParam int targetStage) {
         landService.manualRealityOverride(id, targetStage);
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * GLOBAL LEDGER
-     */
     @GetMapping("/ledger")
     public ResponseEntity<Page<LandProject>> getLedger(
             @RequestParam(defaultValue = "0") int page,
@@ -167,14 +124,32 @@ public class LandController {
         return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
     }
 
-    /**
-     * FINAL RELEASE
-     */
     @PatchMapping("/projects/{id}/release")
     public ResponseEntity<Void> authorizeRelease(
-            @PathVariable UUID id, 
+            @PathVariable UUID id,
             @RequestParam(required = false) String managerNote) {
         landService.authorizeRelease(id, managerNote);
         return ResponseEntity.ok().build();
+    }
+
+    // NEW: Backlog management
+    @PostMapping("/projects/{id}/backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> moveToBacklog(@PathVariable UUID id) {
+        landService.moveToBacklog(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/exit-backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id) {
+        landService.exitBacklog(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // NEW: Payment history per plot
+    @GetMapping("/projects/{id}/payments")
+    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectPayments(id));
     }
 }

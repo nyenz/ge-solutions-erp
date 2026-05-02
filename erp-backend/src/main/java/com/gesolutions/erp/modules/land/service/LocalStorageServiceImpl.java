@@ -30,21 +30,41 @@ public class LocalStorageServiceImpl implements FileStorageService {
         ));
     }
 
+    private String detectResourceType(MultipartFile file) {
+        String contentType = file.getContentType();
+        String originalName = file.getOriginalFilename() != null
+                ? file.getOriginalFilename().toLowerCase() : "";
+
+        if (contentType != null && contentType.startsWith("image/")) return "image";
+        if (contentType != null && contentType.equals("application/pdf")) return "raw";
+        if (originalName.endsWith(".pdf")) return "raw";
+        if (originalName.endsWith(".doc") || originalName.endsWith(".docx")
+                || originalName.endsWith(".xls") || originalName.endsWith(".xlsx")) return "raw";
+        return "raw";
+    }
+
     @Override
     public String storeFile(@NonNull MultipartFile file,
                             @NonNull String subFolder) throws IOException {
         MultipartFile verified = Objects.requireNonNull(file);
         String folder = Objects.requireNonNull(subFolder);
 
+        String resourceType = detectResourceType(verified);
+        System.out.println(">>> CLOUDINARY UPLOAD resource_type=" + resourceType
+                + " file=" + verified.getOriginalFilename());
+
         Map<?, ?> result = cloudinary.uploader().upload(
                 verified.getBytes(),
                 ObjectUtils.asMap(
                         "folder", "ge_solutions/" + folder,
-                        "resource_type", "auto"
+                        "resource_type", resourceType,
+                        "access_mode", "public"
                 )
         );
 
-        return result.get("secure_url").toString();
+        String url = result.get("secure_url").toString();
+        System.out.println(">>> CLOUDINARY UPLOAD SUCCESS url=" + url);
+        return url;
     }
 
     @Override
@@ -55,7 +75,6 @@ public class LocalStorageServiceImpl implements FileStorageService {
                 return;
             }
 
-            // Split on /upload/
             String[] splitOnUpload = filePath.split("/upload/");
             if (splitOnUpload.length < 2) {
                 System.err.println(">>> DELETE FAULT: Cannot find /upload/ in URL");
@@ -64,12 +83,10 @@ public class LocalStorageServiceImpl implements FileStorageService {
 
             String afterUpload = splitOnUpload[1];
 
-            // Remove version prefix v1234567890/
             if (afterUpload.matches("v\\d+/.*")) {
                 afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
             }
 
-            // Remove file extension (.jpg .png .pdf etc)
             int lastDot = afterUpload.lastIndexOf(".");
             if (lastDot > 0) {
                 afterUpload = afterUpload.substring(0, lastDot);
@@ -78,17 +95,31 @@ public class LocalStorageServiceImpl implements FileStorageService {
             String publicId = afterUpload;
             System.out.println(">>> CLOUDINARY DELETE PUBLIC ID: " + publicId);
 
-            // Try image first, then raw for PDFs/docs
-            try {
-                cloudinary.uploader().destroy(publicId,
-                        ObjectUtils.asMap("resource_type", "image"));
-            } catch (Exception e) {
-                cloudinary.uploader().destroy(publicId,
-                        ObjectUtils.asMap("resource_type", "raw"));
+            for (String resourceType : new String[]{"image", "raw", "video"}) {
+                try {
+                    Map result = cloudinary.uploader().destroy(publicId,
+                            ObjectUtils.asMap("resource_type", resourceType));
+                    String outcome = result.get("result").toString();
+                    System.out.println(">>> DELETE " + resourceType + " result: " + outcome);
+                    if ("ok".equals(outcome)) break;
+                } catch (Exception e) {
+                    System.err.println(">>> DELETE attempt " + resourceType + " failed: " + e.getMessage());
+                }
             }
 
         } catch (Exception e) {
             System.err.println(">>> CLOUDINARY DELETE FAULT: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void deleteFolder(@NonNull String folderPath) {
+        try {
+            System.out.println(">>> CLOUDINARY DELETE FOLDER: " + folderPath);
+            cloudinary.api().deleteFolder(folderPath, ObjectUtils.emptyMap());
+            System.out.println(">>> FOLDER DELETED: " + folderPath);
+        } catch (Exception e) {
+            System.err.println(">>> FOLDER DELETE FAULT (may already be empty/gone): " + e.getMessage());
         }
     }
 }
