@@ -36,8 +36,6 @@ public class LandProject {
     )
     private Set<Client> proprietors = new HashSet<>();
 
-    // --- CLUSTER 3: FINANCIAL HARDWARE ---
-
     @Column(name = "total_cost", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalCost;
 
@@ -45,37 +43,35 @@ public class LandProject {
     @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    // Kept for backward compatibility but no longer used in new logic
+    // Kept for backward compatibility, no longer used in new logic
     @Column(name = "weekly_installment", precision = 15, scale = 2)
     private BigDecimal weeklyInstallment;
 
     @Column(name = "plan_type", length = 100)
     private String planType;
 
-    // --- CLUSTER 4: BACKLOG HARDWARE ---
+    // --- BACKLOG HARDWARE ---
+    // nullable = true so existing DB rows with no value don't cause errors
 
     @Builder.Default
-    @Column(name = "is_backlog", nullable = false)
+    @Column(name = "is_backlog")
     private boolean isBacklog = false;
 
     @Column(name = "backlog_start_date")
     private LocalDateTime backlogStartDate;
 
-    // Frozen snapshot of the balance at the moment backlog started
     @Builder.Default
     @Column(name = "original_debt", precision = 15, scale = 2)
     private BigDecimal originalDebt = BigDecimal.ZERO;
 
-    // Running total of 50,000 UGX fees added monthly while in backlog
     @Builder.Default
     @Column(name = "storage_fees_accumulated", precision = 15, scale = 2)
     private BigDecimal storageFeesAccumulated = BigDecimal.ZERO;
 
-    // Last time any payment was recorded — drives auto-backlog trigger
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 
-    // --- CLUSTER 5: OPERATIONAL CIRCUIT ---
+    // --- OPERATIONAL CIRCUIT ---
 
     @Builder.Default
     @Column(name = "is_legacy", nullable = false)
@@ -94,9 +90,7 @@ public class LandProject {
         if (client != null) this.proprietors.add(client);
     }
 
-    // --- COMPUTED HELPERS (no DB column) ---
-
-    // Total currently owed for a BACKLOG plot
+    // Total owed for a BACKLOG plot
     public BigDecimal backlogTotalOwed() {
         BigDecimal base = originalDebt != null ? originalDebt : BigDecimal.ZERO;
         BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
@@ -104,7 +98,7 @@ public class LandProject {
         return base.add(fees).subtract(paid);
     }
 
-    // Total currently owed for an ACTIVE plot
+    // Total owed for an ACTIVE plot
     public BigDecimal activeTotalOwed() {
         BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
         BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
