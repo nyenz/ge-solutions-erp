@@ -22,15 +22,12 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
                    "ORDER BY c.last_contacted_at ASC", nativeQuery = true)
     List<Client> findStaleClientsForRecovery();
 
-    // OLD — kept for compatibility
     @Query(value = "SELECT COUNT(*) FROM clients c " +
                    "WHERE (c.last_contacted_at IS NULL " +
                    "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
                    "AND c.monthly_contact_count < 2", nativeQuery = true)
     long countTotalStaleClients();
 
-    // NEW — counts unique phone numbers eligible for a call today
-    // Used by dashboard bell count
     @Query(value = "SELECT COUNT(DISTINCT c.phone_number) FROM clients c " +
                    "WHERE (c.last_contacted_at IS NULL " +
                    "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
@@ -38,5 +35,4 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
     long countUniqueEligiblePhones();
 
     boolean existsByNationalId(String nationalId);
-    long countByIsActiveTrue();
 }
