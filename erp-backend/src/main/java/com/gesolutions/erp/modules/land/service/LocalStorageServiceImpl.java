@@ -97,7 +97,7 @@ public class LocalStorageServiceImpl implements FileStorageService {
 
             for (String resourceType : new String[]{"image", "raw", "video"}) {
                 try {
-                    Map result = cloudinary.uploader().destroy(publicId,
+                    Map<?, ?>  result = cloudinary.uploader().destroy(publicId,
                             ObjectUtils.asMap("resource_type", resourceType));
                     String outcome = result.get("result").toString();
                     System.out.println(">>> DELETE " + resourceType + " result: " + outcome);

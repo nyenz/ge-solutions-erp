@@ -1,7 +1,6 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java
 package com.gesolutions.erp.modules.client.controller;
 
-import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.dto.RecoveryTaskDTO;
 import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.land.model.FollowUpLog;
@@ -14,7 +13,6 @@ import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -35,14 +33,8 @@ public class RecoveryController {
     private final FollowUpRepository followUpRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final LandService landService;
-    private final AuditService auditService;
 
-    private String getCurrentOperator() {
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
-            return SecurityContextHolder.getContext().getAuthentication().getName();
-        }
-        return "SYSTEM";
-    }
+  
 
     // ─── BELL COUNT ───────────────────────────────────────────────────────────
     // Counts unique phone numbers eligible for a call today
