@@ -793,6 +793,7 @@ const IntakePage = () => {
         planType:         'Plan 1: Fast-Track (1 Year)',
         weeklyInstallment: 0,
         isLegacy:         false,
+        isStartAsBacklog: false,
         owners:           [blankOwner()],
         notes:            [{ content: '' }],
     });
@@ -944,7 +945,7 @@ const IntakePage = () => {
                     physicalBoxNumber: memory.physicalBoxNumber || '',
                     totalCost: '', initialPayment: '',
                     planType: 'Plan 1: Fast-Track (1 Year)',
-                    weeklyInstallment: 0, isLegacy: false,
+                    weeklyInstallment: 0, isLegacy: false, isStartAsBacklog: false,
                     owners: [blankOwner()], notes: [{ content: '' }],
                     ...memory,
                 });
@@ -1185,6 +1186,20 @@ const IntakePage = () => {
                                     {formData.isLegacy
                                         ? 'BACKLOG ARCHIVE MODE (Smart Defaults Active)'
                                         : 'STANDARD INTAKE MODE'}
+                                </button>
+                            </div>
+                            <div className={styles.modeRow}>
+                                <label id="backlog-label">Backlog Status:</label>
+                                <button
+                                    type="button"
+                                    className={formData.isStartAsBacklog ? styles.toggleLegacy : styles.toggleStandard}
+                                    onClick={() => setFormData({ ...formData, isStartAsBacklog: !formData.isStartAsBacklog })}
+                                    aria-pressed={formData.isStartAsBacklog}
+                                    aria-labelledby="backlog-label"
+                                >
+                                    {formData.isStartAsBacklog
+                                        ? 'ENTERING AS BACKLOG (Storage fees will accumulate monthly)'
+                                        : 'STANDARD — NOT BACKLOG'}
                                 </button>
                             </div>
                         </div>

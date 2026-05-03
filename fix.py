@@ -1,3 +1,9 @@
+import os
+
+files = {}
+
+# ── LEDGER PAGE — adds GREEN/YELLOW/RED payment health badges ──────────────
+files["erp-frontend/src/pages/Ledger/LedgerPage.jsx"] = """\
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +19,7 @@ import styles from './LedgerPage.module.css';
 
 const matchesSearch = (proj, term) => {
     if (!term) return true;
-    const t = term.toLowerCase().replace(/\s+/g, '');
+    const t = term.toLowerCase().replace(/\\s+/g, '');
     const fields = [
         proj.landTitle?.plotNumber,
         proj.landTitle?.physicalBoxNumber,
@@ -23,13 +29,13 @@ const matchesSearch = (proj, term) => {
         proj.landTitle?.tenure,
         ...(proj.proprietors || []).flatMap(p => [
             p.fullName,
-            p.phoneNumber?.replace(/\s+/g, ''),
+            p.phoneNumber?.replace(/\\s+/g, ''),
             p.nationalId,
             p.email,
             p.homeAddress,
         ]),
     ];
-    return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
+    return fields.some(f => f && f.toLowerCase().replace(/\\s+/g, '').includes(t));
 };
 
 // Payment health badge logic
@@ -129,7 +135,7 @@ const LedgerPage = () => {
             : <FiArrowDown className={styles.sortActive} aria-hidden="true" />;
     };
 
-    const SEARCH_HINT = 'Plot ID � Box � Owner name � Phone � NIN � Email � District � County � Tenure';
+    const SEARCH_HINT = 'Plot ID · Box · Owner name · Phone · NIN · Email · District · County · Tenure';
 
     const FILTERS = [
         { key: 'ALL',      label: 'ALL ARCHIVES', icon: <FiLayers        aria-hidden="true" /> },
@@ -224,7 +230,7 @@ const LedgerPage = () => {
                             )}
                             {!loading && loadError && (
                                 <tr><td colSpan="5" className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT �{' '}
+                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
                                     <button className={styles.retryBtn} onClick={fetchLedger}>RETRY</button>
                                 </td></tr>
                             )}
@@ -319,7 +325,7 @@ const LedgerPage = () => {
                     </button>
                     <span className={styles.pageIndicator} aria-current="page">
                         RANGE {page + 1}
-                        {processedData.length > 0 && <span className={styles.recordCount}> � {processedData.length} RECORDS</span>}
+                        {processedData.length > 0 && <span className={styles.recordCount}> · {processedData.length} RECORDS</span>}
                     </span>
                     <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50}
                         aria-label="Next page" className={styles.pageBtn}>
@@ -332,3 +338,45 @@ const LedgerPage = () => {
 };
 
 export default LedgerPage;
+"""
+
+# ── INTAKE PAGE — add isStartAsBacklog toggle, remove plan fields ──────────
+# We only change the financials section and submit logic
+# The key changes: add backlog toggle, keep planType/weeklyInstallment hidden
+# but send isStartAsBacklog to backend
+files["erp-frontend/src/pages/Intake/IntakePage.jsx"] = open(
+    "erp-frontend/src/pages/Intake/IntakePage.jsx"
+).read().replace(
+    "isLegacy:         false,",
+    "isLegacy:         false,\n        isStartAsBacklog: false,"
+).replace(
+    "isLegacy: false,\n                    owners: [blankOwner()], notes: [{ content: '' }],",
+    "isLegacy: false, isStartAsBacklog: false,\n                    owners: [blankOwner()], notes: [{ content: '' }],"
+).replace(
+    "                                : 'STANDARD INTAKE MODE'}\n                                </button>\n                            </div>",
+    """                                : 'STANDARD INTAKE MODE'}
+                                </button>
+                            </div>
+                            <div className={styles.modeRow}>
+                                <label id="backlog-label">Backlog Status:</label>
+                                <button
+                                    type="button"
+                                    className={formData.isStartAsBacklog ? styles.toggleLegacy : styles.toggleStandard}
+                                    onClick={() => setFormData({ ...formData, isStartAsBacklog: !formData.isStartAsBacklog })}
+                                    aria-pressed={formData.isStartAsBacklog}
+                                    aria-labelledby="backlog-label"
+                                >
+                                    {formData.isStartAsBacklog
+                                        ? 'ENTERING AS BACKLOG (Storage fees will accumulate monthly)'
+                                        : 'STANDARD — NOT BACKLOG'}
+                                </button>
+                            </div>"""
+)
+
+for path, content in files.items():
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(content.strip())
+    print(f"Written: {path}")
+
+print("All done.")
