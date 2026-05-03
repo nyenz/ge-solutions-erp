@@ -1,9 +1,6 @@
 // PATH: erp-frontend/src/services/landService.js
 import api from '../api/axios';
 
-/**
- * NYENZ ERP - MASTER ASSET PIPELINE (V5 - FORENSICS ENABLED)
- */
 const landService = {
 
     getDashboardSummary: async () => {
@@ -16,10 +13,6 @@ const landService = {
         return response.data;
     },
 
-    /**
-     * UNLOCK SENSOR
-     * Physically logs when a user opens the Master Hardware for editing.
-     */
     logDossierUnlock: async (projectId) => {
         await api.post(`/land/projects/${projectId}/unlock-log`);
     },
@@ -46,15 +39,11 @@ const landService = {
     },
 
     addStandaloneNote: async (projectId, content) => {
-        await api.post(`/land/projects/${projectId}/notes`, null, {
-            params: { content }
-        });
+        await api.post(`/land/projects/${projectId}/notes`, null, { params: { content } });
     },
 
     editStandaloneNote: async (noteId, content) => {
-        await api.put(`/land/notes/${noteId}`, null, {
-            params: { content }
-        });
+        await api.put(`/land/notes/${noteId}`, null, { params: { content } });
     },
 
     deleteStandaloneNote: async (noteId) => {
@@ -68,25 +57,32 @@ const landService = {
     },
 
     getGlobalLedger: async (page = 0, size = 50) => {
-        const response = await api.get('/land/ledger', {
-            params: { page, size }
-        });
+        const response = await api.get('/land/ledger', { params: { page, size } });
         return response.data;
     },
 
     createAtomicEntry: async (data, scans) => {
         const formData = new FormData();
         const payload = { ...data };
-        delete payload.fileQueue; 
-        
+        delete payload.fileQueue;
         formData.append('data', JSON.stringify(payload));
-        if (scans) {
-            scans.forEach(file => formData.append('scans', file));
-        }
-
+        if (scans) scans.forEach(file => formData.append('scans', file));
         const response = await api.post('/land/ingest', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
+        return response.data;
+    },
+
+    moveToBacklog: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/backlog`);
+    },
+
+    exitBacklog: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/exit-backlog`);
+    },
+
+    getPaymentHistory: async (projectId) => {
+        const response = await api.get(`/land/projects/${projectId}/payments`);
         return response.data;
     }
 };

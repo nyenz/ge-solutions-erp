@@ -2,18 +2,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import {
-    FiPhoneCall, FiFolder, FiMapPin, FiClock, FiSearch,
+    FiPhoneCall, FiClock, FiSearch,
     FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
-    FiUsers, FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo
+    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
+    FiDollarSign, FiAlertOctagon, FiActivity
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModal from '../../components/common/HardwareModal';
 import styles from './RecoveryPortal.module.css';
 
-// ─── TOAST ────────────────────────────────────────────────────────
 const useToast = () => {
     const [toasts, setToasts] = useState([]);
     const toast = useCallback((message, type = 'info', duration = 4000) => {
@@ -26,10 +27,10 @@ const useToast = () => {
 };
 
 const TOAST_ICONS = {
-    success: <FiCheckSquare  aria-hidden="true" />,
-    error:   <FiAlertCircle  aria-hidden="true" />,
+    success: <FiCheckSquare aria-hidden="true" />,
+    error:   <FiAlertCircle aria-hidden="true" />,
     warn:    <FiAlertTriangle aria-hidden="true" />,
-    info:    <FiInfo          aria-hidden="true" />,
+    info:    <FiInfo aria-hidden="true" />,
 };
 
 const ToastContainer = ({ toasts, onDismiss }) => {
@@ -50,20 +51,40 @@ const ToastContainer = ({ toasts, onDismiss }) => {
     );
 };
 
-// ─── MAIN ─────────────────────────────────────────────────────────
+const fmt = (n) => Number(n || 0).toLocaleString();
+
+const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
+
+const PaymentBadge = ({ badge }) => (
+    <span style={{
+        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+        background: BADGE_COLORS[badge] || BADGE_COLORS.RED,
+        marginRight: 6, flexShrink: 0,
+        boxShadow: `0 0 6px ${BADGE_COLORS[badge] || BADGE_COLORS.RED}`
+    }} aria-label={`Payment health: ${badge}`} />
+);
+
 const RecoveryPortal = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
+    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
 
     const [viewMode,      setViewMode]      = useState('ACTION');
     const [missions,      setMissions]      = useState([]);
     const [loading,       setLoading]       = useState(true);
-    const [expandedId,    setExpandedId]    = useState(null);
+    const [expandedPhone, setExpandedPhone] = useState(null);
     const [searchTerm,    setSearchTerm]    = useState('');
-    const [activeMission, setActiveMission] = useState(null);
-    const [missionHistory,setMissionHistory]= useState([]);
+
+    const [callModal,     setCallModal]     = useState({ open: false, mission: null });
+    const [callHistory,   setCallHistory]   = useState([]);
     const [logContent,    setLogContent]    = useState('');
     const [committing,    setCommitting]    = useState(false);
+
+    const [payModal,      setPayModal]      = useState({ open: false, plot: null });
+    const [payAmount,     setPayAmount]     = useState('');
+    const [payNotes,      setPayNotes]      = useState('');
+    const [paying,        setPaying]        = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -73,7 +94,7 @@ const RecoveryPortal = () => {
                 : await recoveryService.getRecoverySchedule();
             setMissions(data);
         } catch {
-            toast('DATA STREAM LOST — RETRYING', 'error', 6000);
+            toast('DATA STREAM LOST', 'error', 6000);
         } finally {
             setLoading(false);
         }
@@ -82,45 +103,61 @@ const RecoveryPortal = () => {
     useEffect(() => { loadData(); }, [loadData]);
 
     useEffect(() => {
-        if (!activeMission) return;
-        recoveryService.getHistory(activeMission.projectId)
-            .then(setMissionHistory)
-            .catch(() => setMissionHistory([]));
-    }, [activeMission]);
+        if (!callModal.mission) return;
+        const firstPlot = callModal.mission.plots?.[0];
+        if (!firstPlot) return;
+        recoveryService.getHistory(firstPlot.projectId)
+            .then(setCallHistory)
+            .catch(() => setCallHistory([]));
+    }, [callModal.mission]);
 
     const handleLogCall = async () => {
-        if (!logContent.trim() || !activeMission) return;
+        if (!logContent.trim() || !callModal.mission) return;
         setCommitting(true);
         try {
-            await recoveryService.logRecoveryCall(activeMission.projectId, logContent);
-            if (viewMode === 'ACTION') {
-                setMissions(prev => prev.filter(m => m.projectId !== activeMission.projectId));
-            } else {
-                await loadData();
+            for (const plot of callModal.mission.plots) {
+                await recoveryService.logRecoveryCall(plot.projectId, logContent);
             }
-            setActiveMission(null);
+            await loadData();
+            setCallModal({ open: false, mission: null });
             setLogContent('');
-            setExpandedId(null);
-            toast('ASSET STATUS UPDATED — 14-DAY CLOCK RESET', 'success');
+            setExpandedPhone(null);
+            toast('CALL LOGGED � 14-DAY CLOCK RESET', 'success');
         } catch {
-            toast('LOG FAILURE — COULD NOT COMMIT CALL', 'error', 8000);
+            toast('LOG FAILURE', 'error', 8000);
         } finally {
             setCommitting(false);
         }
     };
 
-    const toggleCard = (id) => setExpandedId(prev => prev === id ? null : id);
+    const handleRecordPayment = async () => {
+        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+        setPaying(true);
+        try {
+            await recoveryService.recordPayment(payModal.plot.projectId, payAmount, payNotes);
+            await loadData();
+            setPayModal({ open: false, plot: null });
+            setPayAmount(''); setPayNotes('');
+            toast('PAYMENT RECORDED SUCCESSFULLY', 'success');
+        } catch {
+            toast('PAYMENT FAILED', 'error', 8000);
+        } finally {
+            setPaying(false);
+        }
+    };
 
     const filteredMissions = useMemo(() => {
         const term = searchTerm.toLowerCase().replace(/\s+/g, '');
+        if (!term) return missions;
         return missions.filter(m =>
-            m.plotNumber?.toLowerCase().includes(term) ||
-            (m.allOwners || []).some(o =>
-                o.name?.toLowerCase().includes(term) ||
-                o.phone?.replace(/\s+/g, '').includes(term)
-            )
+            m.phoneNumber?.replace(/\s+/g, '').includes(term) ||
+            m.ownerName?.toLowerCase().includes(term) ||
+            (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term))
         );
     }, [missions, searchTerm]);
+
+    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);
+    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);
 
     const getStatusStyle = (status) => {
         if (status === 'ACTION REQUIRED' || status === 'NEW ASSIGNMENT') return styles.statusRed;
@@ -129,11 +166,121 @@ const RecoveryPortal = () => {
         return styles.statusDefault;
     };
 
-    // Safe accessor — guard against empty allOwners
-    const primaryName = (mission) => mission?.allOwners?.[0]?.name || 'UNKNOWN OWNER';
+    const renderMissionCard = (mission) => {
+        const isExpanded = expandedPhone === mission.phoneNumber;
+        const toggle = () => setExpandedPhone(prev => prev === mission.phoneNumber ? null : mission.phoneNumber);
+
+        return (
+            <div key={mission.phoneNumber}
+                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>
+
+                <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
+                    {mission.isLocked && <FiLock aria-hidden="true" />}
+                    {mission.missionStatus}
+                    {mission.hasBacklogPlots && <span className={styles.backlogTag}>BACKLOG</span>}
+                </div>
+
+                <div className={styles.cardHeader} onClick={toggle} role="button" tabIndex={0}
+                    aria-expanded={isExpanded}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }}}>
+                    <div className={styles.identity}>
+                        <h3 className={styles.ownerName}>{mission.ownerName}</h3>
+                        <span className={styles.phoneNum}>{mission.phoneNumber}</span>
+                        <div className={styles.totalDemandRow}>
+                            <span className={styles.demandLabel}>TOTAL DEMAND:</span>
+                            <span className={styles.demandValue}>UGX {fmt(mission.totalDemand)}</span>
+                        </div>
+                        {mission.hasBacklogPlots && Number(mission.totalStorageFees) > 0 && (
+                            <div className={styles.feesRow}>
+                                <FiAlertOctagon aria-hidden="true" size={11} />
+                                <span>Incl. storage fees: UGX {fmt(mission.totalStorageFees)}</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className={styles.expandIcon} aria-hidden="true">
+                        {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                    </div>
+                </div>
+
+                {isExpanded && (
+                    <div className={styles.cardBody}>
+                        <div className={styles.divider} aria-hidden="true" />
+
+                        <div className={styles.timingRow}>
+                            <FiClock aria-hidden="true" size={13} />
+                            <span>Last call: <strong>{mission.lastContactDate}</strong></span>
+                            <span style={{ margin: '0 8px' }}>�</span>
+                            <span>Next eligible: <strong>{mission.nextCallDue}</strong></span>
+                            <span style={{ margin: '0 8px' }}>�</span>
+                            <span>Calls this month: <strong>{mission.monthlyCallCount}/2</strong></span>
+                        </div>
+
+                        <div className={styles.divider} aria-hidden="true" />
+
+                        <div className={styles.plotsList}>
+                            <div className={styles.plotsHeader}>PLOTS FOR THIS OWNER</div>
+                            {(mission.plots || []).map(plot => (
+                                <div key={plot.projectId}
+                                    className={`${styles.plotRow} ${plot.isBacklog ? styles.plotRowBacklog : ''}`}>
+                                    <div className={styles.plotRowLeft}>
+                                        <PaymentBadge badge={plot.paymentHealthBadge} />
+                                        <div className={styles.plotInfo}>
+                                            <span className={styles.plotNumber}>{plot.plotNumber}</span>
+                                            <span className={styles.plotBox}>BOX: {plot.physicalBoxNumber}</span>
+                                            {plot.isBacklog ? (
+                                                <div className={styles.backlogBreakdown}>
+                                                    <span className={styles.backlogPlotTag}>BACKLOG ({plot.storageMonthsCount} months)</span>
+                                                    <div className={styles.debtLine}><span>Original debt: <strong>UGX {fmt(plot.originalDebt)}</strong></span></div>
+                                                    <div className={styles.debtLine}><span>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</strong></span></div>
+                                                    <div className={styles.debtLine}><span>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.totalBacklogOwed)}</strong></span></div>
+                                                    <div className={styles.debtLine}><span>Total paid: <strong>UGX {fmt(plot.amountPaid)}</strong></span></div>
+                                                </div>
+                                            ) : (
+                                                <div className={styles.activePlotFinance}>
+                                                    <span>Balance: <strong>UGX {fmt(plot.currentBalance)}</strong></span>
+                                                    <span style={{opacity:0.6, fontSize:'0.75rem'}}> of UGX {fmt(plot.totalCost)}</span>
+                                                </div>
+                                            )}
+                                            <div className={styles.lastNote}>
+                                                <FiMessageSquare aria-hidden="true" size={11} />
+                                                <span>"{plot.lastInteractionNote}"</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={styles.plotRowActions}>
+                                        <button className={styles.folderBtn}
+                                            onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                            <FiChevronRight aria-hidden="true" /> BINDER
+                                        </button>
+                                        {isAdmin && (
+                                            <button className={styles.payBtn}
+                                                onClick={() => { setPayModal({ open: true, plot }); setPayAmount(''); setPayNotes(''); }}>
+                                                <FiDollarSign aria-hidden="true" /> PAY
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className={styles.divider} aria-hidden="true" />
+
+                        <div className={styles.cardActions}>
+                            <button className={styles.logCallBtn}
+                                onClick={() => setCallModal({ open: true, mission })}
+                                disabled={mission.isLocked}>
+                                <FiPhoneCall aria-hidden="true" />
+                                {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     if (loading) return (
-        <div className={styles.bootScreen} role="status" aria-label="Loading recovery terminal">
+        <div className={styles.bootScreen} role="status">
             <div className={styles.bootSpinner} aria-hidden="true" />
             <span className={styles.bootLabel}>BOOTING RECOVERY TERMINAL...</span>
         </div>
@@ -143,205 +290,133 @@ const RecoveryPortal = () => {
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-            {/* HEADER */}
             <header className={styles.header}>
                 <div className={styles.titleBlock}>
                     <h1 className={styles.title}>Recovery Hub</h1>
                     <div className={styles.modeSwitch} role="group" aria-label="View mode">
-                        <button
-                            className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => { setViewMode('ACTION'); setExpandedId(null); }}
-                            aria-pressed={viewMode === 'ACTION'}
-                        >
+                        <button className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
+                            onClick={() => { setViewMode('ACTION'); setExpandedPhone(null); }}
+                            aria-pressed={viewMode === 'ACTION'}>
                             <FiList aria-hidden="true" /> ACTION QUEUE
                         </button>
-                        <button
-                            className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => { setViewMode('FORECAST'); setExpandedId(null); }}
-                            aria-pressed={viewMode === 'FORECAST'}
-                        >
+                        <button className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}
+                            onClick={() => { setViewMode('FORECAST'); setExpandedPhone(null); }}
+                            aria-pressed={viewMode === 'FORECAST'}>
                             <FiCalendar aria-hidden="true" /> FULL SCHEDULE
                         </button>
                     </div>
                 </div>
                 <div className={styles.hudStats}>
-                    <div className={styles.statBox}>
-                        <label>ASSET TARGETS</label>
-                        <strong>{missions.length}</strong>
-                    </div>
+                    <div className={styles.statBox}><label>TARGETS</label><strong>{filteredMissions.length}</strong></div>
+                    <div className={styles.statBox}><label>BACKLOG</label><strong style={{color:'#ef4444'}}>{backlogMissions.length}</strong></div>
                 </div>
             </header>
 
-            {/* SEARCH */}
             <div className={styles.filterBar}>
                 <div className={styles.searchInner}>
                     <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                    <input
-                        type="search"
-                        placeholder="Search Plot ID, proprietor name, or phone number..."
-                        className={styles.searchInput}
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        aria-label="Search recovery missions"
-                    />
+                    <input type="search" placeholder="Search owner, phone, or plot ID..."
+                        className={styles.searchInput} value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)} />
                     {searchTerm && (
-                        <button className={styles.searchClear} onClick={() => setSearchTerm('')} aria-label="Clear search">
+                        <button className={styles.searchClear} onClick={() => setSearchTerm('')}>
                             <FiX aria-hidden="true" />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* MISSION GRID */}
             <div className={styles.missionGrid}>
                 {filteredMissions.length === 0 ? (
                     <div className={styles.emptyGate} role="status">
                         <FiCheckCircle className={styles.emptyIcon} aria-hidden="true" />
-                        <h2 className={styles.emptyTitle}>
-                            {searchTerm ? `NO TARGETS MATCH "${searchTerm.toUpperCase()}"` : 'NO TARGETS FOUND'}
-                        </h2>
-                        <p className={styles.emptyMsg}>Registry is synchronised for current filters.</p>
+                        <h2 className={styles.emptyTitle}>NO TARGETS FOUND</h2>
                     </div>
                 ) : (
-                    filteredMissions.map(mission => {
-                        const isExpanded   = expandedId === mission.projectId;
-                        const primaryOwner = mission.allOwners?.[0];
-                        const jointOwners  = mission.allOwners?.slice(1) || [];
-
-                        return (
-                            <div
-                                key={mission.projectId}
-                                className={`${styles.missionCard} ${isExpanded ? styles.cardExpanded : ''} ${mission.isLocked ? styles.cardLocked : ''}`}
-                                onClick={() => toggleCard(mission.projectId)}
-                                role="button"
-                                tabIndex={0}
-                                aria-expanded={isExpanded}
-                                aria-label={`Mission: ${primaryOwner?.name || 'Unknown'}, plot ${mission.plotNumber}`}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(mission.projectId); } }}
-                            >
-                                <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
-                                    {mission.missionStatus === 'MONTHLY LIMIT' && <FiLock aria-hidden="true" />}
-                                    {mission.missionStatus}
+                    <>
+                        {activeMissions.length > 0 && (
+                            <div className={styles.sectionGroup}>
+                                <div className={styles.sectionHeader}>
+                                    <FiActivity aria-hidden="true" /> ACTIVE ({activeMissions.length})
                                 </div>
-
-                                <div className={styles.cardHeader}>
-                                    <div className={styles.identity}>
-                                        <h3 className={styles.ownerName}>{primaryOwner?.name || '---'}</h3>
-                                        <div className={styles.miniMeta}>
-                                            <span className={styles.phoneNum}>{primaryOwner?.phone || '---'}</span>
-                                            {jointOwners.length > 0 && (
-                                                <span className={styles.jointCountBadge} aria-label={`${jointOwners.length} joint owner${jointOwners.length > 1 ? 's' : ''}`}>
-                                                    <FiUsers aria-hidden="true" /> +{jointOwners.length} JOINT
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className={styles.expandIcon} aria-hidden="true">
-                                        {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                                    </div>
-                                </div>
-
-                                <div className={`${styles.cardBody} ${isExpanded ? styles.bodyOpen : styles.bodyClosed}`}>
-                                    <div className={styles.divider} aria-hidden="true" />
-
-                                    {jointOwners.length > 0 && (
-                                        <div className={styles.jointContactsZone}>
-                                            <label>JOINT OWNERS / CO-SIGNERS</label>
-                                            {jointOwners.map(owner => (
-                                                <div key={owner.id} className={styles.contactRow}>
-                                                    <span className={styles.jointName}>{owner.name}</span>
-                                                    <span className={styles.jointPhone}>{owner.phone}</span>
-                                                </div>
-                                            ))}
-                                            <div className={styles.divider} aria-hidden="true" />
-                                        </div>
-                                    )}
-
-                                    <div className={styles.assetContext}>
-                                        <div className={styles.metaRow}><FiMapPin aria-hidden="true" /><span>{mission.plotNumber}</span></div>
-                                        <div className={styles.metaRow}><FiFolder aria-hidden="true" /><span>BOX: {mission.physicalBoxNumber}</span></div>
-                                    </div>
-
-                                    {viewMode === 'FORECAST' && (
-                                        <div className={styles.scheduleRow}>
-                                            <FiClock aria-hidden="true" />
-                                            <span>ELIGIBLE ON: <strong>{new Date(mission.nextCallDue).toLocaleDateString()}</strong></span>
-                                        </div>
-                                    )}
-
-                                    <div className={styles.demandTerminal}>
-                                        <div className={styles.demandLabel}>WEEKLY REQUIREMENT</div>
-                                        <div className={styles.demandValue}>UGX {mission.weeklyRequirement?.toLocaleString()}</div>
-                                        <div className={styles.subArrears}>TOTAL DEBT: UGX {mission.totalArrears?.toLocaleString()}</div>
-                                    </div>
-
-                                    <div className={styles.intelSnippet}>
-                                        <div className={styles.intelHead}>
-                                            <FiMessageSquare aria-hidden="true" />
-                                            <span>LAST LOGGED INTEL:</span>
-                                        </div>
-                                        <p className={styles.noteText}>"{mission.lastInteractionNote}"</p>
-                                    </div>
-
-                                    <div className={styles.cardActions}>
-                                        <button
-                                            className={styles.logCallBtn}
-                                            onClick={e => { e.stopPropagation(); setActiveMission(mission); }}
-                                            disabled={mission.isLocked}
-                                            aria-label={mission.isLocked ? 'Mission locked' : `Log call for ${primaryOwner?.name}`}
-                                        >
-                                            <FiPhoneCall aria-hidden="true" />
-                                            {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
-                                        </button>
-                                        <button
-                                            className={styles.folderBtn}
-                                            onClick={e => { e.stopPropagation(); navigate(`/folder/${mission.projectId}`); }}
-                                            aria-label={`Open binder for ${mission.plotNumber}`}
-                                        >
-                                            <FiChevronRight aria-hidden="true" /> BINDER
-                                        </button>
-                                    </div>
-                                </div>
+                                {activeMissions.map(renderMissionCard)}
                             </div>
-                        );
-                    })
+                        )}
+                        {backlogMissions.length > 0 && (
+                            <div className={styles.sectionGroup}>
+                                <div className={`${styles.sectionHeader} ${styles.sectionHeaderBacklog}`}>
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG � STORAGE FEES ACTIVE ({backlogMissions.length})
+                                </div>
+                                {backlogMissions.map(renderMissionCard)}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            {/* MODAL: LOG CALL */}
-            <HardwareModal
-                isOpen={!!activeMission}
-                onClose={() => setActiveMission(null)}
-                title={`LOG CALL: ${primaryName(activeMission)}`}
-            >
+            <HardwareModal isOpen={callModal.open}
+                onClose={() => setCallModal({ open: false, mission: null })}
+                title={`LOG CALL: ${callModal.mission?.ownerName || ''}`}>
                 <div className={styles.modalBody}>
                     <div className={styles.historyStream}>
                         <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>
-                        {missionHistory.length === 0 ? (
+                        {callHistory.length === 0 ? (
                             <div className={styles.emptyHistory}>No prior logs found.</div>
-                        ) : (
-                            missionHistory.map(log => (
-                                <div key={log.id} className={styles.historyItem}>
-                                    <div className={styles.historyMeta}>
-                                        <span><FiUser aria-hidden="true" /> {log.recordedBy}</span>
-                                        <small>{new Date(log.timestamp).toLocaleDateString()}</small>
-                                    </div>
-                                    <p>{log.notes}</p>
+                        ) : callHistory.map(log => (
+                            <div key={log.id} className={styles.historyItem}>
+                                <div className={styles.historyMeta}>
+                                    <span><FiUser aria-hidden="true" /> {log.recordedBy}</span>
+                                    <small>{new Date(log.timestamp).toLocaleDateString()}</small>
                                 </div>
-                            ))
-                        )}
+                                <p>{log.notes}</p>
+                            </div>
+                        ))}
                     </div>
-                    <p className={styles.modalHint}>Enter technical response or call result below.</p>
-                    <textarea
-                        className={styles.notebookArea}
-                        placeholder="e.g. Promises payment by Monday MTN line..."
-                        value={logContent}
-                        onChange={e => setLogContent(e.target.value)}
-                        aria-label="Call log entry"
-                    />
+                    <textarea className={styles.notebookArea}
+                        placeholder="Enter call result or interaction note..."
+                        value={logContent} onChange={e => setLogContent(e.target.value)} />
                     <div className={styles.modalFooter}>
                         <HardwareButton loading={committing} onClick={handleLogCall} icon={FiSave}>
                             Commit &amp; Reset
+                        </HardwareButton>
+                    </div>
+                </div>
+            </HardwareModal>
+
+            <HardwareModal isOpen={payModal.open}
+                onClose={() => setPayModal({ open: false, plot: null })}
+                title={`RECORD PAYMENT: ${payModal.plot?.plotNumber || ''}`}>
+                <div className={styles.modalBody}>
+                    {payModal.plot?.isBacklog ? (
+                        <div className={styles.backlogPayInfo}>
+                            <FiAlertOctagon aria-hidden="true" />
+                            <div>
+                                <div>Original debt: <strong>UGX {fmt(payModal.plot?.originalDebt)}</strong></div>
+                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.storageFeesAccumulated)}</strong></div>
+                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.totalBacklogOwed)}</strong></div>
+                                <div style={{marginTop:4,fontSize:'0.75rem',opacity:0.7}}>Storage fees continue until full balance is cleared.</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={styles.activePayInfo}>
+                            <div>Current balance: <strong>UGX {fmt(payModal.plot?.currentBalance)}</strong></div>
+                        </div>
+                    )}
+                    <div style={{marginTop:16}}>
+                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>AMOUNT RECEIVED (UGX)</label>
+                        <input type="number" className={styles.notebookArea} style={{height:48,fontSize:'1.1rem'}}
+                            placeholder="Enter amount..." value={payAmount}
+                            onChange={e => setPayAmount(e.target.value)} />
+                    </div>
+                    <div style={{marginTop:12}}>
+                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>NOTES (optional)</label>
+                        <textarea className={styles.notebookArea} style={{height:80}}
+                            placeholder="e.g. Paid via MTN Mobile Money..."
+                            value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                    </div>
+                    <div className={styles.modalFooter}>
+                        <HardwareButton loading={paying} onClick={handleRecordPayment} icon={FiDollarSign}>
+                            CONFIRM PAYMENT
                         </HardwareButton>
                     </div>
                 </div>
