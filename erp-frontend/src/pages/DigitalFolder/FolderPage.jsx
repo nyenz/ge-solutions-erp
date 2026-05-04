@@ -9,14 +9,15 @@ import {
     FiCheckCircle, FiTrash2, FiEdit3, FiChevronDown,
     FiPhoneCall, FiMail, FiMapPin, FiShield,
     FiInfo, FiAlertTriangle, FiAlertOctagon,
-    FiCheckSquare, FiPrinter, FiAlertCircle, FiSave
+    FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
+    FiDollarSign, FiActivity
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import HardwareModal from '../../components/common/HardwareModal';
 import styles from './FolderPage.module.css';
 
-// ─── UTILITIES ───────────────────────────────────────────────────────
 const STAGE_LABELS = ['COMMITMENT', 'FIELD WORK', 'DOCUMENTATION', 'DEED PLAN', 'RELEASE'];
 const EMAIL_DOMAINS = ['@gmail.com', '@yahoo.com', '@outlook.com', '@hotmail.com', '@icloud.com'];
 
@@ -36,9 +37,6 @@ const validateBuffer = (buffer) => {
     buffer.owners?.forEach((o, i) => {
         if (!o.fullName?.trim()) errors.push(`OWNER ${i + 1}: LEGAL NAME IS REQUIRED`);
     });
-    const cost = Number(buffer.totalCost) || 0;
-    const paid = Number(buffer.initialPayment) || 0;
-    if (paid > cost && cost > 0) errors.push('AMOUNT PAID CANNOT EXCEED TOTAL COST');
     return errors;
 };
 
@@ -49,7 +47,6 @@ const TOAST_ICONS = {
     info:    <FiInfo aria-hidden="true" />,
 };
 
-// ─── TOAST — portalled ───────────────────────────────────────────────
 const useToast = () => {
     const [toasts, setToasts] = useState([]);
     const toast = useCallback((message, type = 'info', duration = 4000) => {
@@ -79,7 +76,6 @@ const ToastContainer = ({ toasts, onDismiss }) => {
     );
 };
 
-// ─── SAVING OVERLAY — portalled ──────────────────────────────────────
 const SavingOverlay = ({ visible }) => {
     if (!visible || typeof document === 'undefined') return null;
     return createPortal(
@@ -91,7 +87,6 @@ const SavingOverlay = ({ visible }) => {
     );
 };
 
-// ─── SKELETON ────────────────────────────────────────────────────────
 const SkeletonPanel = () => (
     <div className={styles.skeletonPanel} aria-hidden="true">
         <div className={styles.skeletonHeader} />
@@ -108,17 +103,10 @@ const SkeletonPage = () => (
     </div>
 );
 
-// ─── DRAWER HEADER ───────────────────────────────────────────────────
 const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
-    <div
-        className={styles.drawerHeader}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        aria-expanded={isOpen}
-        aria-label={`${label} section, ${isOpen ? 'collapse' : 'expand'}`}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-    >
+    <div className={styles.drawerHeader} onClick={onClick} role="button" tabIndex={0}
+        aria-expanded={isOpen} aria-label={`${label} section, ${isOpen ? 'collapse' : 'expand'}`}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>
         <div className={styles.drawerTitle}>
             {Icon && <Icon className={styles.drawerIcon} aria-hidden="true" />}
             {label}
@@ -128,7 +116,6 @@ const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
     </div>
 );
 
-// ─── SMART INPUT ─────────────────────────────────────────────────────
 const SmartInput = React.forwardRef(({
     label, value, onChange, onBlur, placeholder,
     suggestions = [], inputMode, maxLength, hint,
@@ -145,21 +132,14 @@ const SmartInput = React.forwardRef(({
                     {label}{required && <span className={styles.reqStar} aria-hidden="true"> *</span>}
                 </label>
                 {showCaps && <span className={styles.capsBadge}>CAPS</span>}
-                {maxLength && (
-                    <span className={`${styles.charCount} ${(value?.length || 0) >= maxLength ? styles.charFull : ''}`} aria-hidden="true">
-                        {value?.length || 0}/{maxLength}
-                    </span>
-                )}
             </div>
-            <input
-                id={inputId} ref={ref} type="text"
+            <input id={inputId} ref={ref} type="text"
                 className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
                 value={value} onChange={onChange} onBlur={onBlur}
                 placeholder={placeholder} inputMode={inputMode} maxLength={maxLength}
                 list={datalistId} autoComplete="off"
                 aria-required={required ? 'true' : undefined}
                 aria-invalid={error ? 'true' : 'false'}
-                aria-describedby={[error ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined}
             />
             {datalistId && <datalist id={datalistId}>{suggestions.map((s,i) => <option key={i} value={s} />)}</datalist>}
             {error && <span id={errorId} className={styles.fieldError} role="alert">{error}</span>}
@@ -169,35 +149,28 @@ const SmartInput = React.forwardRef(({
 });
 SmartInput.displayName = 'SmartInput';
 
-// ─── SMART SELECT ─────────────────────────────────────────────────────
 const SmartSelect = ({ label, options, value, onChange, id }) => {
     const [open, setOpen] = useState(false);
     const wrapRef  = useRef(null);
     const selectId = id || 'ss-' + (label || '').replace(/\W/g, '-').toLowerCase();
-
     useEffect(() => {
         const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, []);
-
     const handleKey = (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); }
         if (e.key === 'Escape') setOpen(false);
-        if (e.key === 'ArrowDown') { e.preventDefault(); const i = options.indexOf(value); if (i < options.length - 1) { onChange(options[i+1]); } }
-        if (e.key === 'ArrowUp')   { e.preventDefault(); const i = options.indexOf(value); if (i > 0) { onChange(options[i-1]); } }
+        if (e.key === 'ArrowDown') { e.preventDefault(); const i = options.indexOf(value); if (i < options.length - 1) onChange(options[i+1]); }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); const i = options.indexOf(value); if (i > 0) onChange(options[i-1]); }
     };
-
     return (
         <div className={styles.hwInputWrap} ref={wrapRef} style={{ position: 'relative' }}>
             <div className={styles.inputLabelRow}><label id={selectId + '_lbl'}>{label}</label></div>
-            <div
-                id={selectId} role="combobox"
-                aria-haspopup="listbox" aria-expanded={open} aria-labelledby={selectId + '_lbl'}
-                tabIndex={0}
+            <div id={selectId} role="combobox" aria-haspopup="listbox" aria-expanded={open}
+                aria-labelledby={selectId + '_lbl'} tabIndex={0}
                 className={`${styles.selectTrigger} ${open ? styles.selectTriggerOpen : ''}`}
-                onClick={() => setOpen(o => !o)} onKeyDown={handleKey}
-            >
+                onClick={() => setOpen(o => !o)} onKeyDown={handleKey}>
                 <span className={styles.selectValue}>{value}</span>
                 <FiChevronDown className={`${styles.selectChevron} ${open ? styles.rotated : ''}`} aria-hidden="true" />
             </div>
@@ -206,8 +179,7 @@ const SmartSelect = ({ label, options, value, onChange, id }) => {
                     {options.map(opt => (
                         <li key={opt} role="option" aria-selected={opt === value} tabIndex={-1}
                             className={`${styles.selectOption} ${opt === value ? styles.selectOptionActive : ''}`}
-                            onClick={() => { onChange(opt); setOpen(false); }}
-                        >{opt}</li>
+                            onClick={() => { onChange(opt); setOpen(false); }}>{opt}</li>
                     ))}
                 </ul>
             )}
@@ -215,7 +187,6 @@ const SmartSelect = ({ label, options, value, onChange, id }) => {
     );
 };
 
-// ─── EMAIL INPUT ─────────────────────────────────────────────────────
 const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }) => {
     const [showDomains, setShowDomains] = useState(false);
     const [activeIdx,   setActiveIdx]   = useState(-1);
@@ -225,14 +196,11 @@ const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }
     const localPart    = value.includes('@') ? value.split('@')[0] : value;
     const hasAt        = value.includes('@');
     const pickerVisible = showDomains && localPart.length > 0 && !hasAt;
-
     const applyDomain = (domain) => { onCommit(localPart + domain); setShowDomains(false); setActiveIdx(-1); };
-
     const handleBlur = () => setTimeout(() => {
         setShowDomains(false);
         if (value && !value.includes('@') && value.trim()) onCommit(value.trim() + '@gmail.com');
     }, 160);
-
     const handleKey = (e) => {
         if (!pickerVisible) return;
         if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i+1, EMAIL_DOMAINS.length-1)); }
@@ -240,13 +208,11 @@ const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }
         else if ((e.key === 'Enter' || e.key === 'Tab') && activeIdx >= 0) { e.preventDefault(); applyDomain(EMAIL_DOMAINS[activeIdx]); }
         else if (e.key === 'Escape') setShowDomains(false);
     };
-
     useEffect(() => {
         const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDomains(false); };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, []);
-
     return (
         <div className={styles.hwInputWrap} ref={wrapRef}>
             <div className={styles.inputLabelRow}>
@@ -254,23 +220,16 @@ const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }
                 <span className={styles.assistBadge}>@</span>
             </div>
             <div className={styles.emailWrap}>
-                <input
-                    id={inputId} className={styles.hwInput} type="email"
-                    value={value}
+                <input id={inputId} className={styles.hwInput} type="email" value={value}
                     onChange={e => { onChange(e.target.value.toLowerCase().replace(/\s/g,'')); setShowDomains(true); setActiveIdx(-1); }}
                     onBlur={handleBlur} onFocus={() => setShowDomains(true)} onKeyDown={handleKey}
-                    placeholder="name@domain.com" autoComplete="off" autoCapitalize="none" inputMode="email"
-                    aria-autocomplete="list"
-                    aria-controls={pickerVisible ? listId : undefined}
-                    aria-activedescendant={activeIdx >= 0 ? listId + '_' + activeIdx : undefined}
-                />
+                    placeholder="name@domain.com" autoComplete="off" autoCapitalize="none" inputMode="email" />
                 {pickerVisible && (
-                    <ul id={listId} role="listbox" aria-label="Email domain suggestions" className={styles.domainPicker}>
+                    <ul id={listId} role="listbox" className={styles.domainPicker}>
                         {EMAIL_DOMAINS.map((domain, idx) => (
                             <li key={domain} id={listId + '_' + idx} role="option" aria-selected={idx === activeIdx}
                                 className={`${styles.domainOption} ${idx === activeIdx ? styles.domainOptionActive : ''}`}
-                                onMouseDown={() => applyDomain(domain)}
-                            >
+                                onMouseDown={() => applyDomain(domain)}>
                                 <span className={styles.emailLocalPart}>{localPart}</span>
                                 <span className={styles.emailDomainPart}>{domain}</span>
                             </li>
@@ -278,19 +237,14 @@ const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }
                     </ul>
                 )}
             </div>
-            {!hasAt && value.length > 0 && !pickerVisible && (
-                <span className={styles.inputHint}>Tab or click domain · blurs to @gmail.com</span>
-            )}
         </div>
     );
 };
 
-// ─── PHONE INPUT ─────────────────────────────────────────────────────
 const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, id, required, fieldError }) => {
     const [raw, setRaw] = useState(() => value || '');
     const inputId = id || 'phi_phone';
     const isDual  = raw.includes('/');
-
     const handleChange = (e) => {
         let v = e.target.value.replace(/[^0-9\s/]/g, '').replace(/[/]+/g, '/');
         if (v.startsWith('/')) v = v.slice(1);
@@ -301,61 +255,40 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, id, required, f
         const f = formatPhoneEntry(raw);
         if (f) { setRaw(f); onChange(f); }
     };
-
     return (
         <div className={`${styles.hwInputWrap} ${fieldError ? styles.inputError : ''}`}>
             <div className={styles.inputLabelRow}>
                 <label htmlFor={inputId}>{label}{required && <span className={styles.reqStar}> *</span>}</label>
                 <span className={`${styles.assistBadge} ${isDual ? styles.assistBadgeDual : ''}`}>{isDual ? 'DUAL' : 'TEL'}</span>
             </div>
-            <input
-                id={inputId} type="tel" value={raw}
-                onChange={handleChange} onBlur={handleBlur}
-                placeholder="0712 345 678  ·  dual: 0712.../0701..."
-                inputMode="tel"
+            <input id={inputId} type="tel" value={raw} onChange={handleChange} onBlur={handleBlur}
+                placeholder="0712 345 678  ·  dual: 0712.../0701..." inputMode="tel"
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`}
-                aria-required={required ? 'true' : undefined}
-                aria-invalid={fieldError ? 'true' : 'false'}
-                aria-describedby={inputId + '_hint'}
-                autoComplete="tel-national"
-            />
-            <span id={inputId + '_hint'} className={styles.inputHint}>Auto-spaces on blur · use / for two numbers</span>
+                autoComplete="tel-national" />
             {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
         </div>
     );
 };
 
-// ─── NIN INPUT ───────────────────────────────────────────────────────
 const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, id }) => {
     const inputId = id || 'nin_input';
     const MAX = 14;
     const handleChange = (e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,MAX));
-    const cntClass = value.length === MAX ? styles.charFull : value.length >= MAX * 0.5 ? styles.charMid : '';
-    const hint = value.length === 0 ? 'CM · YY · XXXXXXXX'
-        : value.length < 2 ? 'Start with CM...'
-        : value.length < 4 ? value.slice(0,2) + ' · YY · XXXXXXXX'
-        : value.slice(0,4) + ' · ' + value.slice(4) + '...';
     return (
         <div className={styles.hwInputWrap}>
             <div className={styles.inputLabelRow}>
                 <label htmlFor={inputId}>{label}</label>
                 <span className={styles.capsBadge}>CAPS</span>
-                <span className={`${styles.charCount} ${cntClass}`} aria-hidden="true">{value.length}/{MAX}</span>
             </div>
-            <input
-                id={inputId} type="text" value={value} onChange={handleChange}
+            <input id={inputId} type="text" value={value} onChange={handleChange}
                 maxLength={MAX} placeholder="CM90XXXXXXXX12"
-                className={styles.hwInput}
-                aria-describedby={inputId + '_hint'} autoComplete="off" autoCapitalize="characters"
-            />
-            <span id={inputId + '_hint'} className={styles.ninFormatHint} aria-live="polite">{hint}</span>
+                className={styles.hwInput} autoComplete="off" autoCapitalize="characters" />
         </div>
     );
 };
 
 const AddressInput = (props) => <SmartInput {...props} placeholder="Street, Town, District" />;
 
-// ─── CURRENCY INPUT ───────────────────────────────────────────────────
 const CurrencyInput = ({ label, value, onChange, error, id }) => {
     const [focused, setFocused] = useState(false);
     const inputId = id || 'cur-' + (label||'').replace(/\W/g,'-').toLowerCase();
@@ -366,30 +299,23 @@ const CurrencyInput = ({ label, value, onChange, error, id }) => {
                 <label htmlFor={inputId}>{label}</label>
                 <span className={styles.currencyTag}>UGX</span>
             </div>
-            <input
-                id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
                 inputMode="numeric" value={display}
                 onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
                 onChange={e => onChange(e.target.value.replace(/\D/g,''))}
-                placeholder="0" aria-invalid={error ? 'true' : 'false'}
-            />
+                placeholder="0" aria-invalid={error ? 'true' : 'false'} />
             {error && <span className={styles.fieldError} role="alert">{error}</span>}
         </div>
     );
 };
 
-// ─── CONFIRM MODAL ───────────────────────────────────────────────────
 const useConfirm = () => {
     const [state, setState] = useState({ open: false, title: '', message: '', variant: 'warn', resolve: null });
-
     const confirm = useCallback((title, message, variant = 'warn') =>
-        new Promise(resolve => setState({ open: true, title, message, variant, resolve })),
-    []);
-
+        new Promise(resolve => setState({ open: true, title, message, variant, resolve })), []);
     const handleAnswer = useCallback((answer) => {
         setState(s => { s.resolve?.(answer); return { ...s, open: false, resolve: null }; });
     }, []);
-
     return { confirmState: state, confirm, handleAnswer };
 };
 
@@ -397,25 +323,22 @@ const ConfirmModal = ({ state, onAnswer }) => {
     if (!state.open || typeof document === 'undefined') return null;
     const isDanger = state.variant === 'danger';
     return createPortal(
-        <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+        <div className={styles.confirmOverlay} role="dialog" aria-modal="true">
             <div className={styles.confirmBox}>
                 <div className={`${styles.confirmHeader} ${isDanger ? styles.confirmHeaderDanger : styles.confirmHeaderWarn}`}>
-                    {isDanger
-                        ? <FiAlertOctagon className={styles.confirmIcon} aria-hidden="true" />
-                        : <FiAlertTriangle className={styles.confirmIcon} aria-hidden="true" />
-                    }
-                    <span id="confirm-title" className={styles.confirmTitle}>{state.title}</span>
+                    {isDanger ? <FiAlertOctagon className={styles.confirmIcon} aria-hidden="true" />
+                              : <FiAlertTriangle className={styles.confirmIcon} aria-hidden="true" />}
+                    <span className={styles.confirmTitle}>{state.title}</span>
                 </div>
-                <p id="confirm-body" className={styles.confirmMessage}>{state.message}</p>
+                <p className={styles.confirmMessage}>{state.message}</p>
                 <div className={styles.confirmFooter}>
                     <button type="button" className={styles.confirmCancelBtn} onClick={() => onAnswer(false)} autoFocus>
                         <FiX aria-hidden="true" /> CANCEL
                     </button>
-                    <button type="button" className={`${styles.confirmOkBtn} ${isDanger ? styles.confirmOkDanger : styles.confirmOkWarn}`} onClick={() => onAnswer(true)}>
-                        {isDanger
-                            ? <><FiTrash2 aria-hidden="true" /> CONFIRM ERASE</>
-                            : <><FiCheckCircle aria-hidden="true" /> CONFIRM</>
-                        }
+                    <button type="button" className={`${styles.confirmOkBtn} ${isDanger ? styles.confirmOkDanger : styles.confirmOkWarn}`}
+                        onClick={() => onAnswer(true)}>
+                        {isDanger ? <><FiTrash2 aria-hidden="true" /> CONFIRM ERASE</>
+                                  : <><FiCheckCircle aria-hidden="true" /> CONFIRM</>}
                     </button>
                 </div>
             </div>
@@ -423,6 +346,8 @@ const ConfirmModal = ({ state, onAnswer }) => {
         document.body
     );
 };
+
+const fmt = (n) => Number(n || 0).toLocaleString();
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
@@ -432,21 +357,27 @@ const FolderPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
+    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
 
-    const [binder,     setBinder]     = useState(null);
-    const [buffer,     setBuffer]     = useState(null);
-    const [loading,    setLoading]    = useState(true);
-    const [loadError,  setLoadError]  = useState(false);
-    const [isEditing,  setIsEditing]  = useState(false);
-    const [committing, setCommitting] = useState(false);
-    const [fieldErrors,setFieldErrors]= useState({});
+    const [binder,      setBinder]      = useState(null);
+    const [buffer,      setBuffer]      = useState(null);
+    const [loading,     setLoading]     = useState(true);
+    const [loadError,   setLoadError]   = useState(false);
+    const [isEditing,   setIsEditing]   = useState(false);
+    const [committing,  setCommitting]  = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [payments,    setPayments]    = useState([]);
 
-    const [drawers, setDrawers] = useState({ tech:true, identity:true, finance:true, vault:true, intel:true });
+    const [drawers, setDrawers] = useState({ tech:true, identity:true, finance:true, vault:true, intel:true, payments:false });
     const toggleDrawer = (key) => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
-    const [noteModal, setNoteModal] = useState({ open:false, id:null, content:'' });
-    const { confirmState, confirm, handleAnswer } = useConfirm();
+    const [noteModal,  setNoteModal]  = useState({ open:false, id:null, content:'' });
+    const [payModal,   setPayModal]   = useState({ open:false });
+    const [payAmount,  setPayAmount]  = useState('');
+    const [payNotes,   setPayNotes]   = useState('');
+    const [paying,     setPaying]     = useState(false);
 
+    const { confirmState, confirm, handleAnswer } = useConfirm();
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
 
@@ -467,6 +398,7 @@ const FolderPage = () => {
             const data = await landService.getDeepBinder(id);
             if (!data) throw new Error('NULL_SIGNAL');
             setBinder(data);
+            setPayments(data.payments || []);
             setLoadError(false);
             if (!isEditing) {
                 setBuffer({
@@ -481,8 +413,6 @@ const FolderPage = () => {
                     physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
-                    planType:          data.project?.planType                     || '',
-                    weeklyInstallment: data.project?.weeklyInstallment            || 0,
                     isLegacy:          data.project?.isLegacy                     || false,
                     owners: (data.project?.proprietors || []).map(p => ({
                         fullName: p.fullName||'', phone: p.phoneNumber||'',
@@ -530,16 +460,13 @@ const FolderPage = () => {
     };
 
     const handleAbort = async () => {
-        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost. This cannot be undone.', 'warn');
+        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn');
         if (ok) { setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };
 
     const handleNuclearPurge = async () => {
-        const ok = await confirm(
-            '☢ NUCLEAR PURGE',
-            'You are about to PERMANENTLY and IRREVERSIBLY erase this entire archive entry including all documents and notes. This action cannot be undone.',
-            'danger'
-        );
+        const ok = await confirm('NUCLEAR PURGE',
+            'PERMANENTLY erase this entire archive entry including all documents and notes. Cannot be undone.', 'danger');
         if (!ok) return;
         try {
             await landService.purgeAsset(id);
@@ -586,7 +513,7 @@ const FolderPage = () => {
     };
 
     const handleDeleteDoc = async (docId, fileName) => {
-        const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"? This cannot be undone.', 'danger');
+        const ok = await confirm('DELETE DOCUMENT', `Delete "${fileName}"? Cannot be undone.`, 'danger');
         if (!ok) return;
         try {
             await landService.deleteDocument(docId);
@@ -607,7 +534,7 @@ const FolderPage = () => {
     };
 
     const handleDeleteNote = async (noteId) => {
-        const ok = await confirm('DELETE NOTE', 'Delete this interaction log entry? This cannot be undone.', 'danger');
+        const ok = await confirm('DELETE NOTE', 'Delete this entry? Cannot be undone.', 'danger');
         if (!ok) return;
         try {
             await landService.deleteStandaloneNote(noteId);
@@ -616,11 +543,44 @@ const FolderPage = () => {
         } catch { toast('DELETE FAILED', 'error'); }
     };
 
-    // VITAL FIX: Read base URL from environment variable — never hardcode localhost.
-    // In production (Render): uses VITE_API_BASE_URL from render.yaml.
-    // In local dev: uses VITE_API_BASE_URL from your .env.local file.
+    const handleMoveToBacklog = async () => {
+        const ok = await confirm('MOVE TO BACKLOG',
+            'This will freeze the current balance as original debt and start monthly storage fees of UGX 50,000. Continue?', 'warn');
+        if (!ok) return;
+        try {
+            await recoveryService.moveToBacklog(id);
+            await loadFolderData();
+            toast('PLOT MOVED TO BACKLOG — STORAGE FEES NOW ACTIVE', 'warn');
+        } catch (err) { toast('BACKLOG FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
+    };
+
+    const handleExitBacklog = async () => {
+        const ok = await confirm('EXIT BACKLOG',
+            'This will clear backlog status and storage fees. The original debt amount stays. Continue?', 'warn');
+        if (!ok) return;
+        try {
+            await recoveryService.exitBacklog(id);
+            await loadFolderData();
+            toast('PLOT REMOVED FROM BACKLOG', 'success');
+        } catch (err) { toast('EXIT FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
+    };
+
+    const handleRecordPayment = async () => {
+        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+        setPaying(true);
+        try {
+            await recoveryService.recordPayment(id, payAmount, payNotes);
+            await loadFolderData();
+            setPayModal({ open: false });
+            setPayAmount(''); setPayNotes('');
+            toast('PAYMENT RECORDED', 'success');
+        } catch { toast('PAYMENT FAILED', 'error', 8000); }
+        finally { setPaying(false); }
+    };
+
     const getVaultUrl = (filePath) => {
         if (!filePath) return '#';
+        if (filePath.startsWith('http')) return filePath;
         const parts = filePath.split(/ge_uploads[\\/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
         const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
@@ -640,31 +600,65 @@ const FolderPage = () => {
         </div>
     );
 
-    const arrearsTotal = (Number(buffer.totalCost)||0) - (Number(buffer.initialPayment)||0);
+    const project      = binder.project;
+    const isBacklog    = project?.isBacklog || false;
     const docCount     = (binder.documents||[]).length;
     const noteCount    = (binder.notes||[]).length;
+    const paymentCount = payments.length;
+
+    // Financial figures
+    const totalCost    = Number(project?.totalCost || 0);
+    const amountPaid   = Number(project?.amountPaid || 0);
+    const origDebt     = Number(project?.originalDebt || 0);
+    const storageFees  = Number(project?.storageFeesAccumulated || 0);
+    const backlogOwed  = origDebt + storageFees - amountPaid;
+    const activeOwed   = totalCost - amountPaid;
+    const remaining    = isBacklog ? Math.max(0, backlogOwed) : Math.max(0, activeOwed);
+    const arrearsEdit  = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
 
     return (
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-            <SavingOverlay visible={committing} />
+            <SavingOverlay visible={committing || paying} />
+
+            {/* BACKLOG BANNER */}
+            {isBacklog && (
+                <div style={{
+                    background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)',
+                    borderRadius: 8, padding: '12px 20px', marginBottom: 16,
+                    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
+                }}>
+                    <FiAlertOctagon style={{ color: '#ef4444', flexShrink: 0 }} size={20} />
+                    <div style={{ flex: 1 }}>
+                        <strong style={{ color: '#ef4444' }}>BACKLOG STATUS — STORAGE FEES ACTIVE</strong>
+                        <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: 2 }}>
+                            UGX 50,000 is added to this plot every month until the full balance is cleared.
+                        </div>
+                    </div>
+                    {isAdmin && (
+                        <button onClick={handleExitBacklog}
+                            style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444',
+                                color: '#ef4444', borderRadius: 6, padding: '6px 14px',
+                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}>
+                            EXIT BACKLOG
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* PIPELINE HUD */}
             <nav className={styles.pipelineHUD} aria-label="Project pipeline">
                 <div className={styles.track}>
                     {STAGE_LABELS.map((label, idx) => {
                         const num    = idx + 1;
-                        const active = binder.project.currentStageIndex >= num;
+                        const active = project.currentStageIndex >= num;
                         return (
                             <div key={num} className={styles.stageModule}>
-                                <div
-                                    className={`${styles.dot} ${active ? styles.dotActive : ''} ${isEditing ? styles.dotInteractive : ''}`}
+                                <div className={`${styles.dot} ${active ? styles.dotActive : ''} ${isEditing ? styles.dotInteractive : ''}`}
                                     onClick={() => handleStageClick(num)}
-                                    role={isEditing ? 'button' : 'img'}
-                                    tabIndex={isEditing ? 0 : -1}
-                                    aria-label={`Stage ${num}: ${label}${active ? ' (complete)' : ''}${isEditing ? ' — click to set' : ''}`}
-                                    onKeyDown={e => { if (isEditing && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); handleStageClick(num); }}}
-                                >
+                                    role={isEditing ? 'button' : 'img'} tabIndex={isEditing ? 0 : -1}
+                                    aria-label={`Stage ${num}: ${label}${active ? ' (complete)' : ''}`}
+                                    onKeyDown={e => { if (isEditing && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); handleStageClick(num); }}}>
                                     {active ? <FiCheckCircle aria-hidden="true" /> : num}
                                 </div>
                                 <span className={styles.stageLabel}>{label}</span>
@@ -673,7 +667,7 @@ const FolderPage = () => {
                     })}
                 </div>
                 <div className={styles.protocolReadout}>
-                    <strong>PROTOCOL: {binder.project.status}</strong>
+                    <strong>PROTOCOL: {project.status}</strong>
                     <span>REAL-TIME TRACKING ACTIVE</span>
                 </div>
             </nav>
@@ -681,22 +675,53 @@ const FolderPage = () => {
             {/* TERMINAL HEADER */}
             <header className={styles.terminalHeader}>
                 <div className={styles.idPlate}>
-                    <h1>{binder.project.landTitle.plotNumber}</h1>
+                    <h1>{project.landTitle.plotNumber}</h1>
                     <div className={styles.metaLine}>
-                        <span className={`${styles.metaTag} ${styles.tagBlue}`}>COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%</span>
-                        <span className={`${styles.metaTag} ${styles.tagOrange}`}>MODE: {binder.project.isLegacy ? 'BACKLOG' : 'NEW'}</span>
+                        <span className={`${styles.metaTag} ${styles.tagBlue}`}>
+                            COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
+                        </span>
+                        {isBacklog
+                            ? <span className={`${styles.metaTag}`} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>BACKLOG</span>
+                            : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>
+                        }
                         {isEditing && <div className={styles.editBadge}>EDIT MODE ENABLED</div>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
                     {!isEditing && <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>}
-                    {isEditing && user?.isRoot && <button className={styles.purgeBtn} onClick={handleNuclearPurge}><FiTrash2 aria-hidden="true" /> PURGE</button>}
+                    {isAdmin && !isEditing && !isBacklog && (
+                        <button onClick={handleMoveToBacklog}
+                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
+                                color: '#ef4444', borderRadius: 6, padding: '6px 14px',
+                                cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display:'flex', alignItems:'center', gap:6 }}>
+                            <FiAlertOctagon aria-hidden="true" /> MOVE TO BACKLOG
+                        </button>
+                    )}
+                    {isAdmin && !isEditing && (
+                        <button onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}
+                            style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)',
+                                color: '#22c55e', borderRadius: 6, padding: '6px 14px',
+                                cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display:'flex', alignItems:'center', gap:6 }}>
+                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                        </button>
+                    )}
+                    {isEditing && user?.isRoot && (
+                        <button className={styles.purgeBtn} onClick={handleNuclearPurge}>
+                            <FiTrash2 aria-hidden="true" /> PURGE
+                        </button>
+                    )}
                     {!isEditing ? (
-                        <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> UNLOCK MASTER HARDWARE</button>
+                        <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
+                            <FiUnlock aria-hidden="true" /> UNLOCK MASTER HARDWARE
+                        </button>
                     ) : (
                         <div className={styles.handshakeActions}>
-                            <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}><FiX aria-hidden="true" /> ABORT</button>
-                            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}><FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE CHANGES'}</button>
+                            <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
+                                <FiX aria-hidden="true" /> ABORT
+                            </button>
+                            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
+                                <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE CHANGES'}
+                            </button>
                         </div>
                     )}
                 </div>
@@ -729,9 +754,9 @@ const FolderPage = () => {
                                 </>
                             ) : (
                                 <div className={styles.readOnlyGrid}>
-                                    {[['PLOT ID',binder.project.landTitle.plotNumber],['TENURE',binder.project.landTitle.tenure],['BOX',binder.project.landTitle.physicalBoxNumber],
-                                      ['DISTRICT',binder.project.landTitle.district],['COUNTY',binder.project.landTitle.county],['BLOCK / ROAD',binder.project.landTitle.blockRoad],
-                                      ['VOLUME',binder.project.landTitle.volume],['FOLIO',binder.project.landTitle.folio],['INSTRUMENT',binder.project.landTitle.instrumentNo]
+                                    {[['PLOT ID',project.landTitle.plotNumber],['TENURE',project.landTitle.tenure],['BOX',project.landTitle.physicalBoxNumber],
+                                      ['DISTRICT',project.landTitle.district],['COUNTY',project.landTitle.county],['BLOCK / ROAD',project.landTitle.blockRoad],
+                                      ['VOLUME',project.landTitle.volume],['FOLIO',project.landTitle.folio],['INSTRUMENT',project.landTitle.instrumentNo]
                                     ].map(([l,v],i) => (
                                         <div key={i} className={styles.specItem}>
                                             <span className={styles.specLabel}>{l}</span>
@@ -746,7 +771,7 @@ const FolderPage = () => {
 
                 {/* OWNERS */}
                 <section className={styles.hwPanel} aria-label="Owners">
-                    <DrawerHeader label="OWNERS" count={binder.project.proprietors.length} isOpen={drawers.identity} onClick={() => toggleDrawer('identity')} icon={FiUsers} />
+                    <DrawerHeader label="OWNERS" count={project.proprietors.length} isOpen={drawers.identity} onClick={() => toggleDrawer('identity')} icon={FiUsers} />
                     <div className={`${styles.panelBody} ${drawers.identity ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.identity}>
                         <div className={styles.panelInner}>
                             <div className={styles.ownersScroll}>
@@ -760,7 +785,7 @@ const FolderPage = () => {
                                             <EmailInput value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
                                             <AddressInput label="HOME ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
                                         </div>
-                                    )) : binder.project.proprietors.map((p, i) => (
+                                    )) : project.proprietors.map((p, i) => (
                                         <div key={i} className={styles.ownerStaticCard} role="listitem">
                                             <h2 className={styles.ownerName}>{p.fullName}</h2>
                                             <div className={styles.infoColumns}>
@@ -788,23 +813,103 @@ const FolderPage = () => {
                                     <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => setBuffer({...buffer, initialPayment:v})} />
                                     <div className={styles.hwInputWrap}>
                                         <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
-                                        <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsTotal.toLocaleString()} disabled aria-label="Calculated arrears" />
+                                        <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
+                                    </div>
+                                </div>
+                            ) : isBacklog ? (
+                                /* BACKLOG FINANCIAL BREAKDOWN */
+                                <div>
+                                    <div className={styles.moneyStatsRow}>
+                                        <div className={styles.statBox}>
+                                            <label>ORIGINAL DEBT</label>
+                                            <strong>UGX {fmt(origDebt)}</strong>
+                                        </div>
+                                        <div className={styles.statBox}>
+                                            <label style={{color:'#ef4444'}}>STORAGE FEES ADDED</label>
+                                            <strong className={styles.redGlow}>UGX {fmt(storageFees)}</strong>
+                                            <small style={{opacity:0.6, fontSize:'0.7rem'}}>
+                                                {project.backlogStartDate
+                                                    ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()}`
+                                                    : ''}
+                                            </small>
+                                        </div>
+                                        <div className={styles.statBox}>
+                                            <label>TOTAL PAID (ALL)</label>
+                                            <strong>UGX {fmt(amountPaid)}</strong>
+                                        </div>
+                                    </div>
+                                    <div style={{ borderTop: '1px solid rgba(239,68,68,0.3)', marginTop: 12, paddingTop: 12 }}>
+                                        <div className={styles.moneyStatsRow}>
+                                            <div className={styles.statBox} style={{ gridColumn: '1/-1' }}>
+                                                <label style={{color:'#ef4444'}}>TOTAL NOW OWED</label>
+                                                <strong className={styles.redGlow} style={{fontSize:'1.4rem'}}>
+                                                    UGX {fmt(Math.max(0, backlogOwed))}
+                                                </strong>
+                                                <small style={{opacity:0.6, fontSize:'0.7rem'}}>
+                                                    = Original debt + storage fees − payments made
+                                                </small>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
+                                /* ACTIVE FINANCIAL */
                                 <>
                                     <div className={styles.moneyStatsRow}>
-                                        <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {(binder.project.totalCost||0).toLocaleString()}</strong></div>
-                                        <div className={styles.statBox}><label>COLLECTED</label><strong>UGX {(binder.project.amountPaid||0).toLocaleString()}</strong></div>
-                                        <div className={styles.statBox}><label>ARREARS</label><strong className={styles.redGlow}>UGX {(binder.remainingBalance||0).toLocaleString()}</strong></div>
+                                        <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
+                                        <div className={styles.statBox}><label>COLLECTED</label><strong>UGX {fmt(amountPaid)}</strong></div>
+                                        <div className={styles.statBox}><label>ARREARS</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
                                     </div>
                                     <div className={styles.velocityNote}>
                                         <FiClock aria-hidden="true" />
-                                        <span>WEEKLY INSTALLMENT: <strong>{(binder.project.weeklyInstallment||0).toLocaleString()} UGX</strong></span>
-                                        <div className={styles.vLine} aria-hidden="true" />
                                         <span>COLLECTION PERFORMANCE: <strong>{(binder.collectionPercentage||0).toFixed(1)}%</strong></span>
                                     </div>
                                 </>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                {/* PAYMENT HISTORY */}
+                <section className={styles.hwPanel} aria-label="Payment History">
+                    <DrawerHeader label="PAYMENT HISTORY" count={paymentCount} isOpen={drawers.payments} onClick={() => toggleDrawer('payments')} icon={FiActivity} />
+                    <div className={`${styles.panelBody} ${drawers.payments ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.payments}>
+                        <div className={styles.panelInner}>
+                            {paymentCount === 0 ? (
+                                <div className={styles.emptyState} role="status">
+                                    <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
+                                    <span>NO PAYMENTS RECORDED</span>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {payments.map((pay, i) => (
+                                        <div key={pay.id || i} style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
+                                            borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
+                                        }}>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                                    UGX {fmt(pay.amountPaid)}
+                                                </div>
+                                                <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
+                                                    {pay.paymentType} · by {pay.recordedBy}
+                                                    {pay.notes ? ` · ${pay.notes}` : ''}
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+                                                    {new Date(pay.timestamp).toLocaleDateString()}
+                                                </div>
+                                                {pay.balanceAfter != null && (
+                                                    <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>
+                                                        Balance after: UGX {fmt(pay.balanceAfter)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -816,7 +921,7 @@ const FolderPage = () => {
                         <DrawerHeader label="DOCUMENTS" count={docCount} isOpen={drawers.vault} onClick={() => toggleDrawer('vault')} icon={FiUploadCloud} />
                         <div className={`${styles.panelBody} ${drawers.vault ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.vault}>
                             <div className={styles.panelInner}>
-                                <div className={styles.compactVault} role="list" aria-label="Attached documents">
+                                <div className={styles.compactVault} role="list">
                                     {docCount === 0 && (
                                         <div className={styles.emptyState} role="status">
                                             <FiFileText className={styles.emptyIcon} aria-hidden="true" />
@@ -826,11 +931,13 @@ const FolderPage = () => {
                                     {binder.documents.map((doc, idx) => (
                                         <div key={idx} className={styles.docTag} role="listitem">
                                             <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                            <a href={getVaultUrl(doc.filePath)} target="_blank" rel="noreferrer" className={styles.docName} aria-label={`Open ${doc.fileName}`}>
+                                            <a href={getVaultUrl(doc.filePath)} target="_blank" rel="noreferrer"
+                                                className={styles.docName}>
                                                 {doc.fileName}
                                             </a>
                                             {isEditing && (
-                                                <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)} aria-label={`Delete ${doc.fileName}`}>
+                                                <button type="button" className={styles.iconBtn}
+                                                    onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
                                                     <FiTrash2 className={styles.redIcon} aria-hidden="true" />
                                                 </button>
                                             )}
@@ -850,7 +957,7 @@ const FolderPage = () => {
                         <DrawerHeader label="NOTES" count={noteCount} isOpen={drawers.intel} onClick={() => toggleDrawer('intel')} icon={FiInfo} />
                         <div className={`${styles.panelBody} ${drawers.intel ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.intel}>
                             <div className={styles.panelInner}>
-                                <div className={styles.notebookTimeline} role="list" aria-label="Case notes">
+                                <div className={styles.notebookTimeline} role="list">
                                     {noteCount === 0 && (
                                         <div className={styles.emptyState} role="status">
                                             <FiInfo className={styles.emptyIcon} aria-hidden="true" />
@@ -865,10 +972,12 @@ const FolderPage = () => {
                                                 </time>
                                                 {isEditing && (
                                                     <div className={styles.actionBlock}>
-                                                        <button type="button" className={styles.iconBtn} onClick={() => setNoteModal({open:true,id:log.id,content:log.notes})} aria-label="Edit note">
+                                                        <button type="button" className={styles.iconBtn}
+                                                            onClick={() => setNoteModal({open:true,id:log.id,content:log.notes})}>
                                                             <FiEdit3 className={styles.editIcon} aria-hidden="true" />
                                                         </button>
-                                                        <button type="button" className={styles.iconBtn} onClick={() => handleDeleteNote(log.id)} aria-label="Delete note">
+                                                        <button type="button" className={styles.iconBtn}
+                                                            onClick={() => handleDeleteNote(log.id)}>
                                                             <FiTrash2 className={styles.redIcon} aria-hidden="true" />
                                                         </button>
                                                     </div>
@@ -879,7 +988,8 @@ const FolderPage = () => {
                                     ))}
                                 </div>
                                 {isEditing && (
-                                    <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({open:true,id:null,content:''})}>
+                                    <button type="button" className={styles.addNoteBtn}
+                                        onClick={() => setNoteModal({open:true,id:null,content:''})}>
                                         + LOG INTERACTION
                                     </button>
                                 )}
@@ -889,29 +999,71 @@ const FolderPage = () => {
                 </div>
             </main>
 
-            <input
-                ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
+            <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
                 style={{ display:'none' }} aria-hidden="true" tabIndex={-1}
-                onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value=''; }}
-            />
+                onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value=''; }} />
 
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
+            {/* NOTE MODAL */}
             <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ARCHIVE LOG ENTRY">
-                <textarea
-                    className={styles.notebookArea}
-                    value={noteModal.content}
+                <textarea className={styles.notebookArea} value={noteModal.content}
                     onChange={e => setNoteModal({...noteModal,content:e.target.value})}
-                    placeholder="Enter interaction note..."
-                    aria-label="Note content"
-                />
+                    placeholder="Enter interaction note..." aria-label="Note content" />
                 <div className={styles.modalFooter}>
-                    <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={() => setNoteModal({open:false,id:null,content:''})}>
+                    <button type="button" className={`${styles.btn} ${styles.btnDanger}`}
+                        onClick={() => setNoteModal({open:false,id:null,content:''})}>
                         <FiX aria-hidden="true" /> CANCEL
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleNoteSave}>
                         <FiSave aria-hidden="true" /> SAVE ENTRY
                     </button>
+                </div>
+            </HardwareModal>
+
+            {/* PAYMENT MODAL */}
+            <HardwareModal isOpen={payModal.open} onClose={() => setPayModal({ open: false })} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
+                <div style={{ padding: '0 4px' }}>
+                    {isBacklog ? (
+                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                            borderRadius: 8, padding: 14, marginBottom: 16, display:'flex', gap: 12 }}>
+                            <FiAlertOctagon style={{ color: '#ef4444', flexShrink:0, marginTop:2 }} />
+                            <div style={{ fontSize: '0.85rem' }}>
+                                <div>Original debt: <strong>UGX {fmt(origDebt)}</strong></div>
+                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(storageFees)}</strong></div>
+                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(Math.max(0,backlogOwed))}</strong></div>
+                                <div style={{marginTop:6,opacity:0.6,fontSize:'0.75rem'}}>
+                                    Storage fees continue until full balance is cleared.
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ marginBottom: 16, fontSize: '0.85rem' }}>
+                            Current balance: <strong>UGX {fmt(remaining)}</strong>
+                        </div>
+                    )}
+                    <div style={{ marginBottom: 12 }}>
+                        <label style={{ display:'block', marginBottom:6, fontSize:'0.8rem', opacity:0.7 }}>AMOUNT RECEIVED (UGX)</label>
+                        <input type="number" style={{ width:'100%', padding:'10px 14px', borderRadius:6,
+                            background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
+                            color:'inherit', fontSize:'1.1rem' }}
+                            placeholder="Enter amount..." value={payAmount}
+                            onChange={e => setPayAmount(e.target.value)} />
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                        <label style={{ display:'block', marginBottom:6, fontSize:'0.8rem', opacity:0.7 }}>NOTES (optional)</label>
+                        <textarea style={{ width:'100%', padding:'10px 14px', borderRadius:6, height:80,
+                            background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
+                            color:'inherit', resize:'vertical' }}
+                            placeholder="e.g. Paid via MTN Mobile Money..."
+                            value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                    </div>
+                    <div className={styles.modalFooter}>
+                        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`}
+                            onClick={handleRecordPayment} disabled={paying}>
+                            <FiDollarSign aria-hidden="true" /> {paying ? 'PROCESSING...' : 'CONFIRM PAYMENT'}
+                        </button>
+                    </div>
                 </div>
             </HardwareModal>
         </div>
