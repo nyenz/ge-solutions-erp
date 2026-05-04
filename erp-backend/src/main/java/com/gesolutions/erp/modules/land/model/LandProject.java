@@ -51,11 +51,11 @@ public class LandProject {
     private String planType;
 
     // --- BACKLOG HARDWARE ---
-    // nullable = true so existing DB rows with no value don't cause errors
+    // Using Boolean (object) not boolean (primitive) so existing DB rows with NULL don't crash
 
     @Builder.Default
     @Column(name = "is_backlog")
-    private boolean isBacklog = false;
+    private Boolean isBacklog = false;
 
     @Column(name = "backlog_start_date")
     private LocalDateTime backlogStartDate;
@@ -88,6 +88,15 @@ public class LandProject {
     public void addProprietor(Client client) {
         if (this.proprietors == null) this.proprietors = new HashSet<>();
         if (client != null) this.proprietors.add(client);
+    }
+
+    // Safe null check — existing DB rows have NULL for isBacklog
+    public boolean isBacklog() {
+        return Boolean.TRUE.equals(this.isBacklog);
+    }
+
+    public void setBacklog(boolean value) {
+        this.isBacklog = value;
     }
 
     // Total owed for a BACKLOG plot
