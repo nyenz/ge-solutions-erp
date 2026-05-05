@@ -12,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 @RestController
@@ -27,7 +26,7 @@ public class PaymentController {
     @GetMapping("/all")
     public ResponseEntity<List<Map<String, Object>>> getAllPayments(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "200") int size) {
+            @RequestParam(defaultValue = "500") int size) {
 
         List<PaymentRecord> records = paymentRecordRepository.findAll(
                 PageRequest.of(page, size, Sort.by("timestamp").descending())
@@ -37,16 +36,15 @@ public class PaymentController {
 
         for (PaymentRecord pay : records) {
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id",          pay.getId());
-            row.put("projectId",   pay.getProjectId());
-            row.put("amountPaid",  pay.getAmountPaid());
-            row.put("paymentType", pay.getPaymentType());
-            row.put("recordedBy",  pay.getRecordedBy());
-            row.put("notes",       pay.getNotes());
-            row.put("balanceAfter",pay.getBalanceAfter());
-            row.put("timestamp",   pay.getTimestamp());
+            row.put("id",           pay.getId());
+            row.put("projectId",    pay.getProjectId());
+            row.put("amountPaid",   pay.getAmountPaid());
+            row.put("paymentType",  pay.getPaymentType());
+            row.put("recordedBy",   pay.getRecordedBy());
+            row.put("notes",        pay.getNotes());
+            row.put("balanceAfter", pay.getBalanceAfter());
+            row.put("timestamp",    pay.getTimestamp());
 
-            // Enrich with plot and owner info
             try {
                 LandProject project = projectRepository.findById(pay.getProjectId()).orElse(null);
                 if (project != null) {
@@ -56,10 +54,13 @@ public class PaymentController {
                             .map(c -> c.getFullName())
                             .orElse("---");
                     row.put("ownerName", ownerName);
+                } else {
+                    row.put("plotNumber", "---");
+                    row.put("ownerName",  "---");
                 }
             } catch (Exception e) {
                 row.put("plotNumber", "---");
-                row.put("ownerName", "---");
+                row.put("ownerName",  "---");
             }
 
             result.add(row);

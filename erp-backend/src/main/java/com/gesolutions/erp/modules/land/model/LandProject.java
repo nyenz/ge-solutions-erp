@@ -43,16 +43,13 @@ public class LandProject {
     @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    // Kept for backward compatibility, no longer used in new logic
     @Column(name = "weekly_installment", precision = 15, scale = 2)
     private BigDecimal weeklyInstallment;
 
     @Column(name = "plan_type", length = 100)
     private String planType;
 
-    // --- BACKLOG HARDWARE ---
-    // Using Boolean (object) not boolean (primitive) so existing DB rows with NULL don't crash
-
+    // Boolean (object not primitive) so existing DB rows with NULL don't crash
     @Builder.Default
     @Column(name = "is_backlog")
     private Boolean isBacklog = false;
@@ -71,8 +68,6 @@ public class LandProject {
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 
-    // --- OPERATIONAL CIRCUIT ---
-
     @Builder.Default
     @Column(name = "is_legacy", nullable = false)
     private boolean isLegacy = false;
@@ -90,7 +85,7 @@ public class LandProject {
         if (client != null) this.proprietors.add(client);
     }
 
-    // Safe null check — existing DB rows have NULL for isBacklog
+    // Safe null-check — old DB rows have NULL for isBacklog
     public boolean isBacklog() {
         return Boolean.TRUE.equals(this.isBacklog);
     }
@@ -99,7 +94,6 @@ public class LandProject {
         this.isBacklog = value;
     }
 
-    // Total owed for a BACKLOG plot
     public BigDecimal backlogTotalOwed() {
         BigDecimal base = originalDebt != null ? originalDebt : BigDecimal.ZERO;
         BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
@@ -107,7 +101,6 @@ public class LandProject {
         return base.add(fees).subtract(paid);
     }
 
-    // Total owed for an ACTIVE plot
     public BigDecimal activeTotalOwed() {
         BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
         BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
