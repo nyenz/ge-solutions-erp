@@ -1,0 +1,297 @@
+/* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(12px, 2vw, 24px);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+}
+
+.header {
+    border-left: 4px solid #EE8C3A;
+    padding: clamp(10px, 1.5vw, 16px) clamp(14px, 2vw, 24px);
+    background: rgba(255,255,255,0.55);
+    border-radius: 0 10px 10px 0;
+    backdrop-filter: blur(15px);
+    margin-bottom: clamp(14px, 2vw, 24px);
+}
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: #1a2e30;
+    font-size: clamp(16px, 2.4vw, 24px);
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: rgba(26,46,48,0.6);
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 600;
+    margin: 4px 0 0;
+}
+
+.summaryRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: clamp(10px, 1.5vw, 16px);
+    margin-bottom: clamp(14px, 2vw, 20px);
+}
+
+.sumCard {
+    background: linear-gradient(160deg, #1c3335, #213E40);
+    border: 1.5px solid rgba(238,140,58,0.25);
+    border-radius: 10px;
+    padding: clamp(12px, 1.6vw, 18px);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sumCard label {
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sumCard strong {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(14px, 1.8vw, 20px);
+    color: #fff;
+    font-weight: 700;
+}
+
+.sumCard span {
+    font-size: clamp(9px, 0.9vw, 11px);
+    color: rgba(255,255,255,0.35);
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1vw, 12px);
+    margin-bottom: clamp(14px, 2vw, 20px);
+}
+
+.searchWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1.5px solid #c8d6d7;
+    border-radius: 8px;
+    height: clamp(38px, 4.5vw, 44px);
+    max-width: 500px;
+    transition: border-color 0.2s;
+}
+
+.searchWrap:focus-within {
+    border-color: #EE8C3A;
+    box-shadow: 0 0 0 3px rgba(238,140,58,0.15);
+}
+
+.searchIcon {
+    position: absolute;
+    left: 12px;
+    color: #EE8C3A;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.searchInput {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #1a2e30;
+    padding: 0 36px 0 38px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: clamp(11px, 1.1vw, 13px);
+}
+
+.clearBtn {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: rgba(26,46,48,0.4);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+}
+
+.clearBtn:hover { color: #1a2e30; }
+
+.filterRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filterBtn {
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; }
+
+.filterActive {
+    background: #EE8C3A;
+    border-color: #EE8C3A;
+    color: #1a2e30;
+}
+
+.tableWrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(160deg, #1c3335, #213E40);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(10px, 1.1vw, 13px);
+    min-width: 700px;
+}
+
+.table thead tr {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.table th {
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(8px, 0.85vw, 10px);
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.row {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+    cursor: default;
+}
+
+.row:hover { background: rgba(255,255,255,0.03); }
+
+.table td {
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    color: rgba(255,255,255,0.85);
+    vertical-align: middle;
+}
+
+.dateCell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.time {
+    font-size: 10px;
+    opacity: 0.5;
+}
+
+.plotCell strong {
+    font-family: 'Space Mono', monospace;
+    color: #EE8C3A;
+    font-size: clamp(10px, 1.1vw, 13px);
+}
+
+.typeBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.amountCell strong {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 700;
+}
+
+.balanceCell {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(10px, 1vw, 12px);
+    opacity: 0.6;
+}
+
+.recorder {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: clamp(9px, 0.9vw, 11px);
+    opacity: 0.7;
+}
+
+.notesCell {
+    font-style: italic;
+    opacity: 0.6;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(9px, 0.9vw, 11px);
+}
+
+.goBtn {
+    background: rgba(238,140,58,0.1);
+    border: 1px solid rgba(238,140,58,0.3);
+    color: #EE8C3A;
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.goBtn:hover {
+    background: #EE8C3A;
+    color: #1a2e30;
+}
+
+.loading, .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 700;
+    font-size: clamp(12px, 1.3vw, 15px);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .summaryRow { grid-template-columns: 1fr; }
+    .filterRow { gap: 6px; }
+    .filterBtn { padding: 5px 10px; font-size: 9px; }
+}

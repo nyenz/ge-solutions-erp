@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -22,20 +23,44 @@ public class BacklogSchedulerService {
 
     private static final BigDecimal MONTHLY_STORAGE_FEE = new BigDecimal("50000");
 
-    // Runs at midnight on the 1st of every month
-    // Adds 50,000 UGX to every plot currently in backlog
-    @Scheduled(cron = "0 0 0 1 * *")
+    // Runs every day at midnight
+    // Adds 50,000 UGX to every backlog plot that is due for a monthly fee
+    // "Due" means: 30 days have passed since backlogStartDate (or last fee was applied)
+    // This replaces the old 1st-of-month scheduler
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void applyMonthlyStorageFees() {
         List<LandProject> backlogPlots = projectRepository.findAllBacklogPlots();
+        LocalDateTime now = LocalDateTime.now();
+
         for (LandProject plot : backlogPlots) {
-            BigDecimal current = plot.getStorageFeesAccumulated() != null
+            if (plot.getBacklogStartDate() == null) continue;
+
+            // How many 30-day periods have passed since backlog started?
+            long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
+            long periodsOwed = daysSinceBacklog / 30;
+
+            if (periodsOwed <= 0) continue;
+
+            // How many fees have already been applied?
+            // We calculate this from storageFeesAccumulated / 50000
+            BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
                     ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-            plot.setStorageFeesAccumulated(current.add(MONTHLY_STORAGE_FEE));
+            long feesAlreadyApplied = currentFees.divide(MONTHLY_STORAGE_FEE, 0, java.math.RoundingMode.DOWN).longValue();
+
+            if (feesAlreadyApplied >= periodsOwed) continue;
+
+            // Apply the missing fee periods
+            long feesMissing = periodsOwed - feesAlreadyApplied;
+            BigDecimal toAdd = MONTHLY_STORAGE_FEE.multiply(BigDecimal.valueOf(feesMissing));
+
+            plot.setStorageFeesAccumulated(currentFees.add(toAdd));
             projectRepository.save(plot);
+
             auditService.logAction("STORAGE_FEE_APPLIED",
-                "SYSTEM: Added UGX 50,000 storage fee to backlog plot: "
+                "SYSTEM: Added UGX " + toAdd + " storage fee to backlog plot: "
                 + plot.getLandTitle().getPlotNumber()
+                + " (" + feesMissing + " month(s) at UGX 50,000)"
                 + " | Total fees now: UGX " + plot.getStorageFeesAccumulated());
         }
     }
@@ -47,6 +72,7 @@ public class BacklogSchedulerService {
     public void autoFlagStaleAsBacklog() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(365);
         List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);
+
         for (LandProject plot : candidates) {
             BigDecimal outstanding = plot.getTotalCost().subtract(plot.getAmountPaid());
             if (outstanding.compareTo(BigDecimal.ZERO) <= 0) continue;

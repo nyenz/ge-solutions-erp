@@ -7,15 +7,16 @@ import { useAuth } from './hooks/useAuth';
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
 
-import LoginPage from './pages/login/LoginPage';
-import Dashboard from './pages/Dashboard/Dashboard';
-import IntakePage from './pages/Intake/IntakePage';
-import LedgerPage from './pages/Ledger/LedgerPage';
-import FolderPage from './pages/DigitalFolder/FolderPage';
+import LoginPage     from './pages/login/LoginPage';
+import Dashboard     from './pages/Dashboard/Dashboard';
+import IntakePage    from './pages/Intake/IntakePage';
+import LedgerPage    from './pages/Ledger/LedgerPage';
+import FolderPage    from './pages/DigitalFolder/FolderPage';
 import RecoveryPortal from './pages/Recovery/RecoveryPortal';
-import ReportHub from './pages/Reports/ReportHub';
-import AuditPage from './pages/Audit/AuditPage';
-import SettingsPage from './pages/settings/SettingsPage';
+import PaymentsPage  from './pages/Payments/PaymentsPage';
+import ReportHub     from './pages/Reports/ReportHub';
+import AuditPage     from './pages/Audit/AuditPage';
+import SettingsPage  from './pages/settings/SettingsPage';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
     const { user, token } = useAuth();
@@ -39,17 +40,15 @@ const AppRoutes = () => {
     return (
         <Routes>
             <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
-            
             <Route path="/dashboard" element={<ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute>} />
             <Route path="/land/new" element={<ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute>} />
             <Route path="/land/projects" element={<ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute>} />
             <Route path="/folder/:id" element={<ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute>} />
             <Route path="/recovery" element={<ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute>} />
+            <Route path="/payments" element={<ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Shell><SettingsPage /></Shell></ProtectedRoute>} />
-
             <Route path="/reports" element={<ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute>} />
             <Route path="/audit" element={<ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute>} />
-
             <Route path="*" element={<Navigate to={token ? "/dashboard" : "/login"} replace />} />
         </Routes>
     );
