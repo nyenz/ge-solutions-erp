@@ -2,658 +2,323 @@ import os
 
 files = {}
 
-# ── App.jsx — add /payments route ────────────────────────────────────
-files["erp-frontend/src/App.jsx"] = """\
-// PATH: erp-frontend/src/App.jsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthProvider';
-import { useAuth } from './hooks/useAuth';
+# ── Stage 3: Recovery Portal styling fixes ───────────────────────────
+# - Compact collapsed cards (slim, left-to-right flow)
+# - Better contrast (dark text on light backgrounds, light on dark)
+# - Cards flow left to right in a 2-column grid on desktop
+# - Expanded card has clear separation and readable text
 
-import CircuitBackground from './components/layout/CircuitBackground';
-import Shell from './components/layout/Shell';
+files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
+/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
 
-import LoginPage      from './pages/login/LoginPage';
-import Dashboard      from './pages/Dashboard/Dashboard';
-import IntakePage     from './pages/Intake/IntakePage';
-import LedgerPage     from './pages/Ledger/LedgerPage';
-import FolderPage     from './pages/DigitalFolder/FolderPage';
-import RecoveryPortal from './pages/Recovery/RecoveryPortal';
-import PaymentsPage   from './pages/Payments/PaymentsPage';
-import ReportHub      from './pages/Reports/ReportHub';
-import AuditPage      from './pages/Audit/AuditPage';
-import SettingsPage   from './pages/settings/SettingsPage';
-
-const ProtectedRoute = ({ children, adminOnly = false }) => {
-    const { user, token } = useAuth();
-    if (!token || !user) return <Navigate to="/login" replace />;
-    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN')) return <Navigate to="/dashboard" replace />;
-    return children;
-};
-
-const AppRoutes = () => {
-    const { user, token } = useAuth();
-
-    if (user && user.mustChangePassword) {
-        return (
-            <Routes>
-                <Route path="/settings" element={<Shell><SettingsPage /></Shell>} />
-                <Route path="*" element={<Navigate to="/settings" replace />} />
-            </Routes>
-        );
-    }
-
-    return (
-        <Routes>
-            <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute>} />
-            <Route path="/land/new" element={<ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute>} />
-            <Route path="/land/projects" element={<ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute>} />
-            <Route path="/folder/:id" element={<ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute>} />
-            <Route path="/recovery" element={<ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute>} />
-            <Route path="/payments" element={<ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute>} />
-            <Route path="/audit" element={<ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Shell><SettingsPage /></Shell></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to={token ? "/dashboard" : "/login"} replace />} />
-        </Routes>
-    );
-};
-
-function App() {
-    return (
-        <AuthProvider>
-            <Router>
-                <CircuitBackground />
-                <AppRoutes />
-            </Router>
-        </AuthProvider>
-    );
-}
-
-export default App;
-"""
-
-# ── Sidebar — add Payments link ───────────────────────────────────────
-files["erp-frontend/src/components/layout/Sidebar.jsx"] = """\
-// PATH: erp-frontend/src/components/layout/Sidebar.jsx
-import React, { useEffect, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import {
-    FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
-    FiSettings, FiBarChart2, FiShield, FiDollarSign
-} from 'react-icons/fi';
-import { useAuth } from '../../hooks/useAuth';
-import styles from './Sidebar.module.css';
-
-const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
-    const { user }  = useAuth();
-    const navigate  = useNavigate();
-    const location  = useLocation();
-
-    const isCollapsedRef = useRef(isCollapsed);
-    const onToggleRef    = useRef(onToggle);
-    useEffect(() => { isCollapsedRef.current = isCollapsed; }, [isCollapsed]);
-    useEffect(() => { onToggleRef.current    = onToggle;    }, [onToggle]);
-
-    const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;
-    const prevPathRef = useRef(location.pathname);
-
-    useEffect(() => {
-        const currentPath = location.pathname;
-        const prevPath    = prevPathRef.current;
-        if (currentPath !== prevPath) {
-            prevPathRef.current = currentPath;
-            if (isMobile() && !isCollapsedRef.current && typeof onToggleRef.current === 'function') {
-                onToggleRef.current();
-            }
-        }
-    }, [location.pathname]);
-
-    const isLocked           = user?.mustChangePassword;
-    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';
-
-    const navItems = [
-        { path: '/dashboard',     label: 'DASHBOARD', icon: <FiGrid       aria-hidden="true" />, access: true },
-        { path: '/land/new',      label: 'INTAKE',    icon: <FiPlusSquare aria-hidden="true" />, access: true },
-        { path: '/land/projects', label: 'LEDGER',    icon: <FiLayers     aria-hidden="true" />, access: true },
-        { path: '/recovery',      label: 'RECOVERY',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },
-        { path: '/payments',      label: 'PAYMENTS',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/reports',       label: 'REPORTS',   icon: <FiBarChart2  aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/audit',         label: 'AUDIT',     icon: <FiShield     aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/settings',      label: 'SETTINGS',  icon: <FiSettings   aria-hidden="true" />, access: true },
-    ];
-
-    const handleLockedClick = (e, item) => {
-        e.preventDefault();
-        if (typeof onLockedClick === 'function') onLockedClick(item.label);
-        navigate('/settings');
-    };
-
-    const showBackdrop = isMobile() && !isCollapsed;
-
-    return (
-        <>
-            {showBackdrop && (
-                <div className={styles.sidebarBackdrop}
-                    onClick={() => typeof onToggle === 'function' && onToggle()}
-                    aria-hidden="true" />
-            )}
-            <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}
-                aria-label="System navigation">
-                <nav className={styles.sidebarNav} aria-label="Main menu">
-                    <div className={styles.navSection}>
-                        <p className={styles.navSectionTitle} aria-hidden="true">
-                            {isCollapsed ? 'SYS' : 'SYSTEM MODULES'}
-                        </p>
-                        {navItems.map(item => {
-                            if (!item.access) return null;
-                            const locked = isLocked && item.path !== '/settings';
-                            return (
-                                <NavLink key={item.path} to={item.path}
-                                    aria-label={isCollapsed ? item.label : undefined}
-                                    aria-disabled={locked ? 'true' : undefined}
-                                    className={({ isActive }) =>
-                                        [styles.navItem, isActive ? styles.active : '', locked ? styles.navItemLocked : ''].filter(Boolean).join(' ')
-                                    }
-                                    onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    {!isCollapsed && <span className={styles.navText}>{item.label}</span>}
-                                </NavLink>
-                            );
-                        })}
-                    </div>
-                </nav>
-                <footer className={styles.sidebarFooter} aria-label="NYENZ branding">
-                    <div className={styles.branding} aria-hidden="true">NYENZ</div>
-                    {!isCollapsed && <div className={styles.version} aria-hidden="true">V.2.0.1-PROD</div>}
-                </footer>
-            </aside>
-        </>
-    );
-};
-
-export default Sidebar;
-"""
-
-# ── New Payments page JSX ─────────────────────────────────────────────
-os.makedirs("erp-frontend/src/pages/Payments", exist_ok=True)
-
-files["erp-frontend/src/pages/Payments/PaymentsPage.jsx"] = """\
-// PATH: erp-frontend/src/pages/Payments/PaymentsPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiDollarSign, FiSearch, FiX,
-    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw
-} from 'react-icons/fi';
-import api from '../../api/axios';
-import styles from './PaymentsPage.module.css';
-
-const fmt = (n) => Number(n || 0).toLocaleString();
-
-const TYPE_LABELS = {
-    STANDARD:        'Title Payment',
-    INITIAL_DEPOSIT: 'Initial Deposit',
-    BACKLOG_PARTIAL: 'Backlog Payment',
-};
-
-const TYPE_COLORS = {
-    STANDARD:        '#22c55e',
-    INITIAL_DEPOSIT: '#06b6d4',
-    BACKLOG_PARTIAL: '#ef4444',
-};
-
-const PaymentsPage = () => {
-    const navigate = useNavigate();
-    const [payments,   setPayments]   = useState([]);
-    const [loading,    setLoading]    = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [typeFilter, setTypeFilter] = useState('ALL');
-    const [sortDir,    setSortDir]    = useState('desc');
-
-    const loadPayments = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await api.get('/recovery/payments/all');
-            setPayments(res.data || []);
-        } catch {
-            setPayments([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => { loadPayments(); }, [loadPayments]);
-
-    const filtered = useMemo(() => {
-        let list = [...payments];
-        if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);
-        if (searchTerm.trim()) {
-            const t = searchTerm.toLowerCase();
-            list = list.filter(p =>
-                p.plotNumber?.toLowerCase().includes(t) ||
-                p.ownerName?.toLowerCase().includes(t) ||
-                p.recordedBy?.toLowerCase().includes(t) ||
-                p.notes?.toLowerCase().includes(t)
-            );
-        }
-        list.sort((a, b) => {
-            const da = new Date(a.timestamp), db = new Date(b.timestamp);
-            return sortDir === 'desc' ? db - da : da - db;
-        });
-        return list;
-    }, [payments, typeFilter, searchTerm, sortDir]);
-
-    const totalCollected = useMemo(() =>
-        filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-
-    const titleTotal = useMemo(() =>
-        filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL')
-                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-
-    const storageTotal = useMemo(() =>
-        filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL')
-                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-
-    return (
-        <div className={styles.container}>
-            <header className={styles.header}>
-                <div>
-                    <h1 className={styles.title}>PAYMENTS</h1>
-                    <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
-                </div>
-                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={16} />
-                </button>
-            </header>
-
-            <div className={styles.summaryRow}>
-                <div className={styles.sumCard}>
-                    <label>TOTAL SHOWN</label>
-                    <strong>UGX {fmt(totalCollected)}</strong>
-                    <span>{filtered.length} records</span>
-                </div>
-                <div className={styles.sumCard} style={{ borderColor: '#22c55e' }}>
-                    <label style={{ color: '#22c55e' }}>TITLE PAYMENTS</label>
-                    <strong style={{ color: '#22c55e' }}>UGX {fmt(titleTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL').length} records</span>
-                </div>
-                <div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>
-                    <label style={{ color: '#ef4444' }}>BACKLOG PAYMENTS</label>
-                    <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL').length} records</span>
-                </div>
-            </div>
-
-            <div className={styles.controls}>
-                <div className={styles.searchWrap}>
-                    <FiSearch className={styles.searchIcon} />
-                    <input type="search" className={styles.searchInput}
-                        placeholder="Search plot ID, owner name, recorded by..."
-                        value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                    {searchTerm && (
-                        <button className={styles.clearBtn} onClick={() => setSearchTerm('')}>
-                            <FiX size={14} />
-                        </button>
-                    )}
-                </div>
-                <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
-                        <button key={t}
-                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
-                            onClick={() => setTypeFilter(t)}>
-                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}
-                        </button>
-                    ))}
-                    <button className={styles.filterBtn}
-                        onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
-                        DATE {sortDir === 'desc' ? '↓ NEWEST' : '↑ OLDEST'}
-                    </button>
-                </div>
-            </div>
-
-            {loading ? (
-                <div className={styles.loading}>Loading payments...</div>
-            ) : filtered.length === 0 ? (
-                <div className={styles.empty}>No payment records found.</div>
-            ) : (
-                <div className={styles.tableWrap}>
-                    <table className={styles.table}>
-                        <thead>
-                            <tr>
-                                <th>DATE</th>
-                                <th>PLOT</th>
-                                <th>OWNER</th>
-                                <th>TYPE</th>
-                                <th>AMOUNT PAID</th>
-                                <th>BALANCE AFTER</th>
-                                <th>RECORDED BY</th>
-                                <th>NOTES</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map((pay, i) => (
-                                <tr key={pay.id || i} className={styles.row}>
-                                    <td>
-                                        <div className={styles.dateCell}>
-                                            <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
-                                            <span className={styles.time}>
-                                                {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
-                                    </td>
-                                    <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
-                                    <td>
-                                        <span className={styles.typeBadge} style={{
-                                            background: `${TYPE_COLORS[pay.paymentType] || '#888'}22`,
-                                            color: TYPE_COLORS[pay.paymentType] || '#888',
-                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}44`
-                                        }}>
-                                            {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
-                                            {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
-                                            UGX {fmt(pay.amountPaid)}
-                                        </strong>
-                                    </td>
-                                    <td className={styles.balance}>
-                                        {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
-                                    </td>
-                                    <td>
-                                        <span className={styles.recorder}>
-                                            <FiUser size={10} /> {pay.recordedBy}
-                                        </span>
-                                    </td>
-                                    <td className={styles.notesCell}>{pay.notes || '---'}</td>
-                                    <td>
-                                        {pay.projectId && (
-                                            <button className={styles.goBtn}
-                                                onClick={() => navigate(`/folder/${pay.projectId}`)}>
-                                                <FiChevronRight size={13} />
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default PaymentsPage;
-"""
-
-# ── New Payments page CSS ─────────────────────────────────────────────
-files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
-/* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
 .container {
-    max-width: 1400px;
+    --orange:        #EE8C3A;
+    --orange-dim:    rgba(238,140,58,0.15);
+    --orange-border: rgba(238,140,58,0.3);
+    --navy:          #1a2e30;
+    --navy-mid:      #213E40;
+    --panel-bg:      linear-gradient(160deg,#1c3335 0%,#213E40 100%);
+    --red:           #ef4444;
+    --emerald:       #10b981;
+    --cyan:          #06b6d4;
+    --gap-xl:   clamp(12px,1.8vw,20px);
+    --gap-lg:   clamp(8px,1.2vw,14px);
+    --gap-md:   clamp(6px,0.9vw,11px);
+    --pad-card: clamp(12px,1.5vw,18px);
+    --radius:   10px;
+    --radius-sm:7px;
+    --fs-label: clamp(8px,0.82vw,10px);
+    --fs-meta:  clamp(9px,0.9vw,11px);
+    --fs-value: clamp(11px,1.1vw,13px);
+    --fs-phone: clamp(11px,1.1vw,13px);
+    --fs-owner: clamp(13px,1.4vw,16px);
+    --fs-demand:clamp(13px,1.5vw,17px);
+    --fs-badge: clamp(7px,0.75vw,9px);
+    --fs-btn:   clamp(9px,0.9vw,11px);
+    --fs-note:  clamp(10px,1vw,12px);
+    --fs-h1:    clamp(16px,2.2vw,22px);
+    max-width: 1600px;
     margin: 0 auto;
-    padding: clamp(12px, 2vw, 24px);
-    font-family: 'DM Sans', sans-serif;
+    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) clamp(24px,4vw,48px);
+    font-family: 'DM Sans',sans-serif;
     color: #fff;
 }
 
+/* ── TOAST ── */
+.toastContainer { position:fixed; bottom:20px; right:20px; z-index:99999; display:flex; flex-direction:column-reverse; gap:8px; max-width:360px; pointer-events:none; }
+.toast { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:8px; box-shadow:0 6px 22px rgba(0,0,0,0.5); pointer-events:all; }
+.toast_success { background:rgba(16,185,129,0.95); border-left:4px solid #059669; color:#fff; }
+.toast_error   { background:rgba(239,68,68,0.95);  border-left:4px solid #b91c1c; color:#fff; }
+.toast_warn    { background:rgba(245,158,11,0.95); border-left:4px solid #b45309; color:#fff; }
+.toast_info    { background:rgba(6,182,212,0.95);  border-left:4px solid #0369a1; color:#fff; }
+.toastIcon  { font-size:15px; flex-shrink:0; margin-top:1px; }
+.toastMsg   { font-family:'Space Mono',monospace; font-size:10px; font-weight:700; line-height:1.4; flex:1; min-width:0; word-break:break-word; }
+.toastClose { background:transparent; border:none; color:inherit; opacity:0.6; cursor:pointer; padding:2px; font-size:13px; flex-shrink:0; }
+.toastClose:hover { opacity:1; }
+
+/* ── BOOT ── */
+.bootScreen  { height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+.bootSpinner { width:36px; height:36px; border:3px solid rgba(238,140,58,0.15); border-top-color:#EE8C3A; border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.bootLabel   { font-family:'Cinzel',serif; font-size:11px; font-weight:700; letter-spacing:4px; color:#EE8C3A; text-transform:uppercase; }
+
+/* ── HEADER ── */
 .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-left: 4px solid #EE8C3A;
-    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 24px);
-    background: rgba(255,255,255,0.55);
-    border-radius: 0 10px 10px 0;
-    backdrop-filter: blur(15px);
-    margin-bottom: clamp(14px, 2vw, 22px);
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:var(--gap-md); margin-bottom:var(--gap-xl);
+    border-left:4px solid var(--orange);
+    padding:clamp(10px,1.3vw,14px) clamp(14px,2vw,22px);
+    background:rgba(255,255,255,0.55);
+    border-radius:0 var(--radius) var(--radius) 0;
+    backdrop-filter:blur(15px);
+}
+.titleBlock { display:flex; flex-direction:column; gap:8px; }
+.title { font-family:'Cinzel',serif; color:var(--navy); font-size:var(--fs-h1); font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin:0; }
+.modeSwitch { display:inline-flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; }
+.modeActive   { background:var(--orange); color:var(--navy); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.modeInactive { background:transparent; color:rgba(255,255,255,0.6); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:background 0.2s,color 0.2s; }
+.modeInactive:hover { background:rgba(255,255,255,0.08); color:#fff; }
+.hudStats { display:flex; gap:var(--gap-md); }
+.statBox { background:var(--navy); padding:8px 18px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); text-align:center; }
+.statBox label { display:block; font-family:'DM Sans',sans-serif; color:rgba(255,255,255,0.5); font-size:var(--fs-label); font-weight:900; margin-bottom:3px; text-transform:uppercase; letter-spacing:1px; }
+.statBox strong { font-family:'Space Mono',monospace; font-size:clamp(15px,1.8vw,20px); color:#fff; line-height:1; }
+
+/* ── SEARCH ── */
+.filterBar { margin-bottom:var(--gap-xl); }
+.searchInner { position:relative; display:flex; align-items:center; background:#fff; border:1.5px solid #c8d6d7; border-radius:var(--radius-sm); width:100%; max-width:clamp(300px,42vw,500px); height:clamp(36px,4vw,42px); transition:border-color 0.2s; }
+.searchInner:focus-within { border-color:var(--orange); box-shadow:0 0 0 3px rgba(238,140,58,0.15); }
+.searchIcon { position:absolute; left:12px; color:var(--orange); font-size:16px; pointer-events:none; }
+.searchInput { width:100%; border:none; outline:none; background:transparent; color:var(--navy); padding:0 34px 0 38px; font-family:'DM Sans',sans-serif; font-weight:800; font-size:clamp(11px,1.1vw,13px); }
+.searchInput::placeholder { font-weight:500; color:rgba(26,46,48,0.3); }
+.searchClear { position:absolute; right:8px; background:transparent; border:none; cursor:pointer; color:rgba(26,46,48,0.4); display:flex; align-items:center; padding:3px; border-radius:4px; }
+.searchClear:hover { color:var(--navy); }
+
+/* ── SECTION GROUPS ── */
+.sectionGroup { margin-bottom:var(--gap-xl); }
+.sectionHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:2px; margin-bottom:var(--gap-lg); display:flex; align-items:center; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.07); }
+.sectionHeaderBacklog { color:#fca5a5; border-bottom-color:rgba(239,68,68,0.2); }
+
+/* ── MISSION GRID — 2 columns desktop, 1 column mobile ── */
+.missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }
+
+.cardsGrid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));
+    gap:var(--gap-md);
 }
 
-.title {
-    font-family: 'Cinzel', serif;
-    color: #1a2e30;
-    font-size: clamp(16px, 2.2vw, 22px);
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: 2px;
+/* ── MISSION CARD ── */
+/* Collapsed = slim single row. Expanded = full detail. */
+.missionCard {
+    background:var(--panel-bg);
+    border:1.5px solid rgba(238,140,58,0.2);
+    border-radius:var(--radius);
+    box-shadow:0 3px 10px rgba(0,0,0,0.2);
+    transition:border-color 0.2s,box-shadow 0.2s;
+    overflow:hidden;
+    outline:none;
+    width:100%;
+}
+.missionCard:hover { border-color:rgba(238,140,58,0.45); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+.missionCard:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
+.cardLocked  { opacity:0.75; filter:grayscale(0.4); border-style:dashed; }
+.cardBacklog { border-color:rgba(239,68,68,0.35); }
+.cardBacklog:hover { border-color:rgba(239,68,68,0.6); }
+
+/* ── STATUS BADGE — top right corner ── */
+.statusBadge {
+    float:right;
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px;
+    border-bottom-left-radius:6px;
+    font-family:'DM Sans',sans-serif;
+    font-size:var(--fs-badge); font-weight:900;
+    letter-spacing:0.8px; text-transform:uppercase;
+}
+.statusRed   { background:#7f1d1d; color:#fca5a5; }
+.statusBlue  { background:#0c4a6e; color:#bae6fd; }
+.statusGrey  { background:#27272a; color:#94a3b8; }
+.statusDefault { background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.5); }
+.backlogTag  { background:rgba(239,68,68,0.25); color:#fca5a5; border-radius:3px; padding:1px 5px; font-size:8px; margin-left:4px; }
+
+/* ── CARD HEADER — compact, always visible ── */
+/* Shows: name | phone | total demand | expand arrow */
+.cardHeader {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:clamp(10px,1.2vw,13px) var(--pad-card);
+    cursor:pointer;
+    user-select:none;
+    clear:both;
+    gap:10px;
+}
+.identity { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.ownerName { font-family:'Cinzel',serif; color:#fff; font-size:var(--fs-owner); font-weight:700; margin:0; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.phoneNum  { font-family:'Space Mono',monospace; color:var(--orange); font-weight:900; font-size:var(--fs-phone); }
+
+/* demand shown inline in collapsed card */
+.totalDemandRow { display:flex; align-items:baseline; gap:6px; margin-top:2px; }
+.demandLabel { font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
+.demandValue { font-family:'Space Mono',monospace; font-size:var(--fs-demand); color:#fff; font-weight:700; }
+.feesRow { display:flex; align-items:center; gap:5px; font-size:var(--fs-label); color:#fca5a5; font-weight:800; margin-top:2px; }
+
+.expandIcon { color:rgba(255,255,255,0.3); font-size:18px; transition:color 0.2s,transform 0.2s; flex-shrink:0; }
+.missionCard:hover .expandIcon { color:var(--orange); }
+
+/* ── CARD BODY — only visible when expanded ── */
+.cardBody { padding:0 var(--pad-card) var(--pad-card); }
+.divider  { height:1px; background:linear-gradient(90deg,var(--orange),transparent); margin:10px 0; opacity:0.15; }
+
+/* timing row — dark bg with light text for contrast */
+.timingRow {
+    display:flex; align-items:center; flex-wrap:wrap; gap:4px;
+    font-size:var(--fs-meta); color:#e2e8f0; font-weight:700;
+    margin-bottom:10px;
+    background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:6px;
+}
+.timingRow strong { color:#fff; }
+
+/* ── PLOTS LIST ── */
+.plotsList { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+.plotsHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+
+.plotRow {
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+    background:rgba(0,0,0,0.25); border-radius:8px; padding:10px 12px;
+    border-left:3px solid rgba(238,140,58,0.35);
+}
+.plotRowBacklog { border-left-color:rgba(239,68,68,0.6); background:rgba(239,68,68,0.06); }
+.plotRowLeft { display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; }
+.plotInfo  { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
+.plotNumber { font-family:'Space Mono',monospace; color:var(--orange); font-size:clamp(11px,1.1vw,13px); font-weight:700; }
+.plotBox    { font-size:var(--fs-meta); color:rgba(255,255,255,0.55); font-weight:700; }
+
+.backlogBreakdown { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+.backlogPlotTag {
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(239,68,68,0.2); color:#fca5a5;
+    border:1px solid rgba(239,68,68,0.35);
+    border-radius:4px; padding:2px 7px;
+    font-size:9px; font-weight:800; text-transform:uppercase;
+    margin-bottom:4px; width:fit-content;
+}
+/* debt lines — light text on dark bg = readable */
+.debtLine { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
+.debtLine strong { color:#fff; }
+
+.activePlotFinance { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
+.activePlotFinance strong { color:#fff; }
+
+.lastNote { display:flex; align-items:flex-start; gap:5px; font-size:var(--fs-label); color:rgba(255,255,255,0.45); font-style:italic; margin-top:5px; font-weight:600; line-height:1.4; }
+
+.plotRowActions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
+
+/* ── CARD ACTIONS ── */
+.cardActions { display:flex; gap:var(--gap-md); margin-top:12px; flex-wrap:wrap; }
+.logCallBtn {
+    flex:1; min-width:120px;
+    background:var(--orange); color:var(--navy);
+    font-family:'DM Sans',sans-serif; font-weight:900;
+    border-radius:var(--radius-sm); font-size:var(--fs-btn);
+    text-transform:uppercase; letter-spacing:1px;
+    padding:10px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    border:2px solid var(--orange); transition:background 0.2s;
+}
+.logCallBtn:hover:not(:disabled) { background:#d4732a; border-color:#d4732a; }
+.logCallBtn:disabled { background:transparent; color:rgba(255,255,255,0.2); border-color:rgba(255,255,255,0.1); cursor:not-allowed; }
+
+/* folder and pay buttons — clearly visible on dark bg */
+.folderBtn {
+    background:rgba(255,255,255,0.1); border:1.5px solid rgba(255,255,255,0.25);
+    color:#fff; font-family:'DM Sans',sans-serif; font-weight:900;
+    border-radius:var(--radius-sm); font-size:var(--fs-btn);
+    padding:7px 12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    transition:all 0.2s; white-space:nowrap;
+}
+.folderBtn:hover { border-color:var(--orange); color:var(--orange); background:rgba(238,140,58,0.1); }
+
+.payBtn {
+    background:rgba(34,197,94,0.12); border:1.5px solid rgba(34,197,94,0.4);
+    color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900;
+    border-radius:var(--radius-sm); font-size:var(--fs-btn);
+    padding:7px 12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    transition:all 0.2s; white-space:nowrap;
+}
+.payBtn:hover { background:#22c55e; color:#1a2e30; border-color:#22c55e; }
+
+/* ── EMPTY STATE ── */
+.emptyGate { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:60px 20px; text-align:center; }
+.emptyIcon  { font-size:50px; color:var(--emerald); opacity:0.25; }
+.emptyTitle { font-family:'Cinzel',serif; font-size:clamp(13px,1.6vw,18px); font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1.5px; margin:0; }
+
+/* ── MODAL ── */
+.modalBody     { padding-top:10px; }
+
+/* history stream — white bg, dark text for readability */
+.historyStream { max-height:180px; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:14px; border:1px solid #e2e8f0; scrollbar-width:thin; }
+.historyTitle  { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:900; color:#64748b; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+.historyItem   { border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px; }
+.historyItem:last-child { border-bottom:none; margin-bottom:0; }
+.historyMeta   { display:flex; justify-content:space-between; align-items:center; font-family:'DM Sans',sans-serif; font-size:10px; font-weight:800; color:#EE8C3A; margin-bottom:4px; }
+.historyItem p { font-family:'DM Sans',sans-serif; font-size:12px; color:#1a2e30; line-height:1.5; font-weight:600; margin:0; }
+.emptyHistory  { font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#94a3b8; text-align:center; padding:20px 0; }
+
+/* textarea — white bg, dark text, orange border */
+.notebookArea {
+    width:100%; min-height:90px;
+    background:#fff; border-radius:8px;
+    border:1.5px solid rgba(238,140,58,0.5);
+    padding:10px 12px; color:#1a2e30;
+    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+    resize:vertical; box-sizing:border-box; display:block; outline:none;
+    transition:box-shadow 0.2s;
+}
+.notebookArea:focus { box-shadow:0 0 0 3px rgba(238,140,58,0.2); }
+.notebookArea::placeholder { font-weight:500; color:rgba(26,46,48,0.3); }
+
+.modalFooter { margin-top:12px; display:flex; justify-content:flex-end; }
+
+/* payment info boxes in modal */
+.backlogPayInfo {
+    display:flex; align-items:flex-start; gap:12px;
+    background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+    border-radius:8px; padding:14px; margin-bottom:14px;
+    font-size:13px; color:#f1f5f9;
+}
+.activePayInfo {
+    background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25);
+    border-radius:8px; padding:12px; margin-bottom:14px;
+    font-size:13px; color:#f1f5f9;
 }
 
-.subtitle {
-    color: rgba(26,46,48,0.6);
-    font-size: clamp(10px, 1.1vw, 13px);
-    font-weight: 600;
-    margin: 4px 0 0;
+/* ── RESPONSIVE ── */
+@media (max-width:900px) {
+    .cardsGrid { grid-template-columns:1fr; }
+    .header    { flex-direction:column; align-items:flex-start; }
+    .hudStats  { width:100%; }
+    .modeSwitch { width:100%; }
+    .modeActive,.modeInactive { flex:1; justify-content:center; }
 }
 
-.refreshBtn {
-    background: rgba(26,46,48,0.08);
-    border: 1px solid rgba(26,46,48,0.15);
-    color: #1a2e30;
-    border-radius: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
-.refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
-
-.summaryRow {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 20px);
+@media (max-width:600px) {
+    .cardActions { flex-direction:column; }
+    .plotRow     { flex-direction:column; }
+    .plotRowActions { flex-direction:row; }
+    .searchInner { max-width:100%; }
 }
 
-.sumCard {
-    background: linear-gradient(160deg, #1c3335, #213E40);
-    border: 1.5px solid rgba(238,140,58,0.25);
-    border-radius: 10px;
-    padding: clamp(12px, 1.5vw, 18px);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sumCard label {
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 900;
-    color: rgba(255,255,255,0.4);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.sumCard strong {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(13px, 1.6vw, 19px);
-    color: #fff;
-    font-weight: 700;
-}
-
-.sumCard span {
-    font-size: clamp(9px, 0.88vw, 11px);
-    color: rgba(255,255,255,0.3);
-}
-
-.controls {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 1vw, 12px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}
-
-.searchWrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    background: #fff;
-    border: 1.5px solid #c8d6d7;
-    border-radius: 8px;
-    height: clamp(38px, 4.2vw, 44px);
-    max-width: clamp(280px, 45vw, 520px);
-    transition: border-color 0.2s;
-}
-.searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-
-.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: 16px; pointer-events: none; }
-
-.searchInput {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: #1a2e30;
-    padding: 0 36px 0 38px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    font-size: clamp(11px, 1.1vw, 13px);
-}
-.searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
-
-.clearBtn {
-    position: absolute;
-    right: 8px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: rgba(26,46,48,0.4);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    border-radius: 4px;
-}
-.clearBtn:hover { color: #1a2e30; }
-
-.filterRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.filterBtn {
-    background: rgba(255,255,255,0.06);
-    border: 1.5px solid rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.7);
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 800;
-    font-size: clamp(9px, 0.88vw, 11px);
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; }
-.filterActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-
-.tableWrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(160deg, #1c3335, #213E40);
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: clamp(10px, 1.05vw, 13px);
-    min-width: 680px;
-}
-
-.table thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
-
-.table th {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    color: rgba(255,255,255,0.4);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
-.row:hover { background: rgba(255,255,255,0.03); }
-
-.table td {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    color: rgba(255,255,255,0.85);
-    vertical-align: middle;
-}
-
-.dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
-.time { font-size: 10px; opacity: 0.45; }
-
-.plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); }
-
-.ownerCell { font-weight: 700; }
-
-.typeBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 800;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
-
-.balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); opacity: 0.55; }
-
-.recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); opacity: 0.65; }
-
-.notesCell {
-    font-style: italic;
-    opacity: 0.55;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(9px, 0.88vw, 11px);
-}
-
-.goBtn {
-    background: rgba(238,140,58,0.1);
-    border: 1px solid rgba(238,140,58,0.3);
-    color: #EE8C3A;
-    border-radius: 6px;
-    padding: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
-.goBtn:hover { background: #EE8C3A; color: #1a2e30; }
-
-.loading, .empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: rgba(255,255,255,0.35);
-    font-weight: 700;
-    font-size: clamp(12px, 1.3vw, 15px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-@media (max-width: 768px) {
-    .summaryRow { grid-template-columns: 1fr; }
-    .filterRow { gap: 6px; }
-    .filterBtn { padding: 5px 10px; font-size: 9px; }
-    .searchWrap { max-width: 100%; }
+@media (max-width:480px) {
+    .statusBadge { font-size:7px; padding:2px 7px; }
+    .cardHeader  { padding:9px 11px; }
+    .cardBody    { padding:0 11px 11px; }
+    .ownerName   { font-size:13px; }
+    .demandValue { font-size:13px; }
+    .historyStream { max-height:110px; }
+    .timingRow   { font-size:10px; }
 }
 """
 
