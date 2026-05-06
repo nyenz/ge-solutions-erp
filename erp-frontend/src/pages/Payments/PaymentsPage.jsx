@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    FiDollarSign, FiSearch, FiX, FiFilter,
-    FiChevronRight, FiAlertOctagon, FiClock, FiUser
+    FiDollarSign, FiSearch, FiX,
+    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import styles from './PaymentsPage.module.css';
@@ -24,11 +24,11 @@ const TYPE_COLORS = {
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
-    const [payments,    setPayments]    = useState([]);
-    const [loading,     setLoading]     = useState(true);
-    const [searchTerm,  setSearchTerm]  = useState('');
-    const [typeFilter,  setTypeFilter]  = useState('ALL');
-    const [sortDir,     setSortDir]     = useState('desc');
+    const [payments,   setPayments]   = useState([]);
+    const [loading,    setLoading]    = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [typeFilter, setTypeFilter] = useState('ALL');
+    const [sortDir,    setSortDir]    = useState('desc');
 
     const loadPayments = useCallback(async () => {
         setLoading(true);
@@ -66,11 +66,13 @@ const PaymentsPage = () => {
     const totalCollected = useMemo(() =>
         filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
-    const titlePayments   = filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL');
-    const storagePayments = filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL');
+    const titleTotal = useMemo(() =>
+        filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL')
+                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
-    const titleTotal   = titlePayments.reduce((s, p) => s + Number(p.amountPaid || 0), 0);
-    const storageTotal = storagePayments.reduce((s, p) => s + Number(p.amountPaid || 0), 0);
+    const storageTotal = useMemo(() =>
+        filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL')
+                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
     return (
         <div className={styles.container}>
@@ -79,9 +81,11 @@ const PaymentsPage = () => {
                     <h1 className={styles.title}>PAYMENTS</h1>
                     <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
                 </div>
+                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
+                    <FiRefreshCw size={16} />
+                </button>
             </header>
 
-            {/* SUMMARY CARDS */}
             <div className={styles.summaryRow}>
                 <div className={styles.sumCard}>
                     <label>TOTAL SHOWN</label>
@@ -91,43 +95,42 @@ const PaymentsPage = () => {
                 <div className={styles.sumCard} style={{ borderColor: '#22c55e' }}>
                     <label style={{ color: '#22c55e' }}>TITLE PAYMENTS</label>
                     <strong style={{ color: '#22c55e' }}>UGX {fmt(titleTotal)}</strong>
-                    <span>{titlePayments.length} records</span>
+                    <span>{filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL').length} records</span>
                 </div>
                 <div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>
-                    <label style={{ color: '#ef4444' }}>STORAGE FEE COLLECTIONS</label>
+                    <label style={{ color: '#ef4444' }}>BACKLOG PAYMENTS</label>
                     <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
-                    <span>{storagePayments.length} records</span>
+                    <span>{filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL').length} records</span>
                 </div>
             </div>
 
-            {/* CONTROLS */}
             <div className={styles.controls}>
                 <div className={styles.searchWrap}>
                     <FiSearch className={styles.searchIcon} />
                     <input type="search" className={styles.searchInput}
-                        placeholder="Search plot, owner, recorded by..."
+                        placeholder="Search plot ID, owner name, recorded by..."
                         value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     {searchTerm && (
                         <button className={styles.clearBtn} onClick={() => setSearchTerm('')}>
-                            <FiX />
+                            <FiX size={14} />
                         </button>
                     )}
                 </div>
                 <div className={styles.filterRow}>
-                    {['ALL','STANDARD','INITIAL_DEPOSIT','BACKLOG_PARTIAL'].map(t => (
+                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
                         <button key={t}
                             className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
                             onClick={() => setTypeFilter(t)}>
-                            {t === 'ALL' ? 'ALL' : TYPE_LABELS[t] || t}
+                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}
                         </button>
                     ))}
-                    <button className={styles.filterBtn} onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
-                        DATE {sortDir === 'desc' ? '↓' : '↑'}
+                    <button className={styles.filterBtn}
+                        onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
+                        DATE {sortDir === 'desc' ? '↓ NEWEST' : '↑ OLDEST'}
                     </button>
                 </div>
             </div>
 
-            {/* TABLE */}
             {loading ? (
                 <div className={styles.loading}>Loading payments...</div>
             ) : filtered.length === 0 ? (
@@ -141,7 +144,7 @@ const PaymentsPage = () => {
                                 <th>PLOT</th>
                                 <th>OWNER</th>
                                 <th>TYPE</th>
-                                <th>AMOUNT</th>
+                                <th>AMOUNT PAID</th>
                                 <th>BALANCE AFTER</th>
                                 <th>RECORDED BY</th>
                                 <th>NOTES</th>
@@ -151,47 +154,47 @@ const PaymentsPage = () => {
                         <tbody>
                             {filtered.map((pay, i) => (
                                 <tr key={pay.id || i} className={styles.row}>
-                                    <td className={styles.dateCell}>
-                                        {new Date(pay.timestamp).toLocaleDateString()}
-                                        <span className={styles.time}>
-                                            {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                    <td>
+                                        <div className={styles.dateCell}>
+                                            <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
+                                            <span className={styles.time}>
+                                                {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
                                     </td>
-                                    <td className={styles.plotCell}>
-                                        <strong>{pay.plotNumber || '---'}</strong>
+                                    <td>
+                                        <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
                                     </td>
-                                    <td>{pay.ownerName || '---'}</td>
+                                    <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
                                     <td>
                                         <span className={styles.typeBadge} style={{
-                                            background: `${TYPE_COLORS[pay.paymentType]}22`,
-                                            color: TYPE_COLORS[pay.paymentType],
-                                            border: `1px solid ${TYPE_COLORS[pay.paymentType]}44`
+                                            background: `${TYPE_COLORS[pay.paymentType] || '#888'}22`,
+                                            color: TYPE_COLORS[pay.paymentType] || '#888',
+                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}44`
                                         }}>
-                                            {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={10} />}
+                                            {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
                                             {TYPE_LABELS[pay.paymentType] || pay.paymentType}
                                         </span>
                                     </td>
-                                    <td className={styles.amountCell}>
-                                        <strong style={{ color: TYPE_COLORS[pay.paymentType] }}>
+                                    <td>
+                                        <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
                                             UGX {fmt(pay.amountPaid)}
                                         </strong>
                                     </td>
-                                    <td className={styles.balanceCell}>
+                                    <td className={styles.balance}>
                                         {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
                                     </td>
                                     <td>
                                         <span className={styles.recorder}>
-                                            <FiUser size={11} /> {pay.recordedBy}
+                                            <FiUser size={10} /> {pay.recordedBy}
                                         </span>
                                     </td>
-                                    <td className={styles.notesCell}>
-                                        {pay.notes || '---'}
-                                    </td>
+                                    <td className={styles.notesCell}>{pay.notes || '---'}</td>
                                     <td>
                                         {pay.projectId && (
                                             <button className={styles.goBtn}
                                                 onClick={() => navigate(`/folder/${pay.projectId}`)}>
-                                                <FiChevronRight size={14} />
+                                                <FiChevronRight size={13} />
                                             </button>
                                         )}
                                     </td>

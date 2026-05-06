@@ -3,23 +3,26 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: clamp(12px, 2vw, 24px);
-    color: #fff;
     font-family: 'DM Sans', sans-serif;
+    color: #fff;
 }
 
 .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     border-left: 4px solid #EE8C3A;
-    padding: clamp(10px, 1.5vw, 16px) clamp(14px, 2vw, 24px);
+    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 24px);
     background: rgba(255,255,255,0.55);
     border-radius: 0 10px 10px 0;
     backdrop-filter: blur(15px);
-    margin-bottom: clamp(14px, 2vw, 24px);
+    margin-bottom: clamp(14px, 2vw, 22px);
 }
 
 .title {
     font-family: 'Cinzel', serif;
     color: #1a2e30;
-    font-size: clamp(16px, 2.4vw, 24px);
+    font-size: clamp(16px, 2.2vw, 22px);
     font-weight: 700;
     margin: 0;
     letter-spacing: 2px;
@@ -32,10 +35,23 @@
     margin: 4px 0 0;
 }
 
+.refreshBtn {
+    background: rgba(26,46,48,0.08);
+    border: 1px solid rgba(26,46,48,0.15);
+    color: #1a2e30;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+.refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
+
 .summaryRow {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: clamp(10px, 1.5vw, 16px);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: clamp(10px, 1.4vw, 16px);
     margin-bottom: clamp(14px, 2vw, 20px);
 }
 
@@ -43,14 +59,14 @@
     background: linear-gradient(160deg, #1c3335, #213E40);
     border: 1.5px solid rgba(238,140,58,0.25);
     border-radius: 10px;
-    padding: clamp(12px, 1.6vw, 18px);
+    padding: clamp(12px, 1.5vw, 18px);
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
 .sumCard label {
-    font-size: clamp(8px, 0.85vw, 10px);
+    font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 900;
     color: rgba(255,255,255,0.4);
     text-transform: uppercase;
@@ -59,14 +75,14 @@
 
 .sumCard strong {
     font-family: 'Space Mono', monospace;
-    font-size: clamp(14px, 1.8vw, 20px);
+    font-size: clamp(13px, 1.6vw, 19px);
     color: #fff;
     font-weight: 700;
 }
 
 .sumCard span {
-    font-size: clamp(9px, 0.9vw, 11px);
-    color: rgba(255,255,255,0.35);
+    font-size: clamp(9px, 0.88vw, 11px);
+    color: rgba(255,255,255,0.3);
 }
 
 .controls {
@@ -83,23 +99,13 @@
     background: #fff;
     border: 1.5px solid #c8d6d7;
     border-radius: 8px;
-    height: clamp(38px, 4.5vw, 44px);
-    max-width: 500px;
+    height: clamp(38px, 4.2vw, 44px);
+    max-width: clamp(280px, 45vw, 520px);
     transition: border-color 0.2s;
 }
+.searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
 
-.searchWrap:focus-within {
-    border-color: #EE8C3A;
-    box-shadow: 0 0 0 3px rgba(238,140,58,0.15);
-}
-
-.searchIcon {
-    position: absolute;
-    left: 12px;
-    color: #EE8C3A;
-    font-size: 16px;
-    pointer-events: none;
-}
+.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: 16px; pointer-events: none; }
 
 .searchInput {
     width: 100%;
@@ -112,6 +118,7 @@
     font-weight: 700;
     font-size: clamp(11px, 1.1vw, 13px);
 }
+.searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 
 .clearBtn {
     position: absolute;
@@ -124,9 +131,7 @@
     align-items: center;
     padding: 4px;
     border-radius: 4px;
-    transition: color 0.15s;
 }
-
 .clearBtn:hover { color: #1a2e30; }
 
 .filterRow {
@@ -143,20 +148,14 @@
     padding: 6px 14px;
     font-family: 'DM Sans', sans-serif;
     font-weight: 800;
-    font-size: clamp(9px, 0.9vw, 11px);
+    font-size: clamp(9px, 0.88vw, 11px);
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
 }
-
 .filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; }
-
-.filterActive {
-    background: #EE8C3A;
-    border-color: #EE8C3A;
-    color: #1a2e30;
-}
+.filterActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
 
 .tableWrap {
     overflow-x: auto;
@@ -168,19 +167,17 @@
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: clamp(10px, 1.1vw, 13px);
-    min-width: 700px;
+    font-size: clamp(10px, 1.05vw, 13px);
+    min-width: 680px;
 }
 
-.table thead tr {
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-}
+.table thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
 
 .table th {
-    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
-    font-size: clamp(8px, 0.85vw, 10px);
+    font-size: clamp(8px, 0.82vw, 10px);
     color: rgba(255,255,255,0.4);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -188,38 +185,21 @@
     white-space: nowrap;
 }
 
-.row {
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    transition: background 0.15s;
-    cursor: default;
-}
-
+.row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
 .row:hover { background: rgba(255,255,255,0.03); }
 
 .table td {
-    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
     color: rgba(255,255,255,0.85);
     vertical-align: middle;
 }
 
-.dateCell {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-weight: 700;
-    white-space: nowrap;
-}
+.dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
+.time { font-size: 10px; opacity: 0.45; }
 
-.time {
-    font-size: 10px;
-    opacity: 0.5;
-}
+.plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); }
 
-.plotCell strong {
-    font-family: 'Space Mono', monospace;
-    color: #EE8C3A;
-    font-size: clamp(10px, 1.1vw, 13px);
-}
+.ownerCell { font-weight: 700; }
 
 .typeBadge {
     display: inline-flex;
@@ -227,40 +207,26 @@
     gap: 4px;
     padding: 3px 8px;
     border-radius: 4px;
-    font-size: clamp(8px, 0.85vw, 10px);
+    font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 800;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
-.amountCell strong {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(11px, 1.2vw, 14px);
-    font-weight: 700;
-}
+.amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
 
-.balanceCell {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(10px, 1vw, 12px);
-    opacity: 0.6;
-}
+.balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); opacity: 0.55; }
 
-.recorder {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: clamp(9px, 0.9vw, 11px);
-    opacity: 0.7;
-}
+.recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); opacity: 0.65; }
 
 .notesCell {
     font-style: italic;
-    opacity: 0.6;
-    max-width: 180px;
+    opacity: 0.55;
+    max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: clamp(9px, 0.9vw, 11px);
+    font-size: clamp(9px, 0.88vw, 11px);
 }
 
 .goBtn {
@@ -274,16 +240,12 @@
     align-items: center;
     transition: all 0.2s;
 }
-
-.goBtn:hover {
-    background: #EE8C3A;
-    color: #1a2e30;
-}
+.goBtn:hover { background: #EE8C3A; color: #1a2e30; }
 
 .loading, .empty {
     text-align: center;
     padding: 60px 20px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.35);
     font-weight: 700;
     font-size: clamp(12px, 1.3vw, 15px);
     text-transform: uppercase;
@@ -294,4 +256,5 @@
     .summaryRow { grid-template-columns: 1fr; }
     .filterRow { gap: 6px; }
     .filterBtn { padding: 5px 10px; font-size: 9px; }
+    .searchWrap { max-width: 100%; }
 }
