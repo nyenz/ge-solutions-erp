@@ -68,7 +68,7 @@
 .sumCard label {
     font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 900;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -82,7 +82,7 @@
 
 .sumCard span {
     font-size: clamp(9px, 0.88vw, 11px);
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.35);
 }
 
 .controls {
@@ -140,22 +140,32 @@
     gap: 8px;
 }
 
+/* FIX: ensure filter buttons always show their text clearly */
 .filterBtn {
-    background: rgba(255,255,255,0.06);
-    border: 1.5px solid rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
     border-radius: 6px;
-    padding: 6px 14px;
+    padding: 7px 16px;
     font-family: 'DM Sans', sans-serif;
     font-weight: 800;
-    font-size: clamp(9px, 0.88vw, 11px);
+    font-size: clamp(9px, 0.9vw, 11px);
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
+    /* ensure text is never invisible */
+    min-width: max-content;
 }
-.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; }
-.filterActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
+
+/* Active: orange bg with dark text for contrast */
+.filterActive {
+    background: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+}
 
 .tableWrap {
     overflow-x: auto;
@@ -171,57 +181,60 @@
     min-width: 680px;
 }
 
-.table thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
+.table thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
 
 .table th {
     padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
     font-size: clamp(8px, 0.82vw, 10px);
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 1px;
     text-align: left;
     white-space: nowrap;
 }
 
-.row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
-.row:hover { background: rgba(255,255,255,0.03); }
+.row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
+.row:hover { background: rgba(255,255,255,0.04); }
 
 .table td {
     padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    color: rgba(255,255,255,0.85);
+    color: rgba(255,255,255,0.9);
     vertical-align: middle;
 }
 
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
 .time { font-size: 10px; opacity: 0.45; }
 
-.plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); }
+.plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
 
-.ownerCell { font-weight: 700; }
+.ownerCell { font-weight: 700; color: #fff; }
 
 .typeBadge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 3px 9px;
     border-radius: 4px;
     font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 800;
+    font-weight: 900;
     text-transform: uppercase;
     white-space: nowrap;
+    /* ensure text is always visible */
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.5px;
 }
 
 .amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
 
-.balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); opacity: 0.55; }
+.balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); color: rgba(255,255,255,0.5); }
 
-.recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); opacity: 0.65; }
+.recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.6); }
 
 .notesCell {
     font-style: italic;
-    opacity: 0.55;
+    color: rgba(255,255,255,0.45);
     max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -231,7 +244,7 @@
 
 .goBtn {
     background: rgba(238,140,58,0.1);
-    border: 1px solid rgba(238,140,58,0.3);
+    border: 1px solid rgba(238,140,58,0.35);
     color: #EE8C3A;
     border-radius: 6px;
     padding: 6px;
@@ -254,7 +267,7 @@
 
 @media (max-width: 768px) {
     .summaryRow { grid-template-columns: 1fr; }
-    .filterRow { gap: 6px; }
-    .filterBtn { padding: 5px 10px; font-size: 9px; }
+    .filterRow  { gap: 6px; }
+    .filterBtn  { padding: 6px 12px; font-size: 9px; }
     .searchWrap { max-width: 100%; }
 }
