@@ -69,3 +69,10 @@ h1, h2, h3, .hardware-font {
     align-items: center;
     justify-content: center;
 }
+
+/* Force all inputs and selects to fill their hardware containers */
+input, select, textarea, .HardwareSelect_selectBox__xxxx {
+    width: 100% !important;
+    box-sizing: border-box;
+}
+

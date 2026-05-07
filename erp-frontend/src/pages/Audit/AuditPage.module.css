@@ -114,6 +114,10 @@
 }
 
 /* Reset button — same height as HardwareSelect trigger (52px) */
+@media (max-width: 600px) {
+    .filters { flex-direction: column; width: 100%; gap: 10px; }
+    .filters > div, .resetBtn { width: 100% !important; }
+}
 .resetBtn {
     height: 52px; /* Matches dropdown height */
     flex: 0 0 auto;

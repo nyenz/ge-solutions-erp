@@ -1,82 +1,75 @@
 # PATH: fix.py
 import os
 
+def append_to_file(path, text):
+    if not os.path.exists(path):
+        print(f"  FILE NOT FOUND: {path}")
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        f.write("\n" + text + "\n")
+    print(f"  OK: Appended to {path}")
+
 def patch_file(path, patches):
     if not os.path.exists(path):
         print(f"  FILE NOT FOUND: {path}")
         return
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
-    
     original = content
     for target, replacement in patches:
         content = content.replace(target, replacement)
-    
     if content != original:
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"  OK: Patched {path}")
     else:
-        print(f"  NO CHANGE: {path} (targets not found)")
+        print(f"  NO CHANGE: {path}")
 
-print("=== STARTING UI REFINEMENT PHASE ===\n")
+print("=== FINALIZING RESPONSIVENESS & CONTRAST ===\n")
 
-# 1. UNIFY HEADERS (Applying Dashboard style to others)
-SHARED_HEADER_CSS = """    background: rgba(255, 255, 255, 0.62);
-    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
-    border-radius: 0 15px 15px 0;
-    padding: 24px 32px;
-    margin-bottom: 32px;
-    backdrop-filter: blur(15px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);"""
+# 1. GLOBAL INPUT RESPONSIVENESS (Append to index.css)
+append_to_file("erp-frontend/src/index.css", """
+/* Force all inputs and selects to fill their hardware containers */
+input, select, textarea, .HardwareSelect_selectBox__xxxx {
+    width: 100% !important;
+    box-sizing: border-box;
+}
+""")
 
-# --- Patch Ledger Header ---
-patch_file("erp-frontend/src/pages/Ledger/LedgerPage.module.css", [
-    (".header {", ".header {\n" + SHARED_HEADER_CSS),
-    ("min-width: 140px;", "min-width: clamp(160px, 15vw, 200px);"), # Widening Plot ID col
-    ("display: flex;\n    align-items: center;", "display: flex;\n    flex-direction: column;\n    gap: 4px;") # Wrap ID and Tag
-])
-
-# --- Patch Intake Header & Responsive Inputs ---
-patch_file("erp-frontend/src/pages/Intake/IntakePage.module.css", [
-    (".header {", ".header {\n" + SHARED_HEADER_CSS),
-    ("grid-template-columns: repeat(3, 1fr);", "grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));"),
-    ("width: 100%;", "width: 100% !important;") # Force responsive inputs
-])
-
-# --- Patch Audit Header & Filter Alignment ---
+# 2. AUDIT PAGE MOBILE STACKING
 patch_file("erp-frontend/src/pages/Audit/AuditPage.module.css", [
-    (".header {", ".header {\n" + SHARED_HEADER_CSS),
-    ("display: flex;\n    gap: 20px;\n    margin-bottom: 25px;", "display: flex;\n    gap: 20px;\n    margin-bottom: 25px;\n    align-items: flex-end;\n    flex-wrap: wrap;"),
-    (".resetBtn {", ".resetBtn {\n    height: 52px; /* Matches dropdown height */")
+    ("align-items: flex-end;", "align-items: flex-end;"), # Ensure baseline
+    (".resetBtn {", """@media (max-width: 600px) {
+    .filters { flex-direction: column; width: 100%; gap: 10px; }
+    .filters > div, .resetBtn { width: 100% !important; }
+}
+.resetBtn {""")
 ])
 
-# --- Patch Payments Header & Horizontal Mobile Filters ---
-patch_file("erp-frontend/src/pages/Payments/PaymentsPage.module.css", [
-    (".header {", ".header {\n" + SHARED_HEADER_CSS),
-    (".filterRow {", ".filterRow {\n    display: flex;\n    overflow-x: auto;\n    padding-bottom: 8px;\n    gap: 12px;\n    scrollbar-width: none;"),
-    (".filterRow::-webkit-scrollbar { display: none; }", "")
+# 3. INTAKE PAGE GRID COLLAPSE
+patch_file("erp-frontend/src/pages/Intake/IntakePage.module.css", [
+    ("grid-template-columns: repeat(3, 1fr);", "grid-template-columns: repeat(3, 1fr);"), # Anchor
+    (".grid {", """.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+@media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+.grid_hidden {""") # Note: we just insert the media query logic here
 ])
 
-# --- Patch Recovery Header & Empty State Visibility ---
+# 4. RECOVERY CONTRAST BOOST
 patch_file("erp-frontend/src/pages/Recovery/RecoveryPortal.module.css", [
-    (".header {", ".header {\n" + SHARED_HEADER_CSS),
-    ("color: rgba(255, 255, 255, 0.2);", "color: var(--orange); font-weight: 900; opacity: 0.8;"), # Better contrast for "No Targets"
-    (".emptyState {", ".emptyState {\n    background: rgba(33, 62, 64, 0.4);\n    padding: 60px;\n    border-radius: 20px;\n    border: 1px dashed var(--orange);")
+    ("background: rgba(33, 62, 64, 0.4);", "background: rgba(10, 20, 25, 0.8);"), # Darker bg
+    ("border: 1px dashed var(--orange);", "border: 2px dashed var(--orange); box-shadow: 0 0 20px rgba(238, 140, 58, 0.15);")
 ])
 
-# 2. SIDEBAR OPTIMIZATION (Shrinking footer and fitting content)
+# 5. SIDEBAR FOOTER FIX (Avoid scroll)
 patch_file("erp-frontend/src/components/layout/Sidebar.module.css", [
-    (".sidebar {", ".sidebar {\n    height: 100vh;\n    overflow-y: hidden;"),
-    (".nav {", ".nav {\n    flex: 1;\n    overflow-y: auto;\n    padding: 10px 0;"),
-    (".footer {", ".footer {\n    padding: 10px 20px;\n    border-top: 1px solid rgba(255,255,255,0.05);"),
-    (".brand {", ".brand {\n    font-size: 10px !important;\n    letter-spacing: 2px;"),
-    (".version {", ".version {\n    font-size: 8px !important; opacity: 0.5;")
+    ("padding: 10px 20px;", "padding: 5px 15px;"), # Tighten footer
+    ("font-size: 10px !important;", "font-size: 9px !important;"), # Smaller Nyenz
+    ("font-size: 8px !important;", "font-size: 7px !important;")   # Tiny version
 ])
 
-# 3. GLOBAL INPUT RESPONSIVENESS
-patch_file("erp-frontend/src/index.css", [
-    ("input, select, textarea {", "input, select, textarea {\n    max-width: 100%;\n    width: 100%;")
-])
-
-print("\n=== UI REFINEMENT COMPLETE ===")
+print("\n=== ALL UI PATCHES APPLIED ===")
