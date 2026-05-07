@@ -1,6 +1,6 @@
 # GE SOLUTIONS ERP — FULL LLM CONTEXT GUIDE
 # For any AI assistant continuing work on this project
-# Last updated: May 2026 — Priority 1 COMPLETE + CONFIRMED, Priority 2 next
+# Last updated: May 2026 — Priority 1 ongoing (filter bar fix applied)
 
 ---
 
@@ -44,27 +44,29 @@
 
 RULE: Never ask David to manually copy-paste code into files. Always use fix.py.
 RULE: The LLM guide (LLM_CONTEXT_GUIDE.md) is a SEPARATE file from fix.py. Always output them separately.
-RULE: Use str.replace in fix.py when only a section of a file changes. Only rewrite full files when changes are large or spread throughout.
+RULE: Use str.replace (patch) in fix.py when only a section of a file changes. Only rewrite full files when changes are large or spread throughout.
 RULE: Never put triple-quoted strings inside triple-quoted strings in fix.py — use a list of lines joined with newlines instead (this avoids SyntaxError).
 RULE: Before writing a patch, always verify the exact text to replace by reading the document context. Do not guess.
+RULE: The LLM_CONTEXT_GUIDE.md must be updated inside fix.py on every session — use the list-of-lines approach.
 
 ### CRITICAL — Why patches fail:
 - If fix.py says 'patch target not found', the CSS already has the change OR the text doesn't match exactly.
 - Always read the actual file content from the conversation context before writing str.replace patches.
 - The documents shared in the conversation ARE the current file contents — use them as source of truth.
+- Copy the exact block including all whitespace, comments, and surrounding lines.
 
 ### Two files David always gets:
 1. **fix.py** — writes all changed source code files
-2. **LLM_CONTEXT_GUIDE.md** — updated guide for the next AI session
+2. **LLM_CONTEXT_GUIDE.md** — updated guide for the next AI session (written BY fix.py)
 
 ### Fix.py efficiency rules:
 - Use `file.read()` + `str.replace()` for partial changes — keeps fix.py small
-- Only use full file rewrite when many sections change
+- Only use full file rewrite when many sections change or file is new
 - Always use `encoding='utf-8'` in open() calls
 - Always use `os.makedirs(os.path.dirname(path), exist_ok=True)` before writing new files
 - Skip os.makedirs for root-level files (empty path causes error)
 - When writing the LLM guide itself, use a list of lines joined with newlines — never embed it in a triple-quoted string
-- Include a check() function that verifies patches worked after applying them
+- Print OK/MISSING for every patch so David can see what happened
 
 ### How David gets the files:
 - You call `present_files(['/mnt/user-data/outputs/fix.py', '/mnt/user-data/outputs/LLM_CONTEXT_GUIDE.md'])`
@@ -175,12 +177,15 @@ ge solns/
 - Title: Cinzel serif, navy color, uppercase, letter-spacing 1.5-2px
 - Subtitle: DM Sans 800-900, #64748b color, uppercase
 
-### Filter Button Style (ALL pages must be identical)
+### Filter Button Style (ALL pages must be identical — CONFIRMED STANDARD)
 - **Inactive**: `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)`
+  - This is dark navy bg with white text — always readable on any background
+  - DO NOT use rgba(255,255,255,0.08) — that's near-transparent and unreadable on light backgrounds
 - **Hover**: `background: rgba(238,140,58,0.12)`, `color: #EE8C3A`, `border-color: var(--orange)`
 - **Active/Selected**: `background: #EE8C3A`, `color: #1a2e30`, `border-color: #EE8C3A`, box-shadow orange glow
 - Font: DM Sans 900, uppercase, letter-spacing 1.5px
-- Pages with these: Ledger, Payments, Audit
+- Pages with these: Ledger (.activeFilter), Payments (.filterActive), Audit
+- NOTE: Ledger uses `.activeFilter`, Payments uses `.filterActive` — different class names, same style
 
 ### Plot ID Column (Ledger)
 - Allow word wrap: `white-space: normal`, `word-break: break-all`
@@ -244,23 +249,28 @@ ge solns/
 - Security, Cloudinary, Frontend fixes, New demand system, Recovery portal rewrite,
   Folder page updates, Ledger updates, Bug fixes, Payments page
 
-### Priority 1 — Styling & Intake Cleanup (COMPLETE + DEPLOYED + CONFIRMED)
-- RecoveryPortal: 2-column grid, mobile responsive
-- PaymentsPage: filter buttons use dark bg inactive style (readable on any background)
-- IntakePage: cleaned up financials (only Total Cost, Initial Payment, Arrears auto, Backlog toggle)
-- LedgerPage: tagBacklog + rowBacklog CSS; filter hover fixed; plot ID two lines + district
-- AuditPage: RESET FILTERS aligned with selects; fully responsive
-- IntakePage: input grids collapse on tablet (2-col) and mobile (1-col)
-- All page headers: unified glass panel style matching Dashboard
-- RecoveryPortal header: updated to match Dashboard glass panel style
-- LLM_CONTEXT_GUIDE.md: permanent separate file in project root
-- fix.py SyntaxError: fixed using list-of-lines approach
-- NOTE: All Priority 1 CSS changes were confirmed present in document review (May 2026).
-  The fix.py that showed 'patch target not found' errors was targeting already-correct code.
+### Priority 1 — Styling & Intake Cleanup (IN PROGRESS)
+- RecoveryPortal: 2-column grid, mobile responsive — DONE
+- PaymentsPage: filter buttons unified to dark-bg inactive style — DONE
+- IntakePage: cleaned up financials (only Total Cost, Initial Payment, Arrears auto, Backlog toggle) — DONE
+- LedgerPage: tagBacklog + rowBacklog CSS; filter hover fixed; plot ID two lines + district — DONE
+- AuditPage: RESET FILTERS aligned with selects; fully responsive — DONE
+- IntakePage: input grids collapse on tablet (2-col) and mobile (1-col) — DONE
+- All page headers: unified glass panel style matching Dashboard — DONE
+- RecoveryPortal header: updated to match Dashboard glass panel style — DONE
+- LLM_CONTEXT_GUIDE.md: permanent separate file in project root — DONE
+- fix.py SyntaxError: fixed using list-of-lines approach — DONE
+- Filter bar unification: Payments + Ledger now share identical inactive/hover/active style — DONE (May 2026)
+  - Payments was using rgba(255,255,255,0.08) bg = unreadable on light background
+  - Fixed to rgba(26,46,48,0.75) = dark navy, always readable
 
 ---
 
 ## 11. WHAT STILL NEEDS TO BE DONE (in priority order)
+
+### Priority 1 — Remaining concerns
+- Continue checking screenshots for any other readability/styling issues
+- Each concern gets its own fix.py patch (do not rewrite whole files)
 
 ### Priority 2 — Reports overhaul
 1. Add backlog report (all backlog plots with storage fees breakdown)
