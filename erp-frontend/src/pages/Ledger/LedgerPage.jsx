@@ -143,8 +143,10 @@ const LedgerPage = () => {
         <div className={styles.container}>
 
             <header className={styles.pageHeader}>
-                <h1 className={styles.title}>Digital Asset Ledger</h1>
-                <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>Digital Asset Ledger</h1>
+                    <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
+                </div>
             </header>
 
             <div className={styles.controlHub}>
@@ -185,10 +187,10 @@ const LedgerPage = () => {
                 </div>
 
                 {/* BADGE LEGEND */}
-                <div style={{ display: 'flex', gap: 16, padding: '8px 0', fontSize: '0.72rem', opacity: 0.7 }}>
+                <div className={styles.badgeLegend}>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', boxShadow: `0 0 4px ${c}` }} />
+                        <span key={k} className={styles.badgeLegendItem}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 4px ${c}` }} />
                             {BADGE_LABELS[k]}
                         </span>
                     ))}

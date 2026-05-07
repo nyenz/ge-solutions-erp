@@ -48,6 +48,14 @@
 
 /* ── PAGE HEADER — glass panel matching Dashboard ───────────────── */
 
+.headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    min-width: 0;
+    flex: 1;
+}
+
 .title {
     font-family: 'Cinzel', serif;
     color: var(--navy);
@@ -155,7 +163,7 @@
     font-family: 'Space Mono', monospace;
     font-size: clamp(7px, 0.7vw, 8px);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.28);
+    color: rgba(26, 46, 48, 0.45);
     letter-spacing: 0.5px;
     text-transform: uppercase;
     margin: 0;
@@ -165,19 +173,19 @@
 /* ── FILTER RAIL ────────────────────────────────────────────────── */
 .filterRailContainer {
     width: 100%;
-    overflow: hidden;
+    overflow-x: auto;
     padding-bottom: clamp(3px, 0.4vw, 5px);
+    scrollbar-width: none;
 }
+.filterRailContainer::-webkit-scrollbar { display: none; }
 
 .filterRail {
     display: flex;
     gap: clamp(6px, 1vw, 12px);
-    overflow-x: auto;
     flex-wrap: nowrap;
-    scrollbar-width: none;
     padding-bottom: 2px;
+    min-width: max-content;
 }
-.filterRail::-webkit-scrollbar { display: none; }
 
 /* Hover: orange border + orange text (text stays visible) */
 
@@ -682,4 +690,22 @@
     gap: clamp(8px, 1.2vw, 14px);
     flex-shrink: 0;
     flex-wrap: wrap;
+}
+
+/* ── BADGE LEGEND ───────────────────────────────────────────────── */
+.badgeLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.5vw, 18px);
+    padding: clamp(6px, 0.8vw, 8px) 0;
+}
+.badgeLegendItem {
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 0.6vw, 7px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 800;
+    color: rgba(26, 46, 48, 0.65);
+    white-space: nowrap;
 }

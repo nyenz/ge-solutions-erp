@@ -54,7 +54,7 @@
 /* ── HEADER ── */
 .titleBlock { display:flex; flex-direction:column; gap:8px; }
 .title { font-family:'Cinzel',serif; color:var(--navy); font-size:var(--fs-h1); font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin:0; }
-.modeSwitch { display:inline-flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; }
+.modeSwitch { display:flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; overflow-x:auto; scrollbar-width:none; flex-wrap:nowrap; }
 .modeActive   { background:var(--orange); color:var(--navy); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; }
 .modeInactive { background:transparent; color:rgba(255,255,255,0.75); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:background 0.2s,color 0.2s; }
 .modeInactive:hover { background:rgba(255,255,255,0.1); color:#fff; }

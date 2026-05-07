@@ -42,8 +42,8 @@
 
 
 /* ── HEADER ─────────────────────────────────────────────────────── */
-.titleGroup { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); }
-.title { font-family: 'Cinzel', serif; color: var(--navy); font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; line-height: 1; }
+.headerLeft { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); min-width: 0; flex: 1; }
+.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; line-height: 1; }
 .subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 .diagHUD { display: flex; gap: var(--gap-md); }
 .diagItem { background: var(--navy); color: #fff; padding: clamp(7px,1vw,11px) clamp(12px,1.6vw,18px); border-radius: var(--radius-sm); border: 1px solid var(--orange-border); font-family: 'DM Sans', sans-serif; font-size: var(--fs-meta); font-weight: 900; display: flex; align-items: center; gap: clamp(8px,1vw,12px); text-transform: uppercase; letter-spacing: 0.5px; }

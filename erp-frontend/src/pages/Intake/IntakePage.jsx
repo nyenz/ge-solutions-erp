@@ -298,8 +298,10 @@ const IntakePage = () => {
             <SavingOverlay visible={saving} />
 
             <header className={styles.pageHeader}>
-                <h1 className={styles.title}>New Plot Registration</h1>
-                <p className={styles.subtitle}>Register a new land title into the system</p>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>New Plot Registration</h1>
+                    <p className={styles.subtitle}>Register a new land title into the system</p>
+                </div>
             </header>
 
             <div className={styles.formFlow}>

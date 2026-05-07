@@ -66,7 +66,7 @@ const AuditPage = () => {
     return (
         <div className={styles.container}>
             <header className={styles.pageHeader}>
-                <div className={styles.titleGroup}>
+                <div className={styles.headerLeft}>
                     <h1 className={styles.title}>System Forensics</h1>
                     <p className={styles.subtitle}>Unified Accountability Archive | Total Traceability Active</p>
                 </div>

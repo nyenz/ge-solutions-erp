@@ -138,8 +138,10 @@ const ReportHub = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
             <header className={styles.pageHeader}>
-                <h1 className={styles.title}>Intelligence Hub</h1>
-                <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>Intelligence Hub</h1>
+                    <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
+                </div>
             </header>
 
             <div className={styles.pillarStack}>
