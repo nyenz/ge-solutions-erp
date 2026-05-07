@@ -190,7 +190,7 @@ const SettingsPage = () => {
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
             {/* HEADER */}
-            <header className={styles.header}>
+            <header className={styles.pageHeader}>
                 <div className={styles.titleGroup}>
                     <h1 className={styles.title}>Security Mastery</h1>
                     <p className={styles.subtitle}>Hardware Protocols &amp; Identity Registry</p>

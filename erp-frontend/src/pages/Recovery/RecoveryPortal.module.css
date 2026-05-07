@@ -203,110 +203,142 @@
     .timingRow   { font-size:10px; }
 }
 
-/* --- UNIFIED HARDWARE HEADER --- */
-
-
-
-@media (max-width: 600px) {
+/* -- PAGE HEADER unified glass panel matching Dashboard -- */
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-bottom: clamp(14px, 2vw, 22px);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);
+    background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
 }
 
-/* --- UNIFIED HARDWARE HEADER --- */
-
-
-
-@media (max-width: 600px) {
+.headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    min-width: 0;
+    flex: 1;
 }
 
-/* --- DASHBOARD HEADER STANDARD --- */
-
-
-
-/* Any buttons or sync text go to the right area */
-.header button, .header span, .header .metaGroup {
-    grid-area: action !important;
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 14px);
+    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
-/* --- DASHBOARD SUBHEADING STANDARD --- */
-/* Matches "PIPELINE BOTTLENECKS" and "FINANCIAL LIQUIDITY" */
-.sectionTitle, .plotDetailsTitle, h3, h4 {
-    color: var(--orange) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 11px !important;
-    font-weight: 900 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1.5px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    margin-bottom: 20px !important;
+.pageTitle {
+    font-family: 'Cinzel', serif;
+    color: #1a2e30;
+    font-size: var(--fs-h1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0;
+    line-height: 1.1;
 }
 
-@media (max-width: 768px) {
+.pageSubtitle {
+    font-family: 'DM Sans', sans-serif;
+    color: #64748b;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
 }
 
-/* --- MASTER HARDWARE HEADER (DASHBOARD ALIGNMENT) --- */
-.header {
-    background: rgba(255, 255, 255, 0.62) !important;
-    border-left: clamp(4px, 0.5vw, 6px) solid var(--orange) !important;
-    border-radius: 0 15px 15px 0 !important;
-    padding: clamp(16px, 4vw, 24px) clamp(20px, 5vw, 32px) !important;
-    margin-bottom: 32px !important;
-    backdrop-filter: blur(15px) !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07) !important;
-    display: flex !important;
-    flex-direction: column !important; /* Forces Stacked Layout */
-    align-items: flex-start !important;
-    justify-content: center !important;
-    width: 100% !important;
-    position: relative !important;
-    min-height: 100px !important;
+@media (max-width: 700px) {
+    .pageHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .headerRight {
+        width: 100%;
+    }
+    .modeSwitch {
+        width: 100%;
+    }
+    .modeActive, .modeInactive {
+        flex: 1;
+        justify-content: center;
+    }
 }
 
-.header h1 {
-    font-family: 'Cinzel', serif !important;
-    font-weight: 900 !important; /* MAX THICKNESS */
-    color: #213E40 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 2px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 1.1 !important;
-    /* Responsive sizing: gets smaller on mobile automatically */
-    font-size: clamp(18px, 6vw, 28px) !important; 
+/* -- PAGE HEADER unified glass panel matching Dashboard -- */
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-bottom: clamp(14px, 2vw, 22px);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);
+    background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
 }
 
-.header p {
-    font-family: 'DM Sans', sans-serif !important;
-    font-weight: 900 !important; /* Heavy Subtitle */
-    color: #64748b !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1.5px !important;
-    margin: 8px 0 0 0 !important;
-    padding: 0 !important;
-    font-size: clamp(9px, 3vw, 11px) !important;
+.headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    min-width: 0;
+    flex: 1;
 }
 
-/* Fix for right-side buttons (Sync/Refresh) to stay out of the way */
-.header button, .header .syncInfo {
-    position: absolute !important;
-    right: 20px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 14px);
+    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
-@media (max-width: 600px) {
-    .header { padding: 15px 20px !important; min-height: 80px !important; }
-    .header button { position: static !important; margin-top: 10px !important; transform: none !important; }
+.pageTitle {
+    font-family: 'Cinzel', serif;
+    color: #1a2e30;
+    font-size: var(--fs-h1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0;
+    line-height: 1.1;
 }
 
-.controlTabs {
-    display: flex !important;
-    flex-wrap: wrap !important; /* Allows wrap on tiny screens */
-    gap: 10px !important;
-    margin-bottom: 20px !important;
+.pageSubtitle {
+    font-family: 'DM Sans', sans-serif;
+    color: #64748b;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
 }
-.tabBtn {
-    flex: 1 !important; /* Equal width buttons */
-    min-width: 140px !important;
-    white-space: nowrap !important;
+
+@media (max-width: 700px) {
+    .pageHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .headerRight {
+        width: 100%;
+    }
+    .modeSwitch {
+        width: 100%;
+    }
+    .modeActive, .modeInactive {
+        flex: 1;
+        justify-content: center;
+    }
 }

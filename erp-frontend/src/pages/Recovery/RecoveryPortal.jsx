@@ -122,7 +122,7 @@ const RecoveryPortal = () => {
             setCallModal({ open: false, mission: null });
             setLogContent('');
             setExpandedPhone(null);
-            toast('CALL LOGGED — 14-DAY CLOCK RESET', 'success');
+            toast('CALL LOGGED - 14-DAY CLOCK RESET', 'success');
         } catch {
             toast('LOG FAILURE', 'error', 8000);
         } finally {
@@ -209,9 +209,9 @@ const RecoveryPortal = () => {
                         <div className={styles.timingRow}>
                             <FiClock aria-hidden="true" size={13} />
                             <span>Last call: <strong>{mission.lastContactDate}</strong></span>
-                            <span style={{ margin: '0 8px' }}>·</span>
+                            <span style={{ margin: '0 8px' }}>|</span>
                             <span>Next eligible: <strong>{mission.nextCallDue}</strong></span>
-                            <span style={{ margin: '0 8px' }}>·</span>
+                            <span style={{ margin: '0 8px' }}>|</span>
                             <span>Calls this month: <strong>{mission.monthlyCallCount}/2</strong></span>
                         </div>
 
@@ -290,9 +290,22 @@ const RecoveryPortal = () => {
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-            <header className={styles.header}>
-                <div className={styles.titleBlock}>
-                    <h1 className={styles.title}>Recovery Hub</h1>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.pageTitle}>Recovery Hub</h1>
+                    <p className={styles.pageSubtitle}>Client Call Management - 2-14 Rule Active</p>
+                </div>
+                <div className={styles.headerRight}>
+                    <div className={styles.hudStats}>
+                        <div className={styles.statBox}>
+                            <label>TARGETS</label>
+                            <strong style={{color: filteredMissions.length > 0 ? '#EE8C3A' : '#fff'}}>{filteredMissions.length}</strong>
+                        </div>
+                        <div className={styles.statBox}>
+                            <label>BACKLOG</label>
+                            <strong style={{color: backlogMissions.length > 0 ? '#ef4444' : '#fff'}}>{backlogMissions.length}</strong>
+                        </div>
+                    </div>
                     <div className={styles.modeSwitch} role="group" aria-label="View mode">
                         <button className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
                             onClick={() => { setViewMode('ACTION'); setExpandedPhone(null); }}
@@ -305,10 +318,6 @@ const RecoveryPortal = () => {
                             <FiCalendar aria-hidden="true" /> FULL SCHEDULE
                         </button>
                     </div>
-                </div>
-                <div className={styles.hudStats}>
-                    <div className={styles.statBox}><label>TARGETS</label><strong>{filteredMissions.length}</strong></div>
-                    <div className={styles.statBox}><label>BACKLOG</label><strong style={{color:'#ef4444'}}>{backlogMissions.length}</strong></div>
                 </div>
             </header>
 
@@ -345,7 +354,7 @@ const RecoveryPortal = () => {
                         {backlogMissions.length > 0 && (
                             <div className={styles.sectionGroup}>
                                 <div className={`${styles.sectionHeader} ${styles.sectionHeaderBacklog}`}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG — STORAGE FEES ACTIVE ({backlogMissions.length})
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG - STORAGE FEES ACTIVE ({backlogMissions.length})
                                 </div>
                                 {backlogMissions.map(renderMissionCard)}
                             </div>

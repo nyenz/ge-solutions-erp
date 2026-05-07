@@ -129,7 +129,7 @@ const LedgerPage = () => {
             : <FiArrowDown className={styles.sortActive} aria-hidden="true" />;
     };
 
-    const SEARCH_HINT = 'Plot ID · Box · Owner name · Phone · NIN · Email · District · County · Tenure';
+    const SEARCH_HINT = 'Plot ID ï¿½ Box ï¿½ Owner name ï¿½ Phone ï¿½ NIN ï¿½ Email ï¿½ District ï¿½ County ï¿½ Tenure';
 
     const FILTERS = [
         { key: 'ALL',      label: 'ALL ARCHIVES', icon: <FiLayers        aria-hidden="true" /> },
@@ -142,7 +142,7 @@ const LedgerPage = () => {
     return (
         <div className={styles.container}>
 
-            <header className={styles.header}>
+            <header className={styles.pageHeader}>
                 <h1 className={styles.title}>Digital Asset Ledger</h1>
                 <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
             </header>
@@ -224,7 +224,7 @@ const LedgerPage = () => {
                             )}
                             {!loading && loadError && (
                                 <tr><td colSpan="5" className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
+                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT ï¿½{' '}
                                     <button className={styles.retryBtn} onClick={fetchLedger}>RETRY</button>
                                 </td></tr>
                             )}
@@ -319,7 +319,7 @@ const LedgerPage = () => {
                     </button>
                     <span className={styles.pageIndicator} aria-current="page">
                         RANGE {page + 1}
-                        {processedData.length > 0 && <span className={styles.recordCount}> · {processedData.length} RECORDS</span>}
+                        {processedData.length > 0 && <span className={styles.recordCount}> ï¿½ {processedData.length} RECORDS</span>}
                     </span>
                     <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50}
                         aria-label="Next page" className={styles.pageBtn}>

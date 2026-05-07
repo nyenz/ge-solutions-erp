@@ -297,7 +297,7 @@ const IntakePage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={saving} />
 
-            <header className={styles.header}>
+            <header className={styles.pageHeader}>
                 <h1 className={styles.title}>New Plot Registration</h1>
                 <p className={styles.subtitle}>Register a new land title into the system</p>
             </header>

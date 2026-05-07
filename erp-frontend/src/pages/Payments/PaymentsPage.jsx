@@ -76,10 +76,10 @@ const PaymentsPage = () => {
 
     return (
         <div className={styles.container}>
-            <header className={styles.header}>
-                <div>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
                     <h1 className={styles.title}>PAYMENTS</h1>
-                    <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
+                    <p className={styles.subtitle}>All payment records - title payments and storage fee collections</p>
                 </div>
                 <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
                     <FiRefreshCw size={16} />

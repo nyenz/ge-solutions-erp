@@ -137,7 +137,7 @@ const ReportHub = () => {
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-            <header className={styles.header}>
+            <header className={styles.pageHeader}>
                 <h1 className={styles.title}>Intelligence Hub</h1>
                 <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
             </header>
