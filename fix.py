@@ -1,146 +1,79 @@
 import os
 
-def patch(path, old, new, label):
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+def patch(path, old, new):
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     if old not in content:
-        print(f"  MISSING (not found): {label}")
+        print(f"  WARNING: patch target not found in {path}")
         return
     with open(path, "w", encoding="utf-8") as f:
         f.write(content.replace(old, new, 1))
-    print(f"  OK: {label}")
+    print(f"Patched: {path}")
 
-# ==============================================================
-# FIX 1: LedgerPage.module.css
-# Replace old .plotCell span (orange bg) with tenureTag + districtTag
-# ==============================================================
-print("=== FIX 1: LedgerPage CSS - plotCell tags ===")
+LEDGER_CSS = "erp-frontend/src/pages/Ledger/LedgerPage.module.css"
 
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    """/* Plot cell \u2014 two-line layout to avoid cramping */
-.plotCell strong {
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-value);
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: 0.5px;
-    white-space: normal;
-    word-break: break-all;
-    line-height: 1.3;
+# ── FIX 1: Table shell — small padding so rows don't touch the container edge ──
+patch(LEDGER_CSS,
+""".tableScroll {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
 }
-/* Tenure on its own line \u2014 orange tag */
-.plotCell span {
-    display: inline-block;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    color: #1a2e30;
-    background: var(--orange);
-    padding: 1px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    width: fit-content;
+.tableScroll::-webkit-scrollbar { height: 4px; }
+.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }""",
+""".tableScroll {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    /* Small breathing room — rows don't touch the container edges */
+    padding: clamp(4px, 0.5vw, 6px) clamp(6px, 0.8vw, 10px);
+}
+.tableScroll::-webkit-scrollbar { height: 4px; }
+.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }""")
+
+# ── FIX 2: Search icon — vertically centered ──
+patch(LEDGER_CSS,
+""".searchIcon {
+    position: absolute;
+    left: clamp(10px, 1.2vw, 14px);
+    color: var(--orange);
+    font-size: clamp(14px, 1.5vw, 18px);
+    pointer-events: none;
+    flex-shrink: 0;
 }""",
-    """/* Plot cell -- clean two-line layout */
-.plotCell strong {
-    display: block;
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-value);
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: 0.5px;
-    white-space: normal;
-    word-break: break-word;
-    line-height: 1.3;
-    margin-bottom: 3px;
-}
-/* Tenure -- muted pill, no orange bg */
-.tenureTag {
-    display: inline-block;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    color: rgba(255,255,255,0.55);
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.14);
-    padding: 1px 7px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    margin-right: 4px;
-}
-/* District tag */
-.districtTag {
-    display: inline-block;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 800;
-    color: rgba(238,140,58,0.85);
-    padding: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+""".searchIcon {
+    position: absolute;
+    left: clamp(10px, 1.2vw, 14px);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--orange);
+    font-size: clamp(14px, 1.5vw, 18px);
+    pointer-events: none;
+    flex-shrink: 0;
+}""")
+
+# ── FIX 3: Active filter style — orange bg + dark text (was dim/invisible) ──
+# Previous patch already changed this but let's make sure the inactive
+# buttons have a background dark enough to read on the cream page bg
+patch(LEDGER_CSS,
+"""/* Active/selected: orange bg + dark navy text — matches Payments "ALL TYPES" */
+.activeFilter {
+    background: var(--orange) !important;
+    border-color: var(--orange) !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 12px rgba(238, 140, 58, 0.35);
 }""",
-    "LedgerPage CSS - plotCell: replace orange span with tenureTag + districtTag"
-)
+"""/* Active/selected: orange bg + dark navy text — same as Payments "ALL TYPES" */
+.activeFilter {
+    background: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 12px rgba(238, 140, 58, 0.4);
+}""")
 
-# ==============================================================
-# FIX 2: LedgerPage.jsx - remove the search hint <p> tag
-# ==============================================================
-print("\n=== FIX 2: LedgerPage JSX - remove search hint <p> tag ===")
-
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    """                        {searchTerm && (
-                            <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
-                                aria-label="Clear search" type="button">
-                                <FiX aria-hidden="true" />
-                            </button>
-                        )}
-                    </div>
-                    <p id="ledger-search-hint" className={styles.searchHint}>{SEARCH_HINT}</p>
-                </div>""",
-    """                        {searchTerm && (
-                            <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
-                                aria-label="Clear search" type="button">
-                                <FiX aria-hidden="true" />
-                            </button>
-                        )}
-                    </div>
-                </div>""",
-    "LedgerPage JSX - remove search hint <p> tag"
-)
-
-# ==============================================================
-# FIX 3: LedgerPage.jsx - remove SEARCH_HINT const + update input
-# ==============================================================
-print("\n=== FIX 3: LedgerPage JSX - update search input ===")
-
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    """                        <input
-                            type="search" id="ledger-search"
-                            placeholder="Search by plot, name, phone, NIN, box, district..."
-                            className={styles.searchInput}
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            aria-label="Search ledger records"
-                            aria-describedby="ledger-search-hint"
-                            autoComplete="off"
-                        />""",
-    """                        <input
-                            type="search" id="ledger-search"
-                            placeholder="Plot ID, box, owner, phone, NIN, email, district, county, tenure..."
-                            className={styles.searchInput}
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            aria-label="Search ledger records"
-                            autoComplete="off"
-                        />""",
-    "LedgerPage JSX - remove aria-describedby, update placeholder"
-)
-
-print("\n=== ALL DONE ===")
-print("Steps:")
-print("1. py fix.py -- check all say OK")
-print("2. git add -A && git commit -m 'ledger plotCell tags, remove search hint' && git push")
-print("3. Wait Render green tick, test site")
+print("All patches applied.")
+print("Run: git add -A && git commit -m \"Ledger: table edge gap, search icon align, active filter orange\" && git push")
