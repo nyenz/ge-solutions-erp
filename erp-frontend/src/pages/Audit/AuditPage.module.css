@@ -228,6 +228,13 @@
 }
 
 /* --- UNIFIED HARDWARE HEADER --- */
+
+
+
+@media (max-width: 600px) {
+}
+
+/* --- UNIFIED HARDWARE HEADER --- */
 .header {
     background: rgba(255, 255, 255, 0.62) !important;
     border-left: clamp(3px, 0.4vw, 5px) solid var(--orange) !important;
