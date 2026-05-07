@@ -154,12 +154,11 @@ const LedgerPage = () => {
                         <FiSearch className={styles.searchIcon} aria-hidden="true" />
                         <input
                             type="search" id="ledger-search"
-                            placeholder="Search by plot, name, phone, NIN, box, district..."
+                            placeholder="Plot ID, box, owner, phone, NIN, email, district, county, tenure..."
                             className={styles.searchInput}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             aria-label="Search ledger records"
-                            aria-describedby="ledger-search-hint"
                             autoComplete="off"
                         />
                         {searchTerm && (
@@ -169,7 +168,6 @@ const LedgerPage = () => {
                             </button>
                         )}
                     </div>
-                    <p id="ledger-search-hint" className={styles.searchHint}>{SEARCH_HINT}</p>
                 </div>
 
                 <div className={styles.filterRailContainer}>
