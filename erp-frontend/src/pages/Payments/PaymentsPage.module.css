@@ -6,7 +6,6 @@
     font-family: 'DM Sans', sans-serif;
     color: #fff;
 }
-
 .header {
     display: flex;
     justify-content: space-between;
@@ -18,129 +17,26 @@
     backdrop-filter: blur(15px);
     margin-bottom: clamp(14px, 2vw, 22px);
 }
-
-.title {
-    font-family: 'Cinzel', serif;
-    color: #1a2e30;
-    font-size: clamp(16px, 2.2vw, 22px);
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: 2px;
-}
-
-.subtitle {
-    color: rgba(26,46,48,0.6);
-    font-size: clamp(10px, 1.1vw, 13px);
-    font-weight: 600;
-    margin: 4px 0 0;
-}
-
-.refreshBtn {
-    background: rgba(26,46,48,0.08);
-    border: 1px solid rgba(26,46,48,0.15);
-    color: #1a2e30;
-    border-radius: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
+.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; margin: 0; letter-spacing: 2px; }
+.subtitle { color: rgba(26,46,48,0.6); font-size: clamp(10px, 1.1vw, 13px); font-weight: 600; margin: 4px 0 0; }
+.refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
 .refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
-
-.summaryRow {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}
-
-.sumCard {
-    background: linear-gradient(160deg, #1c3335, #213E40);
-    border: 1.5px solid rgba(238,140,58,0.25);
-    border-radius: 10px;
-    padding: clamp(12px, 1.5vw, 18px);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sumCard label {
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 900;
-    color: rgba(255,255,255,0.5);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.sumCard strong {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(13px, 1.6vw, 19px);
-    color: #fff;
-    font-weight: 700;
-}
-
-.sumCard span {
-    font-size: clamp(9px, 0.88vw, 11px);
-    color: rgba(255,255,255,0.35);
-}
-
-.controls {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 1vw, 12px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}
-
-.searchWrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    background: #fff;
-    border: 1.5px solid #c8d6d7;
-    border-radius: 8px;
-    height: clamp(38px, 4.2vw, 44px);
-    max-width: clamp(280px, 45vw, 520px);
-    transition: border-color 0.2s;
-}
+.summaryRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: clamp(10px, 1.4vw, 16px); margin-bottom: clamp(14px, 2vw, 20px); }
+.sumCard { background: linear-gradient(160deg, #1c3335, #213E40); border: 1.5px solid rgba(238,140,58,0.25); border-radius: 10px; padding: clamp(12px, 1.5vw, 18px); display: flex; flex-direction: column; gap: 4px; }
+.sumCard label { font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.sumCard strong { font-family: 'Space Mono', monospace; font-size: clamp(13px, 1.6vw, 19px); color: #fff; font-weight: 700; }
+.sumCard span { font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.35); }
+.controls { display: flex; flex-direction: column; gap: clamp(8px, 1vw, 12px); margin-bottom: clamp(14px, 2vw, 20px); }
+.searchWrap { position: relative; display: flex; align-items: center; background: #fff; border: 1.5px solid #c8d6d7; border-radius: 8px; height: clamp(38px, 4.2vw, 44px); max-width: clamp(280px, 45vw, 520px); transition: border-color 0.2s; }
 .searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-
 .searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: 16px; pointer-events: none; }
-
-.searchInput {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: #1a2e30;
-    padding: 0 36px 0 38px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    font-size: clamp(11px, 1.1vw, 13px);
-}
+.searchInput { width: 100%; border: none; outline: none; background: transparent; color: #1a2e30; padding: 0 36px 0 38px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: clamp(11px, 1.1vw, 13px); }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
-
-.clearBtn {
-    position: absolute;
-    right: 8px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: rgba(26,46,48,0.4);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    border-radius: 4px;
-}
+.clearBtn { position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; padding: 4px; border-radius: 4px; }
 .clearBtn:hover { color: #1a2e30; }
+.filterRow { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.filterRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* FIX: ensure filter buttons always show their text clearly */
+/* Filter buttons — visible text always */
 .filterBtn {
     background: rgba(255,255,255,0.08);
     border: 1.5px solid rgba(255,255,255,0.2);
@@ -154,12 +50,11 @@
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
-    /* ensure text is never invisible */
     min-width: max-content;
 }
 .filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
 
-/* Active: orange bg with dark text for contrast */
+/* Active filter — orange bg, dark text */
 .filterActive {
     background: #EE8C3A !important;
     border-color: #EE8C3A !important;
@@ -167,104 +62,25 @@
     font-weight: 900 !important;
 }
 
-.tableWrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(160deg, #1c3335, #213E40);
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: clamp(10px, 1.05vw, 13px);
-    min-width: 680px;
-}
-
+.tableWrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(160deg, #1c3335, #213E40); }
+.table { width: 100%; border-collapse: collapse; font-size: clamp(10px, 1.05vw, 13px); min-width: 680px; }
 .table thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-.table th {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    color: rgba(255,255,255,0.5);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-align: left;
-    white-space: nowrap;
-}
-
+.table th { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.82vw, 10px); color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; text-align: left; white-space: nowrap; }
 .row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
 .row:hover { background: rgba(255,255,255,0.04); }
-
-.table td {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    color: rgba(255,255,255,0.9);
-    vertical-align: middle;
-}
-
+.table td { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); color: rgba(255,255,255,0.9); vertical-align: middle; }
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
 .time { font-size: 10px; opacity: 0.45; }
-
 .plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
-
 .ownerCell { font-weight: 700; color: #fff; }
-
-.typeBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 9px;
-    border-radius: 4px;
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 900;
-    text-transform: uppercase;
-    white-space: nowrap;
-    /* ensure text is always visible */
-    font-family: 'DM Sans', sans-serif;
-    letter-spacing: 0.5px;
-}
-
+.typeBadge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 4px; font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; text-transform: uppercase; white-space: nowrap; font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; }
 .amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
-
 .balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); color: rgba(255,255,255,0.5); }
-
 .recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.6); }
-
-.notesCell {
-    font-style: italic;
-    color: rgba(255,255,255,0.45);
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(9px, 0.88vw, 11px);
-}
-
-.goBtn {
-    background: rgba(238,140,58,0.1);
-    border: 1px solid rgba(238,140,58,0.35);
-    color: #EE8C3A;
-    border-radius: 6px;
-    padding: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
+.notesCell { font-style: italic; color: rgba(255,255,255,0.45); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(9px, 0.88vw, 11px); }
+.goBtn { background: rgba(238,140,58,0.1); border: 1px solid rgba(238,140,58,0.35); color: #EE8C3A; border-radius: 6px; padding: 6px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
 .goBtn:hover { background: #EE8C3A; color: #1a2e30; }
-
-.loading, .empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: rgba(255,255,255,0.35);
-    font-weight: 700;
-    font-size: clamp(12px, 1.3vw, 15px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
+.loading, .empty { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.35); font-weight: 700; font-size: clamp(12px, 1.3vw, 15px); text-transform: uppercase; letter-spacing: 1px; }
 @media (max-width: 768px) {
     .summaryRow { grid-template-columns: 1fr; }
     .filterRow  { gap: 6px; }

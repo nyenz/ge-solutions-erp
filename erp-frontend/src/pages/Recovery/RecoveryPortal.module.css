@@ -87,9 +87,7 @@
 .sectionHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:2px; margin-bottom:var(--gap-lg); display:flex; align-items:center; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.07); }
 .sectionHeaderBacklog { color:#fca5a5; border-bottom-color:rgba(239,68,68,0.2); }
 
-/* ── MISSION GRID ──
-   KEY FIX: 2 columns on desktop, 1 on mobile
-*/
+/* ── MISSION GRID — 2 columns desktop, 1 mobile ── */
 .missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }
 
 .cardsGrid {
@@ -116,16 +114,7 @@
 .cardBacklog:hover { border-color:rgba(239,68,68,0.6); }
 
 /* ── STATUS BADGE ── */
-.statusBadge {
-    float:right;
-    display:inline-flex; align-items:center; gap:5px;
-    padding:3px 10px;
-    border-bottom-left-radius:6px;
-    font-family:'DM Sans',sans-serif;
-    font-size:var(--fs-badge); font-weight:900;
-    letter-spacing:0.8px; text-transform:uppercase;
-}
-/* HIGH CONTRAST badge colours */
+.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-bottom-left-radius:6px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; }
 .statusRed     { background:#7f1d1d; color:#fecaca; }
 .statusBlue    { background:#0c4a6e; color:#bae6fd; }
 .statusGrey    { background:#3f3f46; color:#e4e4e7; }
@@ -133,117 +122,49 @@
 .backlogTag    { background:rgba(239,68,68,0.3); color:#fecaca; border-radius:3px; padding:1px 5px; font-size:8px; margin-left:4px; }
 
 /* ── CARD HEADER ── */
-.cardHeader {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:clamp(10px,1.2vw,14px) var(--pad-card);
-    cursor:pointer;
-    user-select:none;
-    clear:both;
-    gap:10px;
-}
+.cardHeader { display:flex; justify-content:space-between; align-items:center; padding:clamp(10px,1.2vw,14px) var(--pad-card); cursor:pointer; user-select:none; clear:both; gap:10px; }
 .identity { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
-
-/* HIGH CONTRAST: white name on dark card */
 .ownerName { font-family:'Cinzel',serif; color:#ffffff; font-size:var(--fs-owner); font-weight:700; margin:0; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .phoneNum  { font-family:'Space Mono',monospace; color:var(--orange); font-weight:900; font-size:var(--fs-phone); }
-
 .totalDemandRow { display:flex; align-items:baseline; gap:6px; margin-top:3px; }
-/* HIGH CONTRAST: clearly visible label */
 .demandLabel { font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
 .demandValue { font-family:'Space Mono',monospace; font-size:var(--fs-demand); color:#ffffff; font-weight:700; }
 .feesRow { display:flex; align-items:center; gap:5px; font-size:var(--fs-label); color:#fecaca; font-weight:800; margin-top:2px; }
-
 .expandIcon { color:rgba(255,255,255,0.5); font-size:18px; transition:color 0.2s,transform 0.2s; flex-shrink:0; }
 .missionCard:hover .expandIcon { color:var(--orange); }
 
 /* ── CARD BODY ── */
 .cardBody { padding:0 var(--pad-card) var(--pad-card); }
 .divider  { height:1px; background:rgba(238,140,58,0.2); margin:10px 0; }
-
-/* timing row — HIGH CONTRAST: white text on dark bg */
-.timingRow {
-    display:flex; align-items:center; flex-wrap:wrap; gap:6px;
-    font-size:var(--fs-meta); color:#e2e8f0; font-weight:700;
-    margin-bottom:12px;
-    background:rgba(0,0,0,0.35); padding:8px 12px; border-radius:6px;
-    border:1px solid rgba(255,255,255,0.07);
-}
+.timingRow { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:var(--fs-meta); color:#e2e8f0; font-weight:700; margin-bottom:12px; background:rgba(0,0,0,0.35); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.07); }
 .timingRow strong { color:#ffffff; }
 
 /* ── PLOTS LIST ── */
 .plotsList { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
 .plotsHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
-
-.plotRow {
-    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
-    background:rgba(0,0,0,0.3); border-radius:8px; padding:10px 12px;
-    border-left:3px solid rgba(238,140,58,0.5);
-}
+.plotRow { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; background:rgba(0,0,0,0.3); border-radius:8px; padding:10px 12px; border-left:3px solid rgba(238,140,58,0.5); }
 .plotRowBacklog { border-left-color:rgba(239,68,68,0.7); background:rgba(239,68,68,0.08); }
 .plotRowLeft { display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; }
 .plotInfo  { display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
-
-/* HIGH CONTRAST plot number */
 .plotNumber { font-family:'Space Mono',monospace; color:var(--orange); font-size:clamp(11px,1.1vw,13px); font-weight:700; }
-/* HIGH CONTRAST box label */
 .plotBox    { font-size:var(--fs-meta); color:rgba(255,255,255,0.65); font-weight:700; }
-
 .backlogBreakdown { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
-.backlogPlotTag {
-    display:inline-flex; align-items:center; gap:4px;
-    background:rgba(239,68,68,0.25); color:#fecaca;
-    border:1px solid rgba(239,68,68,0.4);
-    border-radius:4px; padding:2px 7px;
-    font-size:9px; font-weight:800; text-transform:uppercase;
-    margin-bottom:4px; width:fit-content;
-}
-/* HIGH CONTRAST debt lines */
+.backlogPlotTag { display:inline-flex; align-items:center; gap:4px; background:rgba(239,68,68,0.25); color:#fecaca; border:1px solid rgba(239,68,68,0.4); border-radius:4px; padding:2px 7px; font-size:9px; font-weight:800; text-transform:uppercase; margin-bottom:4px; width:fit-content; }
 .debtLine { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
 .debtLine strong { color:#ffffff; }
-
 .activePlotFinance { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
 .activePlotFinance strong { color:#ffffff; }
-
-/* HIGH CONTRAST last note text */
 .lastNote { display:flex; align-items:flex-start; gap:5px; font-size:var(--fs-label); color:rgba(255,255,255,0.55); font-style:italic; margin-top:5px; font-weight:600; line-height:1.4; }
-
 .plotRowActions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
 
 /* ── CARD ACTIONS ── */
 .cardActions { display:flex; gap:var(--gap-md); margin-top:12px; flex-wrap:wrap; }
-.logCallBtn {
-    flex:1; min-width:120px;
-    background:var(--orange); color:var(--navy);
-    font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    text-transform:uppercase; letter-spacing:1px;
-    padding:10px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:7px;
-    border:2px solid var(--orange); transition:background 0.2s;
-}
+.logCallBtn { flex:1; min-width:120px; background:var(--orange); color:var(--navy); font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); text-transform:uppercase; letter-spacing:1px; padding:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; border:2px solid var(--orange); transition:background 0.2s; }
 .logCallBtn:hover:not(:disabled) { background:#d4732a; border-color:#d4732a; }
 .logCallBtn:disabled { background:transparent; color:rgba(255,255,255,0.3); border-color:rgba(255,255,255,0.15); cursor:not-allowed; }
-
-.folderBtn {
-    background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.3);
-    color:#ffffff; font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    padding:7px 12px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:4px;
-    transition:all 0.2s; white-space:nowrap;
-}
+.folderBtn { background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.3); color:#ffffff; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
 .folderBtn:hover { border-color:var(--orange); color:var(--orange); background:rgba(238,140,58,0.12); }
-
-.payBtn {
-    background:rgba(34,197,94,0.15); border:1.5px solid rgba(34,197,94,0.5);
-    color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    padding:7px 12px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:4px;
-    transition:all 0.2s; white-space:nowrap;
-}
+.payBtn { background:rgba(34,197,94,0.15); border:1.5px solid rgba(34,197,94,0.5); color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
 .payBtn:hover { background:#22c55e; color:#1a2e30; border-color:#22c55e; }
 
 /* ── EMPTY STATE ── */
@@ -253,8 +174,6 @@
 
 /* ── MODAL ── */
 .modalBody { padding-top:10px; }
-
-/* history stream — white bg, dark text — HIGH CONTRAST */
 .historyStream { max-height:180px; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:14px; border:1px solid #e2e8f0; scrollbar-width:thin; }
 .historyTitle  { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:900; color:#475569; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
 .historyItem   { border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px; }
@@ -262,37 +181,14 @@
 .historyMeta   { display:flex; justify-content:space-between; align-items:center; font-family:'DM Sans',sans-serif; font-size:10px; font-weight:800; color:#c2410c; margin-bottom:4px; }
 .historyItem p { font-family:'DM Sans',sans-serif; font-size:12px; color:#1a2e30; line-height:1.5; font-weight:600; margin:0; }
 .emptyHistory  { font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#94a3b8; text-align:center; padding:20px 0; }
-
-/* textarea — HIGH CONTRAST: dark text on white */
-.notebookArea {
-    width:100%; min-height:90px;
-    background:#fff; border-radius:8px;
-    border:1.5px solid rgba(238,140,58,0.5);
-    padding:10px 12px; color:#1a2e30;
-    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
-    resize:vertical; box-sizing:border-box; display:block; outline:none;
-    transition:box-shadow 0.2s;
-}
+.notebookArea { width:100%; min-height:90px; background:#fff; border-radius:8px; border:1.5px solid rgba(238,140,58,0.5); padding:10px 12px; color:#1a2e30; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; resize:vertical; box-sizing:border-box; display:block; outline:none; transition:box-shadow 0.2s; }
 .notebookArea:focus { box-shadow:0 0 0 3px rgba(238,140,58,0.2); }
 .notebookArea::placeholder { font-weight:500; color:rgba(26,46,48,0.35); }
-
 .modalFooter { margin-top:12px; display:flex; justify-content:flex-end; }
-
-/* payment info boxes */
-.backlogPayInfo {
-    display:flex; align-items:flex-start; gap:12px;
-    background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35);
-    border-radius:8px; padding:14px; margin-bottom:14px;
-    font-size:13px; color:#fef2f2;
-}
-.activePayInfo {
-    background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
-    border-radius:8px; padding:12px; margin-bottom:14px;
-    font-size:13px; color:#f0fdf4;
-}
+.backlogPayInfo { display:flex; align-items:flex-start; gap:12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); border-radius:8px; padding:14px; margin-bottom:14px; font-size:13px; color:#fef2f2; }
+.activePayInfo { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:12px; margin-bottom:14px; font-size:13px; color:#f0fdf4; }
 
 /* ── RESPONSIVE ── */
-/* On tablet and below: 1 column */
 @media (max-width:900px) {
     .cardsGrid { grid-template-columns:1fr; }
     .header    { flex-direction:column; align-items:flex-start; }
@@ -300,14 +196,12 @@
     .modeSwitch { width:100%; }
     .modeActive,.modeInactive { flex:1; justify-content:center; }
 }
-
 @media (max-width:600px) {
     .cardActions    { flex-direction:column; }
     .plotRow        { flex-direction:column; }
     .plotRowActions { flex-direction:row; }
     .searchInner    { max-width:100%; }
 }
-
 @media (max-width:480px) {
     .statusBadge { font-size:7px; padding:2px 7px; }
     .cardHeader  { padding:9px 11px; }

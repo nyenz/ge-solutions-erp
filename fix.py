@@ -2,510 +2,7 @@ import os
 
 files = {}
 
-# ── FIX 1: IntakePage.jsx — remove Payment Plan, Weekly Installment, Operational Mode toggle
-# Keep only: Total Cost, Initial Payment, Backlog Status toggle
-files["erp-frontend/src/pages/Intake/IntakePage.jsx"] = """\
-// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiMap, FiUsers, FiCreditCard, FiUploadCloud,
-    FiInfo, FiPlusSquare, FiTrash2, FiSend,
-    FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon
-} from 'react-icons/fi';
-import landService from '../../services/landService';
-import predictionService from '../../services/predictionService';
-import styles from './IntakePage.module.css';
-
-// ── TOAST ────────────────────────────────────────────────────────
-const useToast = () => {
-    const [toasts, setToasts] = useState([]);
-    const toast = useCallback((message, type = 'info', duration = 4500) => {
-        const id = Date.now() + Math.random();
-        setToasts(prev => [...prev, { id, message, type }]);
-        if (duration > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
-    }, []);
-    const dismiss = useCallback(id => setToasts(prev => prev.filter(t => t.id !== id)), []);
-    return { toasts, toast, dismissToast: dismiss };
-};
-const TOAST_ICONS = {
-    success: <FiCheckSquare aria-hidden="true" />,
-    error:   <FiAlertCircle aria-hidden="true" />,
-    warn:    <FiAlertTriangle aria-hidden="true" />,
-    info:    <FiAlertCircle aria-hidden="true" />,
-};
-const ToastContainer = ({ toasts, onDismiss }) => {
-    if (typeof document === 'undefined') return null;
-    return createPortal(
-        <div className={styles.toastContainer} role="region" aria-label="Notifications" aria-live="polite">
-            {toasts.map(t => (
-                <div key={t.id} className={`${styles.toast} ${styles['toast_' + t.type]}`} role="alert">
-                    <span className={styles.toastIcon}>{TOAST_ICONS[t.type]}</span>
-                    <span className={styles.toastMsg}>{t.message}</span>
-                    <button className={styles.toastClose} onClick={() => onDismiss(t.id)} aria-label="Dismiss">
-                        <FiX aria-hidden="true" />
-                    </button>
-                </div>
-            ))}
-        </div>,
-        document.body
-    );
-};
-
-// ── SAVING OVERLAY ────────────────────────────────────────────────
-const SavingOverlay = ({ visible }) => {
-    if (!visible || typeof document === 'undefined') return null;
-    return createPortal(
-        <div className={styles.savingOverlay} role="status" aria-label="Saving">
-            <div className={styles.savingRing} aria-hidden="true" />
-            <span className={styles.savingLabel}>COMMITTING TO ARCHIVE...</span>
-        </div>,
-        document.body
-    );
-};
-
-// ── DRAWER HEADER ─────────────────────────────────────────────────
-const DrawerHeader = ({ label, isOpen, onClick, icon: Icon, badge }) => (
-    <div className={styles.drawerHeader} onClick={onClick} role="button" tabIndex={0}
-        aria-expanded={isOpen}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>
-        <div className={styles.drawerTitle}>
-            {Icon && <Icon className={styles.drawerIcon} aria-hidden="true" />}
-            {label}
-            {badge !== undefined && <span className={styles.drawerBadge}>{badge}</span>}
-        </div>
-        <span className={`${styles.chevron} ${isOpen ? styles.rotated : ''}`} aria-hidden="true">▾</span>
-    </div>
-);
-
-// ── SMART INPUT ───────────────────────────────────────────────────
-const SmartInput = ({ label, value, onChange, placeholder, suggestions = [], showCaps, required, error, inputMode, maxLength, hint, id }) => {
-    const inputId = id || 'si-' + (label || '').replace(/\W/g, '-').toLowerCase();
-    return (
-        <div className={`${styles.inputWrap} ${error ? styles.inputError : ''}`}>
-            <div className={styles.labelRow}>
-                <label htmlFor={inputId} className={styles.fieldLabel}>
-                    {label}{required && <span className={styles.requiredStar}> *</span>}
-                </label>
-                {showCaps && <span className={styles.capsBadge}>CAPS</span>}
-            </div>
-            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
-                type="text" value={value} onChange={onChange} placeholder={placeholder}
-                inputMode={inputMode} maxLength={maxLength} autoComplete="off"
-                list={suggestions.length ? inputId + '_dl' : undefined} />
-            {suggestions.length > 0 && (
-                <datalist id={inputId + '_dl'}>
-                    {suggestions.map((s,i) => <option key={i} value={s} />)}
-                </datalist>
-            )}
-            {error && <span className={styles.fieldError}>{error}</span>}
-            {!error && hint && <span className={styles.fieldHint}>{hint}</span>}
-        </div>
-    );
-};
-
-// ── SMART SELECT ──────────────────────────────────────────────────
-const SmartSelect = ({ label, options, value, onChange, id }) => {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const selectId = id || 'ss-' + (label || '').replace(/\W/g, '-').toLowerCase();
-    useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-    return (
-        <div className={styles.inputWrap} ref={ref} style={{ position: 'relative' }}>
-            <div className={styles.labelRow}>
-                <label id={selectId + '_lbl'} className={styles.fieldLabel}>{label}</label>
-            </div>
-            <div id={selectId} role="combobox" aria-haspopup="listbox" aria-expanded={open}
-                aria-labelledby={selectId + '_lbl'} tabIndex={0}
-                className={`${styles.selectTrigger} ${open ? styles.selectTriggerOpen : ''}`}
-                onClick={() => setOpen(o => !o)}
-                onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); }
-                    if (e.key === 'Escape') setOpen(false);
-                }}>
-                <span className={styles.selectValue}>{value}</span>
-                <span className={`${styles.selectChevron} ${open ? styles.rotated : ''}`} aria-hidden="true">▾</span>
-            </div>
-            {open && (
-                <ul role="listbox" aria-labelledby={selectId + '_lbl'} className={styles.selectDropdown}>
-                    {options.map(opt => (
-                        <li key={opt} role="option" aria-selected={opt === value}
-                            className={`${styles.selectOption} ${opt === value ? styles.selectOptionActive : ''}`}
-                            onClick={() => { onChange(opt); setOpen(false); }}>{opt}</li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
-
-// ── CURRENCY INPUT ────────────────────────────────────────────────
-const CurrencyInput = ({ label, value, onChange, error, id, required }) => {
-    const [focused, setFocused] = useState(false);
-    const inputId = id || 'cur-' + (label||'').replace(/\W/g,'-').toLowerCase();
-    const display = focused ? String(value||'') : (value ? Number(value).toLocaleString() : '');
-    return (
-        <div className={`${styles.inputWrap} ${error ? styles.inputError : ''}`}>
-            <div className={styles.labelRow}>
-                <label htmlFor={inputId} className={styles.fieldLabel}>
-                    {label}{required && <span className={styles.requiredStar}> *</span>}
-                </label>
-                <span className={styles.capsBadge} style={{ background: 'rgba(238,140,58,0.18)', color: '#EE8C3A' }}>UGX</span>
-            </div>
-            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
-                inputMode="numeric" value={display}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                onChange={e => onChange(e.target.value.replace(/\D/g, ''))}
-                placeholder="0" />
-            {error && <span className={styles.fieldError}>{error}</span>}
-        </div>
-    );
-};
-
-// ── PHONE INPUT ───────────────────────────────────────────────────
-const PhoneInput = ({ label='PHONE NUMBER', value, onChange, id, required, fieldError }) => {
-    const inputId = id || 'phi';
-    return (
-        <div className={`${styles.inputWrap} ${fieldError ? styles.inputError : ''}`}>
-            <div className={styles.labelRow}>
-                <label htmlFor={inputId} className={styles.fieldLabel}>
-                    {label}{required && <span className={styles.requiredStar}> *</span>}
-                </label>
-            </div>
-            <input id={inputId} type="tel" value={value}
-                onChange={e => onChange(e.target.value.replace(/[^0-9\s/]/g, ''))}
-                placeholder="0712 345 678"
-                inputMode="tel"
-                className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`} />
-            {fieldError && <span className={styles.fieldError}>{fieldError}</span>}
-        </div>
-    );
-};
-
-// ── MAIN COMPONENT ────────────────────────────────────────────────
-const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
-
-const IntakePage = () => {
-    const navigate = useNavigate();
-    const { toasts, toast, dismissToast } = useToast();
-    const fileInputRef = useRef(null);
-
-    const [saving, setSaving] = useState(false);
-    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
-    const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
-
-    const [errors, setErrors] = useState({});
-
-    // Plot fields
-    const [plotNumber,        setPlotNumber]        = useState('');
-    const [tenure,            setTenure]            = useState('MAILO');
-    const [physicalBoxNumber, setPhysicalBoxNumber] = useState('');
-    const [district,          setDistrict]          = useState('');
-    const [county,            setCounty]            = useState('');
-    const [blockRoad,         setBlockRoad]         = useState('');
-    const [volume,            setVolume]            = useState('');
-    const [folio,             setFolio]             = useState('');
-    const [instrumentNo,      setInstrumentNo]      = useState('');
-
-    // Owners
-    const [owners, setOwners] = useState([EMPTY_OWNER()]);
-
-    // Financials — SIMPLIFIED: only totalCost, initialPayment, isBacklog
-    const [totalCost,      setTotalCost]      = useState('');
-    const [initialPayment, setInitialPayment] = useState('');
-    const [isBacklog,      setIsBacklog]      = useState(false);
-
-    // Docs & notes
-    const [fileQueue, setFileQueue] = useState([]);
-    const [noteText,  setNoteText]  = useState('');
-
-    const sg = key => predictionService.getSuggestions(key) || [];
-
-    const validate = () => {
-        const e = {};
-        if (!plotNumber.trim())        e.plotNumber = 'Required';
-        if (!district.trim())          e.district   = 'Required';
-        if (!totalCost)                e.totalCost  = 'Required';
-        owners.forEach((o, i) => {
-            if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
-            if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
-        });
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
-    const handleSubmit = async () => {
-        if (!validate()) {
-            toast('Please fix the highlighted fields', 'error');
-            return;
-        }
-        setSaving(true);
-        try {
-            const payload = {
-                plotNumber: plotNumber.trim().toUpperCase(),
-                tenure,
-                physicalBoxNumber: physicalBoxNumber.trim().toUpperCase(),
-                district:   district.trim().toUpperCase(),
-                county:     county.trim().toUpperCase(),
-                blockRoad:  blockRoad.trim().toUpperCase(),
-                volume,
-                folio,
-                instrumentNo: instrumentNo.trim().toUpperCase(),
-                totalCost:      Number(totalCost)      || 0,
-                initialPayment: Number(initialPayment) || 0,
-                isStartAsBacklog: isBacklog,
-                isLegacy: false,
-                owners: owners.map(o => ({
-                    fullName:   o.fullName.trim().toUpperCase(),
-                    phone:      o.phone.trim(),
-                    email:      o.email.trim().toLowerCase(),
-                    nationalId: o.nationalId.trim().toUpperCase(),
-                    address:    o.address.trim(),
-                })),
-                notes: noteText.trim() ? [{ content: noteText.trim() }] : [],
-            };
-            predictionService.learn(payload);
-            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
-            toast('Plot registered successfully!', 'success', 3000);
-            setTimeout(() => navigate('/land/projects'), 1800);
-        } catch (err) {
-            const msg = err.response?.data?.message || err.message || 'Save failed';
-            toast(msg, 'error', 8000);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const updateOwner = (idx, field, val) => {
-        setOwners(prev => prev.map((o, i) => i === idx ? { ...o, [field]: val } : o));
-    };
-
-    const addOwner = () => setOwners(prev => [...prev, EMPTY_OWNER()]);
-    const removeOwner = idx => setOwners(prev => prev.filter((_, i) => i !== idx));
-
-    const addFiles = files => {
-        setFileQueue(prev => {
-            const existing = new Set(prev.map(f => f.name));
-            const newFiles = Array.from(files).filter(f => !existing.has(f.name));
-            return [...prev, ...newFiles];
-        });
-    };
-
-    const arrears = (Number(totalCost) || 0) - (Number(initialPayment) || 0);
-
-    return (
-        <div className={styles.container}>
-            <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-            <SavingOverlay visible={saving} />
-
-            <header className={styles.header}>
-                <h1 className={styles.title}>New Plot Registration</h1>
-                <p className={styles.subtitle}>Register a new land title into the system</p>
-            </header>
-
-            <div className={styles.formFlow}>
-
-                {/* ── PLOT DETAILS ── */}
-                <div className={styles.hwPanel}>
-                    <DrawerHeader label="PLOT DETAILS" isOpen={drawers.plot} onClick={() => toggleDrawer('plot')} icon={FiMap} />
-                    <div className={`${styles.panelBody} ${drawers.plot ? styles.bodyOpen : styles.bodyClosed}`}>
-                        <div className={styles.panelInner}>
-                            <div className={styles.grid3}>
-                                <SmartInput label="PLOT ID" value={plotNumber} showCaps required
-                                    error={errors.plotNumber}
-                                    onChange={e => setPlotNumber(e.target.value.toUpperCase())} />
-                                <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']}
-                                    value={tenure} onChange={setTenure} />
-                                <SmartInput label="BOX LOCATION" value={physicalBoxNumber} showCaps
-                                    onChange={e => setPhysicalBoxNumber(e.target.value.toUpperCase())} />
-                            </div>
-                            <div className={styles.grid3}>
-                                <SmartInput label="DISTRICT" value={district} showCaps required
-                                    error={errors.district} suggestions={sg('district')}
-                                    onChange={e => setDistrict(e.target.value.toUpperCase())} />
-                                <SmartInput label="COUNTY" value={county} showCaps suggestions={sg('county')}
-                                    onChange={e => setCounty(e.target.value.toUpperCase())} />
-                                <SmartInput label="BLOCK / ROAD" value={blockRoad} showCaps suggestions={sg('blockRoad')}
-                                    onChange={e => setBlockRoad(e.target.value.toUpperCase())} />
-                            </div>
-                            <div className={styles.grid3}>
-                                <SmartInput label="INSTRUMENT NO." value={instrumentNo} showCaps
-                                    onChange={e => setInstrumentNo(e.target.value.toUpperCase())} />
-                                <SmartInput label="VOLUME" value={volume} inputMode="numeric"
-                                    onChange={e => setVolume(e.target.value.replace(/\D/g,''))} />
-                                <SmartInput label="FOLIO" value={folio} inputMode="numeric"
-                                    onChange={e => setFolio(e.target.value.replace(/\D/g,''))} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── OWNERS ── */}
-                <div className={styles.hwPanel}>
-                    <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')}
-                        icon={FiUsers} badge={owners.length} />
-                    <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}>
-                        <div className={styles.panelInner}>
-                            {owners.map((o, idx) => (
-                                <div key={idx} className={styles.ownerBlock}>
-                                    <div className={styles.ownerHeader}>
-                                        OWNER #{idx + 1} {idx === 0 ? '(PRIMARY)' : '(JOINT)'}
-                                        {idx > 0 && (
-                                            <button type="button" className={styles.miniTrash}
-                                                onClick={() => removeOwner(idx)} aria-label="Remove owner">
-                                                <FiTrash2 />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className={styles.grid2}>
-                                        <SmartInput label="FULL NAME" value={o.fullName} showCaps required
-                                            error={errors['owner_'+idx+'_name']}
-                                            onChange={e => updateOwner(idx, 'fullName', e.target.value.toUpperCase())} />
-                                        <PhoneInput value={o.phone} required
-                                            fieldError={errors['owner_'+idx+'_phone']}
-                                            onChange={v => updateOwner(idx, 'phone', v)}
-                                            id={'owner_'+idx+'_phone'} />
-                                    </div>
-                                    <div className={styles.grid3}>
-                                        <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps
-                                            maxLength={14}
-                                            onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\s/g,''))} />
-                                        <SmartInput label="EMAIL" value={o.email}
-                                            onChange={e => updateOwner(idx, 'email', e.target.value.toLowerCase())} />
-                                        <SmartInput label="HOME ADDRESS" value={o.address}
-                                            onChange={e => updateOwner(idx, 'address', e.target.value)} />
-                                    </div>
-                                </div>
-                            ))}
-                            <button type="button" className={styles.addBtn} onClick={addOwner}>
-                                <FiPlusSquare aria-hidden="true" /> ADD JOINT OWNER
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── FINANCIALS — CLEANED UP ── */}
-                <div className={styles.hwPanel}>
-                    <DrawerHeader label="FINANCIALS" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiCreditCard} />
-                    <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`}>
-                        <div className={styles.panelInner}>
-                            <div className={styles.grid3}>
-                                <CurrencyInput label="TOTAL COST" value={totalCost} required
-                                    error={errors.totalCost}
-                                    onChange={setTotalCost} id="totalCost" />
-                                <CurrencyInput label="INITIAL PAYMENT" value={initialPayment}
-                                    onChange={setInitialPayment} id="initialPayment" />
-                                <div className={styles.inputWrap}>
-                                    <div className={styles.labelRow}>
-                                        <label className={styles.fieldLabel}>ARREARS</label>
-                                        <span className={styles.capsBadge} style={{ background: 'rgba(6,182,212,0.15)', color:'#06b6d4' }}>AUTO</span>
-                                    </div>
-                                    <div className={styles.diagBox}>
-                                        UGX {arrears >= 0 ? arrears.toLocaleString() : 0}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* BACKLOG STATUS — single clean toggle */}
-                            <div className={styles.modeRow}>
-                                <label>BACKLOG STATUS</label>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button type="button"
-                                        className={!isBacklog ? styles.toggleLegacy : styles.toggleStandard}
-                                        onClick={() => setIsBacklog(false)}>
-                                        ✓ STANDARD — NOT BACKLOG
-                                    </button>
-                                    <button type="button"
-                                        className={isBacklog ? styles.toggleLegacy : styles.toggleStandard}
-                                        style={isBacklog ? { borderColor:'#ef4444', color:'#ef4444', background:'rgba(239,68,68,0.12)' } : {}}
-                                        onClick={() => setIsBacklog(true)}>
-                                        ⚠ ENTER AS BACKLOG
-                                    </button>
-                                </div>
-                                {isBacklog && (
-                                    <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: '0.82rem', color: '#fca5a5' }}>
-                                        This plot will immediately start accumulating UGX 50,000 / month storage fees.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── DOCUMENTS ── */}
-                <div className={styles.splitGrid}>
-                    <div className={styles.hwPanel}>
-                        <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')}
-                            icon={FiUploadCloud} badge={fileQueue.length || undefined} />
-                        <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.vaultWrapper}>
-                                    <div className={styles.fileDisplay}>
-                                        {fileQueue.length === 0 ? (
-                                            <div className={styles.emptyState}>
-                                                <FiUploadCloud className={styles.emptyIcon} aria-hidden="true" />
-                                                <span>No files selected</span>
-                                            </div>
-                                        ) : fileQueue.map((f, i) => (
-                                            <div key={i} className={styles.fileTag}>
-                                                <span className={styles.fileClickable}><span className={styles.fileName}>{f.name}</span></span>
-                                                <button type="button" className={styles.removeFile}
-                                                    onClick={() => setFileQueue(prev => prev.filter((_,j) => j !== i))}>
-                                                    <FiX />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button type="button" className={styles.uploadBtn}
-                                        onClick={() => fileInputRef.current?.click()}>
-                                        <FiUploadCloud aria-hidden="true" /> SELECT SCANS
-                                    </button>
-                                    <input ref={fileInputRef} type="file" multiple
-                                        accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                        style={{ display: 'none' }}
-                                        onChange={e => { if (e.target.files?.length) addFiles(e.target.files); e.target.value=''; }} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── NOTES ── */}
-                    <div className={styles.hwPanel}>
-                        <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} />
-                        <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}>
-                            <div className={styles.panelInner}>
-                                <textarea className={styles.notesArea}
-                                    value={noteText}
-                                    onChange={e => setNoteText(e.target.value)}
-                                    placeholder="Add an intake note (e.g. client visited in person, documents pending...)" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── SUBMIT ── */}
-                <div className={styles.submitSection}>
-                    <button type="button" className={styles.primaryCommitBtn}
-                        onClick={handleSubmit} disabled={saving}>
-                        <FiSend aria-hidden="true" />
-                        {saving ? 'SAVING...' : 'COMMIT TO ARCHIVE'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default IntakePage;
-"""
-
-# ── FIX 2: RecoveryPortal.module.css — fix 2-col grid + all contrast issues
+# ── STAGE 1, FIX 1: RecoveryPortal.module.css
 files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 /* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
 
@@ -596,9 +93,7 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 .sectionHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:2px; margin-bottom:var(--gap-lg); display:flex; align-items:center; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.07); }
 .sectionHeaderBacklog { color:#fca5a5; border-bottom-color:rgba(239,68,68,0.2); }
 
-/* ── MISSION GRID ──
-   KEY FIX: 2 columns on desktop, 1 on mobile
-*/
+/* ── MISSION GRID — 2 columns desktop, 1 mobile ── */
 .missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }
 
 .cardsGrid {
@@ -625,16 +120,7 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 .cardBacklog:hover { border-color:rgba(239,68,68,0.6); }
 
 /* ── STATUS BADGE ── */
-.statusBadge {
-    float:right;
-    display:inline-flex; align-items:center; gap:5px;
-    padding:3px 10px;
-    border-bottom-left-radius:6px;
-    font-family:'DM Sans',sans-serif;
-    font-size:var(--fs-badge); font-weight:900;
-    letter-spacing:0.8px; text-transform:uppercase;
-}
-/* HIGH CONTRAST badge colours */
+.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-bottom-left-radius:6px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; }
 .statusRed     { background:#7f1d1d; color:#fecaca; }
 .statusBlue    { background:#0c4a6e; color:#bae6fd; }
 .statusGrey    { background:#3f3f46; color:#e4e4e7; }
@@ -642,117 +128,49 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 .backlogTag    { background:rgba(239,68,68,0.3); color:#fecaca; border-radius:3px; padding:1px 5px; font-size:8px; margin-left:4px; }
 
 /* ── CARD HEADER ── */
-.cardHeader {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:clamp(10px,1.2vw,14px) var(--pad-card);
-    cursor:pointer;
-    user-select:none;
-    clear:both;
-    gap:10px;
-}
+.cardHeader { display:flex; justify-content:space-between; align-items:center; padding:clamp(10px,1.2vw,14px) var(--pad-card); cursor:pointer; user-select:none; clear:both; gap:10px; }
 .identity { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
-
-/* HIGH CONTRAST: white name on dark card */
 .ownerName { font-family:'Cinzel',serif; color:#ffffff; font-size:var(--fs-owner); font-weight:700; margin:0; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .phoneNum  { font-family:'Space Mono',monospace; color:var(--orange); font-weight:900; font-size:var(--fs-phone); }
-
 .totalDemandRow { display:flex; align-items:baseline; gap:6px; margin-top:3px; }
-/* HIGH CONTRAST: clearly visible label */
 .demandLabel { font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
 .demandValue { font-family:'Space Mono',monospace; font-size:var(--fs-demand); color:#ffffff; font-weight:700; }
 .feesRow { display:flex; align-items:center; gap:5px; font-size:var(--fs-label); color:#fecaca; font-weight:800; margin-top:2px; }
-
 .expandIcon { color:rgba(255,255,255,0.5); font-size:18px; transition:color 0.2s,transform 0.2s; flex-shrink:0; }
 .missionCard:hover .expandIcon { color:var(--orange); }
 
 /* ── CARD BODY ── */
 .cardBody { padding:0 var(--pad-card) var(--pad-card); }
 .divider  { height:1px; background:rgba(238,140,58,0.2); margin:10px 0; }
-
-/* timing row — HIGH CONTRAST: white text on dark bg */
-.timingRow {
-    display:flex; align-items:center; flex-wrap:wrap; gap:6px;
-    font-size:var(--fs-meta); color:#e2e8f0; font-weight:700;
-    margin-bottom:12px;
-    background:rgba(0,0,0,0.35); padding:8px 12px; border-radius:6px;
-    border:1px solid rgba(255,255,255,0.07);
-}
+.timingRow { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:var(--fs-meta); color:#e2e8f0; font-weight:700; margin-bottom:12px; background:rgba(0,0,0,0.35); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.07); }
 .timingRow strong { color:#ffffff; }
 
 /* ── PLOTS LIST ── */
 .plotsList { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
 .plotsHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
-
-.plotRow {
-    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
-    background:rgba(0,0,0,0.3); border-radius:8px; padding:10px 12px;
-    border-left:3px solid rgba(238,140,58,0.5);
-}
+.plotRow { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; background:rgba(0,0,0,0.3); border-radius:8px; padding:10px 12px; border-left:3px solid rgba(238,140,58,0.5); }
 .plotRowBacklog { border-left-color:rgba(239,68,68,0.7); background:rgba(239,68,68,0.08); }
 .plotRowLeft { display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; }
 .plotInfo  { display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
-
-/* HIGH CONTRAST plot number */
 .plotNumber { font-family:'Space Mono',monospace; color:var(--orange); font-size:clamp(11px,1.1vw,13px); font-weight:700; }
-/* HIGH CONTRAST box label */
 .plotBox    { font-size:var(--fs-meta); color:rgba(255,255,255,0.65); font-weight:700; }
-
 .backlogBreakdown { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
-.backlogPlotTag {
-    display:inline-flex; align-items:center; gap:4px;
-    background:rgba(239,68,68,0.25); color:#fecaca;
-    border:1px solid rgba(239,68,68,0.4);
-    border-radius:4px; padding:2px 7px;
-    font-size:9px; font-weight:800; text-transform:uppercase;
-    margin-bottom:4px; width:fit-content;
-}
-/* HIGH CONTRAST debt lines */
+.backlogPlotTag { display:inline-flex; align-items:center; gap:4px; background:rgba(239,68,68,0.25); color:#fecaca; border:1px solid rgba(239,68,68,0.4); border-radius:4px; padding:2px 7px; font-size:9px; font-weight:800; text-transform:uppercase; margin-bottom:4px; width:fit-content; }
 .debtLine { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
 .debtLine strong { color:#ffffff; }
-
 .activePlotFinance { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
 .activePlotFinance strong { color:#ffffff; }
-
-/* HIGH CONTRAST last note text */
 .lastNote { display:flex; align-items:flex-start; gap:5px; font-size:var(--fs-label); color:rgba(255,255,255,0.55); font-style:italic; margin-top:5px; font-weight:600; line-height:1.4; }
-
 .plotRowActions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
 
 /* ── CARD ACTIONS ── */
 .cardActions { display:flex; gap:var(--gap-md); margin-top:12px; flex-wrap:wrap; }
-.logCallBtn {
-    flex:1; min-width:120px;
-    background:var(--orange); color:var(--navy);
-    font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    text-transform:uppercase; letter-spacing:1px;
-    padding:10px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:7px;
-    border:2px solid var(--orange); transition:background 0.2s;
-}
+.logCallBtn { flex:1; min-width:120px; background:var(--orange); color:var(--navy); font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); text-transform:uppercase; letter-spacing:1px; padding:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; border:2px solid var(--orange); transition:background 0.2s; }
 .logCallBtn:hover:not(:disabled) { background:#d4732a; border-color:#d4732a; }
 .logCallBtn:disabled { background:transparent; color:rgba(255,255,255,0.3); border-color:rgba(255,255,255,0.15); cursor:not-allowed; }
-
-.folderBtn {
-    background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.3);
-    color:#ffffff; font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    padding:7px 12px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:4px;
-    transition:all 0.2s; white-space:nowrap;
-}
+.folderBtn { background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.3); color:#ffffff; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
 .folderBtn:hover { border-color:var(--orange); color:var(--orange); background:rgba(238,140,58,0.12); }
-
-.payBtn {
-    background:rgba(34,197,94,0.15); border:1.5px solid rgba(34,197,94,0.5);
-    color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900;
-    border-radius:var(--radius-sm); font-size:var(--fs-btn);
-    padding:7px 12px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:4px;
-    transition:all 0.2s; white-space:nowrap;
-}
+.payBtn { background:rgba(34,197,94,0.15); border:1.5px solid rgba(34,197,94,0.5); color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
 .payBtn:hover { background:#22c55e; color:#1a2e30; border-color:#22c55e; }
 
 /* ── EMPTY STATE ── */
@@ -762,8 +180,6 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 
 /* ── MODAL ── */
 .modalBody { padding-top:10px; }
-
-/* history stream — white bg, dark text — HIGH CONTRAST */
 .historyStream { max-height:180px; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:14px; border:1px solid #e2e8f0; scrollbar-width:thin; }
 .historyTitle  { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:900; color:#475569; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
 .historyItem   { border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px; }
@@ -771,37 +187,14 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 .historyMeta   { display:flex; justify-content:space-between; align-items:center; font-family:'DM Sans',sans-serif; font-size:10px; font-weight:800; color:#c2410c; margin-bottom:4px; }
 .historyItem p { font-family:'DM Sans',sans-serif; font-size:12px; color:#1a2e30; line-height:1.5; font-weight:600; margin:0; }
 .emptyHistory  { font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#94a3b8; text-align:center; padding:20px 0; }
-
-/* textarea — HIGH CONTRAST: dark text on white */
-.notebookArea {
-    width:100%; min-height:90px;
-    background:#fff; border-radius:8px;
-    border:1.5px solid rgba(238,140,58,0.5);
-    padding:10px 12px; color:#1a2e30;
-    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
-    resize:vertical; box-sizing:border-box; display:block; outline:none;
-    transition:box-shadow 0.2s;
-}
+.notebookArea { width:100%; min-height:90px; background:#fff; border-radius:8px; border:1.5px solid rgba(238,140,58,0.5); padding:10px 12px; color:#1a2e30; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; resize:vertical; box-sizing:border-box; display:block; outline:none; transition:box-shadow 0.2s; }
 .notebookArea:focus { box-shadow:0 0 0 3px rgba(238,140,58,0.2); }
 .notebookArea::placeholder { font-weight:500; color:rgba(26,46,48,0.35); }
-
 .modalFooter { margin-top:12px; display:flex; justify-content:flex-end; }
-
-/* payment info boxes */
-.backlogPayInfo {
-    display:flex; align-items:flex-start; gap:12px;
-    background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35);
-    border-radius:8px; padding:14px; margin-bottom:14px;
-    font-size:13px; color:#fef2f2;
-}
-.activePayInfo {
-    background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
-    border-radius:8px; padding:12px; margin-bottom:14px;
-    font-size:13px; color:#f0fdf4;
-}
+.backlogPayInfo { display:flex; align-items:flex-start; gap:12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); border-radius:8px; padding:14px; margin-bottom:14px; font-size:13px; color:#fef2f2; }
+.activePayInfo { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:12px; margin-bottom:14px; font-size:13px; color:#f0fdf4; }
 
 /* ── RESPONSIVE ── */
-/* On tablet and below: 1 column */
 @media (max-width:900px) {
     .cardsGrid { grid-template-columns:1fr; }
     .header    { flex-direction:column; align-items:flex-start; }
@@ -809,14 +202,12 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
     .modeSwitch { width:100%; }
     .modeActive,.modeInactive { flex:1; justify-content:center; }
 }
-
 @media (max-width:600px) {
     .cardActions    { flex-direction:column; }
     .plotRow        { flex-direction:column; }
     .plotRowActions { flex-direction:row; }
     .searchInner    { max-width:100%; }
 }
-
 @media (max-width:480px) {
     .statusBadge { font-size:7px; padding:2px 7px; }
     .cardHeader  { padding:9px 11px; }
@@ -828,7 +219,7 @@ files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
 }
 """
 
-# ── FIX 3: PaymentsPage.module.css — fix the filter button text visibility
+# ── STAGE 1, FIX 2: PaymentsPage.module.css
 files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
 /* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
 .container {
@@ -838,7 +229,6 @@ files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
     font-family: 'DM Sans', sans-serif;
     color: #fff;
 }
-
 .header {
     display: flex;
     justify-content: space-between;
@@ -850,129 +240,26 @@ files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
     backdrop-filter: blur(15px);
     margin-bottom: clamp(14px, 2vw, 22px);
 }
-
-.title {
-    font-family: 'Cinzel', serif;
-    color: #1a2e30;
-    font-size: clamp(16px, 2.2vw, 22px);
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: 2px;
-}
-
-.subtitle {
-    color: rgba(26,46,48,0.6);
-    font-size: clamp(10px, 1.1vw, 13px);
-    font-weight: 600;
-    margin: 4px 0 0;
-}
-
-.refreshBtn {
-    background: rgba(26,46,48,0.08);
-    border: 1px solid rgba(26,46,48,0.15);
-    color: #1a2e30;
-    border-radius: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
+.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; margin: 0; letter-spacing: 2px; }
+.subtitle { color: rgba(26,46,48,0.6); font-size: clamp(10px, 1.1vw, 13px); font-weight: 600; margin: 4px 0 0; }
+.refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
 .refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
-
-.summaryRow {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}
-
-.sumCard {
-    background: linear-gradient(160deg, #1c3335, #213E40);
-    border: 1.5px solid rgba(238,140,58,0.25);
-    border-radius: 10px;
-    padding: clamp(12px, 1.5vw, 18px);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sumCard label {
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 900;
-    color: rgba(255,255,255,0.5);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.sumCard strong {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(13px, 1.6vw, 19px);
-    color: #fff;
-    font-weight: 700;
-}
-
-.sumCard span {
-    font-size: clamp(9px, 0.88vw, 11px);
-    color: rgba(255,255,255,0.35);
-}
-
-.controls {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 1vw, 12px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}
-
-.searchWrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    background: #fff;
-    border: 1.5px solid #c8d6d7;
-    border-radius: 8px;
-    height: clamp(38px, 4.2vw, 44px);
-    max-width: clamp(280px, 45vw, 520px);
-    transition: border-color 0.2s;
-}
+.summaryRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: clamp(10px, 1.4vw, 16px); margin-bottom: clamp(14px, 2vw, 20px); }
+.sumCard { background: linear-gradient(160deg, #1c3335, #213E40); border: 1.5px solid rgba(238,140,58,0.25); border-radius: 10px; padding: clamp(12px, 1.5vw, 18px); display: flex; flex-direction: column; gap: 4px; }
+.sumCard label { font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.sumCard strong { font-family: 'Space Mono', monospace; font-size: clamp(13px, 1.6vw, 19px); color: #fff; font-weight: 700; }
+.sumCard span { font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.35); }
+.controls { display: flex; flex-direction: column; gap: clamp(8px, 1vw, 12px); margin-bottom: clamp(14px, 2vw, 20px); }
+.searchWrap { position: relative; display: flex; align-items: center; background: #fff; border: 1.5px solid #c8d6d7; border-radius: 8px; height: clamp(38px, 4.2vw, 44px); max-width: clamp(280px, 45vw, 520px); transition: border-color 0.2s; }
 .searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-
 .searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: 16px; pointer-events: none; }
-
-.searchInput {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: #1a2e30;
-    padding: 0 36px 0 38px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    font-size: clamp(11px, 1.1vw, 13px);
-}
+.searchInput { width: 100%; border: none; outline: none; background: transparent; color: #1a2e30; padding: 0 36px 0 38px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: clamp(11px, 1.1vw, 13px); }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
-
-.clearBtn {
-    position: absolute;
-    right: 8px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: rgba(26,46,48,0.4);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    border-radius: 4px;
-}
+.clearBtn { position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; padding: 4px; border-radius: 4px; }
 .clearBtn:hover { color: #1a2e30; }
+.filterRow { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.filterRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* FIX: ensure filter buttons always show their text clearly */
+/* Filter buttons — visible text always */
 .filterBtn {
     background: rgba(255,255,255,0.08);
     border: 1.5px solid rgba(255,255,255,0.2);
@@ -986,12 +273,11 @@ files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
-    /* ensure text is never invisible */
     min-width: max-content;
 }
 .filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
 
-/* Active: orange bg with dark text for contrast */
+/* Active filter — orange bg, dark text */
 .filterActive {
     background: #EE8C3A !important;
     border-color: #EE8C3A !important;
@@ -999,104 +285,25 @@ files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
     font-weight: 900 !important;
 }
 
-.tableWrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(160deg, #1c3335, #213E40);
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: clamp(10px, 1.05vw, 13px);
-    min-width: 680px;
-}
-
+.tableWrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(160deg, #1c3335, #213E40); }
+.table { width: 100%; border-collapse: collapse; font-size: clamp(10px, 1.05vw, 13px); min-width: 680px; }
 .table thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-.table th {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    color: rgba(255,255,255,0.5);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-align: left;
-    white-space: nowrap;
-}
-
+.table th { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.82vw, 10px); color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; text-align: left; white-space: nowrap; }
 .row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
 .row:hover { background: rgba(255,255,255,0.04); }
-
-.table td {
-    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px);
-    color: rgba(255,255,255,0.9);
-    vertical-align: middle;
-}
-
+.table td { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); color: rgba(255,255,255,0.9); vertical-align: middle; }
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
 .time { font-size: 10px; opacity: 0.45; }
-
 .plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
-
 .ownerCell { font-weight: 700; color: #fff; }
-
-.typeBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 9px;
-    border-radius: 4px;
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 900;
-    text-transform: uppercase;
-    white-space: nowrap;
-    /* ensure text is always visible */
-    font-family: 'DM Sans', sans-serif;
-    letter-spacing: 0.5px;
-}
-
+.typeBadge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 4px; font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; text-transform: uppercase; white-space: nowrap; font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; }
 .amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
-
 .balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); color: rgba(255,255,255,0.5); }
-
 .recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.6); }
-
-.notesCell {
-    font-style: italic;
-    color: rgba(255,255,255,0.45);
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(9px, 0.88vw, 11px);
-}
-
-.goBtn {
-    background: rgba(238,140,58,0.1);
-    border: 1px solid rgba(238,140,58,0.35);
-    color: #EE8C3A;
-    border-radius: 6px;
-    padding: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: all 0.2s;
-}
+.notesCell { font-style: italic; color: rgba(255,255,255,0.45); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(9px, 0.88vw, 11px); }
+.goBtn { background: rgba(238,140,58,0.1); border: 1px solid rgba(238,140,58,0.35); color: #EE8C3A; border-radius: 6px; padding: 6px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
 .goBtn:hover { background: #EE8C3A; color: #1a2e30; }
-
-.loading, .empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: rgba(255,255,255,0.35);
-    font-weight: 700;
-    font-size: clamp(12px, 1.3vw, 15px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
+.loading, .empty { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.35); font-weight: 700; font-size: clamp(12px, 1.3vw, 15px); text-transform: uppercase; letter-spacing: 1px; }
 @media (max-width: 768px) {
     .summaryRow { grid-template-columns: 1fr; }
     .filterRow  { gap: 6px; }

@@ -80,21 +80,55 @@
 .searchClear:hover { color: var(--navy); background: rgba(26,46,48,0.08); }
 .searchClear:focus-visible { outline: 2px solid var(--orange); }
 
-.filterGrid { display: flex; align-items: flex-end; gap: var(--gap-md); flex-wrap: wrap; }
-.hwSelectWrap { min-width: clamp(160px, 20vw, 240px); }
+.filterGrid {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--gap-md);
+    flex-wrap: wrap;
+}
 
-/* HardwareSelect renders its own <label> — override for light page background */
+/* Shrinks on small screens — no fixed min-width */
+.hwSelectWrap {
+    flex: 1 1 clamp(140px, 18vw, 220px);
+    max-width: clamp(160px, 24vw, 260px);
+    min-width: clamp(120px, 15vw, 160px);
+}
+
+/* HardwareSelect renders its own <label> */
 .hwSelectWrap label {
     font-family: 'DM Sans', sans-serif !important;
     font-size: var(--fs-label) !important;
     font-weight: 900 !important;
-    color: #64748b !important;  /* matches subtitle — intentional on cream bg */
+    color: #64748b !important;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
     display: block !important;
     margin-bottom: clamp(3px, 0.4vw, 5px) !important;
 }
-.resetBtn { height: clamp(34px,4.2vw,42px); padding: 0 clamp(14px,1.8vw,22px); background: var(--navy); color: #fff; border: 1.5px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn); letter-spacing: 1.5px; cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s; display: flex; align-items: center; gap: clamp(5px,0.7vw,8px); text-transform: uppercase; white-space: nowrap; }
+
+/* Reset button — same height as HardwareSelect trigger (52px) */
+.resetBtn {
+    flex: 0 0 auto;
+    height: clamp(44px, 5.5vw, 52px);
+    padding: 0 clamp(12px, 1.5vw, 20px);
+    background: var(--navy);
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 7px);
+    text-transform: uppercase;
+    white-space: nowrap;
+    /* Align with bottom of select (which has a label above it) */
+    margin-bottom: 0;
+}
 .resetBtn:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.08); }
 .resetBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
@@ -161,8 +195,10 @@
 }
 @media (max-width: 768px) {
     .header      { flex-direction: column; align-items: flex-start; }
-    .filterGrid  { flex-direction: column; width: 100%; }
-    .hwSelectWrap { min-width: 100%; }
+    .controlHub  { gap: var(--gap-md); }
+    .filterGrid  { flex-direction: column; width: 100%; align-items: stretch; }
+    .hwSelectWrap { max-width: 100%; min-width: 0; flex: 1 1 100%; }
+    .resetBtn    { width: 100%; justify-content: center; }
     .logMain     { grid-template-columns: 1fr 1fr; gap: var(--gap-md); align-items: start; }
     .timeMark    { grid-column: 1; }
     .actionMark  { grid-column: 2; justify-self: end; text-align: right; }
