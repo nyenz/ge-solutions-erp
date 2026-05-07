@@ -1,731 +1,196 @@
 import os
 
-def patch(path, old, new, label):
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        content = f.read()
-    if old not in content:
-        print(f"  MISSING (already patched or mismatch): {label}")
-        return
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content.replace(old, new, 1))
-    print(f"  OK: {label}")
-
-def write_file(path, content, label):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"  WRITTEN: {label}")
-
 # ══════════════════════════════════════════════════════════════════
-# Fix: RecoveryPortal.jsx had special characters (em-dashes etc.)
-# that caused UnicodeDecodeError in fix.py.
-# Solution: write the clean JSX directly instead of patching.
-# Also fixes header layout: left=title+subtitle, right=stats+tabs
+# FIX: Unified filter button style for Payments + Ledger pages
+#
+# PROBLEM:
+#   - Payments page: inactive buttons have rgba(255,255,255,0.08)
+#     background — nearly invisible on the light circuit background
+#   - Ledger page: hover turns text orange on near-transparent bg
+#     — unreadable on the cream/beige background
+#
+# SOLUTION (patch only the filterBtn blocks, don't rewrite files):
+#   Both pages get the SAME unified style:
+#   - Inactive: solid dark navy bg, white text — always readable
+#   - Hover: subtle orange tint, orange text, orange border
+#   - Active: solid orange fill, dark navy text
 # ══════════════════════════════════════════════════════════════════
 
-print("=== WRITING RecoveryPortal.jsx ===")
+PAYMENTS_CSS = "erp-frontend/src/pages/Payments/PaymentsPage.module.css"
+LEDGER_CSS   = "erp-frontend/src/pages/Ledger/LedgerPage.module.css"
 
-RECOVERY_JSX = "erp-frontend/src/pages/Recovery/RecoveryPortal.jsx"
+# ── PATCH 1: PaymentsPage filterBtn (inactive + active) ──────────
+# Old inactive: rgba(255,255,255,0.08) bg — invisible on light bg
+OLD_PAY_FILTER = """\
+/* Filter buttons — visible text always */
+.filterBtn {
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    min-width: max-content;
+}
+.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
 
-recovery_jsx = [
-    "// PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.jsx",
-    "import React, { useState, useEffect, useCallback, useMemo } from 'react';",
-    "import { createPortal } from 'react-dom';",
-    "import { useNavigate } from 'react-router-dom';",
-    "import { useAuth } from '../../hooks/useAuth';",
-    "import {",
-    "    FiPhoneCall, FiClock, FiSearch,",
-    "    FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,",
-    "    FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,",
-    "    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,",
-    "    FiDollarSign, FiAlertOctagon, FiActivity",
-    "} from 'react-icons/fi';",
-    "import recoveryService from '../../services/recoveryService';",
-    "import HardwareButton from '../../components/common/HardwareButton';",
-    "import HardwareModal from '../../components/common/HardwareModal';",
-    "import styles from './RecoveryPortal.module.css';",
-    "",
-    "const useToast = () => {",
-    "    const [toasts, setToasts] = useState([]);",
-    "    const toast = useCallback((message, type = 'info', duration = 4000) => {",
-    "        const id = Date.now() + Math.random();",
-    "        setToasts(prev => [...prev, { id, message, type }]);",
-    "        if (duration > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);",
-    "    }, []);",
-    "    const dismiss = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);",
-    "    return { toasts, toast, dismissToast: dismiss };",
-    "};",
-    "",
-    "const TOAST_ICONS = {",
-    "    success: <FiCheckSquare aria-hidden=\"true\" />,",
-    "    error:   <FiAlertCircle aria-hidden=\"true\" />,",
-    "    warn:    <FiAlertTriangle aria-hidden=\"true\" />,",
-    "    info:    <FiInfo aria-hidden=\"true\" />,",
-    "};",
-    "",
-    "const ToastContainer = ({ toasts, onDismiss }) => {",
-    "    if (typeof document === 'undefined') return null;",
-    "    return createPortal(",
-    "        <div className={styles.toastContainer} role=\"region\" aria-label=\"Notifications\" aria-live=\"polite\">",
-    "            {toasts.map(t => (",
-    "                <div key={t.id} className={`${styles.toast} ${styles['toast_' + t.type]}`} role=\"alert\">",
-    "                    <span className={styles.toastIcon}>{TOAST_ICONS[t.type]}</span>",
-    "                    <span className={styles.toastMsg}>{t.message}</span>",
-    "                    <button className={styles.toastClose} onClick={() => onDismiss(t.id)} aria-label=\"Dismiss\">",
-    "                        <FiX aria-hidden=\"true\" />",
-    "                    </button>",
-    "                </div>",
-    "            ))}",
-    "        </div>,",
-    "        document.body",
-    "    );",
-    "};",
-    "",
-    "const fmt = (n) => Number(n || 0).toLocaleString();",
-    "",
-    "const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };",
-    "",
-    "const PaymentBadge = ({ badge }) => (",
-    "    <span style={{",
-    "        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',",
-    "        background: BADGE_COLORS[badge] || BADGE_COLORS.RED,",
-    "        marginRight: 6, flexShrink: 0,",
-    "        boxShadow: `0 0 6px ${BADGE_COLORS[badge] || BADGE_COLORS.RED}`",
-    "    }} aria-label={`Payment health: ${badge}`} />",
-    ");",
-    "",
-    "const RecoveryPortal = () => {",
-    "    const navigate = useNavigate();",
-    "    const { user } = useAuth();",
-    "    const { toasts, toast, dismissToast } = useToast();",
-    "    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;",
-    "",
-    "    const [viewMode,      setViewMode]      = useState('ACTION');",
-    "    const [missions,      setMissions]      = useState([]);",
-    "    const [loading,       setLoading]       = useState(true);",
-    "    const [expandedPhone, setExpandedPhone] = useState(null);",
-    "    const [searchTerm,    setSearchTerm]    = useState('');",
-    "",
-    "    const [callModal,     setCallModal]     = useState({ open: false, mission: null });",
-    "    const [callHistory,   setCallHistory]   = useState([]);",
-    "    const [logContent,    setLogContent]    = useState('');",
-    "    const [committing,    setCommitting]    = useState(false);",
-    "",
-    "    const [payModal,      setPayModal]      = useState({ open: false, plot: null });",
-    "    const [payAmount,     setPayAmount]     = useState('');",
-    "    const [payNotes,      setPayNotes]      = useState('');",
-    "    const [paying,        setPaying]        = useState(false);",
-    "",
-    "    const loadData = useCallback(async () => {",
-    "        setLoading(true);",
-    "        try {",
-    "            const data = viewMode === 'ACTION'",
-    "                ? await recoveryService.getMissionQueue()",
-    "                : await recoveryService.getRecoverySchedule();",
-    "            setMissions(data);",
-    "        } catch {",
-    "            toast('DATA STREAM LOST', 'error', 6000);",
-    "        } finally {",
-    "            setLoading(false);",
-    "        }",
-    "    }, [viewMode, toast]);",
-    "",
-    "    useEffect(() => { loadData(); }, [loadData]);",
-    "",
-    "    useEffect(() => {",
-    "        if (!callModal.mission) return;",
-    "        const firstPlot = callModal.mission.plots?.[0];",
-    "        if (!firstPlot) return;",
-    "        recoveryService.getHistory(firstPlot.projectId)",
-    "            .then(setCallHistory)",
-    "            .catch(() => setCallHistory([]));",
-    "    }, [callModal.mission]);",
-    "",
-    "    const handleLogCall = async () => {",
-    "        if (!logContent.trim() || !callModal.mission) return;",
-    "        setCommitting(true);",
-    "        try {",
-    "            for (const plot of callModal.mission.plots) {",
-    "                await recoveryService.logRecoveryCall(plot.projectId, logContent);",
-    "            }",
-    "            await loadData();",
-    "            setCallModal({ open: false, mission: null });",
-    "            setLogContent('');",
-    "            setExpandedPhone(null);",
-    "            toast('CALL LOGGED - 14-DAY CLOCK RESET', 'success');",
-    "        } catch {",
-    "            toast('LOG FAILURE', 'error', 8000);",
-    "        } finally {",
-    "            setCommitting(false);",
-    "        }",
-    "    };",
-    "",
-    "    const handleRecordPayment = async () => {",
-    "        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }",
-    "        setPaying(true);",
-    "        try {",
-    "            await recoveryService.recordPayment(payModal.plot.projectId, payAmount, payNotes);",
-    "            await loadData();",
-    "            setPayModal({ open: false, plot: null });",
-    "            setPayAmount(''); setPayNotes('');",
-    "            toast('PAYMENT RECORDED SUCCESSFULLY', 'success');",
-    "        } catch {",
-    "            toast('PAYMENT FAILED', 'error', 8000);",
-    "        } finally {",
-    "            setPaying(false);",
-    "        }",
-    "    };",
-    "",
-    "    const filteredMissions = useMemo(() => {",
-    "        const term = searchTerm.toLowerCase().replace(/\\s+/g, '');",
-    "        if (!term) return missions;",
-    "        return missions.filter(m =>",
-    "            m.phoneNumber?.replace(/\\s+/g, '').includes(term) ||",
-    "            m.ownerName?.toLowerCase().includes(term) ||",
-    "            (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term))",
-    "        );",
-    "    }, [missions, searchTerm]);",
-    "",
-    "    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);",
-    "    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);",
-    "",
-    "    const getStatusStyle = (status) => {",
-    "        if (status === 'ACTION REQUIRED' || status === 'NEW ASSIGNMENT') return styles.statusRed;",
-    "        if (status === 'COOLING DOWN') return styles.statusBlue;",
-    "        if (status === 'MONTHLY LIMIT') return styles.statusGrey;",
-    "        return styles.statusDefault;",
-    "    };",
-    "",
-    "    const renderMissionCard = (mission) => {",
-    "        const isExpanded = expandedPhone === mission.phoneNumber;",
-    "        const toggle = () => setExpandedPhone(prev => prev === mission.phoneNumber ? null : mission.phoneNumber);",
-    "",
-    "        return (",
-    "            <div key={mission.phoneNumber}",
-    "                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>",
-    "",
-    "                <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>",
-    "                    {mission.isLocked && <FiLock aria-hidden=\"true\" />}",
-    "                    {mission.missionStatus}",
-    "                    {mission.hasBacklogPlots && <span className={styles.backlogTag}>BACKLOG</span>}",
-    "                </div>",
-    "",
-    "                <div className={styles.cardHeader} onClick={toggle} role=\"button\" tabIndex={0}",
-    "                    aria-expanded={isExpanded}",
-    "                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }}}>",
-    "                    <div className={styles.identity}>",
-    "                        <h3 className={styles.ownerName}>{mission.ownerName}</h3>",
-    "                        <span className={styles.phoneNum}>{mission.phoneNumber}</span>",
-    "                        <div className={styles.totalDemandRow}>",
-    "                            <span className={styles.demandLabel}>TOTAL DEMAND:</span>",
-    "                            <span className={styles.demandValue}>UGX {fmt(mission.totalDemand)}</span>",
-    "                        </div>",
-    "                        {mission.hasBacklogPlots && Number(mission.totalStorageFees) > 0 && (",
-    "                            <div className={styles.feesRow}>",
-    "                                <FiAlertOctagon aria-hidden=\"true\" size={11} />",
-    "                                <span>Incl. storage fees: UGX {fmt(mission.totalStorageFees)}</span>",
-    "                            </div>",
-    "                        )}",
-    "                    </div>",
-    "                    <div className={styles.expandIcon} aria-hidden=\"true\">",
-    "                        {isExpanded ? <FiChevronUp /> : <FiChevronDown />}",
-    "                    </div>",
-    "                </div>",
-    "",
-    "                {isExpanded && (",
-    "                    <div className={styles.cardBody}>",
-    "                        <div className={styles.divider} aria-hidden=\"true\" />",
-    "",
-    "                        <div className={styles.timingRow}>",
-    "                            <FiClock aria-hidden=\"true\" size={13} />",
-    "                            <span>Last call: <strong>{mission.lastContactDate}</strong></span>",
-    "                            <span style={{ margin: '0 8px' }}>|</span>",
-    "                            <span>Next eligible: <strong>{mission.nextCallDue}</strong></span>",
-    "                            <span style={{ margin: '0 8px' }}>|</span>",
-    "                            <span>Calls this month: <strong>{mission.monthlyCallCount}/2</strong></span>",
-    "                        </div>",
-    "",
-    "                        <div className={styles.divider} aria-hidden=\"true\" />",
-    "",
-    "                        <div className={styles.plotsList}>",
-    "                            <div className={styles.plotsHeader}>PLOTS FOR THIS OWNER</div>",
-    "                            {(mission.plots || []).map(plot => (",
-    "                                <div key={plot.projectId}",
-    "                                    className={`${styles.plotRow} ${plot.isBacklog ? styles.plotRowBacklog : ''}`}>",
-    "                                    <div className={styles.plotRowLeft}>",
-    "                                        <PaymentBadge badge={plot.paymentHealthBadge} />",
-    "                                        <div className={styles.plotInfo}>",
-    "                                            <span className={styles.plotNumber}>{plot.plotNumber}</span>",
-    "                                            <span className={styles.plotBox}>BOX: {plot.physicalBoxNumber}</span>",
-    "                                            {plot.isBacklog ? (",
-    "                                                <div className={styles.backlogBreakdown}>",
-    "                                                    <span className={styles.backlogPlotTag}>BACKLOG ({plot.storageMonthsCount} months)</span>",
-    "                                                    <div className={styles.debtLine}><span>Original debt: <strong>UGX {fmt(plot.originalDebt)}</strong></span></div>",
-    "                                                    <div className={styles.debtLine}><span>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</strong></span></div>",
-    "                                                    <div className={styles.debtLine}><span>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.totalBacklogOwed)}</strong></span></div>",
-    "                                                    <div className={styles.debtLine}><span>Total paid: <strong>UGX {fmt(plot.amountPaid)}</strong></span></div>",
-    "                                                </div>",
-    "                                            ) : (",
-    "                                                <div className={styles.activePlotFinance}>",
-    "                                                    <span>Balance: <strong>UGX {fmt(plot.currentBalance)}</strong></span>",
-    "                                                    <span style={{opacity:0.6, fontSize:'0.75rem'}}> of UGX {fmt(plot.totalCost)}</span>",
-    "                                                </div>",
-    "                                            )}",
-    "                                            <div className={styles.lastNote}>",
-    "                                                <FiMessageSquare aria-hidden=\"true\" size={11} />",
-    "                                                <span>\"{plot.lastInteractionNote}\"</span>",
-    "                                            </div>",
-    "                                        </div>",
-    "                                    </div>",
-    "                                    <div className={styles.plotRowActions}>",
-    "                                        <button className={styles.folderBtn}",
-    "                                            onClick={() => navigate(`/folder/${plot.projectId}`)}>",
-    "                                            <FiChevronRight aria-hidden=\"true\" /> BINDER",
-    "                                        </button>",
-    "                                        {isAdmin && (",
-    "                                            <button className={styles.payBtn}",
-    "                                                onClick={() => { setPayModal({ open: true, plot }); setPayAmount(''); setPayNotes(''); }}>",
-    "                                                <FiDollarSign aria-hidden=\"true\" /> PAY",
-    "                                            </button>",
-    "                                        )}",
-    "                                    </div>",
-    "                                </div>",
-    "                            ))}",
-    "                        </div>",
-    "",
-    "                        <div className={styles.divider} aria-hidden=\"true\" />",
-    "",
-    "                        <div className={styles.cardActions}>",
-    "                            <button className={styles.logCallBtn}",
-    "                                onClick={() => setCallModal({ open: true, mission })}",
-    "                                disabled={mission.isLocked}>",
-    "                                <FiPhoneCall aria-hidden=\"true\" />",
-    "                                {mission.isLocked ? 'LOCKED' : 'LOG CALL'}",
-    "                            </button>",
-    "                        </div>",
-    "                    </div>",
-    "                )}",
-    "            </div>",
-    "        );",
-    "    };",
-    "",
-    "    if (loading) return (",
-    "        <div className={styles.bootScreen} role=\"status\">",
-    "            <div className={styles.bootSpinner} aria-hidden=\"true\" />",
-    "            <span className={styles.bootLabel}>BOOTING RECOVERY TERMINAL...</span>",
-    "        </div>",
-    "    );",
-    "",
-    "    return (",
-    "        <div className={styles.container}>",
-    "            <ToastContainer toasts={toasts} onDismiss={dismissToast} />",
-    "",
-    "            <header className={styles.pageHeader}>",
-    "                <div className={styles.headerLeft}>",
-    "                    <h1 className={styles.pageTitle}>Recovery Hub</h1>",
-    "                    <p className={styles.pageSubtitle}>Client Call Management - 2-14 Rule Active</p>",
-    "                </div>",
-    "                <div className={styles.headerRight}>",
-    "                    <div className={styles.hudStats}>",
-    "                        <div className={styles.statBox}>",
-    "                            <label>TARGETS</label>",
-    "                            <strong style={{color: filteredMissions.length > 0 ? '#EE8C3A' : '#fff'}}>{filteredMissions.length}</strong>",
-    "                        </div>",
-    "                        <div className={styles.statBox}>",
-    "                            <label>BACKLOG</label>",
-    "                            <strong style={{color: backlogMissions.length > 0 ? '#ef4444' : '#fff'}}>{backlogMissions.length}</strong>",
-    "                        </div>",
-    "                    </div>",
-    "                    <div className={styles.modeSwitch} role=\"group\" aria-label=\"View mode\">",
-    "                        <button className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}",
-    "                            onClick={() => { setViewMode('ACTION'); setExpandedPhone(null); }}",
-    "                            aria-pressed={viewMode === 'ACTION'}>",
-    "                            <FiList aria-hidden=\"true\" /> ACTION QUEUE",
-    "                        </button>",
-    "                        <button className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}",
-    "                            onClick={() => { setViewMode('FORECAST'); setExpandedPhone(null); }}",
-    "                            aria-pressed={viewMode === 'FORECAST'}>",
-    "                            <FiCalendar aria-hidden=\"true\" /> FULL SCHEDULE",
-    "                        </button>",
-    "                    </div>",
-    "                </div>",
-    "            </header>",
-    "",
-    "            <div className={styles.filterBar}>",
-    "                <div className={styles.searchInner}>",
-    "                    <FiSearch className={styles.searchIcon} aria-hidden=\"true\" />",
-    "                    <input type=\"search\" placeholder=\"Search owner, phone, or plot ID...\"",
-    "                        className={styles.searchInput} value={searchTerm}",
-    "                        onChange={e => setSearchTerm(e.target.value)} />",
-    "                    {searchTerm && (",
-    "                        <button className={styles.searchClear} onClick={() => setSearchTerm('')}>",
-    "                            <FiX aria-hidden=\"true\" />",
-    "                        </button>",
-    "                    )}",
-    "                </div>",
-    "            </div>",
-    "",
-    "            <div className={styles.missionGrid}>",
-    "                {filteredMissions.length === 0 ? (",
-    "                    <div className={styles.emptyGate} role=\"status\">",
-    "                        <FiCheckCircle className={styles.emptyIcon} aria-hidden=\"true\" />",
-    "                        <h2 className={styles.emptyTitle}>NO TARGETS FOUND</h2>",
-    "                    </div>",
-    "                ) : (",
-    "                    <>",
-    "                        {activeMissions.length > 0 && (",
-    "                            <div className={styles.sectionGroup}>",
-    "                                <div className={styles.sectionHeader}>",
-    "                                    <FiActivity aria-hidden=\"true\" /> ACTIVE ({activeMissions.length})",
-    "                                </div>",
-    "                                {activeMissions.map(renderMissionCard)}",
-    "                            </div>",
-    "                        )}",
-    "                        {backlogMissions.length > 0 && (",
-    "                            <div className={styles.sectionGroup}>",
-    "                                <div className={`${styles.sectionHeader} ${styles.sectionHeaderBacklog}`}>",
-    "                                    <FiAlertOctagon aria-hidden=\"true\" /> BACKLOG - STORAGE FEES ACTIVE ({backlogMissions.length})",
-    "                                </div>",
-    "                                {backlogMissions.map(renderMissionCard)}",
-    "                            </div>",
-    "                        )}",
-    "                    </>",
-    "                )}",
-    "            </div>",
-    "",
-    "            <HardwareModal isOpen={callModal.open}",
-    "                onClose={() => setCallModal({ open: false, mission: null })}",
-    "                title={`LOG CALL: ${callModal.mission?.ownerName || ''}`}>",
-    "                <div className={styles.modalBody}>",
-    "                    <div className={styles.historyStream}>",
-    "                        <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>",
-    "                        {callHistory.length === 0 ? (",
-    "                            <div className={styles.emptyHistory}>No prior logs found.</div>",
-    "                        ) : callHistory.map(log => (",
-    "                            <div key={log.id} className={styles.historyItem}>",
-    "                                <div className={styles.historyMeta}>",
-    "                                    <span><FiUser aria-hidden=\"true\" /> {log.recordedBy}</span>",
-    "                                    <small>{new Date(log.timestamp).toLocaleDateString()}</small>",
-    "                                </div>",
-    "                                <p>{log.notes}</p>",
-    "                            </div>",
-    "                        ))}",
-    "                    </div>",
-    "                    <textarea className={styles.notebookArea}",
-    "                        placeholder=\"Enter call result or interaction note...\"",
-    "                        value={logContent} onChange={e => setLogContent(e.target.value)} />",
-    "                    <div className={styles.modalFooter}>",
-    "                        <HardwareButton loading={committing} onClick={handleLogCall} icon={FiSave}>",
-    "                            Commit &amp; Reset",
-    "                        </HardwareButton>",
-    "                    </div>",
-    "                </div>",
-    "            </HardwareModal>",
-    "",
-    "            <HardwareModal isOpen={payModal.open}",
-    "                onClose={() => setPayModal({ open: false, plot: null })}",
-    "                title={`RECORD PAYMENT: ${payModal.plot?.plotNumber || ''}`}>",
-    "                <div className={styles.modalBody}>",
-    "                    {payModal.plot?.isBacklog ? (",
-    "                        <div className={styles.backlogPayInfo}>",
-    "                            <FiAlertOctagon aria-hidden=\"true\" />",
-    "                            <div>",
-    "                                <div>Original debt: <strong>UGX {fmt(payModal.plot?.originalDebt)}</strong></div>",
-    "                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.storageFeesAccumulated)}</strong></div>",
-    "                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.totalBacklogOwed)}</strong></div>",
-    "                                <div style={{marginTop:4,fontSize:'0.75rem',opacity:0.7}}>Storage fees continue until full balance is cleared.</div>",
-    "                            </div>",
-    "                        </div>",
-    "                    ) : (",
-    "                        <div className={styles.activePayInfo}>",
-    "                            <div>Current balance: <strong>UGX {fmt(payModal.plot?.currentBalance)}</strong></div>",
-    "                        </div>",
-    "                    )}",
-    "                    <div style={{marginTop:16}}>",
-    "                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>AMOUNT RECEIVED (UGX)</label>",
-    "                        <input type=\"number\" className={styles.notebookArea} style={{height:48,fontSize:'1.1rem'}}",
-    "                            placeholder=\"Enter amount...\" value={payAmount}",
-    "                            onChange={e => setPayAmount(e.target.value)} />",
-    "                    </div>",
-    "                    <div style={{marginTop:12}}>",
-    "                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>NOTES (optional)</label>",
-    "                        <textarea className={styles.notebookArea} style={{height:80}}",
-    "                            placeholder=\"e.g. Paid via MTN Mobile Money...\"",
-    "                            value={payNotes} onChange={e => setPayNotes(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.modalFooter}>",
-    "                        <HardwareButton loading={paying} onClick={handleRecordPayment} icon={FiDollarSign}>",
-    "                            CONFIRM PAYMENT",
-    "                        </HardwareButton>",
-    "                    </div>",
-    "                </div>",
-    "            </HardwareModal>",
-    "        </div>",
-    "    );",
-    "};",
-    "",
-    "export default RecoveryPortal;",
-]
+/* Active filter — orange bg, dark text */
+.filterActive {
+    background: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+}"""
 
-os.makedirs(os.path.dirname(RECOVERY_JSX), exist_ok=True)
-with open(RECOVERY_JSX, "w", encoding="utf-8") as f:
-    f.write("\n".join(recovery_jsx))
-print("  WRITTEN: RecoveryPortal.jsx (clean header: left=title, right=stats+tabs)")
+NEW_PAY_FILTER = """\
+/* Filter buttons — unified style: solid dark bg, always readable */
+.filterBtn {
+    background: rgba(26, 46, 48, 0.80);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.88);
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    min-width: max-content;
+}
+.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238, 140, 58, 0.12); }
+
+/* Active filter — orange bg, dark text */
+.filterActive {
+    background: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 10px rgba(238, 140, 58, 0.30);
+}"""
+
+# ── PATCH 2: LedgerPage filterBtn (inactive + active) ────────────
+# Old inactive: rgba(26,46,48,0.75) — OK but hover is broken
+OLD_LED_FILTER = """\
+.filterBtn {
+    flex: 0 0 auto;
+    /* Inactive: semi-dark bg, clearly readable white text */
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(8px, 1.1vw, 12px) clamp(12px, 1.6vw, 22px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 9px);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: max-content;
+}
+/* Hover: orange border + orange text (text stays visible) */
+.filterBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: var(--orange); }
+.filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* Active/selected: orange bg + dark navy text — matches Payments "ALL TYPES" */
+.activeFilter {
+    background: var(--orange) !important;
+    border-color: var(--orange) !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 12px rgba(238, 140, 58, 0.35);
+}"""
+
+NEW_LED_FILTER = """\
+.filterBtn {
+    flex: 0 0 auto;
+    /* Inactive: solid dark bg, always readable white text */
+    background: rgba(26, 46, 48, 0.80);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.88);
+    padding: clamp(8px, 1.1vw, 12px) clamp(12px, 1.6vw, 22px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 9px);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: max-content;
+}
+/* Hover: orange tint bg + orange text + orange border — always visible */
+.filterBtn:hover { background: rgba(238, 140, 58, 0.14); color: #EE8C3A; border-color: var(--orange); }
+.filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* Active/selected: solid orange fill + dark navy text */
+.activeFilter {
+    background: var(--orange) !important;
+    border-color: var(--orange) !important;
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 12px rgba(238, 140, 58, 0.35);
+}"""
 
 
-print("\n=== FIXING RecoveryPortal.module.css ===")
-
-RECOVERY_CSS = "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"
-
-with open(RECOVERY_CSS, "r", encoding="utf-8", errors="replace") as f:
-    css_content = f.read()
-
-cutoff = "/* --- UNIFIED HARDWARE HEADER --- */"
-if cutoff in css_content:
-    base = css_content[:css_content.index(cutoff)]
-else:
-    base = css_content
-
-new_css_styles = "\n".join([
-    "",
-    "/* -- PAGE HEADER unified glass panel matching Dashboard -- */",
-    ".pageHeader {",
-    "    display: flex;",
-    "    justify-content: space-between;",
-    "    align-items: center;",
-    "    flex-wrap: wrap;",
-    "    gap: clamp(10px, 1.4vw, 16px);",
-    "    margin-bottom: clamp(14px, 2vw, 22px);",
-    "    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);",
-    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
-    "    background: rgba(255, 255, 255, 0.62);",
-    "    border-radius: 0 var(--radius) var(--radius) 0;",
-    "    backdrop-filter: blur(15px);",
-    "    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);",
-    "}",
-    "",
-    ".headerLeft {",
-    "    display: flex;",
-    "    flex-direction: column;",
-    "    gap: clamp(3px, 0.4vw, 5px);",
-    "    min-width: 0;",
-    "    flex: 1;",
-    "}",
-    "",
-    ".headerRight {",
-    "    display: flex;",
-    "    align-items: center;",
-    "    gap: clamp(8px, 1.2vw, 14px);",
-    "    flex-shrink: 0;",
-    "    flex-wrap: wrap;",
-    "}",
-    "",
-    ".pageTitle {",
-    "    font-family: 'Cinzel', serif;",
-    "    color: #1a2e30;",
-    "    font-size: var(--fs-h1);",
-    "    font-weight: 700;",
-    "    text-transform: uppercase;",
-    "    letter-spacing: 1.5px;",
-    "    margin: 0;",
-    "    line-height: 1.1;",
-    "}",
-    "",
-    ".pageSubtitle {",
-    "    font-family: 'DM Sans', sans-serif;",
-    "    color: #64748b;",
-    "    font-size: clamp(8px, 0.85vw, 10px);",
-    "    font-weight: 900;",
-    "    text-transform: uppercase;",
-    "    letter-spacing: 1px;",
-    "    margin: 0;",
-    "}",
-    "",
-    "@media (max-width: 700px) {",
-    "    .pageHeader {",
-    "        flex-direction: column;",
-    "        align-items: flex-start;",
-    "    }",
-    "    .headerRight {",
-    "        width: 100%;",
-    "    }",
-    "    .modeSwitch {",
-    "        width: 100%;",
-    "    }",
-    "    .modeActive, .modeInactive {",
-    "        flex: 1;",
-    "        justify-content: center;",
-    "    }",
-    "}",
-])
-
-with open(RECOVERY_CSS, "w", encoding="utf-8") as f:
-    f.write(base.rstrip() + "\n" + new_css_styles)
-print("  OK: RecoveryPortal.module.css - replaced header block with clean .pageHeader")
-
-
-print("\n=== CLEANING ALL OTHER PAGE CSS FILES ===")
-
-css_files_to_clean = [
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    "erp-frontend/src/pages/Reports/ReportHub.module.css",
-    "erp-frontend/src/pages/Audit/AuditPage.module.css",
-    "erp-frontend/src/pages/Intake/IntakePage.module.css",
-    "erp-frontend/src/pages/DigitalFolder/FolderPage.module.css",
-    "erp-frontend/src/pages/settings/SettingsPage.module.css",
-]
-
-important_block_start = "/* --- UNIFIED HARDWARE HEADER --- */"
-
-clean_page_header_css = "\n".join([
-    "",
-    "/* -- PAGE HEADER unified glass panel matching Dashboard -- */",
-    ".pageHeader {",
-    "    display: flex;",
-    "    justify-content: space-between;",
-    "    align-items: center;",
-    "    flex-wrap: wrap;",
-    "    gap: clamp(10px, 1.4vw, 16px);",
-    "    margin-bottom: clamp(20px, 3vw, 32px);",
-    "    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);",
-    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
-    "    background: rgba(255, 255, 255, 0.62);",
-    "    border-radius: 0 12px 12px 0;",
-    "    backdrop-filter: blur(15px);",
-    "    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);",
-    "}",
-    ".pageHeaderLeft {",
-    "    display: flex;",
-    "    flex-direction: column;",
-    "    gap: clamp(3px, 0.4vw, 5px);",
-    "    min-width: 0;",
-    "    flex: 1;",
-    "}",
-    ".pageHeaderRight {",
-    "    display: flex;",
-    "    align-items: center;",
-    "    gap: clamp(8px, 1.2vw, 14px);",
-    "    flex-shrink: 0;",
-    "    flex-wrap: wrap;",
-    "}",
-])
-
-for css_path in css_files_to_clean:
-    if not os.path.exists(css_path):
-        print(f"  SKIP (not found): {css_path}")
-        continue
-    with open(css_path, "r", encoding="utf-8", errors="replace") as f:
+def patch_file(path, old_text, new_text, label):
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
-    if important_block_start in content:
-        cut_pos = content.index(important_block_start)
-        clean = content[:cut_pos].rstrip()
-        with open(css_path, "w", encoding="utf-8") as f:
-            f.write(clean + "\n" + clean_page_header_css + "\n")
-        print(f"  OK: Removed !important overrides from {css_path.split('/')[-1]}")
+    if old_text in content:
+        content = content.replace(old_text, new_text, 1)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"  PATCHED: {label}")
     else:
-        print(f"  SKIP (no override block found): {css_path.split('/')[-1]}")
+        print(f"  NOT FOUND (already patched or mismatch): {label}")
 
 
-print("\n=== UPDATING ALL JSX FILES - use .pageHeader class ===")
+print("=== Patching filter button styles ===\n")
 
-pages_to_update = [
-    "erp-frontend/src/pages/Audit/AuditPage.jsx",
-    "erp-frontend/src/pages/Reports/ReportHub.jsx",
-    "erp-frontend/src/pages/Payments/PaymentsPage.jsx",
-    "erp-frontend/src/pages/Intake/IntakePage.jsx",
-    "erp-frontend/src/pages/settings/SettingsPage.jsx",
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-]
+patch_file(PAYMENTS_CSS, OLD_PAY_FILTER, NEW_PAY_FILTER,
+           "PaymentsPage — filterBtn inactive/hover/active")
 
-for jsx_path in pages_to_update:
-    patch(jsx_path, '<header className={styles.header}>', '<header className={styles.pageHeader}>', f"{jsx_path.split('/')[-1]} - header class")
+patch_file(LEDGER_CSS, OLD_LED_FILTER, NEW_LED_FILTER,
+           "LedgerPage — filterBtn inactive/hover/active")
 
+print("\n=== Verifying patches ===\n")
 
-print("\n=== ADDING .pageHeader CSS to pages that need it ===")
+def check(path, text, label):
+    with open(path, "r", encoding="utf-8") as f:
+        c = f.read()
+    status = "OK" if text in c else "MISSING"
+    print(f"  {status}: {label}")
 
-page_header_block = "\n".join([
-    "",
-    "/* -- PAGE HEADER unified glass panel -- */",
-    ".pageHeader {",
-    "    display: flex;",
-    "    justify-content: space-between;",
-    "    align-items: center;",
-    "    flex-wrap: wrap;",
-    "    gap: clamp(10px, 1.4vw, 16px);",
-    "    margin-bottom: clamp(20px, 3vw, 32px);",
-    "    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);",
-    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
-    "    background: rgba(255, 255, 255, 0.62);",
-    "    border-radius: 0 12px 12px 0;",
-    "    backdrop-filter: blur(15px);",
-    "    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);",
-    "}",
-])
+check(PAYMENTS_CSS, "rgba(26, 46, 48, 0.80)", "Payments — solid dark bg on inactive button")
+check(PAYMENTS_CSS, "background: #EE8C3A !important", "Payments — orange active fill")
+check(LEDGER_CSS,   "rgba(26, 46, 48, 0.80)", "Ledger — solid dark bg on inactive button")
+check(LEDGER_CSS,   "background: var(--orange) !important", "Ledger — orange active fill")
 
-css_files_needing_header = [
-    "erp-frontend/src/pages/Audit/AuditPage.module.css",
-    "erp-frontend/src/pages/Reports/ReportHub.module.css",
-    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    "erp-frontend/src/pages/Intake/IntakePage.module.css",
-    "erp-frontend/src/pages/settings/SettingsPage.module.css",
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-]
-
-for css_path in css_files_needing_header:
-    if not os.path.exists(css_path):
-        print(f"  SKIP (not found): {css_path}")
-        continue
-    with open(css_path, "r", encoding="utf-8", errors="replace") as f:
-        content = f.read()
-    if ".pageHeader" not in content:
-        with open(css_path, "a", encoding="utf-8") as f:
-            f.write(page_header_block)
-        print(f"  OK: Added .pageHeader to {css_path.split('/')[-1]}")
-    else:
-        print(f"  SKIP (already has .pageHeader): {css_path.split('/')[-1]}")
-
-
-print("\n=== FIXING Payments header JSX structure ===")
-
-patch(
-    "erp-frontend/src/pages/Payments/PaymentsPage.jsx",
-    """            <header className={styles.pageHeader}>
-                <div>
-                    <h1 className={styles.title}>PAYMENTS</h1>
-                    <p className={styles.subtitle}>All payment records \u2014 title payments and storage fee collections</p>
-                </div>
-                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={16} />
-                </button>
-            </header>""",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>PAYMENTS</h1>
-                    <p className={styles.subtitle}>All payment records - title payments and storage fee collections</p>
-                </div>
-                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={16} />
-                </button>
-            </header>""",
-    "Payments header - use headerLeft div"
-)
-
-patch(
-    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    ".refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }",
-    """.headerLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; flex-shrink: 0; }""",
-    "Payments - add headerLeft class"
-)
-
-
-print("\n=== WRITING UPDATED LLM_CONTEXT_GUIDE.md ===")
+# ══════════════════════════════════════════════════════════════════
+# UPDATE LLM_CONTEXT_GUIDE.md
+# ══════════════════════════════════════════════════════════════════
+print("\n=== Writing LLM_CONTEXT_GUIDE.md ===\n")
 
 lines = [
-    "# GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE",
+    "# GE SOLUTIONS ERP — FULL LLM CONTEXT GUIDE",
     "# For any AI assistant continuing work on this project",
-    "# Last updated: May 2026 -- Priority 1: unified page headers done",
+    "# Last updated: May 2026 — Priority 1 filter button fix applied",
     "",
     "---",
     "",
@@ -745,7 +210,7 @@ lines = [
     "  - Debug code independently",
     "  - Read Java/React errors without guidance",
     "  - Write code himself",
-    "  - Understand partial code snippets -- needs full files always",
+    "  - Understand partial code snippets — needs full files always",
     "- Tools he uses: VS Code, Git Bash terminal (inside VS Code), GitHub, Chrome browser",
     "- Python is installed: use `py` command (not `python`)",
     "- Project folder: `C:/Users/nyenz/Desktop/app/ge solns`",
@@ -755,68 +220,63 @@ lines = [
     "## 2. HOW TO COMMUNICATE WITH DAVID",
     "",
     "- Use SIMPLE English. No jargon without explanation.",
-    "- Use OUTLINE/BULLET format for explanations -- not long paragraphs.",
+    "- Use OUTLINE/BULLET format for explanations — not long paragraphs.",
     "- Keep responses SHORT unless doing code.",
     "- When explaining a concept, use analogies or plain words.",
     "- When errors happen, read the log yourself and tell him exactly what is wrong in one sentence.",
-    "- Never ask 'which would you prefer A or B' -- just do everything needed unless there is a real decision required.",
+    "- Never ask 'which would you prefer A or B' — just do everything needed unless there is a real decision required.",
     "- Confirm one step at a time. Do not skip ahead.",
     "- When David shares a screenshot, read it carefully before responding.",
     "",
     "---",
     "",
-    "## 3. HOW TO OUTPUT CODE CHANGES -- THE fix.py SYSTEM",
+    "## 3. HOW TO OUTPUT CODE CHANGES — THE fix.py SYSTEM",
     "",
     "RULE: Never ask David to manually copy-paste code into files. Always use fix.py.",
     "RULE: The LLM guide (LLM_CONTEXT_GUIDE.md) is a SEPARATE file from fix.py. Always output them separately.",
-    "RULE: Use str.replace (patch) in fix.py when only a section of a file changes. Only rewrite full files when changes are large or spread throughout.",
-    "RULE: Never put triple-quoted strings inside triple-quoted strings in fix.py -- use a list of lines joined with newlines instead (this avoids SyntaxError).",
-    "RULE: Never use special unicode characters (em dashes, smart quotes, etc.) in fix.py strings -- use plain ASCII only (-- instead of --, - instead of em dash). This prevents UnicodeDecodeError when reading files that Windows saved with a different encoding.",
+    "RULE: Use str.replace in fix.py when only a section of a file changes. Only rewrite full files when changes are large or spread throughout.",
+    "RULE: Never put triple-quoted strings inside triple-quoted strings in fix.py — use a list of lines joined with newlines instead (this avoids SyntaxError).",
     "RULE: Before writing a patch, always verify the exact text to replace by reading the document context. Do not guess.",
-    "RULE: The LLM_CONTEXT_GUIDE.md must be updated inside fix.py on every session -- use the list-of-lines approach.",
-    "RULE: Always open files with errors='replace' when reading: open(path, 'r', encoding='utf-8', errors='replace')",
+    "RULE: LLM_CONTEXT_GUIDE.md must ALWAYS be updated in fix.py for every session — never skip this.",
     "",
-    "### CRITICAL -- Why patches fail:",
-    "- If fix.py says 'patch target not found', the CSS already has the change OR the text doesn't match exactly.",
+    "### CRITICAL — Why patches fail:",
+    "- If fix.py says 'not found', the CSS already has the change OR the text doesn't match exactly.",
     "- Always read the actual file content from the conversation context before writing str.replace patches.",
-    "- The documents shared in the conversation ARE the current file contents -- use them as source of truth.",
-    "- Copy the exact block including all whitespace, comments, and surrounding lines.",
-    "- Special characters in source files (em dashes, arrows, etc.) cause UnicodeDecodeError -- use errors='replace' when reading.",
+    "- The documents shared in the conversation ARE the current file contents — use them as source of truth.",
+    "- Efficiency rule: patch only what changed. Never rewrite entire CSS files for a 10-line fix.",
     "",
     "### Two files David always gets:",
-    "1. fix.py -- writes all changed source code files",
-    "2. LLM_CONTEXT_GUIDE.md -- updated guide for the next AI session (written BY fix.py)",
+    "1. **fix.py** — writes all changed source code files",
+    "2. **LLM_CONTEXT_GUIDE.md** — updated guide for the next AI session (written inside fix.py)",
     "",
     "### Fix.py efficiency rules:",
-    "- Use file.read() + str.replace() for partial changes -- keeps fix.py small",
-    "- Only use full file rewrite when many sections change or file is new",
-    "- Always use encoding='utf-8' in open() calls",
-    "- Always use errors='replace' when READING files (prevents crash on special chars)",
-    "- Always use os.makedirs(os.path.dirname(path), exist_ok=True) before writing new files",
+    "- Use `file.read()` + `str.replace()` for partial changes — keeps fix.py small",
+    "- Only use full file rewrite when many sections change",
+    "- Always use `encoding='utf-8'` in open() calls",
+    "- Always use `os.makedirs(os.path.dirname(path), exist_ok=True)` before writing NEW files",
     "- Skip os.makedirs for root-level files (empty path causes error)",
-    "- When writing the LLM guide itself, use a list of lines joined with newlines -- never embed it in a triple-quoted string",
-    "- Print OK/MISSING for every patch so David can see what happened",
-    "- NEVER use special unicode characters in fix.py strings -- ASCII only",
+    "- When writing the LLM guide itself, use a list of lines joined with newlines — never embed it in a triple-quoted string",
+    "- Include a check() function that verifies patches worked after applying them",
     "",
     "### How David gets the files:",
-    "- You call present_files(['/mnt/user-data/outputs/fix.py', '/mnt/user-data/outputs/LLM_CONTEXT_GUIDE.md'])",
+    "- You call `present_files(['/mnt/user-data/outputs/fix.py', '/mnt/user-data/outputs/LLM_CONTEXT_GUIDE.md'])`",
     "- David downloads both from the chat interface",
     "- For fix.py: open in VS Code, Ctrl+A, Delete, paste new content, Ctrl+S, run `py fix.py`",
     "- For LLM_CONTEXT_GUIDE.md: replace the file in the project root",
-    "- Then: git add -A && git commit -m 'message' && git push",
+    "- Then: `git add -A && git commit -m 'message' && git push`",
     "- Watch Render Events tab for green tick (5-10 min free tier)",
     "- Test at golden-seed.onrender.com",
     "- If red: click 'deploy logs' -> read error -> fix -> repeat",
     "",
     "---",
     "",
-    "## 4. THE PROJECT -- WHAT IT IS",
+    "## 4. THE PROJECT — WHAT IT IS",
     "",
     "### Name",
     "Golden Seed ERP (code name: NYENZ)",
     "",
     "### Purpose",
-    "Internal staff accountability tool for GE Solutions -- a Ugandan land surveying and title processing company. Staff-only. Not client-facing.",
+    "Internal staff accountability tool for GE Solutions — a Ugandan land surveying and title processing company. Staff-only. Not client-facing.",
     "",
     "### Core functions",
     "- Store land title records digitally with scanned documents",
@@ -859,126 +319,160 @@ lines = [
     "",
     "## 6. PROJECT FOLDER STRUCTURE",
     "",
+    "```",
     "ge solns/",
-    "  erp-backend/",
-    "    src/main/java/com/gesolutions/erp/",
-    "  erp-frontend/",
-    "    src/",
-    "      api/axios.js",
-    "      context/AuthProvider.jsx",
-    "      hooks/useAuth.js",
-    "      components/",
-    "      pages/",
-    "        Audit/AuditPage.jsx + AuditPage.module.css",
-    "        Dashboard/",
-    "        DigitalFolder/FolderPage.jsx",
-    "        Intake/IntakePage.jsx + IntakePage.module.css",
-    "        Ledger/LedgerPage.jsx + LedgerPage.module.css",
-    "        Payments/PaymentsPage.jsx + PaymentsPage.module.css",
-    "        Recovery/RecoveryPortal.jsx + RecoveryPortal.module.css",
-    "        Reports/ReportHub.jsx",
-    "        login/LoginPage.jsx",
-    "        settings/SettingsPage.jsx",
-    "      services/",
-    "  LLM_CONTEXT_GUIDE.md",
-    "  fix.py",
-    "  docker-compose.yml",
-    "  render.yaml",
+    "├── erp-backend/",
+    "│   └── src/main/java/com/gesolutions/erp/",
+    "│       ├── ErpBackendApplication.java",
+    "│       ├── config/",
+    "│       ├── common/",
+    "│       └── modules/",
+    "│           ├── auth/",
+    "│           ├── client/",
+    "│           └── land/",
+    "├── erp-frontend/",
+    "│   └── src/",
+    "│       ├── api/axios.js",
+    "│       ├── context/AuthProvider.jsx",
+    "│       ├── hooks/useAuth.js",
+    "│       ├── components/",
+    "│       ├── pages/",
+    "│       │   ├── Audit/AuditPage.jsx + AuditPage.module.css",
+    "│       │   ├── Dashboard/",
+    "│       │   ├── DigitalFolder/FolderPage.jsx",
+    "│       │   ├── Intake/IntakePage.jsx + IntakePage.module.css",
+    "│       │   ├── Ledger/LedgerPage.jsx + LedgerPage.module.css",
+    "│       │   ├── Payments/PaymentsPage.jsx + PaymentsPage.module.css",
+    "│       │   ├── Recovery/RecoveryPortal.jsx + RecoveryPortal.module.css",
+    "│       │   ├── Reports/ReportHub.jsx",
+    "│       │   ├── login/LoginPage.jsx",
+    "│       │   └── settings/SettingsPage.jsx",
+    "│       └── services/",
+    "├── LLM_CONTEXT_GUIDE.md",
+    "├── fix.py",
+    "├── docker-compose.yml",
+    "└── render.yaml",
+    "```",
     "",
     "---",
     "",
-    "## 7. UI DESIGN STANDARDS (CRITICAL -- apply consistently)",
+    "## 7. UI DESIGN STANDARDS (CRITICAL — apply consistently)",
     "",
-    "### Page Header Style (ALL pages MUST match Dashboard)",
-    "- Use className={styles.pageHeader} -- NOT className={styles.header}",
-    "- White/cream glass panel: background: rgba(255,255,255,0.62)",
-    "- Left orange border: border-left: clamp(3px,0.4vw,5px) solid var(--orange)",
-    "- Border radius: 0 12px 12px 0 (flat left, rounded right)",
-    "- Backdrop blur: backdrop-filter: blur(15px)",
-    "- Box shadow: 0 4px 15px rgba(0,0,0,0.07)",
-    "- Title: Cinzel serif, navy #1a2e30, uppercase, letter-spacing 1.5px",
-    "- Subtitle: DM Sans 900, #64748b, uppercase",
-    "- Layout: flex row, left side = title+subtitle, right side = actions/buttons",
-    "- NEVER use position:absolute on buttons inside the header -- use flex gap",
-    "- NEVER use !important overrides to style .header -- define .pageHeader cleanly",
+    "### Page Header Style (ALL pages must match Dashboard)",
+    "- White/cream glass panel: `background: rgba(255,255,255,0.62)`",
+    "- Left orange border: `border-left: clamp(3px,0.4vw,5px) solid var(--orange)`",
+    "- Border radius: `0 radius radius 0` (flat left, rounded right)",
+    "- Backdrop blur: `backdrop-filter: blur(15px)`",
+    "- Box shadow: `0 4px 15px rgba(0,0,0,0.07)`",
+    "- Title: Cinzel serif, navy color, uppercase, letter-spacing 1.5-2px",
+    "- Subtitle: DM Sans 800-900, #64748b color, uppercase",
     "",
-    "### WHY the old approach broke Recovery:",
-    "- All CSS files had a giant !important block at the bottom overriding .header",
-    "- This block used position:absolute for buttons which caused overlap",
-    "- FIX: Removed all !important blocks, use .pageHeader class cleanly",
-    "",
-    "### Filter Button Style (ALL pages must be identical -- CONFIRMED STANDARD)",
-    "- Inactive: background: rgba(26,46,48,0.75), border: 1.5px solid rgba(255,255,255,0.18), color: rgba(255,255,255,0.85)",
-    "- Hover: background: rgba(238,140,58,0.12), color: #EE8C3A, border-color: var(--orange)",
-    "- Active/Selected: background: #EE8C3A, color: #1a2e30, border-color: #EE8C3A",
+    "### Filter Button Style — UNIFIED STANDARD (Ledger + Payments + Audit)",
+    "ALL filter bars must use this exact style:",
+    "- **Inactive**: `background: rgba(26,46,48,0.80)` (solid dark navy), `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.88)` — readable on ANY background",
+    "- **Hover**: `background: rgba(238,140,58,0.14)`, `color: #EE8C3A`, `border-color: var(--orange)` — never use near-transparent bg on hover",
+    "- **Active/Selected**: `background: #EE8C3A` (or `var(--orange)`), `color: #1a2e30`, `border-color: #EE8C3A`, optional box-shadow orange glow",
     "- Font: DM Sans 900, uppercase, letter-spacing 1.5px",
+    "- DO NOT use `rgba(255,255,255,0.08)` as button background — invisible on light backgrounds",
     "",
-    "### Recovery Page Header Layout",
-    "- Uses .pageHeader (flex row)",
-    "- Left: .headerLeft with .pageTitle + .pageSubtitle",
-    "- Right: .headerRight with stat boxes + mode switch tabs",
-    "- Stat boxes use existing .hudStats + .statBox classes",
-    "",
-    "### FolderPage Header",
-    "- Uses .terminalHeader -- its own design, do NOT change to pageHeader",
-    "- It has unique backlog/edit badges that need their own layout",
+    "### Plot ID Column (Ledger)",
+    "- Allow word wrap: `white-space: normal`, `word-break: break-all`",
+    "- Two-line layout: plot number on line 1, tenure badge on line 2 (orange bg, dark text)",
+    "- Min-width: `clamp(120px, 14vw, 170px)`",
+    "- District shown as `.districtTag` (third line, muted)",
     "",
     "---",
     "",
-    "## 8. HOW THE APP WORKS -- LINEAR FLOW",
+    "## 8. HOW THE APP WORKS — LINEAR FLOW",
     "",
-    "Step 1: INTAKE -> Step 2: LEDGER -> Step 3: FOLDER PAGE",
-    "Step 4: RECOVERY HUB -> Step 5: PAYMENTS -> Step 6: AUDIT",
+    "### Step 1: INTAKE",
+    "- Plot ID, land details, owner info",
+    "- Total cost, initial payment",
+    "- Standard OR Backlog toggle",
+    "- Documents, notes",
+    "",
+    "### Step 2: LEDGER",
+    "- Full list of all plots with GREEN/YELLOW/RED payment dots",
+    "- Filters: ALL / BACKLOG / LEGACY / UNPAID / CRITICAL",
+    "- BACKLOG rows have red tint and BACKLOG tag",
+    "",
+    "### Step 3: FOLDER PAGE (per plot)",
+    "- All details, financials, documents, notes, payment history",
+    "- Admin/Root: Record Payment, Move to Backlog, Exit Backlog, Edit, Delete",
+    "",
+    "### Step 4: RECOVERY HUB",
+    "- Clients to call today, grouped by phone number",
+    "- 2-14 Rule: max 2 calls/month, min 14 days between",
+    "- 2-column grid desktop, 1-column mobile",
+    "- ACTION QUEUE and FULL SCHEDULE tabs",
+    "",
+    "### Step 5: PAYMENTS PAGE (Admin/Root only)",
+    "- All payment records, filter by type, search, sort by date",
+    "",
+    "### Step 6: BACKLOG & STORAGE FEES",
+    "- UGX 50,000 every 30 days from backlog start date",
+    "- Breakdown always shown: Original Debt + Fees - Payments",
+    "",
+    "### Step 7: AUDIT PAGE (Admin/Root only)",
+    "- Every action in the system",
     "",
     "---",
     "",
     "## 9. KEY BUSINESS RULES",
     "",
-    "- 2-14 Rule: Max 2 calls/client/month. Min 14 days between calls.",
-    "- Recovery grouping: By unique phone number.",
-    "- Backlog trigger: 365 days no payment (auto) OR admin manually.",
-    "- Storage fee: UGX 50,000 every 30 days from backlog START DATE.",
-    "- Payment types: STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL.",
-    "- Phone uniqueness: Two owners cannot share the same phone number.",
-    "- Admin/Root only: Payments, backlog management, Reports, Audit.",
-    "- Cloudinary: All files stored on Cloudinary.",
+    "- **2-14 Rule**: Max 2 calls/client/month. Min 14 days between calls.",
+    "- **Recovery grouping**: By unique phone number.",
+    "- **Backlog trigger**: 365 days no payment (auto) OR admin manually.",
+    "- **Storage fee**: UGX 50,000 every 30 days from backlog START DATE.",
+    "- **Payment types**: STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL.",
+    "- **Phone uniqueness**: Two owners cannot share the same phone number.",
+    "- **Admin/Root only**: Payments, backlog management, Reports, Audit.",
+    "- **Cloudinary**: All files stored on Cloudinary.",
     "",
     "---",
     "",
     "## 10. WHAT HAS BEEN COMPLETED (chronological)",
     "",
-    "### Priority 1 -- Styling & Intake Cleanup -- DONE",
-    "- RecoveryPortal: 2-column grid, mobile responsive -- DONE",
-    "- PaymentsPage: filter buttons unified to dark-bg inactive style -- DONE",
-    "- IntakePage: cleaned up financials -- DONE",
-    "- LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines -- DONE",
-    "- AuditPage: RESET FILTERS aligned; fully responsive -- DONE",
-    "- All page headers: unified glass panel using .pageHeader class -- DONE (May 2026)",
-    "  - Root cause found: !important block at bottom of every CSS was position:absolute-ing buttons",
-    "  - Fix: Removed all !important blocks, switched to clean .pageHeader class",
-    "  - Recovery portal header restructured: left=title, right=stats+tabs",
-    "  - RecoveryPortal.jsx fully rewritten (clean UTF-8, no special chars) to fix encoding crash",
-    "- Filter bar unification: Payments + Ledger now share identical inactive/hover/active style -- DONE",
+    "### Phase 1-9 (previous)",
+    "- Security, Cloudinary, Frontend fixes, New demand system, Recovery portal rewrite,",
+    "  Folder page updates, Ledger updates, Bug fixes, Payments page",
+    "",
+    "### Priority 1 — Styling & Intake Cleanup (COMPLETE + DEPLOYED + CONFIRMED)",
+    "- RecoveryPortal: 2-column grid, mobile responsive",
+    "- PaymentsPage: filter buttons — dark bg inactive style (readable on any background)",
+    "- IntakePage: cleaned up financials (only Total Cost, Initial Payment, Arrears auto, Backlog toggle)",
+    "- LedgerPage: tagBacklog + rowBacklog CSS; filter hover fixed; plot ID two lines + district",
+    "- AuditPage: RESET FILTERS aligned with selects; fully responsive",
+    "- IntakePage: input grids collapse on tablet (2-col) and mobile (1-col)",
+    "- All page headers: unified glass panel style matching Dashboard",
+    "- RecoveryPortal header: updated to match Dashboard glass panel style",
+    "- LLM_CONTEXT_GUIDE.md: permanent separate file in project root, updated every session",
+    "- fix.py SyntaxError: fixed using list-of-lines approach",
+    "",
+    "### Priority 1 — Filter Button Unification (May 2026)",
+    "- PROBLEM: Payments filter buttons used rgba(255,255,255,0.08) bg — invisible on light background",
+    "- PROBLEM: Ledger hover state turned text orange on near-transparent bg — unreadable",
+    "- FIX: Both pages now use rgba(26,46,48,0.80) solid dark bg for inactive buttons",
+    "- FIX: Hover uses rgba(238,140,58,0.14) tint + orange text — readable everywhere",
+    "- FIX: Active state is identical on both: solid orange fill, dark navy text",
+    "- METHOD: Targeted str.replace patches — no full file rewrites",
     "",
     "---",
     "",
     "## 11. WHAT STILL NEEDS TO BE DONE (in priority order)",
     "",
-    "### Priority 1 -- Remaining",
-    "- Continue checking screenshots after this deploy for any remaining styling issues",
-    "",
-    "### Priority 2 -- Reports overhaul",
+    "### Priority 2 — Reports overhaul",
     "1. Add backlog report (all backlog plots with storage fees breakdown)",
     "2. Add completed titles report (released plots)",
     "3. Add payment history report (all payments, date range filter)",
     "4. Add storage fees report (total fees per plot)",
     "5. Add monthly collection report (how much collected each month)",
     "",
-    "### Priority 3 -- Mobile audit + small fixes",
+    "### Priority 3 — Mobile audit + small fixes",
     "1. Full mobile responsiveness check on all pages",
     "2. Completed clients count on dashboard",
     "3. Print layout cleanup",
-    "4. Phone uniqueness frontend validation",
+    "4. Phone uniqueness frontend validation (clear error if phone already exists)",
     "5. Release button should warn if no documents uploaded",
     "",
     "### Language simplification (can do alongside any priority)",
@@ -999,21 +493,22 @@ lines = [
     "",
     "## 12. KNOWN ISSUES (not blocking)",
     "",
-    "- WebConfig.java has old local file serving reference -- harmless (Cloudinary is used)",
+    "- WebConfig.java has old local file serving reference — harmless (Cloudinary is used)",
     "- Notification model exists but never used",
     "- No rate limiting on login",
     "- Release button does not check for uploaded documents first",
-    "- payment_schedules table still exists in DB -- no longer used (harmless)",
+    "- `payment_schedules` table still exists in DB — no longer used (harmless)",
     "- App name inconsistency: 'NYENZ ERP' vs 'Golden Seed' in different places",
+    "- Audit page: HardwareSelect dropdowns show white bg on dark panel (minor cosmetic)",
     "",
     "---",
     "",
     "## 13. DEPLOYMENT PROCESS",
     "",
-    "1. Create fix.py AND updated LLM_CONTEXT_GUIDE.md -> present_files both -> David downloads both",
-    "2. David replaces local fix.py -> py fix.py -> check output for OK/MISSING",
+    "1. Create fix.py AND updated LLM_CONTEXT_GUIDE.md inside fix.py -> present_files both -> David downloads both",
+    "2. David replaces local fix.py -> `py fix.py` -> check output for OK/MISSING",
     "3. David replaces local LLM_CONTEXT_GUIDE.md",
-    "4. git add -A && git commit -m 'message' && git push",
+    "4. `git add -A && git commit -m 'message' && git push`",
     "5. Render -> Events tab -> wait for green tick (5-10 min free tier)",
     "6. Test at golden-seed.onrender.com",
     "7. If red: click 'deploy logs' -> read error -> fix -> repeat",
@@ -1024,15 +519,16 @@ lines = [
     "",
     "| Error | Cause | Fix |",
     "|-------|-------|-----|",
-    "| Can not set boolean field isBacklog to null | DB rows have NULL, Java primitive boolean | Use Boolean (capital B) not boolean |",
-    "| UnicodeDecodeError in fix.py | File has special chars (em dashes etc), Windows encoding | Use errors='replace' when reading files |",
-    "| UnicodeEncodeError in fix.py | Windows default encoding on write | Always use encoding='utf-8' in open() |",
-    "| nothing added to commit | Files already match what's in git | Force add specific files |",
-    "| 500 on /dashboard/summary | Backend crash -- check Render Logs tab | Read Caused by: line at bottom of log |",
+    "| `Can not set boolean field isBacklog to null` | DB rows have NULL, Java primitive boolean | Use `Boolean` (capital B) not `boolean` |",
+    "| `No property 'isActive' found for type 'Client'` | Client model has no isActive field | Use `@Query` instead of method name query |",
+    "| `column X contains null values` | New NOT NULL column added to table with existing rows | Remove `nullable = false` from @Column |",
+    "| `UnicodeEncodeError` in fix.py | Windows default encoding | Always use `encoding='utf-8'` in open() |",
+    "| `nothing added to commit` | Files already match what's in git | Force add specific files |",
+    "| 500 on /dashboard/summary | Backend crash — check Render Logs tab | Read Caused by: line at bottom of log |",
     "| CSS class not found | Class used in JSX but not defined in .module.css | Add the missing class to the CSS file |",
+    "| `FileNotFoundError: [WinError 3]` in fix.py | os.makedirs called with empty string (root-level file) | Skip os.makedirs for root-level files |",
     "| SyntaxError in fix.py with triple quotes | LLM guide embedded inside triple-quoted string | Use list of lines joined with newlines instead |",
-    "| fix.py shows 'patch target not found' | Text to replace doesn't match file exactly | Read actual file from conversation context before writing patch |",
-    "| Header buttons overlapping title | !important position:absolute in CSS override block | Remove !important block, use .pageHeader flex layout |",
+    "| fix.py shows 'not found' | Text to replace doesn't match file exactly | Read actual file from conversation context before writing patch |",
     "",
     "---",
     "",
@@ -1045,14 +541,9 @@ lines = [
     "- Folder deleted after nuclear purge",
 ]
 
-guide_content = "\n".join(lines)
 with open("LLM_CONTEXT_GUIDE.md", "w", encoding="utf-8") as f:
-    f.write(guide_content)
-print("  WRITTEN: LLM_CONTEXT_GUIDE.md")
+    f.write("\n".join(lines))
+print("Written: LLM_CONTEXT_GUIDE.md")
 
 print("\n=== ALL DONE ===")
-print("Steps:")
-print("1. py fix.py")
-print("2. Check all OK/MISSING messages above")
-print("3. git add -A && git commit -m 'unified page headers, fix recovery portal layout' && git push")
-print("4. Wait for Render green tick, test site")
+print("Next step: git add -A && git commit -m 'fix: unified filter button style on Payments and Ledger' && git push")
