@@ -2,314 +2,401 @@ import os
 
 files = {}
 
-# ── STAGE 1, FIX 1: RecoveryPortal.module.css
-files["erp-frontend/src/pages/Recovery/RecoveryPortal.module.css"] = """\
-/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
+# ── STAGE 2: Update the LLM context guide
+# IntakePage.jsx was already correct in the repo.
+# This stage updates the LLM guide to reflect all completed work.
 
-.container {
-    --orange:        #EE8C3A;
-    --orange-dim:    rgba(238,140,58,0.15);
-    --orange-border: rgba(238,140,58,0.3);
-    --navy:          #1a2e30;
-    --navy-mid:      #213E40;
-    --panel-bg:      linear-gradient(160deg,#1c3335 0%,#213E40 100%);
-    --red:           #ef4444;
-    --emerald:       #10b981;
-    --cyan:          #06b6d4;
-    --gap-xl:   clamp(12px,1.8vw,20px);
-    --gap-lg:   clamp(8px,1.2vw,14px);
-    --gap-md:   clamp(6px,0.9vw,11px);
-    --pad-card: clamp(12px,1.5vw,18px);
-    --radius:   10px;
-    --radius-sm:7px;
-    --fs-label: clamp(8px,0.82vw,10px);
-    --fs-meta:  clamp(9px,0.9vw,11px);
-    --fs-value: clamp(11px,1.1vw,13px);
-    --fs-phone: clamp(12px,1.2vw,14px);
-    --fs-owner: clamp(14px,1.5vw,17px);
-    --fs-demand:clamp(13px,1.5vw,17px);
-    --fs-badge: clamp(7px,0.75vw,9px);
-    --fs-btn:   clamp(9px,0.9vw,11px);
-    --fs-note:  clamp(10px,1vw,12px);
-    --fs-h1:    clamp(16px,2.2vw,22px);
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) clamp(24px,4vw,48px);
-    font-family: 'DM Sans',sans-serif;
-    color: #fff;
-}
+files["LLM_CONTEXT_GUIDE.md"] = """\
+# GE SOLUTIONS ERP — FULL LLM CONTEXT GUIDE
+# For any AI assistant continuing work on this project
+# Last updated: May 2026 — Phase 10 complete, Priority 1 done
 
-/* ── TOAST ── */
-.toastContainer { position:fixed; bottom:20px; right:20px; z-index:99999; display:flex; flex-direction:column-reverse; gap:8px; max-width:360px; pointer-events:none; }
-.toast { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:8px; box-shadow:0 6px 22px rgba(0,0,0,0.5); pointer-events:all; }
-.toast_success { background:rgba(16,185,129,0.95); border-left:4px solid #059669; color:#fff; }
-.toast_error   { background:rgba(239,68,68,0.95);  border-left:4px solid #b91c1c; color:#fff; }
-.toast_warn    { background:rgba(245,158,11,0.95); border-left:4px solid #b45309; color:#fff; }
-.toast_info    { background:rgba(6,182,212,0.95);  border-left:4px solid #0369a1; color:#fff; }
-.toastIcon  { font-size:15px; flex-shrink:0; margin-top:1px; }
-.toastMsg   { font-family:'Space Mono',monospace; font-size:10px; font-weight:700; line-height:1.4; flex:1; min-width:0; word-break:break-word; }
-.toastClose { background:transparent; border:none; color:inherit; opacity:0.6; cursor:pointer; padding:2px; font-size:13px; flex-shrink:0; }
-.toastClose:hover { opacity:1; }
+---
 
-/* ── BOOT ── */
-.bootScreen  { height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
-.bootSpinner { width:36px; height:36px; border:3px solid rgba(238,140,58,0.15); border-top-color:#EE8C3A; border-radius:50%; animation:spin 1s linear infinite; }
-@keyframes spin { to { transform:rotate(360deg); } }
-.bootLabel   { font-family:'Cinzel',serif; font-size:11px; font-weight:700; letter-spacing:4px; color:#EE8C3A; text-transform:uppercase; }
+## 1. WHO IS DAVID (the developer)
 
-/* ── HEADER ── */
-.header {
-    display:flex; justify-content:space-between; align-items:center;
-    flex-wrap:wrap; gap:var(--gap-md); margin-bottom:var(--gap-xl);
-    border-left:4px solid var(--orange);
-    padding:clamp(10px,1.3vw,14px) clamp(14px,2vw,22px);
-    background:rgba(255,255,255,0.55);
-    border-radius:0 var(--radius) var(--radius) 0;
-    backdrop-filter:blur(15px);
-}
-.titleBlock { display:flex; flex-direction:column; gap:8px; }
-.title { font-family:'Cinzel',serif; color:var(--navy); font-size:var(--fs-h1); font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin:0; }
-.modeSwitch { display:inline-flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; }
-.modeActive   { background:var(--orange); color:var(--navy); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-.modeInactive { background:transparent; color:rgba(255,255,255,0.75); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:background 0.2s,color 0.2s; }
-.modeInactive:hover { background:rgba(255,255,255,0.1); color:#fff; }
-.hudStats { display:flex; gap:var(--gap-md); }
-.statBox { background:var(--navy); padding:8px 18px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); text-align:center; }
-.statBox label { display:block; font-family:'DM Sans',sans-serif; color:rgba(255,255,255,0.6); font-size:var(--fs-label); font-weight:900; margin-bottom:3px; text-transform:uppercase; letter-spacing:1px; }
-.statBox strong { font-family:'Space Mono',monospace; font-size:clamp(15px,1.8vw,20px); color:#fff; line-height:1; }
+- Name: David, goes by nyenz on GitHub
+- Location: Kampala, Uganda
+- Skill level: BEGINNER. Can follow exact step-by-step instructions precisely.
+- What he CAN do:
+  - Copy and run terminal commands exactly as given
+  - Download files and replace them in VS Code
+  - Run `py fix.py` to apply file changes
+  - Run `git add/commit/push` commands
+  - Read screenshots and describe what he sees
+  - Share screenshots to confirm progress
+- What he CANNOT do:
+  - Debug code independently
+  - Read Java/React errors without guidance
+  - Write code himself
+  - Understand partial code snippets — needs full files always
+- Tools he uses: VS Code, Git Bash terminal (inside VS Code), GitHub, Chrome browser
+- Python is installed: use `py` command (not `python`)
+- Project folder: `C:/Users/nyenz/Desktop/app/ge solns`
 
-/* ── SEARCH ── */
-.filterBar { margin-bottom:var(--gap-xl); }
-.searchInner { position:relative; display:flex; align-items:center; background:#fff; border:1.5px solid #c8d6d7; border-radius:var(--radius-sm); width:100%; max-width:clamp(300px,42vw,500px); height:clamp(36px,4vw,42px); transition:border-color 0.2s; }
-.searchInner:focus-within { border-color:var(--orange); box-shadow:0 0 0 3px rgba(238,140,58,0.15); }
-.searchIcon { position:absolute; left:12px; color:var(--orange); font-size:16px; pointer-events:none; }
-.searchInput { width:100%; border:none; outline:none; background:transparent; color:var(--navy); padding:0 34px 0 38px; font-family:'DM Sans',sans-serif; font-weight:800; font-size:clamp(11px,1.1vw,13px); }
-.searchInput::placeholder { font-weight:500; color:rgba(26,46,48,0.35); }
-.searchClear { position:absolute; right:8px; background:transparent; border:none; cursor:pointer; color:rgba(26,46,48,0.4); display:flex; align-items:center; padding:3px; border-radius:4px; }
-.searchClear:hover { color:var(--navy); }
+---
 
-/* ── SECTION GROUPS ── */
-.sectionGroup { margin-bottom:var(--gap-xl); }
-.sectionHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:2px; margin-bottom:var(--gap-lg); display:flex; align-items:center; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.07); }
-.sectionHeaderBacklog { color:#fca5a5; border-bottom-color:rgba(239,68,68,0.2); }
+## 2. HOW TO COMMUNICATE WITH DAVID
 
-/* ── MISSION GRID — 2 columns desktop, 1 mobile ── */
-.missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }
+- Use SIMPLE English. No jargon without explanation.
+- Use OUTLINE/BULLET format for explanations — not long paragraphs.
+- Keep responses SHORT unless doing code.
+- When explaining a concept, use analogies or plain words.
+- When errors happen, read the log yourself and tell him exactly what is wrong in one sentence.
+- Never ask "which would you prefer A or B" — just do everything needed unless there is a real decision required.
+- Confirm one step at a time. Do not skip ahead.
+- When David shares a screenshot, read it carefully before responding.
 
-.cardsGrid {
-    display:grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap:var(--gap-lg);
-}
+---
 
-/* ── MISSION CARD ── */
-.missionCard {
-    background:var(--panel-bg);
-    border:1.5px solid rgba(238,140,58,0.2);
-    border-radius:var(--radius);
-    box-shadow:0 3px 10px rgba(0,0,0,0.2);
-    transition:border-color 0.2s,box-shadow 0.2s;
-    overflow:hidden;
-    outline:none;
-    width:100%;
-}
-.missionCard:hover { border-color:rgba(238,140,58,0.5); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
-.missionCard:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
-.cardLocked  { opacity:0.75; filter:grayscale(0.4); border-style:dashed; }
-.cardBacklog { border-color:rgba(239,68,68,0.35); }
-.cardBacklog:hover { border-color:rgba(239,68,68,0.6); }
+## 3. HOW TO OUTPUT CODE CHANGES — THE fix.py SYSTEM
 
-/* ── STATUS BADGE ── */
-.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-bottom-left-radius:6px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; }
-.statusRed     { background:#7f1d1d; color:#fecaca; }
-.statusBlue    { background:#0c4a6e; color:#bae6fd; }
-.statusGrey    { background:#3f3f46; color:#e4e4e7; }
-.statusDefault { background:rgba(0,0,0,0.55); color:rgba(255,255,255,0.7); }
-.backlogTag    { background:rgba(239,68,68,0.3); color:#fecaca; border-radius:3px; padding:1px 5px; font-size:8px; margin-left:4px; }
+RULE: Never ask David to manually copy-paste code into files. Always use fix.py.
 
-/* ── CARD HEADER ── */
-.cardHeader { display:flex; justify-content:space-between; align-items:center; padding:clamp(10px,1.2vw,14px) var(--pad-card); cursor:pointer; user-select:none; clear:both; gap:10px; }
-.identity { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
-.ownerName { font-family:'Cinzel',serif; color:#ffffff; font-size:var(--fs-owner); font-weight:700; margin:0; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.phoneNum  { font-family:'Space Mono',monospace; color:var(--orange); font-weight:900; font-size:var(--fs-phone); }
-.totalDemandRow { display:flex; align-items:baseline; gap:6px; margin-top:3px; }
-.demandLabel { font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
-.demandValue { font-family:'Space Mono',monospace; font-size:var(--fs-demand); color:#ffffff; font-weight:700; }
-.feesRow { display:flex; align-items:center; gap:5px; font-size:var(--fs-label); color:#fecaca; font-weight:800; margin-top:2px; }
-.expandIcon { color:rgba(255,255,255,0.5); font-size:18px; transition:color 0.2s,transform 0.2s; flex-shrink:0; }
-.missionCard:hover .expandIcon { color:var(--orange); }
+### How fix.py works:
+1. You create a Python script called `fix.py`
+2. The script writes all changed files automatically when David runs it
+3. David downloads the file, replaces his local fix.py, runs `py fix.py`, then pushes
 
-/* ── CARD BODY ── */
-.cardBody { padding:0 var(--pad-card) var(--pad-card); }
-.divider  { height:1px; background:rgba(238,140,58,0.2); margin:10px 0; }
-.timingRow { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:var(--fs-meta); color:#e2e8f0; font-weight:700; margin-bottom:12px; background:rgba(0,0,0,0.35); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.07); }
-.timingRow strong { color:#ffffff; }
+### Fix.py template:
+```python
+import os
 
-/* ── PLOTS LIST ── */
-.plotsList { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
-.plotsHeader { font-family:'DM Sans',sans-serif; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
-.plotRow { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; background:rgba(0,0,0,0.3); border-radius:8px; padding:10px 12px; border-left:3px solid rgba(238,140,58,0.5); }
-.plotRowBacklog { border-left-color:rgba(239,68,68,0.7); background:rgba(239,68,68,0.08); }
-.plotRowLeft { display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; }
-.plotInfo  { display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
-.plotNumber { font-family:'Space Mono',monospace; color:var(--orange); font-size:clamp(11px,1.1vw,13px); font-weight:700; }
-.plotBox    { font-size:var(--fs-meta); color:rgba(255,255,255,0.65); font-weight:700; }
-.backlogBreakdown { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
-.backlogPlotTag { display:inline-flex; align-items:center; gap:4px; background:rgba(239,68,68,0.25); color:#fecaca; border:1px solid rgba(239,68,68,0.4); border-radius:4px; padding:2px 7px; font-size:9px; font-weight:800; text-transform:uppercase; margin-bottom:4px; width:fit-content; }
-.debtLine { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
-.debtLine strong { color:#ffffff; }
-.activePlotFinance { font-size:var(--fs-meta); color:#cbd5e1; font-weight:700; }
-.activePlotFinance strong { color:#ffffff; }
-.lastNote { display:flex; align-items:flex-start; gap:5px; font-size:var(--fs-label); color:rgba(255,255,255,0.55); font-style:italic; margin-top:5px; font-weight:600; line-height:1.4; }
-.plotRowActions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
+files = {}
 
-/* ── CARD ACTIONS ── */
-.cardActions { display:flex; gap:var(--gap-md); margin-top:12px; flex-wrap:wrap; }
-.logCallBtn { flex:1; min-width:120px; background:var(--orange); color:var(--navy); font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); text-transform:uppercase; letter-spacing:1px; padding:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; border:2px solid var(--orange); transition:background 0.2s; }
-.logCallBtn:hover:not(:disabled) { background:#d4732a; border-color:#d4732a; }
-.logCallBtn:disabled { background:transparent; color:rgba(255,255,255,0.3); border-color:rgba(255,255,255,0.15); cursor:not-allowed; }
-.folderBtn { background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.3); color:#ffffff; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
-.folderBtn:hover { border-color:var(--orange); color:var(--orange); background:rgba(238,140,58,0.12); }
-.payBtn { background:rgba(34,197,94,0.15); border:1.5px solid rgba(34,197,94,0.5); color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:900; border-radius:var(--radius-sm); font-size:var(--fs-btn); padding:7px 12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s; white-space:nowrap; }
-.payBtn:hover { background:#22c55e; color:#1a2e30; border-color:#22c55e; }
+files["path/to/file.java"] = \"\"\"\\
+// file content here
+\"\"\"
 
-/* ── EMPTY STATE ── */
-.emptyGate { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:60px 20px; text-align:center; }
-.emptyIcon  { font-size:50px; color:var(--emerald); opacity:0.25; }
-.emptyTitle { font-family:'Cinzel',serif; font-size:clamp(13px,1.6vw,18px); font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1.5px; margin:0; }
+for path, content in files.items():
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content.strip())
+    print(f"Written: {path}")
 
-/* ── MODAL ── */
-.modalBody { padding-top:10px; }
-.historyStream { max-height:180px; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:14px; border:1px solid #e2e8f0; scrollbar-width:thin; }
-.historyTitle  { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:900; color:#475569; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
-.historyItem   { border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px; }
-.historyItem:last-child { border-bottom:none; margin-bottom:0; }
-.historyMeta   { display:flex; justify-content:space-between; align-items:center; font-family:'DM Sans',sans-serif; font-size:10px; font-weight:800; color:#c2410c; margin-bottom:4px; }
-.historyItem p { font-family:'DM Sans',sans-serif; font-size:12px; color:#1a2e30; line-height:1.5; font-weight:600; margin:0; }
-.emptyHistory  { font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#94a3b8; text-align:center; padding:20px 0; }
-.notebookArea { width:100%; min-height:90px; background:#fff; border-radius:8px; border:1.5px solid rgba(238,140,58,0.5); padding:10px 12px; color:#1a2e30; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; resize:vertical; box-sizing:border-box; display:block; outline:none; transition:box-shadow 0.2s; }
-.notebookArea:focus { box-shadow:0 0 0 3px rgba(238,140,58,0.2); }
-.notebookArea::placeholder { font-weight:500; color:rgba(26,46,48,0.35); }
-.modalFooter { margin-top:12px; display:flex; justify-content:flex-end; }
-.backlogPayInfo { display:flex; align-items:flex-start; gap:12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); border-radius:8px; padding:14px; margin-bottom:14px; font-size:13px; color:#fef2f2; }
-.activePayInfo { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:12px; margin-bottom:14px; font-size:13px; color:#f0fdf4; }
+print("All done.")
+```
 
-/* ── RESPONSIVE ── */
-@media (max-width:900px) {
-    .cardsGrid { grid-template-columns:1fr; }
-    .header    { flex-direction:column; align-items:flex-start; }
-    .hudStats  { width:100%; }
-    .modeSwitch { width:100%; }
-    .modeActive,.modeInactive { flex:1; justify-content:center; }
-}
-@media (max-width:600px) {
-    .cardActions    { flex-direction:column; }
-    .plotRow        { flex-direction:column; }
-    .plotRowActions { flex-direction:row; }
-    .searchInner    { max-width:100%; }
-}
-@media (max-width:480px) {
-    .statusBadge { font-size:7px; padding:2px 7px; }
-    .cardHeader  { padding:9px 11px; }
-    .cardBody    { padding:0 11px 11px; }
-    .ownerName   { font-size:13px; }
-    .demandValue { font-size:13px; }
-    .historyStream { max-height:110px; }
-    .timingRow   { font-size:10px; }
-}
-"""
+### Critical rules for fix.py:
+- ALWAYS use `encoding="utf-8"` in the open() call — Windows will fail without it
+- ALWAYS use `os.makedirs(os.path.dirname(path), exist_ok=True)` before writing
+- Run path starts from `~/Desktop/ge solns` — so paths start with `erp-backend/` or `erp-frontend/`
+- After writing, David runs: `git add -A && git commit -m "message" && git push`
+- Then watch Render Events tab for green tick
 
-# ── STAGE 1, FIX 2: PaymentsPage.module.css
-files["erp-frontend/src/pages/Payments/PaymentsPage.module.css"] = """\
-/* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: clamp(12px, 2vw, 24px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-}
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-left: 4px solid #EE8C3A;
-    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 24px);
-    background: rgba(255,255,255,0.55);
-    border-radius: 0 10px 10px 0;
-    backdrop-filter: blur(15px);
-    margin-bottom: clamp(14px, 2vw, 22px);
-}
-.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; margin: 0; letter-spacing: 2px; }
-.subtitle { color: rgba(26,46,48,0.6); font-size: clamp(10px, 1.1vw, 13px); font-weight: 600; margin: 4px 0 0; }
-.refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
-.refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
-.summaryRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: clamp(10px, 1.4vw, 16px); margin-bottom: clamp(14px, 2vw, 20px); }
-.sumCard { background: linear-gradient(160deg, #1c3335, #213E40); border: 1.5px solid rgba(238,140,58,0.25); border-radius: 10px; padding: clamp(12px, 1.5vw, 18px); display: flex; flex-direction: column; gap: 4px; }
-.sumCard label { font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
-.sumCard strong { font-family: 'Space Mono', monospace; font-size: clamp(13px, 1.6vw, 19px); color: #fff; font-weight: 700; }
-.sumCard span { font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.35); }
-.controls { display: flex; flex-direction: column; gap: clamp(8px, 1vw, 12px); margin-bottom: clamp(14px, 2vw, 20px); }
-.searchWrap { position: relative; display: flex; align-items: center; background: #fff; border: 1.5px solid #c8d6d7; border-radius: 8px; height: clamp(38px, 4.2vw, 44px); max-width: clamp(280px, 45vw, 520px); transition: border-color 0.2s; }
-.searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: 16px; pointer-events: none; }
-.searchInput { width: 100%; border: none; outline: none; background: transparent; color: #1a2e30; padding: 0 36px 0 38px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: clamp(11px, 1.1vw, 13px); }
-.searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
-.clearBtn { position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; padding: 4px; border-radius: 4px; }
-.clearBtn:hover { color: #1a2e30; }
-.filterRow { display: flex; flex-wrap: wrap; gap: 8px; }
+### EFFICIENCY RULE (important):
+- If only a SECTION of a file needs to change, use str.replace() in fix.py instead of rewriting the whole file
+- Only rewrite full files when the changes are large or spread throughout
+- This keeps fix.py files smaller and faster to verify
 
-/* Filter buttons — visible text always */
-.filterBtn {
-    background: rgba(255,255,255,0.08);
-    border: 1.5px solid rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85);
-    border-radius: 6px;
-    padding: 7px 16px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 800;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-    min-width: max-content;
-}
-.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
+### Breaking changes into stages:
+- For large changes, split into Stage 1, Stage 2, Stage 3
+- One fix.py per stage
+- Wait for Render green tick between stages
+- This prevents long files that get corrupted when pasted
 
-/* Active filter — orange bg, dark text */
-.filterActive {
-    background: #EE8C3A !important;
-    border-color: #EE8C3A !important;
-    color: #1a2e30 !important;
-    font-weight: 900 !important;
-}
+### How David gets the file:
+- You call `present_files(["/mnt/user-data/outputs/fix.py"])`
+- David downloads it from the chat interface
+- He opens his fix.py in VS Code, Ctrl+A, Delete, pastes new content, Ctrl+S
+- Then runs `py fix.py` in terminal
 
-.tableWrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(160deg, #1c3335, #213E40); }
-.table { width: 100%; border-collapse: collapse; font-size: clamp(10px, 1.05vw, 13px); min-width: 680px; }
-.table thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
-.table th { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.82vw, 10px); color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; text-align: left; white-space: nowrap; }
-.row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
-.row:hover { background: rgba(255,255,255,0.04); }
-.table td { padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.3vw, 14px); color: rgba(255,255,255,0.9); vertical-align: middle; }
-.dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
-.time { font-size: 10px; opacity: 0.45; }
-.plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
-.ownerCell { font-weight: 700; color: #fff; }
-.typeBadge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 4px; font-size: clamp(8px, 0.82vw, 10px); font-weight: 900; text-transform: uppercase; white-space: nowrap; font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; }
-.amount { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; }
-.balance { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 11px); color: rgba(255,255,255,0.5); }
-.recorder { display: inline-flex; align-items: center; gap: 5px; font-size: clamp(9px, 0.88vw, 11px); color: rgba(255,255,255,0.6); }
-.notesCell { font-style: italic; color: rgba(255,255,255,0.45); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(9px, 0.88vw, 11px); }
-.goBtn { background: rgba(238,140,58,0.1); border: 1px solid rgba(238,140,58,0.35); color: #EE8C3A; border-radius: 6px; padding: 6px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; }
-.goBtn:hover { background: #EE8C3A; color: #1a2e30; }
-.loading, .empty { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.35); font-weight: 700; font-size: clamp(12px, 1.3vw, 15px); text-transform: uppercase; letter-spacing: 1px; }
-@media (max-width: 768px) {
-    .summaryRow { grid-template-columns: 1fr; }
-    .filterRow  { gap: 6px; }
-    .filterBtn  { padding: 6px 12px; font-size: 9px; }
-    .searchWrap { max-width: 100%; }
-}
+---
+
+## 4. THE PROJECT — WHAT IT IS
+
+### Name
+Golden Seed ERP (code name: NYENZ)
+
+### Purpose
+Internal staff accountability tool for GE Solutions — a Ugandan land surveying and title processing company. Staff-only. Not client-facing.
+
+### Core functions
+- Store land title records digitally with scanned documents
+- Remind staff which clients to call (2x per month, 14-day interval rule)
+- Staff log what happened on each call
+- Management sees full audit trail of all actions
+- Backlog system: clients who stop paying get UGX 50,000/month storage penalty
+- Payment recording with full history per plot
+
+### What it is NOT
+- Not a receipt generator
+- Not a client-facing portal
+- Not a billing system
+- Not multi-company (yet — future plan is to clone repo per client)
+
+---
+
+## 5. TECH STACK
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Java Spring Boot 3.2.5 |
+| Database ORM | Hibernate / JPA |
+| Database | PostgreSQL (Neon cloud, free tier) |
+| Auth | JWT tokens |
+| Build | Maven |
+| Utilities | Lombok, Spring Security |
+| Frontend | React 19, Vite |
+| Styling | CSS Modules |
+| Routing | React Router |
+| HTTP | Axios |
+| File Storage | Cloudinary (cloud name: dfd115bnz) |
+| Deployment | Render free tier |
+| Repo | GitHub (PRIVATE): github.com/nyenz/ge-solutions-erp |
+
+### URLs
+- Backend: https://ge-solutions-api.onrender.com
+- Frontend: https://golden-seed.onrender.com
+
+### Database
+- Host: ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech
+- Name: neondb
+- User: neondb_owner
+
+### Render Environment Variables (all already set)
+- SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+- CLOUDINARY_CLOUD_NAME (dfd115bnz), CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+- JAVA_OPTS, PORT, JWT_SECRET
+- MAIL_USERNAME, MAIL_PASSWORD
+- ADMIN_EMAIL, ADMIN_DEFAULT_PASSWORD
+
+---
+
+## 6. PROJECT FOLDER STRUCTURE
+
+```
+ge solns/                          <- root, terminal starts here
+├── erp-backend/
+│   ├── src/main/java/com/gesolutions/erp/
+│   │   ├── ErpBackendApplication.java   <- @SpringBootApplication @EnableScheduling
+│   │   ├── config/
+│   │   ├── common/
+│   │   └── modules/
+│   │       ├── auth/
+│   │       ├── client/
+│   │       └── land/
+│   │           ├── model/
+│   │           ├── repository/
+│   │           ├── service/
+│   │           ├── controller/
+│   │           └── dto/
+│   ├── src/main/resources/application.properties
+│   └── pom.xml
+├── erp-frontend/
+│   ├── src/
+│   │   ├── api/axios.js
+│   │   ├── context/AuthProvider.jsx
+│   │   ├── hooks/useAuth.js
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   ├── layout/
+│   │   │   └── ui/
+│   │   ├── pages/
+│   │   │   ├── Audit/AuditPage.jsx
+│   │   │   ├── Dashboard/
+│   │   │   ├── DigitalFolder/FolderPage.jsx
+│   │   │   ├── Intake/IntakePage.jsx          <- SIMPLIFIED (no payment plan fields)
+│   │   │   ├── Ledger/LedgerPage.jsx
+│   │   │   ├── Payments/PaymentsPage.jsx
+│   │   │   ├── Recovery/RecoveryPortal.jsx
+│   │   │   ├── Reports/ReportHub.jsx
+│   │   │   ├── login/LoginPage.jsx
+│   │   │   └── settings/SettingsPage.jsx
+│   │   └── services/
+│   ├── App.jsx
+│   └── vite.config.js
+├── LLM_CONTEXT_GUIDE.md           <- THIS FILE
+├── fix.py
+├── docker-compose.yml
+└── render.yaml
+```
+
+---
+
+## 7. HOW THE APP WORKS — LINEAR FLOW
+
+### Step 1: INTAKE
+- Staff fills in: Plot ID, land details, owner info
+- Fills in: Total cost, initial payment already made
+- Chooses: Standard (active) OR Backlog (already owing)
+- NOTE: Payment plan dropdown and weekly installment fields were REMOVED
+- Only fields: Total Cost | Initial Payment | Arrears (auto) | Backlog toggle
+- Attaches documents, adds notes, clicks Commit
+
+### Step 2: LEDGER
+- Full list of all plots
+- GREEN/YELLOW/RED payment health dots
+- Filters: ALL / BACKLOG / LEGACY / UNPAID / CRITICAL / COMPLETED / RELEASED
+- Stage filter: 1 through 5
+
+### Step 3: FOLDER PAGE (per plot)
+- All details: plot info, owners, financials, documents, notes, payment history
+- Active: Total Cost | Amount Paid | Balance Remaining
+- Backlog: Original Debt | Storage Fees Added | Total Now Owed (separated)
+- Admin/Root: Record Payment, Move to Backlog, Exit Backlog, Edit, Delete
+
+### Step 4: RECOVERY HUB
+- Shows clients who need to be called TODAY
+- Grouped by phone number — one card per unique phone
+- 2-14 Rule: max 2 calls per month, min 14 days between calls
+- Cards flow in 2-column grid on desktop, 1-column on mobile
+- ACTION QUEUE and FULL SCHEDULE tabs
+
+### Step 5: PAYMENTS PAGE (Admin/Root only)
+- All payment records across all plots
+- Summary: Total | Title Payments | Backlog Payments
+- Filter by type, search, sort by date
+
+### Step 6: BACKLOG & STORAGE FEES
+- UGX 50,000 added every 30 days from backlog start date
+- Total owed = Original Debt + Storage Fees - Payments Made
+- Staff always sees breakdown — not just a total
+
+### Step 7: AUDIT PAGE (Admin/Root only)
+- Every action ever taken in the system
+
+---
+
+## 8. KEY BUSINESS RULES
+
+- **2-14 Rule**: Max 2 calls per client per calendar month. Min 14 days between calls.
+- **Recovery grouping**: By unique phone number.
+- **Backlog trigger**: 365 days no payment (auto) OR admin manually flags it.
+- **Storage fee**: UGX 50,000 every 30 days from backlog START DATE.
+- **Payment types**: STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL.
+- **Completed plots**: Stay in ledger with COMPLETED/RELEASED status.
+- **Phone uniqueness**: Two owners cannot share the same phone number.
+- **Admin/Root only**: Record payments, manage backlog, access Payments/Reports/Audit.
+- **Cloudinary**: All files stored on Cloudinary.
+
+---
+
+## 9. WHAT HAS BEEN COMPLETED (chronological)
+
+### Phase 1 — Security & Cleanup
+- Repo made private, credentials moved to Render env vars
+
+### Phase 2 — Cloudinary Integration
+- All file uploads/deletes go through Cloudinary
+
+### Phase 3 — Frontend Fixes
+- AuditPage operator dropdown, dashboard activity stream
+
+### Phase 4 — New Demand System (MAJOR OVERHAUL)
+- Retired: weekly installment, payment plans, PaymentEngineService
+- New: full balance demanded twice a month
+- New: PaymentRecord model, BacklogSchedulerService
+
+### Phase 5 — Recovery Portal Rewrite
+- Grouped by phone number, two sections (active/backlog)
+- Payment health badge computed server-side
+
+### Phase 6 — Folder Page Updates
+- Backlog banner, financial breakdown, payment history drawer
+- Record Payment, Move to Backlog, Exit Backlog buttons
+
+### Phase 7 — Ledger Updates
+- GREEN/YELLOW/RED dots, BACKLOG filter, badge legend
+
+### Phase 8 — Bug Fixes
+- isBacklog Boolean vs boolean null crash fixed
+
+### Phase 9 — Payments Page
+- New /payments page, PaymentController, sidebar link
+
+### Phase 10 — Recovery Styling + Intake Cleanup (PRIORITY 1 — COMPLETE)
+- RecoveryPortal.module.css: 2-column grid, contrast fixes, mobile responsive
+- PaymentsPage.module.css: filter button text visibility fixed
+- IntakePage.jsx: CLEANED UP
+  - REMOVED: Payment Plan dropdown, Weekly Installment field, Operational Mode toggle
+  - KEPT: Total Cost, Initial Payment, Arrears (auto), single Backlog Status toggle
+  - Grid simplified from grid4 to grid3 for financials section
+
+---
+
+## 10. CURRENT STATUS (as of May 2026)
+
+- Priority 1 (all 3 fixes): DONE AND DEPLOYED ✅
+- CSS fixes (Stage 1): pushed and live
+- IntakePage cleanup: confirmed correct in repo
+
+---
+
+## 11. WHAT STILL NEEDS TO BE DONE (in order)
+
+### Priority 2 — Medium
+1. **Reports page overhaul**: Add backlog report, completed titles report,
+   payment history report, storage fees report, monthly collection report
+2. **Mobile responsiveness audit**: Check all pages on mobile
+3. **Completed clients dashboard section**: Show count of completed/released plots
+
+### Priority 3 — Lower
+4. **Print preview**: Organise print layout cleanly
+5. **Phone uniqueness frontend validation**: Show clear error if phone already exists
+6. **Release button check**: Warn if no documents uploaded before releasing a title
+
+### Language simplification (can do alongside any priority):
+- "Master Hardware Override" → "Edit"
+- "Nuclear Purge" → "Delete"
+- "Intel" → "Notes"
+- "Vault" → "Documents"
+- "Recovery Sync" → "Call Logged"
+- "Asset Intake" → "New Plot"
+- "Forensic Stream" → "Recent Activity"
+
+### Future (not started)
+- Multi-company: clone repo per client company
+- Notification model (exists in code but never used)
+- Rate limiting on login endpoint
+
+---
+
+## 12. KNOWN ISSUES (not blocking)
+
+- WebConfig.java still has old local file serving reference — harmless
+- Notification model exists but never used
+- No rate limiting on login
+- Release button does not check for uploaded documents first
+- `payment_schedules` table still exists in DB — no longer used (harmless)
+- App name inconsistency: "NYENZ ERP" vs "Golden Seed" in different places
+
+---
+
+## 13. DEPLOYMENT PROCESS
+
+Every change follows this exact flow:
+1. Create fix.py → `present_files` → David downloads
+2. David replaces local fix.py → `py fix.py` → check "All done." output
+3. `git add -A && git commit -m "message" && git push`
+4. Go to Render → ge-solutions-api → Events tab (for backend) OR
+   Go to Render → golden-seed → Events tab (for frontend)
+5. Wait for green tick (5-10 minutes on free tier)
+6. Test in browser at golden-seed.onrender.com
+7. If red (failed): click "deploy logs" → read error → fix → repeat
+
+---
+
+## 14. COMMON ERRORS AND FIXES
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Can not set boolean field isBacklog to null` | DB rows have NULL, Java primitive boolean can't hold null | Use `Boolean` (capital B) not `boolean` |
+| `No property 'isActive' found for type 'Client'` | Client model has no isActive field | Use `@Query` instead of method name query |
+| `column X contains null values` | New NOT NULL column added to table with existing rows | Remove `nullable = false` from @Column |
+| `UnicodeEncodeError` in fix.py | Windows default encoding | Always use `encoding="utf-8"` in open() |
+| `nothing added to commit` | Files already match what's in git | Force add specific files |
+| 500 on /dashboard/summary | Backend crash — check Render Logs tab | Read Caused by: line at bottom of log |
+
+---
+
+## 15. CLOUDINARY DETAILS
+
+- Cloud name: dfd115bnz
+- Images: resource_type=image
+- PDFs and docs: resource_type=raw, access_mode=public
+- Folder structure: ge_solutions/{plot-uuid}/
+- Folder deleted after nuclear purge
 """
 
 for path, content in files.items():
