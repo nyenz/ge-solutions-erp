@@ -1,74 +1,82 @@
 # PATH: fix.py
 import os
 
-# The unified style for all filter buttons
-UNIFIED_CSS = """
-.filterBtn {
-    background: rgba(26, 46, 48, 0.75) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
-    color: rgba(255, 255, 255, 0.85) !important;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.filterBtn:hover {
-    background: rgba(238, 140, 58, 0.12) !important;
-    color: #EE8C3A !important;
-    border-color: var(--orange) !important;
-}
-
-.filterActive {
-    background: #EE8C3A !important;
-    color: #1a2e30 !important;
-    border-color: #EE8C3A !important;
-    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4) !important;
-}
-"""
-
-def update_css(path):
+def patch_file(path, patches):
     if not os.path.exists(path):
         print(f"  FILE NOT FOUND: {path}")
         return
-    
     with open(path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        content = f.read()
     
-    new_lines = []
-    inside_old_filter = False
+    original = content
+    for target, replacement in patches:
+        content = content.replace(target, replacement)
     
-    for line in lines:
-        # Check if we are starting a block we want to replace
-        if ".filterBtn {" in line or ".filterBtn:hover" in line or ".filterActive {" in line:
-            inside_old_filter = True
-            continue
-        
-        # If we were inside a block, wait for the closing brace
-        if inside_old_filter:
-            if "}" in line:
-                inside_old_filter = False
-            continue
-            
-        new_lines.append(line)
-    
-    # Append the new unified styles at the end of the file
-    final_content = "".join(new_lines) + "\n" + UNIFIED_CSS
-    
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(final_content)
-    print(f"  OK: Updated {path}")
+    if content != original:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"  OK: Patched {path}")
+    else:
+        print(f"  NO CHANGE: {path} (targets not found)")
 
-print("=== UNIFYING FILTER STYLES ===")
-update_css("erp-frontend/src/pages/Ledger/LedgerPage.module.css")
-update_css("erp-frontend/src/pages/Payments/PaymentsPage.module.css")
-print("=== FINISHED ===")
+print("=== STARTING UI REFINEMENT PHASE ===\n")
+
+# 1. UNIFY HEADERS (Applying Dashboard style to others)
+SHARED_HEADER_CSS = """    background: rgba(255, 255, 255, 0.62);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 15px 15px 0;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);"""
+
+# --- Patch Ledger Header ---
+patch_file("erp-frontend/src/pages/Ledger/LedgerPage.module.css", [
+    (".header {", ".header {\n" + SHARED_HEADER_CSS),
+    ("min-width: 140px;", "min-width: clamp(160px, 15vw, 200px);"), # Widening Plot ID col
+    ("display: flex;\n    align-items: center;", "display: flex;\n    flex-direction: column;\n    gap: 4px;") # Wrap ID and Tag
+])
+
+# --- Patch Intake Header & Responsive Inputs ---
+patch_file("erp-frontend/src/pages/Intake/IntakePage.module.css", [
+    (".header {", ".header {\n" + SHARED_HEADER_CSS),
+    ("grid-template-columns: repeat(3, 1fr);", "grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));"),
+    ("width: 100%;", "width: 100% !important;") # Force responsive inputs
+])
+
+# --- Patch Audit Header & Filter Alignment ---
+patch_file("erp-frontend/src/pages/Audit/AuditPage.module.css", [
+    (".header {", ".header {\n" + SHARED_HEADER_CSS),
+    ("display: flex;\n    gap: 20px;\n    margin-bottom: 25px;", "display: flex;\n    gap: 20px;\n    margin-bottom: 25px;\n    align-items: flex-end;\n    flex-wrap: wrap;"),
+    (".resetBtn {", ".resetBtn {\n    height: 52px; /* Matches dropdown height */")
+])
+
+# --- Patch Payments Header & Horizontal Mobile Filters ---
+patch_file("erp-frontend/src/pages/Payments/PaymentsPage.module.css", [
+    (".header {", ".header {\n" + SHARED_HEADER_CSS),
+    (".filterRow {", ".filterRow {\n    display: flex;\n    overflow-x: auto;\n    padding-bottom: 8px;\n    gap: 12px;\n    scrollbar-width: none;"),
+    (".filterRow::-webkit-scrollbar { display: none; }", "")
+])
+
+# --- Patch Recovery Header & Empty State Visibility ---
+patch_file("erp-frontend/src/pages/Recovery/RecoveryPortal.module.css", [
+    (".header {", ".header {\n" + SHARED_HEADER_CSS),
+    ("color: rgba(255, 255, 255, 0.2);", "color: var(--orange); font-weight: 900; opacity: 0.8;"), # Better contrast for "No Targets"
+    (".emptyState {", ".emptyState {\n    background: rgba(33, 62, 64, 0.4);\n    padding: 60px;\n    border-radius: 20px;\n    border: 1px dashed var(--orange);")
+])
+
+# 2. SIDEBAR OPTIMIZATION (Shrinking footer and fitting content)
+patch_file("erp-frontend/src/components/layout/Sidebar.module.css", [
+    (".sidebar {", ".sidebar {\n    height: 100vh;\n    overflow-y: hidden;"),
+    (".nav {", ".nav {\n    flex: 1;\n    overflow-y: auto;\n    padding: 10px 0;"),
+    (".footer {", ".footer {\n    padding: 10px 20px;\n    border-top: 1px solid rgba(255,255,255,0.05);"),
+    (".brand {", ".brand {\n    font-size: 10px !important;\n    letter-spacing: 2px;"),
+    (".version {", ".version {\n    font-size: 8px !important; opacity: 0.5;")
+])
+
+# 3. GLOBAL INPUT RESPONSIVENESS
+patch_file("erp-frontend/src/index.css", [
+    ("input, select, textarea {", "input, select, textarea {\n    max-width: 100%;\n    width: 100%;")
+])
+
+print("\n=== UI REFINEMENT COMPLETE ===")

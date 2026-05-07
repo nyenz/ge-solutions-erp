@@ -4,6 +4,8 @@
    font-family declared on every text element                          */
 
 .sidebar {
+    height: 100vh;
+    overflow-y: hidden;
     --sidebar-collapsed-width: 60px;
     --sidebar-width:           210px;
 
@@ -175,6 +177,7 @@
 }
 
 .version {
+    font-size: 8px !important; opacity: 0.5;
     font-family: 'Space Mono', monospace;
     color: rgba(255, 255, 255, 0.15);
     font-size: clamp(6px, 0.65vw, 8px);
@@ -182,7 +185,8 @@
     margin-top: clamp(4px, 0.6vw, 8px);
     letter-spacing: 1px;
 }
-.collapsed .version { display: none; }
+.collapsed .version {
+    font-size: 8px !important; opacity: 0.5; display: none; }
 
 
 
@@ -213,6 +217,8 @@
 /* ── MOBILE ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .sidebar {
+    height: 100vh;
+    overflow-y: hidden;
         position: fixed;
         left: 0;
         /* Sit BELOW the header — top: 0 would slide under it and clip nav items */

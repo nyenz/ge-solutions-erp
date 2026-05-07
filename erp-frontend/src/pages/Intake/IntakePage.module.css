@@ -155,6 +155,13 @@
    MASTER HEADER — glass panel matching Dashboard/Ledger
    ═══════════════════════════════════════════════════════════════ */
 .header {
+    background: rgba(255, 255, 255, 0.62);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 15px 15px 0;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
     display: flex; flex-direction: column; gap: clamp(3px, 0.4vw, 5px);
     margin-bottom: var(--gap-xl);
     border-left: clamp(4px, 0.5vw, 6px) solid var(--orange);
@@ -189,7 +196,7 @@
 }
 .grid3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--gap-lg); align-items: start;
     min-width: 0; box-sizing: border-box; margin-bottom: var(--gap-md);
 }
@@ -218,13 +225,13 @@
     overflow: visible;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     transition: border-color 0.2s;
-    width: 100%; min-width: 0; box-sizing: border-box;
+    width: 100% !important; min-width: 0; box-sizing: border-box;
 }
 .hwPanel:hover { border-color: rgba(238, 140, 58, 0.35); }
 
 .drawerHeader {
     display: flex; justify-content: space-between; align-items: center;
-    width: 100%; cursor: pointer; user-select: none;
+    width: 100% !important; cursor: pointer; user-select: none;
     padding: clamp(12px, 1.5vw, 16px) var(--pad-panel);
     border-bottom: 1px solid rgba(238, 140, 58, 0.12);
     transition: background 0.2s; box-sizing: border-box;
@@ -335,7 +342,7 @@
    SMART INPUT  — white on dark panel (intentional contrast)
    ═══════════════════════════════════════════════════════════════ */
 .hwInput {
-    width: 100%; height: var(--input-h);
+    width: 100% !important; height: var(--input-h);
     background: #ffffff;
     border: 1.5px solid #c8d6d7;
     border-radius: var(--radius-sm);
@@ -367,7 +374,7 @@
 
 /* The visible trigger row — dark navy, matching original HardwareSelect */
 .selectTrigger {
-    width: 100%; height: var(--input-h);
+    width: 100% !important; height: var(--input-h);
     background: #ffffff;
     border: 1.5px solid #c8d6d7;
     border-radius: var(--radius-sm);
@@ -497,7 +504,7 @@
     margin-bottom: var(--gap-md); letter-spacing: 1px;
     font-family: 'Space Mono', monospace; text-transform: uppercase;
 }
-.inputWithAction { position: relative; width: 100%; min-width: 0; }
+.inputWithAction { position: relative; width: 100% !important; min-width: 0; }
 
 .miniTrash {
     position: absolute;
@@ -514,7 +521,7 @@
 .miniTrash:focus-visible { outline: 2px solid var(--orange); }
 
 .addBtn {
-    width: 100%; padding: clamp(12px, 1.5vw, 16px);
+    width: 100% !important; padding: clamp(12px, 1.5vw, 16px);
     background: rgba(0, 0, 0, 0.2);
     border: 2px dashed rgba(238, 140, 58, 0.4);
     color: var(--orange); border-radius: clamp(6px, 0.8vw, 8px);
@@ -602,7 +609,7 @@
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: clamp(6px, 0.8vw, 10px);
-    width: 100%; padding: clamp(10px, 1.5vw, 16px) 0;
+    width: 100% !important; padding: clamp(10px, 1.5vw, 16px) 0;
     color: rgba(255, 255, 255, 0.22);
     font-size: var(--fs-meta); font-weight: 900;
     text-transform: uppercase; letter-spacing: 1px;
@@ -619,7 +626,7 @@
     gap: clamp(6px, 0.8vw, 8px);
     padding: clamp(7px, 0.9vw, 10px) clamp(10px, 1.2vw, 14px);
     transition: border-color 0.2s, background 0.2s;
-    width: 100%; min-width: 0;
+    width: 100% !important; min-width: 0;
     box-sizing: border-box;
 }
 .fileTag:hover { border-color: var(--orange); background: rgba(238, 140, 58, 0.12); }
@@ -662,7 +669,7 @@
     text-transform: uppercase; letter-spacing: 0.8px;
     font-family: 'DM Sans', sans-serif;
     user-select: none; -webkit-user-select: none;
-    width: 100%;
+    width: 100% !important;
 }
 .uploadBtn:hover {
     border-color: var(--orange);
@@ -678,7 +685,7 @@
    NOTES TEXTAREA — dark-themed, matching inputs visually
    ═══════════════════════════════════════════════════════════════ */
 .notesArea {
-    width: 100%;
+    width: 100% !important;
     min-height: clamp(140px, 20vw, 200px);
     /* Dark background — sits inside a dark panel */
     background: rgba(0, 0, 0, 0.25);
@@ -763,10 +770,10 @@
 /* ═══════════════════════════════════════════════════════════════
    VIEWER MODAL
    ═══════════════════════════════════════════════════════════════ */
-.previewContainer { display: flex; flex-direction: column; gap: clamp(14px, 2vw, 20px); align-items: center; width: 100%; }
-.previewImg        { max-width: 100%; max-height: 65vh; border-radius: var(--radius-sm); border: 2px solid var(--orange); box-shadow: 0 0 40px rgba(0,0,0,0.8); }
-.previewPDF        { width: 100%; height: 70vh; border-radius: var(--radius-sm); border: 2px solid var(--orange); background: white; }
-.previewActions    { width: 100%; display: flex; justify-content: center; padding-top: clamp(8px, 1vw, 12px); }
+.previewContainer { display: flex; flex-direction: column; gap: clamp(14px, 2vw, 20px); align-items: center; width: 100% !important; }
+.previewImg        { max-width: 100% !important; max-height: 65vh; border-radius: var(--radius-sm); border: 2px solid var(--orange); box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+.previewPDF        { width: 100% !important; height: 70vh; border-radius: var(--radius-sm); border: 2px solid var(--orange); background: white; }
+.previewActions    { width: 100% !important; display: flex; justify-content: center; padding-top: clamp(8px, 1vw, 12px); }
 
 
 
@@ -803,7 +810,7 @@
 /* Wrapper that positions the picker dropdown */
 .inputAssistWrap {
     position: relative;
-    width: 100%;
+    width: 100% !important;
     min-width: 0;
 }
 
@@ -1008,9 +1015,16 @@
 
 @media (max-width: 480px) {
     .grid2, .grid3, .grid4, .splitGrid { grid-template-columns: 1fr !important; }
-    .dualActionGroup   { flex-direction: column; width: 100%; }
+    .dualActionGroup   { flex-direction: column; width: 100% !important; }
     .primaryCommitBtn,
-    .secondaryCommitBtn { width: 100%; justify-content: center; }
-    .header { border-left: none; border-top: clamp(4px, 0.5vw, 6px) solid var(--orange); border-radius: var(--radius); }
+    .secondaryCommitBtn { width: 100% !important; justify-content: center; }
+    .header {
+    background: rgba(255, 255, 255, 0.62);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 15px 15px 0;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07); border-left: none; border-top: clamp(4px, 0.5vw, 6px) solid var(--orange); border-radius: var(--radius); }
     .previewPDF { height: 50vh; }
 }
