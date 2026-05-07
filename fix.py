@@ -1,75 +1,94 @@
 # PATH: fix.py
 import os
 
-def append_to_file(path, text):
+def rewrite_header_css(path):
     if not os.path.exists(path):
         print(f"  FILE NOT FOUND: {path}")
         return
-    with open(path, "a", encoding="utf-8") as f:
-        f.write("\n" + text + "\n")
-    print(f"  OK: Appended to {path}")
 
-def patch_file(path, patches):
-    if not os.path.exists(path):
-        print(f"  FILE NOT FOUND: {path}")
-        return
+    # This is the exact style from the Dashboard, made responsive
+    UNIFIED_HEADER_CSS = """
+/* --- UNIFIED HARDWARE HEADER --- */
+.header {
+    background: rgba(255, 255, 255, 0.62) !important;
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange) !important;
+    border-radius: 0 15px 15px 0 !important;
+    padding: clamp(16px, 3vw, 24px) clamp(20px, 4vw, 32px) !important;
+    margin-bottom: clamp(20px, 4vw, 32px) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    backdrop-filter: blur(15px) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07) !important;
+    width: 100% !important;
+    gap: 20px !important;
+}
+
+.header h1 {
+    font-family: 'Cinzel', serif !important;
+    font-weight: 900 !important;
+    color: #213E40 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    margin: 0 !important;
+    font-size: clamp(18px, 2.5vw, 28px) !important;
+    line-height: 1.2 !important;
+}
+
+.header p {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 800 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    font-size: clamp(9px, 1vw, 11px) !important;
+    letter-spacing: 1.5px !important;
+    margin: 4px 0 0 0 !important;
+}
+
+@media (max-width: 600px) {
+    .header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        border-radius: 0 10px 10px 0 !important;
+    }
+}
+"""
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
-    original = content
-    for target, replacement in patches:
-        content = content.replace(target, replacement)
-    if content != original:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"  OK: Patched {path}")
-    else:
-        print(f"  NO CHANGE: {path}")
 
-print("=== FINALIZING RESPONSIVENESS & CONTRAST ===\n")
+    # We remove any existing .header, .header h1, or .header p blocks to avoid duplicates
+    lines = content.splitlines()
+    filtered_lines = []
+    skip = False
+    for line in lines:
+        if ".header {" in line or ".header h1 {" in line or ".header p {" in line:
+            skip = True
+        if not skip:
+            filtered_lines.append(line)
+        if skip and "}" in line:
+            skip = False
+    
+    # Write the cleaned file + the new unified header
+    new_content = "\n".join(filtered_lines) + "\n" + UNIFIED_HEADER_CSS
+    
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    print(f"  OK: Unified Header in {path}")
 
-# 1. GLOBAL INPUT RESPONSIVENESS (Append to index.css)
-append_to_file("erp-frontend/src/index.css", """
-/* Force all inputs and selects to fill their hardware containers */
-input, select, textarea, .HardwareSelect_selectBox__xxxx {
-    width: 100% !important;
-    box-sizing: border-box;
-}
-""")
+print("=== STARTING HEADER UNIFICATION (ALL PAGES) ===\n")
 
-# 2. AUDIT PAGE MOBILE STACKING
-patch_file("erp-frontend/src/pages/Audit/AuditPage.module.css", [
-    ("align-items: flex-end;", "align-items: flex-end;"), # Ensure baseline
-    (".resetBtn {", """@media (max-width: 600px) {
-    .filters { flex-direction: column; width: 100%; gap: 10px; }
-    .filters > div, .resetBtn { width: 100% !important; }
-}
-.resetBtn {""")
-])
+pages = [
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    "erp-frontend/src/pages/Intake/IntakePage.module.css",
+    "erp-frontend/src/pages/Audit/AuditPage.module.css",
+    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
+    "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css",
+    "erp-frontend/src/pages/Reports/ReportHub.module.css",
+    "erp-frontend/src/pages/settings/SettingsPage.module.css",
+    "erp-frontend/src/pages/DigitalFolder/FolderPage.module.css"
+]
 
-# 3. INTAKE PAGE GRID COLLAPSE
-patch_file("erp-frontend/src/pages/Intake/IntakePage.module.css", [
-    ("grid-template-columns: repeat(3, 1fr);", "grid-template-columns: repeat(3, 1fr);"), # Anchor
-    (".grid {", """.grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-}
-@media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
-.grid_hidden {""") # Note: we just insert the media query logic here
-])
+for p in pages:
+    rewrite_header_css(p)
 
-# 4. RECOVERY CONTRAST BOOST
-patch_file("erp-frontend/src/pages/Recovery/RecoveryPortal.module.css", [
-    ("background: rgba(33, 62, 64, 0.4);", "background: rgba(10, 20, 25, 0.8);"), # Darker bg
-    ("border: 1px dashed var(--orange);", "border: 2px dashed var(--orange); box-shadow: 0 0 20px rgba(238, 140, 58, 0.15);")
-])
-
-# 5. SIDEBAR FOOTER FIX (Avoid scroll)
-patch_file("erp-frontend/src/components/layout/Sidebar.module.css", [
-    ("padding: 10px 20px;", "padding: 5px 15px;"), # Tighten footer
-    ("font-size: 10px !important;", "font-size: 9px !important;"), # Smaller Nyenz
-    ("font-size: 8px !important;", "font-size: 7px !important;")   # Tiny version
-])
-
-print("\n=== ALL UI PATCHES APPLIED ===")
+print("\n=== HEADERS ALIGNED. READY TO DEPLOY. ===")
