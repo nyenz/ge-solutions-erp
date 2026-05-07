@@ -37,30 +37,6 @@
 .filterRow { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Filter buttons — visible text always */
-.filterBtn {
-    background: rgba(255,255,255,0.08);
-    border: 1.5px solid rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85);
-    border-radius: 6px;
-    padding: 7px 16px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 800;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-    min-width: max-content;
-}
-.filterBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.08); }
-
-/* Active filter — orange bg, dark text */
-.filterActive {
-    background: #EE8C3A !important;
-    border-color: #EE8C3A !important;
-    color: #1a2e30 !important;
-    font-weight: 900 !important;
-}
 
 .tableWrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(160deg, #1c3335, #213E40); }
 .table { width: 100%; border-collapse: collapse; font-size: clamp(10px, 1.05vw, 13px); min-width: 680px; }
@@ -86,4 +62,36 @@
     .filterRow  { gap: 6px; }
     .filterBtn  { padding: 6px 12px; font-size: 9px; }
     .searchWrap { max-width: 100%; }
+}
+
+.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.filterBtn:hover {
+    background: rgba(238, 140, 58, 0.12) !important;
+    color: #EE8C3A !important;
+    border-color: var(--orange) !important;
+}
+
+.filterActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4) !important;
 }

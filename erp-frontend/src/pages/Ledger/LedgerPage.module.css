@@ -189,30 +189,7 @@
 }
 .filterRail::-webkit-scrollbar { display: none; }
 
-.filterBtn {
-    flex: 0 0 auto;
-    /* Inactive: semi-dark bg, clearly readable white text */
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
-    padding: clamp(8px, 1.1vw, 12px) clamp(12px, 1.6vw, 22px);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 0.8vw, 9px);
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
-    cursor: pointer;
-    white-space: nowrap;
-    min-width: max-content;
-}
 /* Hover: orange border + orange text (text stays visible) */
-.filterBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: var(--orange); }
-.filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* Active/selected: orange bg + dark navy text — matches Payments "ALL TYPES" */
 .activeFilter {
@@ -657,4 +634,37 @@
     text-align: center;
     white-space: nowrap;
     animation: criticalPulse 1.8s ease-in-out infinite;
+}
+
+
+.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.filterBtn:hover {
+    background: rgba(238, 140, 58, 0.12) !important;
+    color: #EE8C3A !important;
+    border-color: var(--orange) !important;
+}
+
+.filterActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4) !important;
 }

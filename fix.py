@@ -1,416 +1,74 @@
+# PATH: fix.py
 import os
 
-# ══════════════════════════════════════════════════════════════════
-# DIAGNOSIS: The previous fix.py showed "patch target not found"
-# for ALL patches. This means the CSS files already have those
-# changes applied (either from a previous session or they were
-# included in the full file rewrites that built the project).
-#
-# WHAT THIS FIX DOES:
-# 1. Verifies the key CSS classes exist in each file
-# 2. Reports what it finds so David can confirm
-# 3. Updates LLM_CONTEXT_GUIDE.md
-# ══════════════════════════════════════════════════════════════════
+# The unified style for all filter buttons
+UNIFIED_CSS = """
+.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
 
-def check_contains(path, search_text, label):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-        if search_text in content:
-            print(f"  OK: {label}")
-            return True
-        else:
-            print(f"  MISSING: {label}")
-            return False
-    except FileNotFoundError:
+.filterBtn:hover {
+    background: rgba(238, 140, 58, 0.12) !important;
+    color: #EE8C3A !important;
+    border-color: var(--orange) !important;
+}
+
+.filterActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4) !important;
+}
+"""
+
+def update_css(path):
+    if not os.path.exists(path):
         print(f"  FILE NOT FOUND: {path}")
-        return False
+        return
+    
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    
+    new_lines = []
+    inside_old_filter = False
+    
+    for line in lines:
+        # Check if we are starting a block we want to replace
+        if ".filterBtn {" in line or ".filterBtn:hover" in line or ".filterActive {" in line:
+            inside_old_filter = True
+            continue
+        
+        # If we were inside a block, wait for the closing brace
+        if inside_old_filter:
+            if "}" in line:
+                inside_old_filter = False
+            continue
+            
+        new_lines.append(line)
+    
+    # Append the new unified styles at the end of the file
+    final_content = "".join(new_lines) + "\n" + UNIFIED_CSS
+    
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(final_content)
+    print(f"  OK: Updated {path}")
 
-print("=== CHECKING CURRENT STATE OF CSS FILES ===\n")
-
-print("LedgerPage.module.css:")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    "rgba(255, 255, 255, 0.62)", "Glass header background")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    "rgba(26, 46, 48, 0.75)", "Dark inactive filter button")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    "background: var(--orange) !important", "Orange active filter")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    "word-break: break-all", "Plot cell word-break")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".tagBacklog", "Backlog tag class")
-check_contains("erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".rowBacklog", "Backlog row class")
-
-print("\nPaymentsPage.module.css:")
-check_contains("erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    "rgba(26, 46, 48, 0.75)", "Dark inactive filter button")
-check_contains("erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    ".filterActive", "Active filter class")
-
-print("\nIntakePage.module.css:")
-check_contains("erp-frontend/src/pages/Intake/IntakePage.module.css",
-    "rgba(255, 255, 255, 0.62)", "Glass header background")
-
-print("\nAuditPage.module.css:")
-check_contains("erp-frontend/src/pages/Audit/AuditPage.module.css",
-    "rgba(255, 255, 255, 0.55)", "Glass header background")
-check_contains("erp-frontend/src/pages/Audit/AuditPage.module.css",
-    "clamp(44px, 5.5vw, 52px)", "Reset button height matching selects")
-
-print("\n=== WRITING LLM_CONTEXT_GUIDE.md ===\n")
-
-lines = [
-    "# GE SOLUTIONS ERP — FULL LLM CONTEXT GUIDE",
-    "# For any AI assistant continuing work on this project",
-    "# Last updated: May 2026 — Priority 1 COMPLETE + CONFIRMED, Priority 2 next",
-    "",
-    "---",
-    "",
-    "## 1. WHO IS DAVID (the developer)",
-    "",
-    "- Name: David, goes by nyenz on GitHub",
-    "- Location: Kampala, Uganda",
-    "- Skill level: BEGINNER. Can follow exact step-by-step instructions precisely.",
-    "- What he CAN do:",
-    "  - Copy and run terminal commands exactly as given",
-    "  - Download files and replace them in VS Code",
-    "  - Run `py fix.py` to apply file changes",
-    "  - Run `git add/commit/push` commands",
-    "  - Read screenshots and describe what he sees",
-    "  - Share screenshots to confirm progress",
-    "- What he CANNOT do:",
-    "  - Debug code independently",
-    "  - Read Java/React errors without guidance",
-    "  - Write code himself",
-    "  - Understand partial code snippets — needs full files always",
-    "- Tools he uses: VS Code, Git Bash terminal (inside VS Code), GitHub, Chrome browser",
-    "- Python is installed: use `py` command (not `python`)",
-    "- Project folder: `C:/Users/nyenz/Desktop/app/ge solns`",
-    "",
-    "---",
-    "",
-    "## 2. HOW TO COMMUNICATE WITH DAVID",
-    "",
-    "- Use SIMPLE English. No jargon without explanation.",
-    "- Use OUTLINE/BULLET format for explanations — not long paragraphs.",
-    "- Keep responses SHORT unless doing code.",
-    "- When explaining a concept, use analogies or plain words.",
-    "- When errors happen, read the log yourself and tell him exactly what is wrong in one sentence.",
-    "- Never ask 'which would you prefer A or B' — just do everything needed unless there is a real decision required.",
-    "- Confirm one step at a time. Do not skip ahead.",
-    "- When David shares a screenshot, read it carefully before responding.",
-    "",
-    "---",
-    "",
-    "## 3. HOW TO OUTPUT CODE CHANGES — THE fix.py SYSTEM",
-    "",
-    "RULE: Never ask David to manually copy-paste code into files. Always use fix.py.",
-    "RULE: The LLM guide (LLM_CONTEXT_GUIDE.md) is a SEPARATE file from fix.py. Always output them separately.",
-    "RULE: Use str.replace in fix.py when only a section of a file changes. Only rewrite full files when changes are large or spread throughout.",
-    "RULE: Never put triple-quoted strings inside triple-quoted strings in fix.py — use a list of lines joined with newlines instead (this avoids SyntaxError).",
-    "RULE: Before writing a patch, always verify the exact text to replace by reading the document context. Do not guess.",
-    "",
-    "### CRITICAL — Why patches fail:",
-    "- If fix.py says 'patch target not found', the CSS already has the change OR the text doesn't match exactly.",
-    "- Always read the actual file content from the conversation context before writing str.replace patches.",
-    "- The documents shared in the conversation ARE the current file contents — use them as source of truth.",
-    "",
-    "### Two files David always gets:",
-    "1. **fix.py** — writes all changed source code files",
-    "2. **LLM_CONTEXT_GUIDE.md** — updated guide for the next AI session",
-    "",
-    "### Fix.py efficiency rules:",
-    "- Use `file.read()` + `str.replace()` for partial changes — keeps fix.py small",
-    "- Only use full file rewrite when many sections change",
-    "- Always use `encoding='utf-8'` in open() calls",
-    "- Always use `os.makedirs(os.path.dirname(path), exist_ok=True)` before writing new files",
-    "- Skip os.makedirs for root-level files (empty path causes error)",
-    "- When writing the LLM guide itself, use a list of lines joined with newlines — never embed it in a triple-quoted string",
-    "- Include a check() function that verifies patches worked after applying them",
-    "",
-    "### How David gets the files:",
-    "- You call `present_files(['/mnt/user-data/outputs/fix.py', '/mnt/user-data/outputs/LLM_CONTEXT_GUIDE.md'])`",
-    "- David downloads both from the chat interface",
-    "- For fix.py: open in VS Code, Ctrl+A, Delete, paste new content, Ctrl+S, run `py fix.py`",
-    "- For LLM_CONTEXT_GUIDE.md: replace the file in the project root",
-    "- Then: `git add -A && git commit -m 'message' && git push`",
-    "- Watch Render Events tab for green tick (5-10 min free tier)",
-    "- Test at golden-seed.onrender.com",
-    "- If red: click 'deploy logs' -> read error -> fix -> repeat",
-    "",
-    "---",
-    "",
-    "## 4. THE PROJECT — WHAT IT IS",
-    "",
-    "### Name",
-    "Golden Seed ERP (code name: NYENZ)",
-    "",
-    "### Purpose",
-    "Internal staff accountability tool for GE Solutions — a Ugandan land surveying and title processing company. Staff-only. Not client-facing.",
-    "",
-    "### Core functions",
-    "- Store land title records digitally with scanned documents",
-    "- Remind staff which clients to call (2x per month, 14-day interval rule)",
-    "- Staff log what happened on each call",
-    "- Management sees full audit trail of all actions",
-    "- Backlog system: clients who stop paying get UGX 50,000/month storage penalty",
-    "- Payment recording with full history per plot",
-    "",
-    "---",
-    "",
-    "## 5. TECH STACK",
-    "",
-    "| Layer | Technology |",
-    "|-------|-----------|",
-    "| Backend | Java Spring Boot 3.2.5 |",
-    "| Database ORM | Hibernate / JPA |",
-    "| Database | PostgreSQL (Neon cloud, free tier) |",
-    "| Auth | JWT tokens |",
-    "| Build | Maven |",
-    "| Utilities | Lombok, Spring Security |",
-    "| Frontend | React 19, Vite |",
-    "| Styling | CSS Modules |",
-    "| Routing | React Router |",
-    "| HTTP | Axios |",
-    "| File Storage | Cloudinary (cloud name: dfd115bnz) |",
-    "| Deployment | Render free tier |",
-    "| Repo | GitHub (PRIVATE): github.com/nyenz/ge-solutions-erp |",
-    "",
-    "### URLs",
-    "- Backend: https://ge-solutions-api.onrender.com",
-    "- Frontend: https://golden-seed.onrender.com",
-    "",
-    "### Database",
-    "- Host: ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech",
-    "- Name: neondb",
-    "- User: neondb_owner",
-    "",
-    "---",
-    "",
-    "## 6. PROJECT FOLDER STRUCTURE",
-    "",
-    "```",
-    "ge solns/",
-    "├── erp-backend/",
-    "│   └── src/main/java/com/gesolutions/erp/",
-    "│       ├── ErpBackendApplication.java",
-    "│       ├── config/",
-    "│       ├── common/",
-    "│       └── modules/",
-    "│           ├── auth/",
-    "│           ├── client/",
-    "│           └── land/",
-    "├── erp-frontend/",
-    "│   └── src/",
-    "│       ├── api/axios.js",
-    "│       ├── context/AuthProvider.jsx",
-    "│       ├── hooks/useAuth.js",
-    "│       ├── components/",
-    "│       ├── pages/",
-    "│       │   ├── Audit/AuditPage.jsx + AuditPage.module.css",
-    "│       │   ├── Dashboard/",
-    "│       │   ├── DigitalFolder/FolderPage.jsx",
-    "│       │   ├── Intake/IntakePage.jsx + IntakePage.module.css",
-    "│       │   ├── Ledger/LedgerPage.jsx + LedgerPage.module.css",
-    "│       │   ├── Payments/PaymentsPage.jsx + PaymentsPage.module.css",
-    "│       │   ├── Recovery/RecoveryPortal.jsx + RecoveryPortal.module.css",
-    "│       │   ├── Reports/ReportHub.jsx",
-    "│       │   ├── login/LoginPage.jsx",
-    "│       │   └── settings/SettingsPage.jsx",
-    "│       └── services/",
-    "├── LLM_CONTEXT_GUIDE.md",
-    "├── fix.py",
-    "├── docker-compose.yml",
-    "└── render.yaml",
-    "```",
-    "",
-    "---",
-    "",
-    "## 7. UI DESIGN STANDARDS (CRITICAL — apply consistently)",
-    "",
-    "### Page Header Style (ALL pages must match Dashboard)",
-    "- White/cream glass panel: `background: rgba(255,255,255,0.62)`",
-    "- Left orange border: `border-left: clamp(3px,0.4vw,5px) solid var(--orange)`",
-    "- Border radius: `0 radius radius 0` (flat left, rounded right)",
-    "- Backdrop blur: `backdrop-filter: blur(15px)`",
-    "- Box shadow: `0 4px 15px rgba(0,0,0,0.07)`",
-    "- Title: Cinzel serif, navy color, uppercase, letter-spacing 1.5-2px",
-    "- Subtitle: DM Sans 800-900, #64748b color, uppercase",
-    "",
-    "### Filter Button Style (ALL pages must be identical)",
-    "- **Inactive**: `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)`",
-    "- **Hover**: `background: rgba(238,140,58,0.12)`, `color: #EE8C3A`, `border-color: var(--orange)`",
-    "- **Active/Selected**: `background: #EE8C3A`, `color: #1a2e30`, `border-color: #EE8C3A`, box-shadow orange glow",
-    "- Font: DM Sans 900, uppercase, letter-spacing 1.5px",
-    "- Pages with these: Ledger, Payments, Audit",
-    "",
-    "### Plot ID Column (Ledger)",
-    "- Allow word wrap: `white-space: normal`, `word-break: break-all`",
-    "- Two-line layout: plot number on line 1, tenure badge on line 2 (orange bg, dark text)",
-    "- Min-width: `clamp(120px, 14vw, 170px)`",
-    "- District shown as `.districtTag` (third line, muted)",
-    "",
-    "---",
-    "",
-    "## 8. HOW THE APP WORKS — LINEAR FLOW",
-    "",
-    "### Step 1: INTAKE",
-    "- Plot ID, land details, owner info",
-    "- Total cost, initial payment",
-    "- Standard OR Backlog toggle",
-    "- Documents, notes",
-    "",
-    "### Step 2: LEDGER",
-    "- Full list of all plots with GREEN/YELLOW/RED payment dots",
-    "- Filters: ALL / BACKLOG / LEGACY / UNPAID / CRITICAL",
-    "- BACKLOG rows have red tint and BACKLOG tag",
-    "",
-    "### Step 3: FOLDER PAGE (per plot)",
-    "- All details, financials, documents, notes, payment history",
-    "- Admin/Root: Record Payment, Move to Backlog, Exit Backlog, Edit, Delete",
-    "",
-    "### Step 4: RECOVERY HUB",
-    "- Clients to call today, grouped by phone number",
-    "- 2-14 Rule: max 2 calls/month, min 14 days between",
-    "- 2-column grid desktop, 1-column mobile",
-    "- ACTION QUEUE and FULL SCHEDULE tabs",
-    "",
-    "### Step 5: PAYMENTS PAGE (Admin/Root only)",
-    "- All payment records, filter by type, search, sort by date",
-    "",
-    "### Step 6: BACKLOG & STORAGE FEES",
-    "- UGX 50,000 every 30 days from backlog start date",
-    "- Breakdown always shown: Original Debt + Fees - Payments",
-    "",
-    "### Step 7: AUDIT PAGE (Admin/Root only)",
-    "- Every action in the system",
-    "",
-    "---",
-    "",
-    "## 9. KEY BUSINESS RULES",
-    "",
-    "- **2-14 Rule**: Max 2 calls/client/month. Min 14 days between calls.",
-    "- **Recovery grouping**: By unique phone number.",
-    "- **Backlog trigger**: 365 days no payment (auto) OR admin manually.",
-    "- **Storage fee**: UGX 50,000 every 30 days from backlog START DATE.",
-    "- **Payment types**: STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL.",
-    "- **Phone uniqueness**: Two owners cannot share the same phone number.",
-    "- **Admin/Root only**: Payments, backlog management, Reports, Audit.",
-    "- **Cloudinary**: All files stored on Cloudinary.",
-    "",
-    "---",
-    "",
-    "## 10. WHAT HAS BEEN COMPLETED (chronological)",
-    "",
-    "### Phase 1-9 (previous)",
-    "- Security, Cloudinary, Frontend fixes, New demand system, Recovery portal rewrite,",
-    "  Folder page updates, Ledger updates, Bug fixes, Payments page",
-    "",
-    "### Priority 1 — Styling & Intake Cleanup (COMPLETE + DEPLOYED + CONFIRMED)",
-    "- RecoveryPortal: 2-column grid, mobile responsive",
-    "- PaymentsPage: filter buttons use dark bg inactive style (readable on any background)",
-    "- IntakePage: cleaned up financials (only Total Cost, Initial Payment, Arrears auto, Backlog toggle)",
-    "- LedgerPage: tagBacklog + rowBacklog CSS; filter hover fixed; plot ID two lines + district",
-    "- AuditPage: RESET FILTERS aligned with selects; fully responsive",
-    "- IntakePage: input grids collapse on tablet (2-col) and mobile (1-col)",
-    "- All page headers: unified glass panel style matching Dashboard",
-    "- RecoveryPortal header: updated to match Dashboard glass panel style",
-    "- LLM_CONTEXT_GUIDE.md: permanent separate file in project root",
-    "- fix.py SyntaxError: fixed using list-of-lines approach",
-    "- NOTE: All Priority 1 CSS changes were confirmed present in document review (May 2026).",
-    "  The fix.py that showed 'patch target not found' errors was targeting already-correct code.",
-    "",
-    "---",
-    "",
-    "## 11. WHAT STILL NEEDS TO BE DONE (in priority order)",
-    "",
-    "### Priority 2 — Reports overhaul",
-    "1. Add backlog report (all backlog plots with storage fees breakdown)",
-    "2. Add completed titles report (released plots)",
-    "3. Add payment history report (all payments, date range filter)",
-    "4. Add storage fees report (total fees per plot)",
-    "5. Add monthly collection report (how much collected each month)",
-    "",
-    "### Priority 3 — Mobile audit + small fixes",
-    "1. Full mobile responsiveness check on all pages",
-    "2. Completed clients count on dashboard",
-    "3. Print layout cleanup",
-    "4. Phone uniqueness frontend validation (clear error if phone already exists)",
-    "5. Release button should warn if no documents uploaded",
-    "",
-    "### Language simplification (can do alongside any priority)",
-    "- 'Master Hardware Override' -> 'Edit'",
-    "- 'Nuclear Purge' -> 'Delete'",
-    "- 'Intel' -> 'Notes'",
-    "- 'Vault' -> 'Documents'",
-    "- 'Recovery Sync' -> 'Call Logged'",
-    "- 'Asset Intake' -> 'New Plot'",
-    "- 'Forensic Stream' -> 'Recent Activity'",
-    "",
-    "### Future (not started)",
-    "- Multi-company: clone repo per client company",
-    "- Notification model (exists in code but never used)",
-    "- Rate limiting on login endpoint",
-    "",
-    "---",
-    "",
-    "## 12. KNOWN ISSUES (not blocking)",
-    "",
-    "- WebConfig.java has old local file serving reference — harmless (Cloudinary is used)",
-    "- Notification model exists but never used",
-    "- No rate limiting on login",
-    "- Release button does not check for uploaded documents first",
-    "- `payment_schedules` table still exists in DB — no longer used (harmless)",
-    "- App name inconsistency: 'NYENZ ERP' vs 'Golden Seed' in different places",
-    "- Audit page: HardwareSelect dropdowns show white bg on dark panel (minor cosmetic)",
-    "",
-    "---",
-    "",
-    "## 13. DEPLOYMENT PROCESS",
-    "",
-    "1. Create fix.py AND updated LLM_CONTEXT_GUIDE.md -> present_files both -> David downloads both",
-    "2. David replaces local fix.py -> `py fix.py` -> check output for OK/MISSING",
-    "3. David replaces local LLM_CONTEXT_GUIDE.md",
-    "4. `git add -A && git commit -m 'message' && git push`",
-    "5. Render -> Events tab -> wait for green tick (5-10 min free tier)",
-    "6. Test at golden-seed.onrender.com",
-    "7. If red: click 'deploy logs' -> read error -> fix -> repeat",
-    "",
-    "---",
-    "",
-    "## 14. COMMON ERRORS AND FIXES",
-    "",
-    "| Error | Cause | Fix |",
-    "|-------|-------|-----|",
-    "| `Can not set boolean field isBacklog to null` | DB rows have NULL, Java primitive boolean | Use `Boolean` (capital B) not `boolean` |",
-    "| `No property 'isActive' found for type 'Client'` | Client model has no isActive field | Use `@Query` instead of method name query |",
-    "| `column X contains null values` | New NOT NULL column added to table with existing rows | Remove `nullable = false` from @Column |",
-    "| `UnicodeEncodeError` in fix.py | Windows default encoding | Always use `encoding='utf-8'` in open() |",
-    "| `nothing added to commit` | Files already match what's in git | Force add specific files |",
-    "| 500 on /dashboard/summary | Backend crash — check Render Logs tab | Read Caused by: line at bottom of log |",
-    "| CSS class not found | Class used in JSX but not defined in .module.css | Add the missing class to the CSS file |",
-    "| `FileNotFoundError: [WinError 3]` in fix.py | os.makedirs called with empty string (root-level file) | Skip os.makedirs for root-level files |",
-    "| SyntaxError in fix.py with triple quotes | LLM guide embedded inside triple-quoted string | Use list of lines joined with newlines instead |",
-    "| fix.py shows 'patch target not found' | Text to replace doesn't match file exactly | Read actual file from conversation context before writing patch |",
-    "",
-    "---",
-    "",
-    "## 15. CLOUDINARY DETAILS",
-    "",
-    "- Cloud name: dfd115bnz",
-    "- Images: resource_type=image",
-    "- PDFs and docs: resource_type=raw, access_mode=public",
-    "- Folder structure: ge_solutions/{plot-uuid}/",
-    "- Folder deleted after nuclear purge",
-]
-
-guide_content = "\n".join(lines)
-
-with open("LLM_CONTEXT_GUIDE.md", "w", encoding="utf-8") as f:
-    f.write(guide_content)
-print("Written: LLM_CONTEXT_GUIDE.md")
-print("\nAll done.")
-print("\nNOTE: If all checks above show OK, your CSS files already have")
-print("all Priority 1 changes. No CSS patching was needed.")
-print("You can commit and push as-is if you haven't already.")
+print("=== UNIFYING FILTER STYLES ===")
+update_css("erp-frontend/src/pages/Ledger/LedgerPage.module.css")
+update_css("erp-frontend/src/pages/Payments/PaymentsPage.module.css")
+print("=== FINISHED ===")
