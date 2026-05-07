@@ -1,7 +1,3 @@
-import os
-
-# Write LLM_CONTEXT_GUIDE.md to the project root
-guide_content = """\
 # GE SOLUTIONS ERP — FULL LLM CONTEXT GUIDE
 # For any AI assistant continuing work on this project
 # Last updated: May 2026 — Priority 1 complete, Priority 2 next
@@ -64,9 +60,9 @@ import os
 
 files = {}
 
-files["path/to/file.java"] = \\"\\"\\"\\
+files["path/to/file.java"] = \"\"\"\
 // file content here
-\\"\\"\\"
+\"\"\"
 
 for path, content in files.items():
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -403,11 +399,3 @@ Every change follows this exact flow:
 - PDFs and docs: resource_type=raw, access_mode=public
 - Folder structure: ge_solutions/{plot-uuid}/
 - Folder deleted after nuclear purge
-"""
-
-# Write to project root — NO os.makedirs needed for root level
-with open("LLM_CONTEXT_GUIDE.md", "w", encoding="utf-8") as f:
-    f.write(guide_content.strip())
-print("Written: LLM_CONTEXT_GUIDE.md")
-
-print("All done.")
