@@ -4,355 +4,527 @@ def patch(path, old, new, label):
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
     if old not in content:
-        print(f"  MISSING (already patched or mismatch): {label}")
+        print(f"  MISSING (not found): {label}")
         return
     with open(path, "w", encoding="utf-8") as f:
         f.write(content.replace(old, new, 1))
     print(f"  OK: {label}")
 
 def write_file(path, content, label):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"  WRITTEN: {label}")
 
 # ==============================================================
-# FIX 1: IntakePage - subtitle should be in pageHeader, styled correctly
+# SECTION 1: HEADER SIZE -- match Dashboard exactly on all pages
+#
+# Dashboard header padding: clamp(10px, 1.4vw, 16px) top/bottom
+#                           clamp(16px, 2.2vw, 28px) left/right
+# Other pages used:         clamp(14px, 2vw, 22px) top/bottom
+#                           clamp(18px, 2.5vw, 32px) left/right
+# Fix: reduce all non-dashboard headers to match Dashboard values
 # ==============================================================
-print("=== FIX 1: IntakePage header subtitle ===")
+print("=== SECTION 1: HEADER SIZE UNIFORMITY ===")
 
+PAGES_WITH_LARGE_HEADER = [
+    ("erp-frontend/src/pages/Intake/IntakePage.module.css",   "IntakePage"),
+    ("erp-frontend/src/pages/Ledger/LedgerPage.module.css",   "LedgerPage"),
+    ("erp-frontend/src/pages/Payments/PaymentsPage.module.css","PaymentsPage"),
+    ("erp-frontend/src/pages/Reports/ReportHub.module.css",   "ReportHub"),
+    ("erp-frontend/src/pages/Audit/AuditPage.module.css",     "AuditPage"),
+]
+
+OLD_HEADER_PAD = "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);"
+NEW_HEADER_PAD = "    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);"
+
+for css_path, label in PAGES_WITH_LARGE_HEADER:
+    patch(css_path, OLD_HEADER_PAD, NEW_HEADER_PAD, f"{label} - reduce header padding to match Dashboard")
+
+# Recovery portal uses different padding value
 patch(
-    "erp-frontend/src/pages/Intake/IntakePage.jsx",
-    """            <header className={styles.pageHeader}>
-                <h1 className={styles.title}>New Plot Registration</h1>
-                <p className={styles.subtitle}>Register a new land title into the system</p>
-            </header>""",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>New Plot Registration</h1>
-                    <p className={styles.subtitle}>Register a new land title into the system</p>
-                </div>
-            </header>""",
-    "IntakePage - wrap title+subtitle in headerLeft div"
+    "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css",
+    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
+    "    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);",
+    "RecoveryPortal - reduce header padding to match Dashboard"
+)
+# Recovery has it twice (duplicate .pageHeader block)
+patch(
+    "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css",
+    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
+    "    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);",
+    "RecoveryPortal - reduce header padding (second occurrence)"
 )
 
-# Add headerLeft to IntakePage CSS
+# Settings page also has large padding
 patch(
+    "erp-frontend/src/pages/settings/SettingsPage.module.css",
+    "    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);",
+    "    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);",
+    "SettingsPage - reduce header padding to match Dashboard"
+)
+
+# Also fix margin-bottom on all pageHeaders to match dashboard clamp(14px,2vw,22px) -> clamp(14px, 2vw, 20px)
+# Dashboard uses: margin-bottom: var(--gap-xl) which is clamp(14px, 2vw, 24px)
+# Other pages use: margin-bottom: clamp(20px, 3vw, 32px)  -- too much!
+# Fix to match Dashboard value
+
+PAGES_WITH_LARGE_MARGIN = [
     "erp-frontend/src/pages/Intake/IntakePage.module.css",
-    ".title {\n    font-family: 'Cinzel', serif; color: var(--navy);",
-    """.headerLeft {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
-    min-width: 0;
-    flex: 1;
-}
-
-.title {
-    font-family: 'Cinzel', serif; color: var(--navy);""",
-    "IntakePage CSS - add headerLeft"
-)
-
-# ==============================================================
-# FIX 2: ReportHub - subtitle inside headerLeft
-# ==============================================================
-print("\n=== FIX 2: ReportHub header subtitle ===")
-
-patch(
-    "erp-frontend/src/pages/Reports/ReportHub.jsx",
-    """            <header className={styles.pageHeader}>
-                <h1 className={styles.title}>Intelligence Hub</h1>
-                <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
-            </header>""",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Intelligence Hub</h1>
-                    <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
-                </div>
-            </header>""",
-    "ReportHub - wrap title+subtitle in headerLeft"
-)
-
-patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
     "erp-frontend/src/pages/Reports/ReportHub.module.css",
-    ".title {\n    font-family: 'Cinzel', serif; color: var(--navy);",
-    """.headerLeft {
+    "erp-frontend/src/pages/Audit/AuditPage.module.css",
+    "erp-frontend/src/pages/settings/SettingsPage.module.css",
+]
+
+for css_path in PAGES_WITH_LARGE_MARGIN:
+    patch(
+        css_path,
+        "    margin-bottom: clamp(20px, 3vw, 32px);",
+        "    margin-bottom: clamp(14px, 2vw, 24px);",
+        f"{css_path} - reduce header margin-bottom to match Dashboard"
+    )
+
+# Recovery has different margin value
+patch(
+    "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css",
+    "    margin-bottom: clamp(14px, 2vw, 22px);",
+    "    margin-bottom: clamp(14px, 2vw, 24px);",
+    "RecoveryPortal - normalize margin-bottom"
+)
+
+
+# ==============================================================
+# SECTION 2: FILTER BUTTONS - icons inline with text, not stacked
+#
+# Ledger has icons in filter buttons. Fix: text-only, same row.
+# The FILTERS array in LedgerPage.jsx has icon property but we
+# already remove icons from the render. The issue is CSS:
+# display:flex + flex-direction:column makes icons appear above.
+#
+# Standard (Payments page):
+#   display: flex; align-items: center; gap: 8px; (row, not column)
+# ==============================================================
+print("\n=== SECTION 2: FILTER BUTTON ICON ALIGNMENT ===")
+
+# LedgerPage filterBtn - was flex-direction:column, fix to row
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    """.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
-    min-width: 0;
-    flex: 1;
-}
-
-.title {
-    font-family: 'Cinzel', serif; color: var(--navy);""",
-    "ReportHub CSS - add headerLeft"
-)
-
-# ==============================================================
-# FIX 3: LedgerPage - subtitle inside headerLeft
-# ==============================================================
-print("\n=== FIX 3: LedgerPage header subtitle ===")
-
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    """            <header className={styles.pageHeader}>
-                <h1 className={styles.title}>Digital Asset Ledger</h1>
-                <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
-            </header>""",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Digital Asset Ledger</h1>
-                    <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
-                </div>
-            </header>""",
-    "LedgerPage - wrap title+subtitle in headerLeft"
-)
-
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".title {\n    font-family: 'Cinzel', serif;",
-    """.headerLeft {
+    gap: 4px;
+    gap: 8px;
+    white-space: nowrap;
+}""",
+    """.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
-    flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
-    min-width: 0;
-    flex: 1;
-}
-
-.title {
-    font-family: 'Cinzel', serif;""",
-    "LedgerPage CSS - add headerLeft"
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}""",
+    "LedgerPage - filterBtn flex-direction row (icons inline)"
 )
 
-# ==============================================================
-# FIX 4: AuditPage - subtitle inside headerLeft (already has titleGroup, just rename)
-# ==============================================================
-print("\n=== FIX 4: AuditPage header subtitle ===")
-
-patch(
-    "erp-frontend/src/pages/Audit/AuditPage.jsx",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.titleGroup}>
-                    <h1 className={styles.title}>System Forensics</h1>
-                    <p className={styles.subtitle}>Unified Accountability Archive | Total Traceability Active</p>
-                </div>""",
-    """            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>System Forensics</h1>
-                    <p className={styles.subtitle}>Unified Accountability Archive | Total Traceability Active</p>
-                </div>""",
-    "AuditPage - rename titleGroup to headerLeft"
-)
-
-# Fix AuditPage CSS: rename titleGroup to headerLeft
-patch(
-    "erp-frontend/src/pages/Audit/AuditPage.module.css",
-    ".titleGroup { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); }",
-    ".headerLeft { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); min-width: 0; flex: 1; }",
-    "AuditPage CSS - rename titleGroup to headerLeft"
-)
-
-# Fix AuditPage title color (was navy #1a2e30, subtitle was #64748b - these are the correct colors)
-# Just make sure .title is defined properly
-patch(
-    "erp-frontend/src/pages/Audit/AuditPage.module.css",
-    ".title { font-family: 'Cinzel', serif; color: var(--navy); font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; line-height: 1; }",
-    ".title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; line-height: 1; }",
-    "AuditPage CSS - title hardcoded navy"
-)
-patch(
-    "erp-frontend/src/pages/Audit/AuditPage.module.css",
-    ".subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; margin: 0; letter-spacing: 1px; }",
-    ".subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; margin: 0; letter-spacing: 1px; }",
-    "AuditPage CSS - subtitle color (already correct)"
-)
-
-# ==============================================================
-# FIX 5: PaymentsPage subtitle styling to match standard
-# ==============================================================
-print("\n=== FIX 5: PaymentsPage subtitle ===")
-
-# The payments page already has headerLeft. Just fix the subtitle CSS to match standard
+# PaymentsPage filterBtn also had column (from the duplicate definition)
 patch(
     "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    ".subtitle { color: rgba(26,46,48,0.6); font-size: clamp(10px, 1.1vw, 13px); font-weight: 600; margin: 4px 0 0; }",
-    ".subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }",
-    "PaymentsPage CSS - subtitle matches standard"
-)
-
-# ==============================================================
-# FIX 6: FILTER BARS - make ALL match Payments standard
-# Single horizontal row, side-scrollable on mobile, no icons above text
-# Standard: dark inactive, orange hover, orange-filled active
-# ==============================================================
-print("\n=== FIX 6: Filter bars unification ===")
-
-# --- LEDGER PAGE: remove icons from filter buttons, make single row ---
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    """                        <div className={styles.filterRailContainer}>
-                    <div className={styles.filterRail} role="group" aria-label="Filter records">
-                        {FILTERS.map(f => (
-                            <button key={f.key}
-                                onClick={() => setActiveFilter(f.key)}
-                                className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                                aria-pressed={activeFilter === f.key} aria-label={f.label}>
-                                {f.icon} {f.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>""",
-    """                        <div className={styles.filterRailContainer}>
-                    <div className={styles.filterRail} role="group" aria-label="Filter records">
-                        {FILTERS.map(f => (
-                            <button key={f.key}
-                                onClick={() => setActiveFilter(f.key)}
-                                className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                                aria-pressed={activeFilter === f.key} aria-label={f.label}>
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>""",
-    "LedgerPage - remove icons from filter buttons"
-)
-
-# Fix LedgerPage filter CSS - ensure single row, scrollable
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".filterRailContainer {\n    width: 100%;\n    overflow: hidden;\n    padding-bottom: clamp(3px, 0.4vw, 5px);\n}",
-    ".filterRailContainer {\n    width: 100%;\n    overflow-x: auto;\n    padding-bottom: clamp(3px, 0.4vw, 5px);\n    scrollbar-width: none;\n}\n.filterRailContainer::-webkit-scrollbar { display: none; }",
-    "LedgerPage - filterRailContainer scrollable"
-)
-
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".filterRail {\n    display: flex;\n    gap: clamp(6px, 1vw, 12px);\n    overflow-x: auto;\n    flex-wrap: nowrap;\n    scrollbar-width: none;\n    padding-bottom: 2px;\n}\n.filterRail::-webkit-scrollbar { display: none; }",
-    ".filterRail {\n    display: flex;\n    gap: clamp(6px, 1vw, 12px);\n    flex-wrap: nowrap;\n    padding-bottom: 2px;\n    min-width: max-content;\n}",
-    "LedgerPage - filterRail no-wrap single row"
-)
-
-# --- RECOVERY PAGE: make filter row single scrollable line on mobile ---
-# Recovery uses .filterRow in Payments style already but we need to confirm
-# The filter buttons in RecoveryPortal are the mode-switch tabs (ACTION QUEUE / FULL SCHEDULE)
-# Those are already fine. The issue is on mobile they wrap.
-# Fix: the modeSwitch should stay inline
-
-# --- PAYMENTS PAGE filter row: ensure single scrollable row on mobile ---
-patch(
-    "erp-frontend/src/pages/Payments/PaymentsPage.module.css",
-    ".filterRow {\n    display: flex;\n    overflow-x: auto;\n    padding-bottom: 8px;\n    gap: 12px;\n    scrollbar-width: none; display: flex; flex-wrap: wrap; gap: 8px; }",
-    ".filterRow {\n    display: flex;\n    flex-wrap: nowrap;\n    overflow-x: auto;\n    gap: 8px;\n    padding-bottom: 4px;\n    scrollbar-width: none;\n}\n.filterRow::-webkit-scrollbar { display: none; }",
-    "PaymentsPage - filterRow single scrollable row"
-)
-
-# ==============================================================
-# FIX 7: LedgerPage - badge legend and search hint visibility
-# These sit on the warm cream/beige background, so they need DARK text
-# ==============================================================
-print("\n=== FIX 7: LedgerPage badge legend + search hint visibility ===")
-
-# The badge legend is inline JSX with opacity 0.7 - it uses rgba text
-# The problem: it inherits color: #fff from .container but background is light
-# Fix: override with dark color in the badge legend area
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    """                {/* BADGE LEGEND */}
-                <div style={{ display: 'flex', gap: 16, padding: '8px 0', fontSize: '0.72rem', opacity: 0.7 }}>
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', boxShadow: `0 0 4px ${c}` }} />
-                            {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>""",
-    """                {/* BADGE LEGEND */}
-                <div className={styles.badgeLegend}>
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.badgeLegendItem}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 4px ${c}` }} />
-                            {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>""",
-    "LedgerPage - badge legend use CSS class"
-)
-
-# Fix search hint visibility (it's on the light background area)
-patch(
-    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
-    ".searchHint {\n    font-family: 'Space Mono', monospace;\n    font-size: clamp(7px, 0.7vw, 8px);\n    font-weight: 700;\n    color: rgba(255, 255, 255, 0.28);\n    letter-spacing: 0.5px;\n    text-transform: uppercase;\n    margin: 0;\n}",
-    ".searchHint {\n    font-family: 'Space Mono', monospace;\n    font-size: clamp(7px, 0.7vw, 8px);\n    font-weight: 700;\n    color: rgba(26, 46, 48, 0.45);\n    letter-spacing: 0.5px;\n    text-transform: uppercase;\n    margin: 0;\n}",
-    "LedgerPage CSS - searchHint dark text for light bg"
-)
-
-# Add badgeLegend classes to LedgerPage CSS
-BADGE_LEGEND_CSS = """
-/* ── BADGE LEGEND ───────────────────────────────────────────────── */
-.badgeLegend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 1.5vw, 18px);
-    padding: clamp(6px, 0.8vw, 8px) 0;
-}
-.badgeLegendItem {
+    """.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(9px, 0.9vw, 11px);
-    font-weight: 800;
-    color: rgba(26, 46, 48, 0.65);
+    gap: 8px;
     white-space: nowrap;
+}""",
+    """.filterBtn {
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}""",
+    "PaymentsPage - filterBtn flex-direction row"
+)
+
+# AuditPage - resetBtn also needs to be inline row
+patch(
+    "erp-frontend/src/pages/Audit/AuditPage.module.css",
+    """    display: flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 7px);
+    text-transform: uppercase;
+    white-space: nowrap;""",
+    """    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 7px);
+    text-transform: uppercase;
+    white-space: nowrap;""",
+    "AuditPage - resetBtn flex-direction row"
+)
+
+
+# ==============================================================
+# SECTION 3: LEDGER PAGE - remove redundant search hint text,
+# put it as placeholder in the search input instead
+# ==============================================================
+print("\n=== SECTION 3: LEDGER search hint -> placeholder ===")
+
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    '''                    <input
+                        type="search" id="ledger-search"
+                        placeholder="Search by plot, name, phone, NIN, box, district..."
+                        className={styles.searchInput}
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        aria-label="Search ledger records"
+                        aria-describedby="ledger-search-hint"
+                        autoComplete="off"
+                    />
+                    {searchTerm && (
+                        <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
+                            aria-label="Clear search" type="button">
+                            <FiX aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
+                <p id="ledger-search-hint" className={styles.searchHint}>{SEARCH_HINT}</p>''',
+    '''                    <input
+                        type="search" id="ledger-search"
+                        placeholder="Plot ID, box, owner name, phone, NIN, email, district, county, tenure..."
+                        className={styles.searchInput}
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        aria-label="Search ledger records"
+                        autoComplete="off"
+                    />
+                    {searchTerm && (
+                        <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
+                            aria-label="Clear search" type="button">
+                            <FiX aria-hidden="true" />
+                        </button>
+                    )}
+                </div>''',
+    "LedgerPage - remove redundant search hint, embed in placeholder"
+)
+
+# Remove SEARCH_HINT const since it's no longer used
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    "    const SEARCH_HINT = 'Plot ID \u25c6 Box \u25c6 Owner name \u25c6 Phone \u25c6 NIN \u25c6 Email \u25c6 District \u25c6 County \u25c6 Tenure';",
+    "",
+    "LedgerPage - remove SEARCH_HINT const"
+)
+
+# Also remove the .searchHint and .searchBlock flex-col since no hint below
+# Actually keep searchBlock but remove hint styles since placeholder handles it
+# Just hide the hint via CSS (it's already removed from JSX above)
+
+
+# ==============================================================
+# SECTION 4: LEDGER TABLE - plot column redesign
+#
+# Problems:
+# 1. Orange bg on tenure tag looks cluttered
+# 2. Everything crammed on one line
+# 3. Payment dots too large (10px)
+# 4. table not extending to full width (HardwarePanel has padding)
+#
+# Fix:
+# - Make dots 8px, subtle
+# - Plot number large + bold on its own line
+# - Tenure as a small muted tag (not orange bg)
+# - District as another small tag
+# - Remove the orange bg from span inside plotCell
+# ==============================================================
+print("\n=== SECTION 4: LEDGER table plot column redesign ===")
+
+# Fix plotCell CSS - remove orange bg from span, make two-line layout clean
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    """/* Plot cell -- two-line layout to avoid cramping */
+.plotCell strong {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-value);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.5px;
+    white-space: normal;
+    word-break: break-all;
+    line-height: 1.3;
 }
-"""
+/* Tenure on its own line -- orange tag */
+.plotCell span {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-tag);
+    font-weight: 900;
+    color: #1a2e30;
+    background: var(--orange);
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    width: fit-content;
+}""",
+    """/* Plot cell -- clean two-line layout */
+.plotCell strong {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-value);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.5px;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+    margin-bottom: 3px;
+}
+/* Tenure -- muted pill, no orange bg */
+.plotCell .tenureTag {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-tag);
+    font-weight: 900;
+    color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 1px 7px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    margin-right: 4px;
+}
+/* District tag */
+.plotCell .districtTag {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-tag);
+    font-weight: 800;
+    color: rgba(238,140,58,0.85);
+    padding: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}""",
+    "LedgerPage CSS - plotCell redesign: no orange bg, clean layout"
+)
 
-with open("erp-frontend/src/pages/Ledger/LedgerPage.module.css", "r", encoding="utf-8", errors="replace") as f:
-    ledger_css = f.read()
+# Fix the plotCell JSX to use new class names
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    """                                        <td className={styles.plotCell}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <PaymentDot proj={proj} />
+                                                <div>
+                                                    <strong>{proj.landTitle?.plotNumber || '---'}</strong>
+                                                    <span>{proj.landTitle?.tenure}</span>
+                                                    {proj.landTitle?.district && (
+                                                        <span className={styles.districtTag}>{proj.landTitle.district}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>""",
+    """                                        <td className={styles.plotCell}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                                                <PaymentDot proj={proj} />
+                                                <div>
+                                                    <strong>{proj.landTitle?.plotNumber || '---'}</strong>
+                                                    <div>
+                                                        {proj.landTitle?.tenure && (
+                                                            <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>
+                                                        )}
+                                                        {proj.landTitle?.district && (
+                                                            <span className={styles.districtTag}>{proj.landTitle.district}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>""",
+    "LedgerPage JSX - plotCell use tenureTag + districtTag classes"
+)
 
-if ".badgeLegend" not in ledger_css:
-    with open("erp-frontend/src/pages/Ledger/LedgerPage.module.css", "a", encoding="utf-8") as f:
-        f.write(BADGE_LEGEND_CSS)
-    print("  OK: LedgerPage CSS - added badge legend classes")
-else:
-    print("  SKIP: badge legend already in LedgerPage CSS")
+# Make payment dots smaller (10px -> 8px) and neater
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    """const PaymentDot = ({ proj }) => {
+    const badge = getPaymentBadge(proj);
+    return (
+        <span
+            title={BADGE_LABELS[badge]}
+            aria-label={BADGE_LABELS[badge]}
+            style={{
+                display: 'inline-block',
+                width: 10, height: 10,
+                borderRadius: '50%',
+                background: BADGE_COLORS[badge],
+                boxShadow: `0 0 6px ${BADGE_COLORS[badge]}`,
+                marginRight: 6,
+                flexShrink: 0,
+                verticalAlign: 'middle',
+            }}
+        />
+    );
+};""",
+    """const PaymentDot = ({ proj }) => {
+    const badge = getPaymentBadge(proj);
+    return (
+        <span
+            title={BADGE_LABELS[badge]}
+            aria-label={BADGE_LABELS[badge]}
+            style={{
+                display: 'inline-block',
+                width: 7, height: 7,
+                borderRadius: '50%',
+                background: BADGE_COLORS[badge],
+                boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
+                flexShrink: 0,
+                marginTop: 4,
+            }}
+        />
+    );
+};""",
+    "LedgerPage - PaymentDot smaller (7px) and top-aligned"
+)
+
 
 # ==============================================================
-# FIX 8: LedgerPage search hint - also the search placeholder
-# The search input sits on white bg, so it is fine.
-# The hint below sits outside on the cream bg.
-# But .searchHint is inside .searchBlock which is inside .controlHub
-# which is inside .container (which has color: #fff)
-# The fix above (rgba dark color) should work.
+# SECTION 5: TABLE WIDTH -- remove HardwarePanel padding so table
+# stretches edge to edge. Also ensure container max-width is used.
+# The table is inside HardwarePanel which has padding: 30px.
+# We need to make the table break out of that padding.
 # ==============================================================
+print("\n=== SECTION 5: TABLE full width inside panel ===")
+
+# The HardwarePanel component adds padding via panelInner.
+# LedgerPage renders: <HardwarePanel variant="dark"><div className={styles.tableScroll}>...
+# The panelInner padding is 30px from HardwarePanel.module.css
+# We need to apply negative margin to tableScroll to break out
+
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    """.tableScroll {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+}""",
+    """.tableScroll {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    /* Break out of HardwarePanel's 30px padding to use full width */
+    margin: -30px;
+    margin-bottom: 0;
+}""",
+    "LedgerPage - tableScroll negative margin to break out of panel padding"
+)
+
+# Also fix the pagination to have proper padding now that table breaks out
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.module.css",
+    """.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+}""",
+    """.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    /* Compensate for the negative margin on tableScroll */
+    margin: 0 0 -30px 0;
+}""",
+    "LedgerPage - pagination margin compensate for tableScroll breakout"
+)
 
 # ==============================================================
-# FIX 9: Recovery filter row on mobile - single scrollable row
-# The mode switch (ACTION QUEUE / FULL SCHEDULE) should not stack
+# SECTION 6: LEDGER -- also remove icons from FILTERS array
+# (they still exist in the data even though JSX doesn't render them)
+# and tidy up the controlHub spacing
 # ==============================================================
-print("\n=== FIX 9: Recovery modeSwitch mobile single row ===")
+print("\n=== SECTION 6: LEDGER filter icons - clean removal from data ===")
 
-# Already handled in RecoveryPortal.module.css with media query
-# Let's make sure the modeSwitch doesn't wrap on very small screens
+patch(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    """    const FILTERS = [
+        { key: 'ALL',      label: 'ALL ARCHIVES', icon: <FiLayers        aria-hidden="true" /> },
+        { key: 'BACKLOG',  label: 'BACKLOG',       icon: <FiAlertOctagon  aria-hidden="true" /> },
+        { key: 'LEGACY',   label: 'LEGACY',        icon: <FiArchive       aria-hidden="true" /> },
+        { key: 'DEBTORS',  label: 'UNPAID',        icon: <FiActivity      aria-hidden="true" /> },
+        { key: 'CRITICAL', label: 'CRITICAL',      icon: <FiAlertTriangle aria-hidden="true" /> },
+    ];""",
+    """    const FILTERS = [
+        { key: 'ALL',      label: 'ALL ARCHIVES' },
+        { key: 'BACKLOG',  label: 'BACKLOG'      },
+        { key: 'LEGACY',   label: 'LEGACY'       },
+        { key: 'DEBTORS',  label: 'UNPAID'       },
+        { key: 'CRITICAL', label: 'CRITICAL'     },
+    ];""",
+    "LedgerPage - remove icons from FILTERS array entirely"
+)
 
-with open("erp-frontend/src/pages/Recovery/RecoveryPortal.module.css", "r", encoding="utf-8", errors="replace") as f:
-    rec_css = f.read()
+# Now remove the unused icon imports from LedgerPage since we removed icons
+# Keep FiLayers (used in loading cell), FiAlertTriangle (error/critical), FiArchive, FiActivity, FiAlertOctagon
+# All still used elsewhere in the component so leave imports as-is
 
-if ".modeSwitch {" in rec_css:
-    # Check if overflow is set
-    if "overflow-x: auto" not in rec_css.split(".modeSwitch {")[1].split("}")[0]:
-        patch(
-            "erp-frontend/src/pages/Recovery/RecoveryPortal.module.css",
-            ".modeSwitch { display:inline-flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; }",
-            ".modeSwitch { display:flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; overflow-x:auto; scrollbar-width:none; flex-wrap:nowrap; }",
-            "Recovery modeSwitch - no wrap, scrollable"
-        )
 
 # ==============================================================
-# FIX 10: Update LLM_CONTEXT_GUIDE.md
+# SECTION 7: Update LLM_CONTEXT_GUIDE.md
 # ==============================================================
-print("\n=== FIX 10: Updating LLM_CONTEXT_GUIDE.md ===")
+print("\n=== SECTION 7: Update LLM_CONTEXT_GUIDE.md ===")
 
 lines = [
     "# GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE",
@@ -530,6 +702,8 @@ lines = [
     "- Border radius: 0 12px 12px 0 (flat left, rounded right)",
     "- Backdrop blur: backdrop-filter: blur(15px)",
     "- Box shadow: 0 4px 15px rgba(0,0,0,0.07)",
+    "- PADDING (must match Dashboard): clamp(10px,1.4vw,16px) top/bottom, clamp(16px,2.2vw,28px) left/right",
+    "- MARGIN-BOTTOM (must match Dashboard): clamp(14px,2vw,24px)",
     "- Title (.title): Cinzel serif, color: #1a2e30 (hardcoded navy, NOT var(--navy) which is white on dark panels), uppercase, letter-spacing 1.5px",
     "- Subtitle (.subtitle): DM Sans 900, color: #64748b, uppercase, letter-spacing 1px, font-size clamp(8px,0.85vw,10px)",
     "- .headerLeft: flex column, gap clamp(3px,0.4vw,5px), flex:1, min-width:0",
@@ -541,16 +715,27 @@ lines = [
     "- Hover: background: rgba(238,140,58,0.12), color: #EE8C3A, border-color: var(--orange)",
     "- Active/Selected: background: #EE8C3A, color: #1a2e30, border-color: #EE8C3A",
     "- Font: DM Sans 900, uppercase, letter-spacing 1.5px, font-size 11px",
-    "- Layout: single horizontal row, flex-wrap:nowrap, overflow-x:auto, scrollbar-width:none",
+    "- Layout: single horizontal row, flex-direction:ROW, align-items:center, flex-wrap:nowrap, overflow-x:auto",
     "- NO icons inside filter buttons -- text only",
     "- On mobile: same single row, side-scrollable (never wraps to multiple lines)",
+    "",
+    "### Ledger Page Plot Column Style (CONFIRMED)",
+    "- Payment dot: 7px circle, top-aligned, subtle glow",
+    "- Plot number: Space Mono 900, white, own line, word-break:break-word",
+    "- Tenure tag: muted pill (rgba white bg, no orange), small DM Sans 900",
+    "- District: orange-tinted text, no background, same row as tenure",
+    "- NO orange background on any text tag in the plot column",
     "",
     "### Text on Light Background Rule",
     "- The controlHub area (search, filters, badge legend) sits on the warm cream/beige background",
     "- Any text in this area must use dark colors: rgba(26,46,48,0.xx) or #64748b",
     "- Never use rgba(255,255,255,x) for text that appears outside a dark panel",
     "- Badge legend items: color: rgba(26,46,48,0.65), font-size 9-11px",
-    "- Search hint: color: rgba(26,46,48,0.45)",
+    "- Search hint: moved to input placeholder (no separate hint text below search)",
+    "",
+    "### Search Input Rule",
+    "- Search hints go INSIDE the input placeholder, not as separate text below",
+    "- This avoids visual clutter on the light background",
     "",
     "### FolderPage Header",
     "- Uses .terminalHeader -- its own design, do NOT change to pageHeader",
@@ -580,24 +765,24 @@ lines = [
     "",
     "## 10. WHAT HAS BEEN COMPLETED (chronological)",
     "",
-    "### Priority 1 -- Styling & Uniformity -- IN PROGRESS",
+    "### Priority 1 -- Styling & Uniformity -- LARGELY COMPLETE",
     "- RecoveryPortal: 2-column grid, mobile responsive -- DONE",
     "- PaymentsPage: filter buttons unified to dark-bg inactive style -- DONE",
     "- IntakePage: cleaned up financials -- DONE",
     "- LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines -- DONE",
     "- AuditPage: RESET FILTERS aligned; fully responsive -- DONE",
     "- All page headers: unified glass panel using .pageHeader class -- DONE",
-    "  - Root cause found: !important block at bottom of every CSS was position:absolute-ing buttons",
-    "  - Fix: Removed all !important blocks, switched to clean .pageHeader class",
-    "  - Recovery portal header restructured: left=title+subtitle, right=stats+tabs",
-    "  - RecoveryPortal.jsx fully rewritten (clean UTF-8, no special chars) to fix encoding crash",
     "- Filter bar unification: all pages now use identical filter button styles -- DONE",
     "  - Single horizontal row, side-scrollable on mobile",
     "  - No icons in filter buttons -- text only",
+    "  - flex-direction: ROW with align-items:center (icons inline, not stacked)",
     "  - Standard: dark inactive, orange hover, orange-filled active",
     "- Subtitle positioning: all pages now use headerLeft wrapper for title+subtitle -- DONE",
-    "  - subtitle style: DM Sans 900, #64748b, uppercase, small",
+    "- Header padding/margin matched to Dashboard on ALL pages -- DONE",
     "- LedgerPage badge legend + search hint: dark text for light background -- DONE",
+    "- LedgerPage search hint moved to placeholder (no redundant text below) -- DONE",
+    "- LedgerPage plot column: no orange bg on tags, clean two-line layout, smaller dots -- DONE",
+    "- LedgerPage table: breaks out of HardwarePanel padding to use full width -- DONE",
     "",
     "---",
     "",
@@ -695,6 +880,6 @@ print("  WRITTEN: LLM_CONTEXT_GUIDE.md")
 print("\n=== ALL DONE ===")
 print("Steps:")
 print("1. py fix.py  -- check all lines say OK")
-print("2. git add -A && git commit -m 'uniform subtitles, filter bars, ledger visibility' && git push")
-print("3. Wait Render green tick, test site")
-print("4. Send screenshot of Ledger and Payments pages")
+print("2. git add -A && git commit -m 'uniform header size, filter alignment, ledger plot column, table full width' && git push")
+print("3. Wait Render green tick (~5-10 min), then test site")
+print("4. Send screenshot of Ledger page + other pages to confirm")

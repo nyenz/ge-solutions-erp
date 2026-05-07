@@ -1019,9 +1019,9 @@
     align-items: center;
     flex-wrap: wrap;
     gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(20px, 3vw, 32px);
+    margin-bottom: clamp(14px, 2vw, 24px);
     border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
-    padding: clamp(14px, 2vw, 22px) clamp(18px, 2.5vw, 32px);
+    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
     background: rgba(255, 255, 255, 0.62);
     border-radius: 0 12px 12px 0;
     backdrop-filter: blur(15px);

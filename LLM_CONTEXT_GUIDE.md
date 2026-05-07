@@ -173,6 +173,8 @@ ge solns/
 - Border radius: 0 12px 12px 0 (flat left, rounded right)
 - Backdrop blur: backdrop-filter: blur(15px)
 - Box shadow: 0 4px 15px rgba(0,0,0,0.07)
+- PADDING (must match Dashboard): clamp(10px,1.4vw,16px) top/bottom, clamp(16px,2.2vw,28px) left/right
+- MARGIN-BOTTOM (must match Dashboard): clamp(14px,2vw,24px)
 - Title (.title): Cinzel serif, color: #1a2e30 (hardcoded navy, NOT var(--navy) which is white on dark panels), uppercase, letter-spacing 1.5px
 - Subtitle (.subtitle): DM Sans 900, color: #64748b, uppercase, letter-spacing 1px, font-size clamp(8px,0.85vw,10px)
 - .headerLeft: flex column, gap clamp(3px,0.4vw,5px), flex:1, min-width:0
@@ -184,16 +186,27 @@ ge solns/
 - Hover: background: rgba(238,140,58,0.12), color: #EE8C3A, border-color: var(--orange)
 - Active/Selected: background: #EE8C3A, color: #1a2e30, border-color: #EE8C3A
 - Font: DM Sans 900, uppercase, letter-spacing 1.5px, font-size 11px
-- Layout: single horizontal row, flex-wrap:nowrap, overflow-x:auto, scrollbar-width:none
+- Layout: single horizontal row, flex-direction:ROW, align-items:center, flex-wrap:nowrap, overflow-x:auto
 - NO icons inside filter buttons -- text only
 - On mobile: same single row, side-scrollable (never wraps to multiple lines)
+
+### Ledger Page Plot Column Style (CONFIRMED)
+- Payment dot: 7px circle, top-aligned, subtle glow
+- Plot number: Space Mono 900, white, own line, word-break:break-word
+- Tenure tag: muted pill (rgba white bg, no orange), small DM Sans 900
+- District: orange-tinted text, no background, same row as tenure
+- NO orange background on any text tag in the plot column
 
 ### Text on Light Background Rule
 - The controlHub area (search, filters, badge legend) sits on the warm cream/beige background
 - Any text in this area must use dark colors: rgba(26,46,48,0.xx) or #64748b
 - Never use rgba(255,255,255,x) for text that appears outside a dark panel
 - Badge legend items: color: rgba(26,46,48,0.65), font-size 9-11px
-- Search hint: color: rgba(26,46,48,0.45)
+- Search hint: moved to input placeholder (no separate hint text below search)
+
+### Search Input Rule
+- Search hints go INSIDE the input placeholder, not as separate text below
+- This avoids visual clutter on the light background
 
 ### FolderPage Header
 - Uses .terminalHeader -- its own design, do NOT change to pageHeader
@@ -223,24 +236,24 @@ Step 4: RECOVERY HUB -> Step 5: PAYMENTS -> Step 6: AUDIT
 
 ## 10. WHAT HAS BEEN COMPLETED (chronological)
 
-### Priority 1 -- Styling & Uniformity -- IN PROGRESS
+### Priority 1 -- Styling & Uniformity -- LARGELY COMPLETE
 - RecoveryPortal: 2-column grid, mobile responsive -- DONE
 - PaymentsPage: filter buttons unified to dark-bg inactive style -- DONE
 - IntakePage: cleaned up financials -- DONE
 - LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines -- DONE
 - AuditPage: RESET FILTERS aligned; fully responsive -- DONE
 - All page headers: unified glass panel using .pageHeader class -- DONE
-  - Root cause found: !important block at bottom of every CSS was position:absolute-ing buttons
-  - Fix: Removed all !important blocks, switched to clean .pageHeader class
-  - Recovery portal header restructured: left=title+subtitle, right=stats+tabs
-  - RecoveryPortal.jsx fully rewritten (clean UTF-8, no special chars) to fix encoding crash
 - Filter bar unification: all pages now use identical filter button styles -- DONE
   - Single horizontal row, side-scrollable on mobile
   - No icons in filter buttons -- text only
+  - flex-direction: ROW with align-items:center (icons inline, not stacked)
   - Standard: dark inactive, orange hover, orange-filled active
 - Subtitle positioning: all pages now use headerLeft wrapper for title+subtitle -- DONE
-  - subtitle style: DM Sans 900, #64748b, uppercase, small
+- Header padding/margin matched to Dashboard on ALL pages -- DONE
 - LedgerPage badge legend + search hint: dark text for light background -- DONE
+- LedgerPage search hint moved to placeholder (no redundant text below) -- DONE
+- LedgerPage plot column: no orange bg on tags, clean two-line layout, smaller dots -- DONE
+- LedgerPage table: breaks out of HardwarePanel padding to use full width -- DONE
 
 ---
 

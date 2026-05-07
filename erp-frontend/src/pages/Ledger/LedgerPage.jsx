@@ -55,13 +55,12 @@ const PaymentDot = ({ proj }) => {
             aria-label={BADGE_LABELS[badge]}
             style={{
                 display: 'inline-block',
-                width: 10, height: 10,
+                width: 7, height: 7,
                 borderRadius: '50%',
                 background: BADGE_COLORS[badge],
-                boxShadow: `0 0 6px ${BADGE_COLORS[badge]}`,
-                marginRight: 6,
+                boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
                 flexShrink: 0,
-                verticalAlign: 'middle',
+                marginTop: 4,
             }}
         />
     );
@@ -132,11 +131,11 @@ const LedgerPage = () => {
     const SEARCH_HINT = 'Plot ID � Box � Owner name � Phone � NIN � Email � District � County � Tenure';
 
     const FILTERS = [
-        { key: 'ALL',      label: 'ALL ARCHIVES', icon: <FiLayers        aria-hidden="true" /> },
-        { key: 'BACKLOG',  label: 'BACKLOG',       icon: <FiAlertOctagon  aria-hidden="true" /> },
-        { key: 'LEGACY',   label: 'LEGACY',        icon: <FiArchive       aria-hidden="true" /> },
-        { key: 'DEBTORS',  label: 'UNPAID',        icon: <FiActivity      aria-hidden="true" /> },
-        { key: 'CRITICAL', label: 'CRITICAL',      icon: <FiAlertTriangle aria-hidden="true" /> },
+        { key: 'ALL',      label: 'ALL ARCHIVES' },
+        { key: 'BACKLOG',  label: 'BACKLOG'      },
+        { key: 'LEGACY',   label: 'LEGACY'       },
+        { key: 'DEBTORS',  label: 'UNPAID'       },
+        { key: 'CRITICAL', label: 'CRITICAL'     },
     ];
 
     return (
@@ -251,14 +250,18 @@ const LedgerPage = () => {
                                         className={isBacklog ? styles.rowBacklog : isCritical ? styles.rowCritical : ''}
                                     >
                                         <td className={styles.plotCell}>
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                                                 <PaymentDot proj={proj} />
                                                 <div>
                                                     <strong>{proj.landTitle?.plotNumber || '---'}</strong>
-                                                    <span>{proj.landTitle?.tenure}</span>
-                                                    {proj.landTitle?.district && (
-                                                        <span className={styles.districtTag}>{proj.landTitle.district}</span>
-                                                    )}
+                                                    <div>
+                                                        {proj.landTitle?.tenure && (
+                                                            <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>
+                                                        )}
+                                                        {proj.landTitle?.district && (
+                                                            <span className={styles.districtTag}>{proj.landTitle.district}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
