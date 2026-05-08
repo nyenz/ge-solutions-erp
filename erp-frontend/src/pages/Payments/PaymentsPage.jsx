@@ -7,6 +7,7 @@ import {
     FiLayers, FiArrowUp, FiArrowDown
 } from 'react-icons/fi';
 import api from '../../api/axios';
+import HardwarePanel from '../../components/ui/HardwarePanel';
 import styles from './PaymentsPage.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -152,8 +153,9 @@ const PaymentsPage = () => {
                     </div>
                 </div>
             ) : (
-                <div className={styles.tableWrap}>
-                    <table className={styles.table}>
+                <HardwarePanel variant="dark">
+                <div className={styles.tableScroll}>
+                    <table className={styles.ledgerTable}>
                         <thead>
                             <tr>
                                 <th className={styles.thSortable} onClick={() => handleSort('date')}
@@ -243,6 +245,7 @@ const PaymentsPage = () => {
                         </tbody>
                     </table>
                 </div>
+                </HardwarePanel>
             )}
         </div>
     );

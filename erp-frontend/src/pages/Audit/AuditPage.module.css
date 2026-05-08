@@ -67,7 +67,7 @@
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 9500; overflow: visible; isolation: isolate; }
+.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 9500; overflow: visible; }
 
 .searchPill {
     position: relative; display: flex; align-items: center;
@@ -78,7 +78,7 @@
 }
 .searchPill:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238,140,58,0.18); }
 .searchIcon { position: absolute; left: clamp(10px,1.2vw,14px); top: 50%; transform: translateY(-50%); color: var(--orange); font-size: clamp(14px,1.5vw,18px); pointer-events: none; flex-shrink: 0; display: flex; align-items: center; line-height: 1; }
-.searchInput { width: 100%; border: none; outline: none; background: transparent; padding: 0 clamp(34px,4.5vw,42px) 0 clamp(42px,5vw,50px); font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: var(--fs-input); color: var(--navy); -webkit-appearance: none; appearance: none; transition: padding 0.2s ease; }
+.searchInput { width: 100%; border: none; outline: none; background: transparent; padding-right: clamp(34px,4.5vw,42px) !important; padding-left: 42px !important; font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: var(--fs-input); color: var(--navy); -webkit-appearance: none; appearance: none; transition: padding 0.2s ease; }
 .searchInputActive { padding-left: clamp(14px,1.5vw,18px) !important; }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .searchClear { position: absolute; right: clamp(8px,1vw,12px); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; font-size: clamp(13px,1.4vw,16px); padding: clamp(3px,0.4vw,5px); border-radius: 4px; transition: color 0.15s, background 0.15s; }
@@ -90,24 +90,21 @@
     flex-direction: row;
     align-items: flex-start;
     gap: clamp(6px, 1vw, 10px);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: visible;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    overflow: visible;
     width: 100%;
     padding-bottom: 4px;
     padding-top: 4px;
     position: relative;
     z-index: 9000;
-    isolation: isolate;
 }
 .filterGrid::-webkit-scrollbar { display: none; }
 
 /* Compact select wraps - same height as filter buttons */
 .hwSelectWrap {
-    flex: 0 0 auto;
-    width: clamp(130px, 16vw, 200px);
-    min-width: 0;
+    flex: 1 1 140px;
+    max-width: 240px;
+    min-width: 120px;
     position: relative;
     z-index: 9000;
     overflow: visible !important;
@@ -248,16 +245,15 @@
     .controlHub  { gap: var(--gap-md); }
     .filterGrid  {
         flex-direction: row;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: visible;
+        flex-wrap: wrap;
+        overflow: visible;
         width: 100%;
         gap: 6px;
         padding-bottom: 6px;
         padding-top: 4px;
         z-index: 9000;
     }
-    .hwSelectWrap { width: 130px; min-width: 110px; }
+    .hwSelectWrap { flex: 1 1 120px; max-width: 100%; min-width: 110px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; }
     .logMain     { grid-template-columns: 1fr 1fr; gap: var(--gap-md); align-items: start; }
     .timeMark    { grid-column: 1; }
@@ -317,13 +313,12 @@
     }
     .filterGrid  {
         flex-direction: row;
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        flex-wrap: wrap;
+        overflow: visible;
         gap: 5px;
-        overflow-y: visible;
         z-index: 9000;
     }
-    .hwSelectWrap { flex: 0 0 auto; max-width: 120px; min-width: 100px; }
+    .hwSelectWrap { flex: 1 1 110px; max-width: 100%; min-width: 100px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; font-size: 8px; height: 32px; }
     .header         { padding: 8px 11px; }
     .diagItem       { padding: 4px 8px; gap: 4px; font-size: 7px; border-radius: 4px; height: 24px; }

@@ -122,7 +122,7 @@
 .searchIcon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
 .searchInput {
     width: 100%; border: none; outline: none; background: transparent;
-    color: #1a2e30; padding: 0 36px 0 42px;
+    color: #1a2e30; padding-right: 36px !important; padding-left: 42px !important;
     font-family: 'DM Sans', sans-serif; font-weight: 800;
     font-size: var(--fs-input);
     height: 100%;
@@ -179,29 +179,27 @@
 }
 
 /* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
-.tableWrap {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: var(--radius);
+.tableScroll {
     overflow-x: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    margin: -30px;
+    margin-bottom: 0;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(238,140,58,0.35) transparent;
 }
-.tableWrap::-webkit-scrollbar { height: 4px; }
-.tableWrap::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }
+.tableScroll::-webkit-scrollbar { height: 4px; }
+.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }
 
-.table {
+.ledgerTable {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     min-width: clamp(700px, 90vw, 1100px);
 }
 
-/* TABLE HEADER - matches Ledger exactly */
-.table thead tr {
-    background: #162a2c;
-}
-.table th {
+/* ── TABLE HEADER ───────────────────────────────────────────────── */
+.ledgerTable th {
     background: #162a2c;
     padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
     text-align: left;
@@ -216,39 +214,35 @@
     white-space: nowrap;
     user-select: none;
 }
-.table th:first-child { border-radius: var(--radius) 0 0 0; }
-.table th:last-child  { border-radius: 0 var(--radius) 0 0; }
 
-/* Sortable header */
-.thSortable {
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.thSortable:hover { background: rgba(238,140,58,0.07); }
+.thSortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
+.thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }
 
-/* ROWS - matches Ledger */
-.table tbody tr {
-    cursor: pointer;
-    transition: background 0.18s, border-left-color 0.18s;
-    border-left: 3px solid transparent;
-    outline: none;
-}
-.table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-left-color: var(--orange);
-}
-.table tbody tr:focus-visible {
-    background: rgba(238, 140, 58, 0.07);
-    outline: 2px solid var(--orange);
-    outline-offset: -2px;
-}
-.table td {
+/* ── TABLE BODY ─────────────────────────────────────────────────── */
+.ledgerTable td {
     padding: clamp(9px, 1.3vw, 14px) clamp(12px, 1.8vw, 20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     vertical-align: middle;
     color: #fff;
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
+}
+
+.ledgerTable tbody tr {
+    cursor: pointer;
+    transition: background 0.18s, border-left-color 0.18s;
+    border-left: 3px solid transparent;
+    outline: none;
+}
+.ledgerTable tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-left-color: var(--orange);
+}
+.ledgerTable tbody tr:focus-visible {
+    background: rgba(238, 140, 58, 0.07);
+    border-left-color: var(--orange);
+    outline: 2px solid var(--orange);
+    outline-offset: -2px;
 }
 
 /* CELL TYPES */
@@ -332,13 +326,13 @@
     .summaryRow { grid-template-columns: 1fr; gap: 8px; }
     .searchWrap { max-width: 100%; }
     .filterRow { gap: 6px; }
-    .table { min-width: 650px; }
+    .ledgerTable { min-width: 650px; }
 }
 @media (max-width: 480px) {
     .summaryRow { grid-template-columns: 1fr 1fr; }
     .sumCard strong { font-size: 13px; }
-    .table { min-width: 600px; }
-    .table th { font-size: 7px; letter-spacing: 1px; }
-    .table td { padding: 8px; }
+    .ledgerTable { min-width: 600px; }
+    .ledgerTable th { font-size: 7px; letter-spacing: 1px; }
+    .ledgerTable td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
 }
