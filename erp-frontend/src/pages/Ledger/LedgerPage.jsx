@@ -151,16 +151,16 @@ const LedgerPage = () => {
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
-                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
                         <input
                             type="search" id="ledger-search"
                             placeholder="Plot ID, box, owner, phone, NIN, email, district, county, tenure..."
-                            className={styles.searchInput}
+                            className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             aria-label="Search ledger records"
                             autoComplete="off"
                         />
+                        {!searchTerm && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                         {searchTerm && (
                             <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
                                 aria-label="Clear search" type="button">

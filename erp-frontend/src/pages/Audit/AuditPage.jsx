@@ -80,15 +80,15 @@ const AuditPage = () => {
 
             <div className={styles.controlHub}>
                 <div className={styles.searchPill}>
-                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
                     <input
                         type="search"
                         placeholder="Investigate specific Plot ID, Name, or Keyword..."
-                        className={styles.searchInput}
+                        className={`${styles.searchInput} ${filters.search ? styles.searchInputActive : ''}`}
                         value={filters.search}
                         onChange={e => setFilters({...filters, search: e.target.value})}
                         aria-label="Search forensic logs"
                     />
+                    {!filters.search && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                     {filters.search && (
                         <button className={styles.searchClear} onClick={() => setFilters({...filters, search: ''})} aria-label="Clear search">
                             <FiX aria-hidden="true" />

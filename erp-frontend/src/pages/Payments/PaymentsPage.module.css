@@ -126,6 +126,10 @@
     font-family: 'DM Sans', sans-serif; font-weight: 800;
     font-size: var(--fs-input);
     height: 100%;
+    transition: padding 0.2s ease;
+}
+.searchInputActive {
+    padding-left: 12px;
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn {

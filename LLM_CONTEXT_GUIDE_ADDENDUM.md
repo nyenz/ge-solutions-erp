@@ -57,3 +57,12 @@
 - Empty states: dark panel bg + rgba border + icon + Space Mono text
 
 See LLM_CONTEXT_GUIDE.md for full project context.
+
+### SEARCH INPUTS (ALL PAGES)
+- Search inputs now conditionally render the `<FiSearch>` icon so it disappears when typing begins.
+- `.searchInputActive` class applies instantly to remove left-padding padding so the text starts naturally at the left edge.
+
+### NUMBER INPUTS (HARDWARE MODAL)
+- `type="number"` inputs globally override the WebKit spin buttons.
+- Uses a custom SVG data URI for arrows, coloured amber (`#EE8C3A`), mounted on a dark teal background (`#162a2c`).
+- Restores proper visual flow to the 'Record Payment' modal.

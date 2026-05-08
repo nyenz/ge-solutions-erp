@@ -119,8 +119,9 @@ const PaymentsPage = () => {
 
             <div className={styles.controls}>
                 <div className={styles.searchWrap}>
-                    <FiSearch className={styles.searchIcon} />
-                    <input type="search" className={styles.searchInput}
+                    {!searchTerm && <FiSearch className={styles.searchIcon} />}
+                    <input type="search" 
+                        className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`}
                         placeholder="Search plot ID, owner name, recorded by..."
                         value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     {searchTerm && (

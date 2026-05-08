@@ -131,11 +131,14 @@
     font-weight: 800;
     color: var(--navy);
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, padding 0.2s ease;
     box-sizing: border-box;
     -webkit-appearance: none;
     appearance: none;
     line-height: clamp(36px, 4.5vw, 44px);
+}
+.searchInputActive {
+    padding-left: clamp(12px, 1.5vw, 16px);
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .searchInput:focus {

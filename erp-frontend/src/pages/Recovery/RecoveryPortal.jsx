@@ -324,10 +324,10 @@ const RecoveryPortal = () => {
 
             <div className={styles.filterBar}>
                 <div className={styles.searchInner}>
-                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
                     <input type="search" placeholder="Search owner, phone, or plot ID..."
-                        className={styles.searchInput} value={searchTerm}
+                        className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`} value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)} />
+                    {!searchTerm && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                     {searchTerm && (
                         <button className={styles.searchClear} onClick={() => setSearchTerm('')}>
                             <FiX aria-hidden="true" />
