@@ -353,3 +353,15 @@
     }
 }
 
+
+/* --- PRIORITY 1 FINAL POLISH --- */
+
+/* Revert mobile table shell to match Ledger exactly */
+@media (max-width: 480px) {
+    .tableScroll {
+        margin: 0 !important;
+        border-radius: var(--radius) !important;
+        padding-bottom: 0 !important;
+    }
+}
+

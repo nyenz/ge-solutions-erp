@@ -187,7 +187,7 @@ const PaymentsPage = () => {
                                     <td colSpan="9" className={styles.noRecords}>
                                         <div className={styles.noRecordsInner}>
                                             <FiLayers className={styles.noRecordsIcon} />
-                                            <span>NO PAYMENT RECORDS FOUND</span>
+                                            <span>{searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : "NO PAYMENT RECORDS FOUND"}</span>
                                         </div>
                                     </td>
                                 </tr>

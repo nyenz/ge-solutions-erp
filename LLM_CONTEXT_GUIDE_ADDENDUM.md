@@ -1,68 +1,22 @@
-# GE SOLUTIONS ERP -- CONTEXT ADDENDUM V2
-# Last updated: May 2026 - Full UI Polish Pass
+# GE SOLUTIONS ERP -- CONTEXT ADDENDUM V3
+# Last updated: May 2026 - Final UI Polish Details
 
-## KEY FIXES THIS SESSION
+## NEW RULES ESTABLISHED THIS SESSION
 
-### SIDEBAR
-- Nav links slightly larger (9-11px font, 9-12px padding)
-- NYENZ branding stays small
-- No scroll - all 8 items always visible
-- Collapsed width 52px
+### 1. SEARCH INPUTS
+- Browser native `::-webkit-search-cancel-button` is permanently disabled.
+- The custom `.searchClear` icon is forced to `--orange`.
+- Text-indent is dynamically applied to avoid search text overlapping the left icon.
 
-### HARDWARESELECT DROPDOWN
-- z-index: 99999 on dropdown - always appears above everything
-- openWrapper has z-index: 9999 and overflow: visible
-- Fixed full CSS rewrite
+### 2. DROPDOWNS & FILTER BUTTONS
+- MUST be perfectly rectangular with `border-radius: var(--radius-sm)` (6px-8px). NO PILLS.
+- Dropdowns must use `flex: 1 1 120px` to stretch and compress seamlessly on mobile.
+- Dropdowns must have `::-webkit-scrollbar { display: none; }`.
 
-### AUDIT PAGE
-- controlHub z-index: 200
-- hwSelectWrap z-index: 9000
-- filterGrid overflow-y: visible on all screen sizes
-- Mobile: filter row stays horizontal, overflow-x scroll
-- Dropdown z-index 99999 guaranteed
+### 3. EMPTY STATES
+- Searching in tables MUST return dynamic text: `NO RECORDS MATCH 'term'`.
+- Use Ledger logic as the absolute source of truth.
 
-### PAYMENTS PAGE
-- Full rewrite with column-level filters on DATE, PLOT, OWNER columns
-- AMOUNT PAID column is sortable
-- Removed redundant DATE sort button (date sort is in th header)
-- Ledger-style dark table with orange border-top separator
-- NO RECORDS FOUND uses ledger-style empty state with icon
-- Type filters match ledger style (dark inactive, orange active)
-
-### RECOVERY PAGE
-- NO TARGETS FOUND now has dark pill background with visible border
-- ACTIVE (1) section header uses dark pill badge (always visible on any bg)
-- BACKLOG section header uses red pill badge
-
-### SEARCH INPUTS (ALL PAGES)
-- Search icon always vertically centered beside text (top: 50%, transform: translateY(-50%))
-- Never appears above text
-
-### MODAL POPUPS (ALL POPUPS)
-- HardwareModal CSS fully rewritten for uniform design
-- Responsive max-height: 90vh with scrollbar
-- Consistent padding, border, animation across all modals
-- Close button has hover state with rotation animation
-
-### EMPTY / ERROR STATES
-- Audit emptySignal has subtle dashed border background
-- Recovery emptyGate has dark panel background with border
-- Payments uses icon + text empty state like ledger
-
-## RULES FOR FUTURE CHANGES
-- Search icon: always use position:absolute, left:12px, top:50%, transform:translateY(-50%)
-- Section headers on variable backgrounds: always use dark pill with border, never bare text
-- Dropdown z-index: minimum 9999, use 99999 for critical dropdowns
-- Modal: always use HardwareModal component, max-height:90vh, overflow-y:auto
-- Empty states: dark panel bg + rgba border + icon + Space Mono text
-
-See LLM_CONTEXT_GUIDE.md for full project context.
-
-### SEARCH INPUTS (ALL PAGES)
-- Search inputs now conditionally render the `<FiSearch>` icon so it disappears when typing begins.
-- `.searchInputActive` class applies instantly to remove left-padding padding so the text starts naturally at the left edge.
-
-### NUMBER INPUTS (HARDWARE MODAL)
-- `type="number"` inputs globally override the WebKit spin buttons.
-- Uses a custom SVG data URI for arrows, coloured amber (`#EE8C3A`), mounted on a dark teal background (`#162a2c`).
-- Restores proper visual flow to the 'Record Payment' modal.
+### 4. MOBILE TABLES
+- Table wrappers (`.tableScroll`) must NOT use negative margins on mobile.
+- They must respect the standard `border-radius` to prevent bleeding off the screen edges.
