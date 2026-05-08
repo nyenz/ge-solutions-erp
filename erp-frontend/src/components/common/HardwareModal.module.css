@@ -1,60 +1,87 @@
-/* PATH: erp-frontend/src/components/common/HardwareModal.module.css */
+/* PATH: erp-frontend/src/components/common/HardwareModal.module.css
+   Uniform modal design - all popups (Record Payment, Archive Log, etc.)
+*/
 
 .backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(10, 20, 25, 0.85); /* Deep industrial overlay */
-    backdrop-filter: blur(4px);
+    background: rgba(10, 20, 25, 0.80);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 99999; /* Absolute top layer */
+    z-index: 99999;
     animation: fadeIn 0.2s ease-out;
+    padding: clamp(12px, 3vw, 24px);
+    box-sizing: border-box;
 }
 
 .modalBody {
     width: 100%;
-    max-width: 500px;
-    background: linear-gradient(135deg, #3a5a5c 0%, #213e40 100%);
-    border: 2px solid var(--orange);
-    border-radius: 12px;
-    padding: 30px;
+    max-width: clamp(300px, 90vw, 520px);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #1c3335 0%, #213e40 100%);
+    border: 2px solid rgba(238, 140, 58, 0.4);
+    border-radius: 14px;
+    padding: clamp(20px, 3vw, 32px);
     position: relative;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    animation: slideUp 0.25s cubic-bezier(0.2, 1, 0.3, 1);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(238,140,58,0.4) transparent;
 }
+.modalBody::-webkit-scrollbar { width: 4px; }
+.modalBody::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(238, 140, 58, 0.3);
+    margin-bottom: clamp(16px, 2.5vw, 24px);
+    padding-bottom: clamp(10px, 1.5vw, 14px);
+    border-bottom: 1px solid rgba(238, 140, 58, 0.25);
 }
 
 .title {
     font-family: 'Cinzel', serif;
-    color: var(--orange);
-    font-size: 14px;
+    color: var(--orange, #EE8C3A);
+    font-size: clamp(12px, 1.4vw, 16px);
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: clamp(1px, 0.2vw, 2.5px);
     text-transform: uppercase;
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
 }
 
 .closeBtn {
-    background: transparent;
-    border: none;
-    color: white;
-    opacity: 0.5;
-    font-size: 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5);
+    font-size: clamp(16px, 2vw, 20px);
     cursor: pointer;
-    transition: 0.3s;
+    transition: all 0.2s;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(28px, 3.5vw, 36px);
+    height: clamp(28px, 3.5vw, 36px);
+    border-radius: 8px;
+    flex-shrink: 0;
+    margin-left: 12px;
 }
 
 .closeBtn:hover {
-    opacity: 1;
-    color: var(--orange);
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+    transform: rotate(90deg);
 }
 
 .content {
@@ -62,26 +89,35 @@
     z-index: 2;
 }
 
-/* DECORATIVE FOOTER ACCENT */
+/* Bottom orange glow accent */
 .footerGlow {
     position: absolute;
     bottom: 0;
     left: 10%;
     right: 10%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--orange), transparent);
-    box-shadow: 0 0 15px var(--orange);
-    opacity: 0.5;
+    background: linear-gradient(90deg, transparent, rgba(238, 140, 58, 0.6), transparent);
+    box-shadow: 0 0 12px rgba(238, 140, 58, 0.3);
+    border-radius: 0 0 14px 14px;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-@media (max-width: 550px) {
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
     .modalBody {
-        width: 90%;
-        padding: 20px;
+        padding: clamp(16px, 5vw, 20px);
+        border-radius: 12px;
+        max-height: 88vh;
     }
+    .title { font-size: 12px; letter-spacing: 1px; }
+    .header { margin-bottom: 14px; padding-bottom: 10px; }
 }

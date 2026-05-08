@@ -67,7 +67,7 @@
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 20; overflow: visible; }
+.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 200; overflow: visible; }
 
 .searchPill {
     position: relative; display: flex; align-items: center;
@@ -77,7 +77,7 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 .searchPill:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238,140,58,0.18); }
-.searchIcon { position: absolute; left: clamp(10px,1.2vw,14px); color: var(--orange); font-size: clamp(14px,1.5vw,18px); pointer-events: none; }
+.searchIcon { position: absolute; left: clamp(10px,1.2vw,14px); top: 50%; transform: translateY(-50%); color: var(--orange); font-size: clamp(14px,1.5vw,18px); pointer-events: none; flex-shrink: 0; display: flex; align-items: center; line-height: 1; }
 .searchInput { width: 100%; border: none; outline: none; background: transparent; padding: 0 clamp(34px,4.5vw,42px); font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: var(--fs-input); color: var(--navy); -webkit-appearance: none; appearance: none; }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .searchClear { position: absolute; right: clamp(8px,1vw,12px); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; font-size: clamp(13px,1.4vw,16px); padding: clamp(3px,0.4vw,5px); border-radius: 4px; transition: color 0.15s, background 0.15s; }
@@ -96,17 +96,17 @@
     width: 100%;
     padding-bottom: 4px;
     position: relative;
-    z-index: 10;
+    z-index: 100;
 }
 .filterGrid::-webkit-scrollbar { display: none; }
 
 /* Compact select wraps - same height as filter buttons */
 .hwSelectWrap {
-    flex: 1 1 clamp(110px, 14vw, 190px);
-    max-width: clamp(130px, 18vw, 210px);
+    flex: 0 0 auto;
+    width: clamp(130px, 16vw, 200px);
     min-width: 0;
     position: relative;
-    z-index: 50;
+    z-index: 9000;
 }
 /* Override HardwareSelect internal margin */
 .hwSelectWrap > * { margin-bottom: 0 !important; }
@@ -145,8 +145,7 @@
 
 
 /* ── TIMELINE ───────────────────────────────────────────────────── */
-.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: visible; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
-.timelineFrameInner { overflow: hidden; border-radius: var(--radius); }
+.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
 .timelineStream { display: flex; flex-direction: column; min-height: clamp(280px, 40vw, 420px); }
 
 .logRow { border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.18s, border-left-color 0.1s; border-left: clamp(3px,0.4vw,5px) solid transparent; outline: none; }
@@ -196,9 +195,42 @@
 .pageLabel { font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 900; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; }
 
 /* ── FEEDBACK ───────────────────────────────────────────────────── */
-.loadingPulse { text-align: center; padding: clamp(36px,6vw,60px) 0; font-family: 'DM Sans', sans-serif; color: var(--orange); font-weight: 900; letter-spacing: 3px; animation: glowPulse 2s infinite; font-size: var(--fs-meta); text-transform: uppercase; }
+.loadingPulse {
+    text-align: center;
+    padding: clamp(36px,6vw,60px) 0;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--orange);
+    font-weight: 900;
+    letter-spacing: 3px;
+    animation: glowPulse 2s infinite;
+    font-size: var(--fs-meta);
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
 @keyframes glowPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-.emptySignal { text-align: center; padding: clamp(28px,5vw,50px) 0; font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.2); font-weight: 900; font-size: var(--fs-meta); letter-spacing: 2px; text-transform: uppercase; }
+
+.emptySignal {
+    text-align: center;
+    padding: clamp(28px,5vw,50px) 20px;
+    font-family: 'Space Mono', monospace;
+    color: rgba(255,255,255,0.25);
+    font-weight: 900;
+    font-size: var(--fs-meta);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    margin: 8px;
+}
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 1000px) {
@@ -212,12 +244,14 @@
         flex-direction: row;
         flex-wrap: nowrap;
         overflow-x: auto;
+        overflow-y: visible;
         width: 100%;
         gap: 6px;
-        padding-bottom: 4px;
+        padding-bottom: 6px;
+        padding-top: 2px;
     }
-    .hwSelectWrap { flex: 0 0 auto; max-width: 140px; min-width: 110px; }
-    .resetBtn    { flex: 0 0 auto; padding: 0 12px; }
+    .hwSelectWrap { width: 130px; min-width: 110px; }
+    .resetBtn    { flex: 0 0 auto; padding: 0 10px; }
     .logMain     { grid-template-columns: 1fr 1fr; gap: var(--gap-md); align-items: start; }
     .timeMark    { grid-column: 1; }
     .actionMark  { grid-column: 2; justify-self: end; text-align: right; }
@@ -239,6 +273,8 @@
     color: rgba(255, 255, 255, 0.85) !important;
     border-radius: var(--radius-sm) !important;
     overflow: visible !important;
+    position: relative !important;
+    z-index: 9000 !important;
 }
 .hwSelectWrap [class*="selectBox"]:hover {
     background: rgba(238, 140, 58, 0.12) !important;
@@ -256,8 +292,9 @@
     color: rgba(255, 255, 255, 0.5) !important;
 }
 .hwSelectWrap [class*="dropdown"] {
-    z-index: 9999 !important;
+    z-index: 99999 !important;
     position: absolute !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
 }
 
 @media (max-width: 480px) {

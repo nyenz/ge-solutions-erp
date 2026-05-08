@@ -1,18 +1,18 @@
-/* PATH: erp-frontend/src/components/common/HardwareSelect.module.css */
-.fieldWrapper { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-    width: 100%; 
-    position: relative; 
-    margin-bottom: 15px; 
-    z-index: 1; /* Base layer */
+.fieldWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    position: relative;
+    margin-bottom: 15px;
+    z-index: 1;
 }
 
-/* FIXED: This pulls the field to the front when clicked */
+/* CRITICAL: When open, this wrapper must float above all other content */
 .openWrapper {
     z-index: 9999 !important;
     overflow: visible !important;
+    position: relative !important;
 }
 
 .label {
@@ -34,30 +34,42 @@
     cursor: pointer;
     transition: 0.3s ease;
     height: var(--input-height, 44px);
+    position: relative;
+    z-index: 1;
 }
 
 .selectBox:hover, .active {
     border-color: var(--orange);
-    /* REMOVED TRANSFORM SCALE */
     box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
 }
 
-.currentValue { color: var(--navy); font-weight: 700; font-size: var(--input-font, 14px); }
-.icon { color: var(--orange); transition: 0.3s; }
+.currentValue {
+    color: var(--navy);
+    font-weight: 700;
+    font-size: var(--input-font, 14px);
+}
+
+.icon {
+    color: var(--orange);
+    transition: 0.3s;
+    flex-shrink: 0;
+}
+
 .active .icon { transform: rotate(180deg); }
 
 .dropdown {
     position: absolute;
-    top: calc(100% + 5px);
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
     background: #ffffff;
     border: 2px solid var(--orange);
     border-radius: 8px;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
     overflow: hidden;
     animation: slideIn 0.2s ease-out;
-    z-index: 9999;
+    z-index: 99999 !important;
+    min-width: 100%;
 }
 
 @keyframes slideIn {
@@ -72,7 +84,11 @@
     font-size: 14px;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: 0.2s;
 }
+
+.option:last-child { border-bottom: none; }
 
 .option:hover {
     background: var(--orange);
@@ -82,4 +98,16 @@
 .selected {
     background: #f1f5f9;
     border-left: 5px solid var(--orange);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+    .selectBox {
+        height: var(--input-height, 40px);
+        font-size: 12px;
+    }
+    .option {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
 }

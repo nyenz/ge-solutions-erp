@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiDollarSign, FiSearch, FiX,
-    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw
+    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw,
+    FiCalendar, FiMapPin, FiLayers
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import styles from './PaymentsPage.module.css';
@@ -30,6 +31,12 @@ const PaymentsPage = () => {
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [sortDir,    setSortDir]    = useState('desc');
 
+    // Column filters for table headers
+    const [dateFilter,  setDateFilter]  = useState('');
+    const [plotFilter,  setPlotFilter]  = useState('');
+    const [ownerFilter, setOwnerFilter] = useState('');
+    const [amountSort,  setAmountSort]  = useState(null); // 'asc' | 'desc' | null
+
     const loadPayments = useCallback(async () => {
         setLoading(true);
         try {
@@ -46,7 +53,11 @@ const PaymentsPage = () => {
 
     const filtered = useMemo(() => {
         let list = [...payments];
+
+        // Top-level type filter
         if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);
+
+        // Global search
         if (searchTerm.trim()) {
             const t = searchTerm.toLowerCase();
             list = list.filter(p =>
@@ -56,12 +67,38 @@ const PaymentsPage = () => {
                 p.notes?.toLowerCase().includes(t)
             );
         }
-        list.sort((a, b) => {
-            const da = new Date(a.timestamp), db = new Date(b.timestamp);
-            return sortDir === 'desc' ? db - da : da - db;
-        });
+
+        // Column filters
+        if (dateFilter.trim()) {
+            const df = dateFilter.toLowerCase();
+            list = list.filter(p =>
+                new Date(p.timestamp).toLocaleDateString().toLowerCase().includes(df)
+            );
+        }
+        if (plotFilter.trim()) {
+            const pf = plotFilter.toLowerCase();
+            list = list.filter(p => p.plotNumber?.toLowerCase().includes(pf));
+        }
+        if (ownerFilter.trim()) {
+            const of_ = ownerFilter.toLowerCase();
+            list = list.filter(p => p.ownerName?.toLowerCase().includes(of_));
+        }
+
+        // Sorting
+        if (amountSort) {
+            list.sort((a, b) => {
+                const diff = Number(a.amountPaid || 0) - Number(b.amountPaid || 0);
+                return amountSort === 'asc' ? diff : -diff;
+            });
+        } else {
+            list.sort((a, b) => {
+                const da = new Date(a.timestamp), db = new Date(b.timestamp);
+                return sortDir === 'desc' ? db - da : da - db;
+            });
+        }
+
         return list;
-    }, [payments, typeFilter, searchTerm, sortDir]);
+    }, [payments, typeFilter, searchTerm, sortDir, dateFilter, plotFilter, ownerFilter, amountSort]);
 
     const totalCollected = useMemo(() =>
         filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
@@ -73,6 +110,20 @@ const PaymentsPage = () => {
     const storageTotal = useMemo(() =>
         filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL')
                 .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+
+    const toggleAmountSort = () => {
+        setAmountSort(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? null : 'desc');
+    };
+
+    const SortArrow = ({ field }) => {
+        if (field === 'amount' && amountSort) {
+            return <span className={styles.sortArrow}>{amountSort === 'desc' ? ' ↓' : ' ↑'}</span>;
+        }
+        if (field === 'date' && !amountSort) {
+            return <span className={styles.sortArrow}>{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>;
+        }
+        return <span className={styles.sortArrowInactive}> ↕</span>;
+    };
 
     return (
         <div className={styles.container}>
@@ -104,6 +155,7 @@ const PaymentsPage = () => {
                 </div>
             </div>
 
+            {/* Global search + type filter row */}
             <div className={styles.controls}>
                 <div className={styles.searchWrap}>
                     <FiSearch className={styles.searchIcon} />
@@ -124,27 +176,48 @@ const PaymentsPage = () => {
                             {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}
                         </button>
                     ))}
-                    <button className={styles.filterBtn}
-                        onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
-                        DATE {sortDir === 'desc' ? '↓ NEWEST' : '↑ OLDEST'}
-                    </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className={styles.loading}>Loading payments...</div>
-            ) : filtered.length === 0 ? (
-                <div className={styles.empty}>No payment records found.</div>
+                <div className={styles.emptyState}>
+                    <div className={styles.emptyInner}>
+                        <div className={styles.loadingSpinner} />
+                        <span>Loading payments...</span>
+                    </div>
+                </div>
             ) : (
                 <div className={styles.tableWrap}>
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                <th>DATE</th>
-                                <th>PLOT</th>
-                                <th>OWNER</th>
+                                {/* DATE header with sort + filter */}
+                                <th className={styles.thWithFilter}>
+                                    <div className={styles.thTop}>
+                                        <button className={styles.thSortBtn} onClick={() => { setAmountSort(null); setSortDir(d => d === 'desc' ? 'asc' : 'desc'); }}>
+                                            <FiCalendar size={10} /> DATE <SortArrow field="date" />
+                                        </button>
+                                    </div>
+                                    <input className={styles.colFilter} placeholder="Filter date..." value={dateFilter}
+                                        onChange={e => setDateFilter(e.target.value)} />
+                                </th>
+                                {/* PLOT header with filter */}
+                                <th className={styles.thWithFilter}>
+                                    <div className={styles.thTop}><FiMapPin size={10} /> PLOT</div>
+                                    <input className={styles.colFilter} placeholder="Filter plot..." value={plotFilter}
+                                        onChange={e => setPlotFilter(e.target.value)} />
+                                </th>
+                                {/* OWNER header with filter */}
+                                <th className={styles.thWithFilter}>
+                                    <div className={styles.thTop}><FiUser size={10} /> OWNER</div>
+                                    <input className={styles.colFilter} placeholder="Filter owner..." value={ownerFilter}
+                                        onChange={e => setOwnerFilter(e.target.value)} />
+                                </th>
                                 <th>TYPE</th>
-                                <th>AMOUNT PAID</th>
+                                {/* AMOUNT with sort */}
+                                <th className={styles.thSortable} onClick={toggleAmountSort}>
+                                    <FiDollarSign size={10} /> AMOUNT PAID <SortArrow field="amount" />
+                                </th>
                                 <th>BALANCE AFTER</th>
                                 <th>RECORDED BY</th>
                                 <th>NOTES</th>
@@ -152,7 +225,16 @@ const PaymentsPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((pay, i) => (
+                            {filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" className={styles.noRecords}>
+                                        <div className={styles.noRecordsInner}>
+                                            <FiLayers className={styles.noRecordsIcon} />
+                                            <span>NO PAYMENT RECORDS FOUND</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filtered.map((pay, i) => (
                                 <tr key={pay.id || i} className={styles.row}>
                                     <td>
                                         <div className={styles.dateCell}>

@@ -39,7 +39,7 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── PAGE HEADER ── */
+/* PAGE HEADER */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -73,7 +73,7 @@
 }
 .refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
 
-/* ── SUMMARY CARDS ── */
+/* SUMMARY CARDS */
 .summaryRow {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -93,7 +93,7 @@
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--fs-value); color: #fff; font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--fs-label); color: rgba(255,255,255,0.35); }
 
-/* ── CONTROLS ── */
+/* CONTROLS */
 .controls {
     display: flex;
     flex-direction: column;
@@ -113,7 +113,7 @@
     transition: border-color 0.2s;
 }
 .searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; }
+.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
 .searchInput {
     width: 100%; border: none; outline: none; background: transparent;
     color: #1a2e30; padding: 0 36px 0 38px;
@@ -128,7 +128,7 @@
 }
 .clearBtn:hover { color: #1a2e30; }
 
-/* ── FILTER ROW - matches ledger style ── */
+/* FILTER ROW */
 .filterRow {
     display: flex;
     flex-wrap: nowrap;
@@ -166,7 +166,7 @@
     box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
 }
 
-/* ── TABLE ── */
+/* TABLE */
 .tableWrap {
     overflow-x: auto;
     border-radius: var(--radius);
@@ -174,26 +174,107 @@
     border: 1.5px solid var(--orange-border);
     box-shadow: 0 8px 28px rgba(0,0,0,0.15);
     -webkit-overflow-scrolling: touch;
+    /* Orange top separator line like ledger */
+    border-top: 2px solid var(--orange);
 }
 .table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    min-width: clamp(600px, 85vw, 1000px);
+    min-width: clamp(700px, 90vw, 1100px);
 }
-.table thead tr { border-bottom: 2px solid var(--orange); }
+
+/* TABLE HEADER */
+.table thead tr {
+    border-bottom: 2px solid var(--orange);
+}
 .table th {
     background: #162a2c;
-    padding: clamp(10px, 1.3vw, 15px) clamp(10px, 1.3vw, 16px);
+    padding: 0;
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
     font-size: var(--fs-th);
     color: var(--orange);
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     text-align: left;
     white-space: nowrap;
+    vertical-align: top;
+    border-right: 1px solid rgba(255,255,255,0.05);
 }
+.table th:last-child { border-right: none; }
+
+/* Header with column filter input */
+.thWithFilter {
+    min-width: clamp(100px, 12vw, 150px);
+}
+.thTop {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+    padding-bottom: 4px;
+    font-size: var(--fs-th);
+    font-weight: 900;
+    color: var(--orange);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+.colFilter {
+    display: block;
+    width: calc(100% - 16px);
+    margin: 0 8px clamp(6px, 0.8vw, 8px) 8px;
+    padding: clamp(4px, 0.5vw, 6px) clamp(6px, 0.8vw, 8px);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    color: rgba(255,255,255,0.8);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.85vw, 10px);
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.colFilter:focus { border-color: var(--orange); background: rgba(238,140,58,0.08); }
+.colFilter::placeholder { color: rgba(255,255,255,0.25); font-style: italic; font-weight: 500; }
+
+/* Sortable header */
+.thSortable {
+    cursor: pointer;
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+    transition: background 0.15s;
+    min-width: clamp(100px, 12vw, 150px);
+}
+.thSortable:hover { background: rgba(238,140,58,0.08); }
+
+.thSortBtn {
+    background: transparent;
+    border: none;
+    color: var(--orange);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-th);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    transition: color 0.2s;
+}
+.thSortBtn:hover { color: #fff; }
+
+.sortArrow { color: #fff; font-size: 10px; opacity: 0.9; }
+.sortArrowInactive { color: rgba(255,255,255,0.25); font-size: 10px; }
+
+/* Regular th (no filter) */
+.table th:not(.thWithFilter):not(.thSortable) {
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+}
+
+/* ROWS */
 .row {
     border-bottom: 1px solid rgba(255,255,255,0.05);
     transition: background 0.15s, border-left-color 0.15s;
@@ -201,13 +282,16 @@
 }
 .row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
 .table td {
-    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.3vw, 16px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.3vw, 14px);
     color: rgba(255,255,255,0.9);
     vertical-align: middle;
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
+    border-right: 1px solid rgba(255,255,255,0.04);
 }
+.table td:last-child { border-right: none; }
 
+/* CELL TYPES */
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
 .time { font-family: 'Space Mono', monospace; font-size: var(--fs-label); opacity: 0.45; }
 .plotNum { font-family: 'Space Mono', monospace; color: #EE8C3A; font-size: var(--fs-value); font-weight: 700; letter-spacing: 0.5px; }
@@ -235,18 +319,57 @@
 }
 .goBtn:hover { background: #EE8C3A; color: #1a2e30; }
 
-.loading, .empty {
-    text-align: center;
-    padding: clamp(40px, 7vw, 70px) 20px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
+/* NO RECORDS */
+.noRecords { text-align: center; padding: 0; }
+.noRecordsInner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 1.2vw, 14px);
+    padding: clamp(40px, 6vw, 70px) 20px;
+    color: rgba(255,255,255,0.2);
+    font-family: 'Space Mono', monospace;
     font-size: var(--fs-meta);
-    color: rgba(255,255,255,0.3);
-    text-transform: uppercase;
+    font-weight: 900;
     letter-spacing: 2px;
+    text-transform: uppercase;
 }
+.noRecordsIcon { font-size: clamp(30px, 5vw, 48px); opacity: 0.15; }
 
-/* ── RESPONSIVE ── */
+/* LOADING / EMPTY STATE */
+.emptyState {
+    background: var(--panel-bg);
+    border: 1.5px solid var(--orange-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+    padding: clamp(40px, 6vw, 70px) 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.emptyInner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    color: rgba(255,255,255,0.25);
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-meta);
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.loadingSpinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(238,140,58,0.15);
+    border-top-color: #EE8C3A;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* RESPONSIVE */
 @media (max-width: 900px) {
     .summaryRow { grid-template-columns: repeat(3, 1fr); }
 }
@@ -254,13 +377,14 @@
     .summaryRow { grid-template-columns: 1fr; gap: 8px; }
     .searchWrap { max-width: 100%; }
     .filterRow { gap: 6px; }
-    .table { min-width: 560px; }
+    .table { min-width: 650px; }
 }
 @media (max-width: 480px) {
     .summaryRow { grid-template-columns: 1fr 1fr; }
     .sumCard strong { font-size: 13px; }
-    .table { min-width: 500px; }
-    .table th { padding: 8px; font-size: 7px; letter-spacing: 1px; }
+    .table { min-width: 600px; }
+    .table th { font-size: 7px; letter-spacing: 1px; }
     .table td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
+    .colFilter { font-size: 8px; padding: 3px 5px; }
 }

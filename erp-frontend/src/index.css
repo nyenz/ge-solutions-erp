@@ -97,8 +97,7 @@ h1, h2, h3, .hardware-font {
 }
 
 /* Apply to all native inputs */
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-textarea {
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
     height: var(--input-height);
     font-size: var(--input-font) !important;
     padding-left: var(--input-px) !important;
@@ -106,6 +105,7 @@ textarea {
     border-radius: var(--input-radius) !important;
     box-sizing: border-box;
     width: 100% !important;
+    line-height: var(--input-height);
 }
 
 textarea {
@@ -113,6 +113,13 @@ textarea {
     min-height: clamp(80px, 12vw, 120px);
     padding-top: var(--input-px) !important;
     padding-bottom: var(--input-px) !important;
+    font-size: var(--input-font) !important;
+    padding-left: var(--input-px) !important;
+    padding-right: var(--input-px) !important;
+    border-radius: var(--input-radius) !important;
+    box-sizing: border-box;
+    width: 100% !important;
+    resize: vertical;
 }
 
 /* Labels */
