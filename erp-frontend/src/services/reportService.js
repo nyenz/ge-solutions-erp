@@ -66,7 +66,14 @@ const reportService = {
     // Operational Pillars (Open to Managers)
     downloadArchiveMap:  () => reportService._triggerDownload('/archive-map',       'PHYSICAL_ARCHIVE_MAP'),
     downloadBottlenecks: () => reportService._triggerDownload('/bottlenecks',       'SURVEY_STAGES'),
-    downloadReliability: () => reportService._triggerDownload('/reliability',       'CLIENT_RANKINGS')
+    downloadReliability: () => reportService._triggerDownload('/reliability',       'CLIENT_RANKINGS'),
+
+    // Priority 2 Reports (Admin only)
+    downloadBacklogBreakdown:  () => reportService._triggerDownload('/backlog-breakdown',  'BACKLOG_BREAKDOWN'),
+    downloadCompletedTitles:   () => reportService._triggerDownload('/completed-titles',   'COMPLETED_TITLES'),
+    downloadPaymentHistory:    () => reportService._triggerDownload('/payment-history',    'FULL_PAYMENT_HISTORY'),
+    downloadStorageFees:       () => reportService._triggerDownload('/storage-fees',       'STORAGE_FEES_REPORT'),
+    downloadMonthlyCollection: () => reportService._triggerDownload('/monthly-collection', 'MONTHLY_COLLECTION'),
 };
 
 export default reportService;

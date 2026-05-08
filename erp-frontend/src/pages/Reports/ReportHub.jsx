@@ -72,11 +72,12 @@ const ReportHub = () => {
 
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';
 
-    const [drawers, setDrawers] = useState({ finance: true, ops: true, system: false });
+    const [drawers, setDrawers] = useState({ finance: true, ops: true, system: false, p2: true });
     const [status,  setStatus]  = useState({
         debt: false, map: false, perf: false,
         stage: false, legal: false, risk: false,
         audit: false, revenue: false,
+        backlog: false, completed: false, payhist: false, storage: false, monthly: false,
     });
 
     const toggleDrawer = key => setDrawers(prev => ({ ...prev, [key]: !prev[key] }));
@@ -106,6 +107,14 @@ const ReportHub = () => {
     const SYSTEM_GROUP = [
         { id: 'legal', title: 'Legal Readiness Audit', desc: 'NIN and Address completeness check for demand notices.',   icon: FiFileText, action: reportService.downloadLegalReady  },
         { id: 'audit', title: 'Master System Audit',   desc: 'Forensic footprint of data rewrites and stage jumps.',     icon: FiShield,   action: reportService.downloadAuditTrail  },
+    ];
+
+    const PRIORITY2_GROUP = [
+        { id: 'backlog',   title: 'Backlog Breakdown',       desc: 'All backlog plots with storage fees, months owed, and total outstanding.',          icon: FiLock,       action: reportService.downloadBacklogBreakdown  },
+        { id: 'completed', title: 'Completed Titles',        desc: 'All released or fully paid plots ready for handover.',                               icon: FiCheckSquare, action: reportService.downloadCompletedTitles  },
+        { id: 'payhist',   title: 'Full Payment History',    desc: 'Every payment record across all plots — type, amount, balance after.',              icon: FiCreditCard, action: reportService.downloadPaymentHistory    },
+        { id: 'storage',   title: 'Storage Fees Per Plot',   desc: 'Per-plot breakdown of accumulated storage fees and outstanding backlog balance.',    icon: FiDatabase,   action: reportService.downloadStorageFees       },
+        { id: 'monthly',   title: 'Monthly Collection',      desc: 'Total cash collected per calendar month for the last 24 months.',                   icon: FiBarChart2,  action: reportService.downloadMonthlyCollection },
     ];
 
     const ReportRow = ({ item }) => {
@@ -185,6 +194,19 @@ const ReportHub = () => {
                             <div className={styles.panelInner}>
                                 <div className={styles.reportList}>
                                     {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {hasFinancialAccess && (
+                    <div className={styles.hwPanel}>
+                        <DrawerTitle label="PRIORITY REPORTS" isOpen={drawers.p2} onClick={() => toggleDrawer('p2')} icon={FiBarChart2} />
+                        <div className={`${styles.panelBody} ${drawers.p2 ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.p2}>
+                            <div className={styles.panelInner}>
+                                <div className={styles.reportList}>
+                                    {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
                                 </div>
                             </div>
                         </div>

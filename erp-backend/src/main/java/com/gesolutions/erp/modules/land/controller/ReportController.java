@@ -95,6 +95,45 @@ public class ReportController {
         return streamCsv(reportService.generateReliabilityRankings(), "RELIABILITY_SCORECARD");
     }
 
+    // ========================================================================
+    // SECTION C: PRIORITY 2 REPORTS (All restricted to ROLE_ADMIN)
+    // ========================================================================
+
+    /** P2-1: Backlog Breakdown */
+    @GetMapping("/backlog-breakdown")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadBacklogBreakdown() {
+        return streamCsv(reportService.generateBacklogBreakdown(), "BACKLOG_BREAKDOWN");
+    }
+
+    /** P2-2: Completed Titles */
+    @GetMapping("/completed-titles")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadCompletedTitles() {
+        return streamCsv(reportService.generateCompletedTitles(), "COMPLETED_TITLES");
+    }
+
+    /** P2-3: Full Payment History */
+    @GetMapping("/payment-history")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadPaymentHistory() {
+        return streamCsv(reportService.generatePaymentHistory(), "FULL_PAYMENT_HISTORY");
+    }
+
+    /** P2-4: Storage Fees Per Plot */
+    @GetMapping("/storage-fees")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadStorageFees() {
+        return streamCsv(reportService.generateStorageFeesReport(), "STORAGE_FEES_REPORT");
+    }
+
+    /** P2-5: Monthly Collection */
+    @GetMapping("/monthly-collection")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadMonthlyCollection() {
+        return streamCsv(reportService.generateMonthlyCollection(), "MONTHLY_COLLECTION");
+    }
+
     /**
      * INDUSTRIAL HELPER: Formats the byte stream with CSV headers.
      */
