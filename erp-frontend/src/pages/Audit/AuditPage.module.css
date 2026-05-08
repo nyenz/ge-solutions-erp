@@ -45,14 +45,29 @@
 .headerLeft { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); min-width: 0; flex: 1; }
 .title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; line-height: 1; }
 .subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
-.diagHUD { display: flex; gap: var(--gap-md); }
-.diagItem { background: var(--navy); color: #fff; padding: clamp(7px,1vw,11px) clamp(12px,1.6vw,18px); border-radius: var(--radius-sm); border: 1px solid var(--orange-border); font-family: 'DM Sans', sans-serif; font-size: var(--fs-meta); font-weight: 900; display: flex; align-items: center; gap: clamp(8px,1vw,12px); text-transform: uppercase; letter-spacing: 0.5px; }
-.diagItem svg { color: var(--orange); }
+.diagHUD { display: flex; gap: var(--gap-md); flex-shrink: 0; align-self: flex-end; }
+.diagItem {
+    background: var(--navy);
+    color: #fff;
+    padding: clamp(4px,0.6vw,7px) clamp(8px,1.1vw,14px);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--orange-border);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(8px, 0.8vw, 10px);
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    gap: clamp(5px,0.7vw,8px);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.diagItem svg { color: var(--orange); font-size: 12px; }
 .diagItem strong { font-family: 'Space Mono', monospace; }
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); }
+.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; }
 
 .searchPill {
     position: relative; display: flex; align-items: center;
@@ -71,40 +86,36 @@
 
 .filterGrid {
     display: flex;
-    align-items: flex-end;
-    gap: var(--gap-md);
-    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(6px, 1vw, 12px);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
     width: 100%;
+    padding-bottom: 2px;
 }
+.filterGrid::-webkit-scrollbar { display: none; }
 
-/* Responsive select wraps */
+/* Compact select wraps - same height as filter buttons */
 .hwSelectWrap {
-    flex: 1 1 clamp(130px, 18vw, 220px);
-    max-width: clamp(150px, 24vw, 260px);
-    min-width: clamp(120px, 15vw, 150px);
+    flex: 1 1 clamp(120px, 15vw, 200px);
+    max-width: clamp(140px, 20vw, 220px);
+    min-width: 0;
 }
+/* Override HardwareSelect internal margin */
+.hwSelectWrap > * { margin-bottom: 0 !important; }
 
-/* HardwareSelect renders its own <label> */
+/* Hide HardwareSelect label - we use placeholder-style filter buttons inline */
 .hwSelectWrap label {
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: var(--fs-label) !important;
-    font-weight: 900 !important;
-    color: rgba(26,46,48,0.65) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    display: block !important;
-    margin-bottom: clamp(3px, 0.4vw, 5px) !important;
+    display: none !important;
 }
 
-/* Reset button — same height as HardwareSelect trigger (52px) */
-@media (max-width: 600px) {
-    .filters { flex-direction: column; width: 100%; gap: 10px; }
-    .filters > div, .resetBtn { width: 100% !important; }
-}
+/* Reset button - same style as ledger filter buttons */
 .resetBtn {
     flex: 0 0 auto;
-    height: clamp(44px, 5.5vw, 52px);
-    padding: 0 clamp(12px, 1.5vw, 20px);
+    height: clamp(34px, 4vw, 40px);
+    padding: 0 clamp(12px, 1.5vw, 18px);
     background: rgba(26, 46, 48, 0.75);
     color: rgba(255, 255, 255, 0.85);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
@@ -121,7 +132,7 @@
     gap: clamp(5px, 0.7vw, 7px);
     text-transform: uppercase;
     white-space: nowrap;
-    margin-bottom: 0;
+    flex-shrink: 0;
 }
 .resetBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
 .resetBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
@@ -202,6 +213,34 @@
 }
 
 /* ── MOBILE TIGHT OVERRIDES ─────────────────────────────────── */
+/* Override HardwareSelect box to be compact like filter buttons */
+.hwSelectWrap .selectBox,
+.hwSelectWrap [class*="selectBox"] {
+    height: clamp(34px, 4vw, 40px) !important;
+    padding: 0 clamp(10px, 1.3vw, 16px) !important;
+    font-size: clamp(9px, 0.9vw, 11px) !important;
+    letter-spacing: 1.5px !important;
+    background: rgba(26, 46, 48, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.hwSelectWrap [class*="selectBox"]:hover {
+    background: rgba(238, 140, 58, 0.12) !important;
+    color: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+}
+.hwSelectWrap [class*="currentValue"] {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-size: clamp(9px, 0.9vw, 11px) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    font-weight: 900 !important;
+}
+.hwSelectWrap [class*="icon"] {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
 @media (max-width: 480px) {
     .container {
         --gap-xl:  10px;
@@ -213,9 +252,9 @@
         --fs-target: 10px;
         --fs-btn:  8px;
     }
-    .filterGrid  { flex-direction: column; align-items: stretch; }
-    .hwSelectWrap { min-width: 0; max-width: 100%; flex: 1 1 100%; }
-    .resetBtn    { width: 100%; justify-content: center; height: clamp(38px, 10vw, 44px); }
+    .filterGrid  { flex-wrap: wrap; }
+    .hwSelectWrap { flex: 1 1 calc(50% - 6px); min-width: 0; }
+    .resetBtn    { flex: 1 1 100%; justify-content: center; }
     .header         { padding: 8px 11px; }
     .diagItem       { padding: 6px 11px; gap: 7px; font-size: 9px; }
     .searchPill     { max-width: 100%; height: 36px; }
@@ -234,9 +273,9 @@
 .pageHeader {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-end;
     flex-wrap: wrap;
-    gap: clamp(10px, 1.4vw, 16px);
+    gap: clamp(6px, 1vw, 12px);
     margin-bottom: clamp(14px, 2vw, 24px);
     border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
     padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);

@@ -197,8 +197,9 @@
 /* ── COMMIT BUTTON ──────────────────────────────────────────────── */
 .commitBtn {
     background: var(--orange); color: var(--navy); border: none;
-    padding: clamp(9px,1.1vw,12px) clamp(16px,2vw,24px);
-    border-radius: var(--radius-sm);
+    padding: 0 var(--btn-px, clamp(16px,2vw,24px));
+    height: var(--btn-height, clamp(38px, 5vw, 44px));
+    border-radius: var(--input-radius, var(--radius-sm));
     font-family: 'DM Sans', sans-serif; font-weight: 900;
     font-size: var(--fs-btn); text-transform: uppercase; letter-spacing: 1px;
     cursor: pointer; display: inline-flex; align-items: center;

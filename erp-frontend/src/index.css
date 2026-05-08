@@ -70,9 +70,53 @@ h1, h2, h3, .hardware-font {
     justify-content: center;
 }
 
-/* Force all inputs and selects to fill their hardware containers */
-input, select, textarea, .HardwareSelect_selectBox__xxxx {
-    width: 100% !important;
+/* ===== GLOBAL RESPONSIVE INPUT + BUTTON SIZING =====
+   One place to control ALL input/button sizes across the entire app.
+   Change these variables to rescale everything uniformly.
+   Mobile: smaller; Tablet: medium; Desktop: full size.
+   ===================================================== */
+:root {
+    /* Input height - scales with viewport */
+    --input-height: clamp(38px, 5.5vw, 48px);
+    /* Input font size */
+    --input-font:   clamp(12px, 1.3vw, 14px);
+    /* Input padding horizontal */
+    --input-px:     clamp(10px, 1.4vw, 15px);
+    /* Button height */
+    --btn-height:   clamp(38px, 5.5vw, 48px);
+    /* Button font */
+    --btn-font:     clamp(10px, 1.1vw, 13px);
+    /* Button padding horizontal */
+    --btn-px:       clamp(14px, 2vw, 32px);
+    /* Border radius */
+    --input-radius: clamp(6px, 0.8vw, 8px);
+    /* Label font */
+    --label-font:   clamp(9px, 0.9vw, 11px);
+    /* Header height */
+    --header-height: clamp(52px, 7vw, 64px);
+}
+
+/* Apply to all native inputs */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+textarea {
+    height: var(--input-height);
+    font-size: var(--input-font) !important;
+    padding-left: var(--input-px) !important;
+    padding-right: var(--input-px) !important;
+    border-radius: var(--input-radius) !important;
     box-sizing: border-box;
+    width: 100% !important;
+}
+
+textarea {
+    height: auto !important;
+    min-height: clamp(80px, 12vw, 120px);
+    padding-top: var(--input-px) !important;
+    padding-bottom: var(--input-px) !important;
+}
+
+/* Labels */
+label {
+    font-size: var(--label-font);
 }
 

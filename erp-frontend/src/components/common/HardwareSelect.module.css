@@ -24,15 +24,15 @@
 
 .selectBox {
     background: #ffffff;
-    border-radius: 8px;
+    border-radius: var(--input-radius, 8px);
     border: 2px solid rgba(238, 140, 58, 0.3);
-    padding: 12px 18px;
+    padding: 0 clamp(10px, 1.4vw, 18px);
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
     transition: 0.3s ease;
-    height: 52px;
+    height: var(--input-height, 44px);
 }
 
 .selectBox:hover, .active {
@@ -41,7 +41,7 @@
     box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
 }
 
-.currentValue { color: var(--navy); font-weight: 700; font-size: 15px; }
+.currentValue { color: var(--navy); font-weight: 700; font-size: var(--input-font, 14px); }
 .icon { color: var(--orange); transition: 0.3s; }
 .active .icon { transform: rotate(180deg); }
 
