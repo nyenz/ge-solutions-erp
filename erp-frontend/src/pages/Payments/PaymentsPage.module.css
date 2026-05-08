@@ -336,3 +336,20 @@
     .ledgerTable td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
 }
+
+
+/* --- MOBILE TABLE RE-ALIGNMENT --- */
+@media (max-width: 480px) {
+    .tableScroll { 
+        margin: -10px; 
+        margin-bottom: 0; 
+        border-radius: 0; 
+        padding-bottom: 10px;
+    }
+    .ledgerTable th, .ledgerTable td { 
+        font-size: 8.5px !important; 
+        padding: 8px 6px !important; 
+        white-space: nowrap; 
+    }
+}
+

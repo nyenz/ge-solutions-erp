@@ -100,8 +100,8 @@ h1, h2, h3, .hardware-font {
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
     height: var(--input-height);
     font-size: var(--input-font) !important;
-    padding-left: var(--input-px) !important;
-    padding-right: var(--input-px) !important;
+    padding-left: var(--input-px);
+    padding-right: var(--input-px);
     border-radius: var(--input-radius) !important;
     box-sizing: border-box;
     width: 100% !important;
@@ -132,5 +132,15 @@ label {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+}
+
+
+
+/* --- GLOBAL SEARCH ICON CLEARANCE --- */
+[class*="searchInput"] {
+    text-indent: 26px !important;
+}
+[class*="searchInputActive"] {
+    text-indent: 0px !important;
 }
 

@@ -364,3 +364,29 @@
     flex-shrink: 0;
     flex-wrap: wrap;
 }
+
+
+/* --- PILL STYLE OVERRIDES FOR UNIFORMITY --- */
+.hwSelectWrap [class*="selectBox"] {
+    border-radius: 20px !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+.hwSelectWrap [class*="selectBox"]:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    color: #fff !important;
+}
+.resetBtn {
+    border-radius: 20px !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+.resetBtn:hover {
+    background: rgba(238, 140, 58, 0.12) !important;
+    border-color: #EE8C3A !important;
+    color: #EE8C3A !important;
+}
+
