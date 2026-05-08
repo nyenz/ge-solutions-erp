@@ -6,7 +6,7 @@
     font-family: 'DM Sans', sans-serif;
     color: #fff;
 }
-.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; margin: 0; letter-spacing: 2px; }
+.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: clamp(18px, 2.5vw, 24px); font-weight: 700; margin: 0; letter-spacing: 1.5px; }
 .subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 .headerLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .refreshBtn { background: rgba(26,46,48,0.08); border: 1px solid rgba(26,46,48,0.15); color: #1a2e30; border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s; flex-shrink: 0; }

@@ -25,7 +25,7 @@
     --fs-badge: clamp(7px,0.75vw,9px);
     --fs-btn:   clamp(9px,0.9vw,11px);
     --fs-note:  clamp(10px,1vw,12px);
-    --fs-h1:    clamp(16px,2.2vw,22px);
+    --fs-h1:    clamp(18px,2.5vw,24px);
     max-width: 1600px;
     margin: 0 auto;
     padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) clamp(24px,4vw,48px);
@@ -54,9 +54,9 @@
 /* ── HEADER ── */
 .titleBlock { display:flex; flex-direction:column; gap:8px; }
 .title { font-family:'Cinzel',serif; color:var(--navy); font-size:var(--fs-h1); font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin:0; }
-.modeSwitch { display:flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; overflow-x:auto; scrollbar-width:none; flex-wrap:nowrap; }
-.modeActive   { background:var(--orange); color:var(--navy); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-.modeInactive { background:transparent; color:rgba(255,255,255,0.75); border:none; padding:7px 16px; border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:var(--fs-btn); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:background 0.2s,color 0.2s; }
+.modeSwitch { display:flex; background:var(--navy); padding:4px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); gap:3px; overflow-x:auto; scrollbar-width:none; flex-wrap:nowrap; min-width:0; flex-shrink:0; }
+.modeActive   { background:var(--orange); color:var(--navy); border:none; padding:clamp(6px,0.9vw,8px) clamp(10px,1.3vw,16px); border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:clamp(9px,1vw,11px); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; flex-shrink:0; }
+.modeInactive { background:transparent; color:rgba(255,255,255,0.75); border:none; padding:clamp(6px,0.9vw,8px) clamp(10px,1.3vw,16px); border-radius:5px; font-family:'DM Sans',sans-serif; font-weight:900; font-size:clamp(9px,1vw,11px); letter-spacing:1px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:background 0.2s,color 0.2s; flex-shrink:0; }
 .modeInactive:hover { background:rgba(255,255,255,0.1); color:#fff; }
 .hudStats { display:flex; gap:var(--gap-md); }
 .statBox { background:var(--navy); padding:8px 18px; border-radius:var(--radius-sm); border:1px solid var(--orange-border); text-align:center; }
@@ -232,7 +232,9 @@
     align-items: center;
     gap: clamp(8px, 1.2vw, 14px);
     flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
 }
 
 .pageTitle {

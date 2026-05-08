@@ -17,7 +17,7 @@
     --radius:   12px;
     --radius-sm: 6px;
 
-    --fs-h1:    clamp(17px, 2.5vw, 24px);
+    --fs-h1:    clamp(18px, 2.5vw, 24px);
     --fs-sub:   clamp(8px,  0.85vw, 10px);
     --fs-label: clamp(7px,  0.75vw, 9px);
     --fs-meta:  clamp(8px,  0.85vw, 10px);
@@ -74,13 +74,14 @@
     align-items: flex-end;
     gap: var(--gap-md);
     flex-wrap: wrap;
+    width: 100%;
 }
 
-/* Shrinks on small screens — no fixed min-width */
+/* Responsive select wraps */
 .hwSelectWrap {
-    flex: 1 1 clamp(140px, 18vw, 220px);
-    max-width: clamp(160px, 24vw, 260px);
-    min-width: clamp(120px, 15vw, 160px);
+    flex: 1 1 clamp(130px, 18vw, 220px);
+    max-width: clamp(150px, 24vw, 260px);
+    min-width: clamp(120px, 15vw, 150px);
 }
 
 /* HardwareSelect renders its own <label> */
@@ -88,7 +89,7 @@
     font-family: 'DM Sans', sans-serif !important;
     font-size: var(--fs-label) !important;
     font-weight: 900 !important;
-    color: #64748b !important;
+    color: rgba(26,46,48,0.65) !important;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
     display: block !important;
@@ -101,30 +102,28 @@
     .filters > div, .resetBtn { width: 100% !important; }
 }
 .resetBtn {
-    height: 52px; /* Matches dropdown height */
     flex: 0 0 auto;
     height: clamp(44px, 5.5vw, 52px);
     padding: 0 clamp(12px, 1.5vw, 20px);
-    background: var(--navy);
-    color: #fff;
-    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    background: rgba(26, 46, 48, 0.75);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
-    font-size: var(--fs-btn);
+    font-size: clamp(9px, 0.9vw, 11px);
     letter-spacing: 1.5px;
     cursor: pointer;
-    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    transition: all 0.2s ease;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
     text-transform: uppercase;
     white-space: nowrap;
-    /* Align with bottom of select (which has a label above it) */
     margin-bottom: 0;
 }
-.resetBtn:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.08); }
+.resetBtn:hover { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
 .resetBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 
@@ -214,6 +213,9 @@
         --fs-target: 10px;
         --fs-btn:  8px;
     }
+    .filterGrid  { flex-direction: column; align-items: stretch; }
+    .hwSelectWrap { min-width: 0; max-width: 100%; flex: 1 1 100%; }
+    .resetBtn    { width: 100%; justify-content: center; height: clamp(38px, 10vw, 44px); }
     .header         { padding: 8px 11px; }
     .diagItem       { padding: 6px 11px; gap: 7px; font-size: 9px; }
     .searchPill     { max-width: 100%; height: 36px; }

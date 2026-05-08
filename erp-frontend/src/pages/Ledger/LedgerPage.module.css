@@ -20,7 +20,7 @@
     --radius:    10px;
     --radius-sm: 6px;
 
-    --fs-h1:     clamp(18px, 2.8vw, 26px);
+    --fs-h1:     clamp(18px, 2.5vw, 24px);
     --fs-sub:    clamp(9px,  0.9vw, 11px);
     --fs-label:  clamp(8px,  0.85vw, 10px);
     --fs-value:  clamp(11px, 1.1vw, 13px);
@@ -192,13 +192,7 @@
 /* Hover: orange border + orange text (text stays visible) */
 
 /* Active/selected: orange bg + dark navy text — same as Payments "ALL TYPES" */
-.activeFilter {
-    background: #EE8C3A !important;
-    border-color: #EE8C3A !important;
-    color: #1a2e30 !important;
-    font-weight: 900 !important;
-    box-shadow: 0 2px 12px rgba(238, 140, 58, 0.4);
-}
+/* .activeFilter is now merged into .filterActive above */
 
 
 /* ── TABLE SHELL ────────────────────────────────────────────────── */
@@ -300,11 +294,10 @@
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-tag);
     font-weight: 900;
-    color: rgba(255,255,255,0.55);
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.14);
-    padding: 1px 7px;
-    border-radius: 3px;
+    color: rgba(255,255,255,0.45);
+    background: transparent;
+    border: none;
+    padding: 0;
     text-transform: uppercase;
     margin-right: 4px;
 }
@@ -651,14 +644,14 @@
 
 
 .filterBtn {
-    background: rgba(26, 46, 48, 0.75) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
-    color: rgba(255, 255, 255, 0.85) !important;
-    padding: 8px 16px;
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px,0.9vw,9px) clamp(12px,1.5vw,18px);
     border-radius: 6px;
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
-    font-size: 11px;
+    font-size: clamp(9px,0.95vw,11px);
     letter-spacing: 1.5px;
     text-transform: uppercase;
     cursor: pointer;
@@ -668,19 +661,22 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .filterBtn:hover {
-    background: rgba(238, 140, 58, 0.12) !important;
-    color: #EE8C3A !important;
-    border-color: var(--orange) !important;
+    background: rgba(238, 140, 58, 0.12);
+    color: #EE8C3A;
+    border-color: #EE8C3A;
 }
 
-.filterActive {
+.filterActive,
+.activeFilter {
     background: #EE8C3A !important;
     color: #1a2e30 !important;
     border-color: #EE8C3A !important;
-    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 14px rgba(238, 140, 58, 0.4) !important;
 }
 
 /* -- PAGE HEADER unified glass panel matching Dashboard -- */
