@@ -122,14 +122,14 @@
 .searchIcon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
 .searchInput {
     width: 100%; border: none; outline: none; background: transparent;
-    color: #1a2e30; padding: 0 36px 0 38px;
+    color: #1a2e30; padding: 0 36px 0 42px;
     font-family: 'DM Sans', sans-serif; font-weight: 800;
     font-size: var(--fs-input);
     height: 100%;
     transition: padding 0.2s ease;
 }
 .searchInputActive {
-    padding-left: 12px;
+    padding-left: 14px !important;
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn {

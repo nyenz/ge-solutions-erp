@@ -157,7 +157,7 @@
     -webkit-appearance: none;
     appearance: none;
     width: 24px;
-    background-color: #162a2c;
+    background-color: transparent;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23EE8C3A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='7,11 12,6 17,11' /%3E%3Cpolyline points='7,13 12,18 17,13' /%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
@@ -169,7 +169,7 @@
 .modalInput[type="number"]::-webkit-inner-spin-button:hover,
 .modalInput[type="number"]::-webkit-outer-spin-button:hover {
     opacity: 1;
-    background-color: #213e40;
+    background-color: rgba(238, 140, 58, 0.1);
 }
 
 /* Textarea inside a modal */

@@ -76,6 +76,7 @@ const RecoveryPortal = () => {
     const [loading,       setLoading]       = useState(true);
     const [expandedPhone, setExpandedPhone] = useState(null);
     const [searchTerm,    setSearchTerm]    = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     const [callModal,     setCallModal]     = useState({ open: false, mission: null });
     const [callHistory,   setCallHistory]   = useState([]);
@@ -325,9 +326,11 @@ const RecoveryPortal = () => {
             <div className={styles.filterBar}>
                 <div className={styles.searchInner}>
                     <input type="search" placeholder="Search owner, phone, or plot ID..."
-                        className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`} value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)} />
-                    {!searchTerm && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                        className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`} value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)} />
+                    {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                     {searchTerm && (
                         <button className={styles.searchClear} onClick={() => setSearchTerm('')}>
                             <FiX aria-hidden="true" />

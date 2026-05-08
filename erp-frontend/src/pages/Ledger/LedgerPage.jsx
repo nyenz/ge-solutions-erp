@@ -74,6 +74,7 @@ const LedgerPage = () => {
     const [loadError,    setLoadError]    = useState(false);
     const [page,         setPage]         = useState(0);
     const [searchTerm,   setSearchTerm]   = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig,   setSortConfig]   = useState({ key: 'plotNumber', direction: 'asc' });
 
@@ -154,13 +155,15 @@ const LedgerPage = () => {
                         <input
                             type="search" id="ledger-search"
                             placeholder="Plot ID, box, owner, phone, NIN, email, district, county, tenure..."
-                            className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`}
+                            className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setIsSearchFocused(false)}
                             aria-label="Search ledger records"
                             autoComplete="off"
                         />
-                        {!searchTerm && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                        {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                         {searchTerm && (
                             <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
                                 aria-label="Clear search" type="button">

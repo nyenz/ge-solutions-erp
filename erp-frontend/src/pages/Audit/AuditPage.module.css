@@ -78,8 +78,8 @@
 }
 .searchPill:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238,140,58,0.18); }
 .searchIcon { position: absolute; left: clamp(10px,1.2vw,14px); top: 50%; transform: translateY(-50%); color: var(--orange); font-size: clamp(14px,1.5vw,18px); pointer-events: none; flex-shrink: 0; display: flex; align-items: center; line-height: 1; }
-.searchInput { width: 100%; border: none; outline: none; background: transparent; padding: 0 clamp(34px,4.5vw,42px); font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: var(--fs-input); color: var(--navy); -webkit-appearance: none; appearance: none; transition: padding 0.2s ease; }
-.searchInputActive { padding-left: clamp(12px,1.5vw,16px); }
+.searchInput { width: 100%; border: none; outline: none; background: transparent; padding: 0 clamp(34px,4.5vw,42px) 0 clamp(42px,5vw,50px); font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: var(--fs-input); color: var(--navy); -webkit-appearance: none; appearance: none; transition: padding 0.2s ease; }
+.searchInputActive { padding-left: clamp(14px,1.5vw,18px) !important; }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .searchClear { position: absolute; right: clamp(8px,1vw,12px); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.4); display: flex; align-items: center; font-size: clamp(13px,1.4vw,16px); padding: clamp(3px,0.4vw,5px); border-radius: 4px; transition: color 0.15s, background 0.15s; }
 .searchClear:hover { color: var(--navy); background: rgba(26,46,48,0.08); }

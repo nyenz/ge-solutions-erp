@@ -17,6 +17,7 @@ const AuditPage = () => {
     const [expandedId, setExpandedId] = useState(null);
     const [filters,    setFilters]    = useState({ operator: '', action: '', search: '' });
     const [operators,  setOperators]  = useState([]);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     // Load real operators from database
     useEffect(() => {
@@ -83,12 +84,14 @@ const AuditPage = () => {
                     <input
                         type="search"
                         placeholder="Investigate specific Plot ID, Name, or Keyword..."
-                        className={`${styles.searchInput} ${filters.search ? styles.searchInputActive : ''}`}
+                        className={`${styles.searchInput} ${(filters.search || isSearchFocused) ? styles.searchInputActive : ''}`}
                         value={filters.search}
                         onChange={e => setFilters({...filters, search: e.target.value})}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
                         aria-label="Search forensic logs"
                     />
-                    {!filters.search && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                    {!(filters.search || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
                     {filters.search && (
                         <button className={styles.searchClear} onClick={() => setFilters({...filters, search: ''})} aria-label="Clear search">
                             <FiX aria-hidden="true" />

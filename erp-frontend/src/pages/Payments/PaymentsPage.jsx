@@ -28,6 +28,7 @@ const PaymentsPage = () => {
     const [payments,   setPayments]   = useState([]);
     const [loading,    setLoading]    = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [sortKey,    setSortKey]    = useState('date');
     const [sortDir,    setSortDir]    = useState('desc');
@@ -119,11 +120,13 @@ const PaymentsPage = () => {
 
             <div className={styles.controls}>
                 <div className={styles.searchWrap}>
-                    {!searchTerm && <FiSearch className={styles.searchIcon} />}
+                    {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} />}
                     <input type="search" 
-                        className={`${styles.searchInput} ${searchTerm ? styles.searchInputActive : ''}`}
+                        className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
                         placeholder="Search plot ID, owner name, recorded by..."
-                        value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)} />
                     {searchTerm && (
                         <button className={styles.clearBtn} onClick={() => setSearchTerm('')}>
                             <FiX size={14} />
