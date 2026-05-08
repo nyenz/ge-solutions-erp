@@ -4,7 +4,6 @@ package com.gesolutions.erp.modules.land.service;
 import com.gesolutions.erp.modules.land.model.*;
 import com.gesolutions.erp.modules.land.repository.*;
 import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.common.audit.AuditLog;
 import com.gesolutions.erp.common.audit.AuditLogRepository;
@@ -298,7 +297,7 @@ public class ReportService {
                 }
             } catch (Exception ignored) {}
 
-            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";").replace(""", "'") : "";
+            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
             csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
                .append(plotNumber).append(CSV_DIVIDER)
                .append(ownerName).append(CSV_DIVIDER)
@@ -306,13 +305,13 @@ public class ReportService {
                .append(pay.getAmountPaid()).append(CSV_DIVIDER)
                .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
                .append(pay.getRecordedBy()).append(CSV_DIVIDER)
-               .append(""").append(notes).append(""").append(NEW_LINE);
+               .append(notes).append(NEW_LINE);
         }
         auditService.logAction("REPORT_EXPORT", "Priority 2: Full Payment History Exported");
         return csv.toString().getBytes();
     }
 
-    /**
+        /**
      * PRIORITY 2 - REPORT 4: STORAGE FEES PER PLOT REPORT
      * Total storage fees accumulated per backlog plot.
      */
