@@ -67,7 +67,7 @@
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 200; overflow: visible; }
+.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 9500; overflow: visible; isolation: isolate; }
 
 .searchPill {
     position: relative; display: flex; align-items: center;
@@ -87,7 +87,7 @@
 .filterGrid {
     display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     gap: clamp(6px, 1vw, 10px);
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -95,8 +95,10 @@
     scrollbar-width: none;
     width: 100%;
     padding-bottom: 4px;
+    padding-top: 4px;
     position: relative;
-    z-index: 100;
+    z-index: 9000;
+    isolation: isolate;
 }
 .filterGrid::-webkit-scrollbar { display: none; }
 
@@ -107,9 +109,12 @@
     min-width: 0;
     position: relative;
     z-index: 9000;
+    overflow: visible !important;
 }
 /* Override HardwareSelect internal margin */
 .hwSelectWrap > * { margin-bottom: 0 !important; }
+/* Force the inner fieldWrapper to overflow visible too */
+.hwSelectWrap > div { overflow: visible !important; z-index: 9000 !important; }
 
 /* Hide HardwareSelect label */
 .hwSelectWrap label {
@@ -248,7 +253,8 @@
         width: 100%;
         gap: 6px;
         padding-bottom: 6px;
-        padding-top: 2px;
+        padding-top: 4px;
+        z-index: 9000;
     }
     .hwSelectWrap { width: 130px; min-width: 110px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; }
@@ -313,6 +319,8 @@
         flex-wrap: nowrap;
         overflow-x: auto;
         gap: 5px;
+        overflow-y: visible;
+        z-index: 9000;
     }
     .hwSelectWrap { flex: 0 0 auto; max-width: 120px; min-width: 100px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; font-size: 8px; height: 32px; }

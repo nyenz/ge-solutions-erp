@@ -111,6 +111,169 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ── UNIFORM MODAL FORM ELEMENTS ────────────────────────────────
+   Use these classes inside any HardwareModal content for
+   consistent spacing, fonts, and button design across all popups.
+   ──────────────────────────────────────────────────────────────── */
+
+/* Text input / number input inside a modal */
+.modalInput {
+    width: 100%;
+    padding: clamp(11px, 1.4vw, 14px) clamp(12px, 1.6vw, 16px);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(13px, 1.3vw, 15px);
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    display: block;
+    margin-top: clamp(5px, 0.6vw, 7px);
+}
+.modalInput:focus {
+    border-color: rgba(238, 140, 58, 0.7);
+    background: rgba(238, 140, 58, 0.06);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+}
+.modalInput::placeholder { color: rgba(255, 255, 255, 0.25); font-weight: 500; }
+
+/* Textarea inside a modal */
+.modalTextarea {
+    width: 100%;
+    padding: clamp(11px, 1.4vw, 14px) clamp(12px, 1.6vw, 16px);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(13px, 1.3vw, 15px);
+    font-weight: 700;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    display: block;
+    min-height: clamp(100px, 14vw, 140px);
+    margin-top: clamp(5px, 0.6vw, 7px);
+}
+.modalTextarea:focus {
+    border-color: rgba(238, 140, 58, 0.7);
+    background: rgba(238, 140, 58, 0.06);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+}
+.modalTextarea::placeholder { color: rgba(255, 255, 255, 0.25); font-weight: 500; }
+
+/* Field label inside a modal */
+.modalLabel {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0;
+}
+
+/* Field group wrapper - adds bottom spacing between fields */
+.modalField {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: clamp(12px, 1.5vw, 16px);
+}
+
+/* Info/context box (green = normal, red = backlog) */
+.modalInfoBox {
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: 8px;
+    padding: clamp(10px, 1.3vw, 14px);
+    margin-bottom: clamp(14px, 1.8vw, 18px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.6;
+}
+.modalInfoBoxDanger {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.modalInfoBoxDanger strong { color: #fca5a5; }
+
+/* Footer row with action buttons */
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 12px);
+    margin-top: clamp(14px, 1.8vw, 20px);
+    padding-top: clamp(12px, 1.5vw, 16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+}
+
+/* Primary action button (orange) */
+.modalBtnPrimary {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 9px);
+    padding: 0 clamp(16px, 2vw, 24px);
+    height: clamp(38px, 4.8vw, 46px);
+    background: #EE8C3A;
+    color: #1a2e30;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(10px, 1vw, 12px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.modalBtnPrimary:hover:not(:disabled) {
+    background: #f0a050;
+    box-shadow: 0 0 20px rgba(238, 140, 58, 0.4);
+    transform: translateY(-1px);
+}
+.modalBtnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+.modalBtnPrimary:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+
+/* Cancel / secondary button */
+.modalBtnSecondary {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 8px);
+    padding: 0 clamp(14px, 1.8vw, 20px);
+    height: clamp(38px, 4.8vw, 46px);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(10px, 1vw, 12px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.modalBtnSecondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.modalBtnSecondary:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+
 /* Mobile */
 @media (max-width: 480px) {
     .modalBody {
@@ -120,4 +283,6 @@
     }
     .title { font-size: 12px; letter-spacing: 1px; }
     .header { margin-bottom: 14px; padding-bottom: 10px; }
+    .modalFooter { flex-direction: column-reverse; }
+    .modalBtnPrimary, .modalBtnSecondary { width: 100%; justify-content: center; }
 }

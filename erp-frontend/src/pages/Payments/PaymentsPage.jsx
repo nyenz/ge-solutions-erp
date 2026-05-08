@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiDollarSign, FiSearch, FiX,
     FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw,
-    FiCalendar, FiMapPin, FiLayers
+    FiLayers, FiArrowUp, FiArrowDown
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import styles from './PaymentsPage.module.css';
@@ -29,13 +29,8 @@ const PaymentsPage = () => {
     const [loading,    setLoading]    = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('ALL');
+    const [sortKey,    setSortKey]    = useState('date');
     const [sortDir,    setSortDir]    = useState('desc');
-
-    // Column filters for table headers
-    const [dateFilter,  setDateFilter]  = useState('');
-    const [plotFilter,  setPlotFilter]  = useState('');
-    const [ownerFilter, setOwnerFilter] = useState('');
-    const [amountSort,  setAmountSort]  = useState(null); // 'asc' | 'desc' | null
 
     const loadPayments = useCallback(async () => {
         setLoading(true);
@@ -51,13 +46,14 @@ const PaymentsPage = () => {
 
     useEffect(() => { loadPayments(); }, [loadPayments]);
 
+    const handleSort = (key) => {
+        if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortKey(key); setSortDir('desc'); }
+    };
+
     const filtered = useMemo(() => {
         let list = [...payments];
-
-        // Top-level type filter
         if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);
-
-        // Global search
         if (searchTerm.trim()) {
             const t = searchTerm.toLowerCase();
             list = list.filter(p =>
@@ -67,73 +63,39 @@ const PaymentsPage = () => {
                 p.notes?.toLowerCase().includes(t)
             );
         }
-
-        // Column filters
-        if (dateFilter.trim()) {
-            const df = dateFilter.toLowerCase();
-            list = list.filter(p =>
-                new Date(p.timestamp).toLocaleDateString().toLowerCase().includes(df)
-            );
-        }
-        if (plotFilter.trim()) {
-            const pf = plotFilter.toLowerCase();
-            list = list.filter(p => p.plotNumber?.toLowerCase().includes(pf));
-        }
-        if (ownerFilter.trim()) {
-            const of_ = ownerFilter.toLowerCase();
-            list = list.filter(p => p.ownerName?.toLowerCase().includes(of_));
-        }
-
-        // Sorting
-        if (amountSort) {
-            list.sort((a, b) => {
-                const diff = Number(a.amountPaid || 0) - Number(b.amountPaid || 0);
-                return amountSort === 'asc' ? diff : -diff;
-            });
-        } else {
-            list.sort((a, b) => {
-                const da = new Date(a.timestamp), db = new Date(b.timestamp);
-                return sortDir === 'desc' ? db - da : da - db;
-            });
-        }
-
+        list.sort((a, b) => {
+            let aVal, bVal;
+            if      (sortKey === 'amount') { aVal = Number(a.amountPaid||0); bVal = Number(b.amountPaid||0); }
+            else if (sortKey === 'plot')   { aVal = a.plotNumber||''; bVal = b.plotNumber||''; }
+            else if (sortKey === 'owner')  { aVal = a.ownerName||''; bVal = b.ownerName||''; }
+            else                           { aVal = new Date(a.timestamp); bVal = new Date(b.timestamp); }
+            if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortDir === 'asc' ?  1 : -1;
+            return 0;
+        });
         return list;
-    }, [payments, typeFilter, searchTerm, sortDir, dateFilter, plotFilter, ownerFilter, amountSort]);
+    }, [payments, typeFilter, searchTerm, sortKey, sortDir]);
 
-    const totalCollected = useMemo(() =>
-        filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const totalCollected = useMemo(() => filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
-    const titleTotal = useMemo(() =>
-        filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL')
-                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-
-    const storageTotal = useMemo(() =>
-        filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL')
-                .reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-
-    const toggleAmountSort = () => {
-        setAmountSort(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? null : 'desc');
-    };
-
-    const SortArrow = ({ field }) => {
-        if (field === 'amount' && amountSort) {
-            return <span className={styles.sortArrow}>{amountSort === 'desc' ? ' ↓' : ' ↑'}</span>;
-        }
-        if (field === 'date' && !amountSort) {
-            return <span className={styles.sortArrow}>{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>;
-        }
-        return <span className={styles.sortArrowInactive}> ↕</span>;
+    const SortIcon = ({ field }) => {
+        if (sortKey !== field) return <span className={styles.sortArrowInactive}> ↕</span>;
+        return sortDir === 'asc'
+            ? <FiArrowUp  style={{display:'inline',marginLeft:3,fontSize:10,color:'#fff'}} />
+            : <FiArrowDown style={{display:'inline',marginLeft:3,fontSize:10,color:'#fff'}} />;
     };
 
     return (
         <div className={styles.container}>
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>PAYMENTS</h1>
-                    <p className={styles.subtitle}>All payment records - title payments and storage fee collections</p>
+                    <h1 className={styles.title}>Payments</h1>
+                    <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
                 </div>
                 <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={16} />
+                    <FiRefreshCw size={14} /> REFRESH
                 </button>
             </header>
 
@@ -155,7 +117,6 @@ const PaymentsPage = () => {
                 </div>
             </div>
 
-            {/* Global search + type filter row */}
             <div className={styles.controls}>
                 <div className={styles.searchWrap}>
                     <FiSearch className={styles.searchIcon} />
@@ -191,32 +152,22 @@ const PaymentsPage = () => {
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                {/* DATE header with sort + filter */}
-                                <th className={styles.thWithFilter}>
-                                    <div className={styles.thTop}>
-                                        <button className={styles.thSortBtn} onClick={() => { setAmountSort(null); setSortDir(d => d === 'desc' ? 'asc' : 'desc'); }}>
-                                            <FiCalendar size={10} /> DATE <SortArrow field="date" />
-                                        </button>
-                                    </div>
-                                    <input className={styles.colFilter} placeholder="Filter date..." value={dateFilter}
-                                        onChange={e => setDateFilter(e.target.value)} />
+                                <th className={styles.thSortable} onClick={() => handleSort('date')}
+                                    aria-sort={sortKey==='date' ? (sortDir==='asc'?'ascending':'descending') : 'none'}>
+                                    DATE <SortIcon field="date" />
                                 </th>
-                                {/* PLOT header with filter */}
-                                <th className={styles.thWithFilter}>
-                                    <div className={styles.thTop}><FiMapPin size={10} /> PLOT</div>
-                                    <input className={styles.colFilter} placeholder="Filter plot..." value={plotFilter}
-                                        onChange={e => setPlotFilter(e.target.value)} />
+                                <th className={styles.thSortable} onClick={() => handleSort('plot')}
+                                    aria-sort={sortKey==='plot' ? (sortDir==='asc'?'ascending':'descending') : 'none'}>
+                                    PLOT <SortIcon field="plot" />
                                 </th>
-                                {/* OWNER header with filter */}
-                                <th className={styles.thWithFilter}>
-                                    <div className={styles.thTop}><FiUser size={10} /> OWNER</div>
-                                    <input className={styles.colFilter} placeholder="Filter owner..." value={ownerFilter}
-                                        onChange={e => setOwnerFilter(e.target.value)} />
+                                <th className={styles.thSortable} onClick={() => handleSort('owner')}
+                                    aria-sort={sortKey==='owner' ? (sortDir==='asc'?'ascending':'descending') : 'none'}>
+                                    OWNER <SortIcon field="owner" />
                                 </th>
                                 <th>TYPE</th>
-                                {/* AMOUNT with sort */}
-                                <th className={styles.thSortable} onClick={toggleAmountSort}>
-                                    <FiDollarSign size={10} /> AMOUNT PAID <SortArrow field="amount" />
+                                <th className={styles.thSortable} onClick={() => handleSort('amount')}
+                                    aria-sort={sortKey==='amount' ? (sortDir==='asc'?'ascending':'descending') : 'none'}>
+                                    AMOUNT PAID <SortIcon field="amount" />
                                 </th>
                                 <th>BALANCE AFTER</th>
                                 <th>RECORDED BY</th>
@@ -235,7 +186,10 @@ const PaymentsPage = () => {
                                     </td>
                                 </tr>
                             ) : filtered.map((pay, i) => (
-                                <tr key={pay.id || i} className={styles.row}>
+                                <tr key={pay.id || i}
+                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}`)}
+                                    tabIndex={pay.projectId ? 0 : undefined}
+                                    onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}`); }}}>
                                     <td>
                                         <div className={styles.dateCell}>
                                             <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
@@ -252,7 +206,7 @@ const PaymentsPage = () => {
                                         <span className={styles.typeBadge} style={{
                                             background: `${TYPE_COLORS[pay.paymentType] || '#888'}22`,
                                             color: TYPE_COLORS[pay.paymentType] || '#888',
-                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}44`
+                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}55`
                                         }}>
                                             {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
                                             {TYPE_LABELS[pay.paymentType] || pay.paymentType}
@@ -275,8 +229,8 @@ const PaymentsPage = () => {
                                     <td>
                                         {pay.projectId && (
                                             <button className={styles.goBtn}
-                                                onClick={() => navigate(`/folder/${pay.projectId}`)}>
-                                                <FiChevronRight size={13} />
+                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}`); }}>
+                                                <FiChevronRight size={12} /> VIEW
                                             </button>
                                         )}
                                     </td>

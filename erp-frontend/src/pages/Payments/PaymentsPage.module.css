@@ -21,7 +21,7 @@
     --fs-value:  clamp(11px, 1.1vw, 13px);
     --fs-tag:    clamp(7px,  0.75vw, 9px);
     --fs-input:  clamp(11px, 1.1vw, 13px);
-    --fs-th:     clamp(7px,  0.78vw, 9px);
+    --fs-th:     clamp(8px,  0.85vw, 10px);
     --fs-td:     clamp(10px, 1.05vw, 12px);
     --fs-meta:   clamp(8px,  0.85vw, 10px);
     --fs-btn:    clamp(9px,  0.9vw, 11px);
@@ -60,16 +60,22 @@
 
 .refreshBtn {
     background: rgba(26,46,48,0.08);
-    border: 1px solid rgba(26,46,48,0.15);
+    border: 1.5px solid rgba(26,46,48,0.2);
     color: #1a2e30;
-    border-radius: 8px;
-    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    padding: 0 clamp(12px,1.5vw,16px);
     cursor: pointer;
     display: flex;
     align-items: center;
+    gap: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: var(--fs-btn);
+    text-transform: uppercase;
+    letter-spacing: 1px;
     transition: all 0.2s;
+    height: clamp(34px, 4vw, 40px);
     flex-shrink: 0;
-    height: var(--btn-height, clamp(36px, 4.5vw, 44px));
 }
 .refreshBtn:hover { background: #EE8C3A; color: #fff; border-color: #EE8C3A; }
 
@@ -110,25 +116,27 @@
     border-radius: var(--radius-sm);
     height: clamp(36px, 4.5vw, 44px);
     max-width: clamp(300px, 50vw, 560px);
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 .searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 12px; color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
+.searchIcon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #EE8C3A; font-size: clamp(14px, 1.5vw, 17px); pointer-events: none; flex-shrink: 0; }
 .searchInput {
     width: 100%; border: none; outline: none; background: transparent;
     color: #1a2e30; padding: 0 36px 0 38px;
     font-family: 'DM Sans', sans-serif; font-weight: 800;
     font-size: var(--fs-input);
+    height: 100%;
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn {
-    position: absolute; right: 8px; background: transparent; border: none;
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: transparent; border: none;
     cursor: pointer; color: rgba(26,46,48,0.4); display: flex;
-    align-items: center; padding: 4px; border-radius: 4px;
+    align-items: center; padding: 4px; border-radius: 4px; transition: color 0.15s, background 0.15s;
 }
-.clearBtn:hover { color: #1a2e30; }
+.clearBtn:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
 
-/* FILTER ROW */
+/* FILTER ROW - matches Ledger style exactly */
 .filterRow {
     display: flex;
     flex-wrap: nowrap;
@@ -143,11 +151,11 @@
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(10px, 1.3vw, 16px);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
-    font-size: clamp(9px, 0.9vw, 11px);
+    font-size: clamp(9px, 0.95vw, 11px);
     letter-spacing: 1.5px;
     text-transform: uppercase;
     cursor: pointer;
@@ -166,17 +174,18 @@
     box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
 }
 
-/* TABLE */
+/* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
 .tableWrap {
-    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.15);
     border-radius: var(--radius);
-    background: var(--panel-bg);
-    border: 1.5px solid var(--orange-border);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    /* Orange top separator line like ledger */
-    border-top: 2px solid var(--orange);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(238,140,58,0.35) transparent;
 }
+.tableWrap::-webkit-scrollbar { height: 4px; }
+.tableWrap::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }
+
 .table {
     width: 100%;
     border-collapse: separate;
@@ -184,112 +193,59 @@
     min-width: clamp(700px, 90vw, 1100px);
 }
 
-/* TABLE HEADER */
+/* TABLE HEADER - matches Ledger exactly */
 .table thead tr {
-    border-bottom: 2px solid var(--orange);
+    background: #162a2c;
 }
 .table th {
     background: #162a2c;
-    padding: 0;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-th);
-    color: var(--orange);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
+    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
     text-align: left;
-    white-space: nowrap;
-    vertical-align: top;
-    border-right: 1px solid rgba(255,255,255,0.05);
-}
-.table th:last-child { border-right: none; }
-
-/* Header with column filter input */
-.thWithFilter {
-    min-width: clamp(100px, 12vw, 150px);
-}
-.thTop {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
-    padding-bottom: 4px;
+    font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-th);
     font-weight: 900;
     color: var(--orange);
-    letter-spacing: 1.5px;
     text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 3px solid var(--orange);
+    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
+    white-space: nowrap;
+    user-select: none;
 }
-.colFilter {
-    display: block;
-    width: calc(100% - 16px);
-    margin: 0 8px clamp(6px, 0.8vw, 8px) 8px;
-    padding: clamp(4px, 0.5vw, 6px) clamp(6px, 0.8vw, 8px);
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 4px;
-    color: rgba(255,255,255,0.8);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(9px, 0.85vw, 10px);
-    font-weight: 700;
-    outline: none;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
-}
-.colFilter:focus { border-color: var(--orange); background: rgba(238,140,58,0.08); }
-.colFilter::placeholder { color: rgba(255,255,255,0.25); font-style: italic; font-weight: 500; }
+.table th:first-child { border-radius: var(--radius) 0 0 0; }
+.table th:last-child  { border-radius: 0 var(--radius) 0 0; }
 
 /* Sortable header */
 .thSortable {
     cursor: pointer;
-    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
     transition: background 0.15s;
-    min-width: clamp(100px, 12vw, 150px);
 }
-.thSortable:hover { background: rgba(238,140,58,0.08); }
+.thSortable:hover { background: rgba(238,140,58,0.07); }
 
-.thSortBtn {
-    background: transparent;
-    border: none;
-    color: var(--orange);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-th);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
+/* ROWS - matches Ledger */
+.table tbody tr {
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0;
-    transition: color 0.2s;
-}
-.thSortBtn:hover { color: #fff; }
-
-.sortArrow { color: #fff; font-size: 10px; opacity: 0.9; }
-.sortArrowInactive { color: rgba(255,255,255,0.25); font-size: 10px; }
-
-/* Regular th (no filter) */
-.table th:not(.thWithFilter):not(.thSortable) {
-    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
-}
-
-/* ROWS */
-.row {
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    transition: background 0.15s, border-left-color 0.15s;
+    transition: background 0.18s, border-left-color 0.18s;
     border-left: 3px solid transparent;
+    outline: none;
 }
-.row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-left-color: var(--orange);
+}
+.table tbody tr:focus-visible {
+    background: rgba(238, 140, 58, 0.07);
+    outline: 2px solid var(--orange);
+    outline-offset: -2px;
+}
 .table td {
-    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.3vw, 14px);
-    color: rgba(255,255,255,0.9);
+    padding: clamp(9px, 1.3vw, 14px) clamp(12px, 1.8vw, 20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     vertical-align: middle;
+    color: #fff;
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
-    border-right: 1px solid rgba(255,255,255,0.04);
 }
-.table td:last-child { border-right: none; }
 
 /* CELL TYPES */
 .dateCell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; font-weight: 700; }
@@ -313,14 +269,18 @@
 .recorder { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: rgba(255,255,255,0.6); }
 .notesCell { font-style: italic; color: rgba(255,255,255,0.45); max-width: clamp(100px, 14vw, 180px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
 .goBtn {
-    background: rgba(238,140,58,0.1); border: 1px solid rgba(238,140,58,0.35);
-    color: #EE8C3A; border-radius: 6px; padding: 6px; cursor: pointer;
-    display: flex; align-items: center; transition: all 0.2s;
+    background: rgba(238,140,58,0.1); border: 1.5px solid rgba(238,140,58,0.35);
+    color: #EE8C3A; border-radius: var(--radius-sm); padding: clamp(5px,0.7vw,7px) clamp(8px,1vw,10px);
+    cursor: pointer; display: flex; align-items: center; gap: 4px;
+    transition: all 0.2s; font-size: var(--fs-tag); font-weight: 900;
+    font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
 }
 .goBtn:hover { background: #EE8C3A; color: #1a2e30; }
+.sortArrow { color: #fff; font-size: 10px; opacity: 0.9; margin-left: 3px; }
+.sortArrowInactive { color: rgba(255,255,255,0.25); font-size: 10px; margin-left: 3px; }
 
-/* NO RECORDS */
-.noRecords { text-align: center; padding: 0; }
+/* NO RECORDS - matches Ledger emptyCell */
+.noRecords { text-align: center; }
 .noRecordsInner {
     display: flex;
     flex-direction: column;
@@ -328,7 +288,7 @@
     justify-content: center;
     gap: clamp(8px, 1.2vw, 14px);
     padding: clamp(40px, 6vw, 70px) 20px;
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.22);
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-meta);
     font-weight: 900;
@@ -344,27 +304,18 @@
     border-radius: var(--radius);
     box-shadow: 0 8px 28px rgba(0,0,0,0.15);
     padding: clamp(40px, 6vw, 70px) 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
 }
 .emptyInner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    color: rgba(255,255,255,0.25);
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-meta);
-    font-weight: 900;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 14px; color: rgba(255,255,255,0.25);
+    font-family: 'Space Mono', monospace; font-size: var(--fs-meta);
+    font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
 }
 .loadingSpinner {
     width: 32px; height: 32px;
     border: 3px solid rgba(238,140,58,0.15);
-    border-top-color: #EE8C3A;
-    border-radius: 50%;
+    border-top-color: #EE8C3A; border-radius: 50%;
     animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -386,5 +337,4 @@
     .table th { font-size: 7px; letter-spacing: 1px; }
     .table td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
-    .colFilter { font-size: 8px; padding: 3px 5px; }
 }

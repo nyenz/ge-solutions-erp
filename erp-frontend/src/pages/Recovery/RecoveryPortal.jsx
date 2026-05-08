@@ -14,6 +14,7 @@ import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModal from '../../components/common/HardwareModal';
 import styles from './RecoveryPortal.module.css';
+import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const useToast = () => {
     const [toasts, setToasts] = useState([]);
@@ -366,68 +367,69 @@ const RecoveryPortal = () => {
             <HardwareModal isOpen={callModal.open}
                 onClose={() => setCallModal({ open: false, mission: null })}
                 title={`LOG CALL: ${callModal.mission?.ownerName || ''}`}>
-                <div className={styles.modalBody}>
-                    <div className={styles.historyStream}>
-                        <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>
-                        {callHistory.length === 0 ? (
-                            <div className={styles.emptyHistory}>No prior logs found.</div>
-                        ) : callHistory.map(log => (
-                            <div key={log.id} className={styles.historyItem}>
-                                <div className={styles.historyMeta}>
-                                    <span><FiUser aria-hidden="true" /> {log.recordedBy}</span>
-                                    <small>{new Date(log.timestamp).toLocaleDateString()}</small>
-                                </div>
-                                <p>{log.notes}</p>
+                <div className={styles.historyStream}>
+                    <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>
+                    {callHistory.length === 0 ? (
+                        <div className={styles.emptyHistory}>No prior logs found.</div>
+                    ) : callHistory.map(log => (
+                        <div key={log.id} className={styles.historyItem}>
+                            <div className={styles.historyMeta}>
+                                <span><FiUser aria-hidden="true" /> {log.recordedBy}</span>
+                                <small>{new Date(log.timestamp).toLocaleDateString()}</small>
                             </div>
-                        ))}
-                    </div>
-                    <textarea className={styles.notebookArea}
+                            <p>{log.notes}</p>
+                        </div>
+                    ))}
+                </div>
+                <div className={modalStyles.modalField} style={{marginTop: 14}}>
+                    <label className={modalStyles.modalLabel}>CALL RESULT / NOTE</label>
+                    <textarea className={modalStyles.modalTextarea}
                         placeholder="Enter call result or interaction note..."
                         value={logContent} onChange={e => setLogContent(e.target.value)} />
-                    <div className={styles.modalFooter}>
-                        <HardwareButton loading={committing} onClick={handleLogCall} icon={FiSave}>
-                            Commit &amp; Reset
-                        </HardwareButton>
-                    </div>
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <HardwareButton loading={committing} onClick={handleLogCall} icon={FiSave}>
+                        Commit &amp; Reset
+                    </HardwareButton>
                 </div>
             </HardwareModal>
 
             <HardwareModal isOpen={payModal.open}
                 onClose={() => setPayModal({ open: false, plot: null })}
                 title={`RECORD PAYMENT: ${payModal.plot?.plotNumber || ''}`}>
-                <div className={styles.modalBody}>
-                    {payModal.plot?.isBacklog ? (
-                        <div className={styles.backlogPayInfo}>
-                            <FiAlertOctagon aria-hidden="true" />
+                {payModal.plot?.isBacklog ? (
+                    <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>
+                        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                            <FiAlertOctagon aria-hidden="true" style={{color:'#ef4444',flexShrink:0,marginTop:2}} />
                             <div>
                                 <div>Original debt: <strong>UGX {fmt(payModal.plot?.originalDebt)}</strong></div>
                                 <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.storageFeesAccumulated)}</strong></div>
                                 <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.totalBacklogOwed)}</strong></div>
-                                <div style={{marginTop:4,fontSize:'0.75rem',opacity:0.7}}>Storage fees continue until full balance is cleared.</div>
+                                <div style={{marginTop:6,opacity:0.65,fontSize:'0.78rem'}}>Storage fees continue until full balance is cleared.</div>
                             </div>
                         </div>
-                    ) : (
-                        <div className={styles.activePayInfo}>
-                            <div>Current balance: <strong>UGX {fmt(payModal.plot?.currentBalance)}</strong></div>
-                        </div>
-                    )}
-                    <div style={{marginTop:16}}>
-                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>AMOUNT RECEIVED (UGX)</label>
-                        <input type="number" className={styles.notebookArea} style={{height:48,fontSize:'1.1rem'}}
-                            placeholder="Enter amount..." value={payAmount}
-                            onChange={e => setPayAmount(e.target.value)} />
                     </div>
-                    <div style={{marginTop:12}}>
-                        <label style={{display:'block',marginBottom:6,fontSize:'0.8rem',opacity:0.7}}>NOTES (optional)</label>
-                        <textarea className={styles.notebookArea} style={{height:80}}
-                            placeholder="e.g. Paid via MTN Mobile Money..."
-                            value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                ) : (
+                    <div className={modalStyles.modalInfoBox}>
+                        Current balance: <strong>UGX {fmt(payModal.plot?.currentBalance)}</strong>
                     </div>
-                    <div className={styles.modalFooter}>
-                        <HardwareButton loading={paying} onClick={handleRecordPayment} icon={FiDollarSign}>
-                            CONFIRM PAYMENT
-                        </HardwareButton>
-                    </div>
+                )}
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
+                    <input type="number" className={modalStyles.modalInput}
+                        placeholder="Enter amount..." value={payAmount}
+                        onChange={e => setPayAmount(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                    <textarea className={modalStyles.modalTextarea}
+                        placeholder="e.g. Paid via MTN Mobile Money..."
+                        value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <HardwareButton loading={paying} onClick={handleRecordPayment} icon={FiDollarSign}>
+                        CONFIRM PAYMENT
+                    </HardwareButton>
                 </div>
             </HardwareModal>
         </div>

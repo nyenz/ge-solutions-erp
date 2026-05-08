@@ -17,6 +17,7 @@ import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import HardwareModal from '../../components/common/HardwareModal';
 import styles from './FolderPage.module.css';
+import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const STAGE_LABELS = ['COMMITMENT', 'FIELD WORK', 'DOCUMENTATION', 'DEED PLAN', 'RELEASE'];
 const EMAIL_DOMAINS = ['@gmail.com', '@yahoo.com', '@outlook.com', '@hotmail.com', '@icloud.com'];
@@ -1007,15 +1008,17 @@ const FolderPage = () => {
 
             {/* NOTE MODAL */}
             <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ARCHIVE LOG ENTRY">
-                <textarea className={styles.notebookArea} value={noteModal.content}
-                    onChange={e => setNoteModal({...noteModal,content:e.target.value})}
-                    placeholder="Enter interaction note..." aria-label="Note content" />
-                <div className={styles.modalFooter}>
-                    <button type="button" className={`${styles.btn} ${styles.btnDanger}`}
+                <div className={modalStyles.modalField}>
+                    <textarea className={modalStyles.modalTextarea} value={noteModal.content}
+                        onChange={e => setNoteModal({...noteModal,content:e.target.value})}
+                        placeholder="Enter interaction note..." aria-label="Note content" />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnSecondary}
                         onClick={() => setNoteModal({open:false,id:null,content:''})}>
                         <FiX aria-hidden="true" /> CANCEL
                     </button>
-                    <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleNoteSave}>
+                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave}>
                         <FiSave aria-hidden="true" /> SAVE ENTRY
                     </button>
                 </div>
@@ -1023,47 +1026,40 @@ const FolderPage = () => {
 
             {/* PAYMENT MODAL */}
             <HardwareModal isOpen={payModal.open} onClose={() => setPayModal({ open: false })} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
-                <div style={{ padding: '0 4px' }}>
-                    {isBacklog ? (
-                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                            borderRadius: 8, padding: 14, marginBottom: 16, display:'flex', gap: 12 }}>
-                            <FiAlertOctagon style={{ color: '#ef4444', flexShrink:0, marginTop:2 }} />
-                            <div style={{ fontSize: '0.85rem' }}>
+                {isBacklog ? (
+                    <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>
+                        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                            <FiAlertOctagon style={{ color: '#ef4444', flexShrink:0, marginTop:2 }} aria-hidden="true" />
+                            <div>
                                 <div>Original debt: <strong>UGX {fmt(origDebt)}</strong></div>
                                 <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(storageFees)}</strong></div>
                                 <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(Math.max(0,backlogOwed))}</strong></div>
-                                <div style={{marginTop:6,opacity:0.6,fontSize:'0.75rem'}}>
-                                    Storage fees continue until full balance is cleared.
-                                </div>
+                                <div style={{marginTop:6,opacity:0.6,fontSize:'0.8rem'}}>Storage fees continue until full balance is cleared.</div>
                             </div>
                         </div>
-                    ) : (
-                        <div style={{ marginBottom: 16, fontSize: '0.85rem' }}>
-                            Current balance: <strong>UGX {fmt(remaining)}</strong>
-                        </div>
-                    )}
-                    <div style={{ marginBottom: 12 }}>
-                        <label style={{ display:'block', marginBottom:6, fontSize:'0.8rem', opacity:0.7 }}>AMOUNT RECEIVED (UGX)</label>
-                        <input type="number" style={{ width:'100%', padding:'10px 14px', borderRadius:6,
-                            background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
-                            color:'inherit', fontSize:'1.1rem' }}
-                            placeholder="Enter amount..." value={payAmount}
-                            onChange={e => setPayAmount(e.target.value)} />
                     </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={{ display:'block', marginBottom:6, fontSize:'0.8rem', opacity:0.7 }}>NOTES (optional)</label>
-                        <textarea style={{ width:'100%', padding:'10px 14px', borderRadius:6, height:80,
-                            background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
-                            color:'inherit', resize:'vertical' }}
-                            placeholder="e.g. Paid via MTN Mobile Money..."
-                            value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                ) : (
+                    <div className={modalStyles.modalInfoBox}>
+                        Current balance: <strong>UGX {fmt(remaining)}</strong>
                     </div>
-                    <div className={styles.modalFooter}>
-                        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`}
-                            onClick={handleRecordPayment} disabled={paying}>
-                            <FiDollarSign aria-hidden="true" /> {paying ? 'PROCESSING...' : 'CONFIRM PAYMENT'}
-                        </button>
-                    </div>
+                )}
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
+                    <input type="number" className={modalStyles.modalInput}
+                        placeholder="Enter amount..." value={payAmount}
+                        onChange={e => setPayAmount(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                    <textarea className={modalStyles.modalTextarea}
+                        placeholder="e.g. Paid via MTN Mobile Money..."
+                        value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnPrimary}
+                        onClick={handleRecordPayment} disabled={paying}>
+                        <FiDollarSign aria-hidden="true" /> {paying ? 'PROCESSING...' : 'CONFIRM PAYMENT'}
+                    </button>
                 </div>
             </HardwareModal>
         </div>
