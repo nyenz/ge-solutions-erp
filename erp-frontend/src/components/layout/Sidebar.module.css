@@ -4,14 +4,10 @@
    font-family declared on every text element                          */
 
 .sidebar {
-    height: 100vh;
-    overflow-y: hidden;
-    --sidebar-collapsed-width: 60px;
-    --sidebar-width:           210px;
+    --sidebar-collapsed-width: 52px;
+    --sidebar-width:           200px;
 
     width: var(--sidebar-width);
-    /* Subtract header height so sidebar never overflows below viewport.
-       Falls back to clamp value if the token isn't set on the root.    */
     height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
     background: linear-gradient(180deg, #1a2e30 0%, #162a2c 50%, #1a2e30 100%);
     border-right: 2px solid rgba(238, 140, 58, 0.3);
@@ -21,9 +17,10 @@
     transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
     z-index: 100;
+    overflow: hidden;
 }
 
-.collapsed { width: var(--sidebar-collapsed-width); }
+.collapsed { width: var(--sidebar-collapsed-width); overflow: hidden; }
 
 /* Vertical orange power-line accent */
 .sidebar::after {
@@ -39,27 +36,25 @@
 
 /* ── NAV SCROLL AREA ────────────────────────────────────────────── */
 .sidebarNav {
-    padding: clamp(12px, 1.8vw, 22px) 0;
+    padding: clamp(6px, 1vw, 10px) 0;
     flex: 1;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
-    scrollbar-width: none;
 }
-.sidebarNav::-webkit-scrollbar { display: none; }
 
 
 /* ── SECTION LABEL ──────────────────────────────────────────────── */
-.navSection { margin-bottom: clamp(12px, 1.8vw, 22px); }
+.navSection { margin-bottom: clamp(4px, 0.6vw, 8px); }
 
 .navSectionTitle {
     font-family: 'Space Mono', monospace;
     color: rgba(255, 255, 255, 0.2);
-    font-size: clamp(6px, 0.65vw, 8px);
+    font-size: 6px;
     font-weight: 900;
     letter-spacing: 2px;
     text-transform: uppercase;
-    padding: 0 clamp(10px, 1.2vw, 16px);
-    margin-bottom: clamp(8px, 1vw, 14px);
+    padding: 0 clamp(8px, 1vw, 12px);
+    margin-bottom: clamp(4px, 0.6vw, 8px);
     white-space: nowrap;
 }
 .collapsed .navSectionTitle { opacity: 0; pointer-events: none; }
@@ -69,18 +64,18 @@
 .navItem {
     display: flex;
     align-items: center;
-    gap: clamp(10px, 1.3vw, 16px);
-    padding: clamp(11px, 1.4vw, 15px) clamp(10px, 1.2vw, 16px);
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(8px, 1vw, 11px) clamp(8px, 1vw, 12px);
     color: rgba(255, 255, 255, 0.6);
     text-decoration: none;
     transition: background 0.25s, color 0.25s, border-color 0.25s;
     border-left: 3px solid transparent;
     white-space: nowrap;
-    outline: none; /* handled by focus-visible below */
+    outline: none;
 }
 
 .collapsed .navItem {
-    padding: clamp(13px, 1.6vw, 17px) 0;
+    padding: clamp(9px, 1.1vw, 12px) 0;
     justify-content: center;
     border-left-width: 0;
     border-right: 3px solid transparent;
@@ -122,8 +117,8 @@
 
 /* ── ICON ───────────────────────────────────────────────────────── */
 .navIcon {
-    font-size: clamp(16px, 1.8vw, 21px);
-    min-width: clamp(20px, 2.2vw, 26px);
+    font-size: clamp(14px, 1.5vw, 17px);
+    min-width: clamp(18px, 1.8vw, 22px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -134,10 +129,10 @@
 /* ── LABEL ──────────────────────────────────────────────────────── */
 .navText {
     font-family: 'DM Sans', sans-serif;
-    font-size: clamp(9px, 1vw, 12px);
+    font-size: clamp(8px, 0.85vw, 10px);
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -146,7 +141,7 @@
 
 /* ── BRANDING FOOTER ────────────────────────────────────────────── */
 .sidebarFooter {
-    padding: clamp(16px, 2.2vw, 26px) 0;
+    padding: clamp(8px, 1vw, 12px) 0;
     background: rgba(0, 0, 0, 0.3);
     text-align: center;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -154,39 +149,27 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: clamp(70px, 9vw, 100px);
+    min-height: clamp(40px, 5vw, 56px);
+    flex-shrink: 0;
 }
 
 /* Space Mono 900 — brand serial number style */
 .branding {
     font-family: 'Space Mono', monospace;
     color: #EE8C3A;
-    font-size: clamp(9px, 1vw, 13px);
+    font-size: clamp(7px, 0.75vw, 9px);
     font-weight: 900;
-    letter-spacing: 4px;
+    letter-spacing: 3px;
     text-transform: uppercase;
     transition: transform 0.4s ease, font-size 0.4s ease;
     white-space: nowrap;
 }
-
-/* Rotate into vertical serial-number style when collapsed */
 .collapsed .branding {
     transform: rotate(-90deg);
-    font-size: clamp(7px, 0.8vw, 10px);
-    letter-spacing: 8px;
+    font-size: clamp(6px, 0.65vw, 7px);
+    letter-spacing: 6px;
 }
-
-.version {
-    font-size: 7px !important; opacity: 0.5;
-    font-family: 'Space Mono', monospace;
-    color: rgba(255, 255, 255, 0.15);
-    font-size: clamp(6px, 0.65vw, 8px);
-    font-weight: 700;
-    margin-top: clamp(4px, 0.6vw, 8px);
-    letter-spacing: 1px;
-}
-.collapsed .version {
-    font-size: 7px !important; opacity: 0.5; display: none; }
+.version { display: none; }
 
 
 
@@ -217,16 +200,13 @@
 /* ── MOBILE ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .sidebar {
-    height: 100vh;
-    overflow-y: hidden;
         position: fixed;
         left: 0;
-        /* Sit BELOW the header — top: 0 would slide under it and clip nav items */
         top: var(--header-height, clamp(52px, 7vw, 64px));
         height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
-        width: 210px;
+        width: 200px;
         box-shadow: 15px 0 40px rgba(0, 0, 0, 0.7);
-        overflow-y: auto;
+        overflow: hidden;
     }
     .collapsed { transform: translateX(-100%); }
 }

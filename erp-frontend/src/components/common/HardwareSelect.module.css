@@ -12,6 +12,7 @@
 /* FIXED: This pulls the field to the front when clicked */
 .openWrapper {
     z-index: 9999 !important;
+    overflow: visible !important;
 }
 
 .label {
@@ -53,9 +54,10 @@
     background: #ffffff;
     border: 2px solid var(--orange);
     border-radius: 8px;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5); /* HEAVIER SHADOW FOR DEPTH */
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     animation: slideIn 0.2s ease-out;
+    z-index: 9999;
 }
 
 @keyframes slideIn {

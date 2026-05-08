@@ -136,7 +136,7 @@
 
 
 /* ── LAYOUT ─────────────────────────────────────────────────────── */
-.workstationGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--gap-xl); align-items: start; }
+.workstationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 45vw, 500px), 1fr)); gap: var(--gap-xl); align-items: start; }
 
 
 /* ── HARDWARE PANELS ────────────────────────────────────────────── */
@@ -175,11 +175,7 @@
 .eyeBtn {
     position: absolute;
     right: clamp(8px,1vw,12px);
-    /* HardwareInput: label (~22px) + input (~42px) = ~64px total.
-       Eye should sit in the INPUT portion, vertically centered.
-       top ≈ label_height + (input_height / 2) - (icon / 2)
-       ≈ 22px + 21px - 9px = 34px → use top: clamp(30px,4.5vw,38px)        */
-    top: clamp(28px, 4vw, 36px);
+    top: calc(var(--label-font, 10px) + 12px + var(--input-height, 44px) / 2 - 9px);
     background: transparent; border: none; cursor: pointer;
     color: rgba(255,255,255,0.45); font-size: clamp(14px,1.5vw,17px);
     display: flex; align-items: center; justify-content: center;
@@ -228,7 +224,7 @@
 
 .staffStream {
     display: flex; flex-direction: column; gap: var(--gap-md);
-    max-height: clamp(260px,36vw,400px); overflow-y: auto;
+    max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
     padding-right: clamp(3px,0.4vw,5px);
     scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
 }
@@ -320,7 +316,7 @@
 .selectWrap  { margin-bottom: var(--gap-md); }
 /* HardwareSelect label on dark modal background */
 .selectWrap label { font-family: 'DM Sans', sans-serif !important; font-size: var(--fs-label) !important; font-weight: 900 !important; color: rgba(255,255,255,0.5) !important; text-transform: uppercase !important; letter-spacing: 1px !important; display: block !important; margin-bottom: clamp(3px,0.4vw,5px) !important; }
-.modalBody   { padding-top: clamp(7px,0.9vw,11px); display: flex; flex-direction: column; gap: var(--gap-md); }
+.modalBody   { padding-top: clamp(7px,0.9vw,11px); display: flex; flex-direction: column; gap: var(--gap-md); width: 100%; }
 .modalCenter { display: flex; justify-content: flex-end; margin-top: var(--gap-md); }
 
 
@@ -344,8 +340,10 @@
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 900px) {
     .workstationGrid { grid-template-columns: 1fr; }
-    .dualRow         { grid-template-columns: 1fr; }
-    .header          { flex-direction: column; align-items: flex-start; }
+    .dualRow         { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+    .dualRow { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {

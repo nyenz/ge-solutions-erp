@@ -120,3 +120,10 @@ label {
     font-size: var(--label-font);
 }
 
+/* Scrollable container helper */
+.scroll-x-touch {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+

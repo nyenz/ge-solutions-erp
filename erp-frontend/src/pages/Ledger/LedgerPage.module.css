@@ -203,6 +203,7 @@
     /* Break out of HardwarePanel's 30px padding to use full width */
     margin: -30px;
     margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
 }
 .tableScroll::-webkit-scrollbar { height: 4px; }
 .tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
@@ -555,11 +556,23 @@
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .searchBlock { max-width: 100%; }
-    .ownerName   { max-width: clamp(80px, 30vw, 140px); }
+    .ownerName   { max-width: clamp(80px, 28vw, 140px); }
+    .tableScroll { margin: -20px; margin-bottom: 0; }
+    .ledgerTable { min-width: clamp(560px, 90vw, 900px); }
+    .ledgerTable th { padding: 9px 10px; font-size: 7px; }
+    .ledgerTable td { padding: 8px 10px; }
+    .pagination { padding: 8px 10px; }
 }
 @media (max-width: 480px) {
-    .jointBadge  { display: none; } /* Too cramped on small phones */
+    .jointBadge  { display: none; }
     .pctLabel    { display: none; }
+    .tableScroll { margin: -15px; margin-bottom: 0; }
+    .ledgerTable { min-width: 480px; font-size: 10px; }
+    .plotCell strong { font-size: 10px; }
+    .ownerName { max-width: 90px; font-size: 10px; }
+    .ownerPhone { font-size: 9px; }
+    .debtAmount, .debtCritical { font-size: 10px; }
+    .boxTag { font-size: 8px; padding: 2px 5px; }
 }
 
 /* ── BACKLOG ROW ────────────────────────────────────────────────── */
