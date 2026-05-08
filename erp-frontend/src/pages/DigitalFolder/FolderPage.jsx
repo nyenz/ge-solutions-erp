@@ -476,6 +476,30 @@ const FolderPage = () => {
         } catch { toast('PURGE REJECTED', 'error'); }
     };
 
+    const handleRelease = async () => {
+        // Check if documents exist
+        if (!binder.documents || binder.documents.length === 0) {
+            const ok = await confirm(
+                'NO DOCUMENTS ATTACHED',
+                'This plot has no scanned documents attached. It is strongly recommended to upload the title deed and ID scans before release. Continue anyway?',
+                'warn'
+            );
+            if (!ok) return;
+        }
+        // Check payment
+        if (project.amountPaid < project.totalCost) {
+            toast('RELEASE DENIED: Outstanding balance detected.', 'error');
+            return;
+        }
+        try {
+            await landService.authorizeRelease(id, null);
+            await loadFolderData();
+            toast('PLOT RELEASED SUCCESSFULLY', 'success');
+        } catch (err) {
+            toast('RELEASE FAILED: ' + (err.response?.data?.message || err.message), 'error');
+        }
+    };
+
     const handleStageClick = async (num) => {
         if (!isEditing) return;
         try {
@@ -708,12 +732,12 @@ const FolderPage = () => {
                     )}
                     {isEditing && user?.isRoot && (
                         <button className={styles.purgeBtn} onClick={handleNuclearPurge}>
-                            <FiTrash2 aria-hidden="true" /> PURGE
+                            <FiTrash2 aria-hidden="true" /> DELETE
                         </button>
                     )}
                     {!isEditing ? (
                         <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
-                            <FiUnlock aria-hidden="true" /> UNLOCK MASTER HARDWARE
+                            <FiUnlock aria-hidden="true" /> EDIT RECORD
                         </button>
                     ) : (
                         <div className={styles.handshakeActions}>

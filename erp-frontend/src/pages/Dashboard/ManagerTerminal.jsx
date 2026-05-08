@@ -36,6 +36,11 @@ const ManagerTerminal = ({ stats }) => {
                     <div className={styles.statValue}>{stats?.readyForReleaseCount || 0}</div>
                     <div className={styles.statLabel}>AWAITING FINAL HANDOVER</div>
                 </div>
+                <div className={`${styles.statTile} ${styles.emerald}`}>
+                    <div className={styles.tileIconWrap} aria-hidden="true"><FiCheckSquare /></div>
+                    <div className={styles.statValue}>{(stats?.totalPlots || 0) - (stats?.readyForReleaseCount || 0) - (stats?.backlogCount || 0)}</div>
+                    <div className={styles.statLabel}>COMPLETED & RELEASED</div>
+                </div>
             </div>
 
             {/* ── MAIN GRID ── */}

@@ -748,3 +748,22 @@
     color: rgba(26, 46, 48, 0.65);
     white-space: nowrap;
 }
+
+
+/* ── PRINT ──────────────────────────────────────────────────────── */
+@media print {
+    .container { padding: 0; animation: none; color: #000; }
+    .controlHub, .pagination { display: none !important; }
+    .tableScroll { margin: 0; box-shadow: none; }
+    .ledgerTable th { background: #f1f5f9 !important; color: #1a2e30 !important; border-bottom: 2px solid #1a2e30 !important; }
+    .ledgerTable td { color: #000 !important; border-bottom: 1px solid #e2e8f0 !important; }
+    .ledgerTable tbody tr { cursor: default; border-left: none; }
+    .plotCell strong { color: #000 !important; }
+    .ownerName, .ownerPhone { color: #000 !important; }
+    .debtAmount { color: #000 !important; }
+    .debtCritical { color: #c00 !important; text-shadow: none !important; }
+    .tagBacklog, .tagLegacy, .tagStandard, .tagCritical { background: #f1f5f9 !important; color: #000 !important; animation: none !important; border: 1px solid #ccc !important; }
+    .velocityFill { background: #333 !important; }
+    .pageHeader { background: #fff !important; box-shadow: none !important; backdrop-filter: none !important; border-left: 4px solid #333 !important; }
+}
+

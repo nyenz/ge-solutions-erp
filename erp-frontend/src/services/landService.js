@@ -84,6 +84,12 @@ const landService = {
     getPaymentHistory: async (projectId) => {
         const response = await api.get(`/land/projects/${projectId}/payments`);
         return response.data;
+    },
+
+    authorizeRelease: async (projectId, managerNote) => {
+        await api.patch(`/land/projects/${projectId}/release`, null, {
+            params: managerNote ? { managerNote } : {}
+        });
     }
 };
 

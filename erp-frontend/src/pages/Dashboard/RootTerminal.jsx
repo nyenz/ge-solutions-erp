@@ -83,7 +83,7 @@ const RootTerminal = ({ stats }) => {
 
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiActivity aria-hidden="true" /> SYSTEM FORENSIC STREAM
+                            <FiActivity aria-hidden="true" /> RECENT ACTIVITY
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.activityStream}>

@@ -162,7 +162,7 @@ const CurrencyInput = ({ label, value, onChange, error, id, required }) => {
 };
 
 // ── PHONE INPUT ───────────────────────────────────────────────────
-const PhoneInput = ({ label='PHONE NUMBER', value, onChange, id, required, fieldError }) => {
+const PhoneInput = ({ label='PHONE NUMBER', value, onChange, onBlur, id, required, fieldError }) => {
     const inputId = id || 'phi';
     return (
         <div className={`${styles.inputWrap} ${fieldError ? styles.inputError : ''}`}>
@@ -173,6 +173,7 @@ const PhoneInput = ({ label='PHONE NUMBER', value, onChange, id, required, field
             </div>
             <input id={inputId} type="tel" value={value}
                 onChange={e => onChange(e.target.value.replace(/[^0-9\s/]/g, ''))}
+                onBlur={onBlur ? e => onBlur(e.target.value) : undefined}
                 placeholder="0712 345 678"
                 inputMode="tel"
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`} />
@@ -280,6 +281,16 @@ const IntakePage = () => {
     };
 
     const addOwner = () => setOwners(prev => [...prev, EMPTY_OWNER()]);
+
+    // Warn if a phone number is already used by another owner on this form
+    const handlePhoneBlurCheck = (idx, val) => {
+        if (!val.trim()) return;
+        const normalized = val.replace(/\s+/g, '');
+        const duplicate = owners.some((o, i) => i !== idx && o.phone.replace(/\s+/g, '') === normalized);
+        if (duplicate) {
+            toast('WARNING: This phone number is already used by another owner on this form.', 'warn', 5000);
+        }
+    };
     const removeOwner = idx => setOwners(prev => prev.filter((_, i) => i !== idx));
 
     const addFiles = files => {
@@ -365,6 +376,7 @@ const IntakePage = () => {
                                         <PhoneInput value={o.phone} required
                                             fieldError={errors['owner_'+idx+'_phone']}
                                             onChange={v => updateOwner(idx, 'phone', v)}
+                                            onBlur={v => handlePhoneBlurCheck(idx, v)}
                                             id={'owner_'+idx+'_phone'} />
                                     </div>
                                     <div className={styles.grid3}>
