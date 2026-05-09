@@ -15,14 +15,14 @@ def patch(path, old, new, label):
     content = read(path)
     if old in content:
         write(path, content.replace(old, new, 1))
-        print(f"OK     {label}")
+        print(f"OK       {label}")
     else:
         print(f"MISSING  {label} -- snippet not found")
 
 INTAKE = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
 INTAKE_CSS = 'erp-frontend/src/pages/Intake/IntakePage.module.css'
 
-# FIX 3: Replace the old ternary fileDisplay with the new conditional rendering
+# FIX 1 -- Replace the fileDisplay block (use a shorter unique anchor)
 patch(INTAKE,
     '''                                    <div className={styles.fileDisplay}>
                                         {fileQueue.length === 0 ? (
@@ -48,7 +48,7 @@ patch(INTAKE,
                                                     } : undefined}
                                                     title={`Open ${f.name}`}
                                                 >
-                                                    <span className={styles.fileName}>{isPDF ? '📄 ' : '🖼 '}{f.name}</span>
+                                                    <span className={styles.fileName}>{isPDF ? '\\u{1F4C4} ' : '\\u{1F5BC} '}{f.name}</span>
                                                 </a>
                                                 <button type="button" className={styles.removeFile}
                                                     onClick={() => setFileQueue(prev => prev.filter((_,j) => j !== i))}>
@@ -79,7 +79,7 @@ patch(INTAKE,
                                                         }}
                                                         title={`Open ${f.name}`}
                                                     >
-                                                        <span className={styles.fileName}>{isPDF ? '📄 ' : '🖼 '}{f.name}</span>
+                                                        <span className={styles.fileName}>{isPDF ? '\\u{1F4C4} ' : '\\u{1F5BC} '}{f.name}</span>
                                                     </button>
                                                     <button type="button" className={styles.removeFile}
                                                         onClick={() => setFileQueue(prev => prev.filter((_, j) => j !== i))}
@@ -90,10 +90,10 @@ patch(INTAKE,
                                             );
                                         })}
                                         </div>''',
-    "IntakePage fileDisplay -- fix rendering logic and use button instead of anchor"
+    "IntakePage fileDisplay -- fix rendering, button instead of anchor"
 )
 
-# FIX 4: CSS -- add text-align and padding to fileClickable
+# FIX 2 -- CSS: fix fileClickable to work as a button
 patch(INTAKE_CSS,
     '''.fileClickable {
     display: flex; align-items: center; gap: clamp(6px, 0.8vw, 8px);
@@ -114,7 +114,7 @@ patch(INTAKE_CSS,
     text-align: left;
     transition: color 0.15s;
 }''',
-    "IntakePage.module.css -- fileClickable button padding and text-align"
+    "IntakePage.module.css -- fileClickable padding and text-align"
 )
 
 print()
