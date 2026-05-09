@@ -316,9 +316,12 @@ const IntakePage = () => {
     const removeOwner = idx => setOwners(prev => prev.filter((_, i) => i !== idx));
 
     const addFiles = files => {
+        const incoming = Array.from(files);
+        if (!incoming.length) return;
         setFileQueue(prev => {
             const existing = new Set(prev.map(f => f.name));
-            const newFiles = Array.from(files).filter(f => !existing.has(f.name));
+            const newFiles = incoming.filter(f => !existing.has(f.name));
+            if (!newFiles.length) return prev;
             return [...prev, ...newFiles];
         });
     };
@@ -517,7 +520,14 @@ const IntakePage = () => {
                                     <input ref={fileInputRef} type="file" multiple
                                         accept=".pdf,.jpg,.jpeg,.png,.webp"
                                         style={{ display: 'none' }}
-                                        onChange={e => { if (e.target.files?.length) addFiles(e.target.files); e.target.value=''; }} />
+                                        onChange={e => {
+                                const files = e.target.files;
+                                if (files && files.length > 0) {
+                                    addFiles(files);
+                                }
+                                // Reset so same file can be selected again
+                                setTimeout(() => { e.target.value = ''; }, 100);
+                            }} />
                                 </div>
                             </div>
                         </div>
