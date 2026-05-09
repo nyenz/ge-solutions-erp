@@ -790,48 +790,52 @@ const FolderPage = () => {
                             COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
                         </span>
                         {isBacklog
-                            ? <span className={`${styles.metaTag}`} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>BACKLOG</span>
+                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>
                             : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>
                         }
                         {isEditing && <div className={styles.editBadge}>EDIT MODE ENABLED</div>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
-                    {!isEditing && <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>}
-                    {isAdmin && !isEditing && !isBacklog && (
-                        <button onClick={handleMoveToBacklog}
-                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
-                                color: '#ef4444', borderRadius: 6, padding: '6px 14px',
-                                cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display:'flex', alignItems:'center', gap:6 }}>
-                            <FiAlertOctagon aria-hidden="true" /> MOVE TO BACKLOG
-                        </button>
-                    )}
-                    {isAdmin && !isEditing && (
-                        <button onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}
-                            style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)',
-                                color: '#22c55e', borderRadius: 6, padding: '6px 14px',
-                                cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display:'flex', alignItems:'center', gap:6 }}>
-                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
-                        </button>
-                    )}
-                    {isEditing && user?.isRoot && (
-                        <button className={styles.purgeBtn} onClick={handleNuclearPurge}>
-                            <FiTrash2 aria-hidden="true" /> DELETE
-                        </button>
-                    )}
-                    {!isEditing ? (
-                        <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
-                            <FiUnlock aria-hidden="true" /> EDIT
-                        </button>
-                    ) : (
-                        <div className={styles.handshakeActions}>
-                            <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
-                                <FiX aria-hidden="true" /> ABORT
+                    {/* VIEW MODE ACTIONS */}
+                    {!isEditing && (
+                        <>
+                            <button className={styles.ctrlBtn} onClick={() => window.print()} aria-label="Print record">
+                                <FiPrinter aria-hidden="true" />
                             </button>
-                            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
-                                <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE CHANGES'}
+                            {isAdmin && !isBacklog && (
+                                <button className={`${styles.ctrlBtn} ${styles.ctrlBtnDanger}`} onClick={handleMoveToBacklog}>
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
+                                </button>
+                            )}
+                            {isAdmin && (
+                                <button className={`${styles.ctrlBtn} ${styles.ctrlBtnSuccess}`}
+                                    onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
+                                    <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                                </button>
+                            )}
+                            <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
+                                <FiUnlock aria-hidden="true" /> EDIT
                             </button>
-                        </div>
+                        </>
+                    )}
+                    {/* EDIT MODE ACTIONS */}
+                    {isEditing && (
+                        <>
+                            {user?.isRoot && (
+                                <button className={styles.purgeBtn} onClick={handleNuclearPurge}>
+                                    <FiTrash2 aria-hidden="true" /> DELETE
+                                </button>
+                            )}
+                            <div className={styles.handshakeActions}>
+                                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
+                                    <FiX aria-hidden="true" /> ABORT
+                                </button>
+                                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
+                                    <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE CHANGES'}
+                                </button>
+                            </div>
+                        </>
                     )}
                 </div>
             </header>

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     FiMap, FiUsers, FiCreditCard, FiUploadCloud,
-    FiInfo, FiPlusSquare, FiTrash2, FiSend,
+    FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave,
     FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon
 } from 'react-icons/fi';
 import landService from '../../services/landService';
@@ -217,8 +217,14 @@ const IntakePage = () => {
     const [isBacklog,      setIsBacklog]      = useState(false);
 
     // Docs & notes
-    const [fileQueue, setFileQueue] = useState([]);
-    const [noteText,  setNoteText]  = useState('');
+    const [fileQueue,    setFileQueue]    = useState([]);
+    const [noteText,     setNoteText]     = useState('');
+    const [notesList,    setNotesList]    = useState([]); // multi-note list
+    const [noteModal,    setNoteModal]    = useState(false);
+    const [noteDraft,    setNoteDraft]    = useState('');
+
+    // Backlog late entry
+    const [backfillMonths, setBackfillMonths] = useState('');
 
     // isDirty must be defined AFTER all useState hooks to avoid
     // "Cannot access before initialization" error in the minified bundle
@@ -227,8 +233,9 @@ const IntakePage = () => {
         owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
         totalCost !== '' ||
         fileQueue.length > 0 ||
+        notesList.length > 0 ||
         noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, noteText]);
+    [plotNumber, owners, totalCost, fileQueue, notesList, noteText]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -284,7 +291,13 @@ const IntakePage = () => {
                     nationalId: o.nationalId.trim().toUpperCase(),
                     address:    o.address.trim(),
                 })),
-                notes: noteText.trim() ? [{ content: noteText.trim() }] : [],
+                notes: [
+                    ...notesList.map(n => ({ content: n })),
+                    ...(noteText.trim() ? [{ content: noteText.trim() }] : []),
+                    ...(isBacklog && backfillMonths && Number(backfillMonths) > 0
+                        ? [{ content: `BACKFILL NOTE: ${backfillMonths} month(s) of pre-existing storage fees (UGX ${(Number(backfillMonths) * 50000).toLocaleString()}) recorded at intake. Admin should adjust accumulated fees via folder page.` }]
+                        : [])
+                ],
             };
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
