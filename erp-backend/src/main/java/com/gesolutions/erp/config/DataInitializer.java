@@ -46,6 +46,20 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println(">>> [DB_SCHEMA] session_version already exists or skipped: " + e.getMessage());
         }
 
+        // Fix missing columns in land_projects that Hibernate DDL auto=update missed
+        String[] landProjectMigrations = {
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
+        };
+        for (String sql : landProjectMigrations) {
+            try {
+                entityManager.createNativeQuery(sql).executeUpdate();
+                System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, 60));
+            } catch (Exception e) {
+                System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage());
+            }
+        }
+
         if (userRepository.findByUsername("admin_root").isEmpty()) {
             User root = User.builder()
                     .id(UUID.randomUUID())
