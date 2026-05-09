@@ -1113,7 +1113,7 @@ const FolderPage = () => {
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
             {/* NOTE MODAL */}
-            <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ARCHIVE LOG ENTRY">
+            <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ADD NOTE">
                 <div className={modalStyles.modalField}>
                     <textarea className={modalStyles.modalTextarea} value={noteModal.content}
                         onChange={e => setNoteModal({...noteModal,content:e.target.value})}
