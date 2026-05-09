@@ -1,6 +1,8 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/config/JwtAuthenticationFilter.java
 package com.gesolutions.erp.config;
 
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

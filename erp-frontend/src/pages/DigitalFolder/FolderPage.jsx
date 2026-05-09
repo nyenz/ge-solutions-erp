@@ -610,7 +610,7 @@ const FolderPage = () => {
         const parts = filePath.split(/ge_uploads[\/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
         const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
-        return `${base}/vault/` + rel.replace(/\/g, '/');
+        return `${base}/vault/` + rel.replace(/\\/g, '/');
     };
 
     const isPDF = (filePath) => {
