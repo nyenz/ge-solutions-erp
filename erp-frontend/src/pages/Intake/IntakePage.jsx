@@ -190,20 +190,6 @@ const IntakePage = () => {
     const { toasts, toast, dismissToast } = useToast();
     const fileInputRef = useRef(null);
 
-    // UNSAVED DATA PROTECTION via window.beforeunload
-    // Form is "dirty" if any meaningful field has been touched
-
-    useEffect(() => {
-        const handler = (e) => {
-            if (isDirty && !saving) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isDirty, saving]);
-
     const [saving, setSaving] = useState(false);
     const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
@@ -244,16 +230,15 @@ const IntakePage = () => {
         noteText.trim() !== '',
     [plotNumber, owners, totalCost, fileQueue, noteText]);
 
-    // Warn on browser refresh / tab close
     useEffect(() => {
-        const handleBeforeUnload = (e) => {
+        const handler = (e) => {
             if (isDirty && !saving) {
                 e.preventDefault();
                 e.returnValue = '';
             }
         };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
     }, [isDirty, saving]);
 
     const sg = key => predictionService.getSuggestions(key) || [];

@@ -5,7 +5,9 @@ def read(path):
         return f.read()
 
 def write(path, content):
-    os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path) else None
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(content)
 
@@ -15,96 +17,77 @@ def patch(path, old, new, label):
         write(path, content.replace(old, new, 1))
         print(f"OK     {label}")
     else:
-        print(f"MISSING  {label}")
+        print(f"MISSING  {label} -- snippet not found")
 
-INTAKE_JSX = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
+INTAKE = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
 
-# The fix.py from the previous session added isDirty as a useMemo
-# but the old early declaration was not fully removed -- only the
-# useBeforeUnload block was stripped. The original const isDirty = ...
-# (the non-memo version at the top of the component) is still there.
-# Remove it now.
+# ---------------------------------------------------------------
+# THE FIX: Remove both useEffect blocks that reference isDirty
+# before it is declared, and the early isDirty useMemo that sits
+# before the state declarations it depends on.
+# Then add ONE clean useEffect AFTER isDirty is declared.
+#
+# The component body should be:
+#   useState hooks (saving, drawers, errors, plot fields, owners,
+#                   financials, docs, notes)
+#   isDirty useMemo  <-- depends on the state above
+#   useEffect for beforeunload  <-- depends on isDirty + saving
+#   useEffect for submit / navigate
+#   rest of handlers
+# ---------------------------------------------------------------
 
-patch(INTAKE_JSX,
-    '''    const [saving, setSaving] = useState(false);
-    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
-    const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
+# Step 1: Remove the first (orphan) useEffect that fires before isDirty exists
+patch(INTAKE,
+    '''    // UNSAVED DATA PROTECTION via window.beforeunload
+    // Form is "dirty" if any meaningful field has been touched
 
-    const [errors, setErrors] = useState({});''',
-    '''    const [saving, setSaving] = useState(false);
-    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
-    const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
+    useEffect(() => {
+        const handler = (e) => {
+            if (isDirty && !saving) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty, saving]);
 
-    const [errors, setErrors] = useState({});
-
-    // -- plot fields, owners, financials, docs & notes all declared below --''',
-    "IntakePage: add marker so we can find insertion point"
+    const [saving, setSaving] = useState(false);''',
+    '''    const [saving, setSaving] = useState(false);''',
+    "IntakePage: remove orphan useEffect that fires before isDirty is declared"
 )
 
-# Now find and remove the duplicate early isDirty if it still exists
-content = read(INTAKE_JSX)
+# Step 2: Remove the duplicate beforeunload useEffect that appears after
+# isDirty useMemo (we'll keep only the correct one below)
+patch(INTAKE,
+    '''    // Warn on browser refresh / tab close
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isDirty && !saving) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty, saving]);
 
-# Count occurrences
-count = content.count('const isDirty')
-print(f"INFO   Found {count} occurrence(s) of 'const isDirty'")
+    const sg = key => predictionService.getSuggestions(key) || [];''',
+    '''    useEffect(() => {
+        const handler = (e) => {
+            if (isDirty && !saving) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty, saving]);
 
-if count == 2:
-    # Remove the FIRST occurrence (the early one before useState hooks)
-    # The early one looks like a plain const, the second is useMemo
-    # Find index of first occurrence
-    idx1 = content.find('const isDirty')
-    idx2 = content.find('const isDirty', idx1 + 1)
-    
-    # Determine which is the useMemo version
-    snippet1 = content[idx1:idx1+60]
-    snippet2 = content[idx2:idx2+60]
-    print(f"INFO   First:  {repr(snippet1)}")
-    print(f"INFO   Second: {repr(snippet2)}")
-    
-    if 'useMemo' in snippet1:
-        # First is useMemo -- second is the bad early one
-        bad_idx = idx2
-    else:
-        # First is the bad early one
-        bad_idx = idx1
-    
-    # Find the full block to remove -- go back to find the start of the line
-    # and forward to find the end of the statement
-    start = content.rfind('\n', 0, bad_idx) + 1
-    # Find the semicolon that ends this statement
-    end = content.find(';', bad_idx) + 1
-    # Also consume the trailing newline
-    if end < len(content) and content[end] == '\n':
-        end += 1
-    
-    bad_block = content[start:end]
-    print(f"INFO   Removing block: {repr(bad_block[:120])}")
-    
-    new_content = content[:start] + content[end:]
-    write(INTAKE_JSX, new_content)
-    print("OK     IntakePage: removed duplicate isDirty declaration")
-
-elif count == 1:
-    content2 = read(INTAKE_JSX)
-    if 'useMemo' in content2[content2.find('const isDirty'):content2.find('const isDirty')+80]:
-        print("OK     IntakePage: only one isDirty (useMemo version) -- no fix needed")
-    else:
-        # Only the early version exists -- replace it with useMemo
-        patch(INTAKE_JSX,
-            'const isDirty = plotNumber.trim() !== \'\' ||',
-            '// isDirty moved below useState hooks -- see useMemo version\n    // const isDirty removed here',
-            "IntakePage: comment out early isDirty"
-        )
-else:
-    print("INFO   No isDirty found or count unexpected -- check file manually")
-
-# Clean up the marker we added earlier (optional, harmless if left)
-patch(INTAKE_JSX,
-    '\n    // -- plot fields, owners, financials, docs & notes all declared below --',
-    '',
-    "IntakePage: remove temporary marker comment"
+    const sg = key => predictionService.getSuggestions(key) || [];''',
+    "IntakePage: replace duplicate useEffect with single clean version"
 )
 
 print()
 print("--- Done ---")
-print("Next: git add -A && git commit -m 'fix: remove duplicate isDirty declaration' && git push")
+print("Run: git add -A && git commit -m 'fix: resolve TDZ crash - isDirty declared before state' && git push")
