@@ -102,7 +102,7 @@ const AuditPage = () => {
                     )}
                 </div>
                 <div className={styles.filterGrid}>
-                    <div className={styles.hwSelectWrap}>
+                    <div className={`${styles.hwSelectWrap} ${(filters.operator && filters.operator !== 'ALL STAFF') ? styles.hwSelectWrapActive : ''}`}>
                         <HardwareSelect
                             label="OPERATOR ID"
                             options={operatorOptions}
@@ -110,7 +110,7 @@ const AuditPage = () => {
                             onChange={val => setFilters({...filters, operator: val})}
                         />
                     </div>
-                    <div className={styles.hwSelectWrap}>
+                    <div className={`${styles.hwSelectWrap} ${(filters.action && filters.action !== 'ALL ACTIONS') ? styles.hwSelectWrapActive : ''}`}>
                         <HardwareSelect
                             label="PROTOCOL CLASS"
                             options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'EDIT RECORD', 'STAGE OVERRIDE', 'INTAKE']}

@@ -421,3 +421,26 @@
     color: #1a2e30 !important;
 }
 
+/* ACTIVE FILTER STATE for HardwareSelect dropdowns
+   When operator != ALL STAFF or action != ALL ACTIONS, the parent
+   gets .hwSelectWrapActive via JS -- this makes it orange-filled
+   identical to the active filter pill buttons. */
+.hwSelectWrapActive [class*="selectBox"] {
+    background: #EE8C3A !important;
+    border-color: #EE8C3A !important;
+    color: #1a2e30 !important;
+    box-shadow: 0 0 12px rgba(238, 140, 58, 0.35) !important;
+}
+.hwSelectWrapActive [class*="currentValue"] {
+    color: #1a2e30 !important;
+    font-weight: 900 !important;
+}
+.hwSelectWrapActive [class*="icon"] {
+    color: #1a2e30 !important;
+}
+.hwSelectWrapActive [class*="selectBox"]:hover {
+    background: #f0a050 !important;
+    border-color: #f0a050 !important;
+    box-shadow: 0 0 18px rgba(238, 140, 58, 0.5) !important;
+}
+

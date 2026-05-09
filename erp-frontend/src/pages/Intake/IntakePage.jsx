@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useBeforeUnload, unstable_useBlocker as useBlocker } from 'react-router-dom';
 import {
     FiMap, FiUsers, FiCreditCard, FiUploadCloud,
     FiInfo, FiPlusSquare, FiTrash2, FiSend,
@@ -190,6 +190,36 @@ const IntakePage = () => {
     const { toasts, toast, dismissToast } = useToast();
     const fileInputRef = useRef(null);
 
+    // UNSAVED DATA PROTECTION
+    // Form is "dirty" if any meaningful field has been touched
+    const isDirty = plotNumber.trim() !== '' ||
+        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
+        totalCost !== '' ||
+        fileQueue.length > 0 ||
+        noteText.trim() !== '';
+
+    // A) Browser refresh / tab close -- shows browser native warning
+    useBeforeUnload(
+        React.useCallback(
+            (e) => {
+                if (isDirty && !saving) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            },
+            [isDirty, saving]
+        )
+    );
+
+    // B) In-app navigation (React Router) -- shows custom confirm
+    const blocker = useBlocker(
+        React.useCallback(
+            ({ currentLocation, nextLocation }) =>
+                isDirty && !saving && currentLocation.pathname !== nextLocation.pathname,
+            [isDirty, saving]
+        )
+    );
+
     const [saving, setSaving] = useState(false);
     const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
@@ -305,6 +335,46 @@ const IntakePage = () => {
 
     return (
         <div className={styles.container}>
+            {/* UNSAVED DATA BLOCKER MODAL */}
+            {blocker.state === 'blocked' && (
+                <div style={{
+                    position:'fixed',inset:0,zIndex:99999,
+                    background:'rgba(10,20,22,0.85)',
+                    backdropFilter:'blur(6px)',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    padding:'20px'
+                }} role="dialog" aria-modal="true">
+                    <div style={{
+                        background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
+                        border:'2px solid rgba(238,140,58,0.4)',
+                        borderRadius:14,maxWidth:440,width:'100%',
+                        padding:'clamp(20px,3vw,32px)',
+                        boxShadow:'0 30px 80px rgba(0,0,0,0.7)'
+                    }}>
+                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,paddingBottom:14,borderBottom:'1px solid rgba(245,158,11,0.25)'}}>
+                            <FiAlertTriangle style={{color:'#f59e0b',fontSize:22,flexShrink:0}} aria-hidden="true"/>
+                            <span style={{fontFamily:"'Space Mono',monospace",fontWeight:900,fontSize:12,letterSpacing:2,textTransform:'uppercase',color:'#fcd34d'}}>
+                                UNSAVED DATA
+                            </span>
+                        </div>
+                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.8)',lineHeight:1.6,margin:'0 0 20px'}}>
+                            You have unsaved data on this form. If you leave now, all entered information will be lost.
+                        </p>
+                        <div style={{display:'flex',justifyContent:'flex-end',gap:10,flexWrap:'wrap'}}>
+                            <button
+                                onClick={() => blocker.reset()}
+                                style={{background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
+                                <FiX style={{marginRight:5}} aria-hidden="true"/>STAY ON PAGE
+                            </button>
+                            <button
+                                onClick={() => blocker.proceed()}
+                                style={{background:'rgba(239,68,68,0.15)',border:'1.5px solid rgba(239,68,68,0.5)',color:'#fca5a5',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
+                                <FiTrash2 style={{marginRight:5}} aria-hidden="true"/>LEAVE & DISCARD
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={saving} />
 
