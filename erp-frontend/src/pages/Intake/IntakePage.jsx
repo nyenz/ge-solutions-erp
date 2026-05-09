@@ -238,6 +238,28 @@ const IntakePage = () => {
     const [fileQueue, setFileQueue] = useState([]);
     const [noteText,  setNoteText]  = useState('');
 
+    // isDirty must be defined AFTER all useState hooks to avoid
+    // "Cannot access before initialization" error in the minified bundle
+    const isDirty = React.useMemo(() =>
+        plotNumber.trim() !== '' ||
+        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
+        totalCost !== '' ||
+        fileQueue.length > 0 ||
+        noteText.trim() !== '',
+    [plotNumber, owners, totalCost, fileQueue, noteText]);
+
+    // Warn on browser refresh / tab close
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isDirty && !saving) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty, saving]);
+
     const sg = key => predictionService.getSuggestions(key) || [];
 
     const validate = () => {
