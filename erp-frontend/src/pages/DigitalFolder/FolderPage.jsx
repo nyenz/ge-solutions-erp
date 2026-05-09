@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/DigitalFolder/FolderPage.jsx
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, useBeforeUnload, useBlocker } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
@@ -462,27 +462,22 @@ const FolderPage = () => {
 
     useEffect(() => { window.scrollTo({ top:0, behavior:'smooth' }); }, [id]);
 
-    // Browser refresh / tab close while editing
-    useBeforeUnload(
-        React.useCallback(
-            (e) => {
-                if (isEditing) { e.preventDefault(); e.returnValue = ''; }
-            },
-            [isEditing]
-        )
-    );
 
-    // In-app navigation while editing -- block and show custom confirm
-    const navBlocker = useBlocker(
-        React.useCallback(
-            ({ currentLocation, nextLocation }) =>
-                isEditing && currentLocation.pathname !== nextLocation.pathname,
-            [isEditing]
-        )
-    );
 
     useEffect(() => {
         if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120);
+    }, [isEditing]);
+
+    // Warn user if they try to close the tab while editing
+    useEffect(() => {
+        const handler = (e) => {
+            if (isEditing) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
     }, [isEditing]);
 
     const loadFolderData = useCallback(async () => {
@@ -1125,46 +1120,6 @@ const FolderPage = () => {
 
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
-            {/* IN-APP NAVIGATION BLOCKER WHILE EDITING */}
-            {navBlocker.state === 'blocked' && (
-                <div style={{
-                    position:'fixed',inset:0,zIndex:99998,
-                    background:'rgba(10,20,22,0.82)',
-                    backdropFilter:'blur(6px)',
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    padding:'20px'
-                }} role="dialog" aria-modal="true">
-                    <div style={{
-                        background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
-                        border:'2px solid rgba(238,140,58,0.4)',
-                        borderRadius:14,maxWidth:440,width:'100%',
-                        padding:'28px',
-                        boxShadow:'0 30px 80px rgba(0,0,0,0.7)'
-                    }}>
-                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid rgba(245,158,11,0.25)'}}>
-                            <FiAlertTriangle style={{color:'#f59e0b',fontSize:22,flexShrink:0}} aria-hidden="true"/>
-                            <span style={{fontFamily:"'Space Mono',monospace",fontWeight:900,fontSize:11,letterSpacing:2,textTransform:'uppercase',color:'#fcd34d'}}>
-                                UNSAVED CHANGES
-                            </span>
-                        </div>
-                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.8)',lineHeight:1.6,margin:'0 0 20px'}}>
-                            You are in <strong style={{color:'#EE8C3A'}}>EDIT MODE</strong> with unsaved changes. Leaving this page will discard all modifications.
-                        </p>
-                        <div style={{display:'flex',justifyContent:'flex-end',gap:10,flexWrap:'wrap'}}>
-                            <button
-                                onClick={() => navBlocker.reset()}
-                                style={{background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
-                                <FiX style={{marginRight:5}} aria-hidden="true"/>STAY & KEEP EDITING
-                            </button>
-                            <button
-                                onClick={() => { setIsEditing(false); navBlocker.proceed(); }}
-                                style={{background:'rgba(239,68,68,0.15)',border:'1.5px solid rgba(239,68,68,0.5)',color:'#fca5a5',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
-                                <FiTrash2 style={{marginRight:5}} aria-hidden="true"/>LEAVE & DISCARD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* NOTE MODAL */}
             <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ADD NOTE">
