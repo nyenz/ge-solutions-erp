@@ -31,7 +31,7 @@ const AuditPage = () => {
         try {
             let activeAction = filters.action;
             if (activeAction === 'CALL LOG')         activeAction = 'RECOVERY_MISSION_COMPLETE';
-            if (activeAction === 'GOD-MODE REWRITE') activeAction = 'MASTER_REWRITE';
+            if (activeAction === 'EDIT RECORD')      activeAction = 'MASTER_REWRITE';
             if (activeAction === 'STAGE OVERRIDE')   activeAction = 'STAGE_OVERRIDE';
             if (activeAction === 'ALL ACTIONS')      activeAction = null;
             const activeOperator = filters.operator === 'ALL STAFF' ? null : filters.operator;
@@ -71,8 +71,8 @@ const AuditPage = () => {
         <div className={styles.container}>
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>System Forensics</h1>
-                    <p className={styles.subtitle}>Unified Accountability Archive | Total Traceability Active</p>
+                    <h1 className={styles.title}>Audit Log</h1>
+                    <p className={styles.subtitle}>Full history of all staff actions in the system</p>
                 </div>
                 <div className={styles.diagHUD}>
                     <div className={styles.diagItem}>
@@ -113,7 +113,7 @@ const AuditPage = () => {
                     <div className={styles.hwSelectWrap}>
                         <HardwareSelect
                             label="PROTOCOL CLASS"
-                            options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'GOD-MODE REWRITE', 'STAGE OVERRIDE', 'INTAKE']}
+                            options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'EDIT RECORD', 'STAGE OVERRIDE', 'INTAKE']}
                             value={filters.action || 'ALL ACTIONS'}
                             onChange={val => setFilters({...filters, action: val})}
                         />

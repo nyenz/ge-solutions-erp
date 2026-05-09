@@ -519,7 +519,7 @@ const IntakePage = () => {
                     <button type="button" className={styles.primaryCommitBtn}
                         onClick={handleSubmit} disabled={saving}>
                         <FiSend aria-hidden="true" />
-                        {saving ? 'SAVING...' : 'COMMIT TO ARCHIVE'}
+                        {saving ? 'SAVING...' : 'SAVE NEW PLOT'}
                     </button>
                 </div>
             </div>

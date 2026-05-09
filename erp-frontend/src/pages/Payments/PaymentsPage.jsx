@@ -93,7 +93,7 @@ const PaymentsPage = () => {
         <div className={styles.container}>
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Payments</h1>
+                    <h1 className={styles.title}>Payment Records</h1>
                     <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
                 </div>
                 <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">

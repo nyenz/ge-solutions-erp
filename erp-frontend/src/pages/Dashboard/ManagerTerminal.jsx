@@ -38,8 +38,8 @@ const ManagerTerminal = ({ stats }) => {
                 </div>
                 <div className={`${styles.statTile} ${styles.emerald}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiCheckSquare /></div>
-                    <div className={styles.statValue}>{(stats?.totalPlots || 0) - (stats?.readyForReleaseCount || 0) - (stats?.backlogCount || 0)}</div>
-                    <div className={styles.statLabel}>COMPLETED & RELEASED</div>
+                    <div className={styles.statValue}>{stats?.backlogCount || 0}</div>
+                    <div className={styles.statLabel}>IN BACKLOG</div>
                 </div>
             </div>
 
@@ -49,7 +49,7 @@ const ManagerTerminal = ({ stats }) => {
                 <div className={styles.leftCol}>
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiClock aria-hidden="true" /> ARCHIVE PROCESSING STATUS
+                            <FiClock aria-hidden="true" /> PIPELINE STAGES
                         </div>
                         <div className={styles.panelInner}>
                             {[
@@ -91,14 +91,14 @@ const ManagerTerminal = ({ stats }) => {
                 <div className={styles.rightCol}>
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiGrid aria-hidden="true" /> OPERATIONAL LAUNCHPAD
+                            <FiGrid aria-hidden="true" /> QUICK ACTIONS
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.launchPad}>
                                 <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="New intake"><FiFilePlus  aria-hidden="true" /> NEW INTAKE</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/recovery')}      aria-label="Recovery hub"><FiPhoneCall aria-hidden="true" /> RECOVERY HUB</button>
-                                <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="View ledger"><FiMapPin    aria-hidden="true" /> VIEW LEDGER</button>
-                                <button className={styles.launchBtn} onClick={() => navigate('/settings')}      aria-label="My profile"><FiActivity   aria-hidden="true" /> MY PROFILE</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="View ledger"><FiMapPin    aria-hidden="true" /> LEDGER</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/settings')}      aria-label="My profile"><FiActivity   aria-hidden="true" /> SETTINGS</button>
                             </div>
                             <div className={styles.auditNote}>
                                 <FiActivity aria-hidden="true" className={styles.auditNoteIcon} />

@@ -294,8 +294,8 @@ const RecoveryPortal = () => {
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.pageTitle}>Recovery Hub</h1>
-                    <p className={styles.pageSubtitle}>Client Call Management - 2-14 Rule Active</p>
+                    <h1 className={styles.pageTitle}>Call Recovery</h1>
+                    <p className={styles.pageSubtitle}>Log client calls and track outstanding balances</p>
                 </div>
                 <div className={styles.headerRight}>
                     <div className={styles.hudStats}>

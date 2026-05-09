@@ -20,12 +20,12 @@ const RootTerminal = ({ stats }) => {
                 <div className={`${styles.statTile} ${styles.azure}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiDatabase /></div>
                     <div className={styles.statValue}>{stats?.totalPlots || 0}</div>
-                    <div className={styles.statLabel}>GLOBAL ARCHIVE VOLUME</div>
+                    <div className={styles.statLabel}>TOTAL PLOTS</div>
                 </div>
                 <div className={`${styles.statTile} ${styles.gold}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiPhoneCall /></div>
                     <div className={styles.statValue}>{stats?.staleCallCount || 0}</div>
-                    <div className={styles.statLabel}>STALE RECOVERY DEBTORS</div>
+                    <div className={styles.statLabel}>PENDING CALLS</div>
                 </div>
                 <div className={`${styles.statTile} ${styles.emerald}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiShield /></div>
@@ -35,7 +35,7 @@ const RootTerminal = ({ stats }) => {
                 <div className={`${styles.statTile} ${styles.ruby}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiActivity /></div>
                     <div className={styles.statValue}>{stats?.dailyAuditCount || 0}</div>
-                    <div className={styles.statLabel}>SYSTEM OPS (24H)</div>
+                    <div className={styles.statLabel}>ACTIONS TODAY</div>
                 </div>
             </div>
 
@@ -46,7 +46,7 @@ const RootTerminal = ({ stats }) => {
                 <div className={styles.leftCol}>
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiCreditCard aria-hidden="true" /> FINANCIAL LIQUIDITY ASSESSMENT
+                            <FiCreditCard aria-hidden="true" /> FINANCIALS
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.financeDisplay}>
@@ -117,7 +117,7 @@ const RootTerminal = ({ stats }) => {
                 <div className={styles.rightCol}>
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiClock aria-hidden="true" /> PIPELINE BOTTLENECKS
+                            <FiClock aria-hidden="true" /> PIPELINE STAGES
                         </div>
                         <div className={styles.panelInner}>
                             {[
@@ -157,13 +157,13 @@ const RootTerminal = ({ stats }) => {
 
                     <div className={styles.hwPanel}>
                         <div className={styles.panelHeader}>
-                            <FiGrid aria-hidden="true" /> COMMAND LAUNCHPAD
+                            <FiGrid aria-hidden="true" /> QUICK ACTIONS
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.launchPad}>
-                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to asset intake"><FiFilePlus  aria-hidden="true" /> ASSET INTAKE</button>
-                                <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="Go to master ledger"><FiLayers    aria-hidden="true" /> MASTER LEDGER</button>
-                                <button className={styles.launchBtn} onClick={() => navigate('/reports')}       aria-label="Go to analytics"><FiPieChart  aria-hidden="true" /> ANALYTICS</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to asset intake"><FiFilePlus  aria-hidden="true" /> NEW PLOT</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="Go to master ledger"><FiLayers    aria-hidden="true" /> LEDGER</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/reports')}       aria-label="Go to analytics"><FiPieChart  aria-hidden="true" /> REPORTS</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/recovery')}      aria-label="Go to recovery"><FiPhoneCall aria-hidden="true" /> RECOVERY</button>
                             </div>
                         </div>

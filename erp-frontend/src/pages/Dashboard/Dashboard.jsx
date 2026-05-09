@@ -57,8 +57,8 @@ const Dashboard = () => {
                 <div className={styles.titleBlock}>
                     <h1 className={styles.pageTitle}>System Dashboard</h1>
                     <p className={styles.pageSubtitle}>
-                        {user?.isRoot ? 'ROOT FOUNDER ACCESS' : 'OPERATIONAL MANAGER ACCESS'}
-                        {' · '}SECTOR 7G ARCHIVE ACTIVE
+                        {user?.isRoot ? 'ROOT OWNER ACCESS' : 'MANAGER ACCESS'}
+                        {' · '}SYSTEM ACTIVE
                     </p>
                 </div>
                 <div className={styles.syncBadge} aria-live="polite">

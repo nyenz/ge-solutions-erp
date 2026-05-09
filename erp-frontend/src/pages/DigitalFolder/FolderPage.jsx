@@ -243,7 +243,7 @@ const EmailInput = ({ label = 'EMAIL', value, onChange, onCommit, id, required }
     );
 };
 
-const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, id, required, fieldError }) => {
+const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, required, fieldError }) => {
     const [raw, setRaw] = useState(() => value || '');
     const inputId = id || 'phi_phone';
     const isDual  = raw.includes('/');
@@ -266,6 +266,7 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, id, required, f
             <input id={inputId} type="tel" value={raw} onChange={handleChange} onBlur={handleBlur}
                 placeholder="0712 345 678  ·  dual: 0712.../0701..." inputMode="tel"
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`}
+                onBlur={onBlur ? e => onBlur(e.target.value) : undefined}
                 autoComplete="tel-national" />
             {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
         </div>
@@ -562,6 +563,17 @@ const FolderPage = () => {
         } catch { toast('STAGE UPDATE FAILED', 'error'); }
     };
 
+    const handlePhoneBlurCheck = (idx, val) => {
+        if (!val.trim()) return;
+        const normalized = val.replace(/\s+/g, '');
+        const duplicate = (buffer.owners || []).some((o, i) =>
+            i !== idx && o.phone.replace(/\s+/g, '') === normalized
+        );
+        if (duplicate) {
+            toast('WARNING: This phone number is already used by another owner on this plot.', 'warn', 5000);
+        }
+    };
+
     const handleOwnerChange = (idx, field, val) => {
         const owners = buffer.owners.map((o,i) => {
             if (i !== idx) return o;
@@ -801,7 +813,7 @@ const FolderPage = () => {
                     )}
                     {!isEditing ? (
                         <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
-                            <FiUnlock aria-hidden="true" /> EDIT RECORD
+                            <FiUnlock aria-hidden="true" /> EDIT
                         </button>
                     ) : (
                         <div className={styles.handshakeActions}>
@@ -869,7 +881,7 @@ const FolderPage = () => {
                                         <div key={idx} className={styles.ownerEditCard} role="listitem">
                                             <div className={styles.ownerCardLabel}>ENTITY #{idx+1} {idx===0&&'(PRIMARY)'}</div>
                                             <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
-                                            <PhoneInput value={o.phone} onChange={v => handleOwnerChange(idx,'phone',v)} id={`owner_${idx}_phone`} />
+                                            <PhoneInput value={o.phone} onChange={v => handleOwnerChange(idx,'phone',v)} onBlur={v => handlePhoneBlurCheck(idx, v)} id={`owner_${idx}_phone`} />
                                             <NINInput value={o.nationalId} onChange={v => handleOwnerChange(idx,'nationalId',v)} id={`owner_${idx}_nin`} />
                                             <EmailInput value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
                                             <AddressInput label="HOME ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
@@ -1085,7 +1097,7 @@ const FolderPage = () => {
                                 {isEditing && (
                                     <button type="button" className={styles.addNoteBtn}
                                         onClick={() => setNoteModal({open:true,id:null,content:''})}>
-                                        + LOG INTERACTION
+                                        + ADD NOTE
                                     </button>
                                 )}
                             </div>

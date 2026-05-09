@@ -147,8 +147,8 @@ const LedgerPage = () => {
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Digital Asset Ledger</h1>
-                    <p className={styles.subtitle}>Unified Storage Recovery &amp; Debt Tracking</p>
+                    <h1 className={styles.title}>Plot Ledger</h1>
+                    <p className={styles.subtitle}>All registered plots and their payment status</p>
                 </div>
             </header>
 

@@ -148,8 +148,8 @@ const ReportHub = () => {
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Intelligence Hub</h1>
-                    <p className={styles.subtitle}>Direct Database Analysis &amp; CSV Export Terminal</p>
+                    <h1 className={styles.title}>Reports</h1>
+                    <p className={styles.subtitle}>Download CSV reports for analysis</p>
                 </div>
             </header>
 
@@ -157,7 +157,7 @@ const ReportHub = () => {
 
                 {hasFinancialAccess ? (
                     <div className={styles.hwPanel}>
-                        <DrawerTitle label="FINANCIAL INTELLIGENCE" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiBarChart2} />
+                        <DrawerTitle label="FINANCIAL REPORTS" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiBarChart2} />
                         <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.finance}>
                             <div className={styles.panelInner}>
                                 <div className={styles.reportList}>
@@ -177,7 +177,7 @@ const ReportHub = () => {
                 )}
 
                 <div className={styles.hwPanel}>
-                    <DrawerTitle label="OPERATIONAL LOGISTICS" isOpen={drawers.ops} onClick={() => toggleDrawer('ops')} icon={FiMap} />
+                    <DrawerTitle label="OPERATIONAL REPORTS" isOpen={drawers.ops} onClick={() => toggleDrawer('ops')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.ops ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.ops}>
                         <div className={styles.panelInner}>
                             <div className={styles.reportList}>
@@ -189,7 +189,7 @@ const ReportHub = () => {
 
                 {hasFinancialAccess && (
                     <div className={styles.hwPanel}>
-                        <DrawerTitle label="SYSTEM FORENSICS" isOpen={drawers.system} onClick={() => toggleDrawer('system')} icon={FiShield} />
+                        <DrawerTitle label="SYSTEM REPORTS" isOpen={drawers.system} onClick={() => toggleDrawer('system')} icon={FiShield} />
                         <div className={`${styles.panelBody} ${drawers.system ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.system}>
                             <div className={styles.panelInner}>
                                 <div className={styles.reportList}>
@@ -202,7 +202,7 @@ const ReportHub = () => {
 
                 {hasFinancialAccess && (
                     <div className={styles.hwPanel}>
-                        <DrawerTitle label="PRIORITY REPORTS" isOpen={drawers.p2} onClick={() => toggleDrawer('p2')} icon={FiBarChart2} />
+                        <DrawerTitle label="MORE REPORTS" isOpen={drawers.p2} onClick={() => toggleDrawer('p2')} icon={FiBarChart2} />
                         <div className={`${styles.panelBody} ${drawers.p2 ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.p2}>
                             <div className={styles.panelInner}>
                                 <div className={styles.reportList}>
