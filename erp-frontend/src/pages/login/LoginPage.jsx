@@ -11,7 +11,14 @@ const LoginPage = () => {
     const [creds, setCreds] = useState({ username: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(() => {
+        // Check if we were redirected due to a session conflict
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'session_conflict') {
+            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
+        }
+        return '';
+    });
     
     // RECOVERY STATE
     const [isRecovering, setIsRecovering] = useState(false);

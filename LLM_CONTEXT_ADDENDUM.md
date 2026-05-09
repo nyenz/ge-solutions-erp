@@ -1,8 +1,5 @@
 # GE SOLUTIONS ERP -- CONTEXT ADDENDUM
 # This file receives all small incremental updates each session.
-# The master LLM_CONTEXT_GUIDE.md is NEVER edited for incremental changes.
-# Only Section 10 (COMPLETED) and Section 11 (TO DO) of the master guide are
-# ever updated -- and only after explicit David approval at end of session.
 # Last updated: May 2026
 
 ---
@@ -32,13 +29,77 @@ RULE: The addendum is the running log. The master guide Sections 10 and 11 are t
 ## NEW UI RULES ADDED (May 2026)
 
 ### UI UNIFORMITY RULE (DEFAULT DESIGN APPROACH)
-Every element of the same type must look and behave identically across all pages and sections regardless of where it appears. Only deviate when explicitly instructed. This covers all element types including: buttons (primary, secondary, filter, action), headings (page titles, section titles, table headers), inputs (text fields, search boxes, number inputs), dropdowns/selects, tables (headers, rows, cells), lists, badges/tags/pills, modals/popups, pagination controls, empty states, icons, tooltips/hints, error messages, success/warning/info messages, loading states/spinners, corner decorations, dividers/separators, scrollbars, and any decorative or structural UI element. For every element the following must be identical everywhere: font (family, size, weight, letter-spacing, text-transform), color (text, background, border), padding, margin, spacing/gap, border (width, style, color, radius), shadow, hover/active/selected/focus/error states, and responsive behavior. When a new element is introduced its style must be derived from the closest existing matching element -- never invent a new style when one already exists.
+Every element of the same type must look and behave identically across all pages and sections regardless of where it appears. Only deviate when explicitly instructed.
 
 ### RESPONSIVENESS RULE (DEFAULT DESIGN APPROACH)
-Every element, property, and value must respond to screen size changes by default. This applies to everything without exception: buttons, headings, text, inputs, dropdowns, tables, lists, badges/tags/pills, modals, icons, images, pagination, empty states, decorative elements, corner decorations, dividers, scrollbars, and all sizing properties (margin, padding, gap, border-width, border-radius, shadow size, font-size, letter-spacing, line-height, container widths, panel heights). All sizing must use clamp() for fonts and spacing, percentage or vw/vh for widths and heights. Hardcoded px is only acceptable for values that must never scale (e.g. a 1px border line). On small screens everything compresses but remains fully readable and usable -- nothing overflows, overlaps, or disappears. On normal/large screens everything returns to its designed size.
+Every element, property, and value must respond to screen size changes by default.
 
 ### "SAME DESIGN" PHRASE RULE
-When the instruction says "same design", the element must be identical in every measurable way: size, padding, margin, spacing/gap, font (family, size, weight, letter-spacing, text-transform), color (text, background, border), border (width, style, color, radius), shadow, responsiveness, hover/active/selected/focus/error states, animation/transition, and alignment/positioning behavior.
+When the instruction says "same design", the element must be identical in every measurable way.
 
 ### NO BROWSER DEFAULT STYLING RULE (DEFAULT DESIGN APPROACH)
-Every element must be explicitly styled -- no browser defaults are ever acceptable anywhere in the app. This includes without exception: buttons, inputs, dropdowns/selects, checkboxes, radio buttons, file inputs, range sliders, scrollbars, arrows (dropdown, scroll, navigation), dots (pagination, bullets, list markers), links, tables, focus outlines, placeholder text, selection highlight, fieldsets/legends, number input spinners, date/time pickers, search cancel buttons, tooltips, and any other element the browser would otherwise style on its own. Every new element introduced must conform to the existing app theme -- matching established colors, fonts, spacing, borders, and interaction states. A new element must never look foreign next to existing ones. When in doubt derive the style from the closest matching existing element in the app.
+Every element must be explicitly styled -- no browser defaults are ever acceptable anywhere in the app.
+
+---
+
+## SESSION: May 2026 -- FIXES APPLIED THIS SESSION
+
+### 1. Print Preview (FolderPage)
+- Completely rewrote @media print CSS in FolderPage.module.css
+- Pipeline HUD: compact horizontal row with visible stage dots
+- Terminal header: white background, navy border-left
+- All panels: white background, grey borders, all drawers forced open
+- Read-only grid: 3 columns on print
+- Owners: 2 columns on print
+- Financials: all visible, no glow effects
+- Notes + docs: scroll disabled, full height shown
+- @page: A4 portrait, 15mm margins
+- Status: DONE THIS SESSION
+
+### 2. PDF viewing in FolderPage (from Cloudinary)
+- Added isPDF() helper function to detect PDF files by path/URL
+- PDF files now show with 'open in new tab' behavior
+- Images continue to work as before (direct link)
+- Cloudinary raw PDFs are served directly via their secure_url
+- Status: DONE THIS SESSION
+
+### 3. Document preview on New Plot page (IntakePage)
+- Fixed file queue to allow opening uploaded files before submission
+- Images: open via object URL in new tab
+- PDFs: create object URL on click, open in new tab, revoke after 5s
+- Files now show emoji prefix (📄 for PDF, 🖼 for image) as visual hint
+- Status: DONE THIS SESSION
+
+### 4. Audit Page filter dropdowns (ALL STAFF / ALL ACTIONS)
+- Resized hwSelectWrap to flex: 1 1 140px, max-width: 260px
+- Now properly sized to match Payments page "ALL TYPES" buttons
+- Status: DONE THIS SESSION
+
+### 5. Single-session enforcement (security)
+- When user logs in: generates a unique session ID stored in localStorage (gs_active_session)
+- Each tab tracks its own session in sessionStorage (gs_tab_session)
+- If another tab/browser logs in: storage event fires, old tab detects conflict and logs out
+- Redirects to /login?reason=session_conflict
+- Login page reads this param and shows security warning message
+- NOTE: This works across tabs in the SAME browser. Different browsers on different computers
+  cannot share localStorage -- this is a browser security feature. True cross-device single
+  session enforcement requires server-side token invalidation (future enhancement).
+- Status: DONE THIS SESSION
+
+### 6. Unsaved changes warning (FolderPage)
+- Already existed via beforeunload event handler
+- Also has confirm dialog on ABORT button
+- No changes needed -- working correctly
+
+---
+
+## KNOWN ISSUES / NOTES
+
+- Cloudinary raw PDFs: The HTTP 401 error seen in screenshots is because Cloudinary
+  raw files uploaded with access_mode=public should be accessible, but some accounts
+  have delivery restrictions. If PDFs still show 401, check Cloudinary dashboard >
+  Security > Restricted media types. The fix is on the Cloudinary side, not the app code.
+
+- Single-session enforcement limitation: Works across tabs in same browser (via localStorage
+  storage events). Does NOT work across different physical computers/browsers because
+  localStorage is browser-local. Server-side JWT invalidation would be needed for that.

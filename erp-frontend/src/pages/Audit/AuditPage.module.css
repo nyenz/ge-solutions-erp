@@ -395,9 +395,9 @@
 
 /* Override previous Pill styles - strictly enforce Payments Filter Button design */
 .hwSelectWrap {
-    flex: 1 1 120px !important;
-    min-width: 110px !important;
-    max-width: none !important;
+    flex: 1 1 140px !important;
+    min-width: 130px !important;
+    max-width: 260px !important;
 }
 .hwSelectWrap [class*="selectBox"], .resetBtn {
     border-radius: var(--radius-sm, 6px) !important;

@@ -605,11 +605,19 @@ const FolderPage = () => {
 
     const getVaultUrl = (filePath) => {
         if (!filePath) return '#';
+        // Cloudinary URLs work directly — just return them
         if (filePath.startsWith('http')) return filePath;
-        const parts = filePath.split(/ge_uploads[\\/]/);
+        const parts = filePath.split(/ge_uploads[\/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
         const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
-        return `${base}/vault/` + rel.replace(/\\/g, '/');
+        return `${base}/vault/` + rel.replace(/\/g, '/');
+    };
+
+    const isPDF = (filePath) => {
+        if (!filePath) return false;
+        const lower = filePath.toLowerCase();
+        return lower.includes('.pdf') || lower.includes('application/pdf') ||
+               (lower.includes('cloudinary') && lower.includes('/raw/'));
     };
 
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
@@ -956,9 +964,14 @@ const FolderPage = () => {
                                     {binder.documents.map((doc, idx) => (
                                         <div key={idx} className={styles.docTag} role="listitem">
                                             <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                            <a href={getVaultUrl(doc.filePath)} target="_blank" rel="noreferrer"
-                                                className={styles.docName}>
-                                                {doc.fileName}
+                                            <a
+                                                href={getVaultUrl(doc.filePath)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className={styles.docName}
+                                                title={isPDF(doc.filePath) ? 'Open PDF in new tab' : doc.fileName}
+                                            >
+                                                {isPDF(doc.filePath) ? '📄 ' : ''}{doc.fileName}
                                             </a>
                                             {isEditing && (
                                                 <button type="button" className={styles.iconBtn}

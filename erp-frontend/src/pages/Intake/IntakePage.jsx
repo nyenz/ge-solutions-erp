@@ -459,15 +459,33 @@ const IntakePage = () => {
                                                 <FiUploadCloud className={styles.emptyIcon} aria-hidden="true" />
                                                 <span>No files selected</span>
                                             </div>
-                                        ) : fileQueue.map((f, i) => (
+                                        ) : fileQueue.map((f, i) => {
+                                            const isPDF = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+                                            const previewUrl = !isPDF ? URL.createObjectURL(f) : null;
+                                            return (
                                             <div key={i} className={styles.fileTag}>
-                                                <span className={styles.fileClickable}><span className={styles.fileName}>{f.name}</span></span>
+                                                <a
+                                                    href={isPDF ? '#' : previewUrl}
+                                                    target={isPDF ? undefined : '_blank'}
+                                                    rel="noreferrer"
+                                                    className={styles.fileClickable}
+                                                    onClick={isPDF ? (e) => {
+                                                        e.preventDefault();
+                                                        const url = URL.createObjectURL(f);
+                                                        window.open(url, '_blank');
+                                                        setTimeout(() => URL.revokeObjectURL(url), 5000);
+                                                    } : undefined}
+                                                    title={`Open ${f.name}`}
+                                                >
+                                                    <span className={styles.fileName}>{isPDF ? '📄 ' : '🖼 '}{f.name}</span>
+                                                </a>
                                                 <button type="button" className={styles.removeFile}
                                                     onClick={() => setFileQueue(prev => prev.filter((_,j) => j !== i))}>
                                                     <FiX />
                                                 </button>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                     <button type="button" className={styles.uploadBtn}
                                         onClick={() => fileInputRef.current?.click()}>
