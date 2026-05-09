@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useBeforeUnload, unstable_useBlocker as useBlocker } from 'react-router-dom';
+import { useNavigate, useBeforeUnload, useBlocker } from 'react-router-dom';
 import {
     FiMap, FiUsers, FiCreditCard, FiUploadCloud,
     FiInfo, FiPlusSquare, FiTrash2, FiSend,

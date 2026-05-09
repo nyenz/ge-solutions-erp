@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/DigitalFolder/FolderPage.jsx
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, useBeforeUnload, unstable_useBlocker as useBlocker } from 'react-router-dom';
+import { useParams, useNavigate, useBeforeUnload, useBlocker } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
@@ -256,6 +256,7 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, req
         if (!raw.trim()) return;
         const f = formatPhoneEntry(raw);
         if (f) { setRaw(f); onChange(f); }
+        if (onBlur) onBlur(raw);
     };
     return (
         <div className={`${styles.hwInputWrap} ${fieldError ? styles.inputError : ''}`}>
@@ -266,7 +267,6 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, req
             <input id={inputId} type="tel" value={raw} onChange={handleChange} onBlur={handleBlur}
                 placeholder="0712 345 678  ·  dual: 0712.../0701..." inputMode="tel"
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`}
-                onBlur={onBlur ? e => onBlur(e.target.value) : undefined}
                 autoComplete="tel-national" />
             {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
         </div>
