@@ -17,192 +17,94 @@ def patch(path, old, new, label):
     else:
         print(f"MISSING  {label}")
 
-
 INTAKE_JSX = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
 
-# =============================================================================
-# FIX 1: IntakePage -- isDirty is declared BEFORE the useState variables it
-# references (plotNumber, owners, totalCost, fileQueue, noteText).
-# This causes "Cannot access 'I' before initialization" -- a temporal dead zone
-# error in the minified bundle. Move isDirty AFTER all the useState declarations.
-# Solution: Replace isDirty with a useMemo hook placed after all state declarations.
-# =============================================================================
+# The fix.py from the previous session added isDirty as a useMemo
+# but the old early declaration was not fully removed -- only the
+# useBeforeUnload block was stripped. The original const isDirty = ...
+# (the non-memo version at the top of the component) is still there.
+# Remove it now.
 
-# Step 1: Remove the early isDirty declaration (it references uninitialized state)
 patch(INTAKE_JSX,
-    '''    // UNSAVED DATA PROTECTION
-    // Form is "dirty" if any meaningful field has been touched
-    const isDirty = plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        noteText.trim() !== '';
+    '''    const [saving, setSaving] = useState(false);
+    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
+    const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
-    // A) Browser refresh / tab close -- shows browser native warning
-    useBeforeUnload(
-        React.useCallback(
-            (e) => {
-                if (isDirty && !saving) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            },
-            [isDirty, saving]
-        )
-    );
+    const [errors, setErrors] = useState({});''',
+    '''    const [saving, setSaving] = useState(false);
+    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
+    const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
-    // B) In-app navigation (React Router) -- shows custom confirm
-    const blocker = useBlocker(
-        React.useCallback(
-            ({ currentLocation, nextLocation }) =>
-                isDirty && !saving && currentLocation.pathname !== nextLocation.pathname,
-            [isDirty, saving]
-        )
-    );
+    const [errors, setErrors] = useState({});
 
-    const [saving, setSaving] = useState(false);''',
-    '''    const [saving, setSaving] = useState(false);''',
-    "IntakePage: remove early isDirty (temporal dead zone fix)"
+    // -- plot fields, owners, financials, docs & notes all declared below --''',
+    "IntakePage: add marker so we can find insertion point"
 )
 
-# Step 2: Add isDirty as useMemo AFTER all useState declarations, and add
-# the window.beforeunload effect right after
+# Now find and remove the duplicate early isDirty if it still exists
+content = read(INTAKE_JSX)
+
+# Count occurrences
+count = content.count('const isDirty')
+print(f"INFO   Found {count} occurrence(s) of 'const isDirty'")
+
+if count == 2:
+    # Remove the FIRST occurrence (the early one before useState hooks)
+    # The early one looks like a plain const, the second is useMemo
+    # Find index of first occurrence
+    idx1 = content.find('const isDirty')
+    idx2 = content.find('const isDirty', idx1 + 1)
+    
+    # Determine which is the useMemo version
+    snippet1 = content[idx1:idx1+60]
+    snippet2 = content[idx2:idx2+60]
+    print(f"INFO   First:  {repr(snippet1)}")
+    print(f"INFO   Second: {repr(snippet2)}")
+    
+    if 'useMemo' in snippet1:
+        # First is useMemo -- second is the bad early one
+        bad_idx = idx2
+    else:
+        # First is the bad early one
+        bad_idx = idx1
+    
+    # Find the full block to remove -- go back to find the start of the line
+    # and forward to find the end of the statement
+    start = content.rfind('\n', 0, bad_idx) + 1
+    # Find the semicolon that ends this statement
+    end = content.find(';', bad_idx) + 1
+    # Also consume the trailing newline
+    if end < len(content) and content[end] == '\n':
+        end += 1
+    
+    bad_block = content[start:end]
+    print(f"INFO   Removing block: {repr(bad_block[:120])}")
+    
+    new_content = content[:start] + content[end:]
+    write(INTAKE_JSX, new_content)
+    print("OK     IntakePage: removed duplicate isDirty declaration")
+
+elif count == 1:
+    content2 = read(INTAKE_JSX)
+    if 'useMemo' in content2[content2.find('const isDirty'):content2.find('const isDirty')+80]:
+        print("OK     IntakePage: only one isDirty (useMemo version) -- no fix needed")
+    else:
+        # Only the early version exists -- replace it with useMemo
+        patch(INTAKE_JSX,
+            'const isDirty = plotNumber.trim() !== \'\' ||',
+            '// isDirty moved below useState hooks -- see useMemo version\n    // const isDirty removed here',
+            "IntakePage: comment out early isDirty"
+        )
+else:
+    print("INFO   No isDirty found or count unexpected -- check file manually")
+
+# Clean up the marker we added earlier (optional, harmless if left)
 patch(INTAKE_JSX,
-    '''    const sg = key => predictionService.getSuggestions(key) || [];''',
-    '''    // isDirty must be defined AFTER all useState hooks to avoid
-    // "Cannot access before initialization" error in the minified bundle
-    const isDirty = React.useMemo(() =>
-        plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, noteText]);
-
-    // Warn on browser refresh / tab close
-    useEffect(() => {
-        const handleBeforeUnload = (e) => {
-            if (isDirty && !saving) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [isDirty, saving]);
-
-    const sg = key => predictionService.getSuggestions(key) || [];''',
-    "IntakePage: add isDirty as useMemo after all useState (correct order)"
+    '\n    // -- plot fields, owners, financials, docs & notes all declared below --',
+    '',
+    "IntakePage: remove temporary marker comment"
 )
 
-# Step 3: Make sure useEffect is imported (it already is via React.useEffect
-# but let's use the named import which is already in the import list)
-# Check if useEffect is already imported
-content = read(INTAKE_JSX)
-if 'useState, useEffect' in content or 'useEffect,' in content:
-    print("OK     IntakePage: useEffect already imported")
-else:
-    patch(INTAKE_JSX,
-        'import React, { useState, useCallback, useRef } from',
-        'import React, { useState, useEffect, useCallback, useRef } from',
-        "IntakePage: add useEffect to React import"
-    )
-
-# Step 4: Fix the in-app nav blocker -- since we removed useBlocker,
-# remove the blocker JSX modal that references blocker.state and blocker.reset()
-content = read(INTAKE_JSX)
-if 'blocker.state' in content:
-    patch(INTAKE_JSX,
-        '''            {/* UNSAVED DATA BLOCKER MODAL */}
-            {blocker.state === 'blocked' && (
-                <div style={{
-                    position:'fixed',inset:0,zIndex:99999,
-                    background:'rgba(10,20,22,0.85)',
-                    backdropFilter:'blur(6px)',
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    padding:'20px'
-                }} role="dialog" aria-modal="true">
-                    <div style={{
-                        background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
-                        border:'2px solid rgba(238,140,58,0.4)',
-                        borderRadius:14,maxWidth:440,width:'100%',
-                        padding:'clamp(20px,3vw,32px)',
-                        boxShadow:'0 30px 80px rgba(0,0,0,0.7)'
-                    }}>
-                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,paddingBottom:14,borderBottom:'1px solid rgba(245,158,11,0.25)'}}>
-                            <FiAlertTriangle style={{color:'#f59e0b',fontSize:22,flexShrink:0}} aria-hidden="true"/>
-                            <span style={{fontFamily:"'Space Mono',monospace",fontWeight:900,fontSize:12,letterSpacing:2,textTransform:'uppercase',color:'#fcd34d'}}>
-                                UNSAVED DATA
-                            </span>
-                        </div>
-                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.8)',lineHeight:1.6,margin:'0 0 20px'}}>
-                            You have unsaved data on this form. If you leave now, all entered information will be lost.
-                        </p>
-                        <div style={{display:'flex',justifyContent:'flex-end',gap:10,flexWrap:'wrap'}}>
-                            <button
-                                onClick={() => blocker.reset()}
-                                style={{background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
-                                <FiX style={{marginRight:5}} aria-hidden="true"/>STAY ON PAGE
-                            </button>
-                            <button
-                                onClick={() => blocker.proceed()}
-                                style={{background:'rgba(239,68,68,0.15)',border:'1.5px solid rgba(239,68,68,0.5)',color:'#fca5a5',padding:'9px 18px',borderRadius:7,fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:10,textTransform:'uppercase',letterSpacing:1,cursor:'pointer'}}>
-                                <FiTrash2 style={{marginRight:5}} aria-hidden="true"/>LEAVE & DISCARD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}''',
-        '',
-        "IntakePage: remove blocker modal JSX (blocker no longer exists)"
-    )
-else:
-    print("OK     IntakePage: blocker modal JSX already removed")
-
-# =============================================================================
-# FIX 2: FolderPage -- same circular dep check
-# The navBlocker modal should already be gone from last fix.py run.
-# But double-check isDirty-like patterns in FolderPage aren't causing issues.
-# FolderPage uses isEditing (boolean state), not a computed isDirty,
-# so it should be fine. Just verify navBlocker references are gone.
-# =============================================================================
-
-FOLDER_JSX = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
-
-content = read(FOLDER_JSX)
-if 'navBlocker' in content:
-    print("FOUND  FolderPage: navBlocker still present -- removing")
-    patch(FOLDER_JSX,
-        "    const navBlocker = useBlocker(",
-        "    // navBlocker removed",
-        "FolderPage: remove navBlocker declaration"
-    )
-else:
-    print("OK     FolderPage: navBlocker already removed")
-
-# Check for useBlocker import in FolderPage
-if 'useBlocker' in content:
-    patch(FOLDER_JSX,
-        ', useBlocker',
-        '',
-        "FolderPage: remove useBlocker from imports"
-    )
-else:
-    print("OK     FolderPage: useBlocker already removed from imports")
-
-# Check for useBeforeUnload in FolderPage
-if 'useBeforeUnload' in read(FOLDER_JSX):
-    patch(FOLDER_JSX,
-        ', useBeforeUnload',
-        '',
-        "FolderPage: remove useBeforeUnload from imports"
-    )
-else:
-    print("OK     FolderPage: useBeforeUnload already removed from imports")
-
-print("\n--- All patches applied ---")
 print()
-print("Next steps:")
-print("1. git add -A && git commit -m 'fix: isDirty temporal dead zone - fixes blank page' && git push")
-print("2. Wait for Render green tick (5-10 min)")
-print("3. Test golden-seed.onrender.com/land/new and /folder/[any-id]")
+print("--- Done ---")
+print("Next: git add -A && git commit -m 'fix: remove duplicate isDirty declaration' && git push")

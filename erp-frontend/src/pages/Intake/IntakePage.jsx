@@ -192,11 +192,6 @@ const IntakePage = () => {
 
     // UNSAVED DATA PROTECTION via window.beforeunload
     // Form is "dirty" if any meaningful field has been touched
-    const isDirty = plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        noteText.trim() !== '';
 
     useEffect(() => {
         const handler = (e) => {
@@ -214,6 +209,7 @@ const IntakePage = () => {
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
     const [errors, setErrors] = useState({});
+
 
     // Plot fields
     const [plotNumber,        setPlotNumber]        = useState('');
