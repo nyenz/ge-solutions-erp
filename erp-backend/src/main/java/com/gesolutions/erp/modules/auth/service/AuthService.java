@@ -56,8 +56,15 @@ public class AuthService {
             throw new BusinessException("AUTHORITY_REVOKED: ACCOUNT_SUSPENDED");
         }
 
+        // Increment session version — invalidates all previously issued tokens
+        user.setSessionVersion(user.getSessionVersion() + 1);
+        userRepository.save(user);
+
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
-        String token = jwtService.generateToken(userDetails);
+        // Embed sessionVersion in JWT so we can validate it on every request
+        java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
+        extraClaims.put("sv", user.getSessionVersion());
+        String token = jwtService.generateToken(extraClaims, userDetails);
 
         auditService.logAction("LOGIN_SUCCESS", "Operator session established: " + user.getUsername());
 

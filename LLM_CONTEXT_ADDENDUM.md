@@ -54,52 +54,69 @@ Every element must be explicitly styled -- no browser defaults are ever acceptab
 - Financials: all visible, no glow effects
 - Notes + docs: scroll disabled, full height shown
 - @page: A4 portrait, 15mm margins
-- Status: DONE THIS SESSION
+- Status: DONE PREVIOUS SESSION
 
 ### 2. PDF viewing in FolderPage (from Cloudinary)
 - Added isPDF() helper function to detect PDF files by path/URL
-- PDF files now show with 'open in new tab' behavior
-- Images continue to work as before (direct link)
-- Cloudinary raw PDFs are served directly via their secure_url
-- Status: DONE THIS SESSION
+- PDF files now show with open-in-new-tab link + 📄 emoji prefix
+- Cloudinary raw PDFs served directly via their secure_url
+- Status: DONE PREVIOUS SESSION
 
 ### 3. Document preview on New Plot page (IntakePage)
 - Fixed file queue to allow opening uploaded files before submission
-- Images: open via object URL in new tab
-- PDFs: create object URL on click, open in new tab, revoke after 5s
-- Files now show emoji prefix (📄 for PDF, 🖼 for image) as visual hint
-- Status: DONE THIS SESSION
+- Files show emoji prefix (📄 for PDF, 🖼 for image) as visual hint
+- Status: DONE PREVIOUS SESSION
 
 ### 4. Audit Page filter dropdowns (ALL STAFF / ALL ACTIONS)
 - Resized hwSelectWrap to flex: 1 1 140px, max-width: 260px
-- Now properly sized to match Payments page "ALL TYPES" buttons
+- Status: DONE PREVIOUS SESSION
+
+### 5. Single-session enforcement -- BROWSER TABS ONLY (previous)
+- localStorage-based approach for same-browser tab detection
+- Status: DONE PREVIOUS SESSION
+
+### 6. Server-side single-session enforcement (THIS SESSION)
+- Added sessionVersion (Integer) column to users table in User.java
+- On every login: sessionVersion incremented in DB, embedded in JWT as "sv" claim
+- JwtAuthenticationFilter: on every request, extracts "sv" from JWT and compares
+  to the current DB value. If mismatch (old token), request is rejected with 401.
+- This means: logging in from computer B immediately invalidates computer A's token.
+- The axios interceptor on the frontend already handles 401 by redirecting to /login.
 - Status: DONE THIS SESSION
 
-### 5. Single-session enforcement (security)
-- When user logs in: generates a unique session ID stored in localStorage (gs_active_session)
-- Each tab tracks its own session in sessionStorage (gs_tab_session)
-- If another tab/browser logs in: storage event fires, old tab detects conflict and logs out
-- Redirects to /login?reason=session_conflict
-- Login page reads this param and shows security warning message
-- NOTE: This works across tabs in the SAME browser. Different browsers on different computers
-  cannot share localStorage -- this is a browser security feature. True cross-device single
-  session enforcement requires server-side token invalidation (future enhancement).
-- Status: DONE THIS SESSION
+---
 
-### 6. Unsaved changes warning (FolderPage)
-- Already existed via beforeunload event handler
-- Also has confirm dialog on ABORT button
-- No changes needed -- working correctly
+## HOW SERVER-SIDE SESSION ENFORCEMENT WORKS
+
+1. David logs in on Computer A
+   -> sessionVersion in DB becomes 1
+   -> JWT contains { sv: 1 }
+   -> Computer A works fine
+
+2. David logs in on Computer B (or someone else logs in)
+   -> sessionVersion in DB becomes 2
+   -> JWT on Computer B contains { sv: 2 }
+   -> Computer A's JWT still has { sv: 1 }
+
+3. Computer A makes any API request
+   -> Filter extracts sv=1 from JWT
+   -> DB has sv=2
+   -> 1 != 2 -> 401 Unauthorized
+   -> Axios interceptor on frontend detects 401
+   -> Redirects to /login
+   -> Computer A is now logged out automatically
+
+No cron jobs, no websockets, no polling needed. Works on next request.
 
 ---
 
 ## KNOWN ISSUES / NOTES
 
-- Cloudinary raw PDFs: The HTTP 401 error seen in screenshots is because Cloudinary
-  raw files uploaded with access_mode=public should be accessible, but some accounts
-  have delivery restrictions. If PDFs still show 401, check Cloudinary dashboard >
-  Security > Restricted media types. The fix is on the Cloudinary side, not the app code.
+- Cloudinary raw PDFs: If PDFs show 401, check Cloudinary dashboard >
+  Security > Restricted media types. The fix is on the Cloudinary side.
+  Your Java code already uploads PDFs with resource_type=raw correctly.
 
-- Single-session enforcement limitation: Works across tabs in same browser (via localStorage
-  storage events). Does NOT work across different physical computers/browsers because
-  localStorage is browser-local. Server-side JWT invalidation would be needed for that.
+- sessionVersion DB migration: Hibernate DDL auto=update will add the
+  session_version column automatically on next deploy. Existing rows
+  will get NULL which Java treats as 0 (due to Integer object type).
+  First login after deploy will set it to 1 and everything works normally.

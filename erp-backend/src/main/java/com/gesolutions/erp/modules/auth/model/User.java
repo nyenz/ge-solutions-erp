@@ -65,6 +65,16 @@ public class User {
     @Column(name = "reset_token")
     private String resetToken;
 
+    /**
+     * SESSION VERSION
+     * Incremented on every login. Embedded in the JWT.
+     * If the JWT version doesn't match the DB version, the session is invalid.
+     * This enforces single-session across all devices and browsers.
+     */
+    @Builder.Default
+    @Column(name = "session_version", nullable = false)
+    private Integer sessionVersion = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 30)
     private Role role;

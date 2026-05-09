@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -55,7 +56,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
             
             // PROVING non-nullity to the compiler to clear warnings
-            if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails))) {
+            // Validate session version — rejects tokens from older sessions
+            Integer tokenSv = jwtService.extractClaim(jwt, claims -> {
+                Object sv = claims.get("sv");
+                return sv != null ? ((Number) sv).intValue() : null;
+            });
+            boolean sessionValid = userRepository.findByUsername(userDetails.getUsername())
+                .map(u -> tokenSv != null && tokenSv.equals(u.getSessionVersion()))
+                .orElse(false);
+
+            if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails)) && sessionValid) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
