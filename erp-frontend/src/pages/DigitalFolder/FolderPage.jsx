@@ -351,6 +351,82 @@ const ConfirmModal = ({ state, onAnswer }) => {
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 // ═══════════════════════════════════════════════════════════════
+// BACKLOG FEE ADMIN CONTROLS
+// ═══════════════════════════════════════════════════════════════
+const BacklogFeeControls = ({ project, projectId, onRefresh, toast }) => {
+    const [feeInput,    setFeeInput]    = React.useState('');
+    const [rateInput,   setRateInput]   = React.useState('');
+    const [saving,      setSaving]      = React.useState(false);
+
+    const handlePause = async () => {
+        try {
+            await recoveryService.pauseStorageFees(projectId, !project.storagePaused);
+            await onRefresh();
+            toast(project.storagePaused ? 'STORAGE FEES RESUMED' : 'STORAGE FEES PAUSED', 'info');
+        } catch { toast('ACTION FAILED', 'error'); }
+    };
+
+    const handleSetRate = async () => {
+        const val = Number(rateInput);
+        if (!rateInput || val < 0) { toast('ENTER A VALID RATE (0 or more)', 'error'); return; }
+        setSaving(true);
+        try {
+            await recoveryService.setStorageRate(projectId, val);
+            setRateInput('');
+            await onRefresh();
+            toast('MONTHLY RATE UPDATED', 'success');
+        } catch { toast('RATE UPDATE FAILED', 'error'); }
+        finally { setSaving(false); }
+    };
+
+    const handleSetFees = async () => {
+        const val = Number(feeInput);
+        if (feeInput === '' || val < 0) { toast('ENTER A VALID AMOUNT (0 to waive all)', 'error'); return; }
+        setSaving(true);
+        try {
+            await recoveryService.setAccumulatedFees(projectId, val);
+            setFeeInput('');
+            await onRefresh();
+            toast('ACCUMULATED FEES ADJUSTED', 'success');
+        } catch { toast('FEE ADJUSTMENT FAILED', 'error'); }
+        finally { setSaving(false); }
+    };
+
+    const boxStyle = { background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '12px 14px', marginTop: 12 };
+    const labelStyle = { display: 'block', fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 };
+    const inputStyle = { background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6, color: '#1a2e30', fontFamily: 'Space Mono,monospace', fontWeight: 700, fontSize: 13, padding: '6px 10px', outline: 'none', width: '100%', boxSizing: 'border-box' };
+    const btnStyle = (color) => ({ background: color + '22', border: '1.5px solid ' + color, color: color, borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 10, fontWeight: 900, fontFamily: 'DM Sans,sans-serif', textTransform: 'uppercase', letterSpacing: 1, marginTop: 6 });
+
+    return (
+        <div style={boxStyle}>
+            <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 900, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>
+                ADMIN: STORAGE FEE CONTROLS
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div>
+                    <span style={labelStyle}>PAUSE / RESUME FEES</span>
+                    <button onClick={handlePause} style={btnStyle(project.storagePaused ? '#22c55e' : '#f59e0b')}>
+                        {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                    </button>
+                    {project.storagePaused && <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 4, fontWeight: 700 }}>Fees currently PAUSED</div>}
+                </div>
+                <div>
+                    <span style={labelStyle}>SET MONTHLY RATE (UGX)</span>
+                    <input style={inputStyle} type="number" value={rateInput} placeholder={project.storageFeeOverride ? String(project.storageFeeOverride) : '50000'} onChange={e => setRateInput(e.target.value)} />
+                    <button onClick={handleSetRate} style={btnStyle('#EE8C3A')} disabled={saving}>APPLY RATE</button>
+                </div>
+                <div>
+                    <span style={labelStyle}>ADJUST TOTAL FEES (UGX)</span>
+                    <input style={inputStyle} type="number" value={feeInput} placeholder={String(project.storageFeesAccumulated || 0)} onChange={e => setFeeInput(e.target.value)} />
+                    <button onClick={handleSetFees} style={btnStyle('#ef4444')} disabled={saving}>SET TOTAL</button>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', marginTop: 3, fontWeight: 700 }}>Enter 0 to waive all fees</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 const FolderPage = () => {
@@ -476,30 +552,6 @@ const FolderPage = () => {
         } catch { toast('PURGE REJECTED', 'error'); }
     };
 
-    const handleRelease = async () => {
-        // Check if documents exist
-        if (!binder.documents || binder.documents.length === 0) {
-            const ok = await confirm(
-                'NO DOCUMENTS ATTACHED',
-                'This plot has no scanned documents attached. It is strongly recommended to upload the title deed and ID scans before release. Continue anyway?',
-                'warn'
-            );
-            if (!ok) return;
-        }
-        // Check payment
-        if (project.amountPaid < project.totalCost) {
-            toast('RELEASE DENIED: Outstanding balance detected.', 'error');
-            return;
-        }
-        try {
-            await landService.authorizeRelease(id, null);
-            await loadFolderData();
-            toast('PLOT RELEASED SUCCESSFULLY', 'success');
-        } catch (err) {
-            toast('RELEASE FAILED: ' + (err.response?.data?.message || err.message), 'error');
-        }
-    };
-
     const handleStageClick = async (num) => {
         if (!isEditing) return;
         try {
@@ -607,7 +659,7 @@ const FolderPage = () => {
         if (!filePath) return '#';
         // Cloudinary URLs work directly — just return them
         if (filePath.startsWith('http')) return filePath;
-        const parts = filePath.split(/ge_uploads[\/]/);
+        const parts = filePath.split(/ge_uploads[/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
         const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
         return `${base}/vault/` + rel.replace(/\\/g, '/');
@@ -884,6 +936,7 @@ const FolderPage = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    {isAdmin && <BacklogFeeControls project={project} projectId={id} onRefresh={loadFolderData} toast={toast} />}
                                 </div>
                             ) : (
                                 /* ACTIVE FINANCIAL */

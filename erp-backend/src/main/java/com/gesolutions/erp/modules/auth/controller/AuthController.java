@@ -4,9 +4,12 @@ package com.gesolutions.erp.modules.auth.controller;
 import com.gesolutions.erp.modules.auth.dto.LoginRequest;
 import com.gesolutions.erp.modules.auth.dto.LoginResponse;
 import com.gesolutions.erp.modules.auth.service.AuthService;
+import com.gesolutions.erp.config.LoginRateLimiter;
+import com.gesolutions.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 
@@ -21,6 +24,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiter rateLimiter;
 
     /**
      * RENDER HEALTH CHECK ENDPOINT
@@ -42,9 +46,20 @@ public class AuthController {
      * Processes credentials and returns the Full Identity Handshake.
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        LoginResponse response = authService.authenticate(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request,
+                                               HttpServletRequest httpRequest) {
+        String ip = httpRequest.getRemoteAddr();
+        if (rateLimiter.isBlocked(ip)) {
+            throw new BusinessException("TOO_MANY_ATTEMPTS: Account locked for 15 minutes. Try again later.");
+        }
+        try {
+            LoginResponse response = authService.authenticate(request);
+            rateLimiter.clearRecord(ip);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            rateLimiter.recordFailure(ip);
+            throw e;
+        }
     }
 
     /**

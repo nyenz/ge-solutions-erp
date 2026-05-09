@@ -54,6 +54,24 @@ const recoveryService = {
     exitBacklog: async (projectId) => {
         await api.post(`/land/projects/${projectId}/exit-backlog`);
         return true;
+    },
+
+    pauseStorageFees: async (projectId, paused) => {
+        await api.patch(`/land/projects/${projectId}/storage-pause`, null, {
+            params: { paused }
+        });
+    },
+
+    setStorageRate: async (projectId, rate) => {
+        await api.patch(`/land/projects/${projectId}/storage-rate`, null, {
+            params: { rate }
+        });
+    },
+
+    setAccumulatedFees: async (projectId, amount) => {
+        await api.patch(`/land/projects/${projectId}/storage-fees`, null, {
+            params: { amount }
+        });
     }
 };
 

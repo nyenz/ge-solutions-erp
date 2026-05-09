@@ -22,7 +22,7 @@ public class BacklogSchedulerService {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
 
-    private static final BigDecimal MONTHLY_STORAGE_FEE = new BigDecimal("50000");
+    private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
     // Runs every day at midnight
     // Adds 50,000 per 30-day period since backlog start date
@@ -35,23 +35,27 @@ public class BacklogSchedulerService {
 
         for (LandProject plot : backlogPlots) {
             if (plot.getBacklogStartDate() == null) continue;
+            if (plot.isStoragePaused()) continue; // fees paused by admin
 
             long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
             long periodsOwed = daysSinceBacklog / 30;
 
             if (periodsOwed <= 0) continue;
 
+            BigDecimal monthlyRate = (plot.getStorageFeeOverride() != null && plot.getStorageFeeOverride().compareTo(BigDecimal.ZERO) > 0)
+                    ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
+
             BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
                     ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
 
-            long feesAlreadyApplied = currentFees
-                    .divide(MONTHLY_STORAGE_FEE, 0, RoundingMode.DOWN)
-                    .longValue();
+            long feesAlreadyApplied = monthlyRate.compareTo(BigDecimal.ZERO) > 0
+                    ? currentFees.divide(monthlyRate, 0, RoundingMode.DOWN).longValue()
+                    : 0L;
 
             if (feesAlreadyApplied >= periodsOwed) continue;
 
             long feesMissing = periodsOwed - feesAlreadyApplied;
-            BigDecimal toAdd = MONTHLY_STORAGE_FEE.multiply(BigDecimal.valueOf(feesMissing));
+            BigDecimal toAdd = monthlyRate.multiply(BigDecimal.valueOf(feesMissing));
 
             plot.setStorageFeesAccumulated(currentFees.add(toAdd));
             projectRepository.save(plot);

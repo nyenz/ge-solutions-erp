@@ -65,6 +65,20 @@ public class LandProject {
     @Column(name = "storage_fees_accumulated", precision = 15, scale = 2)
     private BigDecimal storageFeesAccumulated = BigDecimal.ZERO;
 
+    /**
+     * STORAGE FEE PAUSE: When true, the scheduler skips this plot.
+     * Useful when a client is in active negotiation.
+     */
+    @Builder.Default
+    @Column(name = "storage_paused", nullable = false)
+    private boolean storagePaused = false;
+
+    /**
+     * STORAGE FEE OVERRIDE: Custom monthly rate (null = use system default 50,000).
+     */
+    @Column(name = "storage_fee_override", precision = 15, scale = 2)
+    private BigDecimal storageFeeOverride;
+
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 

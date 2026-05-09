@@ -96,6 +96,7 @@ const LedgerPage = () => {
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
+        if (activeFilter === 'PAID')     filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);
         if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
         if (activeFilter === 'LEGACY')   filtered = filtered.filter(p => p.isLegacy);
         if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);
@@ -133,6 +134,7 @@ const LedgerPage = () => {
 
     const FILTERS = [
         { key: 'ALL',      label: 'ALL ARCHIVES' },
+        { key: 'PAID',     label: 'PAID TITLES'  },
         { key: 'BACKLOG',  label: 'BACKLOG'      },
         { key: 'LEGACY',   label: 'LEGACY'       },
         { key: 'DEBTORS',  label: 'UNPAID'       },
@@ -305,7 +307,9 @@ const LedgerPage = () => {
                                         <td>
                                             <div className={styles.statusGroup}>
                                                 {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}
-                                                {!isBacklog && <span className={proj.isLegacy ? styles.tagLegacy : styles.tagStandard}>
+                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
+                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}
+                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={proj.isLegacy ? styles.tagLegacy : styles.tagStandard}>
                                                     {proj.isLegacy ? 'LEGACY' : 'ACTIVE'}
                                                 </span>}
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}

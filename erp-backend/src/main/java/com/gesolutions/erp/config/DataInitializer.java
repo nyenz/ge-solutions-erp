@@ -10,6 +10,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.UUID;
 
 @Component
@@ -18,6 +20,9 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Value("${ADMIN_EMAIL}")
     private String adminEmail;
@@ -29,6 +34,17 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         System.out.println(">>> NYENZ SYSTEM: Verifying Master Identity Registry...");
+
+        // Ensure session_version column exists before any queries run.
+        // This handles the case where the column was added after the DB was created.
+        try {
+            entityManager.createNativeQuery(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL"
+            ).executeUpdate();
+            System.out.println(">>> [DB_SCHEMA] session_version column verified.");
+        } catch (Exception e) {
+            System.out.println(">>> [DB_SCHEMA] session_version already exists or skipped: " + e.getMessage());
+        }
 
         if (userRepository.findByUsername("admin_root").isEmpty()) {
             User root = User.builder()

@@ -17,6 +17,9 @@ const LoginPage = () => {
         if (params.get('reason') === 'session_conflict') {
             return 'SECURITY: Your session was terminated because this account logged in from another browser.';
         }
+        if (params.get('reason') === 'idle_timeout') {
+            return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
+        }
         return '';
     });
     

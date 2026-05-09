@@ -151,4 +151,31 @@ public class LandController {
     public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectPayments(id));
     }
+
+    // NEW: Pause / resume storage fee accumulation
+    @PatchMapping("/projects/{id}/storage-pause")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
+                                                   @RequestParam boolean paused) {
+        landService.setStoragePaused(id, paused);
+        return ResponseEntity.ok().build();
+    }
+
+    // NEW: Edit the monthly storage fee rate for this plot
+    @PatchMapping("/projects/{id}/storage-rate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal rate) {
+        landService.setStorageFeeOverride(id, rate);
+        return ResponseEntity.ok().build();
+    }
+
+    // NEW: Directly adjust accumulated storage fees (waive/correct)
+    @PatchMapping("/projects/{id}/storage-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount) {
+        landService.setAccumulatedFees(id, amount);
+        return ResponseEntity.ok().build();
+    }
 }

@@ -40,7 +40,18 @@ public class ProfileController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException("SECURITY_FAULT: SESSION_INVALID"));
 
-        // 2. Verify current credentials (Hardware check)
+        // 2. Enforce password policy
+        String np = request.getNewPassword();
+        if (np == null || np.length() < 8) {
+            throw new BusinessException("PASSWORD_POLICY: Minimum 8 characters required.");
+        }
+        boolean hasUpper  = np.chars().anyMatch(Character::isUpperCase);
+        boolean hasDigit  = np.chars().anyMatch(Character::isDigit);
+        if (!hasUpper || !hasDigit) {
+            throw new BusinessException("PASSWORD_POLICY: Must contain at least one uppercase letter and one number.");
+        }
+
+        // 3. Verify current credentials (Hardware check)
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
             throw new BusinessException("IDENTIFICATION_FAILED: OLD_PASSWORD_INCORRECT");
         }

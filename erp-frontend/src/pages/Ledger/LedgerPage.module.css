@@ -465,6 +465,19 @@
     text-align: center;
     white-space: nowrap;
 }
+.tagPaid {
+    font-family: 'DM Sans', sans-serif;
+    background: rgba(16, 185, 129, 0.18);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
+    border-radius: 4px;
+    font-size: var(--fs-tag);
+    font-weight: 900;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .tagCritical {
     font-family: 'DM Sans', sans-serif;
     background: rgba(239, 68, 68, 0.15);

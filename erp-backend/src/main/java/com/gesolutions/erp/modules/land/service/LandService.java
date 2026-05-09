@@ -473,6 +473,44 @@ public class LandService {
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setStoragePaused(UUID projectId, boolean paused) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        project.setStoragePaused(paused);
+        projectRepository.save(project);
+        String action = paused ? "PAUSED" : "RESUMED";
+        auditService.logAction("STORAGE_FEE_" + action,
+            "Operator [" + getCurrentOperator() + "] " + action + " storage fees for plot: "
+            + project.getLandTitle().getPlotNumber());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        project.setStorageFeeOverride(rate);
+        projectRepository.save(project);
+        auditService.logAction("STORAGE_RATE_CHANGED",
+            "Operator [" + getCurrentOperator() + "] set monthly storage fee to UGX " + rate
+            + " for plot: " + project.getLandTitle().getPlotNumber());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        java.math.BigDecimal old = project.getStorageFeesAccumulated();
+        project.setStorageFeesAccumulated(amount);
+        projectRepository.save(project);
+        auditService.logAction("STORAGE_FEES_ADJUSTED",
+            "Operator [" + getCurrentOperator() + "] changed accumulated fees from UGX " + old
+            + " to UGX " + amount + " for plot: " + project.getLandTitle().getPlotNumber());
+    }
+
     @Transactional(readOnly = true)
     public List<ProjectDocument> getProjectDocuments(UUID projectId) {
         return documentRepository.findByProjectId(projectId);
