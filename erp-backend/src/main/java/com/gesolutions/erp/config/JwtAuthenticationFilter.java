@@ -64,7 +64,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return sv != null ? ((Number) sv).intValue() : null;
             });
             boolean sessionValid = userRepository.findByUsername(userDetails.getUsername())
-                .map(u -> tokenSv != null && tokenSv.equals(u.getSessionVersion()))
+                .map(u -> {
+                    Integer dbSv = u.getSessionVersion();
+                    if (dbSv == null) return false; // not yet set, reject until login
+                    return tokenSv != null && tokenSv.equals(dbSv);
+                })
                 .orElse(false);
 
             if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails)) && sessionValid) {

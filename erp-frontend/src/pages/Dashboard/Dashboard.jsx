@@ -5,7 +5,8 @@ import landService from '../../services/landService';
 import RootTerminal from './RootTerminal';
 import ManagerTerminal from './ManagerTerminal';
 import styles from './Dashboard.module.css';
-import { FiAlertTriangle, FiRefreshCcw } from 'react-icons/fi';
+import { FiRefreshCcw } from 'react-icons/fi';
+import ErrorMessage from '../../components/common/ErrorMessage';
 
 const Dashboard = () => {
     const { user } = useAuth();
@@ -32,21 +33,20 @@ const Dashboard = () => {
     if (loading) return (
         <div className={styles.bootScreen} role="status" aria-label="Loading dashboard">
             <div className={styles.spinner} aria-hidden="true" />
-            <span className={styles.bootLabel}>INITIALIZING COMMAND COCKPIT...</span>
+            <span className={styles.bootLabel}>Loading dashboard...</span>
         </div>
     );
 
     if (error) return (
         <div className={styles.container}>
-            <div className={styles.errorHUD}>
-                <FiAlertTriangle className={styles.errorIcon} aria-hidden="true" />
-                <div className={styles.errorBody}>
-                    <strong className={styles.errorTitle}>SYSTEM FAULT</strong>
-                    <p className={styles.errorMsg}>{error}</p>
-                </div>
-                <button className={styles.rebootBtn} onClick={syncCockpitData}>
-                    <FiRefreshCcw aria-hidden="true" /> REBOOT
-                </button>
+            <div style={{ maxWidth: 520, margin: '80px auto' }}>
+                <ErrorMessage
+                    type="network"
+                    title="Can't load dashboard"
+                    message="The server isn't responding right now. Check your connection, then try again."
+                    onRetry={syncCockpitData}
+                    retryLabel="Reload Dashboard"
+                />
             </div>
         </div>
     );

@@ -1,0 +1,248 @@
+/* PATH: erp-frontend/src/components/common/ErrorMessage.module.css */
+
+/* ── WRAPPER ── */
+.wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(10px, 1.3vw, 14px);
+    padding: clamp(12px, 1.5vw, 18px) clamp(14px, 1.8vw, 20px);
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'DM Sans', sans-serif;
+    animation: errIn 0.28s cubic-bezier(0.2, 1, 0.3, 1) both;
+}
+
+@keyframes errIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.compact {
+    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.3vw, 14px);
+    border-radius: 7px;
+}
+
+/* ── ICON BOX ── */
+.iconBox {
+    flex-shrink: 0;
+    width: clamp(22px, 2.6vw, 28px);
+    height: clamp(22px, 2.6vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+.compact .iconBox {
+    width: clamp(18px, 2vw, 22px);
+    height: clamp(18px, 2vw, 22px);
+}
+.iconBox svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* ── BODY ── */
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    min-width: 0;
+    flex: 1;
+}
+.title {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(11px, 1.1vw, 13px);
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+.msg {
+    margin: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(11px, 1.05vw, 13px);
+    font-weight: 700;
+    line-height: 1.55;
+}
+.compact .msg {
+    font-size: clamp(10px, 0.95vw, 12px);
+}
+
+/* ── RETRY BUTTON ── */
+.retryBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: clamp(6px, 0.8vw, 9px);
+    padding: clamp(6px, 0.7vw, 8px) clamp(12px, 1.4vw, 16px);
+    border-radius: 6px;
+    border: 1.5px solid currentColor;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+    align-self: flex-start;
+}
+.retryBtn:hover { filter: brightness(1.15); }
+.retryBtn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* ══════════════════════════════
+   COLOUR VARIANTS
+   Light bg = dark text (dark on light rule)
+   Dark panels = lighter tints
+   ══════════════════════════════ */
+
+/* ── ERROR (red) ── */
+.error {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.30);
+    color: #b91c1c;
+}
+.error .iconBox { color: #ef4444; }
+.error .title   { color: #b91c1c; }
+.error .msg     { color: #7f1d1d; }
+.error .retryBtn { color: #b91c1c; }
+.error .retryBtn:hover { background: rgba(239,68,68,0.12); }
+
+/* On dark panels (inside .hwPanel / .panel dark variant) */
+.dark .error,
+[data-theme="dark"] .error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+.dark .error .title { color: #fca5a5; }
+.dark .error .msg   { color: rgba(255,200,200,0.75); }
+
+/* ── WARN (amber/orange) ── */
+.warn {
+    background: rgba(245, 158, 11, 0.10);
+    border-color: rgba(245, 158, 11, 0.30);
+    color: #92400e;
+}
+.warn .iconBox { color: #f59e0b; }
+.warn .title   { color: #92400e; }
+.warn .msg     { color: #78350f; }
+.warn .retryBtn { color: #92400e; }
+.warn .retryBtn:hover { background: rgba(245,158,11,0.12); }
+
+/* ── INFO (cyan/blue) ── */
+.info {
+    background: rgba(6, 182, 212, 0.08);
+    border-color: rgba(6, 182, 212, 0.28);
+    color: #0e7490;
+}
+.info .iconBox { color: #0891b2; }
+.info .title   { color: #0e7490; }
+.info .msg     { color: #164e63; }
+.info .retryBtn { color: #0e7490; }
+.info .retryBtn:hover { background: rgba(6,182,212,0.10); }
+
+/* ── SUCCESS (green) ── */
+.success {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.28);
+    color: #065f46;
+}
+.success .iconBox { color: #10b981; }
+.success .title   { color: #065f46; }
+.success .msg     { color: #064e3b; }
+.success .retryBtn { color: #065f46; }
+
+/* ── LOCK (purple/grey — permission denied) ── */
+.lock {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.25);
+    color: #3730a3;
+}
+.lock .iconBox { color: #6366f1; }
+.lock .title   { color: #3730a3; }
+.lock .msg     { color: #312e81; }
+
+/* ── EMPTY (muted grey) ── */
+.empty {
+    background: rgba(100, 116, 139, 0.06);
+    border-color: rgba(100, 116, 139, 0.18);
+    color: #475569;
+}
+.empty .iconBox { color: #94a3b8; }
+.empty .title   { color: #475569; }
+.empty .msg     { color: #64748b; }
+
+/* ── NETWORK (same as error but orange-tinted) ── */
+.network {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #92400e;
+}
+.network .iconBox { color: #ef4444; }
+.network .title   { color: #b45309; }
+.network .msg     { color: #78350f; }
+.network .retryBtn { color: #b45309; }
+.network .retryBtn:hover { background: rgba(239,68,68,0.10); }
+
+/* ── DARK PANEL OVERRIDES ── */
+/* When ErrorMessage sits inside a dark navy panel, flip to light-on-dark */
+.panelDark.error   { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.4); }
+.panelDark.error .title { color: #fca5a5; }
+.panelDark.error .msg   { color: rgba(255,200,200,0.7); }
+.panelDark.error .iconBox { color: #ef4444; }
+.panelDark.error .retryBtn { color: #fca5a5; }
+
+.panelDark.warn   { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); }
+.panelDark.warn .title { color: #fcd34d; }
+.panelDark.warn .msg   { color: rgba(255,220,150,0.7); }
+.panelDark.warn .iconBox { color: #f59e0b; }
+.panelDark.warn .retryBtn { color: #fcd34d; }
+
+.panelDark.info   { background: rgba(6,182,212,0.10); border-color: rgba(6,182,212,0.35); }
+.panelDark.info .title { color: #67e8f9; }
+.panelDark.info .msg   { color: rgba(150,240,255,0.65); }
+.panelDark.info .iconBox { color: #06b6d4; }
+
+.panelDark.success { background: rgba(16,185,129,0.10); border-color: rgba(16,185,129,0.35); }
+.panelDark.success .title { color: #6ee7b7; }
+.panelDark.success .msg   { color: rgba(150,255,210,0.65); }
+.panelDark.success .iconBox { color: #10b981; }
+
+.panelDark.empty  { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+.panelDark.empty .title { color: rgba(255,255,255,0.4); }
+.panelDark.empty .msg   { color: rgba(255,255,255,0.28); }
+.panelDark.empty .iconBox { color: rgba(255,255,255,0.25); }
+
+.panelDark.lock   { background: rgba(99,102,241,0.10); border-color: rgba(99,102,241,0.3); }
+.panelDark.lock .title { color: #a5b4fc; }
+.panelDark.lock .msg   { color: rgba(180,190,255,0.65); }
+.panelDark.lock .iconBox { color: #818cf8; }
+
+/* ── FULL-PAGE / CENTERED variant ── */
+.centered {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: clamp(32px, 6vw, 60px) clamp(20px, 4vw, 48px);
+    border-radius: 14px;
+}
+.centered .iconBox {
+    width: clamp(40px, 6vw, 56px);
+    height: clamp(40px, 6vw, 56px);
+    margin-bottom: clamp(6px, 0.8vw, 10px);
+}
+.centered .body { align-items: center; }
+.centered .title { font-size: clamp(14px, 1.6vw, 18px); }
+.centered .msg   { font-size: clamp(12px, 1.2vw, 14px); max-width: 380px; }
+.centered .retryBtn { align-self: center; margin-top: clamp(10px, 1.3vw, 16px); }
+
+@media (max-width: 480px) {
+    .wrap   { gap: 10px; padding: 11px 12px; }
+    .title  { font-size: 11px; }
+    .msg    { font-size: 11px; }
+    .retryBtn { font-size: 9px; padding: 6px 10px; }
+}

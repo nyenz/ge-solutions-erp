@@ -72,7 +72,7 @@ public class User {
      * This enforces single-session across all devices and browsers.
      */
     @Builder.Default
-    @Column(name = "session_version", nullable = false)
+    @Column(name = "session_version")
     private Integer sessionVersion = 0;
 
     @Enumerated(EnumType.STRING)

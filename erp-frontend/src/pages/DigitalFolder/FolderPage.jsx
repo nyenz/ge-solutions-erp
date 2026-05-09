@@ -16,6 +16,7 @@ import landService from '../../services/landService';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import HardwareModal from '../../components/common/HardwareModal';
+import ErrorMessage from '../../components/common/ErrorMessage';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
@@ -677,11 +678,14 @@ const FolderPage = () => {
     if (loading) return <div className={styles.container}><SkeletonPage /></div>;
 
     if (loadError || !binder || !buffer) return (
-        <div className={styles.errorScreen}>
-            <FiAlertTriangle className={styles.errorIcon} aria-hidden="true" />
-            <h2>VAULT ACCESS DENIED</h2>
-            <p>Could not load record. The archive may be unavailable.</p>
-            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={loadFolderData}>RETRY</button>
+        <div style={{ padding: 'clamp(40px,8vw,80px) clamp(20px,4vw,40px)' }}>
+            <ErrorMessage
+                type="error"
+                title="Record not found"
+                message="This archive entry could not be loaded. It may have been deleted or the server is temporarily unavailable."
+                onRetry={loadFolderData}
+                retryLabel="Try Again"
+            />
         </div>
     );
 

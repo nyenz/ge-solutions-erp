@@ -8,6 +8,7 @@ import {
     FiAlertTriangle, FiX, FiAlertOctagon
 } from 'react-icons/fi';
 import HardwarePanel from '../../components/ui/HardwarePanel';
+import ErrorMessage from '../../components/common/ErrorMessage';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
