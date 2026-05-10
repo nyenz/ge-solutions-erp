@@ -746,31 +746,6 @@ const FolderPage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing || paying} />
 
-            {/* BACKLOG BANNER */}
-            {isBacklog && (
-                <div style={{
-                    background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)',
-                    borderRadius: 8, padding: '12px 20px', marginBottom: 16,
-                    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
-                }}>
-                    <FiAlertOctagon style={{ color: '#ef4444', flexShrink: 0 }} size={20} />
-                    <div style={{ flex: 1 }}>
-                        <strong style={{ color: '#ef4444' }}>BACKLOG STATUS — STORAGE FEES ACTIVE</strong>
-                        <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: 2 }}>
-                            UGX 50,000 is added to this plot every month until the full balance is cleared.
-                        </div>
-                    </div>
-                    {isAdmin && (
-                        <button onClick={handleExitBacklog}
-                            style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444',
-                                color: '#ef4444', borderRadius: 6, padding: '6px 14px',
-                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}>
-                            EXIT BACKLOG
-                        </button>
-                    )}
-                </div>
-            )}
-
             {/* PIPELINE HUD */}
             <nav className={styles.pipelineHUD} aria-label="Project pipeline">
                 <div className={styles.track}>
