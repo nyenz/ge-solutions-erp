@@ -227,9 +227,8 @@ const IntakePage = () => {
         owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
         totalCost !== '' ||
         fileQueue.length > 0 ||
-        notesList.length > 0 ||
         noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, notesList, noteText]);
+    [plotNumber, owners, totalCost, fileQueue, noteText]);
 
     useEffect(() => {
         const handler = (e) => {
