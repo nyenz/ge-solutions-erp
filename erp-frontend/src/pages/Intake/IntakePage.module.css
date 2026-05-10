@@ -712,29 +712,27 @@
     display: inline-flex;
     align-items: center;
     gap: clamp(6px, 0.8vw, 9px);
-    height: clamp(34px, 4.2vw, 40px);
     padding: 0 clamp(16px, 2vw, 24px);
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(238, 140, 58, 0.6);
-    color: #EE8C3A;
-    border-radius: var(--radius-sm);
+    height: clamp(36px, 4.5vw, 42px);
+    background: #EE8C3A;
+    color: #1a2e30;
+    border: none;
+    border-radius: 8px;
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
     font-size: clamp(9px, 0.9vw, 11px);
-    letter-spacing: 1px;
     text-transform: uppercase;
+    letter-spacing: 1.5px;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, box-shadow 0.2s;
     white-space: nowrap;
 }
 .primaryCommitBtn:hover:not(:disabled) {
-    background: #EE8C3A;
-    border-color: #EE8C3A;
-    color: #1a2e30;
-    box-shadow: 0 0 16px rgba(238,140,58,0.4);
+    background: #f0a050;
+    box-shadow: 0 0 18px rgba(238,140,58,0.4);
 }
 .primaryCommitBtn:disabled { opacity: 0.45; cursor: not-allowed; }
-.primaryCommitBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.primaryCommitBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
 
 .secondaryCommitBtn {
     height: var(--input-h); padding: 0 clamp(20px, 2.5vw, 32px);

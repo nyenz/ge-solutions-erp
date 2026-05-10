@@ -791,8 +791,8 @@ const FolderPage = () => {
                     {/* VIEW MODE ACTIONS */}
                     {!isEditing && (
                         <div className={styles.ctrlGroup}>
-                            <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record" title="Print">
-                                <FiPrinter aria-hidden="true" />
+                            <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record">
+                                <FiPrinter aria-hidden="true" /> PRINT
                             </button>
                             {isAdmin && (
                                 <button className={styles.ctrlBtnPay}
@@ -910,6 +910,7 @@ const FolderPage = () => {
                     <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.finance}>
                         <div className={styles.panelInner}>
                             {isEditing ? (
+                                <>
                                 <div className={styles.inputGrid3}>
                                     <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => setBuffer({...buffer, totalCost:v})} />
                                     <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => setBuffer({...buffer, initialPayment:v})} />
@@ -918,6 +919,29 @@ const FolderPage = () => {
                                         <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
                                     </div>
                                 </div>
+                                {project.isBacklog && (
+                                    <div className={styles.inputGrid3} style={{marginTop: 8}}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}>
+                                                <label>MONTHLY STORAGE FEE (UGX)</label>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                className={styles.hwInput}
+                                                defaultValue={project.storageFeeOverride || 50000}
+                                                onBlur={async e => {
+                                                    const val = Number(e.target.value);
+                                                    if (val >= 0) {
+                                                        try { await recoveryService.setStorageRate(project.id, val); }
+                                                        catch { /* non-fatal */ }
+                                                    }
+                                                }}
+                                                placeholder="50000"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                </>
                             ) : isBacklog ? (
                                 /* BACKLOG FINANCIAL BREAKDOWN */
                                 <div>
@@ -972,7 +996,22 @@ const FolderPage = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    {isAdmin && <BacklogFeeControls project={project} projectId={id} onRefresh={loadFolderData} toast={toast} />}
+                                    {isAdmin && (
+                                        <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                                            <button
+                                                className={styles.btnPauseResume}
+                                                onClick={async () => {
+                                                    try {
+                                                        await recoveryService.pauseStorageFees(id, !project.storagePaused);
+                                                        await loadFolderData();
+                                                        toast(project.storagePaused ? 'STORAGE FEES RESUMED' : 'STORAGE FEES PAUSED', 'info');
+                                                    } catch { toast('ACTION FAILED', 'error'); }
+                                                }}
+                                            >
+                                                {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 /* ACTIVE FINANCIAL */
