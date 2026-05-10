@@ -271,23 +271,23 @@
     white-space: nowrap;
     border: 1.5px solid transparent;
 }
-/* COLLECTION % -- muted navy pill (matches ledger tagStandard) */
+/* COLLECTION % -- muted pill */
 .tagBlue {
-    background: rgba(26, 46, 48, 0.75);
-    border-color: rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
+    background: rgba(26, 46, 48, 0.6);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
 }
-/* ACTIVE status -- muted with orange tint (matches ledger tagStandard + hint) */
+/* ACTIVE status */
 .tagOrange {
-    background: rgba(238, 140, 58, 0.10);
-    border-color: rgba(238, 140, 58, 0.35);
-    color: var(--orange);
+    background: rgba(26, 46, 48, 0.6);
+    border-color: rgba(238, 140, 58, 0.5);
+    color: #EE8C3A;
 }
-/* EDIT MODE badge -- cyan accent, pulsing */
+/* EDIT MODE badge -- green accent, pulsing */
 .editBadge {
-    background: rgba(6, 182, 212, 0.12);
-    border: 1.5px solid rgba(6, 182, 212, 0.4);
-    color: #67e8f9;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1.5px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 900;
@@ -307,66 +307,19 @@
    All buttons share the same base shape. Color encodes meaning only.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── BASE PILL (used by all ctrl-zone buttons) ── */
-.ctrlBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.7vw, 7px);
-    height: clamp(32px, 4vw, 38px);
-    padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(26, 46, 48, 0.08);
-    border: 1.5px solid rgba(26, 46, 48, 0.22);
-    color: var(--navy);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1;
-}
-.ctrlBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+/* ── STANDARD BUTTON BASE -- all buttons same height, same base shape ── */
+/* Standard: grey bg + colored border/text -> fills color on hover */
 
-/* ── DARK BG PILL BASE (inside the terminal header dark panels) ── */
-.darkCtrlBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.7vw, 7px);
-    height: clamp(32px, 4vw, 38px);
-    padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1;
-}
-.darkCtrlBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: var(--orange); }
-.darkCtrlBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.darkCtrlBtn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-/* EDIT -- orange tint inactive, orange-filled active (same as Ledger activeFilter) */
+/* EDIT -- same design as Save (orange outline -> fills orange) */
 .unlockMasterBtn {
     display: inline-flex;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
     height: clamp(32px, 4vw, 38px);
     padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(238, 140, 58, 0.12);
-    border: 1.5px solid rgba(238, 140, 58, 0.45);
-    color: var(--orange);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    color: #EE8C3A;
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
@@ -377,6 +330,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
+    line-height: 1;
 }
 .unlockMasterBtn:hover, .unlockMasterBtn:focus-visible {
     background: #EE8C3A;
@@ -386,7 +340,7 @@
     outline: none;
 }
 
-/* SAVE -- orange filled (primary action) */
+/* SAVE -- grey + orange border -> fills orange (same pattern as edit) */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -410,36 +364,39 @@
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 .btnPrimary {
-    background: #EE8C3A;
-    color: #1a2e30;
-    border-color: #EE8C3A;
+    background: rgba(26, 46, 48, 0.75);
+    border-color: rgba(238, 140, 58, 0.6);
+    color: #EE8C3A;
 }
 .btnPrimary:not(:disabled):hover {
-    background: #f0a050;
+    background: #EE8C3A;
+    border-color: #EE8C3A;
+    color: #1a2e30;
     box-shadow: 0 0 16px rgba(238,140,58,0.4);
 }
 
-/* ABORT -- muted transparent with red on hover */
+/* ABORT -- grey -> full red on hover */
 .btnDanger {
     background: rgba(26, 46, 48, 0.75);
     border-color: rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.75);
 }
 .btnDanger:hover {
-    background: rgba(239,68,68,0.15);
-    border-color: rgba(239,68,68,0.5);
-    color: #fca5a5;
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(239,68,68,0.35);
 }
 
-/* DELETE (nuclear purge) -- red tint, stronger than abort */
+/* DELETE (nuclear purge) -- grey -> full red on hover */
 .purgeBtn {
     display: inline-flex;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
     height: clamp(32px, 4vw, 38px);
     padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(239, 68, 68, 0.10);
-    border: 1.5px solid rgba(239, 68, 68, 0.35);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(239, 68, 68, 0.45);
     color: #fca5a5;
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
@@ -451,19 +408,20 @@
     white-space: nowrap;
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    line-height: 1;
 }
 .purgeBtn:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.35); }
 .purgeBtn:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
-/* PAYMENT -- green tint (money action) */
+/* PAYMENT -- grey -> full green on hover */
 .ctrlBtnPay {
     display: inline-flex;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
     height: clamp(32px, 4vw, 38px);
     padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(16, 185, 129, 0.10);
-    border: 1.5px solid rgba(16, 185, 129, 0.35);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(16, 185, 129, 0.45);
     color: #34d399;
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
@@ -475,19 +433,20 @@
     white-space: nowrap;
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    line-height: 1;
 }
 .ctrlBtnPay:hover { background: #10b981; color: #1a2e30; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .ctrlBtnPay:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
-/* BACKLOG -- red tint (danger/warning action) */
+/* BACKLOG -- grey -> full red on hover */
 .ctrlBtnBacklog {
     display: inline-flex;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
     height: clamp(32px, 4vw, 38px);
     padding: 0 clamp(10px, 1.3vw, 15px);
-    background: rgba(239, 68, 68, 0.10);
-    border: 1.5px solid rgba(239, 68, 68, 0.30);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(239, 68, 68, 0.45);
     color: #fca5a5;
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
@@ -498,9 +457,10 @@
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    line-height: 1;
 }
-.ctrlBtnBacklog:hover { background: rgba(239,68,68,0.20); border-color: rgba(239,68,68,0.55); }
+.ctrlBtnBacklog:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.35); }
 .ctrlBtnBacklog:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
 /* PRINT icon-only */
@@ -510,20 +470,29 @@
     justify-content: center;
     width: clamp(32px, 4vw, 38px);
     height: clamp(32px, 4vw, 38px);
-    background: rgba(26, 46, 48, 0.08);
-    border: 1.5px solid rgba(26, 46, 48, 0.20);
-    color: var(--navy);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.6);
     border-radius: var(--radius-sm);
     font-size: clamp(14px, 1.6vw, 17px);
     cursor: pointer;
-    transition: 0.2s;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
     flex-shrink: 0;
+    line-height: 1;
 }
-.printBtn:hover { background: var(--navy); color: var(--orange); border-color: var(--navy); }
+.printBtn:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.35); }
+
+/* ctrlBtn unused but kept for legacy */
+.ctrlBtn { display: inline-flex; align-items: center; gap: 6px; height: clamp(32px, 4vw, 38px); padding: 0 clamp(10px, 1.3vw, 15px); background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px,0.9vw,11px); text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; line-height: 1; }
+.ctrlBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: var(--orange); }
+.ctrlBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* Ctrl group layout */
 .ctrlGroup { display: flex; align-items: center; gap: clamp(6px, 0.9vw, 10px); flex-wrap: wrap; flex-shrink: 0; }
 .handshakeActions { display: flex; gap: clamp(7px, 1vw, 10px); flex-wrap: wrap; }
+.darkCtrlBtn { display: inline-flex; align-items: center; gap: 6px; height: clamp(32px, 4vw, 38px); padding: 0 clamp(10px,1.3vw,15px); background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px,0.9vw,11px); text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; line-height: 1; white-space: nowrap; flex-shrink: 0; }
+.darkCtrlBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: var(--orange); }
+.darkCtrlBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* icon buttons (trash, edit inside notes/docs) */
 
@@ -593,7 +562,7 @@
 .charFull  { color: var(--green); }
 .charMid   { color: #f59e0b; }
 .currencyTag { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 9px); font-weight: 900; color: var(--orange); background: var(--orange-dim); padding: clamp(1px, 0.2vw, 3px) clamp(5px, 0.7vw, 8px); border-radius: 3px; border: 1px solid var(--orange-border); margin-left: auto; }
-.autoCalcBadge { font-size: clamp(6px, 0.7vw, 8px); font-weight: 900; color: var(--cyan); background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25); padding: clamp(1px, 0.2vw, 2px) clamp(4px, 0.6vw, 6px); border-radius: 3px; letter-spacing: 1px; margin-left: auto; }
+.autoCalcBadge { font-size: clamp(6px, 0.7vw, 8px); font-weight: 900; color: #10b981; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); padding: clamp(1px, 0.2vw, 2px) clamp(4px, 0.6vw, 6px); border-radius: 3px; letter-spacing: 1px; margin-left: auto; }
 .inputHint { color: rgba(255,255,255,0.28); font-size: clamp(8px, 0.88vw, 10px); font-weight: 700; letter-spacing: 0.3px; }
 .fieldError { color: #fca5a5; font-size: clamp(9px, 1vw, 11px); font-weight: 800; display: flex; align-items: center; gap: 4px; }
 
@@ -622,7 +591,7 @@
 .hwInputErr { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
 
 /* Calculated/disabled field */
-.calcInput { background: #000; color: var(--cyan); border: 2px solid rgba(6,182,212,0.4) !important; opacity: 1; cursor: not-allowed; text-shadow: 0 0 8px rgba(6,182,212,0.4); font-family: 'Space Mono', monospace; }
+.calcInput { background: #000; color: #10b981; border: 1.5px solid rgba(16,185,129,0.5) !important; opacity: 1; cursor: not-allowed; box-shadow: 0 0 8px rgba(16,185,129,0.15); font-family: 'Space Mono', monospace; }
 
 
 /* ═══════════════════════════════════════════════════════════════════

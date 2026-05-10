@@ -571,10 +571,12 @@ const IntakePage = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <button type="button" className={styles.addNoteBtn}
-                                    onClick={() => { setEditingNoteIdx(null); setNoteModalText(''); setNoteModalOpen(true); }}>
-                                    + ADD NOTE
-                                </button>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                                    <button type="button" className={styles.addNoteBtn}
+                                        onClick={() => { setEditingNoteIdx(null); setNoteModalText(''); setNoteModalOpen(true); }}>
+                                        + ADD NOTE
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

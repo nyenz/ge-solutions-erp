@@ -946,6 +946,25 @@ const FolderPage = () => {
                             ) : isBacklog ? (
                                 /* BACKLOG FINANCIAL BREAKDOWN */
                                 <div>
+                                    {/* Backlog notice at top of financials */}
+                                    <div style={{
+                                        background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)',
+                                        borderRadius: 7, padding: '10px 14px', marginBottom: 14,
+                                        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'
+                                    }}>
+                                        <FiAlertOctagon style={{ color: '#ef4444', flexShrink: 0 }} size={16} />
+                                        <div style={{ flex: 1 }}>
+                                            <strong style={{ color: '#ef4444', fontSize: '0.8rem', fontFamily: 'DM Sans,sans-serif', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>BACKLOG STATUS — STORAGE FEES ACTIVE</strong>
+                                            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: 2, fontFamily: 'DM Sans,sans-serif' }}>
+                                                UGX 50,000 is added every month until the full balance is cleared.
+                                            </div>
+                                        </div>
+                                        {isAdmin && (
+                                            <button onClick={handleExitBacklog} className={styles.ctrlBtnBacklog} style={{ height: 30, fontSize: 10, padding: '0 10px' }}>
+                                                EXIT BACKLOG
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className={styles.moneyStatsRow}>
                                         <div className={styles.statBox}>
                                             <label>ORIGINAL DEBT</label>
