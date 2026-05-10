@@ -79,6 +79,20 @@ public class LandProject {
     @Column(name = "storage_fee_override", precision = 15, scale = 2)
     private BigDecimal storageFeeOverride;
 
+    /**
+     * NEGOTIATION DEADLINE: When set, storage fees pause automatically until this date.
+     * Admin sets this when in active negotiation with client.
+     */
+    @Column(name = "negotiation_deadline")
+    private java.time.LocalDateTime negotiationDeadline;
+
+    /**
+     * BACKLOG START DATE OVERRIDE: Allows admin to set the actual backlog start date
+     * for titles entered late into the system (e.g. 2 months ago).
+     */
+    @Column(name = "backlog_start_override")
+    private java.time.LocalDateTime backlogStartOverride;
+
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 

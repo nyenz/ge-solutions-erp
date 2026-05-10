@@ -37,6 +37,18 @@ public class BacklogSchedulerService {
             if (plot.getBacklogStartDate() == null) continue;
             if (plot.isStoragePaused()) continue; // fees paused by admin
 
+            // Auto-pause if negotiation deadline is in the future; auto-resume if it has passed
+            if (plot.getNegotiationDeadline() != null) {
+                if (now.isBefore(plot.getNegotiationDeadline())) {
+                    continue; // still within negotiation window
+                } else {
+                    // Deadline has passed -- auto-resume fees and clear deadline
+                    plot.setStoragePaused(false);
+                    plot.setNegotiationDeadline(null);
+                    projectRepository.save(plot);
+                }
+            }
+
             long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
             long periodsOwed = daysSinceBacklog / 30;
 

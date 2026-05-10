@@ -7,28 +7,12 @@ def read(path):
 def write(path, content):
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(content)
-    print("OK")
+    print(f"OK: {path}")
 
-path = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
+path = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
 content = read(path)
-
-# Fix isDirty useMemo that still references notesList
 content = content.replace(
-    """    const isDirty = React.useMemo(() =>
-        plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        notesList.length > 0 ||
-        noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, notesList, noteText]);""",
-    """    const isDirty = React.useMemo(() =>
-        plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, noteText]);"""
+    'const handleOpenDoc = (filePath, fileName) => {',
+    'const handleOpenDoc = (filePath) => {'
 )
-
 write(path, content)

@@ -178,4 +178,22 @@ public class LandController {
         landService.setAccumulatedFees(id, amount);
         return ResponseEntity.ok().build();
     }
+
+    // NEW: Set negotiation deadline (pauses storage fees until this date)
+    @PatchMapping("/projects/{id}/negotiation-deadline")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
+                                                        @RequestParam(required = false) String deadline) {
+        landService.setNegotiationDeadline(id, deadline);
+        return ResponseEntity.ok().build();
+    }
+
+    // NEW: Set backlog start override date (for late-entered titles)
+    @PatchMapping("/projects/{id}/backlog-start")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setBacklogStartOverride(@PathVariable UUID id,
+                                                         @RequestParam String startDate) {
+        landService.setBacklogStartOverride(id, startDate);
+        return ResponseEntity.ok().build();
+    }
 }

@@ -511,6 +511,47 @@ public class LandService {
             + " to UGX " + amount + " for plot: " + project.getLandTitle().getPlotNumber());
     }
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setNegotiationDeadline(UUID projectId, String deadlineStr) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (deadlineStr == null || deadlineStr.isBlank()) {
+            project.setNegotiationDeadline(null);
+            // Resume fees if deadline cleared
+            project.setStoragePaused(false);
+            auditService.logAction("NEGOTIATION_DEADLINE_CLEARED",
+                "Operator [" + getCurrentOperator() + "] cleared negotiation deadline for plot: "
+                + project.getLandTitle().getPlotNumber() + " -- storage fees resumed.");
+        } else {
+            java.time.LocalDateTime deadline = java.time.LocalDate.parse(deadlineStr)
+                    .atTime(23, 59, 59);
+            project.setNegotiationDeadline(deadline);
+            // Auto-pause fees while negotiating
+            project.setStoragePaused(true);
+            auditService.logAction("NEGOTIATION_DEADLINE_SET",
+                "Operator [" + getCurrentOperator() + "] set negotiation deadline to " + deadlineStr
+                + " for plot: " + project.getLandTitle().getPlotNumber()
+                + " -- storage fees paused until then.");
+        }
+        projectRepository.save(project);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setBacklogStartOverride(UUID projectId, String startDateStr) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        java.time.LocalDateTime startDate = java.time.LocalDate.parse(startDateStr).atStartOfDay();
+        project.setBacklogStartOverride(startDate);
+        // Apply the override to the actual backlog start date so fees calculate from correct date
+        project.setBacklogStartDate(startDate);
+        projectRepository.save(project);
+        auditService.logAction("BACKLOG_START_OVERRIDDEN",
+            "Operator [" + getCurrentOperator() + "] set backlog start date to " + startDateStr
+            + " for plot: " + project.getLandTitle().getPlotNumber());
+    }
+
     @Transactional(readOnly = true)
     public List<ProjectDocument> getProjectDocuments(UUID projectId) {
         return documentRepository.findByProjectId(projectId);

@@ -72,6 +72,18 @@ const recoveryService = {
         await api.patch(`/land/projects/${projectId}/storage-fees`, null, {
             params: { amount }
         });
+    },
+
+    setNegotiationDeadline: async (projectId, deadline) => {
+        await api.patch(`/land/projects/${projectId}/negotiation-deadline`, null, {
+            params: deadline ? { deadline } : {}
+        });
+    },
+
+    setBacklogStartOverride: async (projectId, startDate) => {
+        await api.patch(`/land/projects/${projectId}/backlog-start`, null, {
+            params: { startDate }
+        });
     }
 };
 

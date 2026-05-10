@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiMap, FiUsers, FiCreditCard, FiUploadCloud,
     FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave,
-    FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon
+    FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon,
+    FiEdit3
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import predictionService from '../../services/predictionService';
@@ -218,7 +219,12 @@ const IntakePage = () => {
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
-    const [noteText,     setNoteText]     = useState('');
+    const [notesList,    setNotesList]    = useState([]);
+    const [noteModalOpen, setNoteModalOpen] = useState(false);
+    const [noteModalText, setNoteModalText] = useState('');
+    const [editingNoteIdx, setEditingNoteIdx] = useState(null);
+
+
 
     // isDirty must be defined AFTER all useState hooks to avoid
     // "Cannot access before initialization" error in the minified bundle
@@ -227,8 +233,8 @@ const IntakePage = () => {
         owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
         totalCost !== '' ||
         fileQueue.length > 0 ||
-        noteText.trim() !== '',
-    [plotNumber, owners, totalCost, fileQueue, noteText]);
+        notesList.length > 0,
+    [plotNumber, owners, totalCost, fileQueue, notesList]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -284,7 +290,7 @@ const IntakePage = () => {
                     nationalId: o.nationalId.trim().toUpperCase(),
                     address:    o.address.trim(),
                 })),
-                notes: noteText.trim() ? [{ content: noteText.trim() }] : [],
+                notes: notesList.map(n => ({ content: n })),
             };
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
@@ -535,13 +541,40 @@ const IntakePage = () => {
 
                     {/* ── NOTES ── */}
                     <div className={styles.hwPanel}>
-                        <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} />
+                        <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')}
+                            icon={FiInfo} badge={notesList.length || undefined} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}>
                             <div className={styles.panelInner}>
-                                <textarea className={styles.notesArea}
-                                    value={noteText}
-                                    onChange={e => setNoteText(e.target.value)}
-                                    placeholder="Add an intake note (e.g. client visited in person, documents pending...)" />
+                                <div className={styles.notebookTimeline}>
+                                    {notesList.length === 0 && (
+                                        <div className={styles.emptyState} style={{ padding: '20px 0' }}>
+                                            <FiInfo className={styles.emptyIcon} />
+                                            <span>No notes added yet</span>
+                                        </div>
+                                    )}
+                                    {notesList.map((note, i) => (
+                                        <div key={i} className={styles.ruledNote}>
+                                            <div className={styles.noteMeta}>
+                                                <span className={styles.noteTime}>NOTE {i + 1}</span>
+                                                <div className={styles.actionBlock}>
+                                                    <button type="button" className={styles.iconBtn}
+                                                        onClick={() => { setEditingNoteIdx(i); setNoteModalText(note); setNoteModalOpen(true); }}>
+                                                        <FiEdit3 className={styles.editIcon} />
+                                                    </button>
+                                                    <button type="button" className={styles.iconBtn}
+                                                        onClick={() => setNotesList(prev => prev.filter((_, j) => j !== i))}>
+                                                        <FiTrash2 className={styles.redIcon} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className={styles.noteContent}>{note}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button type="button" className={styles.addNoteBtn}
+                                    onClick={() => { setEditingNoteIdx(null); setNoteModalText(''); setNoteModalOpen(true); }}>
+                                    + ADD NOTE
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -556,6 +589,45 @@ const IntakePage = () => {
                     </button>
                 </div>
             </div>
+
+            {/* NOTE MODAL */}
+            {noteModalOpen && (
+                <div className={styles.noteModalOverlay} onClick={() => setNoteModalOpen(false)}>
+                    <div className={styles.noteModalBox} onClick={e => e.stopPropagation()}>
+                        <div className={styles.noteModalHeader}>
+                            <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
+                            <button type="button" className={styles.noteModalClose} onClick={() => setNoteModalOpen(false)}>
+                                <FiX />
+                            </button>
+                        </div>
+                        <textarea
+                            className={styles.noteModalArea}
+                            value={noteModalText}
+                            onChange={e => setNoteModalText(e.target.value)}
+                            placeholder="Enter note (e.g. client visited in person, documents pending...)"
+                            autoFocus
+                        />
+                        <div className={styles.noteModalFooter}>
+                            <button type="button" className={styles.noteModalCancel} onClick={() => setNoteModalOpen(false)}>
+                                CANCEL
+                            </button>
+                            <button type="button" className={styles.noteModalSave} onClick={() => {
+                                if (!noteModalText.trim()) return;
+                                if (editingNoteIdx !== null) {
+                                    setNotesList(prev => prev.map((n, i) => i === editingNoteIdx ? noteModalText.trim() : n));
+                                } else {
+                                    setNotesList(prev => [...prev, noteModalText.trim()]);
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                                setEditingNoteIdx(null);
+                            }}>
+                                SAVE NOTE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

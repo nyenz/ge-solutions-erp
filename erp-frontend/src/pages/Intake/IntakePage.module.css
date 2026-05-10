@@ -252,7 +252,7 @@
 .panelBody { transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s; }
 .bodyOpen   { max-height: 6000px; opacity: 1; overflow: visible; }
 .bodyClosed { max-height: 0;      opacity: 0; overflow: hidden; }
-.panelInner { padding: var(--pad-panel); }
+.panelInner { padding: clamp(12px, 1.6vw, 18px); }
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -872,6 +872,196 @@
 /* ═══════════════════════════════════════════════════════════════
    PRINT
    ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   NOTE MODAL OVERLAY
+   ═══════════════════════════════════════════════════════════════ */
+.noteModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(10, 20, 22, 0.82);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 3vw, 32px);
+    animation: fadeIn 0.18s ease both;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.noteModalBox {
+    background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    border: 2px solid rgba(238, 140, 58, 0.4);
+    border-radius: 14px;
+    padding: clamp(20px, 3vw, 28px);
+    width: 100%;
+    max-width: clamp(300px, 90vw, 520px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    animation: slideUp 0.22s cubic-bezier(0.2,1,0.3,1) both;
+}
+@keyframes slideUp { from { opacity:0; transform: translateY(20px) scale(0.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+
+.noteModalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(14px, 2vw, 18px);
+    padding-bottom: clamp(10px, 1.3vw, 13px);
+    border-bottom: 1px solid rgba(238,140,58,0.25);
+    font-family: 'Cinzel', serif;
+    color: var(--orange);
+    font-size: clamp(11px, 1.3vw, 14px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.noteModalClose {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5);
+    font-size: clamp(15px, 1.8vw, 19px);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    width: clamp(28px, 3vw, 34px);
+    height: clamp(28px, 3vw, 34px);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.noteModalClose:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #ef4444; transform: rotate(90deg); }
+
+.noteModalArea {
+    width: 100% !important;
+    min-height: clamp(130px, 18vw, 180px);
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: clamp(11px, 1.4vw, 14px);
+    color: rgba(255,255,255,0.92);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(13px, 1.3vw, 15px);
+    font-weight: 700;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    display: block;
+}
+.noteModalArea:focus { border-color: rgba(238,140,58,0.7); background: rgba(238,140,58,0.06); box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.noteModalArea::placeholder { color: rgba(255,255,255,0.25); font-weight: 500; }
+
+.noteModalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: clamp(8px, 1vw, 12px);
+    margin-top: clamp(14px, 1.8vw, 18px);
+    padding-top: clamp(12px, 1.5vw, 15px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.noteModalCancel {
+    display: inline-flex; align-items: center;
+    padding: 0 clamp(14px, 1.8vw, 20px);
+    height: clamp(36px, 4.5vw, 42px);
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.noteModalCancel:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.noteModalSave {
+    display: inline-flex; align-items: center;
+    padding: 0 clamp(16px, 2vw, 24px);
+    height: clamp(36px, 4.5vw, 42px);
+    background: #EE8C3A;
+    border: none;
+    color: #1a2e30;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.noteModalSave:hover { background: #f0a050; box-shadow: 0 0 18px rgba(238,140,58,0.4); }
+
+/* ── NOTEBOOK TIMELINE (matching FolderPage) ── */
+.notebookTimeline {
+    max-height: clamp(180px, 25vw, 280px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(7px, 1vw, 10px);
+    padding-right: 4px;
+    margin-bottom: clamp(8px, 1vw, 10px);
+}
+.notebookTimeline::-webkit-scrollbar { width: 4px; }
+.notebookTimeline::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 4px; }
+
+.ruledNote {
+    background: #fff;
+    color: var(--navy);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.noteMeta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: clamp(3px, 0.4vw, 5px);
+    margin-bottom: clamp(4px, 0.5vw, 6px);
+    gap: 6px;
+}
+.noteTime {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.9vw, 10px);
+    font-weight: 800;
+    color: #64748b;
+}
+.actionBlock { display: flex; align-items: center; gap: clamp(4px, 0.5vw, 6px); flex-shrink: 0; }
+.editIcon { color: var(--orange); font-size: clamp(13px, 1.4vw, 16px); opacity: 0.7; transition: opacity 0.15s; }
+.editIcon:hover { opacity: 1; }
+.redIcon { color: var(--red); font-size: clamp(13px, 1.4vw, 16px); opacity: 0.65; transition: opacity 0.15s; }
+.redIcon:hover { opacity: 1; }
+.iconBtn { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; padding: clamp(3px, 0.4vw, 5px); border-radius: 4px; transition: background 0.15s; }
+.iconBtn:hover { background: rgba(0,0,0,0.06); }
+.noteContent { font-size: clamp(11px, 1.05vw, 13px); line-height: 1.5; margin: 0; color: var(--navy); word-break: break-word; }
+
+.addNoteBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100% !important;
+    padding: clamp(8px, 1vw, 10px);
+    border: 2px dashed var(--orange);
+    color: var(--orange);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-tag);
+    font-weight: 900;
+    cursor: pointer;
+    background: rgba(238,140,58,0.04);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    transition: background 0.2s, border-style 0.15s;
+    box-sizing: border-box;
+}
+.addNoteBtn:hover { background: rgba(238,140,58,0.1); border-style: solid; }
+
 @media print {
     .toastContainer, .savingOverlay, .submitSection,
     .addBtn, .miniTrash, .uploadBtn, .removeFile, .pinBtn { display: none !important; }

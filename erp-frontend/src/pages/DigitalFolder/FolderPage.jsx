@@ -676,14 +676,30 @@ const FolderPage = () => {
         finally { setPaying(false); }
     };
 
-    const getVaultUrl = (filePath) => {
+    const getDocUrl = (filePath) => {
         if (!filePath) return '#';
-        // Cloudinary URLs work directly — just return them
         if (filePath.startsWith('http')) return filePath;
         const parts = filePath.split(/ge_uploads[/]/);
         const rel   = parts.length > 1 ? parts[1] : filePath;
         const base  = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
         return `${base}/vault/` + rel.replace(/\\/g, '/');
+    };
+
+    const handleOpenDoc = (filePath) => {
+        if (!filePath) return;
+        const url = getDocUrl(filePath);
+        if (filePath.startsWith('http')) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+            fetch(url, { headers: { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } })
+                .then(r => r.blob())
+                .then(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+                })
+                .catch(() => window.open(url, '_blank', 'noopener,noreferrer'));
+        }
     };
 
     const isPDF = (filePath) => {
@@ -799,43 +815,41 @@ const FolderPage = () => {
                 <div className={styles.ctrlZone}>
                     {/* VIEW MODE ACTIONS */}
                     {!isEditing && (
-                        <>
-                            <button className={styles.ctrlBtn} onClick={() => window.print()} aria-label="Print record">
+                        <div className={styles.ctrlGroup}>
+                            <button className={styles.ctrlBtnIcon} onClick={() => window.print()} aria-label="Print record" title="Print">
                                 <FiPrinter aria-hidden="true" />
                             </button>
-                            {isAdmin && !isBacklog && (
-                                <button className={`${styles.ctrlBtn} ${styles.ctrlBtnDanger}`} onClick={handleMoveToBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
+                            {isAdmin && (
+                                <button className={styles.ctrlBtnPay}
+                                    onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
+                                    <FiDollarSign aria-hidden="true" /> PAYMENT
                                 </button>
                             )}
-                            {isAdmin && (
-                                <button className={`${styles.ctrlBtn} ${styles.ctrlBtnSuccess}`}
-                                    onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
-                                    <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                            {isAdmin && !isBacklog && (
+                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
                                 </button>
                             )}
                             <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
                                 <FiUnlock aria-hidden="true" /> EDIT
                             </button>
-                        </>
+                        </div>
                     )}
                     {/* EDIT MODE ACTIONS */}
                     {isEditing && (
-                        <>
+                        <div className={styles.ctrlGroup}>
                             {user?.isRoot && (
-                                <button className={styles.purgeBtn} onClick={handleNuclearPurge}>
+                                <button className={styles.purgeBtn} onClick={handleNuclearPurge} title="Permanently delete this record">
                                     <FiTrash2 aria-hidden="true" /> DELETE
                                 </button>
                             )}
-                            <div className={styles.handshakeActions}>
-                                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
-                                    <FiX aria-hidden="true" /> ABORT
-                                </button>
-                                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
-                                    <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE CHANGES'}
-                                </button>
-                            </div>
-                        </>
+                            <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
+                                <FiX aria-hidden="true" /> ABORT
+                            </button>
+                            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
+                                <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE'}
+                            </button>
+                        </div>
                     )}
                 </div>
             </header>
@@ -1045,15 +1059,15 @@ const FolderPage = () => {
                                     {binder.documents.map((doc, idx) => (
                                         <div key={idx} className={styles.docTag} role="listitem">
                                             <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                            <a
-                                                href={getVaultUrl(doc.filePath)}
-                                                target="_blank"
-                                                rel="noreferrer"
+                                            <button
+                                                type="button"
                                                 className={styles.docName}
-                                                title={isPDF(doc.filePath) ? 'Open PDF in new tab' : doc.fileName}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                                                onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}
+                                                title={isPDF(doc.filePath) ? 'Open PDF in new tab' : 'Open ' + doc.fileName}
                                             >
-                                                {isPDF(doc.filePath) ? '📄 ' : ''}{doc.fileName}
-                                            </a>
+                                                {isPDF(doc.filePath) ? '📄 ' : '🖼 '}{doc.fileName}
+                                            </button>
                                             {isEditing && (
                                                 <button type="button" className={styles.iconBtn}
                                                     onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
