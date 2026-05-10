@@ -816,7 +816,7 @@ const FolderPage = () => {
                     {/* VIEW MODE ACTIONS */}
                     {!isEditing && (
                         <div className={styles.ctrlGroup}>
-                            <button className={styles.ctrlBtnIcon} onClick={() => window.print()} aria-label="Print record" title="Print">
+                            <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record" title="Print">
                                 <FiPrinter aria-hidden="true" />
                             </button>
                             {isAdmin && (
