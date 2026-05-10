@@ -213,9 +213,11 @@ const IntakePage = () => {
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
     // Financials — SIMPLIFIED: only totalCost, initialPayment, isBacklog
-    const [totalCost,      setTotalCost]      = useState('');
-    const [initialPayment, setInitialPayment] = useState('');
-    const [isBacklog,      setIsBacklog]      = useState(false);
+    const [totalCost,         setTotalCost]         = useState('');
+    const [initialPayment,    setInitialPayment]    = useState('');
+    const [isBacklog,         setIsBacklog]         = useState(false);
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');
+    const [initialStorageFee, setInitialStorageFee] = useState('');
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
@@ -282,6 +284,8 @@ const IntakePage = () => {
                 totalCost:      Number(totalCost)      || 0,
                 initialPayment: Number(initialPayment) || 0,
                 isStartAsBacklog: isBacklog,
+                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
+                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
                 isLegacy: false,
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -468,11 +472,39 @@ const IntakePage = () => {
                                     </button>
                                 </div>
                                 {isBacklog && (
-                                    <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, fontSize: '0.82rem', color: '#fca5a5' }}>
-                                        This plot will immediately start accumulating UGX 50,000 / month storage fees.
+                                    <div className={styles.backlogFeeNote}>
+                                        Storage fees accumulate monthly until balance is cleared.
                                     </div>
                                 )}
                             </div>
+
+                            {/* BACKLOG FEE CONFIG -- only visible when entering as backlog */}
+                            {isBacklog && (
+                                <div className={styles.backlogFeeConfig}>
+                                    <div className={styles.backlogFeeConfigTitle}>
+                                        BACKLOG FEE CONFIGURATION
+                                    </div>
+                                    <div className={styles.grid2} style={{marginBottom: 0}}>
+                                        <CurrencyInput
+                                            label="MONTHLY STORAGE FEE (UGX)"
+                                            value={monthlyStorageFee}
+                                            onChange={setMonthlyStorageFee}
+                                            id="monthlyFee"
+                                        />
+                                        <CurrencyInput
+                                            label="INITIAL ACCUMULATED FEES (UGX)"
+                                            value={initialStorageFee}
+                                            onChange={setInitialStorageFee}
+                                            id="initialStorageFee"
+                                        />
+                                    </div>
+                                    <div className={styles.backlogFeeHint}>
+                                        Set initial fees if this title was entered late into the system
+                                        (e.g. was in backlog for 3 months before being registered here).
+                                        Leave at 0 if starting fresh.
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

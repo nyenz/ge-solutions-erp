@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/login/LoginPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import authService from '../../services/authService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -8,7 +8,32 @@ import { FiShield, FiEye, FiEyeOff, FiCheckCircle } from 'react-icons/fi';
 import styles from './LoginPage.module.css';
 
 const LoginPage = () => {
+    const [appReady, setAppReady] = useState(false);
     const [creds, setCreds] = useState({ username: '', password: '' });
+
+    useEffect(() => {
+        // Simulate app initialization check
+        const timer = setTimeout(() => setAppReady(true), 900);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (!appReady) {
+        return (
+            <div className={styles.appLoadScreen}>
+                <div className={styles.loadLogo}>
+                    <div className={styles.loadPulseOuter} />
+                    <div className={styles.loadPulseInner}>
+                        <span className={styles.loadEmoji}>🌱</span>
+                    </div>
+                </div>
+                <div className={styles.loadBarWrap}>
+                    <div className={styles.loadBar} />
+                </div>
+                <p className={styles.loadLabel}>GOLDEN SEED ERP</p>
+                <p className={styles.loadSub}>Initializing secure connection...</p>
+            </div>
+        );
+    }
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(() => {

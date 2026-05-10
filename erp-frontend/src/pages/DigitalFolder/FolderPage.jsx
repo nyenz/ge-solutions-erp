@@ -920,24 +920,70 @@ const FolderPage = () => {
                                     </div>
                                 </div>
                                 {project.isBacklog && (
-                                    <div className={styles.inputGrid3} style={{marginTop: 8}}>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}>
-                                                <label>MONTHLY STORAGE FEE (UGX)</label>
+                                    <div className={styles.editBacklogFeeSection}>
+                                        <div className={styles.editBacklogFeeTitle}>BACKLOG FEE CONTROLS</div>
+                                        <div className={styles.inputGrid3}>
+                                            <div className={styles.hwInputWrap}>
+                                                <div className={styles.inputLabelRow}>
+                                                    <label>MONTHLY FEE (UGX)</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    className={styles.hwInput}
+                                                    defaultValue={project.storageFeeOverride || 50000}
+                                                    onBlur={async e => {
+                                                        const val = Number(e.target.value);
+                                                        if (val >= 0) {
+                                                            try {
+                                                                await recoveryService.setStorageRate(project.id, val);
+                                                                toast('MONTHLY RATE UPDATED', 'success', 2000);
+                                                            } catch { toast('RATE UPDATE FAILED', 'error'); }
+                                                        }
+                                                    }}
+                                                    placeholder="50000"
+                                                />
                                             </div>
-                                            <input
-                                                type="number"
-                                                className={styles.hwInput}
-                                                defaultValue={project.storageFeeOverride || 50000}
-                                                onBlur={async e => {
-                                                    const val = Number(e.target.value);
-                                                    if (val >= 0) {
-                                                        try { await recoveryService.setStorageRate(project.id, val); }
-                                                        catch { /* non-fatal */ }
-                                                    }
-                                                }}
-                                                placeholder="50000"
-                                            />
+                                            <div className={styles.hwInputWrap}>
+                                                <div className={styles.inputLabelRow}>
+                                                    <label>ADJUST TOTAL FEES (UGX)</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    className={styles.hwInput}
+                                                    defaultValue={project.storageFeesAccumulated || 0}
+                                                    onBlur={async e => {
+                                                        const val = Number(e.target.value);
+                                                        if (val >= 0) {
+                                                            try {
+                                                                await recoveryService.setAccumulatedFees(project.id, val);
+                                                                toast('ACCUMULATED FEES UPDATED', 'success', 2000);
+                                                            } catch { toast('FEE ADJUSTMENT FAILED', 'error'); }
+                                                        }
+                                                    }}
+                                                    placeholder={String(project.storageFeesAccumulated || 0)}
+                                                />
+                                            </div>
+                                            <div className={styles.hwInputWrap}>
+                                                <div className={styles.inputLabelRow}>
+                                                    <label>FEES STATUS</label>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className={styles.btnPauseResume}
+                                                    onClick={async () => {
+                                                        try {
+                                                            await recoveryService.pauseStorageFees(id, !project.storagePaused);
+                                                            await loadFolderData();
+                                                            toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
+                                                        } catch { toast('ACTION FAILED', 'error'); }
+                                                    }}
+                                                >
+                                                    {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className={styles.editBacklogFeeHint}>
+                                            Changes apply immediately. Monthly fee: default UGX 50,000 if not set.
                                         </div>
                                     </div>
                                 )}
@@ -945,21 +991,14 @@ const FolderPage = () => {
                             ) : isBacklog ? (
                                 /* BACKLOG FINANCIAL BREAKDOWN */
                                 <div>
-                                    {/* Backlog notice at top of financials */}
-                                    <div style={{
-                                        background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)',
-                                        borderRadius: 7, padding: '10px 14px', marginBottom: 14,
-                                        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'
-                                    }}>
-                                        <FiAlertOctagon style={{ color: '#ef4444', flexShrink: 0 }} size={16} />
-                                        <div style={{ flex: 1 }}>
-                                            <strong style={{ color: '#ef4444', fontSize: '0.8rem', fontFamily: 'DM Sans,sans-serif', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>BACKLOG STATUS — STORAGE FEES ACTIVE</strong>
-                                            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: 2, fontFamily: 'DM Sans,sans-serif' }}>
-                                                UGX 50,000 is added every month until the full balance is cleared.
-                                            </div>
+                                    <div className={styles.backlogNotice}>
+                                        <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
+                                        <div className={styles.backlogNoticeText}>
+                                            <strong>STORAGE FEES ACTIVE</strong>
+                                            <span>UGX 50,000 is added every month until the full balance is cleared</span>
                                         </div>
                                         {isAdmin && (
-                                            <button onClick={handleExitBacklog} className={styles.ctrlBtnBacklog} style={{ height: 30, fontSize: 10, padding: '0 10px' }}>
+                                            <button onClick={handleExitBacklog} className={styles.btnExitBacklog}>
                                                 EXIT BACKLOG
                                             </button>
                                         )}
@@ -996,22 +1035,7 @@ const FolderPage = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    {isAdmin && (
-                                        <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
-                                            <button
-                                                className={styles.btnPauseResume}
-                                                onClick={async () => {
-                                                    try {
-                                                        await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                        await loadFolderData();
-                                                        toast(project.storagePaused ? 'STORAGE FEES RESUMED' : 'STORAGE FEES PAUSED', 'info');
-                                                    } catch { toast('ACTION FAILED', 'error'); }
-                                                }}
-                                            >
-                                                {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                            </button>
-                                        </div>
-                                    )}
+
                                 </div>
                             ) : (
                                 /* ACTIVE FINANCIAL */
