@@ -445,50 +445,48 @@
 .statusGroup { display: flex; flex-direction: column; gap: clamp(3px, 0.4vw, 5px); }
 .tagLegacy {
     font-family: 'DM Sans', sans-serif;
-    background: #7c2d12;
+    background: transparent;
     color: #fb923c;
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .tagStandard {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
     color: rgba(255, 255, 255, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .tagPaid {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(16, 185, 129, 0.18);
+    background: transparent;
     color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .tagCritical {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.15);
+    background: transparent;
     color: #fca5a5;
-    border: 1px solid rgba(239,68,68,0.3);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     animation: criticalPulse 1.8s ease-in-out infinite;
 }
 @keyframes criticalPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
@@ -611,15 +609,14 @@
 /* Shown in the STATUS column for backlog plots */
 .tagBacklog {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.18);
+    background: transparent;
     color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     animation: criticalPulse 1.8s ease-in-out infinite;
 }
 
@@ -638,15 +635,14 @@
 /* Shown in the STATUS column for backlog plots */
 .tagBacklog {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.18);
+    background: transparent;
     color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     animation: criticalPulse 1.8s ease-in-out infinite;
 }
 
@@ -665,15 +661,14 @@
 /* Shown in the STATUS column for backlog plots */
 .tagBacklog {
     font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.18);
+    background: transparent;
     color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-align: center;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     animation: criticalPulse 1.8s ease-in-out infinite;
 }
 

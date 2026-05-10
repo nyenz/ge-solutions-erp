@@ -948,8 +948,7 @@ const FolderPage = () => {
                                                             try {
                                                                 await recoveryService.setStorageRate(project.id, val);
                                                                 await loadFolderData();
-                                                                toast(`MONTHLY RATE SET TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
-                                                            } catch { toast('RATE UPDATE FAILED', 'error'); }
+                                                            } catch { /* silent */ }
                                                         }
                                                     }}
                                                     placeholder="50000"
@@ -969,8 +968,7 @@ const FolderPage = () => {
                                                             try {
                                                                 await recoveryService.setAccumulatedFees(project.id, val);
                                                                 await loadFolderData();
-                                                                toast(`TOTAL FEES ADJUSTED TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
-                                                            } catch { toast('FEE ADJUSTMENT FAILED', 'error'); }
+                                                            } catch { /* silent */ }
                                                         }
                                                     }}
                                                     placeholder={String(project.storageFeesAccumulated || 0)}
@@ -982,7 +980,7 @@ const FolderPage = () => {
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    className={styles.btnPauseResume}
+                                                    className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
                                                     onClick={async () => {
                                                         try {
                                                             await recoveryService.pauseStorageFees(id, !project.storagePaused);

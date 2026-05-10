@@ -127,11 +127,11 @@
 .cardBacklog:hover { border-color:rgba(239,68,68,0.6); }
 
 /* ── STATUS BADGE ── */
-.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-bottom-left-radius:6px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; }
-.statusRed     { background:#7f1d1d; color:#fecaca; }
-.statusBlue    { background:#0c4a6e; color:#bae6fd; }
-.statusGrey    { background:#3f3f46; color:#e4e4e7; }
-.statusDefault { background:rgba(0,0,0,0.55); color:rgba(255,255,255,0.7); }
+.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:4px 8px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; background:transparent; }
+.statusRed     { color:#fca5a5; }
+.statusBlue    { color:#93c5fd; }
+.statusGrey    { color:rgba(255,255,255,0.4); }
+.statusDefault { color:rgba(255,255,255,0.5); }
 .backlogTag    { background:rgba(239,68,68,0.3); color:#fecaca; border-radius:3px; padding:1px 5px; font-size:8px; margin-left:4px; }
 
 /* ── CARD HEADER ── */

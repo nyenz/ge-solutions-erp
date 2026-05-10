@@ -210,9 +210,7 @@ const PaymentsPage = () => {
                                     <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
                                     <td>
                                         <span className={styles.typeBadge} style={{
-                                            background: `${TYPE_COLORS[pay.paymentType] || '#888'}22`,
-                                            color: TYPE_COLORS[pay.paymentType] || '#888',
-                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}55`
+                                            color: TYPE_COLORS[pay.paymentType] || '#888'
                                         }}>
                                             {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
                                             {TYPE_LABELS[pay.paymentType] || pay.paymentType}

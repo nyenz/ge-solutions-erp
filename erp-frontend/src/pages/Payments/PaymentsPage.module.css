@@ -253,14 +253,15 @@
 
 .typeBadge {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: clamp(2px, 0.3vw, 4px) clamp(6px, 0.8vw, 9px);
-    border-radius: 4px;
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-tag);
     font-weight: 900;
     text-transform: uppercase;
     white-space: nowrap;
     letter-spacing: 0.5px;
+    background: transparent !important;
+    border: none !important;
+    padding: 0;
 }
 .amount { font-family: 'Space Mono', monospace; font-size: var(--fs-value); font-weight: 700; }
 .balance { font-family: 'Space Mono', monospace; font-size: var(--fs-meta); color: rgba(255,255,255,0.5); }
