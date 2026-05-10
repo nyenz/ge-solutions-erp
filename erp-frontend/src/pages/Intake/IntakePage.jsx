@@ -219,12 +219,6 @@ const IntakePage = () => {
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
     const [noteText,     setNoteText]     = useState('');
-    const [notesList,    setNotesList]    = useState([]); // multi-note list
-    const [noteModal,    setNoteModal]    = useState(false);
-    const [noteDraft,    setNoteDraft]    = useState('');
-
-    // Backlog late entry
-    const [backfillMonths, setBackfillMonths] = useState('');
 
     // isDirty must be defined AFTER all useState hooks to avoid
     // "Cannot access before initialization" error in the minified bundle
@@ -291,13 +285,7 @@ const IntakePage = () => {
                     nationalId: o.nationalId.trim().toUpperCase(),
                     address:    o.address.trim(),
                 })),
-                notes: [
-                    ...notesList.map(n => ({ content: n })),
-                    ...(noteText.trim() ? [{ content: noteText.trim() }] : []),
-                    ...(isBacklog && backfillMonths && Number(backfillMonths) > 0
-                        ? [{ content: `BACKFILL NOTE: ${backfillMonths} month(s) of pre-existing storage fees (UGX ${(Number(backfillMonths) * 50000).toLocaleString()}) recorded at intake. Admin should adjust accumulated fees via folder page.` }]
-                        : [])
-                ],
+                notes: noteText.trim() ? [{ content: noteText.trim() }] : [],
             };
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
