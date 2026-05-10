@@ -8,11 +8,27 @@ import { FiShield, FiEye, FiEyeOff, FiCheckCircle } from 'react-icons/fi';
 import styles from './LoginPage.module.css';
 
 const LoginPage = () => {
+    // ALL useState hooks must come before any conditional returns (React rules)
     const [appReady, setAppReady] = useState(false);
     const [creds, setCreds] = useState({ username: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'session_conflict') {
+            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
+        }
+        if (params.get('reason') === 'idle_timeout') {
+            return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
+        }
+        return '';
+    });
+    const [isRecovering, setIsRecovering] = useState(false);
+    const [recoveryEmail, setRecoveryEmail] = useState('');
+    const [recoveryLoading, setRecoveryLoading] = useState(false);
+    const [recoverySuccess, setRecoverySuccess] = useState('');
 
     useEffect(() => {
-        // Simulate app initialization check
         const timer = setTimeout(() => setAppReady(true), 900);
         return () => clearTimeout(timer);
     }, []);
@@ -34,25 +50,6 @@ const LoginPage = () => {
             </div>
         );
     }
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(() => {
-        // Check if we were redirected due to a session conflict
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('reason') === 'session_conflict') {
-            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
-        }
-        if (params.get('reason') === 'idle_timeout') {
-            return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
-        }
-        return '';
-    });
-    
-    // RECOVERY STATE
-    const [isRecovering, setIsRecovering] = useState(false);
-    const [recoveryEmail, setRecoveryEmail] = useState('');
-    const [recoveryLoading, setRecoveryLoading] = useState(false);
-    const [recoverySuccess, setRecoverySuccess] = useState('');
 
     const { login } = useAuth();
 

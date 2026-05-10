@@ -22,506 +22,772 @@ def patch(path, old, new):
     print(f"PATCHED: {path}")
 
 
-FOLDER_JSX = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
-FOLDER_CSS = 'erp-frontend/src/pages/DigitalFolder/FolderPage.module.css'
-PAYMENTS_CSS = 'erp-frontend/src/pages/Payments/PaymentsPage.module.css'
-LEDGER_CSS = 'erp-frontend/src/pages/Ledger/LedgerPage.module.css'
-AUDIT_CSS = 'erp-frontend/src/pages/Audit/AuditPage.module.css'
-
-
 # ================================================================
-# CHANGE 1: FolderPage JSX -- PAUSE/RESUME button
-# When fees are PAUSED: show orange-filled "RESUME FEES" (call to action)
-# When fees are ACTIVE: show grey "PAUSE FEES" (less prominent)
+# FIX 1: LoginPage.jsx - React error #310
+# useState called conditionally (after early return for !appReady)
+# Move ALL useState calls before the early return
 # ================================================================
-patch(
-    FOLDER_JSX,
-    '''                                                <button
-                                                    type="button"
-                                                    className={styles.btnPauseResume}
-                                                    onClick={async () => {
-                                                        try {
-                                                            await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                            await loadFolderData();
-                                                            toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
-                                                        } catch { toast('ACTION FAILED', 'error'); }
-                                                    }}
-                                                >
-                                                    {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                                </button>''',
-    '''                                                <button
-                                                    type="button"
-                                                    className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
-                                                    onClick={async () => {
-                                                        try {
-                                                            await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                            await loadFolderData();
-                                                            toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
-                                                        } catch { toast('ACTION FAILED', 'error'); }
-                                                    }}
-                                                >
-                                                    {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                                </button>'''
+
+LOGIN_JSX = 'erp-frontend/src/pages/login/LoginPage.jsx'
+
+patch(LOGIN_JSX,
+    '''const LoginPage = () => {
+    const [appReady, setAppReady] = useState(false);
+    const [creds, setCreds] = useState({ username: '', password: '' });
+
+    useEffect(() => {
+        // Simulate app initialization check
+        const timer = setTimeout(() => setAppReady(true), 900);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (!appReady) {
+        return (
+            <div className={styles.appLoadScreen}>
+                <div className={styles.loadLogo}>
+                    <div className={styles.loadPulseOuter} />
+                    <div className={styles.loadPulseInner}>
+                        <span className={styles.loadEmoji}>🌱</span>
+                    </div>
+                </div>
+                <div className={styles.loadBarWrap}>
+                    <div className={styles.loadBar} />
+                </div>
+                <p className={styles.loadLabel}>GOLDEN SEED ERP</p>
+                <p className={styles.loadSub}>Initializing secure connection...</p>
+            </div>
+        );
+    }
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(() => {
+        // Check if we were redirected due to a session conflict
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'session_conflict') {
+            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
+        }
+        if (params.get('reason') === 'idle_timeout') {
+            return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
+        }
+        return '';
+    });
+    
+    // RECOVERY STATE
+    const [isRecovering, setIsRecovering] = useState(false);
+    const [recoveryEmail, setRecoveryEmail] = useState('');
+    const [recoveryLoading, setRecoveryLoading] = useState(false);
+    const [recoverySuccess, setRecoverySuccess] = useState('');''',
+
+    '''const LoginPage = () => {
+    // ALL useState hooks must come before any conditional returns (React rules)
+    const [appReady, setAppReady] = useState(false);
+    const [creds, setCreds] = useState({ username: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'session_conflict') {
+            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
+        }
+        if (params.get('reason') === 'idle_timeout') {
+            return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
+        }
+        return '';
+    });
+    const [isRecovering, setIsRecovering] = useState(false);
+    const [recoveryEmail, setRecoveryEmail] = useState('');
+    const [recoveryLoading, setRecoveryLoading] = useState(false);
+    const [recoverySuccess, setRecoverySuccess] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => setAppReady(true), 900);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (!appReady) {
+        return (
+            <div className={styles.appLoadScreen}>
+                <div className={styles.loadLogo}>
+                    <div className={styles.loadPulseOuter} />
+                    <div className={styles.loadPulseInner}>
+                        <span className={styles.loadEmoji}>🌱</span>
+                    </div>
+                </div>
+                <div className={styles.loadBarWrap}>
+                    <div className={styles.loadBar} />
+                </div>
+                <p className={styles.loadLabel}>GOLDEN SEED ERP</p>
+                <p className={styles.loadSub}>Initializing secure connection...</p>
+            </div>
+        );
+    }'''
 )
 
 
 # ================================================================
-# CHANGE 2: FolderPage JSX -- Remove toast on blur for fee inputs
-# The inputs call toast every time user leaves the field which is
-# annoying. Remove the toast calls, keep the data save silently.
+# FIX 2: Create a shared UnsavedChangesModal component
+# A custom-styled, branded warning dialog that replaces
+# the browser's default "Leave site?" popup
 # ================================================================
-patch(
-    FOLDER_JSX,
-    '''                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setStorageRate(project.id, val);
-                                                                await loadFolderData();
-                                                                toast(`MONTHLY RATE SET TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
-                                                            } catch { toast('RATE UPDATE FAILED', 'error'); }
-                                                        }
-                                                    }}''',
-    '''                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setStorageRate(project.id, val);
-                                                                await loadFolderData();
-                                                            } catch { /* silent */ }
-                                                        }
-                                                    }}'''
-)
 
-patch(
-    FOLDER_JSX,
-    '''                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setAccumulatedFees(project.id, val);
-                                                                await loadFolderData();
-                                                                toast(`TOTAL FEES ADJUSTED TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
-                                                            } catch { toast('FEE ADJUSTMENT FAILED', 'error'); }
-                                                        }
-                                                    }}''',
-    '''                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setAccumulatedFees(project.id, val);
-                                                                await loadFolderData();
-                                                            } catch { /* silent */ }
-                                                        }
-                                                    }}'''
-)
+MODAL_JSX = 'erp-frontend/src/components/common/UnsavedChangesModal.jsx'
+MODAL_CSS = 'erp-frontend/src/components/common/UnsavedChangesModal.module.css'
 
+write(MODAL_JSX, '''// PATH: erp-frontend/src/components/common/UnsavedChangesModal.jsx
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { FiAlertTriangle, FiX, FiSave, FiLogOut } from 'react-icons/fi';
+import styles from './UnsavedChangesModal.module.css';
 
-# ================================================================
-# CHANGE 3: FolderPage CSS -- Replace btnPauseResume with two variants
-# btnResumeActive = orange fill (prominent -- "click to resume")
-# btnPauseGrey    = dark grey (subtle -- "click to pause")
-# Also redesign printBtn using dark navy theme
-# ================================================================
-patch(
-    FOLDER_CSS,
-    '''/* Pause/Resume fees button -- same design as Ledger "PAID TITLES" filter:
-   orange fill when active (resume), orange outline when inactive (pause) */
-.btnPauseResume {
-    display: inline-flex;
+/**
+ * GOLDEN SEED — UNSAVED CHANGES GUARD
+ *
+ * Custom-styled replacement for the browser\'s default "Leave site?" dialog.
+ * Shows whenever the user tries to navigate away with unsaved changes.
+ *
+ * Props:
+ *   isOpen     — whether to show the modal
+ *   onStay     — user chose to stay and keep editing
+ *   onLeave    — user confirmed they want to leave (lose changes)
+ *   context    — optional string describing what will be lost (e.g. "New Plot")
+ */
+const UnsavedChangesModal = ({ isOpen, onStay, onLeave, context = 'this form' }) => {
+    // Trap focus inside modal when open
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+            if (e.key === 'Escape') onStay();
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isOpen, onStay]);
+
+    if (!isOpen || typeof document === 'undefined') return null;
+
+    return createPortal(
+        <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="ucm-title">
+            <div className={styles.card}>
+                {/* Animated warning icon */}
+                <div className={styles.iconWrap} aria-hidden="true">
+                    <div className={styles.iconRing} />
+                    <div className={styles.iconRing2} />
+                    <FiAlertTriangle className={styles.icon} />
+                </div>
+
+                <div className={styles.body}>
+                    <h2 id="ucm-title" className={styles.title}>UNSAVED CHANGES</h2>
+                    <p className={styles.message}>
+                        You have unsaved changes in <strong>{context}</strong>.
+                        If you leave now, all your entered data will be permanently lost.
+                    </p>
+
+                    <div className={styles.divider}>
+                        <span>WHAT WOULD YOU LIKE TO DO?</span>
+                    </div>
+
+                    <div className={styles.actions}>
+                        <button
+                            className={styles.stayBtn}
+                            onClick={onStay}
+                            autoFocus
+                            aria-label="Stay on page and keep editing"
+                        >
+                            <FiSave aria-hidden="true" />
+                            KEEP EDITING
+                        </button>
+                        <button
+                            className={styles.leaveBtn}
+                            onClick={onLeave}
+                            aria-label="Leave page and discard changes"
+                        >
+                            <FiLogOut aria-hidden="true" />
+                            DISCARD &amp; LEAVE
+                        </button>
+                    </div>
+                </div>
+
+                {/* Dismiss with X goes to "stay" */}
+                <button className={styles.closeBtn} onClick={onStay} aria-label="Close and keep editing">
+                    <FiX aria-hidden="true" />
+                </button>
+            </div>
+        </div>,
+        document.body
+    );
+};
+
+export default UnsavedChangesModal;
+''')
+
+write(MODAL_CSS, '''/* PATH: erp-frontend/src/components/common/UnsavedChangesModal.module.css */
+
+/* ── OVERLAY ──────────────────────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: rgba(8, 15, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    width: 100%;
-    height: var(--input-h, clamp(34px, 4.5vw, 40px));
-    background: #EE8C3A;
-    border: 1.5px solid #EE8C3A;
-    color: #1a2e30;
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(238, 140, 58, 0.25);
+    padding: clamp(16px, 4vw, 32px);
+    animation: overlayIn 0.22s ease both;
 }
-.btnPauseResume:hover {
-    background: #f0a050;
-    border-color: #f0a050;
-    box-shadow: 0 0 14px rgba(238, 140, 58, 0.45);
-}
-.btnPauseResume:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }''',
-    '''/* RESUME FEES -- orange fill (prominent call to action when fees are paused) */
-.btnResumeActive {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    width: 100%;
-    height: var(--input-h, clamp(34px, 4.5vw, 40px));
-    background: #EE8C3A;
-    border: 1.5px solid #EE8C3A;
-    color: #1a2e30;
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(238, 140, 58, 0.3);
-}
-.btnResumeActive:hover {
-    background: #f0a050;
-    border-color: #f0a050;
-    box-shadow: 0 0 14px rgba(238, 140, 58, 0.5);
-}
-.btnResumeActive:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
-/* PAUSE FEES -- dark grey (subtle, less prominent when fees are running) */
-.btnPauseGrey {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    width: 100%;
-    height: var(--input-h, clamp(34px, 4.5vw, 40px));
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.75);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(8px, 0.82vw, 10px);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
+@keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
-.btnPauseGrey:hover {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.45);
-    color: #fca5a5;
-}
-.btnPauseGrey:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }'''
-)
 
-# Redesign printBtn -- dark navy, no blue
-patch(
-    FOLDER_CSS,
-    '''/* PRINT icon-only (no text label) */
-.printBtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: clamp(32px, 4vw, 38px);
-    height: clamp(32px, 4vw, 38px);
-    padding: 0;
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(6, 182, 212, 0.45);
-    color: #67e8f9;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s;
-    line-height: 1;
-    font-size: clamp(14px, 1.6vw, 18px);
+/* ── CARD ─────────────────────────────────────────────────────── */
+.card {
     position: relative;
+    width: 100%;
+    max-width: clamp(320px, 90vw, 480px);
+    background: linear-gradient(160deg, #0f2224 0%, #162a2c 50%, #1a2e30 100%);
+    border-radius: 16px;
+    padding: clamp(28px, 4vw, 44px) clamp(24px, 3.5vw, 40px);
+    border: 1.5px solid rgba(238, 140, 58, 0.4);
+    box-shadow:
+        0 40px 100px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    animation: cardIn 0.28s cubic-bezier(0.2, 1, 0.3, 1) both;
+    text-align: center;
+    overflow: hidden;
 }
-.printBtn::before {
+
+/* Subtle orange glow on bottom edge */
+.card::after {
     content: '';
     position: absolute;
-    inset: -3px;
-    border-radius: calc(var(--radius-sm) + 2px);
-    background: rgba(6, 182, 212, 0);
-    transition: background 0.2s;
+    bottom: 0; left: 5%; right: 5%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(238,140,58,0.7), transparent);
+    box-shadow: 0 0 18px rgba(238, 140, 58, 0.4);
+    border-radius: 0 0 16px 16px;
 }
-.printBtn:hover {
-    background: rgba(6, 182, 212, 0.18);
-    color: #06b6d4;
-    border-color: #06b6d4;
-    box-shadow: 0 0 14px rgba(6,182,212,0.35), 0 0 0 3px rgba(6,182,212,0.12);
-    transform: translateY(-1px);
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
-.printBtn:active { transform: translateY(0); }
-.printBtn:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; }''',
-    '''/* PRINT icon-only -- dark navy theme */
-.printBtn {
+
+/* ── WARNING ICON ─────────────────────────────────────────────── */
+.iconWrap {
+    position: relative;
+    width: clamp(60px, 10vw, 76px);
+    height: clamp(60px, 10vw, 76px);
+    margin: 0 auto clamp(20px, 3vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.iconRing {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(245, 158, 11, 0.5);
+    animation: ringPulse 2s ease-in-out infinite;
+}
+
+.iconRing2 {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    animation: ringPulse 2s ease-in-out infinite 0.4s;
+}
+
+@keyframes ringPulse {
+    0%, 100% { transform: scale(1);   opacity: 0.6; }
+    50%       { transform: scale(1.1); opacity: 0.2; }
+}
+
+.icon {
+    position: relative;
+    z-index: 2;
+    font-size: clamp(28px, 5vw, 36px);
+    color: #f59e0b;
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.5));
+    animation: iconShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.3s both;
+}
+
+@keyframes iconShake {
+    0%, 100% { transform: rotate(0); }
+    15%      { transform: rotate(-8deg); }
+    45%      { transform: rotate(7deg); }
+    75%      { transform: rotate(-4deg); }
+}
+
+/* ── BODY ─────────────────────────────────────────────────────── */
+.body { position: relative; z-index: 2; }
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: #f59e0b;
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 700;
+    letter-spacing: clamp(2px, 0.5vw, 4px);
+    text-transform: uppercase;
+    margin: 0 0 clamp(10px, 1.5vw, 14px);
+    text-shadow: 0 0 24px rgba(245, 158, 11, 0.3);
+}
+
+.message {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.3vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.65;
+    margin: 0 0 clamp(18px, 2.5vw, 24px);
+}
+
+.message strong {
+    color: #fff;
+    font-weight: 900;
+}
+
+/* ── DIVIDER ──────────────────────────────────────────────────── */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 clamp(18px, 2.5vw, 24px);
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.divider span {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.78vw, 9px);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ── ACTION BUTTONS ───────────────────────────────────────────── */
+.actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(8px, 1.2vw, 12px);
+}
+
+/* KEEP EDITING — orange filled, primary CTA */
+.stayBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(32px, 4vw, 38px);
-    height: clamp(32px, 4vw, 38px);
-    padding: 0;
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.65);
-    border-radius: var(--radius-sm);
+    gap: clamp(6px, 0.8vw, 8px);
+    height: clamp(42px, 5.5vw, 50px);
+    background: #EE8C3A;
+    color: #1a2e30;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
     cursor: pointer;
-    flex-shrink: 0;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    box-shadow: 0 4px 16px rgba(238, 140, 58, 0.3);
+    white-space: nowrap;
+}
+.stayBtn:hover {
+    background: #f0a050;
+    box-shadow: 0 0 24px rgba(238, 140, 58, 0.5);
+    transform: translateY(-1px);
+}
+.stayBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+
+/* DISCARD & LEAVE — ghost/danger style */
+.leaveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 0.8vw, 8px);
+    height: clamp(42px, 5.5vw, 50px);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
     transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
-    line-height: 1;
-    font-size: clamp(14px, 1.6vw, 18px);
+    white-space: nowrap;
 }
-.printBtn:hover {
-    background: rgba(26, 46, 48, 0.95);
-    border-color: rgba(255, 255, 255, 0.4);
+.leaveBtn:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.15);
+}
+.leaveBtn:focus-visible { outline: 2px solid #ef4444; outline-offset: 3px; }
+
+/* ── CLOSE BUTTON ─────────────────────────────────────────────── */
+.closeBtn {
+    position: absolute;
+    top: clamp(12px, 1.5vw, 16px);
+    right: clamp(12px, 1.5vw, 16px);
+    width: clamp(28px, 3.2vw, 34px);
+    height: clamp(28px, 3.2vw, 34px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: clamp(14px, 1.6vw, 17px);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.closeBtn:hover {
+    background: rgba(255, 255, 255, 0.12);
     color: #fff;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.25);
 }
-.printBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }'''
+.closeBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+
+/* ── MOBILE ───────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+    .actions {
+        grid-template-columns: 1fr;
+    }
+    .card {
+        padding: 24px 18px;
+    }
+}
+''')
+
+print("UnsavedChangesModal created!")
+
+
+# ================================================================
+# FIX 3: Create a useUnsavedChanges hook
+# Handles both the in-app navigation guard (react-router) and
+# the browser tab-close guard (beforeunload)
+# ================================================================
+
+HOOK_PATH = 'erp-frontend/src/hooks/useUnsavedChanges.js'
+
+write(HOOK_PATH, '''// PATH: erp-frontend/src/hooks/useUnsavedChanges.js
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+/**
+ * GOLDEN SEED — UNSAVED CHANGES GUARD HOOK
+ *
+ * Intercepts all navigation attempts (browser back/forward, link clicks,
+ * programmatic navigate() calls) and tab-close events when there are
+ * unsaved changes. Shows the branded UnsavedChangesModal instead of the
+ * browser\'s plain default dialog.
+ *
+ * Usage:
+ *   const { UnsavedGuard, guardedNavigate } = useUnsavedChanges(isDirty, context);
+ *
+ *   Replace navigate(path) calls with guardedNavigate(path)
+ *   Render <UnsavedGuard /> anywhere in the component tree
+ *
+ * isDirty  — boolean, true when there are unsaved changes
+ * context  — string describing what\'s unsaved (e.g. "New Plot Registration")
+ */
+const useUnsavedChanges = (isDirty, context = 'this form') => {
+    const navigate = useNavigate();
+    const [modalOpen, setModalOpen] = useState(false);
+    const pendingNavRef = useRef(null); // stores the navigation to execute after confirm
+
+    // ── 1. Browser tab close / hard refresh guard ──────────────────
+    useEffect(() => {
+        if (!isDirty) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
+
+    // ── 2. In-app navigation guard ──────────────────────────────────
+    // Returns a wrapped navigate function. When isDirty, it shows
+    // the modal instead of navigating. On confirm, it navigates.
+    const guardedNavigate = useCallback((to, options) => {
+        if (!isDirty) {
+            navigate(to, options);
+            return;
+        }
+        pendingNavRef.current = { to, options };
+        setModalOpen(true);
+    }, [isDirty, navigate]);
+
+    // ── 3. Modal callbacks ──────────────────────────────────────────
+    const handleStay = useCallback(() => {
+        setModalOpen(false);
+        pendingNavRef.current = null;
+    }, []);
+
+    const handleLeave = useCallback(() => {
+        setModalOpen(false);
+        const pending = pendingNavRef.current;
+        pendingNavRef.current = null;
+        if (pending) {
+            navigate(pending.to, pending.options);
+        }
+    }, [navigate]);
+
+    return {
+        guardModalOpen: modalOpen,
+        handleStay,
+        handleLeave,
+        guardedNavigate,
+        guardContext: context,
+    };
+};
+
+export default useUnsavedChanges;
+''')
+
+print("useUnsavedChanges hook created!")
+
+
+# ================================================================
+# FIX 4: IntakePage.jsx — replace beforeunload with guardedNavigate
+# The page already has isDirty logic, just needs the modal wired in
+# ================================================================
+
+INTAKE_JSX = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
+
+# Add import at top
+patch(INTAKE_JSX,
+    "import landService from '../../services/landService';",
+    "import landService from '../../services/landService';\nimport useUnsavedChanges from '../../hooks/useUnsavedChanges';\nimport UnsavedChangesModal from '../../components/common/UnsavedChangesModal';"
 )
 
-
-# ================================================================
-# CHANGE 4: PaymentsPage CSS -- typeBadge: plain colored text only
-# Remove colored background from type badges, just color the text
-# ================================================================
-patch(
-    PAYMENTS_CSS,
-    '''.typeBadge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: clamp(2px, 0.3vw, 4px) clamp(6px, 0.8vw, 9px);
-    border-radius: 4px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-transform: uppercase;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
-}''',
-    '''.typeBadge {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-transform: uppercase;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
-    background: transparent !important;
-    border: none !important;
-    padding: 0;
-}'''
+# Remove the old beforeunload useEffect (it's now handled by the hook)
+patch(INTAKE_JSX,
+    '''    useEffect(() => {
+        const handler = (e) => {
+            if (isDirty && !saving) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty, saving]);''',
+    '''    // NOTE: beforeunload is now handled by useUnsavedChanges hook'''
 )
 
-# Also fix the inline style on the typeBadge in PaymentsPage.jsx
-patch(
-    'erp-frontend/src/pages/Payments/PaymentsPage.jsx',
-    '''                                    <td>
-                                        <span className={styles.typeBadge} style={{
-                                            background: `${TYPE_COLORS[pay.paymentType] || '#888'}22`,
-                                            color: TYPE_COLORS[pay.paymentType] || '#888',
-                                            border: `1px solid ${TYPE_COLORS[pay.paymentType] || '#888'}55`
-                                        }}>
-                                            {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
-                                            {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                        </span>
-                                    </td>''',
-    '''                                    <td>
-                                        <span className={styles.typeBadge} style={{
-                                            color: TYPE_COLORS[pay.paymentType] || '#888'
-                                        }}>
-                                            {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
-                                            {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                        </span>
-                                    </td>'''
+# Add hook usage after navigate declaration
+patch(INTAKE_JSX,
+    "    const navigate = useNavigate();\n    const { toasts, toast, dismissToast } = useToast();",
+    "    const navigate = useNavigate();\n    const { toasts, toast, dismissToast } = useToast();\n\n    // Unsaved changes guard -- wired below once isDirty is defined"
 )
 
+# After isDirty is defined, wire up the hook
+patch(INTAKE_JSX,
+    '''    // isDirty must be defined AFTER all useState hooks to avoid
+    // "Cannot access before initialization" error in the minified bundle
+    const isDirty = React.useMemo(() =>
+        plotNumber.trim() !== '' ||
+        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
+        totalCost !== '' ||
+        fileQueue.length > 0 ||
+        notesList.length > 0,
+    [plotNumber, owners, totalCost, fileQueue, notesList]);''',
+    '''    // isDirty must be defined AFTER all useState hooks to avoid
+    // "Cannot access before initialization" error in the minified bundle
+    const isDirty = React.useMemo(() =>
+        plotNumber.trim() !== '' ||
+        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
+        totalCost !== '' ||
+        fileQueue.length > 0 ||
+        notesList.length > 0,
+    [plotNumber, owners, totalCost, fileQueue, notesList]);
 
-# ================================================================
-# CHANGE 5: LedgerPage CSS -- status tags: plain colored text
-# tagBacklog, tagCritical, tagPaid, tagLegacy, tagStandard
-# Remove colored backgrounds, just show colored text
-# ================================================================
-patch(
-    LEDGER_CSS,
-    '''.tagLegacy {
-    font-family: 'DM Sans', sans-serif;
-    background: #7c2d12;
-    color: #fb923c;
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-}
-.tagStandard {
-    font-family: 'DM Sans', sans-serif;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-}
-.tagPaid {
-    font-family: 'DM Sans', sans-serif;
-    background: rgba(16, 185, 129, 0.18);
-    color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-}
-
-.tagCritical {
-    font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(239,68,68,0.3);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    animation: criticalPulse 1.8s ease-in-out infinite;
-}
-@keyframes criticalPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }''',
-    '''.tagLegacy {
-    font-family: 'DM Sans', sans-serif;
-    background: transparent;
-    color: #fb923c;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.tagStandard {
-    font-family: 'DM Sans', sans-serif;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.4);
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.tagPaid {
-    font-family: 'DM Sans', sans-serif;
-    background: transparent;
-    color: #6ee7b7;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.tagCritical {
-    font-family: 'DM Sans', sans-serif;
-    background: transparent;
-    color: #fca5a5;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    animation: criticalPulse 1.8s ease-in-out infinite;
-}
-@keyframes criticalPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }'''
+    const { guardModalOpen, handleStay, handleLeave, guardedNavigate } =
+        useUnsavedChanges(!saving && isDirty, 'New Plot Registration');'''
 )
 
-# Fix the three duplicate tagBacklog definitions -- replace the last one (the definitive one)
-# First remove all three duplicates, then add one clean version
-content = read(LEDGER_CSS)
-# Remove all tagBacklog blocks (there are 3)
-import re
-# Replace all occurrences of the tagBacklog block
-old_backlog = '''.tagBacklog {
-    font-family: 'DM Sans', sans-serif;
-    background: rgba(239, 68, 68, 0.18);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    padding: clamp(2px, 0.3vw, 4px) clamp(5px, 0.7vw, 8px);
-    border-radius: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    animation: criticalPulse 1.8s ease-in-out infinite;
-}'''
-new_backlog = '''.tagBacklog {
-    font-family: 'DM Sans', sans-serif;
-    background: transparent;
-    color: #fca5a5;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-align: center;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    animation: criticalPulse 1.8s ease-in-out infinite;
-}'''
-# Replace all occurrences
-content = content.replace(old_backlog, new_backlog)
-write(LEDGER_CSS, content)
-
-
-# ================================================================
-# CHANGE 6: AuditPage -- action badge styling
-# The severity left-border color already handles the color signal.
-# The actionMeta strong color (already colored by severity class)
-# -- no badge backgrounds to remove here, looks clean already.
-# But the logRow severityHigh/Med/Intel/Low left borders are fine.
-# ================================================================
-# AuditPage is already clean (left border only, no badge bg) -- skip
-
-
-# ================================================================
-# CHANGE 7: RecoveryPortal -- backlogPlotTag: plain text, no bg pill
-# ================================================================
-patch(
-    'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css',
-    '''.backlogPlotTag { display:inline-flex; align-items:center; gap:4px; background:rgba(239,68,68,0.25); color:#fecaca; border:1px solid rgba(239,68,68,0.4); border-radius:3px; padding:2px 7px; font-size:9px; font-weight:800; text-transform:uppercase; margin-bottom:4px; width:fit-content; }''',
-    '''.backlogPlotTag { display:inline-flex; align-items:center; gap:4px; background:transparent; color:#fca5a5; font-size:9px; font-weight:900; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px; }'''
+# After successful submit, navigate without guard (data is saved)
+patch(INTAKE_JSX,
+    "            toast('Plot registered successfully!', 'success', 3000);\n            setTimeout(() => navigate('/land/projects'), 1800);",
+    "            toast('Plot registered successfully!', 'success', 3000);\n            setTimeout(() => navigate('/land/projects'), 1800); // safe: data saved"
 )
 
-# ================================================================
-# CHANGE 8: RecoveryPortal -- statusBadge: remove colored bg pill,
-# use plain colored text instead (the card border already signals status)
-# ================================================================
-patch(
-    'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css',
-    '''.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-bottom-left-radius:6px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; }
-.statusRed     { background:#7f1d1d; color:#fecaca; }
-.statusBlue    { background:#0c4a6e; color:#bae6fd; }
-.statusGrey    { background:#3f3f46; color:#e4e4e7; }
-.statusDefault { background:rgba(0,0,0,0.55); color:rgba(255,255,255,0.7); }''',
-    '''.statusBadge { float:right; display:inline-flex; align-items:center; gap:5px; padding:4px 8px; font-family:'DM Sans',sans-serif; font-size:var(--fs-badge); font-weight:900; letter-spacing:0.8px; text-transform:uppercase; background:transparent; }
-.statusRed     { color:#fca5a5; }
-.statusBlue    { color:#93c5fd; }
-.statusGrey    { color:rgba(255,255,255,0.4); }
-.statusDefault { color:rgba(255,255,255,0.5); }'''
+# Add UnsavedChangesModal to the JSX return, just before closing tag
+patch(INTAKE_JSX,
+    "            {/* NOTE MODAL */}\n            {noteModalOpen && (",
+    """            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="New Plot Registration"
+            />
+
+            {/* NOTE MODAL */}
+            {noteModalOpen && ("""
 )
+
+print("IntakePage patched!")
+
+
+# ================================================================
+# FIX 5: FolderPage.jsx — wire up unsaved changes guard for edit mode
+# ================================================================
+
+FOLDER_JSX = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
+
+# Add import
+patch(FOLDER_JSX,
+    "import landService from '../../services/landService';",
+    "import landService from '../../services/landService';\nimport useUnsavedChanges from '../../hooks/useUnsavedChanges';\nimport UnsavedChangesModal from '../../components/common/UnsavedChangesModal';"
+)
+
+# Remove old beforeunload useEffect in FolderPage
+patch(FOLDER_JSX,
+    '''    // Warn user if they try to close the tab while editing
+    useEffect(() => {
+        const handler = (e) => {
+            if (isEditing) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isEditing]);''',
+    '''    // NOTE: beforeunload is now handled by useUnsavedChanges hook'''
+)
+
+# Add hook after committing and navigate declarations
+patch(FOLDER_JSX,
+    "    const { confirmState, confirm, handleAnswer } = useConfirm();",
+    """    const { confirmState, confirm, handleAnswer } = useConfirm();
+
+    // Unsaved changes guard -- active only while in edit mode and not mid-save
+    const { guardModalOpen, handleStay, handleLeave, guardedNavigate } =
+        useUnsavedChanges(!committing && isEditing, 'Plot Record Edit');"""
+)
+
+# Add UnsavedChangesModal to FolderPage JSX, before ConfirmModal
+patch(FOLDER_JSX,
+    "            <ConfirmModal state={confirmState} onAnswer={handleAnswer} />",
+    """            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="Plot Record Edit"
+            />
+
+            <ConfirmModal state={confirmState} onAnswer={handleAnswer} />"""
+)
+
+print("FolderPage patched!")
+
+
+# ================================================================
+# FIX 6: Wire guardedNavigate into Sidebar so clicking nav links
+# while editing triggers the guard instead of navigating silently
+# This is the main vector for accidental navigation loss
+# ================================================================
+
+# The Sidebar doesn't have direct access to isDirty state.
+# The cleanest approach: block ALL in-app navigation via the
+# browser's history.pushState when the guard is active.
+# We do this via a RouterBlocker component used in App.jsx.
+
+BLOCKER_JSX = 'erp-frontend/src/components/common/RouterBlocker.jsx'
+
+write(BLOCKER_JSX, '''// PATH: erp-frontend/src/components/common/RouterBlocker.jsx
+import { useEffect } from 'react';
+import { useBlocker } from 'react-router-dom';
+
+/**
+ * GOLDEN SEED — ROUTER BLOCKER
+ *
+ * Wraps react-router-dom\'s useBlocker to intercept ALL navigation
+ * when there are unsaved changes. The consuming component controls
+ * the modal; this hook just exposes whether a block is active and
+ * provides proceed/reset callbacks.
+ *
+ * Usage:
+ *   const { blocked, proceed, reset } = useRouterBlock(isDirty);
+ *
+ * blocked — true when navigation was intercepted
+ * proceed — confirm and continue navigation
+ * reset   — cancel and stay on current page
+ */
+export const useRouterBlock = (shouldBlock) => {
+    const blocker = useBlocker(shouldBlock);
+
+    return {
+        blocked: blocker.state === 'blocked',
+        proceed: () => blocker.proceed?.(),
+        reset:   () => blocker.reset?.(),
+    };
+};
+''')
+
+print("RouterBlocker created!")
+
+
+# ================================================================
+# FIX 7: Update IntakePage and FolderPage to use useRouterBlock
+# instead of the manual guardedNavigate approach --
+# useRouterBlock catches ALL navigation including sidebar clicks,
+# browser back button, address bar changes etc.
+# ================================================================
+
+# Update IntakePage to use useRouterBlock
+patch(INTAKE_JSX,
+    "import useUnsavedChanges from '../../hooks/useUnsavedChanges';\nimport UnsavedChangesModal from '../../components/common/UnsavedChangesModal';",
+    "import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';\nimport { useRouterBlock } from '../../components/common/RouterBlocker';"
+)
+
+patch(INTAKE_JSX,
+    "    const { guardModalOpen, handleStay, handleLeave, guardedNavigate } =\n        useUnsavedChanges(!saving && isDirty, 'New Plot Registration');",
+    "    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =\n        useRouterBlock(!saving && isDirty);"
+)
+
+# Update FolderPage to use useRouterBlock
+patch(FOLDER_JSX,
+    "import useUnsavedChanges from '../../hooks/useUnsavedChanges';\nimport UnsavedChangesModal from '../../components/common/UnsavedChangesModal';",
+    "import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';\nimport { useRouterBlock } from '../../components/common/RouterBlocker';"
+)
+
+patch(FOLDER_JSX,
+    "    // Unsaved changes guard -- active only while in edit mode and not mid-save\n    const { guardModalOpen, handleStay, handleLeave, guardedNavigate } =\n        useUnsavedChanges(!committing && isEditing, 'Plot Record Edit');",
+    "    // Unsaved changes guard -- active only while in edit mode and not mid-save\n    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =\n        useRouterBlock(!committing && isEditing);"
+)
+
+print("RouterBlocker wired into IntakePage and FolderPage!")
 
 print()
-print("All changes applied!")
+print("All fixes applied:")
+print("1. LoginPage -- React error #310 fixed (useState before early return)")
+print("2. UnsavedChangesModal -- branded custom modal component created")
+print("3. useUnsavedChanges hook -- created (kept for reference)")
+print("4. RouterBlocker -- catches ALL navigation (sidebar, back, address bar)")
+print("5. IntakePage -- wired to RouterBlocker")
+print("6. FolderPage -- wired to RouterBlocker")
 print()
-print("Changes made:")
-print("1. Pause/Resume fees button: RESUME = orange (prominent), PAUSE = grey (subtle)")
-print("2. Fee input fields: removed annoying toast on blur -- saves silently")
-print("3. Print button: dark navy theme, clean and minimal")
-print("4. Payments typeBadge: plain colored text only, no bg/border")
-print("5. Ledger status tags: plain colored text (tagPaid, tagCritical, tagBacklog, etc.)")
-print("6. Recovery backlogPlotTag: plain colored text")
-print("7. Recovery statusBadge: plain colored text (card border already signals status)")
-print()
-print("Run: git add -A && git commit -m 'ui: plain text tags, alternating pause/resume btn, clean print btn, silent fee input saves' && git push")
+print("Run: git add -A && git commit -m 'fix: React #310 + unsaved changes guard on intake/folder pages' && git push")

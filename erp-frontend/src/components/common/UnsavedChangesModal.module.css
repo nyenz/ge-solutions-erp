@@ -1,0 +1,255 @@
+/* PATH: erp-frontend/src/components/common/UnsavedChangesModal.module.css */
+
+/* ── OVERLAY ──────────────────────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: rgba(8, 15, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 4vw, 32px);
+    animation: overlayIn 0.22s ease both;
+}
+
+@keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── CARD ─────────────────────────────────────────────────────── */
+.card {
+    position: relative;
+    width: 100%;
+    max-width: clamp(320px, 90vw, 480px);
+    background: linear-gradient(160deg, #0f2224 0%, #162a2c 50%, #1a2e30 100%);
+    border-radius: 16px;
+    padding: clamp(28px, 4vw, 44px) clamp(24px, 3.5vw, 40px);
+    border: 1.5px solid rgba(238, 140, 58, 0.4);
+    box-shadow:
+        0 40px 100px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    animation: cardIn 0.28s cubic-bezier(0.2, 1, 0.3, 1) both;
+    text-align: center;
+    overflow: hidden;
+}
+
+/* Subtle orange glow on bottom edge */
+.card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 5%; right: 5%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(238,140,58,0.7), transparent);
+    box-shadow: 0 0 18px rgba(238, 140, 58, 0.4);
+    border-radius: 0 0 16px 16px;
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ── WARNING ICON ─────────────────────────────────────────────── */
+.iconWrap {
+    position: relative;
+    width: clamp(60px, 10vw, 76px);
+    height: clamp(60px, 10vw, 76px);
+    margin: 0 auto clamp(20px, 3vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.iconRing {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(245, 158, 11, 0.5);
+    animation: ringPulse 2s ease-in-out infinite;
+}
+
+.iconRing2 {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    animation: ringPulse 2s ease-in-out infinite 0.4s;
+}
+
+@keyframes ringPulse {
+    0%, 100% { transform: scale(1);   opacity: 0.6; }
+    50%       { transform: scale(1.1); opacity: 0.2; }
+}
+
+.icon {
+    position: relative;
+    z-index: 2;
+    font-size: clamp(28px, 5vw, 36px);
+    color: #f59e0b;
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.5));
+    animation: iconShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.3s both;
+}
+
+@keyframes iconShake {
+    0%, 100% { transform: rotate(0); }
+    15%      { transform: rotate(-8deg); }
+    45%      { transform: rotate(7deg); }
+    75%      { transform: rotate(-4deg); }
+}
+
+/* ── BODY ─────────────────────────────────────────────────────── */
+.body { position: relative; z-index: 2; }
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: #f59e0b;
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 700;
+    letter-spacing: clamp(2px, 0.5vw, 4px);
+    text-transform: uppercase;
+    margin: 0 0 clamp(10px, 1.5vw, 14px);
+    text-shadow: 0 0 24px rgba(245, 158, 11, 0.3);
+}
+
+.message {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.3vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.65;
+    margin: 0 0 clamp(18px, 2.5vw, 24px);
+}
+
+.message strong {
+    color: #fff;
+    font-weight: 900;
+}
+
+/* ── DIVIDER ──────────────────────────────────────────────────── */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 clamp(18px, 2.5vw, 24px);
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.divider span {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.78vw, 9px);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ── ACTION BUTTONS ───────────────────────────────────────────── */
+.actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(8px, 1.2vw, 12px);
+}
+
+/* KEEP EDITING — orange filled, primary CTA */
+.stayBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 0.8vw, 8px);
+    height: clamp(42px, 5.5vw, 50px);
+    background: #EE8C3A;
+    color: #1a2e30;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    box-shadow: 0 4px 16px rgba(238, 140, 58, 0.3);
+    white-space: nowrap;
+}
+.stayBtn:hover {
+    background: #f0a050;
+    box-shadow: 0 0 24px rgba(238, 140, 58, 0.5);
+    transform: translateY(-1px);
+}
+.stayBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }
+
+/* DISCARD & LEAVE — ghost/danger style */
+.leaveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 0.8vw, 8px);
+    height: clamp(42px, 5.5vw, 50px);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+.leaveBtn:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.15);
+}
+.leaveBtn:focus-visible { outline: 2px solid #ef4444; outline-offset: 3px; }
+
+/* ── CLOSE BUTTON ─────────────────────────────────────────────── */
+.closeBtn {
+    position: absolute;
+    top: clamp(12px, 1.5vw, 16px);
+    right: clamp(12px, 1.5vw, 16px);
+    width: clamp(28px, 3.2vw, 34px);
+    height: clamp(28px, 3.2vw, 34px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: clamp(14px, 1.6vw, 17px);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.closeBtn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+.closeBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+
+/* ── MOBILE ───────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+    .actions {
+        grid-template-columns: 1fr;
+    }
+    .card {
+        padding: 24px 18px;
+    }
+}

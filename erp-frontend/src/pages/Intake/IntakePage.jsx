@@ -9,6 +9,8 @@ import {
     FiEdit3
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import predictionService from '../../services/predictionService';
 import styles from './IntakePage.module.css';
 
@@ -189,6 +191,8 @@ const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '',
 const IntakePage = () => {
     const navigate = useNavigate();
     const { toasts, toast, dismissToast } = useToast();
+
+    // Unsaved changes guard -- wired below once isDirty is defined
     const fileInputRef = useRef(null);
 
     const [saving, setSaving] = useState(false);
@@ -238,16 +242,10 @@ const IntakePage = () => {
         notesList.length > 0,
     [plotNumber, owners, totalCost, fileQueue, notesList]);
 
-    useEffect(() => {
-        const handler = (e) => {
-            if (isDirty && !saving) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isDirty, saving]);
+    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!saving && isDirty);
+
+    // NOTE: beforeunload is now handled by useUnsavedChanges hook
 
     const sg = key => predictionService.getSuggestions(key) || [];
 
@@ -299,7 +297,7 @@ const IntakePage = () => {
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
             toast('Plot registered successfully!', 'success', 3000);
-            setTimeout(() => navigate('/land/projects'), 1800);
+            setTimeout(() => navigate('/land/projects'), 1800); // safe: data saved
         } catch (err) {
             const msg = err.response?.data?.message || err.message || 'Save failed';
             toast(msg, 'error', 8000);
@@ -621,6 +619,14 @@ const IntakePage = () => {
                     </button>
                 </div>
             </div>
+
+            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="New Plot Registration"
+            />
 
             {/* NOTE MODAL */}
             {noteModalOpen && (

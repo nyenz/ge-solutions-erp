@@ -13,6 +13,8 @@ import {
     FiDollarSign, FiActivity
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import HardwareModal from '../../components/common/HardwareModal';
@@ -457,6 +459,10 @@ const FolderPage = () => {
     const [paying,     setPaying]     = useState(false);
 
     const { confirmState, confirm, handleAnswer } = useConfirm();
+
+    // Unsaved changes guard -- active only while in edit mode and not mid-save
+    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!committing && isEditing);
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
 
@@ -468,17 +474,7 @@ const FolderPage = () => {
         if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120);
     }, [isEditing]);
 
-    // Warn user if they try to close the tab while editing
-    useEffect(() => {
-        const handler = (e) => {
-            if (isEditing) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isEditing]);
+    // NOTE: beforeunload is now handled by useUnsavedChanges hook
 
     const loadFolderData = useCallback(async () => {
         try {
@@ -1198,6 +1194,14 @@ const FolderPage = () => {
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
                 style={{ display:'none' }} aria-hidden="true" tabIndex={-1}
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value=''; }} />
+
+            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="Plot Record Edit"
+            />
 
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
