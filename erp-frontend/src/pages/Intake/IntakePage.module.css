@@ -1093,28 +1093,27 @@
 .noteContent { font-size: clamp(11px, 1.05vw, 13px); line-height: 1.5; margin: 0; color: var(--navy); word-break: break-word; }
 
 .addNoteBtn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    height: clamp(34px, 4.2vw, 40px);
-    padding: 0 clamp(14px, 1.8vw, 20px);
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
+    width: 100%;
+    padding: clamp(9px, 1.1vw, 12px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px dashed rgba(238, 140, 58, 0.4);
+    color: var(--orange);
     font-family: 'DM Sans', sans-serif;
-    font-size: clamp(9px, 0.9vw, 11px);
+    font-size: var(--fs-btn);
     font-weight: 900;
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 1px;
     border-radius: var(--radius-sm);
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    transition: background 0.2s, border-style 0.15s, border-color 0.2s;
     box-sizing: border-box;
-    width: auto;
-    align-self: flex-end;
+    margin-top: clamp(6px, 0.8vw, 8px);
+    gap: clamp(5px, 0.6vw, 7px);
 }
-.addNoteBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.addNoteBtn:hover { background: rgba(238,140,58,0.08); border-style: solid; border-color: var(--orange); }
 .addNoteBtn:focus-visible { outline: 2px solid var(--orange); }
 
 @media print {

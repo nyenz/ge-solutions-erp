@@ -73,10 +73,10 @@ public class BacklogSchedulerService {
             projectRepository.save(plot);
 
             auditService.logAction("STORAGE_FEE_APPLIED",
-                "SYSTEM: Added UGX " + toAdd + " storage fee to backlog plot: "
+                "SYSTEM: Added UGX " + toAdd + " monthly storage fee to backlog plot: "
                 + plot.getLandTitle().getPlotNumber()
-                + " (" + feesMissing + " month(s) x UGX 50,000)"
-                + " | Total fees: UGX " + plot.getStorageFeesAccumulated());
+                + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
+                + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());
         }
     }
 

@@ -732,14 +732,18 @@ const FolderPage = () => {
     const paymentCount = payments.length;
 
     // Financial figures
-    const totalCost    = Number(project?.totalCost || 0);
-    const amountPaid   = Number(project?.amountPaid || 0);
-    const origDebt     = Number(project?.originalDebt || 0);
-    const storageFees  = Number(project?.storageFeesAccumulated || 0);
-    const backlogOwed  = origDebt + storageFees - amountPaid;
-    const activeOwed   = totalCost - amountPaid;
-    const remaining    = isBacklog ? Math.max(0, backlogOwed) : Math.max(0, activeOwed);
-    const arrearsEdit  = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
+    const totalCost          = Number(project?.totalCost || 0);
+    const amountPaid         = Number(project?.amountPaid || 0);
+    const origDebt           = Number(project?.originalDebt || 0);
+    const storageFees        = Number(project?.storageFeesAccumulated || 0);
+    const backlogOwed        = origDebt + storageFees - amountPaid;
+    const activeOwed         = totalCost - amountPaid;
+    const remaining          = isBacklog ? Math.max(0, backlogOwed) : Math.max(0, activeOwed);
+    const arrearsEdit        = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
+    // Dynamic monthly fee — uses override if set, otherwise system default 50,000
+    const effectiveMonthlyFee = Number(project?.storageFeeOverride) > 0
+        ? Number(project.storageFeeOverride)
+        : 50000;
 
     return (
         <div className={styles.container}>
@@ -921,11 +925,18 @@ const FolderPage = () => {
                                 </div>
                                 {project.isBacklog && (
                                     <div className={styles.editBacklogFeeSection}>
-                                        <div className={styles.editBacklogFeeTitle}>BACKLOG FEE CONTROLS</div>
+                                        <div className={styles.editBacklogFeeTitleRow}>
+                                            <div className={styles.editBacklogFeeTitle}>BACKLOG FEE CONTROLS</div>
+                                            {isAdmin && (
+                                                <button onClick={handleExitBacklog} className={styles.btnExitBacklog}>
+                                                    EXIT BACKLOG
+                                                </button>
+                                            )}
+                                        </div>
                                         <div className={styles.inputGrid3}>
                                             <div className={styles.hwInputWrap}>
                                                 <div className={styles.inputLabelRow}>
-                                                    <label>MONTHLY FEE (UGX)</label>
+                                                    <label>MONTHLY STORAGE FEE (UGX)</label>
                                                 </div>
                                                 <input
                                                     type="number"
@@ -936,7 +947,8 @@ const FolderPage = () => {
                                                         if (val >= 0) {
                                                             try {
                                                                 await recoveryService.setStorageRate(project.id, val);
-                                                                toast('MONTHLY RATE UPDATED', 'success', 2000);
+                                                                await loadFolderData();
+                                                                toast(`MONTHLY RATE SET TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
                                                             } catch { toast('RATE UPDATE FAILED', 'error'); }
                                                         }
                                                     }}
@@ -956,7 +968,8 @@ const FolderPage = () => {
                                                         if (val >= 0) {
                                                             try {
                                                                 await recoveryService.setAccumulatedFees(project.id, val);
-                                                                toast('ACCUMULATED FEES UPDATED', 'success', 2000);
+                                                                await loadFolderData();
+                                                                toast(`TOTAL FEES ADJUSTED TO UGX ${Number(val).toLocaleString()}`, 'success', 2500);
                                                             } catch { toast('FEE ADJUSTMENT FAILED', 'error'); }
                                                         }
                                                     }}
@@ -983,7 +996,7 @@ const FolderPage = () => {
                                             </div>
                                         </div>
                                         <div className={styles.editBacklogFeeHint}>
-                                            Changes apply immediately. Monthly fee: default UGX 50,000 if not set.
+                                            Changes apply immediately. Current monthly fee: UGX {fmt(effectiveMonthlyFee)} (default 50,000 if not set).
                                         </div>
                                     </div>
                                 )}
@@ -995,13 +1008,8 @@ const FolderPage = () => {
                                         <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
                                         <div className={styles.backlogNoticeText}>
                                             <strong>STORAGE FEES ACTIVE</strong>
-                                            <span>UGX 50,000 is added every month until the full balance is cleared</span>
+                                            <span>UGX {fmt(effectiveMonthlyFee)} is added every month until the full balance is cleared</span>
                                         </div>
-                                        {isAdmin && (
-                                            <button onClick={handleExitBacklog} className={styles.btnExitBacklog}>
-                                                EXIT BACKLOG
-                                            </button>
-                                        )}
                                     </div>
                                     <div className={styles.moneyStatsRow}>
                                         <div className={styles.statBox}>
@@ -1013,8 +1021,8 @@ const FolderPage = () => {
                                             <strong className={styles.redGlow}>UGX {fmt(storageFees)}</strong>
                                             <small style={{opacity:0.6, fontSize:'0.7rem'}}>
                                                 {project.backlogStartDate
-                                                    ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()}`
-                                                    : ''}
+                                                    ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()} @ UGX ${fmt(effectiveMonthlyFee)}/mo`
+                                                    : `UGX ${fmt(effectiveMonthlyFee)}/month`}
                                             </small>
                                         </div>
                                         <div className={styles.statBox}>

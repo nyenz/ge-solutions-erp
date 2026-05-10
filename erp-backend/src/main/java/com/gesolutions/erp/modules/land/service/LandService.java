@@ -192,7 +192,7 @@ public class LandService {
         auditService.logAction("BACKLOG_EXIT",
             "Operator [" + getCurrentOperator() + "] manually removed plot "
             + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. Storage fees cleared.");
+            + " from BACKLOG. Accumulated storage fees of UGX " + project.getStorageFeesAccumulated() + " cleared.");
     }
 
     // ─── INTAKE ───────────────────────────────────────────────────────────────
@@ -482,8 +482,9 @@ public class LandService {
         projectRepository.save(project);
         String action = paused ? "PAUSED" : "RESUMED";
         auditService.logAction("STORAGE_FEE_" + action,
-            "Operator [" + getCurrentOperator() + "] " + action + " storage fees for plot: "
-            + project.getLandTitle().getPlotNumber());
+            "Operator [" + getCurrentOperator() + "] " + action.toLowerCase() + " monthly storage fees for plot: "
+            + project.getLandTitle().getPlotNumber()
+            + " (monthly rate: UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
     }
 
     @Transactional
@@ -494,8 +495,9 @@ public class LandService {
         project.setStorageFeeOverride(rate);
         projectRepository.save(project);
         auditService.logAction("STORAGE_RATE_CHANGED",
-            "Operator [" + getCurrentOperator() + "] set monthly storage fee to UGX " + rate
-            + " for plot: " + project.getLandTitle().getPlotNumber());
+            "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
+            + " for plot: " + project.getLandTitle().getPlotNumber()
+            + " (previously UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
     }
 
     @Transactional
@@ -507,7 +509,7 @@ public class LandService {
         project.setStorageFeesAccumulated(amount);
         projectRepository.save(project);
         auditService.logAction("STORAGE_FEES_ADJUSTED",
-            "Operator [" + getCurrentOperator() + "] changed accumulated fees from UGX " + old
+            "Operator [" + getCurrentOperator() + "] manually adjusted accumulated storage fees from UGX " + old
             + " to UGX " + amount + " for plot: " + project.getLandTitle().getPlotNumber());
     }
 

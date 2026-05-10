@@ -195,7 +195,7 @@ const RecoveryPortal = () => {
                         {mission.hasBacklogPlots && Number(mission.totalStorageFees) > 0 && (
                             <div className={styles.feesRow}>
                                 <FiAlertOctagon aria-hidden="true" size={11} />
-                                <span>Incl. storage fees: UGX {fmt(mission.totalStorageFees)}</span>
+                                <span>Incl. accumulated storage fees: UGX {fmt(mission.totalStorageFees)}</span>
                             </div>
                         )}
                     </div>

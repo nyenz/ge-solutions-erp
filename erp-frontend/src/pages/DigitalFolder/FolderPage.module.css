@@ -463,29 +463,41 @@
 .ctrlBtnBacklog:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.35); }
 .ctrlBtnBacklog:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
-/* PRINT icon-only */
+/* PRINT icon-only (no text label) */
 .printBtn {
     display: inline-flex;
     align-items: center;
-    gap: clamp(5px, 0.7vw, 7px);
+    justify-content: center;
+    width: clamp(32px, 4vw, 38px);
     height: clamp(32px, 4vw, 38px);
-    padding: 0 clamp(10px, 1.3vw, 15px);
+    padding: 0;
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(6, 182, 212, 0.45);
     color: #67e8f9;
     border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
     cursor: pointer;
-    white-space: nowrap;
     flex-shrink: 0;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s;
     line-height: 1;
+    font-size: clamp(14px, 1.6vw, 18px);
+    position: relative;
 }
-.printBtn:hover { background: #06b6d4; color: #1a2e30; border-color: #06b6d4; box-shadow: 0 0 12px rgba(6,182,212,0.3); }
+.printBtn::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: calc(var(--radius-sm) + 2px);
+    background: rgba(6, 182, 212, 0);
+    transition: background 0.2s;
+}
+.printBtn:hover {
+    background: rgba(6, 182, 212, 0.18);
+    color: #06b6d4;
+    border-color: #06b6d4;
+    box-shadow: 0 0 14px rgba(6,182,212,0.35), 0 0 0 3px rgba(6,182,212,0.12);
+    transform: translateY(-1px);
+}
+.printBtn:active { transform: translateY(0); }
 .printBtn:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; }
 
 /* ctrlBtn unused but kept for legacy */
@@ -1088,6 +1100,15 @@
     border: 1.5px solid rgba(239, 68, 68, 0.2);
     border-radius: var(--radius-sm);
 }
+/* Row with title + EXIT BACKLOG button side by side */
+.editBacklogFeeTitleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: clamp(6px, 0.8vw, 10px);
+    margin-bottom: clamp(8px, 1vw, 11px);
+}
 .editBacklogFeeTitle {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.82vw, 9px);
@@ -1095,7 +1116,6 @@
     color: #fca5a5;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    margin-bottom: clamp(8px, 1vw, 11px);
 }
 .editBacklogFeeHint {
     margin-top: clamp(7px, 0.9vw, 9px);
