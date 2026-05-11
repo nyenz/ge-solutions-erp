@@ -249,49 +249,101 @@ const RecoveryPortal = () => {
                         <div className={styles.divider} aria-hidden="true" />
 
                         <div className={styles.plotsList}>
-                            <div className={styles.plotsHeader}>PLOTS FOR THIS OWNER</div>
-                            {(mission.plots || []).map(plot => (
-                                <div key={plot.projectId}
-                                    className={`${styles.plotRow} ${plot.isBacklog ? styles.plotRowBacklog : ''}`}>
-                                    <div className={styles.plotRowLeft}>
-                                        <PaymentBadge badge={plot.paymentHealthBadge} />
-                                        <div className={styles.plotInfo}>
-                                            <span className={styles.plotNumber}>{plot.plotNumber}</span>
-                                            <span className={styles.plotBox}>BOX: {plot.physicalBoxNumber}</span>
-                                            {plot.isBacklog ? (
-                                                <div className={styles.backlogBreakdown}>
-                                                    <span className={styles.backlogPlotTag}>BACKLOG ({plot.storageMonthsCount} months)</span>
-                                                    <div className={styles.debtLine}><span>Original debt: <strong>UGX {fmt(plot.originalDebt)}</strong></span></div>
-                                                    <div className={styles.debtLine}><span>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</strong></span></div>
-                                                    <div className={styles.debtLine}><span>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(plot.totalBacklogOwed)}</strong></span></div>
-                                                    <div className={styles.debtLine}><span>Total paid: <strong>UGX {fmt(plot.amountPaid)}</strong></span></div>
+                            {/* Split plots into backlog and active groups */}
+                            {(() => {
+                                const backlogPlots = (mission.plots || []).filter(p => p.isBacklog);
+                                const activePlots  = (mission.plots || []).filter(p => !p.isBacklog);
+                                const renderPlot = (plot) => (
+                                    <div key={plot.projectId}
+                                        className={`${styles.plotRow} ${plot.isBacklog ? styles.plotRowBacklog : styles.plotRowActive}`}>
+                                        <div className={styles.plotRowLeft}>
+                                            <PaymentBadge badge={plot.paymentHealthBadge} />
+                                            <div className={styles.plotInfo}>
+                                                <div className={styles.plotTopLine}>
+                                                    <span className={styles.plotNumber}>{plot.plotNumber}</span>
+                                                    <span className={styles.plotBox}>BOX: {plot.physicalBoxNumber}</span>
                                                 </div>
-                                            ) : (
-                                                <div className={styles.activePlotFinance}>
-                                                    <span>Balance: <strong>UGX {fmt(plot.currentBalance)}</strong></span>
-                                                    <span style={{opacity:0.6, fontSize:'0.75rem'}}> of UGX {fmt(plot.totalCost)}</span>
+                                                {plot.isBacklog ? (
+                                                    <div className={styles.backlogBreakdown}>
+                                                        <span className={styles.backlogPlotTag}>
+                                                            <FiAlertOctagon size={9} /> BACKLOG · {plot.storageMonthsCount} month{plot.storageMonthsCount !== 1 ? 's' : ''}
+                                                        </span>
+                                                        <div className={styles.debtGrid}>
+                                                            <div className={styles.debtGridItem}>
+                                                                <span className={styles.debtGridLabel}>ORIGINAL DEBT</span>
+                                                                <span className={styles.debtGridVal}>UGX {fmt(plot.originalDebt)}</span>
+                                                            </div>
+                                                            <div className={styles.debtGridItem}>
+                                                                <span className={styles.debtGridLabel} style={{color:'#fca5a5'}}>STORAGE FEES</span>
+                                                                <span className={styles.debtGridVal} style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</span>
+                                                            </div>
+                                                            <div className={styles.debtGridItem}>
+                                                                <span className={styles.debtGridLabel}>AMOUNT PAID</span>
+                                                                <span className={styles.debtGridVal}>UGX {fmt(plot.amountPaid)}</span>
+                                                            </div>
+                                                            <div className={`${styles.debtGridItem} ${styles.debtGridTotal}`}>
+                                                                <span className={styles.debtGridLabel} style={{color:'#fca5a5'}}>TOTAL OWED</span>
+                                                                <span className={styles.debtGridVal} style={{color:'#ef4444', fontWeight:900}}>UGX {fmt(plot.totalBacklogOwed)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className={styles.activePlotFinance}>
+                                                        <div className={styles.activeFinanceRow}>
+                                                            <span className={styles.activeFinanceLabel}>BALANCE</span>
+                                                            <span className={styles.activeFinanceVal}>UGX {fmt(plot.currentBalance)}</span>
+                                                        </div>
+                                                        <div className={styles.progressTrack}>
+                                                            <div className={styles.progressFill}
+                                                                style={{width: plot.totalCost > 0 ? `${Math.min(100, (1 - plot.currentBalance / plot.totalCost) * 100)}%` : '0%'}} />
+                                                        </div>
+                                                        <span className={styles.progressPct}>
+                                                            {plot.totalCost > 0 ? Math.round((1 - plot.currentBalance / plot.totalCost) * 100) : 0}% paid of UGX {fmt(plot.totalCost)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className={styles.lastNote}>
+                                                    <FiMessageSquare aria-hidden="true" size={11} />
+                                                    <span>"{plot.lastInteractionNote}"</span>
                                                 </div>
-                                            )}
-                                            <div className={styles.lastNote}>
-                                                <FiMessageSquare aria-hidden="true" size={11} />
-                                                <span>"{plot.lastInteractionNote}"</span>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className={styles.plotRowActions}>
-                                        <button className={styles.folderBtn}
-                                            onClick={() => navigate(`/folder/${plot.projectId}`)}>
-                                            <FiChevronRight aria-hidden="true" /> BINDER
-                                        </button>
-                                        {isAdmin && (
-                                            <button className={styles.payBtn}
-                                                onClick={() => { setPayModal({ open: true, plot }); setPayAmount(''); setPayNotes(''); }}>
-                                                <FiDollarSign aria-hidden="true" /> PAY
+                                        <div className={styles.plotRowActions}>
+                                            <button className={styles.folderBtn}
+                                                onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                                <FiChevronRight aria-hidden="true" /> BINDER
                                             </button>
-                                        )}
+                                            {isAdmin && (
+                                                <button className={styles.payBtn}
+                                                    onClick={() => { setPayModal({ open: true, plot }); setPayAmount(''); setPayNotes(''); }}>
+                                                    <FiDollarSign aria-hidden="true" /> PAY
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                                return (
+                                    <>
+                                        {activePlots.length > 0 && (
+                                            <>
+                                                <div className={styles.plotsGroupHeader}>
+                                                    <span className={styles.plotsGroupLabelActive}>ACTIVE TITLES ({activePlots.length})</span>
+                                                </div>
+                                                {activePlots.map(renderPlot)}
+                                            </>
+                                        )}
+                                        {backlogPlots.length > 0 && (
+                                            <>
+                                                <div className={styles.plotsGroupHeader}>
+                                                    <FiAlertOctagon size={10} style={{color:'#ef4444', flexShrink:0}} />
+                                                    <span className={styles.plotsGroupLabelBacklog}>BACKLOG TITLES ({backlogPlots.length}) — STORAGE FEES ACTIVE</span>
+                                                </div>
+                                                {backlogPlots.map(renderPlot)}
+                                            </>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         <div className={styles.divider} aria-hidden="true" />
