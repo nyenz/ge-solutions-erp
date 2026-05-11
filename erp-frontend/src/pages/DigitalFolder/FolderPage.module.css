@@ -479,7 +479,11 @@
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
     line-height: 1;
-    font-size: clamp(14px, 1.6vw, 18px);
+    font-size: clamp(16px, 1.8vw, 20px);
+}
+.printBtn svg {
+    width: clamp(16px, 1.8vw, 20px);
+    height: clamp(16px, 1.8vw, 20px);
 }
 .printBtn:hover {
     background: rgba(26, 46, 48, 0.95);
@@ -1051,18 +1055,17 @@
 .btnExitBacklog:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 .btnExitBacklog:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
-/* Pause/Resume fees button — same design as Ledger "PAID TITLES" filter:
-   orange fill when active (resume), orange outline when inactive (pause) */
-.btnPauseResume {
+/* btnPauseGrey = fees currently ACTIVE, click to PAUSE (show grey/danger) */
+.btnPauseGrey {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: clamp(5px, 0.6vw, 7px);
     width: 100%;
     height: var(--input-h, clamp(34px, 4.5vw, 40px));
-    background: #EE8C3A;
-    border: 1.5px solid #EE8C3A;
-    color: #1a2e30;
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(245, 158, 11, 0.45);
+    color: #fcd34d;
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
     font-weight: 900;
@@ -1071,15 +1074,42 @@
     letter-spacing: 1.5px;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(238, 140, 58, 0.25);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.btnPauseResume:hover {
-    background: #f0a050;
-    border-color: #f0a050;
-    box-shadow: 0 0 14px rgba(238, 140, 58, 0.45);
+.btnPauseGrey:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fff;
 }
-.btnPauseResume:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.btnPauseGrey:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* btnResumeActive = fees currently PAUSED, click to RESUME (show green/active) */
+.btnResumeActive {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.6vw, 7px);
+    width: 100%;
+    height: var(--input-h, clamp(34px, 4.5vw, 40px));
+    background: rgba(16, 185, 129, 0.15);
+    border: 1.5px solid rgba(16, 185, 129, 0.5);
+    color: #34d399;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(8px, 0.82vw, 10px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.btnResumeActive:hover {
+    background: #10b981;
+    border-color: #10b981;
+    color: #1a2e30;
+}
+.btnResumeActive:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
 /* Edit mode backlog fee section wrapper */
 .editBacklogFeeSection {

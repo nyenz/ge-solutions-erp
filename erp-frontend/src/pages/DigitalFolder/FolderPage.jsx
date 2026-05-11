@@ -831,7 +831,7 @@ const FolderPage = () => {
                     {!isEditing && (
                         <div className={styles.ctrlGroup}>
                             <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record">
-                                <FiPrinter aria-hidden="true" /> PRINT
+                                <FiPrinter aria-hidden="true" />
                             </button>
                             {isAdmin && (
                                 <button className={styles.ctrlBtnPay}

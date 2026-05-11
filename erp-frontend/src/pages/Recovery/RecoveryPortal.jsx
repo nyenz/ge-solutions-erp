@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,7 +9,7 @@ import {
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
     FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
-    FiArchive, FiZap
+    FiArchive, FiZap, FiSettings
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -215,6 +215,170 @@ const PaymentModal = ({ open, plot, onClose, onPay, paying }) => {
                 </HardwareButton>
             </div>
         </HardwareModal>
+    );
+};
+
+// ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
+// Shows directly on each backlog plot card so admin can set monthly fee
+// without opening a separate modal
+const StorageFeeInlineControls = ({ plot, onUpdated, toast }) => {
+    const [rateInput, setRateInput] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+    const [expanded, setExpanded] = React.useState(false);
+
+    const handleSetRate = async () => {
+        const val = Number(rateInput);
+        if (rateInput === '' || val < 0) {
+            toast('ENTER A VALID MONTHLY RATE', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            await recoveryService.setStorageRate(plot.projectId, val);
+            setRateInput('');
+            setExpanded(false);
+            await onUpdated();
+            toast('MONTHLY FEE UPDATED', 'success');
+        } catch {
+            toast('FEE UPDATE FAILED', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleTogglePause = async () => {
+        setSaving(true);
+        try {
+            await recoveryService.pauseStorageFees(plot.projectId, !plot.storagePaused);
+            await onUpdated();
+            toast(plot.storagePaused ? 'STORAGE FEES RESUMED' : 'STORAGE FEES PAUSED', 'info');
+        } catch {
+            toast('ACTION FAILED', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const currentRate = plot.storageFeeOverride && Number(plot.storageFeeOverride) > 0
+        ? Number(plot.storageFeeOverride)
+        : 50000;
+
+    if (!expanded) {
+        return (
+            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                    onClick={() => setExpanded(true)}
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 5,
+                        color: 'rgba(252,165,165,0.7)',
+                        fontFamily: 'DM Sans,sans-serif',
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: 1,
+                        textTransform: 'uppercase',
+                        padding: '4px 10px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                    }}>
+                    <FiSettings size={10} />
+                    FEE: UGX {Number(currentRate).toLocaleString()}/mo
+                    {plot.storagePaused && <span style={{color:'#fcd34d'}}> · PAUSED</span>}
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            marginTop: 10,
+            padding: '10px 12px',
+            background: 'rgba(239,68,68,0.06)',
+            border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 7,
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 900, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                    STORAGE FEE SETTINGS
+                </span>
+                <button onClick={() => setExpanded(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14 }}>
+                    <FiX size={13} />
+                </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                    <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 8, fontWeight: 900, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>
+                        MONTHLY RATE (UGX)
+                    </div>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                        <input
+                            type="number"
+                            value={rateInput}
+                            onChange={e => setRateInput(e.target.value)}
+                            placeholder={String(currentRate)}
+                            style={{
+                                flex: 1,
+                                background: '#fff',
+                                border: '1.5px solid #c8d6d7',
+                                borderRadius: 5,
+                                color: '#1a2e30',
+                                fontFamily: 'Space Mono,monospace',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                padding: '5px 8px',
+                                outline: 'none',
+                                minWidth: 0,
+                            }}
+                        />
+                        <button
+                            onClick={handleSetRate}
+                            disabled={saving}
+                            style={{
+                                background: '#EE8C3A',
+                                border: 'none',
+                                borderRadius: 5,
+                                color: '#1a2e30',
+                                fontFamily: 'DM Sans,sans-serif',
+                                fontSize: 9,
+                                fontWeight: 900,
+                                padding: '0 9px',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                            }}>
+                            SET
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 8, fontWeight: 900, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>
+                        FEE STATUS
+                    </div>
+                    <button
+                        onClick={handleTogglePause}
+                        disabled={saving}
+                        style={{
+                            width: '100%',
+                            background: plot.storagePaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                            border: plot.storagePaused ? '1.5px solid rgba(16,185,129,0.5)' : '1.5px solid rgba(245,158,11,0.5)',
+                            borderRadius: 5,
+                            color: plot.storagePaused ? '#34d399' : '#fcd34d',
+                            fontFamily: 'DM Sans,sans-serif',
+                            fontSize: 9,
+                            fontWeight: 900,
+                            padding: '6px 0',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                        }}>
+                        {plot.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -546,6 +710,13 @@ const RecoveryPortal = () => {
                                         <div className={styles.lastNote}>
                                             <FiMessageSquare size={11} /><span>"{plot.lastInteractionNote}"</span>
                                         </div>
+                                        {isAdmin && (
+                                            <StorageFeeInlineControls
+                                                plot={plot}
+                                                onUpdated={loadData}
+                                                toast={toast}
+                                            />
+                                        )}
                                     </div>
                                 ))}
                             </div>
