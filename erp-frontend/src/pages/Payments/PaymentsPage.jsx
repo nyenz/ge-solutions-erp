@@ -193,7 +193,7 @@ const PaymentsPage = () => {
                                 </tr>
                             ) : filtered.map((pay, i) => (
                                 <tr key={pay.id || i}
-                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}`)}
+                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}#payments`)}
                                     tabIndex={pay.projectId ? 0 : undefined}
                                     onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}`); }}}>
                                     <td>
@@ -233,7 +233,7 @@ const PaymentsPage = () => {
                                     <td>
                                         {pay.projectId && (
                                             <button className={styles.goBtn}
-                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}`); }}>
+                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payments`); }}>
                                                 <FiChevronRight size={12} /> VIEW
                                             </button>
                                         )}

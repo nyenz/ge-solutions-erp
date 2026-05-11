@@ -460,12 +460,10 @@ const FolderPage = () => {
 
     const { confirmState, confirm, handleAnswer } = useConfirm();
 
-    // Unsaved changes guard -- active only while in edit mode and not mid-save
-    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
-        useRouterBlock(!committing && isEditing && touchedRef.current);
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
     // Track whether any field was actually changed since edit mode opened
+    // MUST be declared before useRouterBlock to avoid TDZ crash in minified build
     const touchedRef    = useRef(false);
     // Wrap setBuffer so any change marks the form as touched
     const touchedSetBuffer = React.useCallback((updater) => {
@@ -473,7 +471,24 @@ const FolderPage = () => {
         setBuffer(updater);
     }, []);
 
-    useEffect(() => { window.scrollTo({ top:0, behavior:'smooth' }); }, [id]);
+    // Unsaved changes guard -- active only while in edit mode and not mid-save
+    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!committing && isEditing && touchedRef.current);
+
+    useEffect(() => {
+        // If navigated here with a hash (e.g. #payments from PaymentsPage),
+        // open the matching drawer and scroll to it. Otherwise scroll to top.
+        const hash = window.location.hash.replace('#', '');
+        if (hash && ['tech','identity','finance','vault','intel','payments'].includes(hash)) {
+            setDrawers(prev => ({ ...prev, [hash]: true }));
+            setTimeout(() => {
+                const el = document.getElementById('drawer-' + hash);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [id]);
 
 
 
@@ -856,7 +871,7 @@ const FolderPage = () => {
             <main className={styles.workstationBody}>
 
                 {/* PLOT DETAILS */}
-                <section className={styles.hwPanel} aria-label="Plot Details">
+                <section id="drawer-tech" className={styles.hwPanel} aria-label="Plot Details">
                     <DrawerHeader label="PLOT DETAILS" isOpen={drawers.tech} onClick={() => toggleDrawer('tech')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.tech ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.tech}>
                         <div className={styles.panelInner}>
@@ -896,7 +911,7 @@ const FolderPage = () => {
                 </section>
 
                 {/* OWNERS */}
-                <section className={styles.hwPanel} aria-label="Owners">
+                <section id="drawer-identity" className={styles.hwPanel} aria-label="Owners">
                     <DrawerHeader label="OWNERS" count={project.proprietors.length} isOpen={drawers.identity} onClick={() => toggleDrawer('identity')} icon={FiUsers} />
                     <div className={`${styles.panelBody} ${drawers.identity ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.identity}>
                         <div className={styles.panelInner}>
@@ -929,7 +944,7 @@ const FolderPage = () => {
                 </section>
 
                 {/* FINANCIALS */}
-                <section className={styles.hwPanel} aria-label="Financials">
+                <section id="drawer-finance" className={styles.hwPanel} aria-label="Financials">
                     <DrawerHeader label="FINANCIALS" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiCreditCard} />
                     <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.finance}>
                         <div className={styles.panelInner}>
@@ -1082,7 +1097,7 @@ const FolderPage = () => {
                 </section>
 
                 {/* PAYMENT HISTORY */}
-                <section className={styles.hwPanel} aria-label="Payment History">
+                <section id="drawer-payments" className={styles.hwPanel} aria-label="Payment History">
                     <DrawerHeader label="PAYMENT HISTORY" count={paymentCount} isOpen={drawers.payments} onClick={() => toggleDrawer('payments')} icon={FiActivity} />
                     <div className={`${styles.panelBody} ${drawers.payments ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.payments}>
                         <div className={styles.panelInner}>
