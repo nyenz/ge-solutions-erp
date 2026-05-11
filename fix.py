@@ -18,110 +18,310 @@ def patch(path, old, new):
         write(path, content.replace(old, new, 1))
         return True
     else:
-        print(f"MISSING (not found in {path}): snippet not matched")
+        print(f"MISSING in {path}: snippet not matched")
         return False
 
 # ================================================================
-# FIX 1: LedgerPage.jsx
-# - Remove LEGACY filter, add COMPLETED filter
-# - Remove legacy tag from row display (show ACTIVE instead)
+# FIX 1: IntakePage.jsx
+#
+# Problem 1: isDirty fires on ANY text input. We want the guard
+# only when user has meaningfully started a registration:
+#   - plotNumber filled AND at least one owner name/phone filled
+#   OR total cost filled
+#   OR files queued
+#
+# Problem 2: Duplicate button should validate+save before duping.
 # ================================================================
 
-# 1a: Update FILTERS array - remove LEGACY, add COMPLETED
+INTAKE = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
+
+# Fix isDirty -- require plotNumber to be non-empty AND something else meaningful
+# so random typing in one box doesn't trigger the guard
 patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
-    "    const FILTERS = [\n        { key: 'ALL',      label: 'ALL ARCHIVES' },\n        { key: 'PAID',     label: 'PAID TITLES'  },\n        { key: 'BACKLOG',  label: 'BACKLOG'      },\n        { key: 'LEGACY',   label: 'LEGACY'       },\n        { key: 'DEBTORS',  label: 'UNPAID'       },\n        { key: 'CRITICAL', label: 'CRITICAL'     },\n    ];",
-    "    const FILTERS = [\n        { key: 'ALL',       label: 'ALL ARCHIVES' },\n        { key: 'PAID',      label: 'PAID TITLES'  },\n        { key: 'COMPLETED', label: 'COMPLETED'     },\n        { key: 'BACKLOG',   label: 'BACKLOG'       },\n        { key: 'DEBTORS',   label: 'UNPAID'        },\n        { key: 'CRITICAL',  label: 'CRITICAL'      },\n    ];"
+    INTAKE,
+    "    const isDirty = React.useMemo(() =>\n        plotNumber.trim() !== '' ||\n        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||\n        totalCost !== '' ||\n        fileQueue.length > 0 ||\n        notesList.length > 0,\n    [plotNumber, owners, totalCost, fileQueue, notesList]);",
+    """    // Guard only fires when the user has meaningfully started filling the form:
+    // plotNumber set AND (owner name/phone filled OR cost set OR files attached)
+    const isDirty = React.useMemo(() => {
+        const hasPlot    = plotNumber.trim() !== '';
+        const hasOwner   = owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '');
+        const hasCost    = totalCost !== '';
+        const hasFiles   = fileQueue.length > 0;
+        const hasNotes   = notesList.length > 0;
+        // Require at least plotNumber PLUS one other meaningful field
+        return hasPlot && (hasOwner || hasCost || hasFiles || hasNotes);
+    }, [plotNumber, owners, totalCost, fileQueue, notesList]);"""
 )
 
-# 1b: Update filter logic - remove LEGACY filter, add COMPLETED filter
+# Fix Duplicate button -- validate+save first, then reset for a new entry
+# Replace the current handleDuplicatePlot function
 patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
-    "        if (activeFilter === 'PAID')     filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);\n        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);\n        if (activeFilter === 'LEGACY')   filtered = filtered.filter(p => p.isLegacy);\n        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);\n        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25);",
-    "        if (activeFilter === 'PAID')      filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);\n        if (activeFilter === 'COMPLETED') filtered = filtered.filter(p => p.landTitle?.isReleased || (p.amountPaid >= p.totalCost && !p.isBacklog));\n        if (activeFilter === 'BACKLOG')   filtered = filtered.filter(p => p.isBacklog);\n        if (activeFilter === 'DEBTORS')   filtered = filtered.filter(p => p.amountPaid < p.totalCost && !p.isBacklog);\n        if (activeFilter === 'CRITICAL')  filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);"
+    INTAKE,
+    """    // Duplicate: pre-fill from last submitted or current form data
+    const handleDuplicatePlot = () => {
+        // Keep all fields except plotNumber (must be unique)
+        setTenure(tenure);
+        setPhysicalBoxNumber(physicalBoxNumber);
+        setDistrict(district);
+        setCounty(county);
+        setBlockRoad(blockRoad);
+        setVolume(volume);
+        setFolio(folio);
+        setInstrumentNo(instrumentNo);
+        setTotalCost(totalCost);
+        setInitialPayment('');
+        setIsBacklog(isBacklog);
+        setMonthlyStorageFee(monthlyStorageFee);
+        setInitialStorageFee('');
+        // Clear unique fields
+        setPlotNumber('');
+        setFileQueue([]);
+        setNotesList([]);
+        // Keep owners as-is
+        toast('PLOT DUPLICATED -- enter new Plot ID and adjust details', 'info', 4000);
+    };""",
+    """    // Duplicate: save current plot first, then pre-fill form for a similar new plot
+    const handleDuplicatePlot = async () => {
+        if (!validate()) {
+            toast('Fix the highlighted fields before duplicating', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            const payload = {
+                plotNumber: plotNumber.trim().toUpperCase(),
+                tenure,
+                physicalBoxNumber: physicalBoxNumber.trim().toUpperCase(),
+                district:   district.trim().toUpperCase(),
+                county:     county.trim().toUpperCase(),
+                blockRoad:  blockRoad.trim().toUpperCase(),
+                volume,
+                folio,
+                instrumentNo: instrumentNo.trim().toUpperCase(),
+                totalCost:      Number(totalCost)      || 0,
+                initialPayment: Number(initialPayment) || 0,
+                isStartAsBacklog: isBacklog,
+                isLegacy: false,
+                owners: owners.map(o => ({
+                    fullName:   o.fullName.trim().toUpperCase(),
+                    phone:      o.phone.trim(),
+                    email:      o.email.trim().toLowerCase(),
+                    nationalId: o.nationalId.trim().toUpperCase(),
+                    address:    o.address.trim(),
+                })),
+                notes: notesList.map(n => ({ content: n })),
+            };
+            predictionService.learn(payload);
+            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
+            toast('Saved! Now enter a new Plot ID for the duplicate', 'success', 4000);
+            // Pre-fill everything except the unique fields
+            setPlotNumber('');
+            setInitialPayment('');
+            setInitialStorageFee('');
+            setFileQueue([]);
+            setNotesList([]);
+            setErrors({});
+            // Keep: tenure, physicalBoxNumber, district, county, blockRoad,
+            //       volume, folio, instrumentNo, totalCost, isBacklog,
+            //       monthlyStorageFee, owners
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message || 'Save failed';
+            toast(msg, 'error', 8000);
+        } finally {
+            setSaving(false);
+        }
+    };"""
 )
 
-# 1c: In the row status display - remove legacy tag, show ACTIVE for all non-backlog/non-paid
+print("OK: IntakePage.jsx - isDirty tightened, duplicate saves first")
+
+# ================================================================
+# FIX 2: FolderPage.jsx
+#
+# Problem: useRouterBlock(!committing && isEditing) means the guard
+# fires during the brief window between handleCommit setting
+# committing=true -> saving -> setIsEditing(false).
+# Also fires if user opened edit mode but changed nothing.
+#
+# Fix: Track whether any field has actually changed since edit mode
+# was opened (hasChanges). Guard only fires when isEditing AND hasChanges.
+# ================================================================
+
+FOLDER = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
+
+# Add a hasChanges ref and update it when buffer changes
+# We track this by comparing buffer to originalBuffer at edit-start time.
+# Simplest approach: track a "touched" boolean that flips true on first buffer change.
+
+# After the existing state declarations, add a touched ref
 patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
-    "                                                {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}\n                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}\n                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}\n                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={proj.isLegacy ? styles.tagLegacy : styles.tagStandard}>\n                                                    {proj.isLegacy ? 'LEGACY' : 'ACTIVE'}\n                                                </span>}\n                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}",
-    "                                                {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}\n                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}\n                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}\n                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}\n                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}"
+    FOLDER,
+    "    const firstInputRef = useRef(null);\n    const fileInputRef  = useRef(null);",
+    """    const firstInputRef = useRef(null);
+    const fileInputRef  = useRef(null);
+    // Track whether any field was actually changed since edit mode opened
+    const touchedRef    = useRef(false);"""
 )
 
-print("OK: LedgerPage.jsx - removed LEGACY filter/tag, added COMPLETED filter")
-
-# ================================================================
-# FIX 2: PaymentsPage.jsx
-# - Add COMPLETED filter (payments for fully paid / released plots)
-# - This requires knowing which plots are completed, but payments
-#   don't carry that flag directly. Best approach: filter by
-#   balanceAfter = 0 (payment that cleared a balance) as a proxy,
-#   and also add a cleaner type label system.
-# - Actually simpler: add "INITIAL_DEPOSIT" already exists.
-#   Add "ZERO BALANCE" filter = payments where balanceAfter <= 0
-#   which means that payment completed the plot.
-# ================================================================
-
-# 2a: Update filter buttons in PaymentsPage
+# Reset touchedRef when edit mode opens or closes
 patch(
-    'erp-frontend/src/pages/Payments/PaymentsPage.jsx',
-    "                {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (\n                        <button key={t}\n                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}\n                            onClick={() => setTypeFilter(t)}>\n                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}\n                        </button>\n                    ))}",
-    "                {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL', 'COMPLETED'].map(t => (\n                        <button key={t}\n                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}\n                            onClick={() => setTypeFilter(t)}>\n                            {t === 'ALL' ? 'ALL TYPES' : t === 'COMPLETED' ? 'COMPLETED PLOTS' : TYPE_LABELS[t]}\n                        </button>\n                    ))}"
+    FOLDER,
+    "    const handleUnlock = async () => {\n        setIsEditing(true);\n        try { await landService.logDossierUnlock(id); } catch { /* non-fatal */ }\n    };",
+    """    const handleUnlock = async () => {
+        touchedRef.current = false; // reset touch tracking
+        setIsEditing(true);
+        try { await landService.logDossierUnlock(id); } catch { /* non-fatal */ }
+    };"""
 )
 
-# 2b: Update filter logic in PaymentsPage to handle COMPLETED
+# Reset on abort
 patch(
-    'erp-frontend/src/pages/Payments/PaymentsPage.jsx',
-    "        if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);",
-    "        if (typeFilter === 'COMPLETED') list = list.filter(p => p.balanceAfter !== null && p.balanceAfter !== undefined && Number(p.balanceAfter) <= 0);\n        else if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);"
+    FOLDER,
+    "        if (ok) { setIsEditing(false); setFieldErrors({}); loadFolderData(); }",
+    "        if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); }"
 )
 
-print("OK: PaymentsPage.jsx - added COMPLETED filter")
-
-# ================================================================
-# FIX 3: IntakePage.jsx
-# - Remove the isLegacy flag from the submit payload
-#   (we keep the field internally for DB compat but don't expose it in UI)
-# - The "LEGACY" concept in the DB stays (for old records) but new intake
-#   won't let users set it -- just always false
-# ================================================================
-
-# 3a: Remove isLegacy from the payload in IntakePage handleSubmit
+# Reset on successful commit
 patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    "                isStartAsBacklog: isBacklog,\n                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                isLegacy: false,",
-    "                isStartAsBacklog: isBacklog,\n                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                isLegacy: false, // Always false for new plots - legacy is a historical flag only"
+    FOLDER,
+    "            setIsEditing(false);\n            await loadFolderData();\n            toast('ARCHIVE REWRITTEN SUCCESSFULLY', 'success');",
+    """            touchedRef.current = false;
+            setIsEditing(false);
+            await loadFolderData();
+            toast('ARCHIVE REWRITTEN SUCCESSFULLY', 'success');"""
 )
 
-print("OK: IntakePage.jsx - legacy always false on new intake")
-
-# ================================================================
-# FIX 4: FolderPage.jsx
-# - Remove LEGACY badge from the terminal header meta tags
-#   (isLegacy tag shown next to ACTIVE/BACKLOG status)
-# ================================================================
+# Mark touched whenever buffer changes -- wrap existing setBuffer calls.
+# Easiest: intercept at the SmartInput/SmartSelect onChange level is complex.
+# Better: wrap setBuffer in a helper that also marks touched.
+# Add a helper right after touchedRef declaration.
 
 patch(
-    'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    "                        {isBacklog\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>\n                            : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>\n                        }",
-    "                        {isBacklog\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>\n                            : project.landTitle?.isReleased\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>RELEASED</span>\n                            : amountPaid >= totalCost\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>FULLY PAID</span>\n                            : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>\n                        }"
+    FOLDER,
+    "    // Track whether any field was actually changed since edit mode opened\n    const touchedRef    = useRef(false);",
+    """    // Track whether any field was actually changed since edit mode opened
+    const touchedRef    = useRef(false);
+    // Wrap setBuffer so any change marks the form as touched
+    const touchedSetBuffer = React.useCallback((updater) => {
+        touchedRef.current = true;
+        setBuffer(updater);
+    }, []);"""
 )
 
-print("OK: FolderPage.jsx - removed LEGACY status tag, added RELEASED/FULLY PAID")
+# Update the guard to use touchedRef
+patch(
+    FOLDER,
+    "    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =\n        useRouterBlock(!committing && isEditing);",
+    "    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =\n        useRouterBlock(!committing && isEditing && touchedRef.current);"
+)
 
-# ================================================================
-# FIX 5: LedgerPage.module.css
-# - Remove .tagLegacy style (still keep it in CSS for now to avoid
-#   build errors if referenced elsewhere, but blank it out)
-# Actually just leave it - it's harmless CSS that's simply unused now
-# ================================================================
+# Update beforeunload to also check touchedRef
+patch(
+    FOLDER,
+    "    // beforeunload -- catches tab close, hard refresh, browser back to external site\n    useEffect(() => {\n        if (!isEditing || committing) return;",
+    """    // beforeunload -- catches tab close, hard refresh, browser back to external site
+    useEffect(() => {
+        if (!isEditing || committing || !touchedRef.current) return;"""
+)
+
+# Now replace the setBuffer calls in the JSX section with touchedSetBuffer
+# These are the direct setBuffer calls inside SmartInput onChange handlers in render
+# We target the ones that fire inside isEditing ? (...) blocks
+
+# Plot details inputs
+patch(
+    FOLDER,
+    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => setBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => setBuffer({...buffer, tenure: v})} />",
+    "                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"BOX LOCATION\" value={buffer.physicalBoxNumber} showCaps onChange={e => setBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput label=\"BOX LOCATION\" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"DISTRICT\" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => setBuffer({...buffer, district: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput label=\"DISTRICT\" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"COUNTY\" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => setBuffer({...buffer, county: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput label=\"COUNTY\" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({...buffer, county: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"BLOCK / ROAD\" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => setBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput label=\"BLOCK / ROAD\" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"INSTRUMENT NO.\" value={buffer.instrumentNo} showCaps onChange={e => setBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />",
+    "                                        <SmartInput label=\"INSTRUMENT NO.\" value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"VOLUME\" value={buffer.volume} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => setBuffer({...buffer, volume: e.target.value.replace(/\\D/g,'')})} />",
+    "                                        <SmartInput label=\"VOLUME\" value={buffer.volume} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\\D/g,'')})} />"
+)
+patch(
+    FOLDER,
+    "                                        <SmartInput label=\"FOLIO\" value={buffer.folio} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => setBuffer({...buffer, folio: e.target.value.replace(/\\D/g,'')})} />",
+    "                                        <SmartInput label=\"FOLIO\" value={buffer.folio} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\\D/g,'')})} />"
+)
+
+# Owner change handler - uses handleOwnerChange which calls setBuffer internally
+# Replace setBuffer in handleOwnerChange
+patch(
+    FOLDER,
+    "        const owners = buffer.owners.map((o,i) => {\n            if (i !== idx) return o;\n            let v = val;\n            if (field==='fullName')   v = val.toUpperCase();\n            if (field==='nationalId') v = val.toUpperCase().replace(/\\s/g,'');\n            if (field==='email')      v = val.toLowerCase().replace(/\\s/g,'');\n            return { ...o, [field]: v };\n        });\n        setBuffer(p => ({ ...p, owners }));",
+    """        const owners = buffer.owners.map((o,i) => {
+            if (i !== idx) return o;
+            let v = val;
+            if (field==='fullName')   v = val.toUpperCase();
+            if (field==='nationalId') v = val.toUpperCase().replace(/\s/g,'');
+            if (field==='email')      v = val.toLowerCase().replace(/\s/g,'');
+            return { ...o, [field]: v };
+        });
+        touchedRef.current = true;
+        setBuffer(p => ({ ...p, owners }));"""
+)
+
+# Email commit in owner
+patch(
+    FOLDER,
+    "    const handleEmailCommit = (idx, val) => {\n        const owners = buffer.owners.map((o,i) => i===idx ? { ...o, email:val } : o);\n        setBuffer(p => ({ ...p, owners }));\n    };",
+    """    const handleEmailCommit = (idx, val) => {
+        const owners = buffer.owners.map((o,i) => i===idx ? { ...o, email:val } : o);
+        touchedRef.current = true;
+        setBuffer(p => ({ ...p, owners }));
+    };"""
+)
+
+# Currency inputs in financials edit section
+patch(
+    FOLDER,
+    "                                    <CurrencyInput label=\"TOTAL COST\" value={buffer.totalCost} onChange={v => setBuffer({...buffer, totalCost:v})} />",
+    "                                    <CurrencyInput label=\"TOTAL COST\" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />"
+)
+patch(
+    FOLDER,
+    "                                    <CurrencyInput label=\"AMOUNT PAID\" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => setBuffer({...buffer, initialPayment:v})} />",
+    "                                    <CurrencyInput label=\"AMOUNT PAID\" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />"
+)
+
+print("OK: FolderPage.jsx - guard only fires when actual changes were made")
 
 print("\nAll done!")
-print("Changes summary:")
-print("  - Ledger: LEGACY filter removed, COMPLETED filter added")
-print("  - Ledger: Legacy rows now show ACTIVE (not LEGACY label)")
-print("  - Payments: COMPLETED PLOTS filter added (payments that zeroed a balance)")
-print("  - FolderPage: Status now shows RELEASED or FULLY PAID (not LEGACY)")
-print("  - Intake: isLegacy always false on new plots (legacy = historical only)")
+print("Changes:")
+print("  1. IntakePage: isDirty requires plotNumber + one other meaningful field")
+print("  2. IntakePage: Duplicate button saves first, then resets for new entry")
+print("  3. FolderPage: Guard only fires when user actually changed something")
+print("     (opening edit mode and clicking away without changing = no warning)")
 print("")
-print("Run: git add -A && git commit -m 'ui: remove legacy label, add completed filter to ledger and payments' && git push")
+print("Run: git add -A && git commit -m 'fix: unsaved-changes guard only fires on actual edits, duplicate saves first' && git push")

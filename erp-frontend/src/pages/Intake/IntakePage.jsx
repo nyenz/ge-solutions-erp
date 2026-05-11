@@ -234,13 +234,17 @@ const IntakePage = () => {
 
     // isDirty must be defined AFTER all useState hooks to avoid
     // "Cannot access before initialization" error in the minified bundle
-    const isDirty = React.useMemo(() =>
-        plotNumber.trim() !== '' ||
-        owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '') ||
-        totalCost !== '' ||
-        fileQueue.length > 0 ||
-        notesList.length > 0,
-    [plotNumber, owners, totalCost, fileQueue, notesList]);
+    // Guard only fires when the user has meaningfully started filling the form:
+    // plotNumber set AND (owner name/phone filled OR cost set OR files attached)
+    const isDirty = React.useMemo(() => {
+        const hasPlot    = plotNumber.trim() !== '';
+        const hasOwner   = owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '');
+        const hasCost    = totalCost !== '';
+        const hasFiles   = fileQueue.length > 0;
+        const hasNotes   = notesList.length > 0;
+        // Require at least plotNumber PLUS one other meaningful field
+        return hasPlot && (hasOwner || hasCost || hasFiles || hasNotes);
+    }, [plotNumber, owners, totalCost, fileQueue, notesList]);
 
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
         useRouterBlock(!saving && isDirty);
@@ -273,28 +277,56 @@ const IntakePage = () => {
         return Object.keys(e).length === 0;
     };
 
-    // Duplicate: pre-fill from last submitted or current form data
-    const handleDuplicatePlot = () => {
-        // Keep all fields except plotNumber (must be unique)
-        setTenure(tenure);
-        setPhysicalBoxNumber(physicalBoxNumber);
-        setDistrict(district);
-        setCounty(county);
-        setBlockRoad(blockRoad);
-        setVolume(volume);
-        setFolio(folio);
-        setInstrumentNo(instrumentNo);
-        setTotalCost(totalCost);
-        setInitialPayment('');
-        setIsBacklog(isBacklog);
-        setMonthlyStorageFee(monthlyStorageFee);
-        setInitialStorageFee('');
-        // Clear unique fields
-        setPlotNumber('');
-        setFileQueue([]);
-        setNotesList([]);
-        // Keep owners as-is
-        toast('PLOT DUPLICATED -- enter new Plot ID and adjust details', 'info', 4000);
+    // Duplicate: save current plot first, then pre-fill form for a similar new plot
+    const handleDuplicatePlot = async () => {
+        if (!validate()) {
+            toast('Fix the highlighted fields before duplicating', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            const payload = {
+                plotNumber: plotNumber.trim().toUpperCase(),
+                tenure,
+                physicalBoxNumber: physicalBoxNumber.trim().toUpperCase(),
+                district:   district.trim().toUpperCase(),
+                county:     county.trim().toUpperCase(),
+                blockRoad:  blockRoad.trim().toUpperCase(),
+                volume,
+                folio,
+                instrumentNo: instrumentNo.trim().toUpperCase(),
+                totalCost:      Number(totalCost)      || 0,
+                initialPayment: Number(initialPayment) || 0,
+                isStartAsBacklog: isBacklog,
+                isLegacy: false,
+                owners: owners.map(o => ({
+                    fullName:   o.fullName.trim().toUpperCase(),
+                    phone:      o.phone.trim(),
+                    email:      o.email.trim().toLowerCase(),
+                    nationalId: o.nationalId.trim().toUpperCase(),
+                    address:    o.address.trim(),
+                })),
+                notes: notesList.map(n => ({ content: n })),
+            };
+            predictionService.learn(payload);
+            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
+            toast('Saved! Now enter a new Plot ID for the duplicate', 'success', 4000);
+            // Pre-fill everything except the unique fields
+            setPlotNumber('');
+            setInitialPayment('');
+            setInitialStorageFee('');
+            setFileQueue([]);
+            setNotesList([]);
+            setErrors({});
+            // Keep: tenure, physicalBoxNumber, district, county, blockRoad,
+            //       volume, folio, instrumentNo, totalCost, isBacklog,
+            //       monthlyStorageFee, owners
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message || 'Save failed';
+            toast(msg, 'error', 8000);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleSubmit = async () => {

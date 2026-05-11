@@ -462,9 +462,16 @@ const FolderPage = () => {
 
     // Unsaved changes guard -- active only while in edit mode and not mid-save
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
-        useRouterBlock(!committing && isEditing);
+        useRouterBlock(!committing && isEditing && touchedRef.current);
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
+    // Track whether any field was actually changed since edit mode opened
+    const touchedRef    = useRef(false);
+    // Wrap setBuffer so any change marks the form as touched
+    const touchedSetBuffer = React.useCallback((updater) => {
+        touchedRef.current = true;
+        setBuffer(updater);
+    }, []);
 
     useEffect(() => { window.scrollTo({ top:0, behavior:'smooth' }); }, [id]);
 
@@ -476,7 +483,7 @@ const FolderPage = () => {
 
     // beforeunload -- catches tab close, hard refresh, browser back to external site
     useEffect(() => {
-        if (!isEditing || committing) return;
+        if (!isEditing || committing || !touchedRef.current) return;
         const handler = (e) => {
             e.preventDefault();
             e.returnValue = '';
@@ -539,6 +546,7 @@ const FolderPage = () => {
                 initialPayment: Number(buffer.initialPayment) || 0,
             });
             predictionService.learn(buffer);
+            touchedRef.current = false;
             setIsEditing(false);
             await loadFolderData();
             toast('ARCHIVE REWRITTEN SUCCESSFULLY', 'success');
@@ -547,13 +555,14 @@ const FolderPage = () => {
     };
 
     const handleUnlock = async () => {
+        touchedRef.current = false; // reset touch tracking
         setIsEditing(true);
         try { await landService.logDossierUnlock(id); } catch { /* non-fatal */ }
     };
 
     const handleAbort = async () => {
         const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn');
-        if (ok) { setIsEditing(false); setFieldErrors({}); loadFolderData(); }
+        if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };
 
     const handleNuclearPurge = async () => {
@@ -596,11 +605,13 @@ const FolderPage = () => {
             if (field==='email')      v = val.toLowerCase().replace(/\s/g,'');
             return { ...o, [field]: v };
         });
+        touchedRef.current = true;
         setBuffer(p => ({ ...p, owners }));
     };
 
     const handleEmailCommit = (idx, val) => {
         const owners = buffer.owners.map((o,i) => i===idx ? { ...o, email:val } : o);
+        touchedRef.current = true;
         setBuffer(p => ({ ...p, owners }));
     };
 
@@ -852,19 +863,19 @@ const FolderPage = () => {
                             {isEditing ? (
                                 <>
                                     <div className={styles.inputGrid3}>
-                                        <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => setBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
-                                        <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => setBuffer({...buffer, tenure: v})} />
-                                        <SmartInput label="BOX LOCATION" value={buffer.physicalBoxNumber} showCaps onChange={e => setBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />
+                                        <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
+                                        <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
+                                        <SmartInput label="BOX LOCATION" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />
                                     </div>
                                     <div className={styles.inputGrid3}>
-                                        <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => setBuffer({...buffer, district: e.target.value.toUpperCase()})} />
-                                        <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => setBuffer({...buffer, county: e.target.value.toUpperCase()})} />
-                                        <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => setBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({...buffer, county: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
                                     </div>
                                     <div className={styles.inputGrid3}>
-                                        <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => setBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
-                                        <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => setBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
-                                        <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => setBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
+                                        <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
+                                        <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
                                     </div>
                                 </>
                             ) : (
@@ -925,8 +936,8 @@ const FolderPage = () => {
                             {isEditing ? (
                                 <>
                                 <div className={styles.inputGrid3}>
-                                    <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => setBuffer({...buffer, totalCost:v})} />
-                                    <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => setBuffer({...buffer, initialPayment:v})} />
+                                    <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
+                                    <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />
                                     <div className={styles.hwInputWrap}>
                                         <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
                                         <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
