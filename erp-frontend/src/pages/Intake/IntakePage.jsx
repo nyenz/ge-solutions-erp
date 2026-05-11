@@ -703,11 +703,23 @@ const IntakePage = () => {
 
             {/* NOTE MODAL */}
             {noteModalOpen && (
-                <div className={styles.noteModalOverlay} onClick={() => setNoteModalOpen(false)}>
+                <div className={styles.noteModalOverlay} onClick={() => {
+                    if (noteModalText.trim() !== '') {
+                        if (!window.confirm('Discard unsaved note?')) return;
+                    }
+                    setNoteModalOpen(false);
+                    setNoteModalText('');
+                }}>
                     <div className={styles.noteModalBox} onClick={e => e.stopPropagation()}>
                         <div className={styles.noteModalHeader}>
                             <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
-                            <button type="button" className={styles.noteModalClose} onClick={() => setNoteModalOpen(false)}>
+                            <button type="button" className={styles.noteModalClose} onClick={() => {
+                                if (noteModalText.trim() !== '') {
+                                    if (!window.confirm('Discard unsaved note?')) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>
                                 <FiX />
                             </button>
                         </div>
@@ -719,7 +731,13 @@ const IntakePage = () => {
                             autoFocus
                         />
                         <div className={styles.noteModalFooter}>
-                            <button type="button" className={styles.noteModalCancel} onClick={() => setNoteModalOpen(false)}>
+                            <button type="button" className={styles.noteModalCancel} onClick={() => {
+                                if (noteModalText.trim() !== '') {
+                                    if (!window.confirm('Discard unsaved note?')) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>
                                 CANCEL
                             </button>
                             <button type="button" className={styles.noteModalSave} onClick={() => {

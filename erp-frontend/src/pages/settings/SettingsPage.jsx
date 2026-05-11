@@ -12,6 +12,8 @@ import settingsService from '../../services/settingsService';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareInput from '../../components/common/HardwareInput';
 import HardwareSelect from '../../components/common/HardwareSelect';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './SettingsPage.module.css';
 
 // ─── TOAST ────────────────────────────────────────────────────────
@@ -122,7 +124,29 @@ const SettingsPage = () => {
     const [newOpData,     setNewOpData]     = useState({ username: '', email: '', role: 'ROLE_MANAGER' });
     const [tempKeyReveal, setTempKeyReveal] = useState(null);
 
+    const pwdDirty   = pwdState.old !== '' || pwdState.new !== '' || pwdState.confirm !== '';
+    const newOpDirty = newOpModal && (newOpData.username !== '' || newOpData.email !== '');
+    const isDirty    = pwdDirty || newOpDirty;
+    const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
+
+    // Guarded modal close for new operator modal
+    const handleCloseNewOpModal = () => {
+        if (newOpDirty) {
+            if (!window.confirm('Discard new operator details?')) return;
+        }
+        setNewOpModal(false);
+        setNewOpData({ username: '', email: '', role: 'ROLE_MANAGER' });
+    };
+
     const toggleDrawer = key => setDrawers(prev => ({ ...prev, [key]: !prev[key] }));
+
+    // beforeunload for tab close / hard refresh
+    useEffect(() => {
+        if (!isDirty) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
 
     const fetchOperators = useCallback(async () => {
         if (!isRoot) return;
@@ -160,6 +184,7 @@ const SettingsPage = () => {
             setNewOpModal(false);
             setNewOpData({ username: '', email: '', role: 'ROLE_MANAGER' });
             fetchOperators();
+            // isDirty resets automatically since newOpData is cleared
         } catch (err) {
             toast(err.message || 'PROVISIONING FAILED', 'error', 8000);
         }
@@ -306,7 +331,7 @@ const SettingsPage = () => {
             </div>
 
             {/* PROVISION MODAL */}
-            <HardwareModal isOpen={newOpModal} onClose={() => setNewOpModal(false)} title="INITIALIZE IDENTITY">
+            <HardwareModal isOpen={newOpModal} onClose={handleCloseNewOpModal} title="INITIALIZE IDENTITY">
                 <form onSubmit={handleCreateManager} className={styles.modalBody}>
                     <HardwareInput label="USERNAME" value={newOpData.username} onChange={e => setNewOpData({...newOpData, username: e.target.value})} required />
                     <HardwareInput label="RECOVERY EMAIL" type="email" value={newOpData.email} onChange={e => setNewOpData({...newOpData, email: e.target.value})} required />

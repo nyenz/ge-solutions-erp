@@ -13,6 +13,8 @@ import {
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModal from '../../components/common/HardwareModal';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './RecoveryPortal.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
@@ -88,6 +90,32 @@ const RecoveryPortal = () => {
     const [payNotes,      setPayNotes]      = useState('');
     const [paying,        setPaying]        = useState(false);
 
+    // Dirty state: true if user has typed in call log or payment modal
+    const callDirty = callModal.open && logContent.trim() !== '';
+    const payDirty  = payModal.open && payAmount !== '';
+    const searchDirty = searchTerm !== '';
+    const isDirty = callDirty || payDirty || searchDirty;
+    const { blocked: guardOpen, proceed: guardLeave, reset: guardStay } = useRouterBlock(isDirty);
+
+    // Wrapped close handlers that check dirty state before closing modal
+    const handleCloseCallModal = () => {
+        if (callDirty) {
+            // Show inline confirm by clearing modal only if user confirmed elsewhere;
+            // use browser confirm as fallback since UnsavedChangesModal is for navigation
+            if (!window.confirm('Discard unsaved call log?')) return;
+        }
+        setCallModal({ open: false, mission: null });
+        setLogContent('');
+    };
+    const handleClosePayModal = () => {
+        if (payDirty) {
+            if (!window.confirm('Discard unsaved payment details?')) return;
+        }
+        setPayModal({ open: false, plot: null });
+        setPayAmount('');
+        setPayNotes('');
+    };
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
@@ -125,6 +153,7 @@ const RecoveryPortal = () => {
             setLogContent('');
             setExpandedPhone(null);
             toast('CALL LOGGED - 14-DAY CLOCK RESET', 'success');
+            // isDirty resets automatically since logContent is cleared
         } catch {
             toast('LOG FAILURE', 'error', 8000);
         } finally {
@@ -368,7 +397,7 @@ const RecoveryPortal = () => {
             </div>
 
             <HardwareModal isOpen={callModal.open}
-                onClose={() => setCallModal({ open: false, mission: null })}
+                onClose={handleCloseCallModal}
                 title={`LOG CALL: ${callModal.mission?.ownerName || ''}`}>
                 <div className={styles.historyStream}>
                     <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>
@@ -398,7 +427,7 @@ const RecoveryPortal = () => {
             </HardwareModal>
 
             <HardwareModal isOpen={payModal.open}
-                onClose={() => setPayModal({ open: false, plot: null })}
+                onClose={handleClosePayModal}
                 title={`RECORD PAYMENT: ${payModal.plot?.plotNumber || ''}`}>
                 {payModal.plot?.isBacklog ? (
                     <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>

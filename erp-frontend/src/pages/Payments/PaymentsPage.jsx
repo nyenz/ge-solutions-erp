@@ -8,6 +8,8 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './PaymentsPage.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -33,6 +35,8 @@ const PaymentsPage = () => {
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [sortKey,    setSortKey]    = useState('date');
     const [sortDir,    setSortDir]    = useState('desc');
+    const isDirty = searchTerm !== '' || typeFilter !== 'ALL';
+    const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
 
     const loadPayments = useCallback(async () => {
         setLoading(true);

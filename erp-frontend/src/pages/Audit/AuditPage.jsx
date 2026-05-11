@@ -8,6 +8,8 @@ import {
 import auditService from '../../services/auditService';
 import settingsService from '../../services/settingsService';
 import HardwareSelect from '../../components/common/HardwareSelect';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './AuditPage.module.css';
 
 const AuditPage = () => {
@@ -18,6 +20,8 @@ const AuditPage = () => {
     const [filters,    setFilters]    = useState({ operator: '', action: '', search: '' });
     const [operators,  setOperators]  = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const isDirty = filters.search !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');
+    const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
 
     // Load real operators from database
     useEffect(() => {

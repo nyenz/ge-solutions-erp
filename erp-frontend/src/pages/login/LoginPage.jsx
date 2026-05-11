@@ -4,6 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import authService from '../../services/authService';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModal from '../../components/common/HardwareModal';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import { FiShield, FiEye, FiEyeOff, FiCheckCircle } from 'react-icons/fi';
 import styles from './LoginPage.module.css';
 
@@ -129,6 +131,8 @@ const LoginPage = () => {
                     <p className={styles.audit}>Logins are Audited for Accountability.</p>
                 </div>
             </div>
+
+            <UnsavedChangesModal isOpen={guardOpen} onStay={handleStay} onLeave={handleLeave} context="Login Form" />
 
             {/* MODAL: MASTER RECOVERY */}
             <HardwareModal isOpen={isRecovering} onClose={() => setIsRecovering(false)} title="MASTER RECOVERY">

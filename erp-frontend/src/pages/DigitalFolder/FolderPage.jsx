@@ -1231,7 +1231,12 @@ const FolderPage = () => {
 
 
             {/* NOTE MODAL */}
-            <HardwareModal isOpen={noteModal.open} onClose={() => setNoteModal({...noteModal,open:false})} title="ADD NOTE">
+            <HardwareModal isOpen={noteModal.open} onClose={() => {
+                if (noteModal.content.trim() !== '') {
+                    if (!window.confirm('Discard unsaved note?')) return;
+                }
+                setNoteModal({open:false, id:null, content:''});
+            }} title="ADD NOTE">
                 <div className={modalStyles.modalField}>
                     <textarea className={modalStyles.modalTextarea} value={noteModal.content}
                         onChange={e => setNoteModal({...noteModal,content:e.target.value})}

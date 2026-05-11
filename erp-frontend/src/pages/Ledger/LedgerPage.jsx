@@ -10,6 +10,8 @@ import {
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import landService from '../../services/landService';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './LedgerPage.module.css';
 
 const matchesSearch = (proj, term) => {
@@ -78,6 +80,8 @@ const LedgerPage = () => {
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig,   setSortConfig]   = useState({ key: 'plotNumber', direction: 'asc' });
+    const isDirty = searchTerm !== '';
+    const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
 
     const fetchLedger = useCallback(async () => {
         setLoading(true);
