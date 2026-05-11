@@ -33,6 +33,10 @@ const authService = {
             const status = error.response?.status;
             if (status === 401 || status === 400) throw new Error("IDENTIFICATION_FAILED");
             if (status === 403) throw new Error("ACCOUNT_SUSPENDED");
+                        // Check if it was a timeout (server waking up on Render free tier)
+            if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {
+                throw new Error('SERVER_STARTING_UP');
+            }
             throw new Error(error.message || "COMMUNICATION_FAULT");
         }
     },

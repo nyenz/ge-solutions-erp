@@ -61,7 +61,12 @@ const LoginPage = () => {
             const data = await authService.login(creds.username, creds.password);
             login(data);
         } catch (err) {
-            setError(err.message === "IDENTIFICATION_FAILED" ? "WRONG CREDENTIALS" : err.message);
+                        let msg = err.message;
+            if (msg === "IDENTIFICATION_FAILED") msg = "Wrong username or password. Please try again.";
+            else if (msg === "ACCOUNT_SUSPENDED") msg = "This account has been suspended. Contact the admin.";
+            else if (msg === "SERVER_STARTING_UP") msg = "The server is waking up (this takes up to 60 seconds on the free plan). Please wait a moment and try again.";
+            else msg = "Could not connect to the server. Please check your internet and try again.";
+            setError(msg);
         } finally {
             setLoading(false);
         }

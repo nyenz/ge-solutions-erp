@@ -12,97 +12,55 @@ def write(path, content):
         f.write(content)
     print(f"OK: {path}")
 
+def patch(path, old, new):
+    content = read(path)
+    if old in content:
+        write(path, content.replace(old, new, 1))
+    else:
+        print(f"MISSING (not found): {path}")
+
 # ================================================================
-# FIX 1: Convert App.jsx to Data Router (createBrowserRouter)
-# useBlocker requires a data router to function properly.
+# FIX 1: Increase axios timeout from 15000ms to 60000ms
+# The Render free tier takes up to 50 seconds to wake from sleep.
+# 15 seconds is not enough -- increase to 60 seconds.
 # ================================================================
 
-APP_JSX = 'erp-frontend/src/App.jsx'
+patch(
+    'erp-frontend/src/api/axios.js',
+    'timeout: 15000,',
+    'timeout: 60000,'
+)
 
-write(APP_JSX, '''// PATH: erp-frontend/src/App.jsx
-import React from 'react';
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider } from './context/AuthProvider';
-import { useAuth } from './hooks/useAuth';
+# ================================================================
+# FIX 2: Show a friendly error message on the login page
+# Instead of the raw "timeout of 60000ms exceeded" error,
+# show a plain English message the user can understand.
+# ================================================================
 
-import CircuitBackground from './components/layout/CircuitBackground';
-import Shell from './components/layout/Shell';
+patch(
+    'erp-frontend/src/services/authService.js',
+    'throw new Error(error.message || "COMMUNICATION_FAULT");',
+    '\n'.join([
+        "            // Check if it was a timeout (server waking up on Render free tier)",
+        "            if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {",
+        "                throw new Error('SERVER_STARTING_UP');",
+        "            }",
+        '            throw new Error(error.message || "COMMUNICATION_FAULT");',
+    ])
+)
 
-import LoginPage      from './pages/login/LoginPage';
-import Dashboard      from './pages/Dashboard/Dashboard';
-import IntakePage     from './pages/Intake/IntakePage';
-import LedgerPage     from './pages/Ledger/LedgerPage';
-import FolderPage     from './pages/DigitalFolder/FolderPage';
-import RecoveryPortal from './pages/Recovery/RecoveryPortal';
-import PaymentsPage   from './pages/Payments/PaymentsPage';
-import ReportHub      from './pages/Reports/ReportHub';
-import AuditPage      from './pages/Audit/AuditPage';
-import SettingsPage   from './pages/settings/SettingsPage';
+patch(
+    'erp-frontend/src/pages/login/LoginPage.jsx',
+    'setError(err.message === "IDENTIFICATION_FAILED" ? "WRONG CREDENTIALS" : err.message);',
+    '\n'.join([
+        "            let msg = err.message;",
+        '            if (msg === "IDENTIFICATION_FAILED") msg = "Wrong username or password. Please try again.";',
+        '            else if (msg === "ACCOUNT_SUSPENDED") msg = "This account has been suspended. Contact the admin.";',
+        '            else if (msg === "SERVER_STARTING_UP") msg = "The server is waking up (this takes up to 60 seconds on the free plan). Please wait a moment and try again.";',
+        '            else msg = "Could not connect to the server. Please check your internet and try again.";',
+        "            setError(msg);",
+    ])
+)
 
-const ProtectedRoute = ({ children, adminOnly = false, isSettings = false }) => {
-    const { user, token } = useAuth();
-    if (!token || !user) return <Navigate to="/login" replace />;
-    if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
-    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN')) return <Navigate to="/dashboard" replace />;
-    return children;
-};
-
-const LoginRoute = () => {
-    const { user, token } = useAuth();
-    if (token && user) {
-        if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-        return <Navigate to="/dashboard" replace />;
-    }
-    return <LoginPage />;
-};
-
-const FallbackRoute = () => {
-    const { user, token } = useAuth();
-    if (!token || !user) return <Navigate to="/login" replace />;
-    if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-    return <Navigate to="/dashboard" replace />;
-};
-
-const AppLayout = () => {
-    return (
-        <>
-            <CircuitBackground />
-            <Outlet />
-        </>
-    );
-};
-
-// using createBrowserRouter enables data router hooks like useBlocker
-const router = createBrowserRouter([
-    {
-        path: "/",
-        element: <AppLayout />,
-        children: [
-            { index: true, element: <FallbackRoute /> },
-            { path: "login", element: <LoginRoute /> },
-            { path: "dashboard", element: <ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute> },
-            { path: "land/new", element: <ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute> },
-            { path: "land/projects", element: <ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute> },
-            { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
-            { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },
-            { path: "payments", element: <ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute> },
-            { path: "reports", element: <ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute> },
-            { path: "audit", element: <ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute> },
-            { path: "settings", element: <ProtectedRoute isSettings><Shell><SettingsPage /></Shell></ProtectedRoute> },
-            { path: "*", element: <FallbackRoute /> }
-        ]
-    }
-]);
-
-function App() {
-    return (
-        <AuthProvider>
-            <RouterProvider router={router} />
-        </AuthProvider>
-    );
-}
-
-export default App;
-''')
-
-print("App.jsx has been updated to use createBrowserRouter to support useBlocker!")
+print("\nAll fixes applied!")
+print("Now run: git add -A && git commit -m 'fix: increase timeout, friendlier login errors' && git push")
