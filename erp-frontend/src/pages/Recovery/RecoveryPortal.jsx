@@ -8,7 +8,8 @@ import {
     FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
-    FiDollarSign, FiAlertOctagon, FiActivity
+    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
+    FiArchive, FiZap
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -57,16 +58,167 @@ const ToastContainer = ({ toasts, onDismiss }) => {
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
+const BADGE_LABELS = { GREEN: 'Paid within 14 days', YELLOW: 'Paid within 30 days', RED: 'No recent payment' };
 
 const PaymentBadge = ({ badge }) => (
-    <span style={{
-        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-        background: BADGE_COLORS[badge] || BADGE_COLORS.RED,
-        marginRight: 6, flexShrink: 0,
-        boxShadow: `0 0 6px ${BADGE_COLORS[badge] || BADGE_COLORS.RED}`
-    }} aria-label={`Payment health: ${badge}`} />
+    <span
+        style={{
+            display: 'inline-block', width: 9, height: 9, borderRadius: '50%',
+            background: BADGE_COLORS[badge] || BADGE_COLORS.RED,
+            flexShrink: 0, marginTop: 3,
+            boxShadow: `0 0 5px ${BADGE_COLORS[badge] || BADGE_COLORS.RED}`
+        }}
+        title={BADGE_LABELS[badge] || 'No recent payment'}
+        aria-label={BADGE_LABELS[badge] || 'No recent payment'}
+    />
 );
 
+// ── PAYMENT TYPE MODAL ──────────────────────────────────────────
+// Handles both TITLE PAYMENT and STORAGE FEE payment with clear distinction
+const PaymentModal = ({ open, plot, onClose, onPay, paying }) => {
+    const [payType, setPayType]   = useState('TITLE');   // 'TITLE' | 'STORAGE'
+    const [amount,  setAmount]    = useState('');
+    const [notes,   setNotes]     = useState('');
+
+    useEffect(() => {
+        if (open) { setPayType('TITLE'); setAmount(''); setNotes(''); }
+    }, [open]);
+
+    if (!plot) return null;
+
+    const isBacklog      = plot.isBacklog;
+    const titleBalance   = isBacklog
+        ? Number(plot.originalDebt || 0) - Number(plot.amountPaid || 0)
+        : Number(plot.currentBalance || 0);
+    const storageOwed    = Number(plot.storageFeesAccumulated || 0);
+    const totalOwed      = Number(plot.totalBacklogOwed || 0);
+
+    const handleSubmit = () => {
+        if (!amount || Number(amount) <= 0) return;
+        onPay(plot, amount, notes, payType);
+    };
+
+    return (
+        <HardwareModal isOpen={open} onClose={onClose} title={`RECORD PAYMENT — ${plot.plotNumber}`}>
+            {/* FINANCIAL BREAKDOWN HEADER */}
+            <div className={styles.payBreakdownBox}>
+                {isBacklog ? (
+                    <>
+                        <div className={styles.payBreakdownTitle}>
+                            <FiAlertOctagon size={11} /> BACKLOG BALANCE BREAKDOWN
+                        </div>
+                        <div className={styles.payBreakdownGrid}>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>ORIGINAL TITLE DEBT</span>
+                                <span className={styles.pbVal}>UGX {fmt(plot.originalDebt)}</span>
+                            </div>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>
+                                <span className={styles.pbVal} style={{color:'#ef4444'}}>+ UGX {fmt(storageOwed)}</span>
+                            </div>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>PAYMENTS MADE</span>
+                                <span className={styles.pbVal} style={{color:'#86efac'}}>- UGX {fmt(plot.amountPaid)}</span>
+                            </div>
+                            <div className={styles.pbItemTotal}>
+                                <span className={styles.pbLabel}>TOTAL NOW OWED</span>
+                                <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, totalOwed))}</span>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className={styles.payBreakdownGrid}>
+                        <div className={styles.pbItem}>
+                            <span className={styles.pbLabel}>TITLE COST</span>
+                            <span className={styles.pbVal}>UGX {fmt(plot.totalCost)}</span>
+                        </div>
+                        <div className={styles.pbItem}>
+                            <span className={styles.pbLabel}>PAID SO FAR</span>
+                            <span className={styles.pbVal} style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</span>
+                        </div>
+                        <div className={styles.pbItemTotal}>
+                            <span className={styles.pbLabel}>REMAINING BALANCE</span>
+                            <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, titleBalance))}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* PAYMENT TYPE SELECTOR — only show for backlog */}
+            {isBacklog && (
+                <div className={styles.payTypeRow}>
+                    <div className={styles.payTypeLabel}>WHAT IS THIS PAYMENT FOR?</div>
+                    <div className={styles.payTypeButtons}>
+                        <button
+                            type="button"
+                            className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`}
+                            onClick={() => setPayType('TITLE')}>
+                            <FiHome size={12} />
+                            <div>
+                                <div className={styles.payTypeBtnName}>TITLE PAYMENT</div>
+                                <div className={styles.payTypeBtnSub}>Reduces the original title debt</div>
+                            </div>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`}
+                            onClick={() => setPayType('STORAGE')}>
+                            <FiArchive size={12} />
+                            <div>
+                                <div className={styles.payTypeBtnName}>STORAGE FEE</div>
+                                <div className={styles.payTypeBtnSub}>Covers monthly storage charges</div>
+                            </div>
+                        </button>
+                    </div>
+                    {payType === 'STORAGE' && (
+                        <div className={styles.payTypeHint}>
+                            <FiInfo size={11} />
+                            Storage fees: UGX {fmt(storageOwed)} accumulated over {plot.storageMonthsCount} month{plot.storageMonthsCount !== 1 ? 's' : ''}. Recording here goes towards clearing the storage fee balance.
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className={modalStyles.modalField}>
+                <label className={modalStyles.modalLabel}>
+                    AMOUNT RECEIVED (UGX)
+                </label>
+                <input
+                    type="number"
+                    className={modalStyles.modalInput}
+                    placeholder={isBacklog && payType === 'STORAGE'
+                        ? `e.g. 50000 (1 month)`
+                        : `e.g. ${fmt(Math.max(0, isBacklog ? totalOwed : titleBalance))}`}
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    autoFocus
+                />
+            </div>
+            <div className={modalStyles.modalField}>
+                <label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                <textarea
+                    className={modalStyles.modalTextarea}
+                    placeholder="e.g. MTN Mobile Money, cash, cheque..."
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                />
+            </div>
+            <div className={modalStyles.modalFooter}>
+                <button
+                    type="button"
+                    className={modalStyles.modalBtnSecondary}
+                    onClick={onClose}>
+                    <FiX aria-hidden="true" /> CANCEL
+                </button>
+                <HardwareButton loading={paying} onClick={handleSubmit} icon={FiDollarSign}>
+                    CONFIRM {payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'}
+                </HardwareButton>
+            </div>
+        </HardwareModal>
+    );
+};
+
+// ── MAIN COMPONENT ──────────────────────────────────────────────
 const RecoveryPortal = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -79,6 +231,7 @@ const RecoveryPortal = () => {
     const [expandedPhone, setExpandedPhone] = useState(null);
     const [searchTerm,    setSearchTerm]    = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [statusFilter,  setStatusFilter]  = useState('ALL');
 
     const [callModal,     setCallModal]     = useState({ open: false, mission: null });
     const [callHistory,   setCallHistory]   = useState([]);
@@ -86,34 +239,16 @@ const RecoveryPortal = () => {
     const [committing,    setCommitting]    = useState(false);
 
     const [payModal,      setPayModal]      = useState({ open: false, plot: null });
-    const [payAmount,     setPayAmount]     = useState('');
-    const [payNotes,      setPayNotes]      = useState('');
     const [paying,        setPaying]        = useState(false);
 
-    // Dirty state: true if user has typed in call log or payment modal
     const callDirty = callModal.open && logContent.trim() !== '';
-    const payDirty  = payModal.open && payAmount !== '';
-    const searchDirty = searchTerm !== '';
-    const isDirty = callDirty || payDirty || searchDirty;
+    const isDirty   = callDirty;
     const { blocked: guardOpen, proceed: guardLeave, reset: guardStay } = useRouterBlock(isDirty);
 
-    // Wrapped close handlers that check dirty state before closing modal
     const handleCloseCallModal = () => {
-        if (callDirty) {
-            // Show inline confirm by clearing modal only if user confirmed elsewhere;
-            // use browser confirm as fallback since UnsavedChangesModal is for navigation
-            if (!window.confirm('Discard unsaved call log?')) return;
-        }
+        if (callDirty && !window.confirm('Discard unsaved call log?')) return;
         setCallModal({ open: false, mission: null });
         setLogContent('');
-    };
-    const handleClosePayModal = () => {
-        if (payDirty) {
-            if (!window.confirm('Discard unsaved payment details?')) return;
-        }
-        setPayModal({ open: false, plot: null });
-        setPayAmount('');
-        setPayNotes('');
     };
 
     const loadData = useCallback(async () => {
@@ -152,8 +287,7 @@ const RecoveryPortal = () => {
             setCallModal({ open: false, mission: null });
             setLogContent('');
             setExpandedPhone(null);
-            toast('CALL LOGGED - 14-DAY CLOCK RESET', 'success');
-            // isDirty resets automatically since logContent is cleared
+            toast('CALL LOGGED — 14-DAY CLOCK RESET', 'success');
         } catch {
             toast('LOG FAILURE', 'error', 8000);
         } finally {
@@ -161,15 +295,18 @@ const RecoveryPortal = () => {
         }
     };
 
-    const handleRecordPayment = async () => {
-        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+    const handleRecordPayment = async (plot, amount, notes, payType) => {
         setPaying(true);
         try {
-            await recoveryService.recordPayment(payModal.plot.projectId, payAmount, payNotes);
+            // Always use recordPayment — backend determines type from plot status
+            // Notes field carries the payType context for the audit trail
+            const fullNotes = payType === 'STORAGE'
+                ? `[STORAGE FEE PAYMENT]${notes ? ' ' + notes : ''}`
+                : notes;
+            await recoveryService.recordPayment(plot.projectId, amount, fullNotes);
             await loadData();
             setPayModal({ open: false, plot: null });
-            setPayAmount(''); setPayNotes('');
-            toast('PAYMENT RECORDED SUCCESSFULLY', 'success');
+            toast(`${payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'} RECORDED`, 'success');
         } catch {
             toast('PAYMENT FAILED', 'error', 8000);
         } finally {
@@ -178,56 +315,102 @@ const RecoveryPortal = () => {
     };
 
     const filteredMissions = useMemo(() => {
-        const term = searchTerm.toLowerCase().replace(/\s+/g, '');
-        if (!term) return missions;
-        return missions.filter(m =>
-            m.phoneNumber?.replace(/\s+/g, '').includes(term) ||
-            m.ownerName?.toLowerCase().includes(term) ||
-            (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term))
-        );
-    }, [missions, searchTerm]);
+        let list = missions;
 
-    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);
-    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);
+        // Search filter
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase().replace(/\s+/g, '');
+            list = list.filter(m =>
+                m.phoneNumber?.replace(/\s+/g, '').includes(term) ||
+                m.ownerName?.toLowerCase().includes(term) ||
+                (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term))
+            );
+        }
+
+        // Status filter
+        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
+        if (statusFilter === 'DUE')     list = list.filter(m => !m.isLocked);
+
+        return list;
+    }, [missions, searchTerm, statusFilter]);
 
     const getStatusStyle = (status) => {
         if (status === 'ACTION REQUIRED' || status === 'NEW ASSIGNMENT') return styles.statusRed;
-        if (status === 'COOLING DOWN') return styles.statusBlue;
+        if (status === 'COOLING DOWN')  return styles.statusBlue;
         if (status === 'MONTHLY LIMIT') return styles.statusGrey;
         return styles.statusDefault;
     };
 
+    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0), [filteredMissions]);
+
     const renderMissionCard = (mission) => {
         const isExpanded = expandedPhone === mission.phoneNumber;
         const toggle = () => setExpandedPhone(prev => prev === mission.phoneNumber ? null : mission.phoneNumber);
+        const backlogPlots = (mission.plots || []).filter(p => p.isBacklog);
+        const activePlots  = (mission.plots || []).filter(p => !p.isBacklog);
 
         return (
             <div key={mission.phoneNumber}
                 className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>
 
                 <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
-                    {mission.isLocked && <FiLock aria-hidden="true" />}
+                    {mission.isLocked && <FiLock aria-hidden="true" size={10} />}
                     {mission.missionStatus}
-                    {mission.hasBacklogPlots && <span className={styles.backlogTag}>BACKLOG</span>}
                 </div>
 
                 <div className={styles.cardHeader} onClick={toggle} role="button" tabIndex={0}
                     aria-expanded={isExpanded}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }}}>
+
                     <div className={styles.identity}>
-                        <h3 className={styles.ownerName}>{mission.ownerName}</h3>
-                        <span className={styles.phoneNum}>{mission.phoneNumber}</span>
-                        <div className={styles.totalDemandRow}>
-                            <span className={styles.demandLabel}>TOTAL DEMAND:</span>
-                            <span className={styles.demandValue}>UGX {fmt(mission.totalDemand)}</span>
+                        <div className={styles.ownerRow}>
+                            <h3 className={styles.ownerName}>{mission.ownerName}</h3>
+                            {mission.hasBacklogPlots && (
+                                <span className={styles.backlogOwnerTag}>
+                                    <FiAlertOctagon size={9} /> BACKLOG
+                                </span>
+                            )}
                         </div>
-                        {mission.hasBacklogPlots && Number(mission.totalStorageFees) > 0 && (
-                            <div className={styles.feesRow}>
-                                <FiAlertOctagon aria-hidden="true" size={11} />
-                                <span>Incl. accumulated storage fees: UGX {fmt(mission.totalStorageFees)}</span>
-                            </div>
-                        )}
+                        <span className={styles.phoneNum}>{mission.phoneNumber}</span>
+
+                        {/* COMPACT FINANCIAL SUMMARY */}
+                        <div className={styles.cardFinSummary}>
+                            {activePlots.length > 0 && (
+                                <div className={styles.finPill} data-type="active">
+                                    <FiHome size={10} />
+                                    <span className={styles.finPillLabel}>{activePlots.length} TITLE{activePlots.length > 1 ? 'S' : ''}</span>
+                                    <span className={styles.finPillVal}>UGX {fmt(mission.totalDemand - (mission.totalStorageFees || 0) - (mission.totalOriginalDebt || 0) + (activePlots.reduce((s,p) => s + Number(p.currentBalance || 0), 0)))}</span>
+                                </div>
+                            )}
+                            {backlogPlots.length > 0 && (
+                                <>
+                                    <div className={styles.finPill} data-type="backlog">
+                                        <FiAlertOctagon size={10} />
+                                        <span className={styles.finPillLabel}>BACKLOG DEBT</span>
+                                        <span className={styles.finPillVal}>UGX {fmt(backlogPlots.reduce((s,p) => s + Number(p.originalDebt || 0), 0))}</span>
+                                    </div>
+                                    {Number(mission.totalStorageFees) > 0 && (
+                                        <div className={styles.finPill} data-type="storage">
+                                            <FiTrendingDown size={10} />
+                                            <span className={styles.finPillLabel}>STORAGE FEES</span>
+                                            <span className={styles.finPillVal}>UGX {fmt(mission.totalStorageFees)}</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        <div className={styles.totalDemandRow}>
+                            <span className={styles.demandLabel}>TOTAL OWED:</span>
+                            <span className={`${styles.demandValue} ${mission.hasBacklogPlots ? styles.demandValueRed : ''}`}>
+                                UGX {fmt(mission.totalDemand)}
+                            </span>
+                        </div>
                     </div>
+
                     <div className={styles.expandIcon} aria-hidden="true">
                         {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
                     </div>
@@ -235,125 +418,147 @@ const RecoveryPortal = () => {
 
                 {isExpanded && (
                     <div className={styles.cardBody}>
-                        <div className={styles.divider} aria-hidden="true" />
+                        <div className={styles.divider} />
 
                         <div className={styles.timingRow}>
-                            <FiClock aria-hidden="true" size={13} />
+                            <FiClock size={12} aria-hidden="true" />
                             <span>Last call: <strong>{mission.lastContactDate}</strong></span>
-                            <span style={{ margin: '0 8px' }}>|</span>
-                            <span>Next eligible: <strong>{mission.nextCallDue}</strong></span>
-                            <span style={{ margin: '0 8px' }}>|</span>
+                            <span className={styles.timingSep} />
+                            <span>Next: <strong>{mission.nextCallDue}</strong></span>
+                            <span className={styles.timingSep} />
                             <span>Calls this month: <strong>{mission.monthlyCallCount}/2</strong></span>
                         </div>
 
-                        <div className={styles.divider} aria-hidden="true" />
+                        <div className={styles.divider} />
 
-                        <div className={styles.plotsList}>
-                            {/* Split plots into backlog and active groups */}
-                            {(() => {
-                                const backlogPlots = (mission.plots || []).filter(p => p.isBacklog);
-                                const activePlots  = (mission.plots || []).filter(p => !p.isBacklog);
-                                const renderPlot = (plot) => (
-                                    <div key={plot.projectId}
-                                        className={`${styles.plotRow} ${plot.isBacklog ? styles.plotRowBacklog : styles.plotRowActive}`}>
-                                        <div className={styles.plotRowLeft}>
-                                            <PaymentBadge badge={plot.paymentHealthBadge} />
-                                            <div className={styles.plotInfo}>
-                                                <div className={styles.plotTopLine}>
-                                                    <span className={styles.plotNumber}>{plot.plotNumber}</span>
-                                                    <span className={styles.plotBox}>BOX: {plot.physicalBoxNumber}</span>
+                        {/* ACTIVE PLOTS */}
+                        {activePlots.length > 0 && (
+                            <div className={styles.plotsSection}>
+                                <div className={styles.plotsSectionHeader}>
+                                    <FiHome size={11} /> TITLE PLOTS ({activePlots.length})
+                                </div>
+                                {activePlots.map(plot => (
+                                    <div key={plot.projectId} className={styles.plotCard}>
+                                        <div className={styles.plotCardTop}>
+                                            <div className={styles.plotCardLeft}>
+                                                <PaymentBadge badge={plot.paymentHealthBadge} />
+                                                <div>
+                                                    <div className={styles.plotNum}>{plot.plotNumber}</div>
+                                                    <div className={styles.plotBoxNum}>Box: {plot.physicalBoxNumber}</div>
                                                 </div>
-                                                {plot.isBacklog ? (
-                                                    <div className={styles.backlogBreakdown}>
-                                                        <span className={styles.backlogPlotTag}>
-                                                            <FiAlertOctagon size={9} /> BACKLOG · {plot.storageMonthsCount} month{plot.storageMonthsCount !== 1 ? 's' : ''}
-                                                        </span>
-                                                        <div className={styles.debtGrid}>
-                                                            <div className={styles.debtGridItem}>
-                                                                <span className={styles.debtGridLabel}>ORIGINAL DEBT</span>
-                                                                <span className={styles.debtGridVal}>UGX {fmt(plot.originalDebt)}</span>
-                                                            </div>
-                                                            <div className={styles.debtGridItem}>
-                                                                <span className={styles.debtGridLabel} style={{color:'#fca5a5'}}>STORAGE FEES</span>
-                                                                <span className={styles.debtGridVal} style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</span>
-                                                            </div>
-                                                            <div className={styles.debtGridItem}>
-                                                                <span className={styles.debtGridLabel}>AMOUNT PAID</span>
-                                                                <span className={styles.debtGridVal}>UGX {fmt(plot.amountPaid)}</span>
-                                                            </div>
-                                                            <div className={`${styles.debtGridItem} ${styles.debtGridTotal}`}>
-                                                                <span className={styles.debtGridLabel} style={{color:'#fca5a5'}}>TOTAL OWED</span>
-                                                                <span className={styles.debtGridVal} style={{color:'#ef4444', fontWeight:900}}>UGX {fmt(plot.totalBacklogOwed)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className={styles.activePlotFinance}>
-                                                        <div className={styles.activeFinanceRow}>
-                                                            <span className={styles.activeFinanceLabel}>BALANCE</span>
-                                                            <span className={styles.activeFinanceVal}>UGX {fmt(plot.currentBalance)}</span>
-                                                        </div>
-                                                        <div className={styles.progressTrack}>
-                                                            <div className={styles.progressFill}
-                                                                style={{width: plot.totalCost > 0 ? `${Math.min(100, (1 - plot.currentBalance / plot.totalCost) * 100)}%` : '0%'}} />
-                                                        </div>
-                                                        <span className={styles.progressPct}>
-                                                            {plot.totalCost > 0 ? Math.round((1 - plot.currentBalance / plot.totalCost) * 100) : 0}% paid of UGX {fmt(plot.totalCost)}
-                                                        </span>
-                                                    </div>
+                                            </div>
+                                            <div className={styles.plotCardRight}>
+                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                                    <FiChevronRight size={12} /> OPEN
+                                                </button>
+                                                {isAdmin && (
+                                                    <button className={styles.payBtnTitle}
+                                                        onClick={() => setPayModal({ open: true, plot })}>
+                                                        <FiDollarSign size={12} /> PAY
+                                                    </button>
                                                 )}
-                                                <div className={styles.lastNote}>
-                                                    <FiMessageSquare aria-hidden="true" size={11} />
-                                                    <span>"{plot.lastInteractionNote}"</span>
+                                            </div>
+                                        </div>
+                                        <div className={styles.plotFinRow}>
+                                            <div className={styles.plotFinItem}>
+                                                <span>Total cost</span>
+                                                <strong>UGX {fmt(plot.totalCost)}</strong>
+                                            </div>
+                                            <div className={styles.plotFinItem}>
+                                                <span>Paid</span>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</strong>
+                                            </div>
+                                            <div className={styles.plotFinItem}>
+                                                <span>Balance</span>
+                                                <strong style={{color:'#fca5a5'}}>UGX {fmt(plot.currentBalance)}</strong>
+                                            </div>
+                                        </div>
+                                        <div className={styles.plotProgressWrap}>
+                                            <div className={styles.plotProgress}>
+                                                <div className={styles.plotProgressFill}
+                                                    style={{width: plot.totalCost > 0 ? `${Math.min(100, (1 - plot.currentBalance / plot.totalCost) * 100)}%` : '0%'}} />
+                                            </div>
+                                            <span className={styles.plotProgressPct}>
+                                                {plot.totalCost > 0 ? Math.round((1 - plot.currentBalance / plot.totalCost) * 100) : 0}%
+                                            </span>
+                                        </div>
+                                        <div className={styles.lastNote}>
+                                            <FiMessageSquare size={11} /><span>"{plot.lastInteractionNote}"</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* BACKLOG PLOTS */}
+                        {backlogPlots.length > 0 && (
+                            <div className={styles.plotsSection}>
+                                <div className={`${styles.plotsSectionHeader} ${styles.plotsSectionHeaderBacklog}`}>
+                                    <FiAlertOctagon size={11} /> BACKLOG PLOTS — STORAGE FEES ACTIVE ({backlogPlots.length})
+                                </div>
+                                {backlogPlots.map(plot => (
+                                    <div key={plot.projectId} className={`${styles.plotCard} ${styles.plotCardBacklog}`}>
+                                        <div className={styles.plotCardTop}>
+                                            <div className={styles.plotCardLeft}>
+                                                <PaymentBadge badge={plot.paymentHealthBadge} />
+                                                <div>
+                                                    <div className={styles.plotNum}>{plot.plotNumber}</div>
+                                                    <div className={styles.plotBoxNum}>Box: {plot.physicalBoxNumber} · {plot.storageMonthsCount}mo in backlog</div>
+                                                </div>
+                                            </div>
+                                            <div className={styles.plotCardRight}>
+                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                                    <FiChevronRight size={12} /> OPEN
+                                                </button>
+                                                {isAdmin && (
+                                                    <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
+                                                        onClick={() => setPayModal({ open: true, plot })}>
+                                                        <FiZap size={12} /> PAY
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* BACKLOG 3-ROW BREAKDOWN */}
+                                        <div className={styles.backlogFinBreakdown}>
+                                            <div className={styles.bfbRow}>
+                                                <div className={styles.bfbItem}>
+                                                    <span className={styles.bfbLabel}>ORIGINAL TITLE DEBT</span>
+                                                    <span className={styles.bfbVal}>UGX {fmt(plot.originalDebt)}</span>
+                                                </div>
+                                                <div className={styles.bfbItem} style={{textAlign:'right'}}>
+                                                    <span className={styles.bfbLabel} style={{color:'#fca5a5'}}>STORAGE FEES ADDED</span>
+                                                    <span className={styles.bfbVal} style={{color:'#ef4444'}}>+ UGX {fmt(plot.storageFeesAccumulated)}</span>
+                                                </div>
+                                            </div>
+                                            <div className={styles.bfbDivider} />
+                                            <div className={styles.bfbRow}>
+                                                <div className={styles.bfbItem}>
+                                                    <span className={styles.bfbLabel}>TOTAL PAID</span>
+                                                    <span className={styles.bfbVal} style={{color:'#86efac'}}>- UGX {fmt(plot.amountPaid)}</span>
+                                                </div>
+                                                <div className={styles.bfbItem} style={{textAlign:'right'}}>
+                                                    <span className={styles.bfbLabel} style={{color:'#fca5a5', fontWeight:900}}>NOW OWED</span>
+                                                    <span className={styles.bfbValTotal}>UGX {fmt(Math.max(0, plot.totalBacklogOwed))}</span>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className={styles.plotRowActions}>
-                                            <button className={styles.folderBtn}
-                                                onClick={() => navigate(`/folder/${plot.projectId}`)}>
-                                                <FiChevronRight aria-hidden="true" /> BINDER
-                                            </button>
-                                            {isAdmin && (
-                                                <button className={styles.payBtn}
-                                                    onClick={() => { setPayModal({ open: true, plot }); setPayAmount(''); setPayNotes(''); }}>
-                                                    <FiDollarSign aria-hidden="true" /> PAY
-                                                </button>
-                                            )}
+                                        <div className={styles.lastNote}>
+                                            <FiMessageSquare size={11} /><span>"{plot.lastInteractionNote}"</span>
                                         </div>
                                     </div>
-                                );
-                                return (
-                                    <>
-                                        {activePlots.length > 0 && (
-                                            <>
-                                                <div className={styles.plotsGroupHeader}>
-                                                    <span className={styles.plotsGroupLabelActive}>ACTIVE TITLES ({activePlots.length})</span>
-                                                </div>
-                                                {activePlots.map(renderPlot)}
-                                            </>
-                                        )}
-                                        {backlogPlots.length > 0 && (
-                                            <>
-                                                <div className={styles.plotsGroupHeader}>
-                                                    <FiAlertOctagon size={10} style={{color:'#ef4444', flexShrink:0}} />
-                                                    <span className={styles.plotsGroupLabelBacklog}>BACKLOG TITLES ({backlogPlots.length}) — STORAGE FEES ACTIVE</span>
-                                                </div>
-                                                {backlogPlots.map(renderPlot)}
-                                            </>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
+                                ))}
+                            </div>
+                        )}
 
-                        <div className={styles.divider} aria-hidden="true" />
+                        <div className={styles.divider} />
 
                         <div className={styles.cardActions}>
                             <button className={styles.logCallBtn}
                                 onClick={() => setCallModal({ open: true, mission })}
                                 disabled={mission.isLocked}>
                                 <FiPhoneCall aria-hidden="true" />
-                                {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
+                                {mission.isLocked ? 'CALL LOCKED' : 'LOG CALL'}
                             </button>
                         </div>
                     </div>
@@ -362,10 +567,13 @@ const RecoveryPortal = () => {
         );
     };
 
+    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);
+    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);
+
     if (loading) return (
         <div className={styles.bootScreen} role="status">
             <div className={styles.bootSpinner} aria-hidden="true" />
-            <span className={styles.bootLabel}>BOOTING RECOVERY TERMINAL...</span>
+            <span className={styles.bootLabel}>LOADING RECOVERY DATA...</span>
         </div>
     );
 
@@ -377,19 +585,9 @@ const RecoveryPortal = () => {
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.pageTitle}>Call Recovery</h1>
-                    <p className={styles.pageSubtitle}>Log client calls and track outstanding balances</p>
+                    <p className={styles.pageSubtitle}>Log client calls and record payments</p>
                 </div>
                 <div className={styles.headerRight}>
-                    <div className={styles.hudStats}>
-                        <div className={styles.statBox}>
-                            <label>TARGETS</label>
-                            <strong style={{color: filteredMissions.length > 0 ? '#EE8C3A' : '#fff'}}>{filteredMissions.length}</strong>
-                        </div>
-                        <div className={styles.statBox}>
-                            <label>BACKLOG</label>
-                            <strong style={{color: backlogMissions.length > 0 ? '#ef4444' : '#fff'}}>{backlogMissions.length}</strong>
-                        </div>
-                    </div>
                     <div className={styles.modeSwitch} role="group" aria-label="View mode">
                         <button className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
                             onClick={() => { setViewMode('ACTION'); setExpandedPhone(null); }}
@@ -405,10 +603,31 @@ const RecoveryPortal = () => {
                 </div>
             </header>
 
+            {/* FINANCIAL SUMMARY HUD */}
+            <div className={styles.finHUD}>
+                <div className={styles.finHUDCard}>
+                    <label>ACTIVE TITLES OWED</label>
+                    <strong style={{color:'#EE8C3A'}}>UGX {fmt(totalActiveOwed)}</strong>
+                    <span>{activeMissions.length} owner{activeMissions.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.35)'}}>
+                    <label style={{color:'#fca5a5'}}>BACKLOG TOTAL OWED</label>
+                    <strong style={{color:'#ef4444'}}>UGX {fmt(totalBacklogOwed)}</strong>
+                    <span>{backlogMissions.length} owner{backlogMissions.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.2)'}}>
+                    <label style={{color:'rgba(252,165,165,0.8)'}}>STORAGE FEES IN BACKLOG</label>
+                    <strong style={{color:'rgba(239,68,68,0.85)'}}>UGX {fmt(totalStorageFees)}</strong>
+                    <span>across all backlog plots</span>
+                </div>
+            </div>
+
+            {/* SEARCH + FILTER BAR */}
             <div className={styles.filterBar}>
                 <div className={styles.searchInner}>
-                    <input type="search" placeholder="Search owner, phone, or plot ID..."
-                        className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`} value={searchTerm}
+                    <input type="search" placeholder="Search owner, phone, or plot..."
+                        className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
+                        value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)} />
@@ -419,12 +638,26 @@ const RecoveryPortal = () => {
                         </button>
                     )}
                 </div>
+                <div className={styles.filterPills}>
+                    {[
+                        { key: 'ALL',     label: 'ALL' },
+                        { key: 'DUE',     label: 'DUE NOW' },
+                        { key: 'ACTIVE',  label: 'ACTIVE TITLES' },
+                        { key: 'BACKLOG', label: 'BACKLOG' },
+                    ].map(f => (
+                        <button key={f.key}
+                            className={`${styles.filterPill} ${statusFilter === f.key ? styles.filterPillActive : ''}`}
+                            onClick={() => setStatusFilter(f.key)}>
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className={styles.missionGrid}>
                 {filteredMissions.length === 0 ? (
                     <div className={styles.emptyGate} role="status">
-                        <FiCheckCircle className={styles.emptyIcon} aria-hidden="true" />
+                        <FiCheckCircle className={styles.emptyIcon} />
                         <h2 className={styles.emptyTitle}>NO TARGETS FOUND</h2>
                     </div>
                 ) : (
@@ -432,7 +665,7 @@ const RecoveryPortal = () => {
                         {activeMissions.length > 0 && (
                             <div className={styles.sectionGroup}>
                                 <div className={styles.sectionHeader}>
-                                    <FiActivity aria-hidden="true" /> ACTIVE ({activeMissions.length})
+                                    <FiActivity aria-hidden="true" /> ACTIVE TITLE OWNERS ({activeMissions.length})
                                 </div>
                                 {activeMissions.map(renderMissionCard)}
                             </div>
@@ -440,7 +673,7 @@ const RecoveryPortal = () => {
                         {backlogMissions.length > 0 && (
                             <div className={styles.sectionGroup}>
                                 <div className={`${styles.sectionHeader} ${styles.sectionHeaderBacklog}`}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG - STORAGE FEES ACTIVE ({backlogMissions.length})
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG — STORAGE FEES RUNNING ({backlogMissions.length})
                                 </div>
                                 {backlogMissions.map(renderMissionCard)}
                             </div>
@@ -449,14 +682,14 @@ const RecoveryPortal = () => {
                 )}
             </div>
 
-            <HardwareModal isOpen={callModal.open}
-                onClose={handleCloseCallModal}
+            {/* CALL LOG MODAL */}
+            <HardwareModal isOpen={callModal.open} onClose={handleCloseCallModal}
                 title={`LOG CALL: ${callModal.mission?.ownerName || ''}`}>
                 <div className={styles.historyStream}>
                     <div className={styles.historyTitle}>PREVIOUS INTERACTIONS</div>
                     {callHistory.length === 0 ? (
                         <div className={styles.emptyHistory}>No prior logs found.</div>
-                    ) : callHistory.map(log => (
+                    ) : callHistory.slice(0, 5).map(log => (
                         <div key={log.id} className={styles.historyItem}>
                             <div className={styles.historyMeta}>
                                 <span><FiUser aria-hidden="true" /> {log.recordedBy}</span>
@@ -466,7 +699,7 @@ const RecoveryPortal = () => {
                         </div>
                     ))}
                 </div>
-                <div className={modalStyles.modalField} style={{marginTop: 14}}>
+                <div className={modalStyles.modalField} style={{marginTop:14}}>
                     <label className={modalStyles.modalLabel}>CALL RESULT / NOTE</label>
                     <textarea className={modalStyles.modalTextarea}
                         placeholder="Enter call result or interaction note..."
@@ -474,49 +707,19 @@ const RecoveryPortal = () => {
                 </div>
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton loading={committing} onClick={handleLogCall} icon={FiSave}>
-                        Commit &amp; Reset
+                        COMMIT &amp; RESET CLOCK
                     </HardwareButton>
                 </div>
             </HardwareModal>
 
-            <HardwareModal isOpen={payModal.open}
-                onClose={handleClosePayModal}
-                title={`RECORD PAYMENT: ${payModal.plot?.plotNumber || ''}`}>
-                {payModal.plot?.isBacklog ? (
-                    <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>
-                        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                            <FiAlertOctagon aria-hidden="true" style={{color:'#ef4444',flexShrink:0,marginTop:2}} />
-                            <div>
-                                <div>Original debt: <strong>UGX {fmt(payModal.plot?.originalDebt)}</strong></div>
-                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.storageFeesAccumulated)}</strong></div>
-                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(payModal.plot?.totalBacklogOwed)}</strong></div>
-                                <div style={{marginTop:6,opacity:0.65,fontSize:'0.78rem'}}>Storage fees continue until full balance is cleared.</div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className={modalStyles.modalInfoBox}>
-                        Current balance: <strong>UGX {fmt(payModal.plot?.currentBalance)}</strong>
-                    </div>
-                )}
-                <div className={modalStyles.modalField}>
-                    <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
-                    <input type="number" className={modalStyles.modalInput}
-                        placeholder="Enter amount..." value={payAmount}
-                        onChange={e => setPayAmount(e.target.value)} />
-                </div>
-                <div className={modalStyles.modalField}>
-                    <label className={modalStyles.modalLabel}>NOTES (optional)</label>
-                    <textarea className={modalStyles.modalTextarea}
-                        placeholder="e.g. Paid via MTN Mobile Money..."
-                        value={payNotes} onChange={e => setPayNotes(e.target.value)} />
-                </div>
-                <div className={modalStyles.modalFooter}>
-                    <HardwareButton loading={paying} onClick={handleRecordPayment} icon={FiDollarSign}>
-                        CONFIRM PAYMENT
-                    </HardwareButton>
-                </div>
-            </HardwareModal>
+            {/* PAYMENT MODAL */}
+            <PaymentModal
+                open={payModal.open}
+                plot={payModal.plot}
+                onClose={() => setPayModal({ open: false, plot: null })}
+                onPay={handleRecordPayment}
+                paying={paying}
+            />
         </div>
     );
 };
