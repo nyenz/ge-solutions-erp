@@ -73,6 +73,7 @@ const AuditPage = () => {
 
     return (
         <div className={styles.container}>
+            <UnsavedChangesModal isOpen={guardOpen} onStay={handleStay} onLeave={handleLeave} context="Audit Filters" />
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Audit Log</h1>

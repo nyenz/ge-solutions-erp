@@ -95,6 +95,7 @@ const PaymentsPage = () => {
 
     return (
         <div className={styles.container}>
+            <UnsavedChangesModal isOpen={guardOpen} onStay={handleStay} onLeave={handleLeave} context="Payment Filters" />
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Payment Records</h1>

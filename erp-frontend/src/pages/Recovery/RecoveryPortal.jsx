@@ -319,6 +319,7 @@ const RecoveryPortal = () => {
 
     return (
         <div className={styles.container}>
+            <UnsavedChangesModal isOpen={guardOpen} onStay={guardStay} onLeave={guardLeave} context="Recovery Portal" />
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
             <header className={styles.pageHeader}>

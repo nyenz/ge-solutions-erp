@@ -211,6 +211,7 @@ const SettingsPage = () => {
 
     return (
         <div className={styles.container}>
+            <UnsavedChangesModal isOpen={guardOpen} onStay={handleStay} onLeave={handleLeave} context="Security Settings" />
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
 
