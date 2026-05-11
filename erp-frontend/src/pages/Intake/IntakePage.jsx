@@ -319,7 +319,7 @@ const IntakePage = () => {
                 isStartAsBacklog: isBacklog,
                 monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
                 initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
-                isLegacy: false,
+                isLegacy: false, // Always false for new plots - legacy is a historical flag only
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
                     phone:      o.phone.trim(),

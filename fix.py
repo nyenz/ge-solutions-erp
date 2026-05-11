@@ -22,172 +22,106 @@ def patch(path, old, new):
         return False
 
 # ================================================================
-# FIX 1: IntakePage.jsx
-# - Add beforeunload guard (tab close / hard refresh)
-# - Add duplicate plot button
+# FIX 1: LedgerPage.jsx
+# - Remove LEGACY filter, add COMPLETED filter
+# - Remove legacy tag from row display (show ACTIVE instead)
 # ================================================================
 
-# 1a: Add beforeunload effect in IntakePage
+# 1a: Update FILTERS array - remove LEGACY, add COMPLETED
 patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    '    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =\n        useRouterBlock(!saving && isDirty);',
-    '\n'.join([
-        '    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =',
-        '        useRouterBlock(!saving && isDirty);',
-        '',
-        '    // beforeunload -- catches tab close, hard refresh, browser back button to external site',
-        '    useEffect(() => {',
-        '        if (!isDirty || saving) return;',
-        '        const handler = (e) => {',
-        '            e.preventDefault();',
-        "            e.returnValue = '';",
-        '        };',
-        "        window.addEventListener('beforeunload', handler);",
-        "        return () => window.removeEventListener('beforeunload', handler);",
-        '    }, [isDirty, saving]);',
-    ])
+    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
+    "    const FILTERS = [\n        { key: 'ALL',      label: 'ALL ARCHIVES' },\n        { key: 'PAID',     label: 'PAID TITLES'  },\n        { key: 'BACKLOG',  label: 'BACKLOG'      },\n        { key: 'LEGACY',   label: 'LEGACY'       },\n        { key: 'DEBTORS',  label: 'UNPAID'       },\n        { key: 'CRITICAL', label: 'CRITICAL'     },\n    ];",
+    "    const FILTERS = [\n        { key: 'ALL',       label: 'ALL ARCHIVES' },\n        { key: 'PAID',      label: 'PAID TITLES'  },\n        { key: 'COMPLETED', label: 'COMPLETED'     },\n        { key: 'BACKLOG',   label: 'BACKLOG'       },\n        { key: 'DEBTORS',   label: 'UNPAID'        },\n        { key: 'CRITICAL',  label: 'CRITICAL'      },\n    ];"
 )
 
-# 1b: Add duplicate plot button + handler in IntakePage
-# Add duplicatePlot function before handleSubmit
+# 1b: Update filter logic - remove LEGACY filter, add COMPLETED filter
 patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    '    const handleSubmit = async () => {',
-    '\n'.join([
-        '    // Duplicate: pre-fill from last submitted or current form data',
-        '    const handleDuplicatePlot = () => {',
-        '        // Keep all fields except plotNumber (must be unique)',
-        "        setTenure(tenure);",
-        "        setPhysicalBoxNumber(physicalBoxNumber);",
-        "        setDistrict(district);",
-        "        setCounty(county);",
-        "        setBlockRoad(blockRoad);",
-        "        setVolume(volume);",
-        "        setFolio(folio);",
-        "        setInstrumentNo(instrumentNo);",
-        "        setTotalCost(totalCost);",
-        "        setInitialPayment('');",
-        "        setIsBacklog(isBacklog);",
-        "        setMonthlyStorageFee(monthlyStorageFee);",
-        "        setInitialStorageFee('');",
-        "        // Clear unique fields",
-        "        setPlotNumber('');",
-        "        setFileQueue([]);",
-        "        setNotesList([]);",
-        "        // Keep owners as-is",
-        "        toast('PLOT DUPLICATED -- enter new Plot ID and adjust details', 'info', 4000);",
-        '    };',
-        '',
-        '    const handleSubmit = async () => {',
-    ])
+    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
+    "        if (activeFilter === 'PAID')     filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);\n        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);\n        if (activeFilter === 'LEGACY')   filtered = filtered.filter(p => p.isLegacy);\n        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);\n        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25);",
+    "        if (activeFilter === 'PAID')      filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);\n        if (activeFilter === 'COMPLETED') filtered = filtered.filter(p => p.landTitle?.isReleased || (p.amountPaid >= p.totalCost && !p.isBacklog));\n        if (activeFilter === 'BACKLOG')   filtered = filtered.filter(p => p.isBacklog);\n        if (activeFilter === 'DEBTORS')   filtered = filtered.filter(p => p.amountPaid < p.totalCost && !p.isBacklog);\n        if (activeFilter === 'CRITICAL')  filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);"
 )
 
-# 1c: Add duplicate button in submit section of IntakePage
+# 1c: In the row status display - remove legacy tag, show ACTIVE for all non-backlog/non-paid
 patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    '                <div className={styles.submitSection}>\n                    <button type="button" className={styles.primaryCommitBtn}\n                        onClick={handleSubmit} disabled={saving}>\n                        <FiSend aria-hidden="true" />\n                        {saving ? \'SAVING...\' : \'SAVE NEW PLOT\'}\n                    </button>\n                </div>',
-    '\n'.join([
-        '                <div className={styles.submitSection}>',
-        '                    <button type="button" className={styles.duplicateBtn}',
-        '                        onClick={handleDuplicatePlot} disabled={saving}',
-        '                        title="Copy all fields except Plot ID to quickly register a similar plot">',
-        '                        <FiCopy aria-hidden="true" />',
-        '                        DUPLICATE PLOT',
-        '                    </button>',
-        '                    <button type="button" className={styles.primaryCommitBtn}',
-        '                        onClick={handleSubmit} disabled={saving}>',
-        '                        <FiSend aria-hidden="true" />',
-        "                        {saving ? 'SAVING...' : 'SAVE NEW PLOT'}",
-        '                    </button>',
-        '                </div>',
-    ])
+    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
+    "                                                {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}\n                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}\n                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}\n                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={proj.isLegacy ? styles.tagLegacy : styles.tagStandard}>\n                                                    {proj.isLegacy ? 'LEGACY' : 'ACTIVE'}\n                                                </span>}\n                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}",
+    "                                                {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}\n                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}\n                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}\n                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}\n                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}"
 )
 
-# 1d: Add FiCopy to imports in IntakePage
-patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    'import {\n    FiMap, FiUsers, FiCreditCard, FiUploadCloud,\n    FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave,\n    FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon,\n    FiEdit3\n} from \'react-icons/fi\';',
-    '\n'.join([
-        'import {',
-        '    FiMap, FiUsers, FiCreditCard, FiUploadCloud,',
-        '    FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave, FiCopy,',
-        '    FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon,',
-        '    FiEdit3',
-        "} from 'react-icons/fi';",
-    ])
-)
+print("OK: LedgerPage.jsx - removed LEGACY filter/tag, added COMPLETED filter")
 
 # ================================================================
-# FIX 2: FolderPage.jsx
-# - Add beforeunload guard for edit mode
+# FIX 2: PaymentsPage.jsx
+# - Add COMPLETED filter (payments for fully paid / released plots)
+# - This requires knowing which plots are completed, but payments
+#   don't carry that flag directly. Best approach: filter by
+#   balanceAfter = 0 (payment that cleared a balance) as a proxy,
+#   and also add a cleaner type label system.
+# - Actually simpler: add "INITIAL_DEPOSIT" already exists.
+#   Add "ZERO BALANCE" filter = payments where balanceAfter <= 0
+#   which means that payment completed the plot.
+# ================================================================
+
+# 2a: Update filter buttons in PaymentsPage
+patch(
+    'erp-frontend/src/pages/Payments/PaymentsPage.jsx',
+    "                {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (\n                        <button key={t}\n                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}\n                            onClick={() => setTypeFilter(t)}>\n                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}\n                        </button>\n                    ))}",
+    "                {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL', 'COMPLETED'].map(t => (\n                        <button key={t}\n                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}\n                            onClick={() => setTypeFilter(t)}>\n                            {t === 'ALL' ? 'ALL TYPES' : t === 'COMPLETED' ? 'COMPLETED PLOTS' : TYPE_LABELS[t]}\n                        </button>\n                    ))}"
+)
+
+# 2b: Update filter logic in PaymentsPage to handle COMPLETED
+patch(
+    'erp-frontend/src/pages/Payments/PaymentsPage.jsx',
+    "        if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);",
+    "        if (typeFilter === 'COMPLETED') list = list.filter(p => p.balanceAfter !== null && p.balanceAfter !== undefined && Number(p.balanceAfter) <= 0);\n        else if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);"
+)
+
+print("OK: PaymentsPage.jsx - added COMPLETED filter")
+
+# ================================================================
+# FIX 3: IntakePage.jsx
+# - Remove the isLegacy flag from the submit payload
+#   (we keep the field internally for DB compat but don't expose it in UI)
+# - The "LEGACY" concept in the DB stays (for old records) but new intake
+#   won't let users set it -- just always false
+# ================================================================
+
+# 3a: Remove isLegacy from the payload in IntakePage handleSubmit
+patch(
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+    "                isStartAsBacklog: isBacklog,\n                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                isLegacy: false,",
+    "                isStartAsBacklog: isBacklog,\n                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                isLegacy: false, // Always false for new plots - legacy is a historical flag only"
+)
+
+print("OK: IntakePage.jsx - legacy always false on new intake")
+
+# ================================================================
+# FIX 4: FolderPage.jsx
+# - Remove LEGACY badge from the terminal header meta tags
+#   (isLegacy tag shown next to ACTIVE/BACKLOG status)
 # ================================================================
 
 patch(
     'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    "    // NOTE: beforeunload is now handled by useUnsavedChanges hook",
-    '\n'.join([
-        '    // beforeunload -- catches tab close, hard refresh, browser back to external site',
-        '    useEffect(() => {',
-        '        if (!isEditing || committing) return;',
-        '        const handler = (e) => {',
-        '            e.preventDefault();',
-        "            e.returnValue = '';",
-        '        };',
-        "        window.addEventListener('beforeunload', handler);",
-        "        return () => window.removeEventListener('beforeunload', handler);",
-        '    }, [isEditing, committing]);',
-    ])
+    "                        {isBacklog\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>\n                            : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>\n                        }",
+    "                        {isBacklog\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>\n                            : project.landTitle?.isReleased\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>RELEASED</span>\n                            : amountPaid >= totalCost\n                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>FULLY PAID</span>\n                            : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>\n                        }"
 )
 
+print("OK: FolderPage.jsx - removed LEGACY status tag, added RELEASED/FULLY PAID")
+
 # ================================================================
-# FIX 3: IntakePage.module.css
-# - Add duplicate button style + fix submitSection to space-between
+# FIX 5: LedgerPage.module.css
+# - Remove .tagLegacy style (still keep it in CSS for now to avoid
+#   build errors if referenced elsewhere, but blank it out)
+# Actually just leave it - it's harmless CSS that's simply unused now
 # ================================================================
 
-patch(
-    'erp-frontend/src/pages/Intake/IntakePage.module.css',
-    '.submitSection {\n    display: flex; justify-content: flex-end;\n    padding-top: clamp(20px, 3vw, 32px); margin-top: var(--gap-md);\n    border-top: 1px solid rgba(255, 255, 255, 0.1);\n}',
-    '\n'.join([
-        '.submitSection {',
-        '    display: flex;',
-        '    justify-content: space-between;',
-        '    align-items: center;',
-        '    gap: clamp(10px, 1.4vw, 16px);',
-        '    padding-top: clamp(20px, 3vw, 32px);',
-        '    margin-top: var(--gap-md);',
-        '    border-top: 1px solid rgba(255, 255, 255, 0.1);',
-        '    flex-wrap: wrap;',
-        '}',
-        '',
-        '.duplicateBtn {',
-        '    display: inline-flex;',
-        '    align-items: center;',
-        '    gap: clamp(5px, 0.7vw, 8px);',
-        '    padding: 0 clamp(14px, 1.8vw, 20px);',
-        '    height: clamp(36px, 4.5vw, 42px);',
-        '    background: rgba(26, 46, 48, 0.75);',
-        '    border: 1.5px solid rgba(255, 255, 255, 0.25);',
-        '    color: rgba(255, 255, 255, 0.8);',
-        '    border-radius: 8px;',
-        "    font-family: 'DM Sans', sans-serif;",
-        '    font-weight: 900;',
-        '    font-size: clamp(9px, 0.9vw, 11px);',
-        '    text-transform: uppercase;',
-        '    letter-spacing: 1.5px;',
-        '    cursor: pointer;',
-        '    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;',
-        '    white-space: nowrap;',
-        '}',
-        '.duplicateBtn:hover:not(:disabled) {',
-        '    background: rgba(6, 182, 212, 0.12);',
-        '    border-color: #06b6d4;',
-        '    color: #06b6d4;',
-        '    box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);',
-        '}',
-        '.duplicateBtn:disabled { opacity: 0.4; cursor: not-allowed; }',
-        '.duplicateBtn:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; }',
-    ])
-)
-
-print("\nAll fixes applied!")
-print("Now run: git add -A && git commit -m 'fix: consistent unsaved changes guard all scenarios + duplicate plot button' && git push")
+print("\nAll done!")
+print("Changes summary:")
+print("  - Ledger: LEGACY filter removed, COMPLETED filter added")
+print("  - Ledger: Legacy rows now show ACTIVE (not LEGACY label)")
+print("  - Payments: COMPLETED PLOTS filter added (payments that zeroed a balance)")
+print("  - FolderPage: Status now shows RELEASED or FULLY PAID (not LEGACY)")
+print("  - Intake: isLegacy always false on new plots (legacy = historical only)")
+print("")
+print("Run: git add -A && git commit -m 'ui: remove legacy label, add completed filter to ledger and payments' && git push")

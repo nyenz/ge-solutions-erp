@@ -97,11 +97,11 @@ const LedgerPage = () => {
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
-        if (activeFilter === 'PAID')     filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);
-        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
-        if (activeFilter === 'LEGACY')   filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);
-        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25);
+        if (activeFilter === 'PAID')      filtered = filtered.filter(p => p.amountPaid >= p.totalCost || p.landTitle?.isReleased);
+        if (activeFilter === 'COMPLETED') filtered = filtered.filter(p => p.landTitle?.isReleased || (p.amountPaid >= p.totalCost && !p.isBacklog));
+        if (activeFilter === 'BACKLOG')   filtered = filtered.filter(p => p.isBacklog);
+        if (activeFilter === 'DEBTORS')   filtered = filtered.filter(p => p.amountPaid < p.totalCost && !p.isBacklog);
+        if (activeFilter === 'CRITICAL')  filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);
 
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -134,12 +134,12 @@ const LedgerPage = () => {
     const SEARCH_HINT = 'Plot ID � Box � Owner name � Phone � NIN � Email � District � County � Tenure';
 
     const FILTERS = [
-        { key: 'ALL',      label: 'ALL ARCHIVES' },
-        { key: 'PAID',     label: 'PAID TITLES'  },
-        { key: 'BACKLOG',  label: 'BACKLOG'      },
-        { key: 'LEGACY',   label: 'LEGACY'       },
-        { key: 'DEBTORS',  label: 'UNPAID'       },
-        { key: 'CRITICAL', label: 'CRITICAL'     },
+        { key: 'ALL',       label: 'ALL ARCHIVES' },
+        { key: 'PAID',      label: 'PAID TITLES'  },
+        { key: 'COMPLETED', label: 'COMPLETED'     },
+        { key: 'BACKLOG',   label: 'BACKLOG'       },
+        { key: 'DEBTORS',   label: 'UNPAID'        },
+        { key: 'CRITICAL',  label: 'CRITICAL'      },
     ];
 
     return (
@@ -310,9 +310,7 @@ const LedgerPage = () => {
                                                 {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}
                                                 {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
                                                 {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={proj.isLegacy ? styles.tagLegacy : styles.tagStandard}>
-                                                    {proj.isLegacy ? 'LEGACY' : 'ACTIVE'}
-                                                </span>}
+                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
                                             </div>
                                         </td>

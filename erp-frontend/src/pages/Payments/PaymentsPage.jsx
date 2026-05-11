@@ -55,7 +55,8 @@ const PaymentsPage = () => {
 
     const filtered = useMemo(() => {
         let list = [...payments];
-        if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);
+        if (typeFilter === 'COMPLETED') list = list.filter(p => p.balanceAfter !== null && p.balanceAfter !== undefined && Number(p.balanceAfter) <= 0);
+        else if (typeFilter !== 'ALL') list = list.filter(p => p.paymentType === typeFilter);
         if (searchTerm.trim()) {
             const t = searchTerm.toLowerCase();
             list = list.filter(p =>
@@ -135,11 +136,11 @@ const PaymentsPage = () => {
                     )}
                 </div>
                 <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
+                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL', 'COMPLETED'].map(t => (
                         <button key={t}
                             className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
                             onClick={() => setTypeFilter(t)}>
-                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}
+                            {t === 'ALL' ? 'ALL TYPES' : t === 'COMPLETED' ? 'COMPLETED PLOTS' : TYPE_LABELS[t]}
                         </button>
                     ))}
                 </div>

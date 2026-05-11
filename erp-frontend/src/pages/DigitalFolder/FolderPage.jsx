@@ -791,6 +791,10 @@ const FolderPage = () => {
                         </span>
                         {isBacklog
                             ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>
+                            : project.landTitle?.isReleased
+                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>RELEASED</span>
+                            : amountPaid >= totalCost
+                            ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>FULLY PAID</span>
                             : <span className={`${styles.metaTag} ${styles.tagOrange}`}>ACTIVE</span>
                         }
                         {isEditing && <div className={styles.editBadge}>EDIT MODE ENABLED</div>}
