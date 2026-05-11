@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
 import { useAuth } from './hooks/useAuth';
 
@@ -18,49 +18,65 @@ import ReportHub      from './pages/Reports/ReportHub';
 import AuditPage      from './pages/Audit/AuditPage';
 import SettingsPage   from './pages/settings/SettingsPage';
 
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, isSettings = false }) => {
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
+    if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
     if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN')) return <Navigate to="/dashboard" replace />;
     return children;
 };
 
-const AppRoutes = () => {
+const LoginRoute = () => {
     const { user, token } = useAuth();
-
-    if (user && user.mustChangePassword) {
-        return (
-            <Routes>
-                <Route path="/settings" element={<Shell><SettingsPage /></Shell>} />
-                <Route path="*" element={<Navigate to="/settings" replace />} />
-            </Routes>
-        );
+    if (token && user) {
+        if (user.mustChangePassword) return <Navigate to="/settings" replace />;
+        return <Navigate to="/dashboard" replace />;
     }
+    return <LoginPage />;
+};
 
+const FallbackRoute = () => {
+    const { user, token } = useAuth();
+    if (!token || !user) return <Navigate to="/login" replace />;
+    if (user.mustChangePassword) return <Navigate to="/settings" replace />;
+    return <Navigate to="/dashboard" replace />;
+};
+
+const AppLayout = () => {
     return (
-        <Routes>
-            <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute>} />
-            <Route path="/land/new" element={<ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute>} />
-            <Route path="/land/projects" element={<ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute>} />
-            <Route path="/folder/:id" element={<ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute>} />
-            <Route path="/recovery" element={<ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute>} />
-            <Route path="/payments" element={<ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute>} />
-            <Route path="/audit" element={<ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Shell><SettingsPage /></Shell></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to={token ? "/dashboard" : "/login"} replace />} />
-        </Routes>
+        <>
+            <CircuitBackground />
+            <Outlet />
+        </>
     );
 };
+
+// using createBrowserRouter enables data router hooks like useBlocker
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <AppLayout />,
+        children: [
+            { index: true, element: <FallbackRoute /> },
+            { path: "login", element: <LoginRoute /> },
+            { path: "dashboard", element: <ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute> },
+            { path: "land/new", element: <ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute> },
+            { path: "land/projects", element: <ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute> },
+            { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
+            { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },
+            { path: "payments", element: <ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute> },
+            { path: "reports", element: <ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute> },
+            { path: "audit", element: <ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute> },
+            { path: "settings", element: <ProtectedRoute isSettings><Shell><SettingsPage /></Shell></ProtectedRoute> },
+            { path: "*", element: <FallbackRoute /> }
+        ]
+    }
+]);
 
 function App() {
     return (
         <AuthProvider>
-            <Router>
-                <CircuitBackground />
-                <AppRoutes />
-            </Router>
+            <RouterProvider router={router} />
         </AuthProvider>
     );
 }
