@@ -474,7 +474,16 @@ const FolderPage = () => {
         if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120);
     }, [isEditing]);
 
-    // NOTE: beforeunload is now handled by useUnsavedChanges hook
+    // beforeunload -- catches tab close, hard refresh, browser back to external site
+    useEffect(() => {
+        if (!isEditing || committing) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isEditing, committing]);
 
     const loadFolderData = useCallback(async () => {
         try {

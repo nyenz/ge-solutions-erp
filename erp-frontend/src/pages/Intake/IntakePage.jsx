@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     FiMap, FiUsers, FiCreditCard, FiUploadCloud,
-    FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave,
+    FiInfo, FiPlusSquare, FiTrash2, FiSend, FiSave, FiCopy,
     FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiX, FiCheckSquare, FiAlertOctagon,
     FiEdit3
 } from 'react-icons/fi';
@@ -245,6 +245,17 @@ const IntakePage = () => {
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
         useRouterBlock(!saving && isDirty);
 
+    // beforeunload -- catches tab close, hard refresh, browser back button to external site
+    useEffect(() => {
+        if (!isDirty || saving) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty, saving]);
+
     // NOTE: beforeunload is now handled by useUnsavedChanges hook
 
     const sg = key => predictionService.getSuggestions(key) || [];
@@ -260,6 +271,30 @@ const IntakePage = () => {
         });
         setErrors(e);
         return Object.keys(e).length === 0;
+    };
+
+    // Duplicate: pre-fill from last submitted or current form data
+    const handleDuplicatePlot = () => {
+        // Keep all fields except plotNumber (must be unique)
+        setTenure(tenure);
+        setPhysicalBoxNumber(physicalBoxNumber);
+        setDistrict(district);
+        setCounty(county);
+        setBlockRoad(blockRoad);
+        setVolume(volume);
+        setFolio(folio);
+        setInstrumentNo(instrumentNo);
+        setTotalCost(totalCost);
+        setInitialPayment('');
+        setIsBacklog(isBacklog);
+        setMonthlyStorageFee(monthlyStorageFee);
+        setInitialStorageFee('');
+        // Clear unique fields
+        setPlotNumber('');
+        setFileQueue([]);
+        setNotesList([]);
+        // Keep owners as-is
+        toast('PLOT DUPLICATED -- enter new Plot ID and adjust details', 'info', 4000);
     };
 
     const handleSubmit = async () => {
@@ -612,6 +647,12 @@ const IntakePage = () => {
 
                 {/* ── SUBMIT ── */}
                 <div className={styles.submitSection}>
+                    <button type="button" className={styles.duplicateBtn}
+                        onClick={handleDuplicatePlot} disabled={saving}
+                        title="Copy all fields except Plot ID to quickly register a similar plot">
+                        <FiCopy aria-hidden="true" />
+                        DUPLICATE PLOT
+                    </button>
                     <button type="button" className={styles.primaryCommitBtn}
                         onClick={handleSubmit} disabled={saving}>
                         <FiSend aria-hidden="true" />

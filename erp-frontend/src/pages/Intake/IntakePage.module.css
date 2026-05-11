@@ -803,10 +803,43 @@
    SUBMIT WORKSTATION
    ═══════════════════════════════════════════════════════════════ */
 .submitSection {
-    display: flex; justify-content: flex-end;
-    padding-top: clamp(20px, 3vw, 32px); margin-top: var(--gap-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(10px, 1.4vw, 16px);
+    padding-top: clamp(20px, 3vw, 32px);
+    margin-top: var(--gap-md);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
 }
+
+.duplicateBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 8px);
+    padding: 0 clamp(14px, 1.8vw, 20px);
+    height: clamp(36px, 4.5vw, 42px);
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+.duplicateBtn:hover:not(:disabled) {
+    background: rgba(6, 182, 212, 0.12);
+    border-color: #06b6d4;
+    color: #06b6d4;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
+}
+.duplicateBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.duplicateBtn:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; }
 .dualActionGroup { display: flex; align-items: center; gap: var(--gap-md); }
 
 
