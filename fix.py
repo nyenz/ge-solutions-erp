@@ -22,304 +22,352 @@ def patch(path, old, new, label=""):
 
 
 # ================================================================
-# STAGE 1: UNSAVED CHANGES GUARD ENFORCEMENT
-# Ensures the warning modal triggers properly whenever in edit mode
+# STAGE 1: FOLDER PAGE COMPONENT UPDATES
+# 1. Imports for HardwareButton & Icons
+# 2. State for Payment Modal Type (Title vs Storage)
+# 3. Router Blocker Unsaved Guard Hook Fix
+# 4. Hash Navigation crash fix
+# 5. Payment Modal Logic
+# 6. Backlog Controls & "EXIT BACKLOG" Placement
 # ================================================================
 
-OLD_HOOK = """    // Wrap setBuffer so any change marks the form as touched
-    const touchedSetBuffer = React.useCallback((updater) => {
-        touchedRef.current = true;
-        setBuffer(updater);
-    }, []);
+# 1 & 2: Imports and Payment State
+OLD_IMPORTS = """import HardwareModal from '../../components/common/HardwareModal';
+import ErrorMessage from '../../components/common/ErrorMessage';"""
+NEW_IMPORTS = """import HardwareModal from '../../components/common/HardwareModal';
+import HardwareButton from '../../components/common/HardwareButton';
+import ErrorMessage from '../../components/common/ErrorMessage';"""
 
-    // Unsaved changes guard -- active only while in edit mode and not mid-save
-    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_IMPORTS, NEW_IMPORTS, "Imports")
+
+OLD_ICONS = """        FiDollarSign, FiActivity
+    } from 'react-icons/fi';"""
+NEW_ICONS = """        FiDollarSign, FiActivity, FiHome, FiArchive
+    } from 'react-icons/fi';"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_ICONS, NEW_ICONS, "Icons")
+
+OLD_STATE = """    const [payModal,   setPayModal]   = useState({ open:false });
+    const [payAmount,  setPayAmount]  = useState('');
+    const [payNotes,   setPayNotes]   = useState('');
+    const [paying,     setPaying]     = useState(false);"""
+
+NEW_STATE = """    const [payModal,   setPayModal]   = useState({ open:false });
+    const [payAmount,  setPayAmount]  = useState('');
+    const [payNotes,   setPayNotes]   = useState('');
+    const [payType,    setPayType]    = useState('TITLE');
+    const [paying,     setPaying]     = useState(false);"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_STATE, NEW_STATE, "Payment State")
+
+# 3 & 4: Router Guard & Hash Navigation
+OLD_HOOKS = """    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
         useRouterBlock(!committing && isEditing && touchedRef.current);
 
-    useEffect(() => {"""
-
-NEW_HOOK = """    // Wrap setBuffer so any change marks the form as touched
-    const touchedSetBuffer = React.useCallback((updater) => {
-        touchedRef.current = true;
-        setBuffer(updater);
-    }, []);
-
-    // Unsaved changes guard -- active only while in edit mode and not mid-save
-    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
-        useRouterBlock(!committing && isEditing);
-
-    useEffect(() => {"""
-
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_HOOK, NEW_HOOK, "FolderPage Guard Hook")
-
-
-OLD_UNLOAD = """    // beforeunload -- catches tab close, hard refresh, browser back to external site
     useEffect(() => {
-        if (!isEditing || committing || !touchedRef.current) return;
-        const handler = (e) => {
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isEditing, committing]);"""
+        // If navigated here with a hash (e.g. #payments from PaymentsPage),
+        // open the matching drawer and scroll to it. Otherwise scroll to top.
+        const hash = window.location.hash.replace('#', '');
+        if (hash && ['tech','identity','finance','vault','intel','payments'].includes(hash)) {
+            setDrawers(prev => ({ ...prev, [hash]: true }));
+            setTimeout(() => {
+                const el = document.getElementById('drawer-' + hash);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [id]);"""
 
-NEW_UNLOAD = """    // beforeunload -- catches tab close, hard refresh, browser back to external site
+NEW_HOOKS = """    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!committing && isEditing && touchedRef.current);
+
     useEffect(() => {
-        if (!isEditing || committing) return;
-        const handler = (e) => {
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isEditing, committing]);"""
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'payments' || hash === 'finance' || hash === 'financials') {
+            setActiveTab('FINANCIALS');
+            setTimeout(() => {
+                const el = document.getElementById('paymentHistorySection');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        } else if (hash === 'identity' || hash === 'owners') {
+            setActiveTab('OWNERS');
+        } else if (hash === 'vault' || hash === 'documents') {
+            setActiveTab('DOCUMENTS');
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [id]);"""
 
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_UNLOAD, NEW_UNLOAD, "FolderPage BeforeUnload")
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_HOOKS, NEW_HOOKS, "Guard & Hash Effect")
 
+# 5: Handle Record Payment Function
+OLD_PAY = """    const handleRecordPayment = async () => {
+        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+        setPaying(true);
+        try {
+            await recoveryService.recordPayment(id, payAmount, payNotes);
+            await loadFolderData();
+            setPayModal({ open: false });
+            setPayAmount(''); setPayNotes('');
+            toast('PAYMENT RECORDED', 'success');
+        } catch { toast('PAYMENT FAILED', 'error', 8000); }
+        finally { setPaying(false); }
+    };"""
 
-# ================================================================
-# STAGE 2: BACKLOG STATUS & EDIT MODE CONSISTENCY
-# 1. Moves "EXIT BACKLOG" button up to the master terminal header.
-# 2. Makes backlog details READ-ONLY unless edit mode is active.
-# 3. Removes duplicate Payment button to consolidate UI.
-# ================================================================
+NEW_PAY = """    const handleRecordPayment = async () => {
+        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+        setPaying(true);
+        try {
+            const fullNotes = payType === 'STORAGE'
+                ? `[STORAGE FEE PAYMENT] ${payNotes}`.trim()
+                : payNotes;
+            await recoveryService.recordPayment(id, payAmount, fullNotes);
+            await loadFolderData();
+            setPayModal({ open: false });
+            setPayAmount(''); setPayNotes(''); setPayType('TITLE');
+            toast('PAYMENT RECORDED', 'success');
+        } catch { toast('PAYMENT FAILED', 'error', 8000); }
+        finally { setPaying(false); }
+    };"""
 
-OLD_EXIT_HDR = """                            {isAdmin && !isBacklog && (
-                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
-                                </button>
-                            )}
-                            <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
-                                <FiUnlock aria-hidden="true" /> EDIT
-                            </button>"""
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_PAY, NEW_PAY, "Payment Handler")
 
-NEW_EXIT_HDR = """                            {isAdmin && !isBacklog && (
-                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
-                                </button>
-                            )}
-                            {isAdmin && isBacklog && (
-                                <button className={styles.ctrlBtnBacklog} onClick={handleExitBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> EXIT BACKLOG
-                                </button>
-                            )}
-                            <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
-                                <FiUnlock aria-hidden="true" /> EDIT
-                            </button>"""
+# 6: Add ID to payment section for scroll target
+OLD_PH = """                        {/* ── 3. PAYMENT HISTORY ── */}
+                        <section className={styles.hwPanel} aria-label="Payment History">"""
 
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_EXIT_HDR, NEW_EXIT_HDR, "FolderPage Header Controls")
+NEW_PH = """                        {/* ── 3. PAYMENT HISTORY ── */}
+                        <section className={styles.hwPanel} aria-label="Payment History" id="paymentHistorySection">"""
 
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_PH, NEW_PH, "Payment ID target")
 
-OLD_BACKLOG = """                                {/* Record Payment button — admin only, always visible in this panel */}
-                                {isAdmin && !isEditing && (
-                                    <div className={styles.recordPayBtnRow}>
-                                        <button className={styles.recordPayBtn}
-                                            onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
-                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
-                                        </button>
-                                    </div>
-                                )}
+# 7: The new advanced Payment Modal JSX
+OLD_MODAL = """            {/* PAYMENT MODAL */}
+            <HardwareModal isOpen={payModal.open} onClose={() => setPayModal({ open: false })} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
+                {isBacklog ? (
+                    <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>
+                        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                            <FiAlertOctagon style={{ color: '#ef4444', flexShrink:0, marginTop:2 }} aria-hidden="true" />
+                            <div>
+                                <div>Original debt: <strong>UGX {fmt(origDebt)}</strong></div>
+                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(storageFees)}</strong></div>
+                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(Math.max(0,backlogOwed))}</strong></div>
+                                <div style={{marginTop:6,opacity:0.6,fontSize:'0.8rem'}}>Storage fees continue until full balance is cleared.</div>
                             </div>
-                        </section>
+                        </div>
+                    </div>
+                ) : (
+                    <div className={modalStyles.modalInfoBox}>
+                        Current balance: <strong>UGX {fmt(remaining)}</strong>
+                    </div>
+                )}
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
+                    <input type="number" className={modalStyles.modalInput}
+                        placeholder="Enter amount..." value={payAmount}
+                        onChange={e => setPayAmount(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                    <textarea className={modalStyles.modalTextarea}
+                        placeholder="e.g. Paid via MTN Mobile Money..."
+                        value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnPrimary}
+                        onClick={handleRecordPayment} disabled={paying}>
+                        <FiDollarSign aria-hidden="true" /> {paying ? 'PROCESSING...' : 'CONFIRM PAYMENT'}
+                    </button>
+                </div>
+            </HardwareModal>"""
 
-                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
-                        {isAdmin && isBacklog && (
-                            <section className={styles.hwPanel} aria-label="Backlog Controls">
-                                <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
-                                    <FiAlertOctagon aria-hidden="true" />
-                                    BACKLOG CONTROLS
-                                    <button onClick={handleExitBacklog} className={styles.btnExitBacklog} style={{marginLeft:'auto'}}>
-                                        EXIT BACKLOG
-                                    </button>
+NEW_MODAL = """            {/* PAYMENT MODAL */}
+            <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
+                <div className={styles.payBreakdownBox}>
+                    {isBacklog ? (
+                        <>
+                            <div className={styles.payBreakdownTitle}>
+                                <FiAlertOctagon size={11} /> BACKLOG BALANCE BREAKDOWN
+                            </div>
+                            <div className={styles.payBreakdownGrid}>
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel}>ORIGINAL TITLE DEBT</span>
+                                    <span className={styles.pbVal}>UGX {fmt(origDebt)}</span>
                                 </div>
-                                <div className={styles.panelInner}>
-                                    <div className={styles.inputGrid3}>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>MONTHLY STORAGE FEE (UGX)</label></div>
-                                            <input type="number" className={styles.hwInput}
-                                                defaultValue={project.storageFeeOverride || 50000}
-                                                onBlur={async e => {
-                                                    const val = Number(e.target.value);
-                                                    if (val >= 0) {
-                                                        try { await recoveryService.setStorageRate(project.id, val); await loadFolderData(); }
-                                                        catch { /* silent */ }
-                                                    }
-                                                }}
-                                                placeholder="50000" />
-                                        </div>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>ADJUST ACCUMULATED FEES (UGX)</label></div>
-                                            <input type="number" className={styles.hwInput}
-                                                defaultValue={project.storageFeesAccumulated || 0}
-                                                onBlur={async e => {
-                                                    const val = Number(e.target.value);
-                                                    if (val >= 0) {
-                                                        try { await recoveryService.setAccumulatedFees(project.id, val); await loadFolderData(); }
-                                                        catch { /* silent */ }
-                                                    }
-                                                }}
-                                                placeholder={String(project.storageFeesAccumulated || 0)} />
-                                        </div>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
-                                            <button type="button"
-                                                className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
-                                                onClick={async () => {
-                                                    try {
-                                                        await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                        await loadFolderData();
-                                                        toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
-                                                    } catch { toast('ACTION FAILED', 'error'); }
-                                                }}>
-                                                {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className={styles.inputGrid3} style={{marginTop:8}}>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>NEGOTIATION DEADLINE</label></div>
-                                            <input type="date" className={styles.hwInput}
-                                                defaultValue={project.negotiationDeadline ? project.negotiationDeadline.substring(0,10) : ''}
-                                                onBlur={async e => {
-                                                    try { await recoveryService.setNegotiationDeadline(project.id, e.target.value || null); await loadFolderData(); toast('DEADLINE UPDATED', 'info', 2000); }
-                                                    catch { /* silent */ }
-                                                }} />
-                                        </div>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
-                                            <input type="date" className={styles.hwInput}
-                                                defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
-                                                onBlur={async e => {
-                                                    if (!e.target.value) return;
-                                                    try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
-                                                    catch { /* silent */ }
-                                                }} />
-                                        </div>
-                                    </div>
-                                    <div className={styles.editBacklogFeeHint}>
-                                        Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
-                                    </div>
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>
+                                    <span className={styles.pbVal} style={{color:'#ef4444'}}>+ UGX {fmt(storageFees)}</span>
                                 </div>
-                            </section>
-                        )}"""
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel}>PAYMENTS MADE</span>
+                                    <span className={styles.pbVal} style={{color:'#86efac'}}>- UGX {fmt(amountPaid)}</span>
+                                </div>
+                                <div className={styles.pbItemTotal}>
+                                    <span className={styles.pbLabel}>TOTAL NOW OWED</span>
+                                    <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, backlogOwed))}</span>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className={styles.payBreakdownGrid}>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>TITLE COST</span>
+                                <span className={styles.pbVal}>UGX {fmt(totalCost)}</span>
+                            </div>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>PAID SO FAR</span>
+                                <span className={styles.pbVal} style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</span>
+                            </div>
+                            <div className={styles.pbItemTotal}>
+                                <span className={styles.pbLabel}>REMAINING BALANCE</span>
+                                <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, activeOwed))}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
-NEW_BACKLOG = """                            </div>
-                        </section>
-
-                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
-                        {isAdmin && isBacklog && (
-                            <section className={styles.hwPanel} aria-label="Backlog Controls">
-                                <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
-                                    <FiAlertOctagon aria-hidden="true" />
-                                    BACKLOG CONTROLS
+                {isBacklog && (
+                    <div className={styles.payTypeRow}>
+                        <div className={styles.payTypeLabel}>WHAT IS THIS PAYMENT FOR?</div>
+                        <div className={styles.payTypeButtons}>
+                            <button type="button" className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`} onClick={() => setPayType('TITLE')}>
+                                <FiHome size={12} />
+                                <div>
+                                    <div className={styles.payTypeBtnName}>TITLE PAYMENT</div>
+                                    <div className={styles.payTypeBtnSub}>Reduces the original title debt</div>
                                 </div>
-                                <div className={styles.panelInner}>
-                                    {isEditing ? (
-                                        <>
-                                            <div className={styles.inputGrid3}>
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>MONTHLY STORAGE FEE (UGX)</label></div>
-                                                    <input type="number" className={styles.hwInput}
-                                                        defaultValue={project.storageFeeOverride || 50000}
-                                                        onBlur={async e => {
-                                                            const val = Number(e.target.value);
-                                                            if (val >= 0) {
-                                                                try { await recoveryService.setStorageRate(project.id, val); await loadFolderData(); toast('RATE UPDATED', 'success'); }
-                                                                catch { /* silent */ }
-                                                            }
-                                                        }}
-                                                        placeholder="50000" />
-                                                </div>
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>ADJUST ACCUMULATED FEES (UGX)</label></div>
-                                                    <input type="number" className={styles.hwInput}
-                                                        defaultValue={project.storageFeesAccumulated || 0}
-                                                        onBlur={async e => {
-                                                            const val = Number(e.target.value);
-                                                            if (val >= 0) {
-                                                                try { await recoveryService.setAccumulatedFees(project.id, val); await loadFolderData(); toast('FEES ADJUSTED', 'success'); }
-                                                                catch { /* silent */ }
-                                                            }
-                                                        }}
-                                                        placeholder={String(project.storageFeesAccumulated || 0)} />
-                                                </div>
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
-                                                    <button type="button"
-                                                        className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
-                                                        onClick={async () => {
-                                                            try {
-                                                                await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                                await loadFolderData();
-                                                                toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
-                                                            } catch { toast('ACTION FAILED', 'error'); }
-                                                        }}>
-                                                        {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className={styles.inputGrid3} style={{marginTop:8}}>
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>NEGOTIATION DEADLINE</label></div>
-                                                    <input type="date" className={styles.hwInput}
-                                                        defaultValue={project.negotiationDeadline ? project.negotiationDeadline.substring(0,10) : ''}
-                                                        onBlur={async e => {
-                                                            try { await recoveryService.setNegotiationDeadline(project.id, e.target.value || null); await loadFolderData(); toast('DEADLINE UPDATED', 'info', 2000); }
-                                                            catch { /* silent */ }
-                                                        }} />
-                                                </div>
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
-                                                    <input type="date" className={styles.hwInput}
-                                                        defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
-                                                        onBlur={async e => {
-                                                            if (!e.target.value) return;
-                                                            try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
-                                                            catch { /* silent */ }
-                                                        }} />
-                                                </div>
-                                            </div>
-                                            <div className={styles.editBacklogFeeHint}>
-                                                Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className={styles.readOnlyGrid}>
-                                            <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>MONTHLY STORAGE FEE</span>
-                                                <span className={styles.specValue}>UGX {fmt(effectiveMonthlyFee)}</span>
-                                            </div>
-                                            <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>FEES STATUS</span>
-                                                <span className={styles.specValue} style={{ color: project.storagePaused ? '#fcd34d' : '#86efac' }}>
-                                                    {project.storagePaused ? 'PAUSED' : 'ACTIVE'}
-                                                </span>
-                                            </div>
-                                            <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>ACCUMULATED FEES</span>
-                                                <span className={styles.specValue}>UGX {fmt(project.storageFeesAccumulated)}</span>
-                                            </div>
-                                            <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>NEGOTIATION DEADLINE</span>
-                                                <span className={styles.specValue}>
-                                                    {project.negotiationDeadline ? new Date(project.negotiationDeadline).toLocaleDateString() : 'NONE'}
-                                                </span>
-                                            </div>
-                                            <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>BACKLOG START DATE</span>
-                                                <span className={styles.specValue}>
-                                                    {project.backlogStartDate ? new Date(project.backlogStartDate).toLocaleDateString() : 'UNKNOWN'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
+                            </button>
+                            <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => setPayType('STORAGE')}>
+                                <FiArchive size={12} />
+                                <div>
+                                    <div className={styles.payTypeBtnName}>STORAGE FEE</div>
+                                    <div className={styles.payTypeBtnSub}>Covers monthly storage charges</div>
                                 </div>
-                            </section>
-                        )}"""
+                            </button>
+                        </div>
+                    </div>
+                )}
 
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_BACKLOG, NEW_BACKLOG, "FolderPage Backlog Controls & Buttons")
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
+                    <input type="number" className={modalStyles.modalInput}
+                        placeholder={isBacklog && payType === 'STORAGE' ? "e.g. 50000 (1 month)" : `e.g. ${fmt(Math.max(0, remaining))}`}
+                        value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>NOTES (optional)</label>
+                    <textarea className={modalStyles.modalTextarea}
+                        placeholder="e.g. Paid via MTN Mobile Money..."
+                        value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnSecondary}
+                        onClick={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }}>
+                        <FiX aria-hidden="true" /> CANCEL
+                    </button>
+                    <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>
+                        CONFIRM {payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'}
+                    </HardwareButton>
+                </div>
+            </HardwareModal>"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_MODAL, NEW_MODAL, "Payment Modal Block")
+
+
+# ================================================================
+# STAGE 2: CSS UPDATES (Consistency)
+# ================================================================
+OLD_CSS = """/* Sticky Tab Bar with Dark Navy Panel Style */
+.tabBar {"""
+
+NEW_CSS = """/* ── FILTER BTNS (Pause/Resume, Tabs) ── */
+.filterBtn {
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.filterBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.filterActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
+}
+
+/* ── PAYMENT MODAL STYLES ── */
+.payBreakdownBox { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: clamp(10px,1.3vw,14px); margin-bottom: clamp(12px,1.5vw,16px); }
+.payBreakdownTitle { display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 900; color: #fca5a5; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+.payBreakdownGrid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(7px,0.9vw,10px); }
+.pbItem { display: flex; flex-direction: column; gap: 3px; }
+.pbLabel { font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 900; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.8px; }
+.pbVal { font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: #fff; }
+.pbItemTotal { grid-column: 1/-1; border-top: 1px solid rgba(255,255,255,0.1); padding-top: clamp(6px,0.8vw,9px); margin-top: 2px; display: flex; flex-direction: column; gap: 3px; }
+.pbValTotal { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.5vw,18px); font-weight: 900; color: #EE8C3A; }
+
+.payTypeRow { margin-bottom: clamp(12px,1.5vw,16px); display: flex; flex-direction: column; gap: 8px; }
+.payTypeLabel { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.payTypeButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.payTypeBtn { background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 8px; padding: clamp(10px,1.3vw,14px); cursor: pointer; display: flex; align-items: flex-start; gap: 10px; transition: all 0.2s; text-align: left; color: rgba(255,255,255,0.7); }
+.payTypeBtn:hover { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.07); color: #fff; }
+.payTypeBtnActive { border-color: #22c55e !important; background: rgba(34,197,94,0.14) !important; color: #fff !important; box-shadow: 0 0 14px rgba(34,197,94,0.2); }
+.payTypeBtnStorage:hover { border-color: rgba(239,68,68,0.5) !important; background: rgba(239,68,68,0.07) !important; }
+.payTypeBtnStorageActive { border-color: #ef4444 !important; background: rgba(239,68,68,0.14) !important; color: #fff !important; box-shadow: 0 0 14px rgba(239,68,68,0.2); }
+.payTypeBtnName { font-family: 'DM Sans', sans-serif; font-size: clamp(10px,1vw,12px); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px; }
+.payTypeBtnSub { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.45); display: block; line-height: 1.4; }
+
+/* Sticky Tab Bar with Dark Navy Panel Style */
+.tabBar {"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.module.css', OLD_CSS, NEW_CSS, "CSS Filter Button & Modals")
+
+
+OLD_ADD_NOTE = """.addNoteBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: clamp(9px, 1.1vw, 12px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px dashed rgba(238, 140, 58, 0.4);
+    color: var(--orange);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-btn);
+    font-weight: 900;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s, border-style 0.15s, border-color 0.2s;
+    box-sizing: border-box;
+    margin-top: clamp(6px, 0.8vw, 8px);
+    gap: clamp(5px, 0.6vw, 7px);
+}
+.addNoteBtn:hover { background: rgba(238,140,58,0.08); border-style: solid; border-color: var(--orange); }
+.addNoteBtn:focus-visible { outline: 2px solid var(--orange); }"""
+
+NEW_ADD_NOTE = """.addNoteBtn {
+    display: flex; align-items: center; justify-content: center; width: 100%; padding: clamp(7px, 1vw, 9px); margin-top: clamp(6px, 0.8vw, 8px); border: 2px dashed var(--orange); color: var(--orange); font-family: 'DM Sans', sans-serif; font-size: var(--fs-tag); font-weight: 900; cursor: pointer; background: rgba(238,140,58,0.04); text-transform: uppercase; letter-spacing: 1px; text-align: center; border-radius: 4px; transition: background 0.2s, border-style 0.15s; box-sizing: border-box; 
+}
+.addNoteBtn:hover { background: var(--orange-dim); border-style: solid; }
+.addNoteBtn:focus-visible { outline: 2px solid var(--orange); }"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.module.css', OLD_ADD_NOTE, NEW_ADD_NOTE, "CSS Note Button Uniformity")
 
 print()
-print("UI Consistency & Unsaved Changes Guard fixes applied.")
+print("Final uniformity and structural logic fixes have been executed successfully.")
 print("Run: py fix.py")

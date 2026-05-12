@@ -1404,6 +1404,55 @@
    STAGE 3: VISUAL & INTERACTION REFINEMENTS
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── FILTER BTNS (Pause/Resume, Tabs) ── */
+.filterBtn {
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.filterBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.filterActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
+}
+
+/* ── PAYMENT MODAL STYLES ── */
+.payBreakdownBox { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: clamp(10px,1.3vw,14px); margin-bottom: clamp(12px,1.5vw,16px); }
+.payBreakdownTitle { display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 900; color: #fca5a5; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+.payBreakdownGrid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(7px,0.9vw,10px); }
+.pbItem { display: flex; flex-direction: column; gap: 3px; }
+.pbLabel { font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 900; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.8px; }
+.pbVal { font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: #fff; }
+.pbItemTotal { grid-column: 1/-1; border-top: 1px solid rgba(255,255,255,0.1); padding-top: clamp(6px,0.8vw,9px); margin-top: 2px; display: flex; flex-direction: column; gap: 3px; }
+.pbValTotal { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.5vw,18px); font-weight: 900; color: #EE8C3A; }
+
+.payTypeRow { margin-bottom: clamp(12px,1.5vw,16px); display: flex; flex-direction: column; gap: 8px; }
+.payTypeLabel { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.payTypeButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.payTypeBtn { background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 8px; padding: clamp(10px,1.3vw,14px); cursor: pointer; display: flex; align-items: flex-start; gap: 10px; transition: all 0.2s; text-align: left; color: rgba(255,255,255,0.7); }
+.payTypeBtn:hover { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.07); color: #fff; }
+.payTypeBtnActive { border-color: #22c55e !important; background: rgba(34,197,94,0.14) !important; color: #fff !important; box-shadow: 0 0 14px rgba(34,197,94,0.2); }
+.payTypeBtnStorage:hover { border-color: rgba(239,68,68,0.5) !important; background: rgba(239,68,68,0.07) !important; }
+.payTypeBtnStorageActive { border-color: #ef4444 !important; background: rgba(239,68,68,0.14) !important; color: #fff !important; box-shadow: 0 0 14px rgba(239,68,68,0.2); }
+.payTypeBtnName { font-family: 'DM Sans', sans-serif; font-size: clamp(10px,1vw,12px); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px; }
+.payTypeBtnSub { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.45); display: block; line-height: 1.4; }
+
 /* Sticky Tab Bar with Dark Navy Panel Style */
 .tabBar {
     position: sticky !important;

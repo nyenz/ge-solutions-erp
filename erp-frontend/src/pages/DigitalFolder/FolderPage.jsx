@@ -18,6 +18,7 @@ import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import HardwareModal from '../../components/common/HardwareModal';
+import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -460,6 +461,7 @@ const FolderPage = () => {
     const [payModal,   setPayModal]   = useState({ open:false });
     const [payAmount,  setPayAmount]  = useState('');
     const [payNotes,   setPayNotes]   = useState('');
+    const [payType,    setPayType]    = useState('TITLE');
     const [paying,     setPaying]     = useState(false);
 
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -702,10 +704,13 @@ const FolderPage = () => {
         if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
         setPaying(true);
         try {
-            await recoveryService.recordPayment(id, payAmount, payNotes);
+            const fullNotes = payType === 'STORAGE'
+                ? `[STORAGE FEE PAYMENT] ${payNotes}`.trim()
+                : payNotes;
+            await recoveryService.recordPayment(id, payAmount, fullNotes);
             await loadFolderData();
             setPayModal({ open: false });
-            setPayAmount(''); setPayNotes('');
+            setPayAmount(''); setPayNotes(''); setPayType('TITLE');
             toast('PAYMENT RECORDED', 'success');
         } catch { toast('PAYMENT FAILED', 'error', 8000); }
         finally { setPaying(false); }
@@ -1139,7 +1144,7 @@ const FolderPage = () => {
                         )}
 
                         {/* ── 3. PAYMENT HISTORY ── */}
-                        <section className={styles.hwPanel} aria-label="Payment History">
+                        <section className={styles.hwPanel} aria-label="Payment History" id="paymentHistorySection">
                             <div className={styles.finPanelHeader}>
                                 <FiActivity aria-hidden="true" />
                                 PAYMENT HISTORY
@@ -1373,29 +1378,77 @@ const FolderPage = () => {
             </HardwareModal>
 
             {/* PAYMENT MODAL */}
-            <HardwareModal isOpen={payModal.open} onClose={() => setPayModal({ open: false })} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
-                {isBacklog ? (
-                    <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>
-                        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                            <FiAlertOctagon style={{ color: '#ef4444', flexShrink:0, marginTop:2 }} aria-hidden="true" />
-                            <div>
-                                <div>Original debt: <strong>UGX {fmt(origDebt)}</strong></div>
-                                <div>Storage fees: <strong style={{color:'#ef4444'}}>UGX {fmt(storageFees)}</strong></div>
-                                <div>Total owed: <strong style={{color:'#ef4444'}}>UGX {fmt(Math.max(0,backlogOwed))}</strong></div>
-                                <div style={{marginTop:6,opacity:0.6,fontSize:'0.8rem'}}>Storage fees continue until full balance is cleared.</div>
+            <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
+                <div className={styles.payBreakdownBox}>
+                    {isBacklog ? (
+                        <>
+                            <div className={styles.payBreakdownTitle}>
+                                <FiAlertOctagon size={11} /> BACKLOG BALANCE BREAKDOWN
+                            </div>
+                            <div className={styles.payBreakdownGrid}>
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel}>ORIGINAL TITLE DEBT</span>
+                                    <span className={styles.pbVal}>UGX {fmt(origDebt)}</span>
+                                </div>
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>
+                                    <span className={styles.pbVal} style={{color:'#ef4444'}}>+ UGX {fmt(storageFees)}</span>
+                                </div>
+                                <div className={styles.pbItem}>
+                                    <span className={styles.pbLabel}>PAYMENTS MADE</span>
+                                    <span className={styles.pbVal} style={{color:'#86efac'}}>- UGX {fmt(amountPaid)}</span>
+                                </div>
+                                <div className={styles.pbItemTotal}>
+                                    <span className={styles.pbLabel}>TOTAL NOW OWED</span>
+                                    <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, backlogOwed))}</span>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className={styles.payBreakdownGrid}>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>TITLE COST</span>
+                                <span className={styles.pbVal}>UGX {fmt(totalCost)}</span>
+                            </div>
+                            <div className={styles.pbItem}>
+                                <span className={styles.pbLabel}>PAID SO FAR</span>
+                                <span className={styles.pbVal} style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</span>
+                            </div>
+                            <div className={styles.pbItemTotal}>
+                                <span className={styles.pbLabel}>REMAINING BALANCE</span>
+                                <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, activeOwed))}</span>
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className={modalStyles.modalInfoBox}>
-                        Current balance: <strong>UGX {fmt(remaining)}</strong>
+                    )}
+                </div>
+
+                {isBacklog && (
+                    <div className={styles.payTypeRow}>
+                        <div className={styles.payTypeLabel}>WHAT IS THIS PAYMENT FOR?</div>
+                        <div className={styles.payTypeButtons}>
+                            <button type="button" className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`} onClick={() => setPayType('TITLE')}>
+                                <FiHome size={12} />
+                                <div>
+                                    <div className={styles.payTypeBtnName}>TITLE PAYMENT</div>
+                                    <div className={styles.payTypeBtnSub}>Reduces the original title debt</div>
+                                </div>
+                            </button>
+                            <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => setPayType('STORAGE')}>
+                                <FiArchive size={12} />
+                                <div>
+                                    <div className={styles.payTypeBtnName}>STORAGE FEE</div>
+                                    <div className={styles.payTypeBtnSub}>Covers monthly storage charges</div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 )}
+
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="number" className={modalStyles.modalInput}
-                        placeholder="Enter amount..." value={payAmount}
-                        onChange={e => setPayAmount(e.target.value)} />
+                        placeholder={isBacklog && payType === 'STORAGE' ? "e.g. 50000 (1 month)" : `e.g. ${fmt(Math.max(0, remaining))}`}
+                        value={payAmount} onChange={e => setPayAmount(e.target.value)} />
                 </div>
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>NOTES (optional)</label>
@@ -1404,10 +1457,13 @@ const FolderPage = () => {
                         value={payNotes} onChange={e => setPayNotes(e.target.value)} />
                 </div>
                 <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary}
-                        onClick={handleRecordPayment} disabled={paying}>
-                        <FiDollarSign aria-hidden="true" /> {paying ? 'PROCESSING...' : 'CONFIRM PAYMENT'}
+                    <button type="button" className={modalStyles.modalBtnSecondary}
+                        onClick={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }}>
+                        <FiX aria-hidden="true" /> CANCEL
                     </button>
+                    <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>
+                        CONFIRM {payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'}
+                    </HardwareButton>
                 </div>
             </HardwareModal>
         </div>
