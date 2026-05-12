@@ -482,15 +482,17 @@ const FolderPage = () => {
         useRouterBlock(!committing && isEditing);
 
     useEffect(() => {
-        // If navigated here with a hash (e.g. #payments from PaymentsPage),
-        // open the matching drawer and scroll to it. Otherwise scroll to top.
         const hash = window.location.hash.replace('#', '');
-        if (hash && ['tech','identity','finance','vault','intel','payments'].includes(hash)) {
-            setDrawers(prev => ({ ...prev, [hash]: true }));
+        if (hash === 'payments' || hash === 'finance' || hash === 'financials') {
+            setActiveTab('FINANCIALS');
             setTimeout(() => {
-                const el = document.getElementById('drawer-' + hash);
+                const el = document.getElementById('paymentHistorySection');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 350);
+        } else if (hash === 'identity' || hash === 'owners') {
+            setActiveTab('OWNERS');
+        } else if (hash === 'vault' || hash === 'documents') {
+            setActiveTab('DOCUMENTS');
         } else {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
