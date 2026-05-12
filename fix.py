@@ -1,4 +1,5 @@
 import os
+import re
 
 def read(path):
     with open(path, 'r', encoding='utf-8', errors='replace') as f:
@@ -9,58 +10,23 @@ def write(path, content):
         f.write(content)
     print(f"OK: {path}")
 
-def patch(path, old, new, label=""):
-    content = read(path)
-    if old not in content:
-        print(f"MISSING ({label or path}): target string not found")
-        return
-    content = content.replace(old, new, 1)
-    write(path, content)
-    print(f"OK patch ({label or path})")
+print("=== STARTING FINANCIAL WORKFLOW REWIRE ===")
 
+# ============================================================
+# 1. FOLDER PAGE (Row ID + Hash Scroll Logic)
+# ============================================================
+fp_path = 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx'
+fp_content = read(fp_path)
 
-# ── FOLDER PAGE STYLING (Highlight Row) ──
-content = read('erp-frontend/src/pages/DigitalFolder/FolderPage.module.css')
-if '.highlightRow' not in content:
-    content += "\n\n/* --- HIGHLIGHT ROW --- */\n.highlightRow {\n    background: rgba(238, 140, 58, 0.25) !important;\n    border-left-color: var(--orange) !important;\n    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4);\n    transition: background 0.5s ease-out, box-shadow 0.5s ease-out;\n}\n"
-    write('erp-frontend/src/pages/DigitalFolder/FolderPage.module.css', content)
-    print("OK patch (FolderPage.module.css)")
+# Update the hash check to allow 'payment-'
+fp_content = re.sub(
+    r"if \(hash === 'payments' \|\| hash === 'finance' \|\| hash === 'financials'\) \{",
+    "if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {",
+    fp_content
+)
 
-# ── FOLDER PAGE LOGIC ──
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', 
-"""    const [activeTab, setActiveTab] = useState(() => {
-    return typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('financials') 
-        ? 'FINANCIALS' 
-        : 'OVERVIEW';
-});""", 
-"""    const [activeTab, setActiveTab] = useState(() => {
-    const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
-    return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
-});""", "FolderPage hash state")
-
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', 
-"""    useEffect(() => {
-        const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials') {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                const el = document.getElementById('paymentHistorySection');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 350);
-        } else if (hash === 'identity' || hash === 'owners') {
-            setActiveTab('OWNERS');
-        } else if (hash === 'vault' || hash === 'documents') {
-            setActiveTab('DOCUMENTS');
-        } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    }, [id]);""",
-"""    useEffect(() => {
-        const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                if (hash.startsWith('payment-')) {
+# Inject the smart scroll-and-highlight logic
+scroll_logic = """if (hash.startsWith('payment-')) {
                     const el = document.getElementById(hash);
                     if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -70,145 +36,82 @@ patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
                 } else {
                     const el = document.getElementById('paymentHistorySection');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 350);
-        } else if (hash === 'identity' || hash === 'owners') {
-            setActiveTab('OWNERS');
-        } else if (hash === 'vault' || hash === 'documents') {
-            setActiveTab('DOCUMENTS');
-        } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    }, [id]);""", "FolderPage hash scroll")
+                }"""
+fp_content = re.sub(
+    r"const el = document\.getElementById\('paymentHistorySection'\);\s*if \(el\) el\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\);",
+    scroll_logic,
+    fp_content
+)
 
-patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', 
-"""                                            <div key={pay.id || i} className={styles.paymentRow}
-                                                style={{borderLeftColor: pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>""",
-"""                                            <div key={pay.id || i} id={`payment-${pay.id}`} className={styles.paymentRow}
-                                                style={{borderLeftColor: pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>""", "FolderPage row id")
+# Add the HTML ID to the payment row
+fp_content = fp_content.replace(
+    "<div key={pay.id || i} className={styles.paymentRow}",
+    "<div key={pay.id || i} id={`payment-${pay.id}`} className={styles.paymentRow}"
+)
+write(fp_path, fp_content)
 
-# ── PAYMENTS PAGE ──
-patch('erp-frontend/src/pages/Payments/PaymentsPage.jsx',
-"""                                <tr key={pay.id || i}
-                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}#payments`)}
-                                    tabIndex={pay.projectId ? 0 : undefined}
-                                    onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}`); }}}>""",
-"""                                <tr key={pay.id || i}
-                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}#payment-${pay.id}`)}
-                                    tabIndex={pay.projectId ? 0 : undefined}
-                                    onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}}>""", "PaymentsPage row click")
+# Add highlight CSS class
+css_path = 'erp-frontend/src/pages/DigitalFolder/FolderPage.module.css'
+css_content = read(css_path)
+if '.highlightRow' not in css_content:
+    css_content += "\n/* --- HIGHLIGHT ROW --- */\n.highlightRow {\n    background: rgba(238, 140, 58, 0.25) !important;\n    border-left-color: var(--orange) !important;\n    box-shadow: 0 0 15px rgba(238, 140, 58, 0.4);\n    transition: background 0.5s ease-out, box-shadow 0.5s ease-out;\n}\n"
+    write(css_path, css_content)
 
-patch('erp-frontend/src/pages/Payments/PaymentsPage.jsx',
-"""                                        {pay.projectId && (
-                                            <button className={styles.goBtn}
-                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payments`); }}>
-                                                <FiChevronRight size={12} /> VIEW
-                                            </button>
-                                        )}""",
-"""                                        {pay.projectId && (
-                                            <button className={styles.goBtn}
-                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}>
-                                                <FiChevronRight size={12} /> VIEW
-                                            </button>
-                                        )}""", "PaymentsPage button click")
 
-# ── RECOVERY PORTAL ──
-patch('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx',
-"""    const [payModal,      setPayModal]      = useState({ open: false, plot: null });
-    const [paying,        setPaying]        = useState(false);
-    const [monthlyModal,  setMonthlyModal]  = useState({ open: false, plot: null });""",
-"", "RecoveryPortal state removal")
+# ============================================================
+# 2. PAYMENTS PAGE (Point links to specific payment rows)
+# ============================================================
+pp_path = 'erp-frontend/src/pages/Payments/PaymentsPage.jsx'
+pp_content = read(pp_path)
 
-patch('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx',
-"""    const handleRecordPayment = async (plot, amount, notes, payType) => {
-        setPaying(true);
-        try {
-            // Always use recordPayment — backend determines type from plot status
-            // Notes field carries the payType context for the audit trail
-            const fullNotes = payType === 'STORAGE'
-                ? `[STORAGE FEE PAYMENT]\${notes ? ' ' + notes : ''}`
-                : notes;
-            await recoveryService.recordPayment(plot.projectId, amount, fullNotes);
-            await loadData();
-            setPayModal({ open: false, plot: null });
-            toast(`\${payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'} RECORDED`, 'success');
-        } catch {
-            toast('PAYMENT FAILED', 'error', 8000);
-        } finally {
-            setPaying(false);
-        }
-    };""",
-"", "RecoveryPortal handleRecordPayment removal")
+# Change #payments to #payment-{id}
+pp_content = pp_content.replace(
+    "navigate(`/folder/${pay.projectId}#payments`)",
+    "navigate(`/folder/${pay.projectId}#payment-${pay.id}`)"
+)
+# Change Enter key navigation
+pp_content = pp_content.replace(
+    "navigate(`/folder/${pay.projectId}`); }}}>",
+    "navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}}>"
+)
+write(pp_path, pp_content)
 
-patch('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx',
-"""                                                {isAdmin && (
-                                                    <button className={styles.payBtnTitle}
-                                                        onClick={() => setPayModal({ open: true, plot })}>
-                                                        <FiDollarSign size={12} /> PAY
-                                                    </button>
-                                                )}
-                                                {isAdmin && (
-                                                    <button className={styles.payBtnMonthly}
-                                                        onClick={() => setMonthlyModal({ open: true, plot })}>
-                                                        <FiRepeat size={12} /> INSTALMENT
-                                                    </button>
-                                                )}""",
-"""                                                {isAdmin && (
-                                                    <button className={styles.payBtnTitle}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
-                                                        <FiDollarSign size={12} /> PAY
-                                                    </button>
-                                                )}
-                                                {isAdmin && (
-                                                    <button className={styles.payBtnMonthly}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
-                                                        <FiRepeat size={12} /> INSTALMENT
-                                                    </button>
-                                                )}""", "RecoveryPortal active buttons")
 
-patch('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx',
-"""                                                {isAdmin && (
-                                                    <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
-                                                        onClick={() => setPayModal({ open: true, plot })}>
-                                                        <FiZap size={12} /> PAY
-                                                    </button>
-                                                )}""",
-"""                                                {isAdmin && (
-                                                    <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
-                                                        <FiZap size={12} /> PAY
-                                                    </button>
-                                                )}""", "RecoveryPortal backlog button")
+# ============================================================
+# 3. RECOVERY PORTAL (Remove modals, navigate to Financials)
+# ============================================================
+rp_path = 'erp-frontend/src/pages/Recovery/RecoveryPortal.jsx'
+rp_content = read(rp_path)
 
-patch('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx',
-"""            {/* PAYMENT MODAL */}
-            <PaymentModal
-                open={payModal.open}
-                plot={payModal.plot}
-                onClose={() => setPayModal({ open: false, plot: null })}
-                onPay={handleRecordPayment}
-                paying={paying}
-            />
+# Point all PAY buttons to the folder's financials tab
+rp_content = rp_content.replace(
+    "onClick={() => setPayModal({ open: true, plot })}",
+    "onClick={() => navigate(`/folder/${plot.projectId}#financials`)}"
+)
+rp_content = rp_content.replace(
+    "onClick={() => setMonthlyModal({ open: true, plot })}",
+    "onClick={() => navigate(`/folder/${plot.projectId}#financials`)}"
+)
 
-            {/* MONTHLY INSTALMENT MODAL */}
-            <MonthlyInstallmentModal
-                open={monthlyModal.open}
-                plot={monthlyModal.plot}
-                onClose={() => setMonthlyModal({ open: false, plot: null })}
-                onPay={handleRecordPayment}
-                paying={paying}
-            />""",
-"", "RecoveryPortal modals bottom removal")
+# Remove local states for paying/modals
+rp_content = re.sub(r"const \[payModal,\s*setPayModal\].*?\n", "", rp_content)
+rp_content = re.sub(r"const \[paying,\s*setPaying\].*?\n", "", rp_content)
+rp_content = re.sub(r"const \[monthlyModal,\s*setMonthlyModal\].*?\n", "", rp_content)
 
-# Remove Component Definitions in RecoveryPortal
-content = read('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx')
-start = content.find("// ── PAYMENT TYPE MODAL ──────────────────────────────────────────")
-end = content.find("// ── STORAGE FEE INLINE CONTROLS ────────────────────────────────")
-if start != -1 and end != -1:
-    content = content[:start] + content[end:]
-    write('erp-frontend/src/pages/Recovery/RecoveryPortal.jsx', content)
-    print("OK patch (RecoveryPortal component removal)")
-else:
-    print("MISSING (RecoveryPortal component removal)")
+# Remove the handleRecordPayment function completely
+rp_content = re.sub(r"const handleRecordPayment = async.*?finally \{\s*setPaying\(false\);\s*\}\s*\};", "", rp_content, flags=re.DOTALL)
 
-print("\nDone! Run git add/commit/push to deploy.")
+# Remove the JSX Modal tags from the bottom of the return statement
+rp_content = re.sub(r"\{\/\* PAYMENT MODAL \*\/\}.*?</HardwareModal>", "", rp_content, flags=re.DOTALL)
+rp_content = re.sub(r"\{\/\* MONTHLY INSTALMENT MODAL \*\/\}.*?</HardwareModal>", "", rp_content, flags=re.DOTALL)
+rp_content = re.sub(r"<PaymentModal[\s\S]*?paying=\{paying\}[\s\S]*?/>", "", rp_content)
+rp_content = re.sub(r"<MonthlyInstallmentModal[\s\S]*?paying=\{paying\}[\s\S]*?/>", "", rp_content)
+
+# Remove the actual definitions of the Modal components at the top of the file
+# We slice out everything from "PAYMENT TYPE MODAL" up to "STORAGE FEE INLINE CONTROLS"
+rp_content = re.sub(r"// ── PAYMENT TYPE MODAL ──.*?// ── STORAGE FEE INLINE CONTROLS ──", "// ── STORAGE FEE INLINE CONTROLS ──", rp_content, flags=re.DOTALL)
+
+write(rp_path, rp_content)
+
+print("\n=== Done! Everything has been securely wired. ===")
+print("Run: git add -A && git commit -m 'wire all financial actions to FolderPage Financials tab' && git push")

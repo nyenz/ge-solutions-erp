@@ -313,24 +313,7 @@ const RecoveryPortal = () => {
         }
     };
 
-    const handleRecordPayment = async (plot, amount, notes, payType) => {
-        setPaying(true);
-        try {
-            // Always use recordPayment — backend determines type from plot status
-            // Notes field carries the payType context for the audit trail
-            const fullNotes = payType === 'STORAGE'
-                ? `[STORAGE FEE PAYMENT]${notes ? ' ' + notes : ''}`
-                : notes;
-            await recoveryService.recordPayment(plot.projectId, amount, fullNotes);
-            await loadData();
-            setPayModal({ open: false, plot: null });
-            toast(`${payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'} RECORDED`, 'success');
-        } catch {
-            toast('PAYMENT FAILED', 'error', 8000);
-        } finally {
-            setPaying(false);
-        }
-    };
+    
 
     const filteredMissions = useMemo(() => {
         let list = missions;

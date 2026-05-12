@@ -493,8 +493,17 @@ const FolderPage = () => {
                         setTimeout(() => el.classList.remove(styles.highlightRow), 3000);
                     }
                 } else {
+                    if (hash.startsWith('payment-')) {
+                    const el = document.getElementById(hash);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add(styles.highlightRow);
+                        setTimeout(() => el.classList.remove(styles.highlightRow), 3000);
+                    }
+                } else {
                     const el = document.getElementById('paymentHistorySection');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
                 }
             }, 350);
         } else if (hash === 'identity' || hash === 'owners') {
