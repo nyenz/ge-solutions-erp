@@ -10,7 +10,7 @@ import {
     FiPhoneCall, FiMail, FiMapPin, FiShield,
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
-    FiDollarSign, FiActivity
+    FiDollarSign, FiActivity, FiHome, FiArchive
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
