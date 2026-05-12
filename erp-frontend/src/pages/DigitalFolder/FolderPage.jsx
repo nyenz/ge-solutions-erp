@@ -449,7 +449,11 @@ const FolderPage = () => {
     const [fieldErrors, setFieldErrors] = useState({});
     const [payments,    setPayments]    = useState([]);
 
-    const [activeTab, setActiveTab] = useState('OVERVIEW');
+    const [activeTab, setActiveTab] = useState(() => {
+    return typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('financials') 
+        ? 'FINANCIALS' 
+        : 'OVERVIEW';
+});
     const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];
 
     const [noteModal,  setNoteModal]  = useState({ open:false, id:null, content:'' });
@@ -877,8 +881,10 @@ const FolderPage = () => {
                         aria-selected={activeTab === tab}
                         className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
                         onClick={() => setActiveTab(tab)}
+                        title={tab}
                     >
-                        {tab}
+                        <span className={styles.tabFull}>{tab}</span>
+                        <span className={styles.tabShort}>{tab.substring(0, 2)}</span>
                     </button>
                 ))}
             </div>

@@ -1401,6 +1401,43 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   STAGE 3: VISUAL & INTERACTION REFINEMENTS
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Sticky Tab Bar with Dark Navy Panel Style */
+.tabBar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    background: rgba(22, 42, 44, 0.98) !important; /* Matches terminal header */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: clamp(10px, 1.5vw, 16px) !important;
+    backdrop-filter: blur(12px);
+    margin: 0 !important;
+}
+
+/* Mobile Tab Label Truncation */
+.tabShort { display: none; }
+
+@media (max-width: 600px) {
+    .tabFull { display: none; }
+    .tabShort { display: inline; font-weight: 900; letter-spacing: 1px; }
+    .tabBtn { 
+        padding: 8px 14px !important; 
+        min-width: unset !important;
+        flex: 1;
+    }
+}
+
+/* Upgrade Section Headers to Cinzel Serif */
+.finPanelHeader {
+    font-family: 'Cinzel', serif !important;
+    font-size: clamp(12px, 1.2vw, 16px) !important;
+    letter-spacing: 1.5px !important;
+    font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    PRINT
    ═══════════════════════════════════════════════════════════════════ */
 @media print {
