@@ -449,8 +449,8 @@ const FolderPage = () => {
     const [fieldErrors, setFieldErrors] = useState({});
     const [payments,    setPayments]    = useState([]);
 
-    const [drawers, setDrawers] = useState({ tech:true, identity:true, finance:true, vault:true, intel:true, payments:false });
-    const toggleDrawer = (key) => setDrawers(p => ({ ...p, [key]: !p[key] }));
+    const [activeTab, setActiveTab] = useState('OVERVIEW');
+    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];
 
     const [noteModal,  setNoteModal]  = useState({ open:false, id:null, content:'' });
     const [payModal,   setPayModal]   = useState({ open:false });
@@ -868,12 +868,26 @@ const FolderPage = () => {
                 </div>
             </header>
 
-            <main className={styles.workstationBody}>
+            {/* TAB BAR */}
+            <div className={styles.tabBar} role="tablist" aria-label="Record sections">
+                {TABS.map(tab => (
+                    <button
+                        key={tab}
+                        role="tab"
+                        aria-selected={activeTab === tab}
+                        className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
+                        onClick={() => setActiveTab(tab)}
+                    >
+                        {tab}
+                    </button>
+                ))}
+            </div>
 
-                {/* PLOT DETAILS */}
-                <section id="drawer-tech" className={styles.hwPanel} aria-label="Plot Details">
-                    <DrawerHeader label="PLOT DETAILS" isOpen={drawers.tech} onClick={() => toggleDrawer('tech')} icon={FiMap} />
-                    <div className={`${styles.panelBody} ${drawers.tech ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.tech}>
+            <main className={styles.workstationBody} role="tabpanel">
+
+                {/* ── OVERVIEW TAB ── */}
+                {activeTab === 'OVERVIEW' && (
+                    <section className={styles.hwPanel} aria-label="Plot Details">
                         <div className={styles.panelInner}>
                             {isEditing ? (
                                 <>
@@ -907,46 +921,12 @@ const FolderPage = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
-                </section>
+                    </section>
+                )}
 
-                {/* OWNERS */}
-                <section id="drawer-identity" className={styles.hwPanel} aria-label="Owners">
-                    <DrawerHeader label="OWNERS" count={project.proprietors.length} isOpen={drawers.identity} onClick={() => toggleDrawer('identity')} icon={FiUsers} />
-                    <div className={`${styles.panelBody} ${drawers.identity ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.identity}>
-                        <div className={styles.panelInner}>
-                            <div className={styles.ownersScroll}>
-                                <div className={styles.ownersGrid2} role="list">
-                                    {isEditing ? buffer.owners.map((o, idx) => (
-                                        <div key={idx} className={styles.ownerEditCard} role="listitem">
-                                            <div className={styles.ownerCardLabel}>ENTITY #{idx+1} {idx===0&&'(PRIMARY)'}</div>
-                                            <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
-                                            <PhoneInput value={o.phone} onChange={v => handleOwnerChange(idx,'phone',v)} onBlur={v => handlePhoneBlurCheck(idx, v)} id={`owner_${idx}_phone`} />
-                                            <NINInput value={o.nationalId} onChange={v => handleOwnerChange(idx,'nationalId',v)} id={`owner_${idx}_nin`} />
-                                            <EmailInput value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
-                                            <AddressInput label="HOME ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
-                                        </div>
-                                    )) : project.proprietors.map((p, i) => (
-                                        <div key={i} className={styles.ownerStaticCard} role="listitem">
-                                            <h2 className={styles.ownerName}>{p.fullName}</h2>
-                                            <div className={styles.infoColumns}>
-                                                <div className={styles.infoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{p.phoneNumber||'---'}</span></div>
-                                                <div className={styles.infoRow}><FiMail   aria-hidden="true" /><span>{p.email||'---'}</span></div>
-                                                <div className={styles.infoRow}><FiShield aria-hidden="true" /><span>{p.nationalId||'---'}</span></div>
-                                                <div className={styles.infoRow}><FiMapPin aria-hidden="true" /><span>{p.homeAddress||'---'}</span></div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* FINANCIALS */}
-                <section id="drawer-finance" className={styles.hwPanel} aria-label="Financials">
-                    <DrawerHeader label="FINANCIALS" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiCreditCard} />
-                    <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.finance}>
+                {/* ── FINANCIALS TAB ── */}
+                {activeTab === 'FINANCIALS' && (
+                    <section className={styles.hwPanel} aria-label="Financials">
                         <div className={styles.panelInner}>
                             {isEditing ? (
                                 <>
@@ -1035,7 +1015,6 @@ const FolderPage = () => {
                                 )}
                                 </>
                             ) : isBacklog ? (
-                                /* BACKLOG FINANCIAL BREAKDOWN */
                                 <div>
                                     <div className={styles.backlogNotice}>
                                         <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
@@ -1071,15 +1050,47 @@ const FolderPage = () => {
                                                     UGX {fmt(Math.max(0, backlogOwed))}
                                                 </strong>
                                                 <small style={{opacity:0.6, fontSize:'0.7rem'}}>
-                                                    = Original debt + storage fees − payments made
+                                                    = Original debt + storage fees -- payments made
                                                 </small>
                                             </div>
                                         </div>
                                     </div>
 
+                                    {/* PAYMENT HISTORY inside financials tab */}
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 16, paddingTop: 16 }}>
+                                        <div className={styles.sectionSubHeader}>PAYMENT HISTORY</div>
+                                        {paymentCount === 0 ? (
+                                            <div className={styles.emptyState} role="status">
+                                                <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
+                                                <span>NO PAYMENTS RECORDED</span>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                {payments.map((pay, i) => (
+                                                    <div key={pay.id || i} style={{
+                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                        padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
+                                                        borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>UGX {fmt(pay.amountPaid)}</div>
+                                                            <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
+                                                                {pay.paymentType} · by {pay.recordedBy}{pay.notes ? ` · ${pay.notes}` : ''}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>{new Date(pay.timestamp).toLocaleDateString()}</div>
+                                                            {pay.balanceAfter != null && (
+                                                                <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>Balance after: UGX {fmt(pay.balanceAfter)}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
-                                /* ACTIVE FINANCIAL */
                                 <>
                                     <div className={styles.moneyStatsRow}>
                                         <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
@@ -1090,105 +1101,120 @@ const FolderPage = () => {
                                         <FiClock aria-hidden="true" />
                                         <span>COLLECTION PERFORMANCE: <strong>{(binder.collectionPercentage||0).toFixed(1)}%</strong></span>
                                     </div>
+
+                                    {/* PAYMENT HISTORY inside financials tab */}
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 16, paddingTop: 16 }}>
+                                        <div className={styles.sectionSubHeader}>PAYMENT HISTORY</div>
+                                        {paymentCount === 0 ? (
+                                            <div className={styles.emptyState} role="status">
+                                                <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
+                                                <span>NO PAYMENTS RECORDED</span>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                {payments.map((pay, i) => (
+                                                    <div key={pay.id || i} style={{
+                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                        padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
+                                                        borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>UGX {fmt(pay.amountPaid)}</div>
+                                                            <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
+                                                                {pay.paymentType} · by {pay.recordedBy}{pay.notes ? ` · ${pay.notes}` : ''}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>{new Date(pay.timestamp).toLocaleDateString()}</div>
+                                                            {pay.balanceAfter != null && (
+                                                                <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>Balance after: UGX {fmt(pay.balanceAfter)}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
-                    </div>
-                </section>
+                    </section>
+                )}
 
-                {/* PAYMENT HISTORY */}
-                <section id="drawer-payments" className={styles.hwPanel} aria-label="Payment History">
-                    <DrawerHeader label="PAYMENT HISTORY" count={paymentCount} isOpen={drawers.payments} onClick={() => toggleDrawer('payments')} icon={FiActivity} />
-                    <div className={`${styles.panelBody} ${drawers.payments ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.payments}>
+                {/* ── OWNERS TAB ── */}
+                {activeTab === 'OWNERS' && (
+                    <section className={styles.hwPanel} aria-label="Owners">
                         <div className={styles.panelInner}>
-                            {paymentCount === 0 ? (
-                                <div className={styles.emptyState} role="status">
-                                    <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
-                                    <span>NO PAYMENTS RECORDED</span>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {payments.map((pay, i) => (
-                                        <div key={pay.id || i} style={{
-                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
-                                            borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
-                                        }}>
-                                            <div>
-                                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                                                    UGX {fmt(pay.amountPaid)}
-                                                </div>
-                                                <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
-                                                    {pay.paymentType} · by {pay.recordedBy}
-                                                    {pay.notes ? ` · ${pay.notes}` : ''}
-                                                </div>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-                                                    {new Date(pay.timestamp).toLocaleDateString()}
-                                                </div>
-                                                {pay.balanceAfter != null && (
-                                                    <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>
-                                                        Balance after: UGX {fmt(pay.balanceAfter)}
-                                                    </div>
-                                                )}
+                            <div className={styles.ownersScroll}>
+                                <div className={styles.ownersGrid2} role="list">
+                                    {isEditing ? buffer.owners.map((o, idx) => (
+                                        <div key={idx} className={styles.ownerEditCard} role="listitem">
+                                            <div className={styles.ownerCardLabel}>ENTITY #{idx+1} {idx===0&&'(PRIMARY)'}</div>
+                                            <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
+                                            <PhoneInput value={o.phone} onChange={v => handleOwnerChange(idx,'phone',v)} onBlur={v => handlePhoneBlurCheck(idx, v)} id={`owner_${idx}_phone`} />
+                                            <NINInput value={o.nationalId} onChange={v => handleOwnerChange(idx,'nationalId',v)} id={`owner_${idx}_nin`} />
+                                            <EmailInput value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
+                                            <AddressInput label="HOME ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
+                                        </div>
+                                    )) : project.proprietors.map((p, i) => (
+                                        <div key={i} className={styles.ownerStaticCard} role="listitem">
+                                            <h2 className={styles.ownerName}>{p.fullName}</h2>
+                                            <div className={styles.infoColumns}>
+                                                <div className={styles.infoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{p.phoneNumber||'---'}</span></div>
+                                                <div className={styles.infoRow}><FiMail   aria-hidden="true" /><span>{p.email||'---'}</span></div>
+                                                <div className={styles.infoRow}><FiShield aria-hidden="true" /><span>{p.nationalId||'---'}</span></div>
+                                                <div className={styles.infoRow}><FiMapPin aria-hidden="true" /><span>{p.homeAddress||'---'}</span></div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                </section>
-
-                {/* DOCUMENTS + NOTES */}
-                <div className={styles.intelDoubleRow}>
-                    <section className={styles.hwPanel} aria-label="Documents">
-                        <DrawerHeader label="DOCUMENTS" count={docCount} isOpen={drawers.vault} onClick={() => toggleDrawer('vault')} icon={FiUploadCloud} />
-                        <div className={`${styles.panelBody} ${drawers.vault ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.vault}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.compactVault} role="list">
-                                    {docCount === 0 && (
-                                        <div className={styles.emptyState} role="status">
-                                            <FiFileText className={styles.emptyIcon} aria-hidden="true" />
-                                            <span>NO DOCUMENTS ATTACHED</span>
-                                        </div>
-                                    )}
-                                    {binder.documents.map((doc, idx) => (
-                                        <div key={idx} className={styles.docTag} role="listitem">
-                                            <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                            <button
-                                                type="button"
-                                                className={styles.docName}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
-                                                onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}
-                                                title={isPDF(doc.filePath) ? 'Open PDF in new tab' : 'Open ' + doc.fileName}
-                                            >
-                                                {isPDF(doc.filePath) ? '📄 ' : '🖼 '}{doc.fileName}
-                                            </button>
-                                            {isEditing && (
-                                                <button type="button" className={styles.iconBtn}
-                                                    onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
-                                                    <FiTrash2 className={styles.redIcon} aria-hidden="true" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                {isEditing && (
-                                    <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>
-                                        + INGEST NEW SCANS
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </section>
+                )}
 
-                    <section className={styles.hwPanel} aria-label="Notes">
-                        <DrawerHeader label="NOTES" count={noteCount} isOpen={drawers.intel} onClick={() => toggleDrawer('intel')} icon={FiInfo} />
-                        <div className={`${styles.panelBody} ${drawers.intel ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.intel}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.notebookTimeline} role="list">
+                {/* ── DOCUMENTS TAB ── */}
+                {activeTab === 'DOCUMENTS' && (
+                    <section className={styles.hwPanel} aria-label="Documents and Notes">
+                        <div className={styles.panelInner}>
+                            <div className={styles.sectionSubHeader}>DOCUMENTS ({docCount})</div>
+                            <div className={styles.compactVault} role="list" style={{ maxHeight: 'none' }}>
+                                {docCount === 0 && (
+                                    <div className={styles.emptyState} role="status">
+                                        <FiFileText className={styles.emptyIcon} aria-hidden="true" />
+                                        <span>NO DOCUMENTS ATTACHED</span>
+                                    </div>
+                                )}
+                                {binder.documents.map((doc, idx) => (
+                                    <div key={idx} className={styles.docTag} role="listitem">
+                                        <FiFileText className={styles.docIcon} aria-hidden="true" />
+                                        <button
+                                            type="button"
+                                            className={styles.docName}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                                            onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}
+                                            title={isPDF(doc.filePath) ? 'Open PDF in new tab' : 'Open ' + doc.fileName}
+                                        >
+                                            {isPDF(doc.filePath) ? '📄 ' : '🖼 '}{doc.fileName}
+                                        </button>
+                                        {isEditing && (
+                                            <button type="button" className={styles.iconBtn}
+                                                onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
+                                                <FiTrash2 className={styles.redIcon} aria-hidden="true" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {isEditing && (
+                                <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>
+                                    + INGEST NEW SCANS
+                                </button>
+                            )}
+
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 20, paddingTop: 16 }}>
+                                <div className={styles.sectionSubHeader}>NOTES ({noteCount})</div>
+                                <div className={styles.notebookTimeline} role="list" style={{ maxHeight: 'none' }}>
                                     {noteCount === 0 && (
                                         <div className={styles.emptyState} role="status">
                                             <FiInfo className={styles.emptyIcon} aria-hidden="true" />
@@ -1227,7 +1253,8 @@ const FolderPage = () => {
                             </div>
                         </div>
                     </section>
-                </div>
+                )}
+
             </main>
 
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
