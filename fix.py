@@ -22,127 +22,304 @@ def patch(path, old, new, label=""):
 
 
 # ================================================================
-# STAGE 3 (or Stage 1 of the new visual/interaction requirements)
-# OVERVIEW:
-# 1. Parse #financials hash to set default tab
-# 2. Add mobile truncation markup for tab names
-# 3. Add CSS for sticky tab bar (dark navy) and Cinzel section headers
+# STAGE 1: UNSAVED CHANGES GUARD ENFORCEMENT
+# Ensures the warning modal triggers properly whenever in edit mode
 # ================================================================
 
-# ── PATCH 1: Update useState to read hash for default tab ──
-OLD_STATE = "const [activeTab, setActiveTab] = useState('OVERVIEW');"
+OLD_HOOK = """    // Wrap setBuffer so any change marks the form as touched
+    const touchedSetBuffer = React.useCallback((updater) => {
+        touchedRef.current = true;
+        setBuffer(updater);
+    }, []);
 
-NEW_STATE = """const [activeTab, setActiveTab] = useState(() => {
-    return typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('financials') 
-        ? 'FINANCIALS' 
-        : 'OVERVIEW';
-});"""
+    // Unsaved changes guard -- active only while in edit mode and not mid-save
+    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!committing && isEditing && touchedRef.current);
 
-patch(
-    'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    OLD_STATE,
-    NEW_STATE,
-    'FolderPage Stage 3 - hash navigation'
-)
+    useEffect(() => {"""
 
+NEW_HOOK = """    // Wrap setBuffer so any change marks the form as touched
+    const touchedSetBuffer = React.useCallback((updater) => {
+        touchedRef.current = true;
+        setBuffer(updater);
+    }, []);
 
-# ── PATCH 2: Add full/short text spans for mobile tab labels ──
-OLD_TABS = """            {/* TAB BAR */}
-            <div className={styles.tabBar} role="tablist" aria-label="Record sections">
-                {TABS.map(tab => (
-                    <button
-                        key={tab}
-                        role="tab"
-                        aria-selected={activeTab === tab}
-                        className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>"""
+    // Unsaved changes guard -- active only while in edit mode and not mid-save
+    const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
+        useRouterBlock(!committing && isEditing);
 
-NEW_TABS = """            {/* TAB BAR */}
-            <div className={styles.tabBar} role="tablist" aria-label="Record sections">
-                {TABS.map(tab => (
-                    <button
-                        key={tab}
-                        role="tab"
-                        aria-selected={activeTab === tab}
-                        className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                        title={tab}
-                    >
-                        <span className={styles.tabFull}>{tab}</span>
-                        <span className={styles.tabShort}>{tab.substring(0, 2)}</span>
-                    </button>
-                ))}
-            </div>"""
+    useEffect(() => {"""
 
-patch(
-    'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    OLD_TABS,
-    NEW_TABS,
-    'FolderPage Stage 3 - responsive tab markup'
-)
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_HOOK, NEW_HOOK, "FolderPage Guard Hook")
 
 
-# ── PATCH 3: Append sticky styling and Cinzel fonts to CSS ──
-# We hook into the print media query at the bottom to inject the new rules cleanly.
-OLD_PRINT = """/* ═══════════════════════════════════════════════════════════════════
-   PRINT
-   ═══════════════════════════════════════════════════════════════════ */
-@media print {"""
+OLD_UNLOAD = """    // beforeunload -- catches tab close, hard refresh, browser back to external site
+    useEffect(() => {
+        if (!isEditing || committing || !touchedRef.current) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isEditing, committing]);"""
 
-NEW_PRINT = """/* ═══════════════════════════════════════════════════════════════════
-   STAGE 3: VISUAL & INTERACTION REFINEMENTS
-   ═══════════════════════════════════════════════════════════════════ */
+NEW_UNLOAD = """    // beforeunload -- catches tab close, hard refresh, browser back to external site
+    useEffect(() => {
+        if (!isEditing || committing) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isEditing, committing]);"""
 
-/* Sticky Tab Bar with Dark Navy Panel Style */
-.tabBar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 50 !important;
-    background: rgba(22, 42, 44, 0.98) !important; /* Matches terminal header */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding: clamp(10px, 1.5vw, 16px) !important;
-    backdrop-filter: blur(12px);
-    margin: 0 !important;
-}
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_UNLOAD, NEW_UNLOAD, "FolderPage BeforeUnload")
 
-/* Mobile Tab Label Truncation */
-.tabShort { display: none; }
 
-@media (max-width: 600px) {
-    .tabFull { display: none; }
-    .tabShort { display: inline; font-weight: 900; letter-spacing: 1px; }
-    .tabBtn { 
-        padding: 8px 14px !important; 
-        min-width: unset !important;
-        flex: 1;
-    }
-}
+# ================================================================
+# STAGE 2: BACKLOG STATUS & EDIT MODE CONSISTENCY
+# 1. Moves "EXIT BACKLOG" button up to the master terminal header.
+# 2. Makes backlog details READ-ONLY unless edit mode is active.
+# 3. Removes duplicate Payment button to consolidate UI.
+# ================================================================
 
-/* Upgrade Section Headers to Cinzel Serif */
-.finPanelHeader {
-    font-family: 'Cinzel', serif !important;
-    font-size: clamp(12px, 1.2vw, 16px) !important;
-    letter-spacing: 1.5px !important;
-    font-weight: 700 !important;
-}
+OLD_EXIT_HDR = """                            {isAdmin && !isBacklog && (
+                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
+                                </button>
+                            )}
+                            <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
+                                <FiUnlock aria-hidden="true" /> EDIT
+                            </button>"""
 
-/* ═══════════════════════════════════════════════════════════════════
-   PRINT
-   ═══════════════════════════════════════════════════════════════════ */
-@media print {"""
+NEW_EXIT_HDR = """                            {isAdmin && !isBacklog && (
+                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
+                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
+                                </button>
+                            )}
+                            {isAdmin && isBacklog && (
+                                <button className={styles.ctrlBtnBacklog} onClick={handleExitBacklog}>
+                                    <FiAlertOctagon aria-hidden="true" /> EXIT BACKLOG
+                                </button>
+                            )}
+                            <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
+                                <FiUnlock aria-hidden="true" /> EDIT
+                            </button>"""
 
-patch(
-    'erp-frontend/src/pages/DigitalFolder/FolderPage.module.css',
-    OLD_PRINT,
-    NEW_PRINT,
-    'FolderPage.module.css Stage 3 visual updates'
-)
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_EXIT_HDR, NEW_EXIT_HDR, "FolderPage Header Controls")
+
+
+OLD_BACKLOG = """                                {/* Record Payment button — admin only, always visible in this panel */}
+                                {isAdmin && !isEditing && (
+                                    <div className={styles.recordPayBtnRow}>
+                                        <button className={styles.recordPayBtn}
+                                            onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
+                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
+                        {isAdmin && isBacklog && (
+                            <section className={styles.hwPanel} aria-label="Backlog Controls">
+                                <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
+                                    <FiAlertOctagon aria-hidden="true" />
+                                    BACKLOG CONTROLS
+                                    <button onClick={handleExitBacklog} className={styles.btnExitBacklog} style={{marginLeft:'auto'}}>
+                                        EXIT BACKLOG
+                                    </button>
+                                </div>
+                                <div className={styles.panelInner}>
+                                    <div className={styles.inputGrid3}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>MONTHLY STORAGE FEE (UGX)</label></div>
+                                            <input type="number" className={styles.hwInput}
+                                                defaultValue={project.storageFeeOverride || 50000}
+                                                onBlur={async e => {
+                                                    const val = Number(e.target.value);
+                                                    if (val >= 0) {
+                                                        try { await recoveryService.setStorageRate(project.id, val); await loadFolderData(); }
+                                                        catch { /* silent */ }
+                                                    }
+                                                }}
+                                                placeholder="50000" />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>ADJUST ACCUMULATED FEES (UGX)</label></div>
+                                            <input type="number" className={styles.hwInput}
+                                                defaultValue={project.storageFeesAccumulated || 0}
+                                                onBlur={async e => {
+                                                    const val = Number(e.target.value);
+                                                    if (val >= 0) {
+                                                        try { await recoveryService.setAccumulatedFees(project.id, val); await loadFolderData(); }
+                                                        catch { /* silent */ }
+                                                    }
+                                                }}
+                                                placeholder={String(project.storageFeesAccumulated || 0)} />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
+                                            <button type="button"
+                                                className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
+                                                onClick={async () => {
+                                                    try {
+                                                        await recoveryService.pauseStorageFees(id, !project.storagePaused);
+                                                        await loadFolderData();
+                                                        toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
+                                                    } catch { toast('ACTION FAILED', 'error'); }
+                                                }}>
+                                                {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className={styles.inputGrid3} style={{marginTop:8}}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>NEGOTIATION DEADLINE</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                defaultValue={project.negotiationDeadline ? project.negotiationDeadline.substring(0,10) : ''}
+                                                onBlur={async e => {
+                                                    try { await recoveryService.setNegotiationDeadline(project.id, e.target.value || null); await loadFolderData(); toast('DEADLINE UPDATED', 'info', 2000); }
+                                                    catch { /* silent */ }
+                                                }} />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
+                                                onBlur={async e => {
+                                                    if (!e.target.value) return;
+                                                    try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
+                                                    catch { /* silent */ }
+                                                }} />
+                                        </div>
+                                    </div>
+                                    <div className={styles.editBacklogFeeHint}>
+                                        Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
+                                    </div>
+                                </div>
+                            </section>
+                        )}"""
+
+NEW_BACKLOG = """                            </div>
+                        </section>
+
+                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
+                        {isAdmin && isBacklog && (
+                            <section className={styles.hwPanel} aria-label="Backlog Controls">
+                                <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
+                                    <FiAlertOctagon aria-hidden="true" />
+                                    BACKLOG CONTROLS
+                                </div>
+                                <div className={styles.panelInner}>
+                                    {isEditing ? (
+                                        <>
+                                            <div className={styles.inputGrid3}>
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>MONTHLY STORAGE FEE (UGX)</label></div>
+                                                    <input type="number" className={styles.hwInput}
+                                                        defaultValue={project.storageFeeOverride || 50000}
+                                                        onBlur={async e => {
+                                                            const val = Number(e.target.value);
+                                                            if (val >= 0) {
+                                                                try { await recoveryService.setStorageRate(project.id, val); await loadFolderData(); toast('RATE UPDATED', 'success'); }
+                                                                catch { /* silent */ }
+                                                            }
+                                                        }}
+                                                        placeholder="50000" />
+                                                </div>
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>ADJUST ACCUMULATED FEES (UGX)</label></div>
+                                                    <input type="number" className={styles.hwInput}
+                                                        defaultValue={project.storageFeesAccumulated || 0}
+                                                        onBlur={async e => {
+                                                            const val = Number(e.target.value);
+                                                            if (val >= 0) {
+                                                                try { await recoveryService.setAccumulatedFees(project.id, val); await loadFolderData(); toast('FEES ADJUSTED', 'success'); }
+                                                                catch { /* silent */ }
+                                                            }
+                                                        }}
+                                                        placeholder={String(project.storageFeesAccumulated || 0)} />
+                                                </div>
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
+                                                    <button type="button"
+                                                        className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
+                                                        onClick={async () => {
+                                                            try {
+                                                                await recoveryService.pauseStorageFees(id, !project.storagePaused);
+                                                                await loadFolderData();
+                                                                toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
+                                                            } catch { toast('ACTION FAILED', 'error'); }
+                                                        }}>
+                                                        {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className={styles.inputGrid3} style={{marginTop:8}}>
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>NEGOTIATION DEADLINE</label></div>
+                                                    <input type="date" className={styles.hwInput}
+                                                        defaultValue={project.negotiationDeadline ? project.negotiationDeadline.substring(0,10) : ''}
+                                                        onBlur={async e => {
+                                                            try { await recoveryService.setNegotiationDeadline(project.id, e.target.value || null); await loadFolderData(); toast('DEADLINE UPDATED', 'info', 2000); }
+                                                            catch { /* silent */ }
+                                                        }} />
+                                                </div>
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
+                                                    <input type="date" className={styles.hwInput}
+                                                        defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
+                                                        onBlur={async e => {
+                                                            if (!e.target.value) return;
+                                                            try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
+                                                            catch { /* silent */ }
+                                                        }} />
+                                                </div>
+                                            </div>
+                                            <div className={styles.editBacklogFeeHint}>
+                                                Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className={styles.readOnlyGrid}>
+                                            <div className={styles.specItem}>
+                                                <span className={styles.specLabel}>MONTHLY STORAGE FEE</span>
+                                                <span className={styles.specValue}>UGX {fmt(effectiveMonthlyFee)}</span>
+                                            </div>
+                                            <div className={styles.specItem}>
+                                                <span className={styles.specLabel}>FEES STATUS</span>
+                                                <span className={styles.specValue} style={{ color: project.storagePaused ? '#fcd34d' : '#86efac' }}>
+                                                    {project.storagePaused ? 'PAUSED' : 'ACTIVE'}
+                                                </span>
+                                            </div>
+                                            <div className={styles.specItem}>
+                                                <span className={styles.specLabel}>ACCUMULATED FEES</span>
+                                                <span className={styles.specValue}>UGX {fmt(project.storageFeesAccumulated)}</span>
+                                            </div>
+                                            <div className={styles.specItem}>
+                                                <span className={styles.specLabel}>NEGOTIATION DEADLINE</span>
+                                                <span className={styles.specValue}>
+                                                    {project.negotiationDeadline ? new Date(project.negotiationDeadline).toLocaleDateString() : 'NONE'}
+                                                </span>
+                                            </div>
+                                            <div className={styles.specItem}>
+                                                <span className={styles.specLabel}>BACKLOG START DATE</span>
+                                                <span className={styles.specValue}>
+                                                    {project.backlogStartDate ? new Date(project.backlogStartDate).toLocaleDateString() : 'UNKNOWN'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}"""
+
+patch('erp-frontend/src/pages/DigitalFolder/FolderPage.jsx', OLD_BACKLOG, NEW_BACKLOG, "FolderPage Backlog Controls & Buttons")
 
 print()
-print("Stage 1 of UI/Interaction details complete.")
+print("UI Consistency & Unsaved Changes Guard fixes applied.")
 print("Run: py fix.py")
