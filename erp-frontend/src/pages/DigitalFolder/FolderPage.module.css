@@ -512,9 +512,10 @@
 .iconBtn:focus-visible { outline: 2px solid var(--orange); }
 
 
-/* ═══════════════════════════════════════════════════════════════════
-   TAB BAR
-   ═══════════════════════════════════════════════════════════════════ */
+/* =================================================================
+   TAB BAR -- identical to app-standard filter button design
+   Inactive: dark bg. Hover: orange border+text. Active: orange fill.
+   ================================================================= */
 .tabBar {
     display: flex;
     flex-direction: row;
@@ -523,11 +524,12 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 2px;
+    padding-bottom: 4px;
     margin-bottom: clamp(10px, 1.3vw, 14px);
 }
 .tabBar::-webkit-scrollbar { display: none; }
 
+/* Inactive state -- matches all other filter buttons in the app */
 .tabBtn {
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
@@ -540,23 +542,30 @@
     letter-spacing: 1.5px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease,
+                color 0.2s ease, box-shadow 0.2s ease;
     white-space: nowrap;
     flex-shrink: 0;
     line-height: 1;
 }
+/* Hover -- orange tint, same as LedgerPage / PaymentsPage filter hover */
 .tabBtn:hover {
     background: rgba(238, 140, 58, 0.12);
     color: #EE8C3A;
     border-color: #EE8C3A;
 }
+/* Active/selected -- solid orange fill, dark navy text */
 .tabBtnActive {
     background: #EE8C3A !important;
     color: #1a2e30 !important;
     border-color: #EE8C3A !important;
+    font-weight: 900 !important;
     box-shadow: 0 0 14px rgba(238, 140, 58, 0.35);
 }
-.tabBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.tabBtn:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+}
 
 /* ── SECTION SUB HEADER ── */
 .sectionSubHeader {
@@ -1453,38 +1462,7 @@
 .payTypeBtnName { font-family: 'DM Sans', sans-serif; font-size: clamp(10px,1vw,12px); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px; }
 .payTypeBtnSub { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.45); display: block; line-height: 1.4; }
 
-/* Sticky Tab Bar with Dark Navy Panel Style */
-.tabBar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 50 !important;
-    background: rgba(22, 42, 44, 0.98) !important; /* Matches terminal header */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding: clamp(10px, 1.5vw, 16px) !important;
-    backdrop-filter: blur(12px);
-    margin: 0 !important;
-}
-
-/* Mobile Tab Label Truncation */
-.tabShort { display: none; }
-
-@media (max-width: 600px) {
-    .tabFull { display: none; }
-    .tabShort { display: inline; font-weight: 900; letter-spacing: 1px; }
-    .tabBtn { 
-        padding: 8px 14px !important; 
-        min-width: unset !important;
-        flex: 1;
-    }
-}
-
-/* Upgrade Section Headers to Cinzel Serif */
-.finPanelHeader {
-    font-family: 'Cinzel', serif !important;
-    font-size: clamp(12px, 1.2vw, 16px) !important;
-    letter-spacing: 1.5px !important;
-    font-weight: 700 !important;
-}
+/* finPanelHeader Cinzel (no !important overrides needed) */
 
 /* ═══════════════════════════════════════════════════════════════════
    PRINT
@@ -1606,6 +1584,20 @@
 /* ═══════════════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════════ */
+/* ── TAB BAR MOBILE ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .tabFull  { display: none; }
+    .tabShort { display: inline; font-weight: 900; letter-spacing: 1px; }
+    .tabBtn {
+        flex: 1;
+        min-width: 0;
+        padding: clamp(7px, 2vw, 9px) clamp(8px, 2.5vw, 14px) !important;
+        font-size: clamp(8px, 2.5vw, 10px) !important;
+        letter-spacing: 1px !important;
+        justify-content: center;
+    }
+}
+
 @media (max-width: 960px) {
     .pipelineHUD { flex-direction: column; align-items: stretch; }
     .protocolReadout { border-left: none; border-top: 1px solid var(--white-10); padding-left: 0; padding-top: clamp(8px, 1.2vw, 12px); min-width: unset; display: flex; justify-content: space-between; align-items: center; text-align: left; }
