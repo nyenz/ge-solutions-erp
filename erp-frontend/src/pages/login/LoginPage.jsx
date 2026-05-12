@@ -16,7 +16,7 @@ const LoginPage = () => {
     const [error, setError] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('reason') === 'session_conflict') {
-            return 'SECURITY: Your session was terminated because this account logged in from another browser.';
+            return 'Your session ended because this account signed in on another device.';
         }
         if (params.get('reason') === 'idle_timeout') {
             return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';

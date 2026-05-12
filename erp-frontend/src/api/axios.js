@@ -27,8 +27,7 @@ function resetIdleTimer() {
     }, IDLE_MINUTES * 60 * 1000);
 }
 
-// Start the timer immediately when the module loads (user is already logged in)
-resetIdleTimer();
+// Timer resets on every API call via the request interceptor below.
 
 // REQUEST INTERCEPTOR: attach token + reset idle clock on every call
 api.interceptors.request.use(
