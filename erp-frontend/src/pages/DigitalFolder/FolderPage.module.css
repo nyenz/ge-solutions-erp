@@ -1204,6 +1204,203 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   FINANCIALS TAB STACK
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Stack of panels in the financials tab */
+.financialsStack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+}
+
+/* Sub-header bar for each panel inside financials tab */
+.finPanelHeader {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(12px, 1.5vw, 18px);
+    border-bottom: 1px solid rgba(238, 140, 58, 0.18);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.finPanelCount {
+    background: var(--orange-dim);
+    color: var(--orange);
+    border: 1px solid var(--orange-border);
+    border-radius: 20px;
+    padding: clamp(1px, 0.2vw, 3px) clamp(7px, 0.9vw, 10px);
+    font-size: clamp(7px, 0.8vw, 9px);
+    font-weight: 900;
+    letter-spacing: 0;
+    margin-left: clamp(2px, 0.3vw, 4px);
+}
+
+/* Total owed banner for backlog */
+.totalOwedBanner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: clamp(10px, 1.3vw, 14px);
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 8px;
+}
+.totalOwedBanner span {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    color: #fca5a5;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.totalOwedBanner strong {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(15px, 1.8vw, 20px);
+    font-weight: 900;
+    color: #ef4444;
+    text-shadow: 0 0 12px rgba(239,68,68,0.4);
+}
+
+/* Collection progress bar */
+.collectionBar {
+    height: clamp(4px, 0.5vw, 6px);
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: clamp(8px, 1vw, 12px) 0 clamp(4px, 0.5vw, 6px);
+}
+.collectionFill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.2,1,0.3,1);
+    box-shadow: 0 0 8px rgba(238,140,58,0.4);
+}
+
+/* Record Payment button row */
+.recordPayBtnRow {
+    margin-top: clamp(12px, 1.5vw, 16px);
+    display: flex;
+    justify-content: flex-end;
+}
+.recordPayBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(5px, 0.7vw, 7px);
+    height: clamp(34px, 4vw, 40px);
+    padding: 0 clamp(14px, 1.8vw, 20px);
+    background: rgba(16, 185, 129, 0.15);
+    border: 1.5px solid rgba(16, 185, 129, 0.45);
+    color: #34d399;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.recordPayBtn:hover {
+    background: #10b981;
+    color: #1a2e30;
+    border-color: #10b981;
+    box-shadow: 0 0 14px rgba(16,185,129,0.3);
+}
+.recordPayBtn:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+
+/* Payment list */
+.paymentList {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 0.8vw, 9px);
+}
+
+.paymentRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: clamp(10px, 1.4vw, 16px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(12px, 1.5vw, 16px);
+    background: rgba(255,255,255,0.04);
+    border-radius: 7px;
+    border-left: 3px solid #22c55e;
+    transition: background 0.18s;
+}
+.paymentRow:hover { background: rgba(255,255,255,0.07); }
+
+.payRowLeft { display: flex; flex-direction: column; gap: clamp(3px, 0.4vw, 5px); min-width: 0; }
+.payAmount {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(13px, 1.4vw, 16px);
+    font-weight: 700;
+    color: #fff;
+}
+.payMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(5px, 0.6vw, 8px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 800;
+}
+.payType { text-transform: uppercase; letter-spacing: 0.5px; }
+.payBy   { color: rgba(255,255,255,0.4); }
+.payNotes { color: rgba(255,255,255,0.35); font-style: italic; }
+
+.payRowRight { text-align: right; flex-shrink: 0; }
+.payDate    { font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.9vw, 11px); color: rgba(255,255,255,0.5); font-weight: 700; }
+.payBalance { font-family: 'DM Sans', sans-serif; font-size: clamp(8px, 0.82vw, 10px); color: rgba(255,255,255,0.3); font-weight: 800; margin-top: 2px; }
+
+/* Add note inline button (in panel header) */
+.addNoteInlineBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    height: clamp(26px, 3.2vw, 32px);
+    padding: 0 clamp(10px, 1.2vw, 14px);
+    background: var(--orange-dim);
+    border: 1.5px solid var(--orange-border);
+    color: var(--orange);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(8px, 0.82vw, 9px);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.addNoteInlineBtn:hover {
+    background: var(--orange);
+    color: var(--navy);
+}
+.addNoteInlineBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* Note author badge */
+.noteMetaLeft { display: flex; align-items: center; gap: clamp(8px, 1vw, 12px); flex-wrap: wrap; }
+.noteAuthor {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.82vw, 9px);
+    font-weight: 700;
+    color: rgba(26,46,48,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    PRINT
    ═══════════════════════════════════════════════════════════════════ */
 @media print {

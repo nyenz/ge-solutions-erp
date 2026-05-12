@@ -885,7 +885,9 @@ const FolderPage = () => {
 
             <main className={styles.workstationBody} role="tabpanel">
 
-                {/* ── OVERVIEW TAB ── */}
+                {/* ════════════════════════════════════════════════════
+                    OVERVIEW TAB — Plot technical details
+                    ════════════════════════════════════════════════════ */}
                 {activeTab === 'OVERVIEW' && (
                     <section className={styles.hwPanel} aria-label="Plot Details">
                         <div className={styles.panelInner}>
@@ -909,9 +911,16 @@ const FolderPage = () => {
                                 </>
                             ) : (
                                 <div className={styles.readOnlyGrid}>
-                                    {[['PLOT ID',project.landTitle.plotNumber],['TENURE',project.landTitle.tenure],['BOX',project.landTitle.physicalBoxNumber],
-                                      ['DISTRICT',project.landTitle.district],['COUNTY',project.landTitle.county],['BLOCK / ROAD',project.landTitle.blockRoad],
-                                      ['VOLUME',project.landTitle.volume],['FOLIO',project.landTitle.folio],['INSTRUMENT',project.landTitle.instrumentNo]
+                                    {[
+                                        ['PLOT ID',      project.landTitle.plotNumber],
+                                        ['TENURE',       project.landTitle.tenure],
+                                        ['BOX',          project.landTitle.physicalBoxNumber],
+                                        ['DISTRICT',     project.landTitle.district],
+                                        ['COUNTY',       project.landTitle.county],
+                                        ['BLOCK / ROAD', project.landTitle.blockRoad],
+                                        ['VOLUME',       project.landTitle.volume],
+                                        ['FOLIO',        project.landTitle.folio],
+                                        ['INSTRUMENT',   project.landTitle.instrumentNo],
                                     ].map(([l,v],i) => (
                                         <div key={i} className={styles.specItem}>
                                             <span className={styles.specLabel}>{l}</span>
@@ -924,224 +933,281 @@ const FolderPage = () => {
                     </section>
                 )}
 
-                {/* ── FINANCIALS TAB ── */}
+                {/* ════════════════════════════════════════════════════
+                    FINANCIALS TAB — Central hub:
+                    1. Balance Summary
+                    2. Record Payment (admin)
+                    3. Backlog Controls (admin, if backlog)
+                    4. Payment History
+                    5. Notes & Call Log
+                    ════════════════════════════════════════════════════ */}
                 {activeTab === 'FINANCIALS' && (
-                    <section className={styles.hwPanel} aria-label="Financials">
-                        <div className={styles.panelInner}>
-                            {isEditing ? (
-                                <>
-                                <div className={styles.inputGrid3}>
-                                    <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
-                                    <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />
-                                    <div className={styles.hwInputWrap}>
-                                        <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
-                                        <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
-                                    </div>
-                                </div>
-                                {project.isBacklog && (
-                                    <div className={styles.editBacklogFeeSection}>
-                                        <div className={styles.editBacklogFeeTitleRow}>
-                                            <div className={styles.editBacklogFeeTitle}>BACKLOG FEE CONTROLS</div>
-                                            {isAdmin && (
-                                                <button onClick={handleExitBacklog} className={styles.btnExitBacklog}>
-                                                    EXIT BACKLOG
-                                                </button>
-                                            )}
-                                        </div>
+                    <div className={styles.financialsStack}>
+
+                        {/* ── 1. BALANCE SUMMARY ── */}
+                        <section className={styles.hwPanel} aria-label="Balance Summary">
+                            <div className={styles.finPanelHeader}>
+                                <FiCreditCard aria-hidden="true" />
+                                BALANCE SUMMARY
+                            </div>
+                            <div className={styles.panelInner}>
+                                {isEditing ? (
+                                    <>
                                         <div className={styles.inputGrid3}>
+                                            <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
+                                            <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />
                                             <div className={styles.hwInputWrap}>
-                                                <div className={styles.inputLabelRow}>
-                                                    <label>MONTHLY STORAGE FEE (UGX)</label>
-                                                </div>
-                                                <input
-                                                    type="number"
-                                                    className={styles.hwInput}
-                                                    defaultValue={project.storageFeeOverride || 50000}
-                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setStorageRate(project.id, val);
-                                                                await loadFolderData();
-                                                            } catch { /* silent */ }
-                                                        }
-                                                    }}
-                                                    placeholder="50000"
-                                                />
-                                            </div>
-                                            <div className={styles.hwInputWrap}>
-                                                <div className={styles.inputLabelRow}>
-                                                    <label>ADJUST TOTAL FEES (UGX)</label>
-                                                </div>
-                                                <input
-                                                    type="number"
-                                                    className={styles.hwInput}
-                                                    defaultValue={project.storageFeesAccumulated || 0}
-                                                    onBlur={async e => {
-                                                        const val = Number(e.target.value);
-                                                        if (val >= 0) {
-                                                            try {
-                                                                await recoveryService.setAccumulatedFees(project.id, val);
-                                                                await loadFolderData();
-                                                            } catch { /* silent */ }
-                                                        }
-                                                    }}
-                                                    placeholder={String(project.storageFeesAccumulated || 0)}
-                                                />
-                                            </div>
-                                            <div className={styles.hwInputWrap}>
-                                                <div className={styles.inputLabelRow}>
-                                                    <label>FEES STATUS</label>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
-                                                    onClick={async () => {
-                                                        try {
-                                                            await recoveryService.pauseStorageFees(id, !project.storagePaused);
-                                                            await loadFolderData();
-                                                            toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
-                                                        } catch { toast('ACTION FAILED', 'error'); }
-                                                    }}
-                                                >
-                                                    {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
-                                                </button>
+                                                <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
+                                                <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
                                             </div>
                                         </div>
-                                        <div className={styles.editBacklogFeeHint}>
-                                            Changes apply immediately. Current monthly fee: UGX {fmt(effectiveMonthlyFee)} (default 50,000 if not set).
+                                    </>
+                                ) : isBacklog ? (
+                                    <>
+                                        <div className={styles.backlogNotice}>
+                                            <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
+                                            <div className={styles.backlogNoticeText}>
+                                                <strong>STORAGE FEES ACTIVE</strong>
+                                                <span>UGX {fmt(effectiveMonthlyFee)}/month accumulates until full balance is cleared</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                                </>
-                            ) : isBacklog ? (
-                                <div>
-                                    <div className={styles.backlogNotice}>
-                                        <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
-                                        <div className={styles.backlogNoticeText}>
-                                            <strong>STORAGE FEES ACTIVE</strong>
-                                            <span>UGX {fmt(effectiveMonthlyFee)} is added every month until the full balance is cleared</span>
-                                        </div>
-                                    </div>
-                                    <div className={styles.moneyStatsRow}>
-                                        <div className={styles.statBox}>
-                                            <label>ORIGINAL DEBT</label>
-                                            <strong>UGX {fmt(origDebt)}</strong>
-                                        </div>
-                                        <div className={styles.statBox}>
-                                            <label style={{color:'#ef4444'}}>STORAGE FEES ADDED</label>
-                                            <strong className={styles.redGlow}>UGX {fmt(storageFees)}</strong>
-                                            <small style={{opacity:0.6, fontSize:'0.7rem'}}>
-                                                {project.backlogStartDate
-                                                    ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()} @ UGX ${fmt(effectiveMonthlyFee)}/mo`
-                                                    : `UGX ${fmt(effectiveMonthlyFee)}/month`}
-                                            </small>
-                                        </div>
-                                        <div className={styles.statBox}>
-                                            <label>TOTAL PAID (ALL)</label>
-                                            <strong>UGX {fmt(amountPaid)}</strong>
-                                        </div>
-                                    </div>
-                                    <div style={{ borderTop: '1px solid rgba(239,68,68,0.3)', marginTop: 12, paddingTop: 12 }}>
                                         <div className={styles.moneyStatsRow}>
-                                            <div className={styles.statBox} style={{ gridColumn: '1/-1' }}>
-                                                <label style={{color:'#ef4444'}}>TOTAL NOW OWED</label>
-                                                <strong className={styles.redGlow} style={{fontSize:'1.4rem'}}>
-                                                    UGX {fmt(Math.max(0, backlogOwed))}
-                                                </strong>
-                                                <small style={{opacity:0.6, fontSize:'0.7rem'}}>
-                                                    = Original debt + storage fees -- payments made
+                                            <div className={styles.statBox}>
+                                                <label>ORIGINAL DEBT</label>
+                                                <strong>UGX {fmt(origDebt)}</strong>
+                                            </div>
+                                            <div className={styles.statBox}>
+                                                <label style={{color:'#ef4444'}}>+ STORAGE FEES</label>
+                                                <strong className={styles.redGlow}>UGX {fmt(storageFees)}</strong>
+                                                <small style={{opacity:0.5,fontSize:'0.7rem'}}>
+                                                    {project.backlogStartDate
+                                                        ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()}`
+                                                        : 'UGX ' + fmt(effectiveMonthlyFee) + '/month'}
                                                 </small>
                                             </div>
+                                            <div className={styles.statBox}>
+                                                <label>- PAYMENTS MADE</label>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</strong>
+                                            </div>
+                                        </div>
+                                        <div className={styles.totalOwedBanner}>
+                                            <span>TOTAL NOW OWED</span>
+                                            <strong>UGX {fmt(Math.max(0, backlogOwed))}</strong>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className={styles.moneyStatsRow}>
+                                            <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
+                                            <div className={styles.statBox}><label>COLLECTED</label><strong style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</strong></div>
+                                            <div className={styles.statBox}><label>ARREARS</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
+                                        </div>
+                                        <div className={styles.collectionBar}>
+                                            <div className={styles.collectionFill}
+                                                style={{width: totalCost > 0 ? `${Math.min(100,(amountPaid/totalCost)*100)}%` : '0%'}} />
+                                        </div>
+                                        <div className={styles.velocityNote}>
+                                            <FiClock aria-hidden="true" />
+                                            <span>COLLECTION: <strong>{(binder.collectionPercentage||0).toFixed(1)}%</strong></span>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Record Payment button — admin only, always visible in this panel */}
+                                {isAdmin && !isEditing && (
+                                    <div className={styles.recordPayBtnRow}>
+                                        <button className={styles.recordPayBtn}
+                                            onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>
+                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
+                        {isAdmin && isBacklog && (
+                            <section className={styles.hwPanel} aria-label="Backlog Controls">
+                                <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
+                                    <FiAlertOctagon aria-hidden="true" />
+                                    BACKLOG CONTROLS
+                                    <button onClick={handleExitBacklog} className={styles.btnExitBacklog} style={{marginLeft:'auto'}}>
+                                        EXIT BACKLOG
+                                    </button>
+                                </div>
+                                <div className={styles.panelInner}>
+                                    <div className={styles.inputGrid3}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>MONTHLY STORAGE FEE (UGX)</label></div>
+                                            <input type="number" className={styles.hwInput}
+                                                defaultValue={project.storageFeeOverride || 50000}
+                                                onBlur={async e => {
+                                                    const val = Number(e.target.value);
+                                                    if (val >= 0) {
+                                                        try { await recoveryService.setStorageRate(project.id, val); await loadFolderData(); }
+                                                        catch { /* silent */ }
+                                                    }
+                                                }}
+                                                placeholder="50000" />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>ADJUST ACCUMULATED FEES (UGX)</label></div>
+                                            <input type="number" className={styles.hwInput}
+                                                defaultValue={project.storageFeesAccumulated || 0}
+                                                onBlur={async e => {
+                                                    const val = Number(e.target.value);
+                                                    if (val >= 0) {
+                                                        try { await recoveryService.setAccumulatedFees(project.id, val); await loadFolderData(); }
+                                                        catch { /* silent */ }
+                                                    }
+                                                }}
+                                                placeholder={String(project.storageFeesAccumulated || 0)} />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
+                                            <button type="button"
+                                                className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
+                                                onClick={async () => {
+                                                    try {
+                                                        await recoveryService.pauseStorageFees(id, !project.storagePaused);
+                                                        await loadFolderData();
+                                                        toast(project.storagePaused ? 'FEES RESUMED' : 'FEES PAUSED', 'info', 2500);
+                                                    } catch { toast('ACTION FAILED', 'error'); }
+                                                }}>
+                                                {project.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                                            </button>
                                         </div>
                                     </div>
-
-                                    {/* PAYMENT HISTORY inside financials tab */}
-                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 16, paddingTop: 16 }}>
-                                        <div className={styles.sectionSubHeader}>PAYMENT HISTORY</div>
-                                        {paymentCount === 0 ? (
-                                            <div className={styles.emptyState} role="status">
-                                                <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
-                                                <span>NO PAYMENTS RECORDED</span>
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                {payments.map((pay, i) => (
-                                                    <div key={pay.id || i} style={{
-                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                        padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
-                                                        borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>UGX {fmt(pay.amountPaid)}</div>
-                                                            <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
-                                                                {pay.paymentType} · by {pay.recordedBy}{pay.notes ? ` · ${pay.notes}` : ''}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>{new Date(pay.timestamp).toLocaleDateString()}</div>
-                                                            {pay.balanceAfter != null && (
-                                                                <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>Balance after: UGX {fmt(pay.balanceAfter)}</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                    <div className={styles.inputGrid3} style={{marginTop:8}}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>NEGOTIATION DEADLINE</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                defaultValue={project.negotiationDeadline ? project.negotiationDeadline.substring(0,10) : ''}
+                                                onBlur={async e => {
+                                                    try { await recoveryService.setNegotiationDeadline(project.id, e.target.value || null); await loadFolderData(); toast('DEADLINE UPDATED', 'info', 2000); }
+                                                    catch { /* silent */ }
+                                                }} />
+                                        </div>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
+                                                onBlur={async e => {
+                                                    if (!e.target.value) return;
+                                                    try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
+                                                    catch { /* silent */ }
+                                                }} />
+                                        </div>
+                                    </div>
+                                    <div className={styles.editBacklogFeeHint}>
+                                        Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
                                     </div>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className={styles.moneyStatsRow}>
-                                        <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
-                                        <div className={styles.statBox}><label>COLLECTED</label><strong>UGX {fmt(amountPaid)}</strong></div>
-                                        <div className={styles.statBox}><label>ARREARS</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
-                                    </div>
-                                    <div className={styles.velocityNote}>
-                                        <FiClock aria-hidden="true" />
-                                        <span>COLLECTION PERFORMANCE: <strong>{(binder.collectionPercentage||0).toFixed(1)}%</strong></span>
-                                    </div>
+                            </section>
+                        )}
 
-                                    {/* PAYMENT HISTORY inside financials tab */}
-                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 16, paddingTop: 16 }}>
-                                        <div className={styles.sectionSubHeader}>PAYMENT HISTORY</div>
-                                        {paymentCount === 0 ? (
-                                            <div className={styles.emptyState} role="status">
-                                                <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
-                                                <span>NO PAYMENTS RECORDED</span>
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                {payments.map((pay, i) => (
-                                                    <div key={pay.id || i} style={{
-                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                        padding: '10px 14px', background: 'rgba(255,255,255,0.04)',
-                                                        borderRadius: 6, borderLeft: `3px solid ${pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : '#22c55e'}`
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>UGX {fmt(pay.amountPaid)}</div>
-                                                            <div style={{ fontSize: '0.72rem', opacity: 0.6 }}>
-                                                                {pay.paymentType} · by {pay.recordedBy}{pay.notes ? ` · ${pay.notes}` : ''}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>{new Date(pay.timestamp).toLocaleDateString()}</div>
-                                                            {pay.balanceAfter != null && (
-                                                                <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>Balance after: UGX {fmt(pay.balanceAfter)}</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                        {/* ── 3. PAYMENT HISTORY ── */}
+                        <section className={styles.hwPanel} aria-label="Payment History">
+                            <div className={styles.finPanelHeader}>
+                                <FiActivity aria-hidden="true" />
+                                PAYMENT HISTORY
+                                <span className={styles.finPanelCount}>{paymentCount}</span>
+                            </div>
+                            <div className={styles.panelInner}>
+                                {paymentCount === 0 ? (
+                                    <div className={styles.emptyState} role="status">
+                                        <FiDollarSign className={styles.emptyIcon} aria-hidden="true" />
+                                        <span>NO PAYMENTS RECORDED YET</span>
                                     </div>
-                                </>
-                            )}
-                        </div>
-                    </section>
+                                ) : (
+                                    <div className={styles.paymentList}>
+                                        {payments.map((pay, i) => (
+                                            <div key={pay.id || i} className={styles.paymentRow}
+                                                style={{borderLeftColor: pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>
+                                                <div className={styles.payRowLeft}>
+                                                    <div className={styles.payAmount}>UGX {fmt(pay.amountPaid)}</div>
+                                                    <div className={styles.payMeta}>
+                                                        <span className={styles.payType}
+                                                            style={{color: pay.paymentType === 'BACKLOG_PARTIAL' ? '#fca5a5' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#67e8f9' : '#86efac'}}>
+                                                            {pay.paymentType === 'STANDARD' ? 'Title Payment'
+                                                            : pay.paymentType === 'INITIAL_DEPOSIT' ? 'Initial Deposit'
+                                                            : pay.paymentType === 'BACKLOG_PARTIAL' ? 'Backlog Payment'
+                                                            : pay.paymentType}
+                                                        </span>
+                                                        <span className={styles.payBy}>by {pay.recordedBy}</span>
+                                                        {pay.notes && <span className={styles.payNotes}>{pay.notes}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className={styles.payRowRight}>
+                                                    <div className={styles.payDate}>{new Date(pay.timestamp).toLocaleDateString()}</div>
+                                                    {pay.balanceAfter != null && (
+                                                        <div className={styles.payBalance}>Bal: UGX {fmt(pay.balanceAfter)}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── 4. NOTES & CALL LOG ── */}
+                        <section className={styles.hwPanel} aria-label="Notes and Call Log">
+                            <div className={styles.finPanelHeader}>
+                                <FiInfo aria-hidden="true" />
+                                NOTES & CALL LOG
+                                <span className={styles.finPanelCount}>{noteCount}</span>
+                                {isEditing && (
+                                    <button type="button" className={styles.addNoteInlineBtn}
+                                        onClick={() => setNoteModal({open:true,id:null,content:''})}>
+                                        + ADD NOTE
+                                    </button>
+                                )}
+                            </div>
+                            <div className={styles.panelInner}>
+                                {noteCount === 0 ? (
+                                    <div className={styles.emptyState} role="status">
+                                        <FiInfo className={styles.emptyIcon} aria-hidden="true" />
+                                        <span>NO NOTES LOGGED YET</span>
+                                    </div>
+                                ) : (
+                                    <div className={styles.notebookTimeline} role="list">
+                                        {binder.notes.map((log, i) => (
+                                            <article key={i} className={styles.ruledNote} role="listitem">
+                                                <div className={styles.noteMeta}>
+                                                    <div className={styles.noteMetaLeft}>
+                                                        <time className={styles.noteTime} dateTime={log.timestamp}>
+                                                            {new Date(log.timestamp).toLocaleDateString()}
+                                                        </time>
+                                                        <span className={styles.noteAuthor}>by {log.recordedBy}</span>
+                                                    </div>
+                                                    {isEditing && (
+                                                        <div className={styles.actionBlock}>
+                                                            <button type="button" className={styles.iconBtn}
+                                                                onClick={() => setNoteModal({open:true,id:log.id,content:log.notes})}>
+                                                                <FiEdit3 className={styles.editIcon} aria-hidden="true" />
+                                                            </button>
+                                                            <button type="button" className={styles.iconBtn}
+                                                                onClick={() => handleDeleteNote(log.id)}>
+                                                                <FiTrash2 className={styles.redIcon} aria-hidden="true" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className={styles.noteContent}>{log.notes}</p>
+                                            </article>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                    </div>
                 )}
 
-                {/* ── OWNERS TAB ── */}
+                {/* ════════════════════════════════════════════════════
+                    OWNERS TAB
+                    ════════════════════════════════════════════════════ */}
                 {activeTab === 'OWNERS' && (
                     <section className={styles.hwPanel} aria-label="Owners">
                         <div className={styles.panelInner}>
@@ -1173,84 +1239,63 @@ const FolderPage = () => {
                     </section>
                 )}
 
-                {/* ── DOCUMENTS TAB ── */}
+                {/* ════════════════════════════════════════════════════
+                    DOCUMENTS TAB — Files + upload
+                    ════════════════════════════════════════════════════ */}
                 {activeTab === 'DOCUMENTS' && (
-                    <section className={styles.hwPanel} aria-label="Documents and Notes">
-                        <div className={styles.panelInner}>
-                            <div className={styles.sectionSubHeader}>DOCUMENTS ({docCount})</div>
-                            <div className={styles.compactVault} role="list" style={{ maxHeight: 'none' }}>
-                                {docCount === 0 && (
-                                    <div className={styles.emptyState} role="status">
-                                        <FiFileText className={styles.emptyIcon} aria-hidden="true" />
-                                        <span>NO DOCUMENTS ATTACHED</span>
-                                    </div>
-                                )}
-                                {binder.documents.map((doc, idx) => (
-                                    <div key={idx} className={styles.docTag} role="listitem">
-                                        <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                        <button
-                                            type="button"
-                                            className={styles.docName}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
-                                            onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}
-                                            title={isPDF(doc.filePath) ? 'Open PDF in new tab' : 'Open ' + doc.fileName}
-                                        >
-                                            {isPDF(doc.filePath) ? '📄 ' : '🖼 '}{doc.fileName}
-                                        </button>
-                                        {isEditing && (
-                                            <button type="button" className={styles.iconBtn}
-                                                onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
-                                                <FiTrash2 className={styles.redIcon} aria-hidden="true" />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                    <section className={styles.hwPanel} aria-label="Documents">
+                        <div className={styles.finPanelHeader}>
+                            <FiUploadCloud aria-hidden="true" />
+                            DOCUMENTS
+                            <span className={styles.finPanelCount}>{docCount}</span>
                             {isEditing && (
-                                <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>
-                                    + INGEST NEW SCANS
+                                <button type="button" className={styles.addNoteInlineBtn}
+                                    onClick={() => fileInputRef.current?.click()}>
+                                    + UPLOAD SCANS
                                 </button>
                             )}
-
-                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 20, paddingTop: 16 }}>
-                                <div className={styles.sectionSubHeader}>NOTES ({noteCount})</div>
-                                <div className={styles.notebookTimeline} role="list" style={{ maxHeight: 'none' }}>
-                                    {noteCount === 0 && (
-                                        <div className={styles.emptyState} role="status">
-                                            <FiInfo className={styles.emptyIcon} aria-hidden="true" />
-                                            <span>NO NOTES LOGGED</span>
-                                        </div>
+                        </div>
+                        <div className={styles.panelInner}>
+                            {docCount === 0 ? (
+                                <div className={styles.emptyState} role="status">
+                                    <FiUploadCloud className={styles.emptyIcon} aria-hidden="true" />
+                                    <span>NO DOCUMENTS ATTACHED</span>
+                                    {isEditing && (
+                                        <button type="button" className={styles.addDocBtn}
+                                            onClick={() => fileInputRef.current?.click()}>
+                                            + INGEST NEW SCANS
+                                        </button>
                                     )}
-                                    {binder.notes.map((log, i) => (
-                                        <article key={i} className={styles.ruledNote} role="listitem">
-                                            <div className={styles.noteMeta}>
-                                                <time className={styles.noteTime} dateTime={log.timestamp}>
-                                                    {new Date(log.timestamp).toLocaleDateString()}
-                                                </time>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className={styles.compactVault} role="list">
+                                        {binder.documents.map((doc, idx) => (
+                                            <div key={idx} className={styles.docTag} role="listitem">
+                                                <FiFileText className={styles.docIcon} aria-hidden="true" />
+                                                <button type="button" className={styles.docName}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                                                    onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}
+                                                    title={isPDF(doc.filePath) ? 'Open PDF in new tab' : 'Open ' + doc.fileName}>
+                                                    {isPDF(doc.filePath) ? '📄 ' : '🖼 '}{doc.fileName}
+                                                </button>
                                                 {isEditing && (
-                                                    <div className={styles.actionBlock}>
-                                                        <button type="button" className={styles.iconBtn}
-                                                            onClick={() => setNoteModal({open:true,id:log.id,content:log.notes})}>
-                                                            <FiEdit3 className={styles.editIcon} aria-hidden="true" />
-                                                        </button>
-                                                        <button type="button" className={styles.iconBtn}
-                                                            onClick={() => handleDeleteNote(log.id)}>
-                                                            <FiTrash2 className={styles.redIcon} aria-hidden="true" />
-                                                        </button>
-                                                    </div>
+                                                    <button type="button" className={styles.iconBtn}
+                                                        onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>
+                                                        <FiTrash2 className={styles.redIcon} aria-hidden="true" />
+                                                    </button>
                                                 )}
                                             </div>
-                                            <p className={styles.noteContent}>{log.notes}</p>
-                                        </article>
-                                    ))}
-                                </div>
-                                {isEditing && (
-                                    <button type="button" className={styles.addNoteBtn}
-                                        onClick={() => setNoteModal({open:true,id:null,content:''})}>
-                                        + ADD NOTE
-                                    </button>
-                                )}
-                            </div>
+                                        ))}
+                                    </div>
+                                    {isEditing && (
+                                        <button type="button" className={styles.addDocBtn}
+                                            onClick={() => fileInputRef.current?.click()}>
+                                            + INGEST MORE SCANS
+                                        </button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </section>
                 )}
