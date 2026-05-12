@@ -13,15 +13,17 @@ import styles from './PaymentsPage.module.css';
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 const TYPE_LABELS = {
-    STANDARD:        'Title Payment',
-    INITIAL_DEPOSIT: 'Initial Deposit',
-    BACKLOG_PARTIAL: 'Backlog Payment',
+    STANDARD:            'Title Payment',
+    INITIAL_DEPOSIT:     'Initial Deposit',
+    BACKLOG_PARTIAL:     'Backlog Payment',
+    MONTHLY_INSTALMENT:  'Monthly Instalment',
 };
 
 const TYPE_COLORS = {
-    STANDARD:        '#22c55e',
-    INITIAL_DEPOSIT: '#06b6d4',
-    BACKLOG_PARTIAL: '#ef4444',
+    STANDARD:            '#22c55e',
+    INITIAL_DEPOSIT:     '#06b6d4',
+    BACKLOG_PARTIAL:     '#ef4444',
+    MONTHLY_INSTALMENT:  '#a78bfa',
 };
 
 const PaymentsPage = () => {
@@ -135,7 +137,7 @@ const PaymentsPage = () => {
                     )}
                 </div>
                 <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
+                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL', 'MONTHLY_INSTALMENT'].map(t => (
                         <button key={t}
                             className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
                             onClick={() => setTypeFilter(t)}>

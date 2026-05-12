@@ -340,6 +340,19 @@
 }
 .payBtnBacklog:hover { background:#ef4444 !important; color:#fff !important; border-color:#ef4444 !important; }
 
+/* Monthly instalment button — cyan/teal to distinguish from title(green) and backlog(red) */
+.payBtnMonthly {
+    background:rgba(6,182,212,0.15);
+    border:1.5px solid rgba(6,182,212,0.45);
+    color:#67e8f9;
+    font-family:'DM Sans',sans-serif; font-weight:900;
+    border-radius:var(--radius-sm); font-size:var(--fs-badge);
+    padding:clamp(5px,0.6vw,7px) clamp(8px,1vw,11px);
+    cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+    gap:4px; transition:all 0.2s; white-space:nowrap;
+}
+.payBtnMonthly:hover { background:#06b6d4; color:#1a2e30; border-color:#06b6d4; }
+
 /* ── CARD ACTIONS ── */
 .cardActions { display:flex; gap:var(--gap-md); flex-wrap:wrap; }
 .logCallBtn {

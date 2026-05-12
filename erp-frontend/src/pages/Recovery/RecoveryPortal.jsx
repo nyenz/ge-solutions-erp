@@ -9,7 +9,7 @@ import {
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
     FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
-    FiArchive, FiZap, FiSettings
+    FiArchive, FiZap, FiSettings, FiRepeat
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -218,6 +218,181 @@ const PaymentModal = ({ open, plot, onClose, onPay, paying }) => {
     );
 };
 
+// ── MONTHLY INSTALLMENT MODAL ───────────────────────────────────
+// Separate payment scheme: client pays a fixed monthly instalment
+// toward their title cost. Distinct from backlog/storage payments.
+const MonthlyInstallmentModal = ({ open, plot, onClose, onPay, paying }) => {
+    const [amount, setAmount]   = React.useState('');
+    const [notes,  setNotes]    = React.useState('');
+    const [period, setPeriod]   = React.useState('');   // e.g. "May 2026"
+
+    React.useEffect(() => {
+        if (open) {
+            setAmount('');
+            setNotes('');
+            // Auto-fill current month as default period label
+            const now = new Date();
+            setPeriod(now.toLocaleString('default', { month: 'long', year: 'numeric' }));
+        }
+    }, [open]);
+
+    if (!plot) return null;
+
+    const balance  = Number(plot.currentBalance  || 0);
+    const paid     = Number(plot.amountPaid      || 0);
+    const total    = Number(plot.totalCost       || 0);
+    const pct      = total > 0 ? Math.round((paid / total) * 100) : 0;
+
+    const handleSubmit = () => {
+        if (!amount || Number(amount) <= 0) return;
+        const fullNotes = `[MONTHLY INSTALMENT${period ? ' - ' + period : ''}]${notes ? ' ' + notes : ''}`;
+        onPay(plot, amount, fullNotes, 'MONTHLY');
+    };
+
+    return (
+        <HardwareModal isOpen={open} onClose={onClose}
+            title={'MONTHLY INSTALMENT — ' + plot.plotNumber}>
+
+            {/* Summary strip */}
+            <div style={{
+                background: 'rgba(6,182,212,0.08)',
+                border: '1px solid rgba(6,182,212,0.25)',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 16,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 10,
+            }}>
+                <div>
+                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(255,255,255,0.4)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
+                        TOTAL COST
+                    </div>
+                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#fff'}}>
+                        UGX {total.toLocaleString()}
+                    </div>
+                </div>
+                <div>
+                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(255,255,255,0.4)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
+                        PAID SO FAR
+                    </div>
+                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#86efac'}}>
+                        UGX {paid.toLocaleString()}
+                    </div>
+                </div>
+                <div>
+                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(252,165,165,0.8)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
+                        OUTSTANDING
+                    </div>
+                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#fca5a5'}}>
+                        UGX {Math.max(0,balance).toLocaleString()}
+                    </div>
+                </div>
+                {/* Progress bar spanning full width */}
+                <div style={{gridColumn:'1/-1'}}>
+                    <div style={{height:4,background:'rgba(255,255,255,0.08)',borderRadius:4,overflow:'hidden',marginTop:4}}>
+                        <div style={{height:'100%',width:pct+'%',background:'#06b6d4',borderRadius:4,transition:'width 0.4s ease'}} />
+                    </div>
+                    <div style={{fontFamily:'Space Mono,monospace',fontSize:9,color:'rgba(255,255,255,0.3)',marginTop:3}}>{pct}% collected</div>
+                </div>
+            </div>
+
+            {/* Period label */}
+            <div style={{marginBottom:14}}>
+                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
+                    INSTALMENT PERIOD
+                </label>
+                <input
+                    type="text"
+                    value={period}
+                    onChange={e => setPeriod(e.target.value)}
+                    placeholder="e.g. May 2026"
+                    style={{
+                        width:'100%', padding:'10px 12px',
+                        borderRadius:8,
+                        background:'rgba(255,255,255,0.07)',
+                        border:'1.5px solid rgba(255,255,255,0.18)',
+                        color:'rgba(255,255,255,0.9)',
+                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:700,
+                        outline:'none', boxSizing:'border-box',
+                    }}
+                />
+            </div>
+
+            {/* Amount */}
+            <div style={{marginBottom:14}}>
+                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
+                    AMOUNT RECEIVED (UGX)
+                </label>
+                <input
+                    type="number"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    placeholder="Enter instalment amount..."
+                    autoFocus
+                    style={{
+                        width:'100%', padding:'10px 12px',
+                        borderRadius:8,
+                        background:'rgba(255,255,255,0.07)',
+                        border:'1.5px solid rgba(6,182,212,0.4)',
+                        color:'rgba(255,255,255,0.9)',
+                        fontFamily:'Space Mono,monospace', fontSize:14, fontWeight:700,
+                        outline:'none', boxSizing:'border-box',
+                    }}
+                />
+            </div>
+
+            {/* Notes */}
+            <div style={{marginBottom:16}}>
+                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
+                    NOTES (optional)
+                </label>
+                <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="e.g. MTN Mobile Money, cash..."
+                    rows={3}
+                    style={{
+                        width:'100%', padding:'10px 12px',
+                        borderRadius:8,
+                        background:'rgba(255,255,255,0.07)',
+                        border:'1.5px solid rgba(255,255,255,0.15)',
+                        color:'rgba(255,255,255,0.9)',
+                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:700,
+                        outline:'none', resize:'vertical', boxSizing:'border-box',
+                    }}
+                />
+            </div>
+
+            <div style={{display:'flex',justifyContent:'flex-end',gap:10,paddingTop:12,borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+                <button onClick={onClose} style={{
+                    padding:'0 16px', height:38,
+                    background:'rgba(255,255,255,0.06)',
+                    border:'1.5px solid rgba(255,255,255,0.2)',
+                    borderRadius:8, color:'rgba(255,255,255,0.7)',
+                    fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,
+                    textTransform:'uppercase',letterSpacing:1.5,cursor:'pointer',
+                }}>
+                    CANCEL
+                </button>
+                <button onClick={handleSubmit} disabled={paying} style={{
+                    padding:'0 20px', height:38,
+                    background:'#06b6d4',
+                    border:'none',
+                    borderRadius:8, color:'#1a2e30',
+                    fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,
+                    textTransform:'uppercase',letterSpacing:1.5,cursor:'pointer',
+                    display:'flex',alignItems:'center',gap:7,
+                    opacity: paying ? 0.5 : 1,
+                }}>
+                    <FiRepeat size={13} />
+                    {paying ? 'PROCESSING...' : 'RECORD INSTALMENT'}
+                </button>
+            </div>
+        </HardwareModal>
+    );
+};
+
 // ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
 // Shows directly on each backlog plot card so admin can set monthly fee
 // without opening a separate modal
@@ -404,6 +579,7 @@ const RecoveryPortal = () => {
 
     const [payModal,      setPayModal]      = useState({ open: false, plot: null });
     const [paying,        setPaying]        = useState(false);
+    const [monthlyModal,  setMonthlyModal]  = useState({ open: false, plot: null });
 
     const callDirty = callModal.open && logContent.trim() !== '';
     const isDirty   = callDirty;
@@ -607,7 +783,23 @@ const RecoveryPortal = () => {
                                             <div className={styles.plotCardLeft}>
                                                 <PaymentBadge badge={plot.paymentHealthBadge} />
                                                 <div>
-                                                    <div className={styles.plotNum}>{plot.plotNumber}</div>
+                                                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                        <span className={styles.plotNum}>{plot.plotNumber}</span>
+                                                        {plot.isBacklog && (
+                                                            <span style={{
+                                                                display:'inline-flex',alignItems:'center',gap:3,
+                                                                background:'rgba(239,68,68,0.18)',
+                                                                border:'1px solid rgba(239,68,68,0.45)',
+                                                                borderRadius:4,padding:'1px 6px',
+                                                                fontFamily:'DM Sans,sans-serif',fontSize:7,
+                                                                fontWeight:900,color:'#fca5a5',
+                                                                textTransform:'uppercase',letterSpacing:0.8,
+                                                                flexShrink:0,
+                                                            }}>
+                                                                <FiAlertOctagon size={7} /> BACKLOG
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className={styles.plotBoxNum}>Box: {plot.physicalBoxNumber}</div>
                                                 </div>
                                             </div>
@@ -619,6 +811,12 @@ const RecoveryPortal = () => {
                                                     <button className={styles.payBtnTitle}
                                                         onClick={() => setPayModal({ open: true, plot })}>
                                                         <FiDollarSign size={12} /> PAY
+                                                    </button>
+                                                )}
+                                                {isAdmin && (
+                                                    <button className={styles.payBtnMonthly}
+                                                        onClick={() => setMonthlyModal({ open: true, plot })}>
+                                                        <FiRepeat size={12} /> INSTALMENT
                                                     </button>
                                                 )}
                                             </div>
@@ -666,7 +864,22 @@ const RecoveryPortal = () => {
                                             <div className={styles.plotCardLeft}>
                                                 <PaymentBadge badge={plot.paymentHealthBadge} />
                                                 <div>
-                                                    <div className={styles.plotNum}>{plot.plotNumber}</div>
+                                                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                        <span className={styles.plotNum}>{plot.plotNumber}</span>
+                                                        <span style={{
+                                                            display:'inline-flex',alignItems:'center',gap:3,
+                                                            background:'rgba(239,68,68,0.22)',
+                                                            border:'1px solid rgba(239,68,68,0.55)',
+                                                            borderRadius:4,padding:'1px 6px',
+                                                            fontFamily:'DM Sans,sans-serif',fontSize:7,
+                                                            fontWeight:900,color:'#fca5a5',
+                                                            textTransform:'uppercase',letterSpacing:0.8,
+                                                            flexShrink:0,
+                                                            animation:'criticalPulse 1.8s ease-in-out infinite',
+                                                        }}>
+                                                            <FiAlertOctagon size={7} /> BACKLOG
+                                                        </span>
+                                                    </div>
                                                     <div className={styles.plotBoxNum}>Box: {plot.physicalBoxNumber} · {plot.storageMonthsCount}mo in backlog</div>
                                                 </div>
                                             </div>
@@ -888,6 +1101,15 @@ const RecoveryPortal = () => {
                 open={payModal.open}
                 plot={payModal.plot}
                 onClose={() => setPayModal({ open: false, plot: null })}
+                onPay={handleRecordPayment}
+                paying={paying}
+            />
+
+            {/* MONTHLY INSTALMENT MODAL */}
+            <MonthlyInstallmentModal
+                open={monthlyModal.open}
+                plot={monthlyModal.plot}
+                onClose={() => setMonthlyModal({ open: false, plot: null })}
                 onPay={handleRecordPayment}
                 paying={paying}
             />
