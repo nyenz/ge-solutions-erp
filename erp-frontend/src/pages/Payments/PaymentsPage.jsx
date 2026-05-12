@@ -195,9 +195,9 @@ const PaymentsPage = () => {
                                 </tr>
                             ) : filtered.map((pay, i) => (
                                 <tr key={pay.id || i}
-                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}#payments`)}
+                                    onClick={() => pay.projectId && navigate(`/folder/${pay.projectId}#payment-${pay.id}`)}
                                     tabIndex={pay.projectId ? 0 : undefined}
-                                    onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}`); }}}>
+                                    onKeyDown={e => { if (pay.projectId && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}}>
                                     <td>
                                         <div className={styles.dateCell}>
                                             <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
@@ -235,7 +235,7 @@ const PaymentsPage = () => {
                                     <td>
                                         {pay.projectId && (
                                             <button className={styles.goBtn}
-                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payments`); }}>
+                                                onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}>
                                                 <FiChevronRight size={12} /> VIEW
                                             </button>
                                         )}

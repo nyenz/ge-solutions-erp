@@ -451,9 +451,8 @@ const FolderPage = () => {
     const [payments,    setPayments]    = useState([]);
 
     const [activeTab, setActiveTab] = useState(() => {
-    return typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('financials') 
-        ? 'FINANCIALS' 
-        : 'OVERVIEW';
+    const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
+    return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
 });
     const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];
 
@@ -483,11 +482,20 @@ const FolderPage = () => {
 
     useEffect(() => {
         const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials') {
+        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
             setActiveTab('FINANCIALS');
             setTimeout(() => {
-                const el = document.getElementById('paymentHistorySection');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (hash.startsWith('payment-')) {
+                    const el = document.getElementById(hash);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add(styles.highlightRow);
+                        setTimeout(() => el.classList.remove(styles.highlightRow), 3000);
+                    }
+                } else {
+                    const el = document.getElementById('paymentHistorySection');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }, 350);
         } else if (hash === 'identity' || hash === 'owners') {
             setActiveTab('OWNERS');
@@ -1161,7 +1169,7 @@ const FolderPage = () => {
                                 ) : (
                                     <div className={styles.paymentList}>
                                         {payments.map((pay, i) => (
-                                            <div key={pay.id || i} className={styles.paymentRow}
+                                            <div key={pay.id || i} id={`payment-${pay.id}`} className={styles.paymentRow}
                                                 style={{borderLeftColor: pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>
                                                 <div className={styles.payRowLeft}>
                                                     <div className={styles.payAmount}>UGX {fmt(pay.amountPaid)}</div>

@@ -73,326 +73,6 @@ const PaymentBadge = ({ badge }) => (
     />
 );
 
-// ── PAYMENT TYPE MODAL ──────────────────────────────────────────
-// Handles both TITLE PAYMENT and STORAGE FEE payment with clear distinction
-const PaymentModal = ({ open, plot, onClose, onPay, paying }) => {
-    const [payType, setPayType]   = useState('TITLE');   // 'TITLE' | 'STORAGE'
-    const [amount,  setAmount]    = useState('');
-    const [notes,   setNotes]     = useState('');
-
-    useEffect(() => {
-        if (open) { setPayType('TITLE'); setAmount(''); setNotes(''); }
-    }, [open]);
-
-    if (!plot) return null;
-
-    const isBacklog      = plot.isBacklog;
-    const titleBalance   = isBacklog
-        ? Number(plot.originalDebt || 0) - Number(plot.amountPaid || 0)
-        : Number(plot.currentBalance || 0);
-    const storageOwed    = Number(plot.storageFeesAccumulated || 0);
-    const totalOwed      = Number(plot.totalBacklogOwed || 0);
-
-    const handleSubmit = () => {
-        if (!amount || Number(amount) <= 0) return;
-        onPay(plot, amount, notes, payType);
-    };
-
-    return (
-        <HardwareModal isOpen={open} onClose={onClose} title={`RECORD PAYMENT — ${plot.plotNumber}`}>
-            {/* FINANCIAL BREAKDOWN HEADER */}
-            <div className={styles.payBreakdownBox}>
-                {isBacklog ? (
-                    <>
-                        <div className={styles.payBreakdownTitle}>
-                            <FiAlertOctagon size={11} /> BACKLOG BALANCE BREAKDOWN
-                        </div>
-                        <div className={styles.payBreakdownGrid}>
-                            <div className={styles.pbItem}>
-                                <span className={styles.pbLabel}>ORIGINAL TITLE DEBT</span>
-                                <span className={styles.pbVal}>UGX {fmt(plot.originalDebt)}</span>
-                            </div>
-                            <div className={styles.pbItem}>
-                                <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>
-                                <span className={styles.pbVal} style={{color:'#ef4444'}}>+ UGX {fmt(storageOwed)}</span>
-                            </div>
-                            <div className={styles.pbItem}>
-                                <span className={styles.pbLabel}>PAYMENTS MADE</span>
-                                <span className={styles.pbVal} style={{color:'#86efac'}}>- UGX {fmt(plot.amountPaid)}</span>
-                            </div>
-                            <div className={styles.pbItemTotal}>
-                                <span className={styles.pbLabel}>TOTAL NOW OWED</span>
-                                <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, totalOwed))}</span>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className={styles.payBreakdownGrid}>
-                        <div className={styles.pbItem}>
-                            <span className={styles.pbLabel}>TITLE COST</span>
-                            <span className={styles.pbVal}>UGX {fmt(plot.totalCost)}</span>
-                        </div>
-                        <div className={styles.pbItem}>
-                            <span className={styles.pbLabel}>PAID SO FAR</span>
-                            <span className={styles.pbVal} style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</span>
-                        </div>
-                        <div className={styles.pbItemTotal}>
-                            <span className={styles.pbLabel}>REMAINING BALANCE</span>
-                            <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, titleBalance))}</span>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* PAYMENT TYPE SELECTOR — only show for backlog */}
-            {isBacklog && (
-                <div className={styles.payTypeRow}>
-                    <div className={styles.payTypeLabel}>WHAT IS THIS PAYMENT FOR?</div>
-                    <div className={styles.payTypeButtons}>
-                        <button
-                            type="button"
-                            className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`}
-                            onClick={() => setPayType('TITLE')}>
-                            <FiHome size={12} />
-                            <div>
-                                <div className={styles.payTypeBtnName}>TITLE PAYMENT</div>
-                                <div className={styles.payTypeBtnSub}>Reduces the original title debt</div>
-                            </div>
-                        </button>
-                        <button
-                            type="button"
-                            className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`}
-                            onClick={() => setPayType('STORAGE')}>
-                            <FiArchive size={12} />
-                            <div>
-                                <div className={styles.payTypeBtnName}>STORAGE FEE</div>
-                                <div className={styles.payTypeBtnSub}>Covers monthly storage charges</div>
-                            </div>
-                        </button>
-                    </div>
-                    {payType === 'STORAGE' && (
-                        <div className={styles.payTypeHint}>
-                            <FiInfo size={11} />
-                            Storage fees: UGX {fmt(storageOwed)} accumulated over {plot.storageMonthsCount} month{plot.storageMonthsCount !== 1 ? 's' : ''}. Recording here goes towards clearing the storage fee balance.
-                        </div>
-                    )}
-                </div>
-            )}
-
-            <div className={modalStyles.modalField}>
-                <label className={modalStyles.modalLabel}>
-                    AMOUNT RECEIVED (UGX)
-                </label>
-                <input
-                    type="number"
-                    className={modalStyles.modalInput}
-                    placeholder={isBacklog && payType === 'STORAGE'
-                        ? `e.g. 50000 (1 month)`
-                        : `e.g. ${fmt(Math.max(0, isBacklog ? totalOwed : titleBalance))}`}
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    autoFocus
-                />
-            </div>
-            <div className={modalStyles.modalField}>
-                <label className={modalStyles.modalLabel}>NOTES (optional)</label>
-                <textarea
-                    className={modalStyles.modalTextarea}
-                    placeholder="e.g. MTN Mobile Money, cash, cheque..."
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                />
-            </div>
-            <div className={modalStyles.modalFooter}>
-                <button
-                    type="button"
-                    className={modalStyles.modalBtnSecondary}
-                    onClick={onClose}>
-                    <FiX aria-hidden="true" /> CANCEL
-                </button>
-                <HardwareButton loading={paying} onClick={handleSubmit} icon={FiDollarSign}>
-                    CONFIRM {payType === 'STORAGE' ? 'STORAGE FEE' : 'PAYMENT'}
-                </HardwareButton>
-            </div>
-        </HardwareModal>
-    );
-};
-
-// ── MONTHLY INSTALLMENT MODAL ───────────────────────────────────
-// Separate payment scheme: client pays a fixed monthly instalment
-// toward their title cost. Distinct from backlog/storage payments.
-const MonthlyInstallmentModal = ({ open, plot, onClose, onPay, paying }) => {
-    const [amount, setAmount]   = React.useState('');
-    const [notes,  setNotes]    = React.useState('');
-    const [period, setPeriod]   = React.useState('');   // e.g. "May 2026"
-
-    React.useEffect(() => {
-        if (open) {
-            setAmount('');
-            setNotes('');
-            // Auto-fill current month as default period label
-            const now = new Date();
-            setPeriod(now.toLocaleString('default', { month: 'long', year: 'numeric' }));
-        }
-    }, [open]);
-
-    if (!plot) return null;
-
-    const balance  = Number(plot.currentBalance  || 0);
-    const paid     = Number(plot.amountPaid      || 0);
-    const total    = Number(plot.totalCost       || 0);
-    const pct      = total > 0 ? Math.round((paid / total) * 100) : 0;
-
-    const handleSubmit = () => {
-        if (!amount || Number(amount) <= 0) return;
-        const fullNotes = `[MONTHLY INSTALMENT${period ? ' - ' + period : ''}]${notes ? ' ' + notes : ''}`;
-        onPay(plot, amount, fullNotes, 'MONTHLY');
-    };
-
-    return (
-        <HardwareModal isOpen={open} onClose={onClose}
-            title={'MONTHLY INSTALMENT — ' + plot.plotNumber}>
-
-            {/* Summary strip */}
-            <div style={{
-                background: 'rgba(6,182,212,0.08)',
-                border: '1px solid rgba(6,182,212,0.25)',
-                borderRadius: 8,
-                padding: '12px 14px',
-                marginBottom: 16,
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: 10,
-            }}>
-                <div>
-                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(255,255,255,0.4)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
-                        TOTAL COST
-                    </div>
-                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#fff'}}>
-                        UGX {total.toLocaleString()}
-                    </div>
-                </div>
-                <div>
-                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(255,255,255,0.4)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
-                        PAID SO FAR
-                    </div>
-                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#86efac'}}>
-                        UGX {paid.toLocaleString()}
-                    </div>
-                </div>
-                <div>
-                    <div style={{fontFamily:'DM Sans,sans-serif',fontSize:8,fontWeight:900,color:'rgba(252,165,165,0.8)',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>
-                        OUTSTANDING
-                    </div>
-                    <div style={{fontFamily:'Space Mono,monospace',fontSize:13,fontWeight:700,color:'#fca5a5'}}>
-                        UGX {Math.max(0,balance).toLocaleString()}
-                    </div>
-                </div>
-                {/* Progress bar spanning full width */}
-                <div style={{gridColumn:'1/-1'}}>
-                    <div style={{height:4,background:'rgba(255,255,255,0.08)',borderRadius:4,overflow:'hidden',marginTop:4}}>
-                        <div style={{height:'100%',width:pct+'%',background:'#06b6d4',borderRadius:4,transition:'width 0.4s ease'}} />
-                    </div>
-                    <div style={{fontFamily:'Space Mono,monospace',fontSize:9,color:'rgba(255,255,255,0.3)',marginTop:3}}>{pct}% collected</div>
-                </div>
-            </div>
-
-            {/* Period label */}
-            <div style={{marginBottom:14}}>
-                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
-                    INSTALMENT PERIOD
-                </label>
-                <input
-                    type="text"
-                    value={period}
-                    onChange={e => setPeriod(e.target.value)}
-                    placeholder="e.g. May 2026"
-                    style={{
-                        width:'100%', padding:'10px 12px',
-                        borderRadius:8,
-                        background:'rgba(255,255,255,0.07)',
-                        border:'1.5px solid rgba(255,255,255,0.18)',
-                        color:'rgba(255,255,255,0.9)',
-                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:700,
-                        outline:'none', boxSizing:'border-box',
-                    }}
-                />
-            </div>
-
-            {/* Amount */}
-            <div style={{marginBottom:14}}>
-                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
-                    AMOUNT RECEIVED (UGX)
-                </label>
-                <input
-                    type="number"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    placeholder="Enter instalment amount..."
-                    autoFocus
-                    style={{
-                        width:'100%', padding:'10px 12px',
-                        borderRadius:8,
-                        background:'rgba(255,255,255,0.07)',
-                        border:'1.5px solid rgba(6,182,212,0.4)',
-                        color:'rgba(255,255,255,0.9)',
-                        fontFamily:'Space Mono,monospace', fontSize:14, fontWeight:700,
-                        outline:'none', boxSizing:'border-box',
-                    }}
-                />
-            </div>
-
-            {/* Notes */}
-            <div style={{marginBottom:16}}>
-                <label style={{display:'block',fontFamily:'DM Sans,sans-serif',fontSize:9,fontWeight:900,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>
-                    NOTES (optional)
-                </label>
-                <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="e.g. MTN Mobile Money, cash..."
-                    rows={3}
-                    style={{
-                        width:'100%', padding:'10px 12px',
-                        borderRadius:8,
-                        background:'rgba(255,255,255,0.07)',
-                        border:'1.5px solid rgba(255,255,255,0.15)',
-                        color:'rgba(255,255,255,0.9)',
-                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:700,
-                        outline:'none', resize:'vertical', boxSizing:'border-box',
-                    }}
-                />
-            </div>
-
-            <div style={{display:'flex',justifyContent:'flex-end',gap:10,paddingTop:12,borderTop:'1px solid rgba(255,255,255,0.08)'}}>
-                <button onClick={onClose} style={{
-                    padding:'0 16px', height:38,
-                    background:'rgba(255,255,255,0.06)',
-                    border:'1.5px solid rgba(255,255,255,0.2)',
-                    borderRadius:8, color:'rgba(255,255,255,0.7)',
-                    fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,
-                    textTransform:'uppercase',letterSpacing:1.5,cursor:'pointer',
-                }}>
-                    CANCEL
-                </button>
-                <button onClick={handleSubmit} disabled={paying} style={{
-                    padding:'0 20px', height:38,
-                    background:'#06b6d4',
-                    border:'none',
-                    borderRadius:8, color:'#1a2e30',
-                    fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,
-                    textTransform:'uppercase',letterSpacing:1.5,cursor:'pointer',
-                    display:'flex',alignItems:'center',gap:7,
-                    opacity: paying ? 0.5 : 1,
-                }}>
-                    <FiRepeat size={13} />
-                    {paying ? 'PROCESSING...' : 'RECORD INSTALMENT'}
-                </button>
-            </div>
-        </HardwareModal>
-    );
-};
-
 // ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
 // Shows directly on each backlog plot card so admin can set monthly fee
 // without opening a separate modal
@@ -577,9 +257,7 @@ const RecoveryPortal = () => {
     const [logContent,    setLogContent]    = useState('');
     const [committing,    setCommitting]    = useState(false);
 
-    const [payModal,      setPayModal]      = useState({ open: false, plot: null });
-    const [paying,        setPaying]        = useState(false);
-    const [monthlyModal,  setMonthlyModal]  = useState({ open: false, plot: null });
+
 
     const callDirty = callModal.open && logContent.trim() !== '';
     const isDirty   = callDirty;
@@ -809,13 +487,13 @@ const RecoveryPortal = () => {
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={styles.payBtnTitle}
-                                                        onClick={() => setPayModal({ open: true, plot })}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
                                                         <FiDollarSign size={12} /> PAY
                                                     </button>
                                                 )}
                                                 {isAdmin && (
                                                     <button className={styles.payBtnMonthly}
-                                                        onClick={() => setMonthlyModal({ open: true, plot })}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
                                                         <FiRepeat size={12} /> INSTALMENT
                                                     </button>
                                                 )}
@@ -889,7 +567,7 @@ const RecoveryPortal = () => {
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
-                                                        onClick={() => setPayModal({ open: true, plot })}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
                                                         <FiZap size={12} /> PAY
                                                     </button>
                                                 )}
@@ -1096,23 +774,7 @@ const RecoveryPortal = () => {
                 </div>
             </HardwareModal>
 
-            {/* PAYMENT MODAL */}
-            <PaymentModal
-                open={payModal.open}
-                plot={payModal.plot}
-                onClose={() => setPayModal({ open: false, plot: null })}
-                onPay={handleRecordPayment}
-                paying={paying}
-            />
 
-            {/* MONTHLY INSTALMENT MODAL */}
-            <MonthlyInstallmentModal
-                open={monthlyModal.open}
-                plot={monthlyModal.plot}
-                onClose={() => setMonthlyModal({ open: false, plot: null })}
-                onPay={handleRecordPayment}
-                paying={paying}
-            />
         </div>
     );
 };
