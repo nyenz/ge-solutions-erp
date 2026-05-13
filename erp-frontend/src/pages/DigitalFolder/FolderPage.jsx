@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/DigitalFolder/FolderPage.jsx
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
     FiUnlock, FiX, FiMap, FiUsers, FiCreditCard,
@@ -482,18 +482,19 @@ const FolderPage = () => {
 
     useEffect(() => {
         const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
+        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-') || hash === 'record-payment' || hash === 'storage-fees') {
             setActiveTab('FINANCIALS');
             setTimeout(() => {
-                if (hash.startsWith('payment-')) {
-                    const el = document.getElementById(hash);
+                if (hash === 'record-payment') {
+                    if (isAdmin) setPayModal({ open: true });
+                } else if (hash === 'storage-fees') {
+                    const el = document.getElementById('backlog-controls');
                     if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         el.classList.add(styles.highlightRow);
                         setTimeout(() => el.classList.remove(styles.highlightRow), 3000);
                     }
-                } else {
-                    if (hash.startsWith('payment-')) {
+                } else if (hash.startsWith('payment-')) {
                     const el = document.getElementById(hash);
                     if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -503,7 +504,6 @@ const FolderPage = () => {
                 } else {
                     const el = document.getElementById('paymentHistorySection');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
                 }
             }, 350);
         } else if (hash === 'identity' || hash === 'owners') {
@@ -606,7 +606,7 @@ const FolderPage = () => {
     };
 
     const handleNuclearPurge = async () => {
-        const ok = await confirm('NUCLEAR PURGE',
+        const ok = await confirm('DELETE',
             'PERMANENTLY erase this entire archive entry including all documents and notes. Cannot be undone.', 'danger');
         if (!ok) return;
         try {
@@ -1053,7 +1053,7 @@ const FolderPage = () => {
 
                         {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
                         {isAdmin && isBacklog && (
-                            <section className={styles.hwPanel} aria-label="Backlog Controls">
+                            <section className={styles.hwPanel} aria-label="Backlog Controls" id="backlog-controls">
                                 <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
                                     <FiAlertOctagon aria-hidden="true" />
                                     BACKLOG CONTROLS

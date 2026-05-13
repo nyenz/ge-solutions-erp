@@ -465,18 +465,18 @@ const RecoveryPortal = () => {
                                                 </div>
                                             </div>
                                             <div className={styles.plotCardRight}>
-                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}#payments`)}>
                                                     <FiChevronRight size={12} /> OPEN
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={styles.payBtnTitle}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#record-payment`)}>
                                                         <FiDollarSign size={12} /> PAY
                                                     </button>
                                                 )}
                                                 {isAdmin && (
                                                     <button className={styles.payBtnMonthly}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#storage-fees`)}>
                                                         <FiRepeat size={12} /> INSTALMENT
                                                     </button>
                                                 )}
@@ -545,12 +545,12 @@ const RecoveryPortal = () => {
                                                 </div>
                                             </div>
                                             <div className={styles.plotCardRight}>
-                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}`)}>
+                                                <button className={styles.folderBtn} onClick={() => navigate(`/folder/${plot.projectId}#payments`)}>
                                                     <FiChevronRight size={12} /> OPEN
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}#record-payment`)}>
                                                         <FiZap size={12} /> PAY
                                                     </button>
                                                 )}
