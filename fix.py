@@ -11,51 +11,43 @@ def write(path, content):
         f.write(content)
     print(f"OK: {path}")
 
-print("=== STARTING STICKY TAB FIX ===")
+print("=== STARTING RECOVERY PORTAL FIXES ===")
 
-path_css = 'erp-frontend/src/pages/DigitalFolder/FolderPage.module.css'
-content_css = read(path_css)
+path_recovery = 'erp-frontend/src/pages/Recovery/RecoveryPortal.jsx'
+content_rec = read(path_recovery)
 
-# 1. Strip ALL stickiness from the pipelineHUD
-content_css = re.sub(r'(?<=pipelineHUD \{)([\s\S]*?)position:\s*sticky;[\s\S]*?-webkit-backdrop-filter:[^;]+;', r'\1', content_css)
+# 1. Completely remove the INSTALMENT button
+# This uses regex to find the entire {isAdmin && ( ... INSTALMENT ... )} block and erase it
+content_rec = re.sub(
+    r'\{isAdmin && \(\s*<button className=\{styles\.payBtnMonthly\}[^>]+>\s*<FiRepeat[^>]+>\s*INSTALMENT\s*</button>\s*\)\}',
+    '',
+    content_rec,
+    flags=re.IGNORECASE | re.DOTALL
+)
 
-# 2. Strip ALL stickiness from the terminalHeader 
-content_css = re.sub(r'(?<=terminalHeader \{)([\s\S]*?)position:\s*sticky;[\s\S]*?z-index:\s*49;', r'\1', content_css)
+# 2. Ensure "PAY" button for ACTIVE plots correctly navigates to ?action=pay
+content_rec = re.sub(
+    r'<button className=\{styles\.payBtnTitle\}\s+onClick=\{\(\) => navigate\([^)]+\)\}>\s*<FiDollarSign size=\{12\} /> PAY\s*</button>',
+    '''<button className={styles.payBtnTitle}
+                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
+                                                        <FiDollarSign size={12} /> PAY
+                                                    </button>''',
+    content_rec,
+    flags=re.IGNORECASE | re.DOTALL
+)
 
-# 3. Strip out the huge scroll-margins from the previous fix
-content_css = re.sub(r'scroll-margin-top:\s*clamp[^;]+;', '', content_css)
-content_css = re.sub(r'scroll-margin-top:\s*60px;', '', content_css)
+# 3. Ensure "PAY" button for BACKLOG plots correctly navigates to ?action=pay
+content_rec = re.sub(
+    r'<button className=\{\`\$\{styles\.payBtnTitle\} \$\{styles\.payBtnBacklog\}\`\}\s+onClick=\{\(\) => navigate\([^)]+\)\}>\s*<FiZap size=\{12\} /> PAY\s*</button>',
+    '''<button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
+                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
+                                                        <FiZap size={12} /> PAY
+                                                    </button>''',
+    content_rec,
+    flags=re.IGNORECASE | re.DOTALL
+)
 
-# 4. Strictly configure the TabBar to be the ONLY sticky element
-content_css = re.sub(r'\.tabBar\s*\{[^}]*\}', 
-'''.tabBar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(6px, 0.8vw, 10px);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 8px;
-    padding-top: 8px;
-    margin-bottom: clamp(10px, 1.3vw, 14px);
-    position: sticky;
-    top: -15px; /* Sticks precisely to the top edge when scrolling */
-    z-index: 100;
-    background: rgba(244, 242, 239, 0.98); /* Blends perfectly with cream background */
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 0 0 8px 8px;
-}''', content_css)
+write(path_recovery, content_rec)
 
-# 5. Add a subtle margin so when it auto-scrolls to the Financials section, 
-# the new sticky tab bar doesn't cover the title.
-content_css = re.sub(r'(\.hwPanel\s*\{[^}]*)', r'\1\n    scroll-margin-top: 50px;', content_css)
-
-# Clean up any potential duplicate scroll-margins just in case
-content_css = re.sub(r'(scroll-margin-top:\s*50px;\s*){2,}', 'scroll-margin-top: 50px;\n', content_css)
-
-write(path_css, content_css)
-
-print("\n=== STICKY TABS FIXED SUCCESSFULLY ===")
-print("Run: git add -A && git commit -m 'fix: isolate stickiness to tab bar only' && git push")
+print("\n=== RECOVERY PORTAL FIXED SUCCESSFULLY ===")
+print("Run: git add -A && git commit -m 'fix: remove instalment btn and link pay to folder modal' && git push")
