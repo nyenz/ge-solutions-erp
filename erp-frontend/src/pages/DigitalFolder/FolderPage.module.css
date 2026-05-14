@@ -530,9 +530,9 @@
     padding-top: 8px;
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: -15px; /* Sticks precisely to the top edge when scrolling */
+    top: -10px; /* Sticks to the very top */
     z-index: 100;
-    background: rgba(244, 242, 239, 0.98); /* Blends perfectly with cream background */
+    background: rgba(244, 242, 239, 0.98);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 0 0 8px 8px;
@@ -618,8 +618,9 @@
     width: 100%; min-width: 0; box-sizing: border-box;
     
 
-    scroll-margin-top: 50px;
-}
+    
+
+    scroll-margin-top: 60px;}
 .drawerHeader { display: flex; justify-content: space-between; align-items: center; padding: var(--pad-drawer) var(--pad-panel); cursor: pointer; border-bottom: 1px solid rgba(238,140,58,0.1); transition: background 0.2s; user-select: none; }
 .drawerHeader:hover, .drawerHeader:focus-visible { background: rgba(238,140,58,0.05); outline: none; }
 .drawerTitle { display: flex; align-items: center; gap: clamp(8px, 1.2vw, 12px); color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: clamp(1px, 0.2vw, 2.5px); text-transform: uppercase; }
@@ -1555,8 +1556,9 @@
         break-inside: avoid !important;
         page-break-inside: avoid !important;
     
-    scroll-margin-top: 50px;
-}
+    
+
+    scroll-margin-top: 60px;}
     .drawerHeader {
         border-bottom: 1px solid #ddd !important;
         padding: 8px 14px !important;
@@ -1631,9 +1633,9 @@
     padding-top: 8px;
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: -15px; /* Sticks precisely to the top edge when scrolling */
+    top: -10px; /* Sticks to the very top */
     z-index: 100;
-    background: rgba(244, 242, 239, 0.98); /* Blends perfectly with cream background */
+    background: rgba(244, 242, 239, 0.98);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 0 0 8px 8px;

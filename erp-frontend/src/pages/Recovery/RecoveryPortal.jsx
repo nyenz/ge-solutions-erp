@@ -369,11 +369,7 @@ const RecoveryPortal = () => {
                     <div className={styles.identity}>
                         <div className={styles.ownerRow}>
                             <h3 className={styles.ownerName}>{mission.ownerName}</h3>
-                            {mission.hasBacklogPlots && (
-                                <span className={styles.backlogOwnerTag}>
-                                    <FiAlertOctagon size={9} /> BACKLOG
-                                </span>
-                            )}
+                            
                         </div>
                         <span className={styles.phoneNum}>{mission.phoneNumber}</span>
 
@@ -474,12 +470,7 @@ const RecoveryPortal = () => {
                                                         <FiDollarSign size={12} /> PAY
                                                     </button>
                                                 )}
-                                                {isAdmin && (
-                                                    <button className={styles.payBtnMonthly}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=storage#financials`)}>
-                                                        <FiRepeat size={12} /> INSTALMENT
-                                                    </button>
-                                                )}
+                                                
                                             </div>
                                         </div>
                                         <div className={styles.plotFinRow}>
