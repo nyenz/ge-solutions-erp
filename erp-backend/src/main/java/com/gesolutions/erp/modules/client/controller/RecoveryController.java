@@ -206,8 +206,7 @@ public class RecoveryController {
                     BigDecimal owed = plot.backlogTotalOwed();
                     BigDecimal fees = plot.getStorageFeesAccumulated() != null
                             ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-                    BigDecimal origDebt = plot.getOriginalDebt() != null
-                            ? plot.getOriginalDebt() : BigDecimal.ZERO;
+                    BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
 
                     long months = plot.getBacklogStartDate() != null
                             ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now())

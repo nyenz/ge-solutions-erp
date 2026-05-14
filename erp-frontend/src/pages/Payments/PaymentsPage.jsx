@@ -16,15 +16,13 @@ const TYPE_LABELS = {
     STANDARD:            'Title Payment',
     INITIAL_DEPOSIT:     'Initial Deposit',
     BACKLOG_PARTIAL:     'Backlog Payment',
-    MONTHLY_INSTALMENT:  'Monthly Instalment',
-};
+    };
 
 const TYPE_COLORS = {
     STANDARD:            '#22c55e',
     INITIAL_DEPOSIT:     '#06b6d4',
     BACKLOG_PARTIAL:     '#ef4444',
-    MONTHLY_INSTALMENT:  '#a78bfa',
-};
+    };
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
@@ -137,7 +135,7 @@ const PaymentsPage = () => {
                     )}
                 </div>
                 <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL', 'MONTHLY_INSTALMENT'].map(t => (
+                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
                         <button key={t}
                             className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
                             onClick={() => setTypeFilter(t)}>

@@ -387,7 +387,7 @@ const RecoveryPortal = () => {
                                     <div className={styles.finPill} data-type="backlog">
                                         <FiAlertOctagon size={10} />
                                         <span className={styles.finPillLabel}>BACKLOG DEBT</span>
-                                        <span className={styles.finPillVal}>UGX {fmt(backlogPlots.reduce((s,p) => s + Number(p.originalDebt || 0), 0))}</span>
+                                        <span className={styles.finPillVal}>UGX {fmt(backlogPlots.reduce((s,p) => s + Number(p.totalCost || 0) + Number(p.storageFeesAccumulated || 0) - Number(p.amountPaid || 0), 0))}</span>
                                     </div>
                                     {Number(mission.totalStorageFees) > 0 && (
                                         <div className={styles.finPill} data-type="storage">
@@ -552,8 +552,8 @@ const RecoveryPortal = () => {
                                         <div className={styles.backlogFinBreakdown}>
                                             <div className={styles.bfbRow}>
                                                 <div className={styles.bfbItem}>
-                                                    <span className={styles.bfbLabel}>ORIGINAL TITLE DEBT</span>
-                                                    <span className={styles.bfbVal}>UGX {fmt(plot.originalDebt)}</span>
+                                                    <span className={styles.bfbLabel}>TITLE COST</span>
+                                                    <span className={styles.bfbVal}>UGX {fmt(plot.totalCost)}</span>
                                                 </div>
                                                 <div className={styles.bfbItem} style={{textAlign:'right'}}>
                                                     <span className={styles.bfbLabel} style={{color:'#fca5a5'}}>STORAGE FEES ADDED</span>
@@ -568,7 +568,7 @@ const RecoveryPortal = () => {
                                                 </div>
                                                 <div className={styles.bfbItem} style={{textAlign:'right'}}>
                                                     <span className={styles.bfbLabel} style={{color:'#fca5a5', fontWeight:900}}>NOW OWED</span>
-                                                    <span className={styles.bfbValTotal}>UGX {fmt(Math.max(0, plot.totalBacklogOwed))}</span>
+                                                    <span className={styles.bfbValTotal}>UGX {fmt(Math.max(0, (plot.totalCost || 0) + (plot.storageFeesAccumulated || 0) - (plot.amountPaid || 0)))}</span>
                                                 </div>
                                             </div>
                                         </div>

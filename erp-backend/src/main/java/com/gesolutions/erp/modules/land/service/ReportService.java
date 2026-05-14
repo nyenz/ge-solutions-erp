@@ -213,11 +213,11 @@ public class ReportService {
     public byte[] generateBacklogBreakdown() {
         List<LandProject> data = projectRepository.findAllBacklogPlots();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,BACKLOG_START,ORIGINAL_DEBT,STORAGE_FEES_UGX,MONTHS_IN_BACKLOG,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
+        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,BACKLOG_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_BACKLOG,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
 
         for (LandProject p : data) {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-            java.math.BigDecimal origDebt = p.getOriginalDebt() != null ? p.getOriginalDebt() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal origDebt = p.getTotalCost() != null ? p.getTotalCost() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal totalOwed = origDebt.add(storageFees).subtract(amountPaid);
@@ -325,7 +325,7 @@ public class ReportService {
 
         for (LandProject p : data) {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-            java.math.BigDecimal origDebt = p.getOriginalDebt() != null ? p.getOriginalDebt() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal origDebt = p.getTotalCost() != null ? p.getTotalCost() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal outstanding = origDebt.add(storageFees).subtract(amountPaid).max(java.math.BigDecimal.ZERO);

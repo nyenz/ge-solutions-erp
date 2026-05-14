@@ -845,7 +845,7 @@ const FolderPage = () => {
     const amountPaid         = Number(project?.amountPaid || 0);
     const origDebt           = Number(project?.originalDebt || 0);
     const storageFees        = Number(project?.storageFeesAccumulated || 0);
-    const backlogOwed        = origDebt + storageFees - amountPaid;
+    const backlogOwed        = totalCost + storageFees - amountPaid;
     const activeOwed         = totalCost - amountPaid;
     const remaining          = isBacklog ? Math.max(0, backlogOwed) : Math.max(0, activeOwed);
     const arrearsEdit        = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
@@ -1456,8 +1456,8 @@ const FolderPage = () => {
                             </div>
                             <div className={styles.payBreakdownGrid}>
                                 <div className={styles.pbItem}>
-                                    <span className={styles.pbLabel}>ORIGINAL TITLE DEBT</span>
-                                    <span className={styles.pbVal}>UGX {fmt(origDebt)}</span>
+                                    <span className={styles.pbLabel}>TITLE COST</span>
+                                    <span className={styles.pbVal}>UGX {fmt(totalCost)}</span>
                                 </div>
                                 <div className={styles.pbItem}>
                                     <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>

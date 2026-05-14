@@ -123,7 +123,7 @@ public class LandProject {
     }
 
     public BigDecimal backlogTotalOwed() {
-        BigDecimal base = originalDebt != null ? originalDebt : BigDecimal.ZERO;
+        BigDecimal base = totalCost != null ? totalCost : BigDecimal.ZERO;
         BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
         BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
         return base.add(fees).subtract(paid);
