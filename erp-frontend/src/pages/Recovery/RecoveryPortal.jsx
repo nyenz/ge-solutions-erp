@@ -350,8 +350,8 @@ const RecoveryPortal = () => {
     const renderMissionCard = (mission) => {
         const isExpanded = expandedPhone === mission.phoneNumber;
         const toggle = () => setExpandedPhone(prev => prev === mission.phoneNumber ? null : mission.phoneNumber);
-        const backlogPlots = (mission.plots || []).filter(p => p.isBacklog);
-        const activePlots  = (mission.plots || []).filter(p => !p.isBacklog);
+        const backlogPlots = (mission.plots || []).filter(p => (p.isBacklog || p.backlog));
+        const activePlots  = (mission.plots || []).filter(p => !(p.isBacklog || p.backlog));
 
         return (
             <div key={mission.phoneNumber}
@@ -442,7 +442,7 @@ const RecoveryPortal = () => {
                                                 <div>
                                                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                                                         <span className={styles.plotNum}>{plot.plotNumber}</span>
-                                                        {plot.isBacklog && (
+                                                        {(plot.isBacklog || plot.backlog) && (
                                                             <span style={{
                                                                 display:'inline-flex',alignItems:'center',gap:3,
                                                                 background:'rgba(239,68,68,0.18)',
