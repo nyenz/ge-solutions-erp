@@ -223,11 +223,7 @@
     margin-bottom: clamp(6px, 0.9vw, 10px);
     display: flex; justify-content: space-between; align-items: center;
     gap: var(--gap-lg); flex-wrap: wrap;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    
 }
 .track { display: flex; align-items: center; gap: clamp(4px, 1vw, 10px); flex: 1; justify-content: space-between; min-width: 0; }
 .stageModule { display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 0.6vw, 6px); flex: 1; min-width: 0; }
@@ -258,9 +254,7 @@
     padding: clamp(8px, 1.1vw, 13px) clamp(12px, 1.8vw, 20px);
     background: rgba(255,255,255,0.65); border-radius: 0 var(--radius) var(--radius) 0;
     backdrop-filter: blur(15px); box-shadow: 0 4px 18px rgba(0,0,0,0.1);
-    position: sticky;
-    top: clamp(50px, 8vw, 68px);
-    z-index: 49;
+    
 }
 .idPlate { min-width: 0; flex: 1; }
 .idPlate h1 { font-family: 'Cinzel', serif; color: var(--navy); font-size: var(--fs-h1); letter-spacing: clamp(0.5px, 0.1vw, 1.5px); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 clamp(3px, 0.4vw, 5px); }
@@ -532,18 +526,16 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 4px;
-    padding-top: clamp(6px, 0.8vw, 10px);
+    padding-bottom: 8px;
+    padding-top: 8px;
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: clamp(100px, 16vw, 136px);
-    z-index: 48;
-    background: rgba(244, 242, 239, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    padding-left: 2px;
-    padding-right: 2px;
+    top: -15px; /* Sticks precisely to the top edge when scrolling */
+    z-index: 100;
+    background: rgba(244, 242, 239, 0.98); /* Blends perfectly with cream background */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 0 0 8px 8px;
 }
 .tabBar::-webkit-scrollbar { display: none; }
 
@@ -611,7 +603,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    WORKSTATION BODY
    ═══════════════════════════════════════════════════════════════════ */
-.workstationBody { display: flex; flex-direction: column; gap: var(--gap-md); width: 100%; min-width: 0; scroll-margin-top: clamp(160px, 22vw, 200px); }
+.workstationBody { display: flex; flex-direction: column; gap: var(--gap-md); width: 100%; min-width: 0;  }
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -624,8 +616,9 @@
     overflow: visible; /* NOT hidden — SmartSelect dropdown must escape */
     box-shadow: 0 8px 28px rgba(0,0,0,0.16);
     width: 100%; min-width: 0; box-sizing: border-box;
-    scroll-margin-top: clamp(160px, 22vw, 200px);
-}
+    
+
+    scroll-margin-top: 50px;}
 .drawerHeader { display: flex; justify-content: space-between; align-items: center; padding: var(--pad-drawer) var(--pad-panel); cursor: pointer; border-bottom: 1px solid rgba(238,140,58,0.1); transition: background 0.2s; user-select: none; }
 .drawerHeader:hover, .drawerHeader:focus-visible { background: rgba(238,140,58,0.05); outline: none; }
 .drawerTitle { display: flex; align-items: center; gap: clamp(8px, 1.2vw, 12px); color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: clamp(1px, 0.2vw, 2.5px); text-transform: uppercase; }
@@ -1560,7 +1553,8 @@
         margin-bottom: 12px !important;
         break-inside: avoid !important;
         page-break-inside: avoid !important;
-    }
+    
+    scroll-margin-top: 50px;}
     .drawerHeader {
         border-bottom: 1px solid #ddd !important;
         padding: 8px 14px !important;
@@ -1631,18 +1625,16 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 4px;
-    padding-top: clamp(6px, 0.8vw, 10px);
+    padding-bottom: 8px;
+    padding-top: 8px;
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: clamp(100px, 16vw, 136px);
-    z-index: 48;
-    background: rgba(244, 242, 239, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    padding-left: 2px;
-    padding-right: 2px;
+    top: -15px; /* Sticks precisely to the top edge when scrolling */
+    z-index: 100;
+    background: rgba(244, 242, 239, 0.98); /* Blends perfectly with cream background */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 0 0 8px 8px;
 }
     .drawerHeader, .finPanelHeader { top: 22px; }
     .tabFull  { display: none; }
@@ -1756,9 +1748,5 @@
 .sectionHeader,
 .panelHeader,
 .drawerHeader {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    
 }
