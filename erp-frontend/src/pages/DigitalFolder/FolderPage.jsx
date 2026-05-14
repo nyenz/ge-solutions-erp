@@ -437,6 +437,7 @@ const BacklogFeeControls = ({ project, projectId, onRefresh, toast }) => {
 const FolderPage = () => {
     const { id }   = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
     const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
@@ -521,6 +522,55 @@ const FolderPage = () => {
         if (isEditing) setTimeout(() => firstInputRef.current?.focus(), 120);
     }, [isEditing]);
 
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const action = params.get('action');
+        if (!action || !binder) return;
+        if (action === 'pay') {
+            setActiveTab('FINANCIALS');
+            setTimeout(() => {
+                setPayType('TITLE');
+                setPayAmount('');
+                setPayNotes('');
+                setPayModal({ open: true });
+            }, 400);
+        } else if (action === 'storage') {
+            setActiveTab('FINANCIALS');
+            setTimeout(() => {
+                setPayType('STORAGE');
+                setPayAmount('');
+                setPayNotes('');
+                setPayModal({ open: true });
+            }, 400);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search, binder]);
+
+    // Auto-open payment modal when navigated from Recovery Portal
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const action = params.get('action');
+        if (!action || !binder) return;
+        if (action === 'pay') {
+            setActiveTab('FINANCIALS');
+            setTimeout(() => {
+                setPayType('TITLE');
+                setPayAmount('');
+                setPayNotes('');
+                setPayModal({ open: true });
+            }, 400);
+        } else if (action === 'storage') {
+            setActiveTab('FINANCIALS');
+            setTimeout(() => {
+                setPayType('STORAGE');
+                setPayAmount('');
+                setPayNotes('');
+                setPayModal({ open: true });
+            }, 400);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search, binder]);
+
     // beforeunload -- catches tab close, hard refresh, browser back to external site
     useEffect(() => {
         if (!isEditing || committing) return;
@@ -589,7 +639,7 @@ const FolderPage = () => {
             touchedRef.current = false;
             setIsEditing(false);
             await loadFolderData();
-            toast('ARCHIVE REWRITTEN SUCCESSFULLY', 'success');
+            toast('Changes saved successfully', 'success');
         } catch (err) { toast('SAVE FAILED: ' + err.message, 'error', 8000); }
         finally { setCommitting(false); }
     };
@@ -611,9 +661,9 @@ const FolderPage = () => {
         if (!ok) return;
         try {
             await landService.purgeAsset(id);
-            toast('ASSET PURGED', 'warn', 3000);
+            toast('Record permanently deleted', 'warn', 3000);
             setTimeout(() => navigate('/land/projects'), 1500);
-        } catch { toast('PURGE REJECTED', 'error'); }
+        } catch { toast('Delete failed', 'error'); }
     };
 
     const handleStageClick = async (num) => {
@@ -621,7 +671,7 @@ const FolderPage = () => {
         try {
             await landService.setRealityStage(id, num);
             await loadFolderData();
-            toast('STAGE SET: ' + STAGE_LABELS[num-1], 'info', 3000);
+            toast('Stage updated: ' + STAGE_LABELS[num-1], 'info', 3000);
         } catch { toast('STAGE UPDATE FAILED', 'error'); }
     };
 
@@ -661,7 +711,7 @@ const FolderPage = () => {
         try {
             await landService.addExtraDocuments(id, files);
             await loadFolderData();
-            toast(files.length + ' DOCUMENT(S) INGESTED', 'success', 3000);
+            toast(files.length + ' document(s) uploaded', 'success', 3000);
         } catch { toast('INGESTION FAILED', 'error', 8000); }
         finally { setCommitting(false); }
     };
@@ -672,7 +722,7 @@ const FolderPage = () => {
         try {
             await landService.deleteDocument(docId);
             await loadFolderData();
-            toast('DOCUMENT REMOVED', 'warn', 3000);
+            toast('Document removed', 'warn', 3000);
         } catch { toast('DELETE FAILED', 'error'); }
     };
 
@@ -683,7 +733,7 @@ const FolderPage = () => {
             else              await landService.addStandaloneNote(id, noteModal.content);
             setNoteModal({ open:false, id:null, content:'' });
             await loadFolderData();
-            toast('INTERACTION LOGGED', 'success', 3000);
+            toast('Note saved', 'success', 3000);
         } catch { toast('SAVE FAILED', 'error'); }
     };
 
@@ -693,7 +743,7 @@ const FolderPage = () => {
         try {
             await landService.deleteStandaloneNote(noteId);
             await loadFolderData();
-            toast('NOTE DELETED', 'warn', 3000);
+            toast('Note deleted', 'warn', 3000);
         } catch { toast('DELETE FAILED', 'error'); }
     };
 
@@ -704,7 +754,7 @@ const FolderPage = () => {
         try {
             await recoveryService.moveToBacklog(id);
             await loadFolderData();
-            toast('PLOT MOVED TO BACKLOG — STORAGE FEES NOW ACTIVE', 'warn');
+            toast('Plot moved to backlog. Storage fees are now active.', 'warn');
         } catch (err) { toast('BACKLOG FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
@@ -715,7 +765,7 @@ const FolderPage = () => {
         try {
             await recoveryService.exitBacklog(id);
             await loadFolderData();
-            toast('PLOT REMOVED FROM BACKLOG', 'success');
+            toast('Plot removed from backlog', 'success');
         } catch (err) { toast('EXIT FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
@@ -730,7 +780,7 @@ const FolderPage = () => {
             await loadFolderData();
             setPayModal({ open: false });
             setPayAmount(''); setPayNotes(''); setPayType('TITLE');
-            toast('PAYMENT RECORDED', 'success');
+            toast('Payment recorded successfully', 'success');
         } catch { toast('PAYMENT FAILED', 'error', 8000); }
         finally { setPaying(false); }
     };
@@ -831,7 +881,7 @@ const FolderPage = () => {
                 </div>
                 <div className={styles.protocolReadout}>
                     <strong>PROTOCOL: {project.status}</strong>
-                    <span>REAL-TIME TRACKING ACTIVE</span>
+                    <span>LIVE STATUS</span>
                 </div>
             </nav>
 
@@ -891,7 +941,7 @@ const FolderPage = () => {
                                 </button>
                             )}
                             <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort}>
-                                <FiX aria-hidden="true" /> ABORT
+                                <FiX aria-hidden="true" /> CANCEL
                             </button>
                             <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing}>
                                 <FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE'}
@@ -1051,12 +1101,12 @@ const FolderPage = () => {
                             </div>
                         </section>
 
-                        {/* ── 2. BACKLOG CONTROLS (admin only, shown when backlog) ── */}
+                        {/* ── 2. BACKLOG MANAGEMENT (admin only, shown when backlog) ── */}
                         {isAdmin && isBacklog && (
                             <section className={styles.hwPanel} aria-label="Backlog Controls" id="backlog-controls">
                                 <div className={styles.finPanelHeader} style={{color:'#fca5a5', borderBottomColor:'rgba(239,68,68,0.3)'}}>
                                     <FiAlertOctagon aria-hidden="true" />
-                                    BACKLOG CONTROLS
+                                    BACKLOG MANAGEMENT
                                 </div>
                                 <div className={styles.panelInner}>
                                     {isEditing ? (
@@ -1089,7 +1139,7 @@ const FolderPage = () => {
                                                         placeholder={String(project.storageFeesAccumulated || 0)} />
                                                 </div>
                                                 <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>FEES STATUS</label></div>
+                                                    <div className={styles.inputLabelRow}><label>FEE STATUS</label></div>
                                                     <button type="button"
                                                         className={project.storagePaused ? styles.btnResumeActive : styles.btnPauseGrey}
                                                         onClick={async () => {
@@ -1135,7 +1185,7 @@ const FolderPage = () => {
                                                 <span className={styles.specValue}>UGX {fmt(effectiveMonthlyFee)}</span>
                                             </div>
                                             <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>FEES STATUS</span>
+                                                <span className={styles.specLabel}>FEE STATUS</span>
                                                 <span className={styles.specValue} style={{ color: project.storagePaused ? '#fcd34d' : '#86efac' }}>
                                                     {project.storagePaused ? 'PAUSED' : 'ACTIVE'}
                                                 </span>

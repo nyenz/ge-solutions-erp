@@ -49,8 +49,8 @@ public class LandService {
     public void logUnlockAction(UUID id) {
         LandProject project = projectRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        auditService.logAction("HARDWARE_UNLOCK",
-            "Operator [" + getCurrentOperator() + "] initiated Master Hardware Override for plot: "
+        auditService.logAction("EDIT_MODE_OPENED",
+            "Operator [" + getCurrentOperator() + "] opened edit mode for plot: "
             + project.getLandTitle().getPlotNumber());
     }
 
@@ -330,7 +330,7 @@ public class LandService {
         project.setLegacy(request.isLegacy());
 
         LandProject saved = projectRepository.save(project);
-        auditService.logAction("MASTER_REWRITE",
+        auditService.logAction("RECORD_UPDATED",
             "Operator [" + getCurrentOperator() + "] modified Binder: "
             + title.getPlotNumber());
         return saved;
@@ -356,8 +356,8 @@ public class LandService {
         }
 
         projectRepository.delete(project);
-        auditService.logAction("NUCLEAR_PURGE",
-            "ROOT USER [" + getCurrentOperator() + "] DELETED DOSSIER: " + plotNo);
+        auditService.logAction("RECORD_DELETED",
+            "Root user [" + getCurrentOperator() + "] permanently deleted plot: " + plotNo);
     }
 
     // ─── FOLLOW-UP / NOTES ────────────────────────────────────────────────────
@@ -402,14 +402,14 @@ public class LandService {
         FollowUpLog log = followUpRepository.findById(noteId).orElseThrow();
         log.setNotes(content);
         followUpRepository.save(log);
-        auditService.logAction("INTEL_REWRITE",
+        auditService.logAction("NOTE_UPDATED",
             "Operator [" + getCurrentOperator() + "] updated a log entry.");
     }
 
     @Transactional
     public void removeNote(UUID noteId) {
         followUpRepository.deleteById(noteId);
-        auditService.logAction("INTEL_DISPOSAL",
+        auditService.logAction("NOTE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted a log entry.");
     }
 
@@ -438,7 +438,7 @@ public class LandService {
         ProjectDocument doc = documentRepository.findById(docId).orElseThrow();
         fileStorageService.deleteFile(doc.getFilePath());
         documentRepository.delete(doc);
-        auditService.logAction("VAULT_DISPOSAL",
+        auditService.logAction("DOCUMENT_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName());
     }
 
@@ -466,7 +466,7 @@ public class LandService {
         project.getLandTitle().setReleased(true);
         project.setStatus("RELEASED");
         projectRepository.save(project);
-        auditService.logAction("FINAL_RELEASE",
+        auditService.logAction("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + project.getLandTitle().getPlotNumber());
     }

@@ -277,7 +277,7 @@ const RecoveryPortal = () => {
                 : await recoveryService.getRecoverySchedule();
             setMissions(data);
         } catch {
-            toast('DATA STREAM LOST', 'error', 6000);
+            toast('Failed to load recovery data', 'error', 6000);
         } finally {
             setLoading(false);
         }
@@ -305,7 +305,7 @@ const RecoveryPortal = () => {
             setCallModal({ open: false, mission: null });
             setLogContent('');
             setExpandedPhone(null);
-            toast('CALL LOGGED — 14-DAY CLOCK RESET', 'success');
+            toast('Call logged. 14-day timer reset.', 'success');
         } catch {
             toast('LOG FAILURE', 'error', 8000);
         } finally {
@@ -470,13 +470,13 @@ const RecoveryPortal = () => {
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={styles.payBtnTitle}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#record-payment`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
                                                         <FiDollarSign size={12} /> PAY
                                                     </button>
                                                 )}
                                                 {isAdmin && (
                                                     <button className={styles.payBtnMonthly}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#storage-fees`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=storage#financials`)}>
                                                         <FiRepeat size={12} /> INSTALMENT
                                                     </button>
                                                 )}
@@ -550,7 +550,7 @@ const RecoveryPortal = () => {
                                                 </button>
                                                 {isAdmin && (
                                                     <button className={`${styles.payBtnTitle} ${styles.payBtnBacklog}`}
-                                                        onClick={() => navigate(`/folder/${plot.projectId}#record-payment`)}>
+                                                        onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
                                                         <FiZap size={12} /> PAY
                                                     </button>
                                                 )}
