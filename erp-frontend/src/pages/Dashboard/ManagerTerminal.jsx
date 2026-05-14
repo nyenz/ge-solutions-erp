@@ -95,7 +95,7 @@ const ManagerTerminal = ({ stats }) => {
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.launchPad}>
-                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="New intake"><FiFilePlus  aria-hidden="true" /> NEW INTAKE</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="New intake"><FiFilePlus  aria-hidden="true" /> NEW PLOT</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/recovery')}      aria-label="Recovery hub"><FiPhoneCall aria-hidden="true" /> RECOVERY HUB</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="View ledger"><FiMapPin    aria-hidden="true" /> LEDGER</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/settings')}      aria-label="My profile"><FiActivity   aria-hidden="true" /> SETTINGS</button>
