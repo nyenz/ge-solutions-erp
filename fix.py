@@ -1,4 +1,3 @@
-# PATH: fix.py
 import os
 
 def read(path):
@@ -10,45 +9,38 @@ def write(path, content):
         f.write(content)
     print(f"OK: {path}")
 
-def delete_file(path):
-    try:
-        os.remove(path)
-        print(f"DELETED: {path}")
-    except FileNotFoundError:
-        print(f"ALREADY DELETED (Not Found): {path}")
-    except Exception as e:
-        print(f"FAILED TO DELETE {path}: {e}")
+print("=== FIXING CLOUDINARY PDF UPLOADS ===")
 
-print("=== STARTING DEAD CODE CLEANUP AND LANGUAGE FIXES ===")
+filepath = 'erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LocalStorageServiceImpl.java'
+data = read(filepath)
 
-# ============================================================
-# 1. DELETE UNUSED/DEAD FRONTEND COMPONENTS
-# ============================================================
-# These files are defined but never imported anywhere.
-dead_files = [
-    'erp-frontend/src/pages/Dashboard/SharedWidgets.jsx',
-    'erp-frontend/src/pages/Dashboard/SharedWidgets.module.css',
-    'erp-frontend/src/components/ui/HardwareField.jsx',
-    'erp-frontend/src/components/ui/HardwareField.module.css'
-]
+# 1. Change resource type detection for PDFs from "raw" to "image"
+old_detection = """        if (contentType != null && contentType.equals("application/pdf")) return "raw";
+        if (originalName.endsWith(".pdf")) return "raw";"""
+new_detection = """        if (contentType != null && contentType.equals("application/pdf")) return "image";
+        if (originalName.endsWith(".pdf")) return "image";"""
+data = data.replace(old_detection, new_detection)
 
-for file_path in dead_files:
-    delete_file(file_path)
+# 2. Add use_filename parameters to the upload map
+old_upload = """        Map<?, ?> result = cloudinary.uploader().upload(
+                verified.getBytes(),
+                ObjectUtils.asMap(
+                        "folder", "ge_solutions/" + folder,
+                        "resource_type", resourceType,
+                        "access_mode", "public"
+                )
+        );"""
+new_upload = """        Map<?, ?> result = cloudinary.uploader().upload(
+                verified.getBytes(),
+                ObjectUtils.asMap(
+                        "folder", "ge_solutions/" + folder,
+                        "resource_type", resourceType,
+                        "use_filename", true,
+                        "unique_filename", true,
+                        "access_mode", "public"
+                )
+        );"""
+data = data.replace(old_upload, new_upload)
 
-
-# ============================================================
-# 2. MANAGER TERMINAL LANGUAGE FIX
-# ============================================================
-path_mgr = 'erp-frontend/src/pages/Dashboard/ManagerTerminal.jsx'
-content_mgr = read(path_mgr)
-
-# Change 'NEW INTAKE' to 'NEW PLOT' to match standard naming
-if 'NEW INTAKE</button>' in content_mgr:
-    content_mgr = content_mgr.replace('NEW INTAKE</button>', 'NEW PLOT</button>')
-    write(path_mgr, content_mgr)
-else:
-    print(f"MISSING OR ALREADY APPLIED: Language fix in {path_mgr}")
-
-
-print("\n=== CLEANUP COMPLETED SUCCESSFULLY ===")
-print("Run: git add -A && git commit -m 'chore: remove dead UI components and unify New Plot language' && git push")
+write(filepath, data)
+print("=== DONE ===")

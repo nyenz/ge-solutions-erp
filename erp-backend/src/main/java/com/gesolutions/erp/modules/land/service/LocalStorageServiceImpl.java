@@ -36,8 +36,8 @@ public class LocalStorageServiceImpl implements FileStorageService {
                 ? file.getOriginalFilename().toLowerCase() : "";
 
         if (contentType != null && contentType.startsWith("image/")) return "image";
-        if (contentType != null && contentType.equals("application/pdf")) return "raw";
-        if (originalName.endsWith(".pdf")) return "raw";
+        if (contentType != null && contentType.equals("application/pdf")) return "image";
+        if (originalName.endsWith(".pdf")) return "image";
         if (originalName.endsWith(".doc") || originalName.endsWith(".docx")
                 || originalName.endsWith(".xls") || originalName.endsWith(".xlsx")) return "raw";
         return "raw";
@@ -58,6 +58,8 @@ public class LocalStorageServiceImpl implements FileStorageService {
                 ObjectUtils.asMap(
                         "folder", "ge_solutions/" + folder,
                         "resource_type", resourceType,
+                        "use_filename", true,
+                        "unique_filename", true,
                         "access_mode", "public"
                 )
         );
