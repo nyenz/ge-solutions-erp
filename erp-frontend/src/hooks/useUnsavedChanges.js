@@ -24,12 +24,13 @@ const useUnsavedChanges = (isDirty, context = 'this form') => {
     const [modalOpen, setModalOpen] = useState(false);
     const pendingNavRef = useRef(null); // stores the navigation to execute after confirm
 
-    // ── 1. Browser tab close / hard refresh guard ──────────────────
+    // ── 1. Browser tab close / hard refresh / browser-level back+forward guard ──
     useEffect(() => {
         if (!isDirty) return;
         const handler = (e) => {
             e.preventDefault();
             e.returnValue = '';
+            return '';
         };
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler);

@@ -572,11 +572,13 @@ const FolderPage = () => {
     }, [location.search, binder]);
 
     // beforeunload -- catches tab close, hard refresh, browser back to external site
+    // useRouterBlock also adds beforeunload, this is a belt-and-suspenders backup
     useEffect(() => {
         if (!isEditing || committing) return;
         const handler = (e) => {
             e.preventDefault();
             e.returnValue = '';
+            return '';
         };
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler);

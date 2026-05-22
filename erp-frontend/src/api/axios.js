@@ -48,7 +48,8 @@ api.interceptors.response.use(
     (error) => {
         if (error.response && error.response.status === 401) {
             localStorage.removeItem('gs_token');
-            window.location.href = '/login';
+            localStorage.removeItem('gs_user');
+            window.location.href = '/login?reason=session_conflict';
         }
         return Promise.reject(error);
     }

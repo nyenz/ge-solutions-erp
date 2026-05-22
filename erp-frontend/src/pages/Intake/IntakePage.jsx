@@ -255,12 +255,13 @@ const IntakePage = () => {
         const handler = (e) => {
             e.preventDefault();
             e.returnValue = '';
+            return '';
         };
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler);
     }, [isDirty, saving]);
 
-    // NOTE: beforeunload is now handled by useUnsavedChanges hook
+    // NOTE: beforeunload is also handled by useRouterBlock hook
 
     const sg = key => predictionService.getSuggestions(key) || [];
 

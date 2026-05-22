@@ -5,10 +5,10 @@ import { useBlocker } from 'react-router-dom';
 /**
  * GOLDEN SEED — ROUTER BLOCKER
  *
- * Wraps react-router-dom's useBlocker to intercept ALL navigation
- * when there are unsaved changes. The consuming component controls
- * the modal; this hook just exposes whether a block is active and
- * provides proceed/reset callbacks.
+ * Wraps react-router-dom's useBlocker to intercept ALL in-app navigation
+ * when there are unsaved changes. Also handles browser back/forward and
+ * tab-close via beforeunload (callers should add their own beforeunload
+ * handler so this hook stays focused on the blocker API).
  *
  * Usage:
  *   const { blocked, proceed, reset } = useRouterBlock(isDirty);
@@ -19,6 +19,17 @@ import { useBlocker } from 'react-router-dom';
  */
 export const useRouterBlock = (shouldBlock) => {
     const blocker = useBlocker(shouldBlock);
+
+    // beforeunload covers hard refresh, tab close, and browser-level back/forward
+    useEffect(() => {
+        if (!shouldBlock) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [shouldBlock]);
 
     return {
         blocked: blocker.state === 'blocked',

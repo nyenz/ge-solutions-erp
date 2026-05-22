@@ -141,9 +141,10 @@ const SettingsPage = () => {
     const toggleDrawer = key => setDrawers(prev => ({ ...prev, [key]: !prev[key] }));
 
     // beforeunload for tab close / hard refresh
+    // useRouterBlock also adds beforeunload — this is belt-and-suspenders
     useEffect(() => {
         if (!isDirty) return;
-        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler);
     }, [isDirty]);

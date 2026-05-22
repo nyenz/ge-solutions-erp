@@ -18,6 +18,9 @@ const LoginPage = () => {
         if (params.get('reason') === 'session_conflict') {
             return 'Your session ended because this account signed in on another device.';
         }
+        if (params.get('reason') === 'session_expired') {
+            return 'Your session ended because this account signed in on another device.';
+        }
         if (params.get('reason') === 'idle_timeout') {
             return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';
         }
@@ -62,7 +65,8 @@ const LoginPage = () => {
             login(data);
         } catch (err) {
                         let msg = err.message;
-            if (msg === "IDENTIFICATION_FAILED") msg = "Wrong username or password. Please try again.";
+            if (msg === "RATE_LIMITED") msg = "Account locked for 15 minutes due to too many failed attempts.";
+            else if (msg === "IDENTIFICATION_FAILED") msg = "Wrong username or password. Please try again.";
             else if (msg === "ACCOUNT_SUSPENDED") msg = "This account has been suspended. Contact the admin.";
             else if (msg === "SERVER_STARTING_UP") msg = "The server is waking up (this takes up to 60 seconds on the free plan). Please wait a moment and try again.";
             else msg = "Could not connect to the server. Please check your internet and try again.";

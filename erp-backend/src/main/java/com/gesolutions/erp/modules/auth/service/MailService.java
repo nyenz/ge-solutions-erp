@@ -40,9 +40,10 @@ public class MailService {
         try {
             mailSender.send(message);
             System.out.println(">>> SMTP_SUCCESS: Recovery signal transmitted to " + recipientEmail);
+        } catch (org.springframework.mail.MailException e) {
+            System.err.println(">>> SMTP_CRITICAL_FAULT (MailException): " + e.getMessage());
+            throw new BusinessException("COMMUNICATION_FAILURE: System could not reach Gmail relay. Check App Password.");
         } catch (Exception e) {
-            // PHYSICALLY THROW THE ERROR
-            // This ensures the Frontend shows a RED alert instead of a fake GREEN check.
             System.err.println(">>> SMTP_CRITICAL_FAULT: " + e.getMessage());
             throw new BusinessException("COMMUNICATION_FAILURE: System could not reach Gmail relay. Check App Password.");
         }
