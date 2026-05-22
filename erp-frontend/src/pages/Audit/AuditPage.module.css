@@ -67,7 +67,7 @@
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 9500; overflow: visible; }
+.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: sticky; top: 0; z-index: 9500; background: rgba(244, 242, 239, 0.97); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding-top: clamp(6px, 1vw, 10px); padding-bottom: clamp(6px, 1vw, 10px); margin-left: clamp(-8px, -1.6vw, -16px); margin-right: clamp(-8px, -1.6vw, -16px); padding-left: clamp(8px, 1.6vw, 16px); padding-right: clamp(8px, 1.6vw, 16px); }
 
 .searchPill {
     position: relative; display: flex; align-items: center;
@@ -148,7 +148,7 @@
 
 
 /* ── TIMELINE ───────────────────────────────────────────────────── */
-.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
+.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: visible; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
 .timelineStream { display: flex; flex-direction: column; min-height: clamp(280px, 40vw, 420px); }
 
 .logRow { border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.18s, border-left-color 0.1s; border-left: clamp(3px,0.4vw,5px) solid transparent; outline: none; }

@@ -84,6 +84,18 @@
     flex-direction: column;
     gap: var(--gap-lg);
     margin-bottom: var(--gap-xl);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.97);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding-top: clamp(6px, 1vw, 10px);
+    padding-bottom: clamp(6px, 1vw, 10px);
+    margin-left: clamp(-12px, -2vw, -24px);
+    margin-right: clamp(-12px, -2vw, -24px);
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
 }
 
 /* Search block — input + hint */
@@ -206,6 +218,7 @@
 /* ── TABLE SHELL ────────────────────────────────────────────────── */
 .tableScroll {
     overflow-x: auto;
+    overflow-y: visible;
     border-radius: var(--radius);
     background: rgba(0, 0, 0, 0.15);
     /* Break out of HardwarePanel's 30px padding to use full width */
@@ -240,6 +253,9 @@
     box-shadow: 0 3px 0 rgba(238,140,58,0.15);
     white-space: nowrap;
     user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
