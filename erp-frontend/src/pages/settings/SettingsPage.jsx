@@ -287,6 +287,13 @@ const SettingsPage = () => {
                                     </button>
                                 </div>
 
+                                <div className={styles.statusLegend} aria-label="Status legend">
+                                    <span className={styles.legendDot} style={{background:'#10b981',boxShadow:'0 0 6px #10b981'}} aria-hidden="true" />
+                                    <span className={styles.legendText}>Active Operator</span>
+                                    <span className={styles.legendSep} aria-hidden="true" />
+                                    <span className={styles.legendDot} style={{background:'#ef4444'}} aria-hidden="true" />
+                                    <span className={styles.legendText}>Suspended / Inactive</span>
+                                </div>
                                 <div className={styles.staffStream} role="list" aria-label="Operators">
                                     {opLoading ? (
                                         <div className={styles.hint}>

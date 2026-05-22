@@ -16,233 +16,111 @@ def patch(path, old, new, label):
     else:
         print(f'MISSING: {label}')
 
-# ─────────────────────────────────────────────
-# LEDGER PAGE CSS
-# ─────────────────────────────────────────────
-LEDGER_CSS = 'erp-frontend/src/pages/Ledger/LedgerPage.module.css'
+SETTINGS_JSX = 'erp-frontend/src/pages/settings/SettingsPage.jsx'
+SETTINGS_CSS = 'erp-frontend/src/pages/settings/SettingsPage.module.css'
+RECOVERY_CSS = 'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css'
 
-# 1. Make controlHub sticky
-patch(LEDGER_CSS,
-    '''.controlHub {
+# ─────────────────────────────────────────────
+# 1. Settings — add legend above staffStream
+# ─────────────────────────────────────────────
+
+patch(SETTINGS_JSX,
+    '''                                <div className={styles.staffStream} role="list" aria-label="Operators">''',
+    '''                                <div className={styles.statusLegend} aria-label="Status legend">
+                                    <span className={styles.legendDot} style={{background:'#10b981',boxShadow:'0 0 6px #10b981'}} aria-hidden="true" />
+                                    <span className={styles.legendText}>Active Operator</span>
+                                    <span className={styles.legendSep} aria-hidden="true" />
+                                    <span className={styles.legendDot} style={{background:'#ef4444'}} aria-hidden="true" />
+                                    <span className={styles.legendText}>Suspended / Inactive</span>
+                                </div>
+                                <div className={styles.staffStream} role="list" aria-label="Operators">''',
+    'SettingsPage — add status legend JSX'
+)
+
+patch(SETTINGS_CSS,
+    '''.staffStream {
+    display: flex; flex-direction: column; gap: var(--gap-md);
+    max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
+    padding-right: clamp(3px,0.4vw,5px);
+    scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
+}''',
+    '''.statusLegend {
     display: flex;
-    flex-direction: column;
-    gap: var(--gap-lg);
-    margin-bottom: var(--gap-xl);
-}''',
-    '''.controlHub {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-lg);
-    margin-bottom: var(--gap-xl);
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    background: rgba(244, 242, 239, 0.97);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding-top: clamp(6px, 1vw, 10px);
-    padding-bottom: clamp(6px, 1vw, 10px);
-    margin-left: clamp(-12px, -2vw, -24px);
-    margin-right: clamp(-12px, -2vw, -24px);
-    padding-left: clamp(12px, 2vw, 24px);
-    padding-right: clamp(12px, 2vw, 24px);
-}''',
-    'LedgerPage — controlHub sticky'
-)
-
-# 2. Fix tableScroll — remove overflow hidden breakage, keep overflow-x auto
-patch(LEDGER_CSS,
-    '''.tableScroll {
-    overflow-x: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    /* Break out of HardwarePanel's 30px padding to use full width */
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-}''',
-    '''.tableScroll {
-    overflow-x: auto;
-    overflow-y: visible;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    /* Break out of HardwarePanel's 30px padding to use full width */
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-}''',
-    'LedgerPage — tableScroll overflow-y visible'
-)
-
-# 3. Make thead th sticky — control hub is ~120px, use 120px as offset
-patch(LEDGER_CSS,
-    '''.ledgerTable th {
-    background: #162a2c;
-    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
-    text-align: left;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 9px);
+    margin-bottom: var(--gap-md);
+    padding: clamp(6px, 0.8vw, 9px) clamp(10px, 1.2vw, 14px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-sm);
+    flex-wrap: wrap;
+}
+.legendDot {
+    width: clamp(8px, 1vw, 10px);
+    height: clamp(8px, 1vw, 10px);
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.legendText {
     font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-th);
-    font-weight: 900;
-    color: var(--orange);
+    font-size: clamp(8px, 0.82vw, 10px);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
+    letter-spacing: 0.5px;
     white-space: nowrap;
-    user-select: none;
+}
+.legendSep {
+    width: 1px;
+    height: clamp(10px, 1.2vw, 13px);
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 clamp(3px, 0.4vw, 5px);
+    flex-shrink: 0;
+}
+
+.staffStream {
+    display: flex; flex-direction: column; gap: var(--gap-md);
+    max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
+    padding-right: clamp(3px,0.4vw,5px);
+    scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
 }''',
-    '''.ledgerTable th {
-    background: #162a2c;
-    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
-    text-align: left;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-th);
-    font-weight: 900;
-    color: var(--orange);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
-    white-space: nowrap;
-    user-select: none;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}''',
-    'LedgerPage — thead th sticky'
+    'SettingsPage — add statusLegend CSS'
 )
 
 # ─────────────────────────────────────────────
-# PAYMENTS PAGE CSS
+# 2. Recovery — increase spacing between mission cards
 # ─────────────────────────────────────────────
-PAYMENTS_CSS = 'erp-frontend/src/pages/Payments/PaymentsPage.module.css'
 
-# 1. Make controls sticky
-patch(PAYMENTS_CSS,
-    '''.controls {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-md);
-    margin-bottom: clamp(14px, 2vw, 20px);
-}''',
-    '''.controls {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-md);
-    margin-bottom: clamp(14px, 2vw, 20px);
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    background: rgba(244, 242, 239, 0.97);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding-top: clamp(6px, 1vw, 10px);
-    padding-bottom: clamp(6px, 1vw, 10px);
-    margin-left: clamp(-12px, -2vw, -24px);
-    margin-right: clamp(-12px, -2vw, -24px);
-    padding-left: clamp(12px, 2vw, 24px);
-    padding-right: clamp(12px, 2vw, 24px);
-}''',
-    'PaymentsPage — controls sticky'
+patch(RECOVERY_CSS,
+    '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }''',
+    '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); }''',
+    'RecoveryPortal — missionGrid gap increased'
 )
 
-# 2. Fix tableScroll overflow
-patch(PAYMENTS_CSS,
-    '''.tableScroll {
-    overflow-x: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-}''',
-    '''.tableScroll {
-    overflow-x: auto;
-    overflow-y: visible;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-}''',
-    'PaymentsPage — tableScroll overflow-y visible'
+patch(RECOVERY_CSS,
+    '''.sectionGroup { margin-bottom:var(--gap-xl); }''',
+    '''.sectionGroup { margin-bottom:clamp(20px, 2.8vw, 32px); }''',
+    'RecoveryPortal — sectionGroup margin-bottom increased'
 )
 
-# 3. Make thead th sticky
-patch(PAYMENTS_CSS,
-    '''.ledgerTable th {
-    background: #162a2c;
-    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
-    text-align: left;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-th);
-    font-weight: 900;
-    color: var(--orange);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
-    white-space: nowrap;
-    user-select: none;
+patch(RECOVERY_CSS,
+    '''.missionCard {
+    background:var(--panel-bg);
+    border:1.5px solid rgba(238,140,58,0.2);
+    border-radius:var(--radius);
+    box-shadow:0 3px 12px rgba(0,0,0,0.2);
+    transition:border-color 0.2s;
+    overflow:hidden; width:100%;
 }''',
-    '''.ledgerTable th {
-    background: #162a2c;
-    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
-    text-align: left;
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-th);
-    font-weight: 900;
-    color: var(--orange);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
-    white-space: nowrap;
-    user-select: none;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    '''.missionCard {
+    background:var(--panel-bg);
+    border:1.5px solid rgba(238,140,58,0.2);
+    border-radius:var(--radius);
+    box-shadow:0 4px 18px rgba(0,0,0,0.22);
+    transition:border-color 0.2s;
+    overflow:hidden; width:100%;
 }''',
-    'PaymentsPage — thead th sticky'
-)
-
-# Also fix the mobile override that resets margin
-patch(PAYMENTS_CSS,
-    '''@media (max-width: 480px) {
-    .tableScroll {
-        margin: 0 !important;
-        border-radius: var(--radius) !important;
-        padding-bottom: 0 !important;
-    }
-}''',
-    '''@media (max-width: 480px) {
-    .tableScroll {
-        margin: 0 !important;
-        border-radius: var(--radius) !important;
-        padding-bottom: 0 !important;
-        overflow-y: visible !important;
-    }
-}''',
-    'PaymentsPage — mobile tableScroll overflow-y visible'
-)
-
-# ─────────────────────────────────────────────
-# AUDIT PAGE CSS
-# ─────────────────────────────────────────────
-AUDIT_CSS = 'erp-frontend/src/pages/Audit/AuditPage.module.css'
-
-# 1. Make controlHub sticky
-patch(AUDIT_CSS,
-    '''.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: relative; z-index: 9500; overflow: visible; }''',
-    '''.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; position: sticky; top: 0; z-index: 9500; background: rgba(244, 242, 239, 0.97); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding-top: clamp(6px, 1vw, 10px); padding-bottom: clamp(6px, 1vw, 10px); margin-left: clamp(-8px, -1.6vw, -16px); margin-right: clamp(-8px, -1.6vw, -16px); padding-left: clamp(8px, 1.6vw, 16px); padding-right: clamp(8px, 1.6vw, 16px); }''',
-    'AuditPage — controlHub sticky'
-)
-
-# 2. Fix timelineFrame to not trap sticky children
-patch(AUDIT_CSS,
-    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }''',
-    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: visible; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }''',
-    'AuditPage — timelineFrame overflow visible'
+    'RecoveryPortal — missionCard shadow depth'
 )
 
 print('\nAll patches complete.')
