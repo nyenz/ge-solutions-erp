@@ -227,10 +227,16 @@ public class LandService {
                 .status(startAsBacklog ? "BACKLOG" : "ACTIVE");
 
         if (startAsBacklog && outstanding.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal initialFees = request.getInitialStorageFee() != null
+                    ? request.getInitialStorageFee() : BigDecimal.ZERO;
             builder.isBacklog(true)
                    .backlogStartDate(LocalDateTime.now())
                    .originalDebt(outstanding)
-                   .storageFeesAccumulated(BigDecimal.ZERO);
+                   .storageFeesAccumulated(initialFees);
+            if (request.getMonthlyStorageFee() != null
+                    && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0) {
+                builder.storageFeeOverride(request.getMonthlyStorageFee());
+            }
         }
 
         LandProject project = builder.build();

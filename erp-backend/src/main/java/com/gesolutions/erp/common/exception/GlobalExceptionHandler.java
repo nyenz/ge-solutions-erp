@@ -79,9 +79,12 @@ public class GlobalExceptionHandler {
     // --- 5. DATABASE INTEGRITY FAULTS ---
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        String msg = ex.getMessage().toLowerCase();
+        String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
         System.err.println(">>> [DB_CONFLICT]: " + msg);
         if (msg.contains("unique") || msg.contains("duplicate")) {
+            if (msg.contains("plot_number") || msg.contains("plot number") || msg.contains("plotnumber")) {
+                return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "A plot with this ID already exists in the system.");
+            }
             return buildResponse(HttpStatus.CONFLICT, "REGISTRY_CONFLICT", "A record with this ID already exists.");
         }
         return buildResponse(HttpStatus.CONFLICT, "INTEGRITY_VIOLATION", "Cannot modify record: Active data links found.");

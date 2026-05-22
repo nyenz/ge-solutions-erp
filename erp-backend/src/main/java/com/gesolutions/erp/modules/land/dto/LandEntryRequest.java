@@ -46,6 +46,9 @@ public class LandEntryRequest {
     @JsonProperty("isStartAsBacklog")
     private boolean isStartAsBacklog;
 
+    private java.math.BigDecimal monthlyStorageFee;
+    private java.math.BigDecimal initialStorageFee;
+
     @Data
     @Builder
     @NoArgsConstructor

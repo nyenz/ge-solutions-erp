@@ -274,8 +274,12 @@ const IntakePage = () => {
             if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
             if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
         });
+        if (fileQueue.length === 0) {
+            toast('At least one document scan is required.', 'error', 6000);
+            setDrawers(prev => ({ ...prev, docs: true }));
+        }
         setErrors(e);
-        return Object.keys(e).length === 0;
+        return Object.keys(e).length === 0 && fileQueue.length > 0;
     };
 
     // Duplicate: save current plot first, then pre-fill form for a similar new plot
