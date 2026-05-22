@@ -202,11 +202,11 @@ const SettingsPage = () => {
     };
 
     // ── STATUS TOGGLE ──
-    const handleStatusToggle = async (opUsername, isActive) => {
-        const action = isActive ? 'SUSPEND' : 'RESTORE';
+    const handleStatusToggle = async (opUsername, currentlyActive) => {
+        const action = currentlyActive ? 'SUSPEND' : 'RESTORE';
         const ok = await confirm(`${action} OPERATOR`, `Physically ${action.toLowerCase()} access for ${opUsername}?`, 'warn');
         if (!ok) return;
-        try { await settingsService.toggleOperator(opUsername, !isActive); fetchOperators(); }
+        try { await settingsService.toggleOperator(opUsername, !currentlyActive); fetchOperators(); }
         catch (err) { toast(err.message || 'ACTION FAILED', 'error', 8000); }
     };
 
@@ -294,11 +294,11 @@ const SettingsPage = () => {
                                     ) : operators.length === 0 ? (
                                         <div className={styles.hint}>NO SECONDARY OPERATORS IN REGISTRY.</div>
                                     ) : operators.map(op => (
-                                        <div key={op.id} className={`${styles.opCard} ${!op.active ? styles.cardDimmed : ''}`} role="listitem">
+                                        <div key={op.id} className={`${styles.opCard} ${!(op.isActive || op.active) ? styles.cardDimmed : ''}`} role="listitem">
                                             <div className={styles.opHeader}>
                                                 <div className={styles.opAvatar} aria-hidden="true">
                                                     {op.username.charAt(0).toUpperCase()}
-                                                    <div className={`${styles.statusDot} ${op.active ? styles.dotGreen : styles.dotRed}`} />
+                                                    <div className={`${styles.statusDot} ${(op.isActive || op.active) ? styles.dotGreen : styles.dotRed}`} />
                                                 </div>
                                                 <div className={styles.opInfo}>
                                                     <strong>{op.username}</strong>
@@ -311,7 +311,7 @@ const SettingsPage = () => {
                                                         <button className={styles.rankBtn} onClick={() => handleRoleSwitch(op.username, op.role)} aria-label={op.role === 'ROLE_ADMIN' ? `Demote ${op.username}` : `Promote ${op.username}`}>
                                                             {op.role === 'ROLE_ADMIN' ? <FiArrowDown aria-hidden="true" /> : <FiArrowUp aria-hidden="true" />}
                                                         </button>
-                                                        <button className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} onClick={() => handleStatusToggle(op.username, op.active)} aria-label={op.active ? `Suspend ${op.username}` : `Restore ${op.username}`}>
+                                                        <button className={`${styles.killSwitchBtn} ${(op.isActive || op.active) ? styles.killSwitchActive : styles.killSwitchInactive}`} onClick={() => handleStatusToggle(op.username, (op.isActive || op.active))} aria-label={(op.isActive || op.active) ? `Suspend ${op.username}` : `Restore ${op.username}`}>
                                                             <FiPower aria-hidden="true" />
                                                         </button>
                                                         <button className={styles.resetTrigger} onClick={() => settingsService.resetOperatorKey(op.username).then(k => setTempKeyReveal(k))} aria-label={`Force key reset for ${op.username}`}>

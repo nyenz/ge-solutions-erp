@@ -354,14 +354,12 @@
 
 /* Joint badge */
 .jointBadge {
-    background: var(--orange-dim);
-    border: 1.5px solid var(--orange);
+    background: transparent;
+    border: none;
     color: var(--orange);
-    padding: clamp(3px, 0.4vw, 5px) clamp(5px, 0.7vw, 8px);
-    border-radius: var(--radius-sm);
+    padding: clamp(2px, 0.3vw, 4px) 0;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
     gap: clamp(4px, 0.5vw, 6px);
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-tag);
@@ -369,8 +367,6 @@
     letter-spacing: 1px;
     white-space: nowrap;
     flex-shrink: 0;
-    box-shadow: 0 0 10px rgba(238, 140, 58, 0.2);
-    animation: badgePulse 2.2s ease-in-out infinite;
 }
 @keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
 

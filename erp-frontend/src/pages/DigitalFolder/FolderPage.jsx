@@ -272,6 +272,7 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, req
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`}
                 autoComplete="tel-national" />
             {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
+            <span className={styles.inputHint}>Use &#39;/&#39; to separate multiple numbers (e.g. 077... / 075...)</span>
         </div>
     );
 };

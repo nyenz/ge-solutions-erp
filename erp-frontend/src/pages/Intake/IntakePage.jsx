@@ -181,6 +181,7 @@ const PhoneInput = ({ label='PHONE NUMBER', value, onChange, onBlur, id, require
                 inputMode="tel"
                 className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`} />
             {fieldError && <span className={styles.fieldError}>{fieldError}</span>}
+            <span className={styles.fieldHint}>Use &#39;/&#39; to separate multiple numbers (e.g. 077... / 075...)</span>
         </div>
     );
 };

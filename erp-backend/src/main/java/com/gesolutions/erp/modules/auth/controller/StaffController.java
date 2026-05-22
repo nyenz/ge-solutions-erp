@@ -32,8 +32,10 @@ public class StaffController {
     /**
      * OPERATOR DIRECTORY
      * Returns the full list of staff for the Governance Ledger.
+     * ACCESS: Root and Admin (Admins need this to filter audit logs).
      */
     @GetMapping("/all")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<List<User>> getAllOperators() {
         return ResponseEntity.ok(staffService.getAllOperators());
     }

@@ -99,10 +99,11 @@ const LedgerPage = () => {
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
-        if (activeFilter === 'PAID')    filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
-        if (activeFilter === 'BACKLOG') filtered = filtered.filter(p => p.isBacklog);
-        if (activeFilter === 'DEBTORS')   filtered = filtered.filter(p => p.amountPaid < p.totalCost && !p.isBacklog);
-        if (activeFilter === 'CRITICAL')  filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);
+        if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
+        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
+        if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isBacklog);
+        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);
+        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);
 
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -135,11 +136,12 @@ const LedgerPage = () => {
     const SEARCH_HINT = 'Plot ID � Box � Owner name � Phone � NIN � Email � District � County � Tenure';
 
     const FILTERS = [
-        { key: 'ALL',      label: 'ALL ARCHIVES' },
-        { key: 'PAID',     label: 'PAID TITLES'  },
-        { key: 'BACKLOG',  label: 'BACKLOG'       },
-        { key: 'DEBTORS',  label: 'UNPAID'        },
-        { key: 'CRITICAL', label: 'CRITICAL'      },
+        { key: 'ALL',      label: 'ALL ARCHIVES'  },
+        { key: 'PAID',     label: 'PAID TITLES'   },
+        { key: 'BACKLOG',  label: 'BACKLOG'        },
+        { key: 'ACTIVE',   label: 'ACTIVE TITLES'  },
+        { key: 'DEBTORS',  label: 'UNPAID'         },
+        { key: 'CRITICAL', label: 'CRITICAL'       },
     ];
 
     return (
