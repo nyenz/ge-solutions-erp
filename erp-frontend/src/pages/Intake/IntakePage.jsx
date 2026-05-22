@@ -186,6 +186,53 @@ const PhoneInput = ({ label='PHONE NUMBER', value, onChange, onBlur, id, require
     );
 };
 
+// ── CONFIRM HOOK (mirrors FolderPage pattern) ─────────────────────
+const useIntakeConfirm = () => {
+    const [state, setState] = useState({ open: false, title: '', message: '', variant: 'warn', resolve: null });
+    const confirm = useCallback((title, message, variant = 'warn') =>
+        new Promise(resolve => setState({ open: true, title, message, variant, resolve })), []);
+    const handleAnswer = useCallback((answer) => {
+        setState(s => { s.resolve?.(answer); return { ...s, open: false, resolve: null }; });
+    }, []);
+    return { confirmState: state, confirm, handleAnswer };
+};
+
+const IntakeConfirmModal = ({ state, onAnswer }) => {
+    if (!state.open || typeof document === 'undefined') return null;
+    return (
+        <div style={{
+            position:'fixed',inset:0,zIndex:99998,
+            background:'rgba(10,20,22,0.82)',backdropFilter:'blur(6px)',
+            display:'flex',alignItems:'center',justifyContent:'center',padding:24
+        }} role="dialog" aria-modal="true">
+            <div style={{
+                background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
+                border:'1.5px solid rgba(238,140,58,0.35)',borderRadius:12,
+                maxWidth:460,width:'100%',overflow:'hidden',
+                boxShadow:'0 20px 60px rgba(0,0,0,0.6)'
+            }}>
+                <div style={{
+                    display:'flex',alignItems:'center',gap:12,
+                    padding:'14px 20px',borderBottom:'1px solid rgba(255,255,255,0.08)',
+                    background:'rgba(245,158,11,0.14)'
+                }}>
+                    <span style={{fontSize:20,color:'#f59e0b'}}>⚠</span>
+                    <span style={{fontFamily:'Space Mono,monospace',fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:1.5,color:'#fcd34d'}}>{state.title}</span>
+                </div>
+                <p style={{padding:'16px 20px',fontFamily:'DM Sans,sans-serif',fontSize:13,fontWeight:800,lineHeight:1.6,color:'rgba(255,255,255,0.8)',margin:0}}>{state.message}</p>
+                <div style={{display:'flex',justifyContent:'flex-end',gap:10,padding:'12px 20px',background:'rgba(0,0,0,0.2)',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                    <button onClick={() => onAnswer(false)} autoFocus style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                        CANCEL
+                    </button>
+                    <button onClick={() => onAnswer(true)} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'#EE8C3A',border:'none',color:'#1a2e30',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                        DISCARD
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── MAIN COMPONENT ────────────────────────────────────────────────
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
@@ -195,6 +242,7 @@ const IntakePage = () => {
 
     // Unsaved changes guard -- wired below once isDirty is defined
     const fileInputRef = useRef(null);
+    const { confirmState: noteConfirmState, confirm: confirmNote, handleAnswer: handleNoteAnswer } = useIntakeConfirm();
 
     const [saving, setSaving] = useState(false);
     const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
@@ -707,11 +755,15 @@ const IntakePage = () => {
                 context="New Plot Registration"
             />
 
+            {/* NOTE DISCARD CONFIRM MODAL */}
+            <IntakeConfirmModal state={noteConfirmState} onAnswer={handleNoteAnswer} />
+
             {/* NOTE MODAL */}
             {noteModalOpen && (
-                <div className={styles.noteModalOverlay} onClick={() => {
+                <div className={styles.noteModalOverlay} onClick={async () => {
                     if (noteModalText.trim() !== '') {
-                        if (!window.confirm('Discard unsaved note?')) return;
+                        const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                        if (!ok) return;
                     }
                     setNoteModalOpen(false);
                     setNoteModalText('');
@@ -719,9 +771,10 @@ const IntakePage = () => {
                     <div className={styles.noteModalBox} onClick={e => e.stopPropagation()}>
                         <div className={styles.noteModalHeader}>
                             <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
-                            <button type="button" className={styles.noteModalClose} onClick={() => {
+                            <button type="button" className={styles.noteModalClose} onClick={async () => {
                                 if (noteModalText.trim() !== '') {
-                                    if (!window.confirm('Discard unsaved note?')) return;
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    if (!ok) return;
                                 }
                                 setNoteModalOpen(false);
                                 setNoteModalText('');
@@ -737,9 +790,10 @@ const IntakePage = () => {
                             autoFocus
                         />
                         <div className={styles.noteModalFooter}>
-                            <button type="button" className={styles.noteModalCancel} onClick={() => {
+                            <button type="button" className={styles.noteModalCancel} onClick={async () => {
                                 if (noteModalText.trim() !== '') {
-                                    if (!window.confirm('Discard unsaved note?')) return;
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    if (!ok) return;
                                 }
                                 setNoteModalOpen(false);
                                 setNoteModalText('');

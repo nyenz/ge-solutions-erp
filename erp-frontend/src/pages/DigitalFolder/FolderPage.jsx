@@ -296,7 +296,7 @@ const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, id }) => {
 
 const AddressInput = (props) => <SmartInput {...props} placeholder="Street, Town, District" />;
 
-const CurrencyInput = ({ label, value, onChange, error, id }) => {
+const CurrencyInput = ({ label, value, onChange, error, id, disabled }) => {
     const [focused, setFocused] = useState(false);
     const inputId = id || 'cur-' + (label||'').replace(/\W/g,'-').toLowerCase();
     const display = focused ? String(value||'') : (value ? Number(value).toLocaleString() : '');
@@ -305,12 +305,15 @@ const CurrencyInput = ({ label, value, onChange, error, id }) => {
             <div className={styles.inputLabelRow}>
                 <label htmlFor={inputId}>{label}</label>
                 <span className={styles.currencyTag}>UGX</span>
+                {disabled && <span className={styles.autoCalcBadge} style={{color:'rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.05)',borderColor:'rgba(255,255,255,0.1)'}}>LOCKED</span>}
             </div>
-            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''} ${disabled ? styles.calcInput : ''}`}
                 inputMode="numeric" value={display}
-                onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                onChange={e => onChange(e.target.value.replace(/\D/g,''))}
-                placeholder="0" aria-invalid={error ? 'true' : 'false'} />
+                onFocus={() => { if (!disabled) setFocused(true); }} onBlur={() => setFocused(false)}
+                onChange={e => { if (!disabled) onChange(e.target.value.replace(/\D/g,'')); }}
+                placeholder="0" aria-invalid={error ? 'true' : 'false'}
+                disabled={disabled}
+                style={disabled ? {background:'rgba(0,0,0,0.25)',color:'rgba(255,255,255,0.45)',cursor:'not-allowed',border:'1.5px solid rgba(255,255,255,0.08)'} : {}} />
             {error && <span className={styles.fieldError} role="alert">{error}</span>}
         </div>
     );
@@ -654,7 +657,7 @@ const FolderPage = () => {
     };
 
     const handleAbort = async () => {
-        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn');
+        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost. This cannot be undone.', 'warn');
         if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };
 
@@ -1427,9 +1430,10 @@ const FolderPage = () => {
 
 
             {/* NOTE MODAL */}
-            <HardwareModal isOpen={noteModal.open} onClose={() => {
+            <HardwareModal isOpen={noteModal.open} onClose={async () => {
                 if (noteModal.content.trim() !== '') {
-                    if (!window.confirm('Discard unsaved note?')) return;
+                    const ok = await confirm('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                    if (!ok) return;
                 }
                 setNoteModal({open:false, id:null, content:''});
             }} title="ADD NOTE">

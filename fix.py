@@ -18,227 +18,254 @@ def patch(path, old, new):
     else:
         print(f"MISSING patch target in: {path}")
 
-# ── FIX 1a: IntakePage.jsx — phone regex + hint ──────────────────
+# ── FIX 1: Manager Financial Lock — disable TOTAL COST and AMOUNT PAID for non-admins ──
 patch(
-    'erp-frontend/src/pages/Intake/IntakePage.jsx',
-    '''const PhoneInput = ({ label='PHONE NUMBER', value, onChange, onBlur, id, required, fieldError }) => {
-    const inputId = id || 'phi';
+    'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
+    '''                                    <div className={styles.inputGrid3}>
+                                        <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
+                                        <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />''',
+    '''                                    <div className={styles.inputGrid3}>
+                                        <CurrencyInput label="TOTAL COST" value={buffer.totalCost} disabled={!isAdmin} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
+                                        <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} disabled={!isAdmin} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />'''
+)
+
+# Update CurrencyInput component to accept and use a disabled prop
+patch(
+    'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
+    '''const CurrencyInput = ({ label, value, onChange, error, id }) => {
+    const [focused, setFocused] = useState(false);
+    const inputId = id || 'cur-' + (label||'').replace(/\W/g,'-').toLowerCase();
+    const display = focused ? String(value||'') : (value ? Number(value).toLocaleString() : '');
     return (
-        <div className={`${styles.inputWrap} ${fieldError ? styles.inputError : ''}`}>
-            <div className={styles.labelRow}>
-                <label htmlFor={inputId} className={styles.fieldLabel}>
-                    {label}{required && <span className={styles.requiredStar}> *</span>}
-                </label>
+        <div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
+            <div className={styles.inputLabelRow}>
+                <label htmlFor={inputId}>{label}</label>
+                <span className={styles.currencyTag}>UGX</span>
             </div>
-            <input id={inputId} type="tel" value={value}
-                onChange={e => onChange(e.target.value.replace(/[^0-9\s/]/g, ''))}
-                onBlur={onBlur ? e => onBlur(e.target.value) : undefined}
-                placeholder="0712 345 678"
-                inputMode="tel"
-                className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`} />
-            {fieldError && <span className={styles.fieldError}>{fieldError}</span>}
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+                inputMode="numeric" value={display}
+                onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                onChange={e => onChange(e.target.value.replace(/\D/g,''))}
+                placeholder="0" aria-invalid={error ? 'true' : 'false'} />
+            {error && <span className={styles.fieldError} role="alert">{error}</span>}
         </div>
     );
 };''',
-    '''const PhoneInput = ({ label='PHONE NUMBER', value, onChange, onBlur, id, required, fieldError }) => {
-    const inputId = id || 'phi';
+    '''const CurrencyInput = ({ label, value, onChange, error, id, disabled }) => {
+    const [focused, setFocused] = useState(false);
+    const inputId = id || 'cur-' + (label||'').replace(/\W/g,'-').toLowerCase();
+    const display = focused ? String(value||'') : (value ? Number(value).toLocaleString() : '');
     return (
-        <div className={`${styles.inputWrap} ${fieldError ? styles.inputError : ''}`}>
-            <div className={styles.labelRow}>
-                <label htmlFor={inputId} className={styles.fieldLabel}>
-                    {label}{required && <span className={styles.requiredStar}> *</span>}
-                </label>
+        <div className={`${styles.hwInputWrap} ${error ? styles.inputError : ''}`}>
+            <div className={styles.inputLabelRow}>
+                <label htmlFor={inputId}>{label}</label>
+                <span className={styles.currencyTag}>UGX</span>
+                {disabled && <span className={styles.autoCalcBadge} style={{color:'rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.05)',borderColor:'rgba(255,255,255,0.1)'}}>LOCKED</span>}
             </div>
-            <input id={inputId} type="tel" value={value}
-                onChange={e => onChange(e.target.value.replace(/[^0-9\s/]/g, ''))}
-                onBlur={onBlur ? e => onBlur(e.target.value) : undefined}
-                placeholder="0712 345 678"
-                inputMode="tel"
-                className={`${styles.hwInput} ${fieldError ? styles.hwInputErr : ''}`} />
-            {fieldError && <span className={styles.fieldError}>{fieldError}</span>}
-            <span className={styles.fieldHint}>Use &#39;/&#39; to separate multiple numbers (e.g. 077... / 075...)</span>
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''} ${disabled ? styles.calcInput : ''}`}
+                inputMode="numeric" value={display}
+                onFocus={() => { if (!disabled) setFocused(true); }} onBlur={() => setFocused(false)}
+                onChange={e => { if (!disabled) onChange(e.target.value.replace(/\D/g,'')); }}
+                placeholder="0" aria-invalid={error ? 'true' : 'false'}
+                disabled={disabled}
+                style={disabled ? {background:'rgba(0,0,0,0.25)',color:'rgba(255,255,255,0.45)',cursor:'not-allowed',border:'1.5px solid rgba(255,255,255,0.08)'} : {}} />
+            {error && <span className={styles.fieldError} role="alert">{error}</span>}
         </div>
     );
 };'''
 )
 
-# ── FIX 1b: FolderPage.jsx — phone regex + hint ──────────────────
+# ── FIX 2a: FolderPage.jsx — replace window.confirm in handleAbort ──
 patch(
     'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    '''const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, required, fieldError }) => {
-    const [raw, setRaw] = useState(() => value || '');
-    const inputId = id || 'phi_phone';
-    const isDual  = raw.includes('/');
-    const handleChange = (e) => {
-        let v = e.target.value.replace(/[^0-9\s/]/g, '').replace(/[/]+/g, '/');
-        if (v.startsWith('/')) v = v.slice(1);
-        setRaw(v); onChange(v);
+    '''    const handleAbort = async () => {
+        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn');
+        if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };''',
-    '''const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, required, fieldError }) => {
-    const [raw, setRaw] = useState(() => value || '');
-    const inputId = id || 'phi_phone';
-    const isDual  = raw.includes('/');
-    const handleChange = (e) => {
-        let v = e.target.value.replace(/[^0-9\s/]/g, '').replace(/[/]+/g, '/');
-        if (v.startsWith('/')) v = v.slice(1);
-        setRaw(v); onChange(v);
+    '''    const handleAbort = async () => {
+        const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost. This cannot be undone.', 'warn');
+        if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); }
     };'''
 )
 
+# ── FIX 2b: FolderPage.jsx — replace window.confirm in note modal close ──
 patch(
     'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx',
-    '''            {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
+    '''            <HardwareModal isOpen={noteModal.open} onClose={() => {
+                if (noteModal.content.trim() !== '') {
+                    if (!window.confirm('Discard unsaved note?')) return;
+                }
+                setNoteModal({open:false, id:null, content:''});
+            }} title="ADD NOTE">''',
+    '''            <HardwareModal isOpen={noteModal.open} onClose={async () => {
+                if (noteModal.content.trim() !== '') {
+                    const ok = await confirm('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                    if (!ok) return;
+                }
+                setNoteModal({open:false, id:null, content:''});
+            }} title="ADD NOTE">'''
+)
+
+# ── FIX 2c: IntakePage.jsx — replace window.confirm in note modal overlay close ──
+patch(
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+    '''            {noteModalOpen && (
+                <div className={styles.noteModalOverlay} onClick={() => {
+                    if (noteModalText.trim() !== '') {
+                        if (!window.confirm('Discard unsaved note?')) return;
+                    }
+                    setNoteModalOpen(false);
+                    setNoteModalText('');
+                }}>
+                    <div className={styles.noteModalBox} onClick={e => e.stopPropagation()}>
+                        <div className={styles.noteModalHeader}>
+                            <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
+                            <button type="button" className={styles.noteModalClose} onClick={() => {
+                                if (noteModalText.trim() !== '') {
+                                    if (!window.confirm('Discard unsaved note?')) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>''',
+    '''            {noteModalOpen && (
+                <div className={styles.noteModalOverlay} onClick={async () => {
+                    if (noteModalText.trim() !== '') {
+                        const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                        if (!ok) return;
+                    }
+                    setNoteModalOpen(false);
+                    setNoteModalText('');
+                }}>
+                    <div className={styles.noteModalBox} onClick={e => e.stopPropagation()}>
+                        <div className={styles.noteModalHeader}>
+                            <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
+                            <button type="button" className={styles.noteModalClose} onClick={async () => {
+                                if (noteModalText.trim() !== '') {
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    if (!ok) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>'''
+)
+
+# ── FIX 2d: IntakePage.jsx — replace window.confirm in note modal Cancel button ──
+patch(
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+                    '''                        <button type="button" className={styles.noteModalCancel} onClick={() => {
+                                if (noteModalText.trim() !== '') {
+                                    if (!window.confirm('Discard unsaved note?')) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>''',
+    '''                        <button type="button" className={styles.noteModalCancel} onClick={async () => {
+                                if (noteModalText.trim() !== '') {
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    if (!ok) return;
+                                }
+                                setNoteModalOpen(false);
+                                setNoteModalText('');
+                            }}>'''
+)
+
+# ── FIX 2e: IntakePage.jsx — add useConfirm hook and ConfirmModal import/usage ──
+# Add the useConfirm hook inside IntakePage (after the component opens)
+patch(
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+    '''// ── MAIN COMPONENT ────────────────────────────────────────────────
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
+
+const IntakePage = () => {
+    const navigate = useNavigate();
+    const { toasts, toast, dismissToast } = useToast();''',
+    '''// ── CONFIRM HOOK (mirrors FolderPage pattern) ─────────────────────
+const useIntakeConfirm = () => {
+    const [state, setState] = useState({ open: false, title: '', message: '', variant: 'warn', resolve: null });
+    const confirm = useCallback((title, message, variant = 'warn') =>
+        new Promise(resolve => setState({ open: true, title, message, variant, resolve })), []);
+    const handleAnswer = useCallback((answer) => {
+        setState(s => { s.resolve?.(answer); return { ...s, open: false, resolve: null }; });
+    }, []);
+    return { confirmState: state, confirm, handleAnswer };
+};
+
+const IntakeConfirmModal = ({ state, onAnswer }) => {
+    if (!state.open || typeof document === 'undefined') return null;
+    return (
+        <div style={{
+            position:'fixed',inset:0,zIndex:99998,
+            background:'rgba(10,20,22,0.82)',backdropFilter:'blur(6px)',
+            display:'flex',alignItems:'center',justifyContent:'center',padding:24
+        }} role="dialog" aria-modal="true">
+            <div style={{
+                background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
+                border:'1.5px solid rgba(238,140,58,0.35)',borderRadius:12,
+                maxWidth:460,width:'100%',overflow:'hidden',
+                boxShadow:'0 20px 60px rgba(0,0,0,0.6)'
+            }}>
+                <div style={{
+                    display:'flex',alignItems:'center',gap:12,
+                    padding:'14px 20px',borderBottom:'1px solid rgba(255,255,255,0.08)',
+                    background:'rgba(245,158,11,0.14)'
+                }}>
+                    <span style={{fontSize:20,color:'#f59e0b'}}>⚠</span>
+                    <span style={{fontFamily:'Space Mono,monospace',fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:1.5,color:'#fcd34d'}}>{state.title}</span>
+                </div>
+                <p style={{padding:'16px 20px',fontFamily:'DM Sans,sans-serif',fontSize:13,fontWeight:800,lineHeight:1.6,color:'rgba(255,255,255,0.8)',margin:0}}>{state.message}</p>
+                <div style={{display:'flex',justifyContent:'flex-end',gap:10,padding:'12px 20px',background:'rgba(0,0,0,0.2)',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                    <button onClick={() => onAnswer(false)} autoFocus style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                        CANCEL
+                    </button>
+                    <button onClick={() => onAnswer(true)} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'#EE8C3A',border:'none',color:'#1a2e30',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                        DISCARD
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
 
-const NINInput''',
-    '''            {fieldError && <span className={styles.fieldError} role="alert">{fieldError}</span>}
-            <span className={styles.inputHint}>Use &#39;/&#39; to separate multiple numbers (e.g. 077... / 075...)</span>
-        </div>
-    );
-};
+// ── MAIN COMPONENT ────────────────────────────────────────────────
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
-const NINInput'''
+const IntakePage = () => {
+    const navigate = useNavigate();
+    const { toasts, toast, dismissToast } = useToast();'''
 )
 
-# ── FIX 2: LedgerPage.module.css — clean jointBadge ─────────────
+# Add confirmNote destructure inside IntakePage body
 patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.module.css',
-    '''.jointBadge {
-    background: var(--orange-dim);
-    border: 1.5px solid var(--orange);
-    color: var(--orange);
-    padding: clamp(3px, 0.4vw, 5px) clamp(5px, 0.7vw, 8px);
-    border-radius: var(--radius-sm);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    gap: clamp(4px, 0.5vw, 6px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    box-shadow: 0 0 10px rgba(238, 140, 58, 0.2);
-    animation: badgePulse 2.2s ease-in-out infinite;
-}''',
-    '''.jointBadge {
-    background: transparent;
-    border: none;
-    color: var(--orange);
-    padding: clamp(2px, 0.3vw, 4px) 0;
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.5vw, 6px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}'''
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+    '''    const fileInputRef = useRef(null);
+
+    const [saving, setSaving] = useState(false);''',
+    '''    const fileInputRef = useRef(null);
+    const { confirmState: noteConfirmState, confirm: confirmNote, handleAnswer: handleNoteAnswer } = useIntakeConfirm();
+
+    const [saving, setSaving] = useState(false);'''
 )
 
-# ── FIX 3: LedgerPage.jsx — add ACTIVE TITLES filter + fix UNPAID ─
+# Render the IntakeConfirmModal inside the IntakePage return, before closing div
 patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
-    '''    const FILTERS = [
-        { key: 'ALL',      label: 'ALL ARCHIVES' },
-        { key: 'PAID',     label: 'PAID TITLES'  },
-        { key: 'BACKLOG',  label: 'BACKLOG'       },
-        { key: 'DEBTORS',  label: 'UNPAID'        },
-        { key: 'CRITICAL', label: 'CRITICAL'      },
-    ];''',
-    '''    const FILTERS = [
-        { key: 'ALL',      label: 'ALL ARCHIVES'  },
-        { key: 'PAID',     label: 'PAID TITLES'   },
-        { key: 'BACKLOG',  label: 'BACKLOG'        },
-        { key: 'ACTIVE',   label: 'ACTIVE TITLES'  },
-        { key: 'DEBTORS',  label: 'UNPAID'         },
-        { key: 'CRITICAL', label: 'CRITICAL'       },
-    ];'''
+    'erp-frontend/src/pages/Intake/IntakePage.jsx',
+    '''            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="New Plot Registration"
+            />''',
+    '''            {/* UNSAVED CHANGES GUARD */}
+            <UnsavedChangesModal
+                isOpen={guardModalOpen}
+                onStay={handleStay}
+                onLeave={handleLeave}
+                context="New Plot Registration"
+            />
+
+            {/* NOTE DISCARD CONFIRM MODAL */}
+            <IntakeConfirmModal state={noteConfirmState} onAnswer={handleNoteAnswer} />'''
 )
 
-patch(
-    'erp-frontend/src/pages/Ledger/LedgerPage.jsx',
-    '''        if (activeFilter === 'PAID')    filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
-        if (activeFilter === 'BACKLOG') filtered = filtered.filter(p => p.isBacklog);
-        if (activeFilter === 'DEBTORS')   filtered = filtered.filter(p => p.amountPaid < p.totalCost && !p.isBacklog);
-        if (activeFilter === 'CRITICAL')  filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);''',
-    '''        if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
-        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
-        if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isBacklog);
-        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);
-        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);'''
-)
-
-# ── FIX 4: StaffController.java — allow ROLE_ADMIN to getAllOperators ──
-patch(
-    'erp-backend/src/main/java/com/gesolutions/erp/modules/auth/controller/StaffController.java',
-    '''    /**
-     * OPERATOR DIRECTORY
-     * Returns the full list of staff for the Governance Ledger.
-     */
-    @GetMapping("/all")
-    public ResponseEntity<List<User>> getAllOperators() {
-        return ResponseEntity.ok(staffService.getAllOperators());
-    }''',
-    '''    /**
-     * OPERATOR DIRECTORY
-     * Returns the full list of staff for the Governance Ledger.
-     * ACCESS: Root and Admin (Admins need this to filter audit logs).
-     */
-    @GetMapping("/all")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<List<User>> getAllOperators() {
-        return ResponseEntity.ok(staffService.getAllOperators());
-    }'''
-)
-
-# ── FIX 5a: SettingsPage.jsx — fix isActive check on operator cards ──
-patch(
-    'erp-frontend/src/pages/settings/SettingsPage.jsx',
-    '''                                            <div className={styles.opAvatar} aria-hidden="true">
-                                                    {op.username.charAt(0).toUpperCase()}
-                                                    <div className={`${styles.statusDot} ${op.active ? styles.dotGreen : styles.dotRed}`} />
-                                                </div>''',
-    '''                                            <div className={styles.opAvatar} aria-hidden="true">
-                                                    {op.username.charAt(0).toUpperCase()}
-                                                    <div className={`${styles.statusDot} ${(op.isActive || op.active) ? styles.dotGreen : styles.dotRed}`} />
-                                                </div>'''
-)
-
-patch(
-    'erp-frontend/src/pages/settings/SettingsPage.jsx',
-    '''                                                    <button className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} onClick={() => handleStatusToggle(op.username, op.active)} aria-label={op.active ? `Suspend ${op.username}` : `Restore ${op.username}`}>''',
-    '''                                                    <button className={`${styles.killSwitchBtn} ${(op.isActive || op.active) ? styles.killSwitchActive : styles.killSwitchInactive}`} onClick={() => handleStatusToggle(op.username, (op.isActive || op.active))} aria-label={(op.isActive || op.active) ? `Suspend ${op.username}` : `Restore ${op.username}`}>'''
-)
-
-patch(
-    'erp-frontend/src/pages/settings/SettingsPage.jsx',
-    '''    const handleStatusToggle = async (opUsername, isActive) => {
-        const action = isActive ? 'SUSPEND' : 'RESTORE';
-        const ok = await confirm(`${action} OPERATOR`, `Physically ${action.toLowerCase()} access for ${opUsername}?`, 'warn');
-        if (!ok) return;
-        try { await settingsService.toggleOperator(opUsername, !isActive); fetchOperators(); }
-        catch (err) { toast(err.message || 'ACTION FAILED', 'error', 8000); }
-    };''',
-    '''    const handleStatusToggle = async (opUsername, currentlyActive) => {
-        const action = currentlyActive ? 'SUSPEND' : 'RESTORE';
-        const ok = await confirm(`${action} OPERATOR`, `Physically ${action.toLowerCase()} access for ${opUsername}?`, 'warn');
-        if (!ok) return;
-        try { await settingsService.toggleOperator(opUsername, !currentlyActive); fetchOperators(); }
-        catch (err) { toast(err.message || 'ACTION FAILED', 'error', 8000); }
-    };'''
-)
-
-# ── FIX 5b: SettingsPage.jsx — fix dimmed card class check ──────
-patch(
-    'erp-frontend/src/pages/settings/SettingsPage.jsx',
-    '''                                    <div key={op.id} className={`${styles.opCard} ${!op.active ? styles.cardDimmed : ''}`} role="listitem">''',
-    '''                                    <div key={op.id} className={`${styles.opCard} ${!(op.isActive || op.active) ? styles.cardDimmed : ''}`} role="listitem">'''
-)
-
-print("=== ALL 5 FIXES APPLIED ===")
+print("=== ALL FIXES APPLIED ===")
