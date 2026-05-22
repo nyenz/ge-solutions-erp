@@ -94,10 +94,26 @@ const RecoveryPortal = () => {
     const callDirty = callModal.open && logContent.trim() !== '';
     const { blocked: guardOpen, proceed: guardLeave, reset: guardStay } = useRouterBlock(callDirty);
 
+    const [discardModalOpen, setDiscardModalOpen] = useState(false);
+    const [pendingClose, setPendingClose] = useState(false);
+
     const handleCloseCallModal = () => {
-        if (callDirty && !window.confirm('Discard unsaved call log?')) return;
+        if (callDirty) {
+            setDiscardModalOpen(true);
+            return;
+        }
         setCallModal({ open: false, mission: null });
         setLogContent('');
+    };
+
+    const handleConfirmDiscard = () => {
+        setDiscardModalOpen(false);
+        setCallModal({ open: false, mission: null });
+        setLogContent('');
+    };
+
+    const handleCancelDiscard = () => {
+        setDiscardModalOpen(false);
     };
 
     const loadData = useCallback(async () => {
@@ -406,6 +422,38 @@ const RecoveryPortal = () => {
                     </>
                 )}
             </div>
+
+            {/* DISCARD CONFIRM MODAL */}
+            {discardModalOpen && typeof document !== 'undefined' && (
+                <div style={{
+                    position:'fixed',inset:0,zIndex:99999,
+                    background:'rgba(10,20,22,0.88)',backdropFilter:'blur(6px)',
+                    display:'flex',alignItems:'center',justifyContent:'center',padding:'clamp(16px,3vw,32px)'
+                }} role="dialog" aria-modal="true">
+                    <div style={{
+                        background:'linear-gradient(160deg,#1c3335 0%,#213E40 100%)',
+                        border:'1.5px solid rgba(238,140,58,0.4)',borderRadius:14,
+                        maxWidth:460,width:'100%',overflow:'hidden',
+                        boxShadow:'0 30px 80px rgba(0,0,0,0.7)'
+                    }}>
+                        <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 20px',borderBottom:'1px solid rgba(245,158,11,0.2)',background:'rgba(245,158,11,0.12)'}}>
+                            <FiAlertTriangle style={{fontSize:20,color:'#f59e0b',flexShrink:0}} />
+                            <span style={{fontFamily:'Space Mono,monospace',fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:1.5,color:'#fcd34d'}}>DISCARD CALL LOG?</span>
+                        </div>
+                        <p style={{padding:'16px 20px',fontFamily:'DM Sans,sans-serif',fontSize:13,fontWeight:800,lineHeight:1.6,color:'rgba(255,255,255,0.8)',margin:0}}>
+                            Your call log has unsaved content. Discard it?
+                        </p>
+                        <div style={{display:'flex',justifyContent:'flex-end',gap:10,padding:'12px 20px',background:'rgba(0,0,0,0.2)',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                            <button onClick={handleCancelDiscard} autoFocus style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'rgba(255,255,255,0.06)',border:'1.5px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.7)',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                                KEEP EDITING
+                            </button>
+                            <button onClick={handleConfirmDiscard} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:'#EE8C3A',border:'none',color:'#1a2e30',borderRadius:7,fontFamily:'DM Sans,sans-serif',fontWeight:900,fontSize:10,textTransform:'uppercase',cursor:'pointer'}}>
+                                DISCARD
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* CALL LOG MODAL */}
             <HardwareModal isOpen={callModal.open} onClose={handleCloseCallModal}

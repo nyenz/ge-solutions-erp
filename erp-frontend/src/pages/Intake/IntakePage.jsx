@@ -285,15 +285,30 @@ const IntakePage = () => {
     // "Cannot access before initialization" error in the minified bundle
     // Guard only fires when the user has meaningfully started filling the form:
     // plotNumber set AND (owner name/phone filled OR cost set OR files attached)
+    // Any single character entered in any field makes the form dirty
     const isDirty = React.useMemo(() => {
-        const hasPlot    = plotNumber.trim() !== '';
-        const hasOwner   = owners.some(o => o.fullName.trim() !== '' || o.phone.trim() !== '');
-        const hasCost    = totalCost !== '';
-        const hasFiles   = fileQueue.length > 0;
-        const hasNotes   = notesList.length > 0;
-        // Require at least plotNumber PLUS one other meaningful field
-        return hasPlot && (hasOwner || hasCost || hasFiles || hasNotes);
-    }, [plotNumber, owners, totalCost, fileQueue, notesList]);
+        if (plotNumber !== '') return true;
+        if (district !== '') return true;
+        if (county !== '') return true;
+        if (blockRoad !== '') return true;
+        if (physicalBoxNumber !== '') return true;
+        if (volume !== '') return true;
+        if (folio !== '') return true;
+        if (instrumentNo !== '') return true;
+        if (totalCost !== '') return true;
+        if (initialPayment !== '') return true;
+        if (monthlyStorageFee !== '50000') return true;
+        if (initialStorageFee !== '') return true;
+        if (fileQueue.length > 0) return true;
+        if (notesList.length > 0) return true;
+        if (owners.some(o =>
+            o.fullName !== '' || o.phone !== '' || o.email !== '' ||
+            o.nationalId !== '' || o.address !== ''
+        )) return true;
+        return false;
+    }, [plotNumber, district, county, blockRoad, physicalBoxNumber,
+        volume, folio, instrumentNo, totalCost, initialPayment,
+        monthlyStorageFee, initialStorageFee, fileQueue, notesList, owners]);
 
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
         useRouterBlock(!saving && isDirty);
@@ -773,7 +788,7 @@ const IntakePage = () => {
                             <span>{editingNoteIdx !== null ? 'EDIT NOTE' : 'ADD NOTE'}</span>
                             <button type="button" className={styles.noteModalClose} onClick={async () => {
                                 if (noteModalText.trim() !== '') {
-                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?');
                                     if (!ok) return;
                                 }
                                 setNoteModalOpen(false);
@@ -792,7 +807,7 @@ const IntakePage = () => {
                         <div className={styles.noteModalFooter}>
                             <button type="button" className={styles.noteModalCancel} onClick={async () => {
                                 if (noteModalText.trim() !== '') {
-                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?', 'warn');
+                                    const ok = await confirmNote('DISCARD NOTE', 'This note has unsaved content. Discard it?');
                                     if (!ok) return;
                                 }
                                 setNoteModalOpen(false);

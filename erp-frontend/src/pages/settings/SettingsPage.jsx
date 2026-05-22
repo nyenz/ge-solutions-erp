@@ -130,9 +130,10 @@ const SettingsPage = () => {
     const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
 
     // Guarded modal close for new operator modal
-    const handleCloseNewOpModal = () => {
+    const handleCloseNewOpModal = async () => {
         if (newOpDirty) {
-            if (!window.confirm('Discard new operator details?')) return;
+            const ok = await confirm('DISCARD CHANGES', 'Discard new operator details?', 'warn');
+            if (!ok) return;
         }
         setNewOpModal(false);
         setNewOpData({ username: '', email: '', role: 'ROLE_MANAGER' });

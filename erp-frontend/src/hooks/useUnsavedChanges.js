@@ -1,30 +1,24 @@
 // PATH: erp-frontend/src/hooks/useUnsavedChanges.js
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useBlocker } from 'react-router-dom';
 
 /**
- * GOLDEN SEED — UNSAVED CHANGES GUARD HOOK
+ * GOLDEN SEED — UNSAVED CHANGES GUARD HOOK (STRICT)
  *
- * Intercepts all navigation attempts (browser back/forward, link clicks,
- * programmatic navigate() calls) and tab-close events when there are
- * unsaved changes. Shows the branded UnsavedChangesModal instead of the
- * browser's plain default dialog.
+ * Intercepts ALL navigation: React Router links, browser back/forward,
+ * tab close, and hard refresh when isDirty is true.
  *
  * Usage:
- *   const { UnsavedGuard, guardedNavigate } = useUnsavedChanges(isDirty, context);
- *
- *   Replace navigate(path) calls with guardedNavigate(path)
- *   Render <UnsavedGuard /> anywhere in the component tree
- *
- * isDirty  — boolean, true when there are unsaved changes
- * context  — string describing what's unsaved (e.g. "New Plot Registration")
+ *   const { guardModalOpen, handleStay, handleLeave, guardedNavigate } =
+ *     useUnsavedChanges(isDirty, context);
  */
 const useUnsavedChanges = (isDirty, context = 'this form') => {
-    const navigate = useNavigate();
-    const [modalOpen, setModalOpen] = useState(false);
-    const pendingNavRef = useRef(null); // stores the navigation to execute after confirm
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) =>
+            isDirty && currentLocation.pathname !== nextLocation.pathname
+    );
 
-    // ── 1. Browser tab close / hard refresh / browser-level back+forward guard ──
+    // beforeunload — tab close, hard refresh, browser-level back to external
     useEffect(() => {
         if (!isDirty) return;
         const handler = (e) => {
@@ -36,38 +30,18 @@ const useUnsavedChanges = (isDirty, context = 'this form') => {
         return () => window.removeEventListener('beforeunload', handler);
     }, [isDirty]);
 
-    // ── 2. In-app navigation guard ──────────────────────────────────
-    // Returns a wrapped navigate function. When isDirty, it shows
-    // the modal instead of navigating. On confirm, it navigates.
-    const guardedNavigate = useCallback((to, options) => {
-        if (!isDirty) {
-            navigate(to, options);
-            return;
-        }
-        pendingNavRef.current = { to, options };
-        setModalOpen(true);
-    }, [isDirty, navigate]);
-
-    // ── 3. Modal callbacks ──────────────────────────────────────────
     const handleStay = useCallback(() => {
-        setModalOpen(false);
-        pendingNavRef.current = null;
-    }, []);
+        if (blocker.state === 'blocked') blocker.reset?.();
+    }, [blocker]);
 
     const handleLeave = useCallback(() => {
-        setModalOpen(false);
-        const pending = pendingNavRef.current;
-        pendingNavRef.current = null;
-        if (pending) {
-            navigate(pending.to, pending.options);
-        }
-    }, [navigate]);
+        if (blocker.state === 'blocked') blocker.proceed?.();
+    }, [blocker]);
 
     return {
-        guardModalOpen: modalOpen,
+        guardModalOpen: blocker.state === 'blocked',
         handleStay,
         handleLeave,
-        guardedNavigate,
         guardContext: context,
     };
 };
