@@ -55,8 +55,26 @@ public class DashboardController {
                 .filter(p -> p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo))
                 .count();
 
-        // Stale count = unique phone numbers eligible to call today
-        long staleCalls = clientRepository.countUniqueEligiblePhones();
+        // Stale count = plots with outstanding balance whose primary owner is eligible to call
+        // This matches the buildPlotTasks() logic in RecoveryController exactly.
+        long staleCalls = allPlots.stream()
+                .filter(p -> {
+                    java.math.BigDecimal bal = p.isBacklog()
+                            ? p.backlogTotalOwed() : p.activeTotalOwed();
+                    if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) return false;
+                    if (p.getProprietors() == null || p.getProprietors().isEmpty()) return false;
+                    com.gesolutions.erp.modules.client.model.Client primary = p.getProprietors()
+                            .stream().sorted(java.util.Comparator.comparing(
+                                com.gesolutions.erp.modules.client.model.Client::getFullName))
+                            .findFirst().orElse(null);
+                    if (primary == null) return false;
+                    if (primary.shouldResetMonthlyCounter()) primary.setMonthlyContactCount(0);
+                    if (primary.getMonthlyContactCount() >= 2) return false;
+                    if (primary.getLastContactedAt() == null) return true;
+                    java.time.LocalDate eligible = primary.getLastContactedAt().toLocalDate().plusDays(14);
+                    return !java.time.LocalDate.now().isBefore(eligible);
+                })
+                .count();
 
         long readyForRelease = allPlots.stream()
                 .filter(p -> p.getAmountPaid().compareTo(p.getTotalCost()) >= 0)
