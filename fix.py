@@ -16,111 +16,323 @@ def patch(path, old, new, label):
     else:
         print(f'MISSING: {label}')
 
-SETTINGS_JSX = 'erp-frontend/src/pages/settings/SettingsPage.jsx'
-SETTINGS_CSS = 'erp-frontend/src/pages/settings/SettingsPage.module.css'
+# ─────────────────────────────────────────────────────────────────────
+# LEDGER PAGE
+# ─────────────────────────────────────────────────────────────────────
+LEDGER_CSS = 'erp-frontend/src/pages/Ledger/LedgerPage.module.css'
+
+# Make container fill remaining height without overflow
+patch(LEDGER_CSS,
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(60px, 8vw, 100px);
+    position: relative;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+}''',
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
+    position: relative;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}''',
+    'LedgerPage container flex column'
+)
+
+# HardwarePanel should flex and allow inner scroll
+patch(LEDGER_CSS,
+    '''/* ── TABLE SHELL ────────────────────────────────────────────────── */
+.tableScroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    /* Break out of HardwarePanel's 30px padding to use full width */
+    margin: -30px;
+    margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+}''',
+    '''/* ── TABLE SHELL ────────────────────────────────────────────────── */
+.tableScroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    /* Break out of HardwarePanel's 30px padding to use full width */
+    margin: -30px;
+    margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
+}''',
+    'LedgerPage tableScroll overflow-y auto + flex'
+)
+
+# Make the HardwarePanel wrapper flex so inner table can grow
+# We do this by targeting the panel via a wrapper class approach
+# Actually we patch the pagination to not have negative bottom margin
+patch(LEDGER_CSS,
+    '''.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    /* Compensate for the negative margin on tableScroll */
+    margin: 0 0 -30px 0;
+}''',
+    '''.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 0;
+    flex-shrink: 0;
+}''',
+    'LedgerPage pagination no negative margin'
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# LEDGER PAGE JSX — wrap HardwarePanel in flex container
+# ─────────────────────────────────────────────────────────────────────
+LEDGER_JSX = 'erp-frontend/src/pages/Ledger/LedgerPage.jsx'
+
+patch(LEDGER_JSX,
+    '''            <HardwarePanel variant="dark">
+                <div className={styles.tableScroll}>''',
+    '''            <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+                <div className={styles.tableScroll}>''',
+    'LedgerPage JSX wrap panel in flex div'
+)
+
+patch(LEDGER_JSX,
+    '''                </footer>
+            </HardwarePanel>''',
+    '''                </footer>
+            </HardwarePanel>
+            </div>''',
+    'LedgerPage JSX close flex wrapper'
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# PAYMENTS PAGE
+# ─────────────────────────────────────────────────────────────────────
+PAYMENTS_CSS = 'erp-frontend/src/pages/Payments/PaymentsPage.module.css'
+
+patch(PAYMENTS_CSS,
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(60px, 8vw, 100px);
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+}''',
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}''',
+    'PaymentsPage container flex column'
+)
+
+patch(PAYMENTS_CSS,
+    '''/* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
+.tableScroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    margin: -30px;
+    margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+}''',
+    '''/* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
+.tableScroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.15);
+    margin: -30px;
+    margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
+}''',
+    'PaymentsPage tableScroll overflow-y auto + flex'
+)
+
+PAYMENTS_JSX = 'erp-frontend/src/pages/Payments/PaymentsPage.jsx'
+
+patch(PAYMENTS_JSX,
+    '''            <HardwarePanel variant="dark">
+                <div className={styles.tableScroll}>''',
+    '''            <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+                <div className={styles.tableScroll}>''',
+    'PaymentsPage JSX wrap panel in flex div'
+)
+
+patch(PAYMENTS_JSX,
+    '''                </table>
+                </div>
+                </HardwarePanel>''',
+    '''                </table>
+                </div>
+                </HardwarePanel>
+                </div>''',
+    'PaymentsPage JSX close flex wrapper'
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# AUDIT PAGE
+# ─────────────────────────────────────────────────────────────────────
+AUDIT_CSS = 'erp-frontend/src/pages/Audit/AuditPage.module.css'
+
+patch(AUDIT_CSS,
+    '''    max-width: 1450px;
+    margin: 0 auto;
+    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) clamp(28px, 4.5vw, 52px);
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
+}''',
+    '''    max-width: 1450px;
+    margin: 0 auto;
+    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) 0;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}''',
+    'AuditPage container flex column'
+)
+
+patch(AUDIT_CSS,
+    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: visible; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
+.timelineStream { display: flex; flex-direction: column; min-height: clamp(280px, 40vw, 420px); }''',
+    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.timelineStream { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }''',
+    'AuditPage timelineFrame + timelineStream internal scroll'
+)
+
+patch(AUDIT_CSS,
+    '''.pagination { display: flex; justify-content: space-between; align-items: center; padding: clamp(8px,1vw,11px) clamp(12px,1.5vw,18px); background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); }''',
+    '''.pagination { display: flex; justify-content: space-between; align-items: center; padding: clamp(8px,1vw,11px) clamp(12px,1.5vw,18px); background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }''',
+    'AuditPage pagination flex-shrink 0'
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# RECOVERY PORTAL
+# ─────────────────────────────────────────────────────────────────────
 RECOVERY_CSS = 'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css'
 
-# ─────────────────────────────────────────────
-# 1. Settings — add legend above staffStream
-# ─────────────────────────────────────────────
-
-patch(SETTINGS_JSX,
-    '''                                <div className={styles.staffStream} role="list" aria-label="Operators">''',
-    '''                                <div className={styles.statusLegend} aria-label="Status legend">
-                                    <span className={styles.legendDot} style={{background:'#10b981',boxShadow:'0 0 6px #10b981'}} aria-hidden="true" />
-                                    <span className={styles.legendText}>Active Operator</span>
-                                    <span className={styles.legendSep} aria-hidden="true" />
-                                    <span className={styles.legendDot} style={{background:'#ef4444'}} aria-hidden="true" />
-                                    <span className={styles.legendText}>Suspended / Inactive</span>
-                                </div>
-                                <div className={styles.staffStream} role="list" aria-label="Operators">''',
-    'SettingsPage — add status legend JSX'
-)
-
-patch(SETTINGS_CSS,
-    '''.staffStream {
-    display: flex; flex-direction: column; gap: var(--gap-md);
-    max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
-    padding-right: clamp(3px,0.4vw,5px);
-    scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
+patch(RECOVERY_CSS,
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) clamp(24px,4vw,48px);
+    font-family: 'DM Sans',sans-serif;
+    color: #fff;
 }''',
-    '''.statusLegend {
+    '''    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) 0;
+    font-family: 'DM Sans',sans-serif;
+    color: #fff;
     display: flex;
-    align-items: center;
-    gap: clamp(6px, 0.8vw, 9px);
-    margin-bottom: var(--gap-md);
-    padding: clamp(6px, 0.8vw, 9px) clamp(10px, 1.2vw, 14px);
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: var(--radius-sm);
-    flex-wrap: wrap;
-}
-.legendDot {
-    width: clamp(8px, 1vw, 10px);
-    height: clamp(8px, 1vw, 10px);
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.legendText {
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(8px, 0.82vw, 10px);
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-}
-.legendSep {
-    width: 1px;
-    height: clamp(10px, 1.2vw, 13px);
-    background: rgba(255, 255, 255, 0.12);
-    margin: 0 clamp(3px, 0.4vw, 5px);
-    flex-shrink: 0;
-}
-
-.staffStream {
-    display: flex; flex-direction: column; gap: var(--gap-md);
-    max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
-    padding-right: clamp(3px,0.4vw,5px);
-    scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }''',
-    'SettingsPage — add statusLegend CSS'
+    'RecoveryPortal container flex column'
 )
 
-# ─────────────────────────────────────────────
-# 2. Recovery — increase spacing between mission cards
-# ─────────────────────────────────────────────
-
 patch(RECOVERY_CSS,
-    '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-md); }''',
     '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); }''',
-    'RecoveryPortal — missionGrid gap increased'
+    '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); flex:1; min-height:0; overflow-y:auto; padding-bottom: clamp(24px,4vw,48px); }''',
+    'RecoveryPortal missionGrid internal scroll'
 )
 
-patch(RECOVERY_CSS,
-    '''.sectionGroup { margin-bottom:var(--gap-xl); }''',
-    '''.sectionGroup { margin-bottom:clamp(20px, 2.8vw, 32px); }''',
-    'RecoveryPortal — sectionGroup margin-bottom increased'
+# ─────────────────────────────────────────────────────────────────────
+# SHELL — the scroll area needs to NOT scroll when these pages are shown
+# Actually the Shell scrollArea is the parent. We need to make it pass
+# height correctly. The key is Shell.module.css scrollArea must be
+# flex column and pass height down.
+# ─────────────────────────────────────────────────────────────────────
+SHELL_CSS = 'erp-frontend/src/components/layout/Shell.module.css'
+
+patch(SHELL_CSS,
+    '''/* THE SCROLLABLE BODY (As per directive) */
+.scrollArea {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 30px;
+    scroll-behavior: smooth;
+    
+    /* Industrial scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) transparent;
+}''',
+    '''/* THE SCROLLABLE BODY (As per directive) */
+.scrollArea {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 30px;
+    scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
+    
+    /* Industrial scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) transparent;
+}''',
+    'Shell scrollArea flex column'
 )
 
-patch(RECOVERY_CSS,
-    '''.missionCard {
-    background:var(--panel-bg);
-    border:1.5px solid rgba(238,140,58,0.2);
-    border-radius:var(--radius);
-    box-shadow:0 3px 12px rgba(0,0,0,0.2);
-    transition:border-color 0.2s;
-    overflow:hidden; width:100%;
+# The direct child of scrollArea (the page container) needs to be able to fill height
+# We add a rule: direct child of scrollArea that is a flex column fills height
+patch(SHELL_CSS,
+    '''.scrollArea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+    background-color: var(--orange);
+    border-radius: 10px;
 }''',
-    '''.missionCard {
-    background:var(--panel-bg);
-    border:1.5px solid rgba(238,140,58,0.2);
-    border-radius:var(--radius);
-    box-shadow:0 4px 18px rgba(0,0,0,0.22);
-    transition:border-color 0.2s;
-    overflow:hidden; width:100%;
+    '''.scrollArea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+    background-color: var(--orange);
+    border-radius: 10px;
+}
+
+/* Allow flex-column pages to fill the scroll area height */
+.scrollArea > * {
+    width: 100%;
 }''',
-    'RecoveryPortal — missionCard shadow depth'
+    'Shell scrollArea children width 100%'
 )
 
 print('\nAll patches complete.')

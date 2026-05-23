@@ -28,10 +28,14 @@
 
     max-width: 1400px;
     margin: 0 auto;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(60px, 8vw, 100px);
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
     font-family: 'DM Sans', sans-serif;
     color: #fff;
     animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
 @keyframes warmBoot {
@@ -193,12 +197,14 @@
 /* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
 .tableScroll {
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: auto;
     border-radius: var(--radius);
     background: rgba(0, 0, 0, 0.15);
     margin: -30px;
     margin-bottom: 0;
     -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
 }
 .tableScroll::-webkit-scrollbar { height: 4px; }
 .tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }

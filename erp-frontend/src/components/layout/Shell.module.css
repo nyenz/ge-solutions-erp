@@ -38,6 +38,8 @@
     overflow-x: hidden;
     padding: 30px;
     scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
     
     /* Industrial scrollbar styling */
     scrollbar-width: thin;
@@ -51,6 +53,11 @@
 .scrollArea::-webkit-scrollbar-thumb {
     background-color: var(--orange);
     border-radius: 10px;
+}
+
+/* Allow flex-column pages to fill the scroll area height */
+.scrollArea > * {
+    width: 100%;
 }
 
 /* --- MOBILE REACTIVITY --- */

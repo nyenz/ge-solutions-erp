@@ -202,7 +202,8 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            <HardwarePanel variant="dark">
+            <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Land records ledger" aria-rowcount={processedData.length}>
                         <thead>
@@ -338,6 +339,7 @@ const LedgerPage = () => {
                     </button>
                 </footer>
             </HardwarePanel>
+            </div>
         </div>
     );
 };
