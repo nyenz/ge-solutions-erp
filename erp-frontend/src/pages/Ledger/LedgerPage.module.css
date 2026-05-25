@@ -32,7 +32,7 @@
     --fs-btn:    clamp(9px,  0.9vw, 11px);
 
     max-width: 1400px;
-    margin: 0 auto;
+    width: 100%;
     padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
     position: relative;
     font-family: 'DM Sans', sans-serif;
@@ -42,6 +42,8 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 @keyframes warmBoot {
@@ -88,18 +90,7 @@
     flex-direction: column;
     gap: var(--gap-lg);
     margin-bottom: var(--gap-xl);
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    background: rgba(244, 242, 239, 0.97);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding-top: clamp(6px, 1vw, 10px);
-    padding-bottom: clamp(6px, 1vw, 10px);
-    margin-left: clamp(-12px, -2vw, -24px);
-    margin-right: clamp(-12px, -2vw, -24px);
-    padding-left: clamp(12px, 2vw, 24px);
-    padding-right: clamp(12px, 2vw, 24px);
+    flex-shrink: 0;
 }
 
 /* Search block — input + hint */
@@ -225,13 +216,16 @@
     overflow-y: auto;
     border-radius: var(--radius);
     background: rgba(0, 0, 0, 0.15);
-    /* Break out of HardwarePanel's 30px padding to use full width */
     margin: -30px;
     margin-bottom: 0;
     -webkit-overflow-scrolling: touch;
     flex: 1;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) transparent;
 }
+.tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 .tableScroll::-webkit-scrollbar { height: 4px; }
 .tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 .tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }
@@ -550,7 +544,7 @@
     align-items: center;
     padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
     border-top: 1px solid rgba(255,255,255,0.06);
-    margin: 0;
+    margin: 0 -30px -30px -30px;
     flex-shrink: 0;
 }
 
@@ -741,6 +735,7 @@
     border-radius: 0 12px 12px 0;
     backdrop-filter: blur(15px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+    flex-shrink: 0;
 }
 .pageHeaderLeft {
     display: flex;

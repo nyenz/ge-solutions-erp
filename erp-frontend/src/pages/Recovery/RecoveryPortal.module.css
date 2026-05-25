@@ -16,7 +16,7 @@
     --radius:   10px;
     --radius-sm:7px;
     max-width: 1400px;
-    margin: 0 auto;
+    width: 100%;
     padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) 0;
     font-family: 'DM Sans',sans-serif;
     color: #fff;
@@ -24,6 +24,8 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 /* ── TOAST ── */
@@ -53,6 +55,7 @@
     padding:clamp(10px,1.4vw,16px) clamp(16px,2.2vw,28px);
     background:rgba(255,255,255,0.62); border-radius:0 var(--radius) var(--radius) 0;
     backdrop-filter:blur(15px); box-shadow:0 4px 15px rgba(0,0,0,0.07);
+    flex-shrink:0;
 }
 .headerLeft { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
 .headerRight { display:flex; align-items:center; gap:clamp(8px,1.2vw,14px); flex-shrink:0; flex-wrap:wrap; }
@@ -69,6 +72,7 @@
 .filterBar {
     display:flex; flex-direction:column; gap:var(--gap-md);
     margin-bottom:clamp(8px,1vw,12px);
+    flex-shrink:0;
 }
 .searchInner {
     position:relative; display:flex; align-items:center;
@@ -111,9 +115,8 @@
 .legend {
     display:flex; flex-wrap:wrap; gap:clamp(10px,1.5vw,18px);
     margin-bottom:clamp(8px,1vw,12px);
-    padding:clamp(6px,0.8vw,9px) clamp(10px,1.2vw,14px);
-    background:rgba(255,255,255,0.65); border-radius:var(--radius-sm);
-    border-left:3px solid var(--orange);
+    padding:clamp(6px,0.8vw,9px) 0;
+    flex-shrink:0;
 }
 .legendItem {
     display:flex; align-items:center; gap:clamp(5px,0.6vw,7px);
@@ -126,6 +129,7 @@
     display:flex; gap:16px; margin-bottom:clamp(8px,1vw,12px);
     font-family:'Space Mono',monospace; font-size:clamp(8px,0.82vw,10px);
     font-weight:900; color:rgba(255,255,255,0.45); text-transform:uppercase;
+    flex-shrink:0;
 }
 .countBacklog { color:rgba(239,68,68,0.8); }
 
@@ -143,7 +147,9 @@
 .sectionHeaderBacklog { color:#fca5a5; background:rgba(127,29,29,0.5); border-color:rgba(239,68,68,0.35); }
 
 /* ── MISSION GRID ── */
-.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); flex:1; min-height:0; overflow-y:auto; padding-bottom: clamp(24px,4vw,48px); }
+.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); flex:1; min-height:0; overflow-y:auto; padding-bottom: clamp(24px,4vw,48px); scrollbar-width:thin; scrollbar-color:var(--orange) transparent; }
+.missionGrid::-webkit-scrollbar { width:5px; }
+.missionGrid::-webkit-scrollbar-thumb { background:rgba(238,140,58,0.4); border-radius:2px; }
 
 /* ── MISSION CARD ── */
 .missionCard {

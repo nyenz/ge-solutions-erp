@@ -153,8 +153,8 @@ const PaymentsPage = () => {
                     </div>
                 </div>
             ) : (
-                <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
-            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
+                <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable}>
                         <thead>

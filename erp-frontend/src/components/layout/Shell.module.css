@@ -31,33 +31,20 @@
     transition: margin-left 0.3s ease;
 }
 
-/* THE SCROLLABLE BODY (As per directive) */
+/* THE SCROLLABLE BODY — pages manage their own internal scrolling */
 .scrollArea {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 30px;
-    scroll-behavior: smooth;
+    overflow: hidden;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    
-    /* Industrial scrollbar styling */
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
 }
 
-.scrollArea::-webkit-scrollbar {
-    width: 6px;
-}
-
-.scrollArea::-webkit-scrollbar-thumb {
-    background-color: var(--orange);
-    border-radius: 10px;
-}
-
-/* Allow flex-column pages to fill the scroll area height */
+/* Pages fill the scroll area */
 .scrollArea > * {
     width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* --- MOBILE REACTIVITY --- */
