@@ -127,6 +127,9 @@
     position: relative;
     overflow: visible !important;
 }
+.hwSelectWrap:focus-within {
+    z-index: 10000 !important;
+}
 /* Override HardwareSelect internal margin */
 .hwSelectWrap > * { margin-bottom: 0 !important; }
 /* Force the inner fieldWrapper to overflow visible too */

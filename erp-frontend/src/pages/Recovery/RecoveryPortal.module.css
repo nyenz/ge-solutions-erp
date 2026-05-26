@@ -139,7 +139,7 @@
     margin-bottom: clamp(24px, 3.2vw, 40px);
     display: flex;
     flex-direction: column;
-    gap: clamp(12px, 1.8vw, 20px);
+    gap: clamp(8px, 1.1vw, 12px);
 }
 .sectionHeader {
     font-family:'DM Sans',sans-serif; font-size:clamp(9px,0.95vw,11px);
@@ -149,6 +149,7 @@
     padding:clamp(5px,0.7vw,8px) clamp(10px,1.3vw,16px);
     border-radius:6px; background:rgba(26,46,48,0.75);
     border:1px solid rgba(238,140,58,0.25);
+    align-self: flex-start; /* Prevent stretching */
 }
 .sectionHeaderBacklog { color:#fca5a5; background:rgba(127,29,29,0.5); border-color:rgba(239,68,68,0.35); }
 
