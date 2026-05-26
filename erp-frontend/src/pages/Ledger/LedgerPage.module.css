@@ -91,6 +91,17 @@
     gap: var(--gap-lg);
     margin-bottom: var(--gap-xl);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-12px, -2vw, -24px);
+    margin-right: clamp(-12px, -2vw, -24px);
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
 }
 
 /* Search block — input + hint */

@@ -31,20 +31,27 @@
     transition: margin-left 0.3s ease;
 }
 
-/* THE SCROLLABLE BODY — pages manage their own internal scrolling */
+/* THE SCROLLABLE BODY
+   Scrolls naturally so the page header scrolls away.
+   Pages that need internal list-scroll (Ledger, Audit, Payments, Recovery)
+   just set a max-height on their table/list — not overflow:hidden here. */
 .scrollArea {
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 0;
     display: flex;
     flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) transparent;
 }
 
-/* Pages fill the scroll area */
+.scrollArea::-webkit-scrollbar { width: 6px; }
+.scrollArea::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 10px; }
+
 .scrollArea > * {
     width: 100%;
-    height: 100%;
-    overflow: hidden;
+    box-sizing: border-box;
 }
 
 /* --- MOBILE REACTIVITY --- */

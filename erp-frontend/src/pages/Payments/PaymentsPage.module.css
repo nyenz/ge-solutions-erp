@@ -104,13 +104,24 @@
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--fs-value); color: #fff; font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--fs-label); color: rgba(255,255,255,0.35); }
 
-/* CONTROLS */
+/* CONTROLS — sticky so filters stay accessible after header scrolls */
 .controls {
     display: flex;
     flex-direction: column;
     gap: var(--gap-md);
     margin-bottom: clamp(14px, 2vw, 20px);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-12px, -2vw, -24px);
+    margin-right: clamp(-12px, -2vw, -24px);
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
 }
 
 .searchWrap {

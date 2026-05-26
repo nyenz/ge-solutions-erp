@@ -70,7 +70,25 @@
 
 
 /* ── CONTROL HUB ────────────────────────────────────────────────── */
-.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; flex-shrink: 0; }
+.controlHub {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+    margin-bottom: var(--gap-lg);
+    width: 100%;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-8px, -1.6vw, -16px);
+    margin-right: clamp(-8px, -1.6vw, -16px);
+    padding-left: clamp(8px, 1.6vw, 16px);
+    padding-right: clamp(8px, 1.6vw, 16px);
+}
 
 .searchPill {
     position: relative; display: flex; align-items: center;

@@ -388,13 +388,6 @@ const RecoveryPortal = () => {
                 ))}
             </div>
 
-            {/* SUMMARY COUNTS */}
-            <div className={styles.countRow}>
-                <span>{filteredMissions.length} PLOTS SHOWN</span>
-                {activeMissions.length > 0 && <span>{activeMissions.length} ACTIVE</span>}
-                {backlogMissions.length > 0 && <span className={styles.countBacklog}>{backlogMissions.length} BACKLOG</span>}
-            </div>
-
             <div className={styles.missionGrid}>
                 {filteredMissions.length === 0 ? (
                     <div className={styles.emptyGate} role="status">

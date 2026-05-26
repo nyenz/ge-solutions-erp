@@ -533,8 +533,10 @@
     position: sticky;
     top: 0;
     z-index: 100;
-    background: transparent;
-    /* No backdrop, no border-radius — clean tabs that blend with page bg */
+    background: rgba(244, 242, 239, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    /* Sticks to top of scroll area so Overview/Financials/Owners/Documents always accessible */
 }
 .tabBar::-webkit-scrollbar { display: none; }
 
@@ -1260,11 +1262,8 @@
     color: var(--orange);
     text-transform: uppercase;
     letter-spacing: 2px;
-    position: sticky;
-    top: 24px;
-    z-index: 90;
-    background: var(--panel-bg);
     border-radius: 10.5px 10.5px 0 0;
+    /* Not sticky — tab bar is sticky, that is enough for navigation */
 }
 
 .finPanelCount {
@@ -1637,7 +1636,9 @@
     position: sticky;
     top: 0;
     z-index: 100;
-    background: transparent;
+    background: rgba(244, 242, 239, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
     .drawerHeader, .finPanelHeader { top: 22px;     border-radius: 10.5px 10.5px 0 0;
 }

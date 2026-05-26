@@ -17,69 +17,70 @@ def patch(path, old, new, label):
         print(f'MISSING: {label}')
 
 # =============================================================================
-# 1. SHELL — Make scrollArea overflow-y: scroll so header scrolls away,
-#    but pages that need internal scroll can opt out by setting overflow:hidden
+# 1. SHELL — scrollArea scrolls normally (pages own their padding).
+#    The key change: scrollArea is overflow-y: auto (natural scroll).
+#    Pages that want internal-only scroll set overflow:hidden on their container.
 # =============================================================================
 SHELL_CSS = 'erp-frontend/src/components/layout/Shell.module.css'
 
 patch(SHELL_CSS,
-    '''/* THE SCROLLABLE BODY (As per directive) */
+    '''/* THE SCROLLABLE BODY — pages manage their own internal scrolling */
 .scrollArea {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 30px;
-    scroll-behavior: smooth;
+    overflow: hidden;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    
-    /* Industrial scrollbar styling */
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
+}
+
+/* Pages fill the scroll area */
+.scrollArea > * {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }''',
     '''/* THE SCROLLABLE BODY
-   Pages that self-scroll (Ledger, Audit, Payments, Recovery, FolderPage)
-   set overflow:hidden on their container so the outer scroll is disabled
-   and their own internal list scroll takes over.
-   All other pages (Dashboard, Reports, Intake, Settings) scroll naturally here. */
+   Scrolls naturally so the page header scrolls away.
+   Pages that need internal list-scroll (Ledger, Audit, Payments, Recovery)
+   just set a max-height on their table/list — not overflow:hidden here. */
 .scrollArea {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0;
-    scroll-behavior: smooth;
     display: flex;
     flex-direction: column;
-
-    /* Industrial scrollbar styling */
     scrollbar-width: thin;
     scrollbar-color: var(--orange) transparent;
+}
+
+.scrollArea::-webkit-scrollbar { width: 6px; }
+.scrollArea::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 10px; }
+
+.scrollArea > * {
+    width: 100%;
+    box-sizing: border-box;
 }''',
-    'Shell scrollArea padding 0 (pages own their padding)'
+    'Shell scrollArea natural outer scroll'
 )
 
 # =============================================================================
-# 2. LEDGER PAGE — page-level outer scroll for header+filters, then list scrolls
-#    Pattern: container is overflow:hidden (no outer scroll), but we want the
-#    header+controls to be part of a natural scroll THEN the table sticks.
-#    Better approach: container scrolls normally, table has a fixed max-height.
+# 2. LEDGER — container allows outer scroll (header scrolls away),
+#    tableScroll has fixed max-height for internal list scroll.
+#    Sticky th headers stay visible inside the table.
 # =============================================================================
 LEDGER_CSS = 'erp-frontend/src/pages/Ledger/LedgerPage.module.css'
 
-# Container: allow outer scroll (remove overflow:hidden, use normal flow)
 patch(LEDGER_CSS,
     '''    max-width: 1400px;
-    margin: 0 auto;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
+    width: 100%;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(24px, 3vw, 36px);
     position: relative;
     font-family: 'DM Sans', sans-serif;
     color: #fff;
     animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
     box-sizing: border-box;
 }''',
     '''    max-width: 1400px;
@@ -92,238 +93,121 @@ patch(LEDGER_CSS,
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    /* Outer scroll: header+search scroll away, then table list scrolls internally */
 }''',
-    'LedgerPage container natural scroll'
+    'Ledger container comment'
 )
 
-# tableScroll: fixed height so it scrolls independently
+# controlHub — make it sticky so filters stay visible after header scrolls
 patch(LEDGER_CSS,
-    '''    overflow-x: auto;
-    overflow-y: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-    min-height: 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
-}
-.tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-.tableScroll::-webkit-scrollbar { height: 4px; }
-.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }''',
-    '''    overflow-x: auto;
-    overflow-y: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-    max-height: clamp(340px, 55vh, 700px);
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
-}
-.tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-.tableScroll::-webkit-scrollbar { height: 4px; }
-.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }''',
-    'LedgerPage tableScroll max-height for internal scroll'
-)
-
-# Fix pagination margin
-patch(LEDGER_CSS,
-    '''.pagination {
+    '''.controlHub {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
-    border-top: 1px solid rgba(255,255,255,0.06);
-    margin: 0;
+    flex-direction: column;
+    gap: var(--gap-lg);
+    margin-bottom: var(--gap-xl);
     flex-shrink: 0;
 }''',
-    '''.pagination {
+    '''.controlHub {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: clamp(10px, 1.4vw, 16px) clamp(14px, 2vw, 22px);
-    border-top: 1px solid rgba(255,255,255,0.06);
-    margin: 0 -30px -30px -30px;
+    flex-direction: column;
+    gap: var(--gap-lg);
+    margin-bottom: var(--gap-xl);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-12px, -2vw, -24px);
+    margin-right: clamp(-12px, -2vw, -24px);
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
 }''',
-    'LedgerPage pagination margin restored'
-)
-
-# Remove the flex wrappers from JSX since we no longer need them
-LEDGER_JSX = 'erp-frontend/src/pages/Ledger/LedgerPage.jsx'
-
-patch(LEDGER_JSX,
-    '''            <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
-            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
-                <div className={styles.tableScroll}>''',
-    '''            <HardwarePanel variant="dark">
-                <div className={styles.tableScroll}>''',
-    'LedgerPage JSX remove flex wrappers'
-)
-
-patch(LEDGER_JSX,
-    '''                </footer>
-            </HardwarePanel>
-            </div>''',
-    '''                </footer>
-            </HardwarePanel>''',
-    'LedgerPage JSX remove closing flex wrapper'
+    'Ledger controlHub sticky after header scrolls away'
 )
 
 # =============================================================================
-# 3. PAYMENTS PAGE — same pattern as Ledger
+# 3. PAYMENTS — same sticky pattern
 # =============================================================================
 PAYMENTS_CSS = 'erp-frontend/src/pages/Payments/PaymentsPage.module.css'
 
 patch(PAYMENTS_CSS,
-    '''    max-width: 1400px;
-    width: 100%;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    '''/* CONTROLS */
+.controls {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    box-sizing: border-box;
+    gap: var(--gap-md);
+    margin-bottom: clamp(14px, 2vw, 20px);
+    flex-shrink: 0;
 }''',
-    '''    max-width: 1400px;
-    width: 100%;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(24px, 3vw, 36px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    '''/* CONTROLS — sticky so filters stay accessible after header scrolls */
+.controls {
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
+    gap: var(--gap-md);
+    margin-bottom: clamp(14px, 2vw, 20px);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-12px, -2vw, -24px);
+    margin-right: clamp(-12px, -2vw, -24px);
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
 }''',
-    'PaymentsPage container natural scroll'
-)
-
-patch(PAYMENTS_CSS,
-    '''    overflow-x: auto;
-    overflow-y: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-    min-height: 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
-}
-.tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-.tableScroll::-webkit-scrollbar { height: 4px; }
-.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }''',
-    '''    overflow-x: auto;
-    overflow-y: auto;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.15);
-    margin: -30px;
-    margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-    max-height: clamp(340px, 55vh, 700px);
-    scrollbar-width: thin;
-    scrollbar-color: var(--orange) transparent;
-}
-.tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-.tableScroll::-webkit-scrollbar { height: 4px; }
-.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }''',
-    'PaymentsPage tableScroll max-height'
-)
-
-PAYMENTS_JSX = 'erp-frontend/src/pages/Payments/PaymentsPage.jsx'
-
-patch(PAYMENTS_JSX,
-    '''            <div style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
-            <HardwarePanel variant="dark" style={{flex:'1',minHeight:0,display:'flex',flexDirection:'column'}}>
-                <div className={styles.tableScroll}>''',
-    '''            <HardwarePanel variant="dark">
-                <div className={styles.tableScroll}>''',
-    'PaymentsPage JSX remove flex wrappers'
-)
-
-patch(PAYMENTS_JSX,
-    '''                </table>
-                </div>
-                </HardwarePanel>
-                </div>''',
-    '''                </table>
-                </div>
-                </HardwarePanel>''',
-    'PaymentsPage JSX remove closing flex wrapper'
+    'PaymentsPage controls sticky'
 )
 
 # =============================================================================
-# 4. AUDIT PAGE — same pattern
+# 4. AUDIT — sticky filterGrid
 # =============================================================================
 AUDIT_CSS = 'erp-frontend/src/pages/Audit/AuditPage.module.css'
 
 patch(AUDIT_CSS,
-    '''    max-width: 1450px;
-    width: 100%;
-    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) 0;
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
+    '''.controlHub { display: flex; flex-direction: column; gap: var(--gap-md); margin-bottom: var(--gap-lg); width: 100%; flex-shrink: 0; }''',
+    '''.controlHub {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    box-sizing: border-box;
-}''',
-    '''    max-width: 1450px;
+    gap: var(--gap-md);
+    margin-bottom: var(--gap-lg);
     width: 100%;
-    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) clamp(24px, 3vw, 36px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(244, 242, 239, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: clamp(8px, 1vw, 12px) 0;
+    margin-left: clamp(-8px, -1.6vw, -16px);
+    margin-right: clamp(-8px, -1.6vw, -16px);
+    padding-left: clamp(8px, 1.6vw, 16px);
+    padding-right: clamp(8px, 1.6vw, 16px);
 }''',
-    'AuditPage container natural scroll'
-)
-
-patch(AUDIT_CSS,
-    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.timelineStream { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }''',
-    '''.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
-.timelineStream { display: flex; flex-direction: column; max-height: clamp(340px, 55vh, 700px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }''',
-    'AuditPage timelineStream max-height'
+    'AuditPage controlHub sticky'
 )
 
 # =============================================================================
-# 5. RECOVERY PORTAL — natural scroll, remove count row redundancy, add card gap
+# 5. RECOVERY — remove countRow from JSX, add card spacing, natural scroll,
+#    remove the bg from the filter section for uniformity
 # =============================================================================
 RECOVERY_CSS = 'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css'
 
+# Natural outer scroll
 patch(RECOVERY_CSS,
     '''    max-width: 1400px;
     margin: 0 auto;
-    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) 0;
+    padding: clamp(8px,1.5vw,16px) clamp(8px,1.5vw,16px) clamp(40px,6vw,60px);
     font-family: 'DM Sans',sans-serif;
     color: #fff;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
     box-sizing: border-box;
 }''',
     '''    max-width: 1400px;
@@ -334,61 +218,123 @@ patch(RECOVERY_CSS,
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    /* Natural outer scroll: header scrolls away, filters become sticky */
 }''',
-    'RecoveryPortal container natural scroll'
+    'Recovery container comment'
 )
 
+# filterBar — make it sticky
 patch(RECOVERY_CSS,
-    '''.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); flex:1; min-height:0; overflow-y:auto; padding-bottom: clamp(24px,4vw,48px); scrollbar-width:thin; scrollbar-color:var(--orange) transparent; }
-.missionGrid::-webkit-scrollbar { width:5px; }
-.missionGrid::-webkit-scrollbar-thumb { background:rgba(238,140,58,0.4); border-radius:2px; }''',
-    '''.missionGrid { display:flex; flex-direction:column; gap:clamp(12px,1.6vw,18px); }''',
-    'RecoveryPortal missionGrid normal flow with larger gap'
-)
-
-# Hide the count row (redundant with section headers)
-patch(RECOVERY_CSS,
-    '''/* ── COUNT ROW ── */
-.countRow {
-    display:flex; gap:16px; margin-bottom:clamp(8px,1vw,12px);
-    font-family:'Space Mono',monospace; font-size:clamp(8px,0.82vw,10px);
-    font-weight:900; color:rgba(255,255,255,0.45); text-transform:uppercase;
+    '''/* ── FILTER BAR ── */
+.filterBar {
+    display:flex; flex-direction:column; gap:var(--gap-md);
+    margin-bottom:clamp(8px,1vw,12px);
     flex-shrink:0;
-}
-.countBacklog { color:rgba(239,68,68,0.8); }''',
-    '''/* ── COUNT ROW — hidden, redundant with section group headers ── */
-.countRow { display:none; }
-.countBacklog { display:none; }''',
-    'RecoveryPortal countRow hidden'
+}''',
+    '''/* ── FILTER BAR — sticky so search+filters stay accessible after header scrolls ── */
+.filterBar {
+    display:flex; flex-direction:column; gap:var(--gap-md);
+    margin-bottom:clamp(8px,1vw,12px);
+    flex-shrink:0;
+    position:sticky;
+    top:0;
+    z-index:200;
+    background:rgba(244,242,239,0.96);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    padding:clamp(8px,1vw,12px) 0;
+    margin-left:clamp(-8px,-1.5vw,-16px);
+    margin-right:clamp(-8px,-1.5vw,-16px);
+    padding-left:clamp(8px,1.5vw,16px);
+    padding-right:clamp(8px,1.5vw,16px);
+}''',
+    'RecoveryPortal filterBar sticky'
+)
+
+# Add spacing between mission cards via sectionGroup
+patch(RECOVERY_CSS,
+    '''/* ── SECTION GROUPS ── */
+.sectionGroup { margin-bottom:clamp(20px, 2.8vw, 32px); }''',
+    '''/* ── SECTION GROUPS ── */
+.sectionGroup { margin-bottom:clamp(24px, 3.2vw, 40px); }''',
+    'Recovery sectionGroup more bottom margin'
+)
+
+# Increase gap between mission cards
+patch(RECOVERY_CSS,
+    '''.missionGrid { display:flex; flex-direction:column; gap:clamp(12px,1.6vw,18px); }''',
+    '''.missionGrid { display:flex; flex-direction:column; gap:clamp(14px,2vw,22px); }''',
+    'Recovery missionGrid larger gap between cards'
+)
+
+# Remove countRow from JSX
+RECOVERY_JSX = 'erp-frontend/src/pages/Recovery/RecoveryPortal.jsx'
+
+patch(RECOVERY_JSX,
+    '''            {/* SUMMARY COUNTS */}
+            <div className={styles.countRow}>
+                <span>{filteredMissions.length} PLOTS SHOWN</span>
+                {activeMissions.length > 0 && <span>{activeMissions.length} ACTIVE</span>}
+                {backlogMissions.length > 0 && <span className={styles.countBacklog}>{backlogMissions.length} BACKLOG</span>}
+            </div>
+
+            <div className={styles.missionGrid}>''',
+    '''            <div className={styles.missionGrid}>''',
+    'RecoveryPortal remove redundant countRow from JSX'
 )
 
 # =============================================================================
-# 6. FOLDER PAGE — remove bg from filter/tab area, make tabs sticky
-#    Tab bar already has sticky positioning in CSS; we just ensure no bg box
+# 6. FOLDER PAGE — remove bg from the filterBar / controlHub area,
+#    tab bar stays sticky (it already is), container allows outer scroll.
 # =============================================================================
 FOLDER_CSS = 'erp-frontend/src/pages/DigitalFolder/FolderPage.module.css'
 
-# Remove the background from the tab bar (the sticky strip)
+# Remove the orange-bg sticky strip above the tab bar if present,
+# and ensure the tab bar background is transparent (already done in last fix).
+# Now also remove bg from the pipelineHUD area so nothing looks boxed.
+
+# Make the whole container scroll naturally (it already should after last fix).
+# The tab bar is already sticky with transparent bg.
+# Just ensure finPanelHeader is also sticky relative to the scrolling container.
 patch(FOLDER_CSS,
-    '''.tabBar {
+    '''.finPanelHeader {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    gap: clamp(6px, 0.8vw, 10px);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 8px;
-    padding-top: 8px;
-    margin-bottom: clamp(10px, 1.3vw, 14px);
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(12px, 1.5vw, 18px);
+    border-bottom: 1px solid rgba(238, 140, 58, 0.18);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
     position: sticky;
-    top: -10px; /* Sticks to the very top */
-    z-index: 100;
-    background: rgba(244, 242, 239, 0.98);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 0 0 8px 8px;
+    top: 24px;
+    z-index: 90;
+    background: var(--panel-bg);
+    border-radius: 10.5px 10.5px 0 0;
 }''',
+    '''.finPanelHeader {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+    padding: clamp(9px, 1.2vw, 13px) clamp(12px, 1.5vw, 18px);
+    border-bottom: 1px solid rgba(238, 140, 58, 0.18);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.9vw, 11px);
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-radius: 10.5px 10.5px 0 0;
+    /* Not sticky — tab bar is sticky, that is enough for navigation */
+}''',
+    'FolderPage finPanelHeader not sticky (tab bar handles nav)'
+)
+
+# Tab bar — ensure it is sticky with correct offset (accounts for header height)
+patch(FOLDER_CSS,
     '''.tabBar {
     display: flex;
     flex-direction: row;
@@ -406,13 +352,7 @@ patch(FOLDER_CSS,
     background: transparent;
     /* No backdrop, no border-radius — clean tabs that blend with page bg */
 }''',
-    'FolderPage tabBar transparent bg, sticky top:0'
-)
-
-# Also fix the mobile duplicate tabBar rule
-patch(FOLDER_CSS,
-    '''@media (max-width: 600px) {
-    .tabBar {
+    '''.tabBar {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -420,17 +360,22 @@ patch(FOLDER_CSS,
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 8px;
-    padding-top: 8px;
+    padding-bottom: clamp(8px, 1vw, 10px);
+    padding-top: clamp(8px, 1vw, 10px);
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: -10px; /* Sticks to the very top */
+    top: 0;
     z-index: 100;
-    background: rgba(244, 242, 239, 0.98);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 0 0 8px 8px;
+    background: rgba(244, 242, 239, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    /* Sticks to top of scroll area so Overview/Financials/Owners/Documents always accessible */
 }''',
+    'FolderPage tabBar sticky with glass bg for accessibility'
+)
+
+# Fix mobile tabBar too
+patch(FOLDER_CSS,
     '''@media (max-width: 600px) {
     .tabBar {
     display: flex;
@@ -448,71 +393,26 @@ patch(FOLDER_CSS,
     z-index: 100;
     background: transparent;
 }''',
-    'FolderPage tabBar mobile transparent bg'
-)
-
-# FolderPage container — allow natural outer scroll (remove overflow:hidden)
-patch(FOLDER_CSS,
-    '''    /* NO z-index — warmBoot uses filter+transform which traps fixed children */
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.8vw, 20px) clamp(40px, 5vw, 60px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    width: 100%;
-    box-sizing: border-box;
-    position: relative;
-    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    '''@media (max-width: 600px) {
+    .tabBar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 10px);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: clamp(8px, 2vw, 10px);
+    padding-top: clamp(8px, 2vw, 10px);
+    margin-bottom: clamp(10px, 1.3vw, 14px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(244, 242, 239, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }''',
-    '''    /* NO z-index — warmBoot uses filter+transform which traps fixed children */
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.8vw, 20px) clamp(40px, 5vw, 60px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    width: 100%;
-    box-sizing: border-box;
-    position: relative;
-    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
-    /* Natural outer scroll — tab bar sticks via position:sticky */
-}''',
-    'FolderPage container comment for clarity'
-)
-
-# =============================================================================
-# 7. SHELL scrollArea — add padding back for pages that don't manage their own
-#    Actually pages now own their padding, shell has none. But we need to ensure
-#    the scrollArea itself has a proper scrollbar.
-# =============================================================================
-patch(SHELL_CSS,
-    '''.scrollArea::-webkit-scrollbar {
-    width: 6px;
-}
-
-.scrollArea::-webkit-scrollbar-thumb {
-    background-color: var(--orange);
-    border-radius: 10px;
-}
-
-/* Allow flex-column pages to fill the scroll area height */
-.scrollArea > * {
-    width: 100%;
-}''',
-    '''.scrollArea::-webkit-scrollbar {
-    width: 6px;
-}
-
-.scrollArea::-webkit-scrollbar-thumb {
-    background-color: var(--orange);
-    border-radius: 10px;
-}
-
-/* All pages own their padding and width */
-.scrollArea > * {
-    width: 100%;
-    box-sizing: border-box;
-}''',
-    'Shell scrollArea children box-sizing'
+    'FolderPage tabBar mobile sticky glass bg'
 )
 
 print('\nAll patches complete.')
