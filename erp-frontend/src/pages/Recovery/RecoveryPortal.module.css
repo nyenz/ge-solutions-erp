@@ -124,14 +124,9 @@
     font-weight:800; color:rgba(26,46,48,0.7); white-space:nowrap;
 }
 
-/* ── COUNT ROW ── */
-.countRow {
-    display:flex; gap:16px; margin-bottom:clamp(8px,1vw,12px);
-    font-family:'Space Mono',monospace; font-size:clamp(8px,0.82vw,10px);
-    font-weight:900; color:rgba(255,255,255,0.45); text-transform:uppercase;
-    flex-shrink:0;
-}
-.countBacklog { color:rgba(239,68,68,0.8); }
+/* ── COUNT ROW — hidden, redundant with section group headers ── */
+.countRow { display:none; }
+.countBacklog { display:none; }
 
 /* ── SECTION GROUPS ── */
 .sectionGroup { margin-bottom:clamp(20px, 2.8vw, 32px); }
@@ -147,9 +142,7 @@
 .sectionHeaderBacklog { color:#fca5a5; background:rgba(127,29,29,0.5); border-color:rgba(239,68,68,0.35); }
 
 /* ── MISSION GRID ── */
-.missionGrid { display:flex; flex-direction:column; gap:var(--gap-lg); flex:1; min-height:0; overflow-y:auto; padding-bottom: clamp(24px,4vw,48px); scrollbar-width:thin; scrollbar-color:var(--orange) transparent; }
-.missionGrid::-webkit-scrollbar { width:5px; }
-.missionGrid::-webkit-scrollbar-thumb { background:rgba(238,140,58,0.4); border-radius:2px; }
+.missionGrid { display:flex; flex-direction:column; gap:clamp(12px,1.6vw,18px); }
 
 /* ── MISSION CARD ── */
 .missionCard {

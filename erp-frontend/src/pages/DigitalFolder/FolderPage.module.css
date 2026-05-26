@@ -50,6 +50,7 @@
     box-sizing: border-box;
     position: relative;
     animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    /* Natural outer scroll — tab bar sticks via position:sticky */
 }
 
 @keyframes warmBoot {
@@ -526,16 +527,14 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 8px;
-    padding-top: 8px;
+    padding-bottom: clamp(8px, 1vw, 10px);
+    padding-top: clamp(8px, 1vw, 10px);
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: -10px; /* Sticks to the very top */
+    top: 0;
     z-index: 100;
-    background: rgba(244, 242, 239, 0.98);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 0 0 8px 8px;
+    background: transparent;
+    /* No backdrop, no border-radius — clean tabs that blend with page bg */
 }
 .tabBar::-webkit-scrollbar { display: none; }
 
@@ -1632,16 +1631,13 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 8px;
-    padding-top: 8px;
+    padding-bottom: clamp(8px, 2vw, 10px);
+    padding-top: clamp(8px, 2vw, 10px);
     margin-bottom: clamp(10px, 1.3vw, 14px);
     position: sticky;
-    top: -10px; /* Sticks to the very top */
+    top: 0;
     z-index: 100;
-    background: rgba(244, 242, 239, 0.98);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 0 0 8px 8px;
+    background: transparent;
 }
     .drawerHeader, .finPanelHeader { top: 22px;     border-radius: 10.5px 10.5px 0 0;
 }

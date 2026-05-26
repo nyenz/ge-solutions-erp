@@ -30,15 +30,12 @@
 
     max-width: 1450px;
     width: 100%;
-    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) 0;
+    padding: clamp(8px, 2vw, 16px) clamp(8px, 1.6vw, 16px) clamp(24px, 3vw, 36px);
     font-family: 'DM Sans', sans-serif;
     color: #fff;
     animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
     box-sizing: border-box;
 }
 @keyframes terminalBoot {
@@ -154,8 +151,8 @@
 
 
 /* ── TIMELINE ───────────────────────────────────────────────────── */
-.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.timelineStream { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
+.timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
+.timelineStream { display: flex; flex-direction: column; max-height: clamp(340px, 55vh, 700px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
 .timelineStream::-webkit-scrollbar { width: 5px; }
 .timelineStream::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 
