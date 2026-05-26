@@ -135,7 +135,12 @@
 .countBacklog { display:none; }
 
 /* ── SECTION GROUPS ── */
-.sectionGroup { margin-bottom:clamp(24px, 3.2vw, 40px); }
+.sectionGroup {
+    margin-bottom: clamp(24px, 3.2vw, 40px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.8vw, 20px);
+}
 .sectionHeader {
     font-family:'DM Sans',sans-serif; font-size:clamp(9px,0.95vw,11px);
     font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:2px;

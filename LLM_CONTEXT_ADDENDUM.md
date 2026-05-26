@@ -84,44 +84,9 @@ Every element must be explicitly styled -- no browser defaults are ever acceptab
 - The axios interceptor on the frontend already handles 401 by redirecting to /login.
 - Status: DONE
 
-### 7. Transparent Filter Headers & Unified Scrolling (THIS SESSION)
+### 7. Transparent Filter Headers, Unified Scrolling & Mobile Dropdown Clipping (THIS SESSION)
 - Removed background color and backdrop blur from sticky headers on Ledger, Payments, Audit, Recovery, and Digital Folder pages.
 - Consolidated vertical scrolling by removing fixed heights and list scrollbars on Ledger, Payments, and Audit pages, allowing the pages to scroll uniformly under the sticky headers.
+- Restored layout scrolling on Recovery and Ledger pages by removing restricted heights (`height: 100%`, `min-height: 0`, and `overflow: hidden`) on their respective containers.
+- Fixed stacking context clipping of select dropdowns on the Audit page by removing the static `z-index: 9000` rule from `.hwSelectWrap`.
 - Status: DONE THIS SESSION
-
----
-
-## HOW SERVER-SIDE SESSION ENFORCEMENT WORKS
-
-1. David logs in on Computer A
-   -> sessionVersion in DB becomes 1
-   -> JWT contains { sv: 1 }
-   -> Computer A works fine
-
-2. David logs in on Computer B (or someone else logs in)
-   -> sessionVersion in DB becomes 2
-   -> JWT on Computer B contains { sv: 2 }
-   -> Computer A's JWT still has { sv: 1 }
-
-3. Computer A makes any API request
-   -> Filter extracts sv=1 from JWT
-   -> DB has sv=2
-   -> 1 != 2 -> 401 Unauthorized
-   -> Axios interceptor on frontend detects 401
-   -> Redirects to /login
-   -> Computer A is now logged out automatically
-
-No cron jobs, no websockets, no polling needed. Works on next request.
-
----
-
-## KNOWN ISSUES / NOTES
-
-- Cloudinary raw PDFs: If PDFs show 401, check Cloudinary dashboard >
-  Security > Restricted media types. The fix is on the Cloudinary side.
-  Your Java code already uploads PDFs with resource_type=raw correctly.
-
-- sessionVersion DB migration: Hibernate DDL auto=update will add the
-  session_version column automatically on next deploy. Existing rows
-  will get NULL which Java treats as 0 (due to Integer object type).
-  First login after deploy will set it to 1 and everything works normally.
