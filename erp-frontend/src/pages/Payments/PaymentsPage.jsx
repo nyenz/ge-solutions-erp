@@ -245,6 +245,7 @@ const PaymentsPage = () => {
                     </table>
                 </div>
                 </HardwarePanel>
+                </div>
             )}
         </div>
     );

@@ -339,6 +339,7 @@ const LedgerPage = () => {
                     </button>
                 </footer>
             </HardwarePanel>
+            </div>
         </div>
     );
 };
