@@ -224,6 +224,7 @@ public class LandService {
                 .totalCost(totalCost)
                 .amountPaid(initialPayment)
                 .isLegacy(request.isLegacy())
+                .currentStageIndex(startAsBacklog ? 5 : 1)
                 .status(startAsBacklog ? "BACKLOG" : "ACTIVE");
 
         if (startAsBacklog && outstanding.compareTo(BigDecimal.ZERO) > 0) {
@@ -333,6 +334,7 @@ public class LandService {
         }
 
         project.setTotalCost(request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO);
+        project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
         project.setLegacy(request.isLegacy());
 
         LandProject saved = projectRepository.save(project);
