@@ -115,7 +115,6 @@
     padding-bottom: 4px;
     padding-top: 4px;
     position: relative;
-    z-index: 9000;
 }
 .filterGrid::-webkit-scrollbar { display: none; }
 
@@ -126,14 +125,18 @@
     min-width: 120px;
     position: relative;
     overflow: visible !important;
+    isolation: isolate;
 }
-.hwSelectWrap:focus-within {
+/* When the HardwareSelect inside is open, elevate this wrapper above siblings */
+.hwSelectWrap:focus-within,
+.hwSelectWrap:has([class*="openWrapper"]) {
+    isolation: auto;
     z-index: 10000 !important;
 }
 /* Override HardwareSelect internal margin */
 .hwSelectWrap > * { margin-bottom: 0 !important; }
 /* Force the inner fieldWrapper to overflow visible too */
-.hwSelectWrap > div { overflow: visible !important; z-index: 9000 !important; }
+.hwSelectWrap > div { overflow: visible !important; }
 
 /* Hide HardwareSelect label */
 .hwSelectWrap label {
@@ -274,7 +277,6 @@
         gap: 6px;
         padding-bottom: 6px;
         padding-top: 4px;
-        z-index: 9000;
     }
     .hwSelectWrap { flex: 1 1 120px; max-width: 100%; min-width: 110px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; }
@@ -339,7 +341,6 @@
         flex-wrap: wrap;
         overflow: visible;
         gap: 5px;
-        z-index: 9000;
     }
     .hwSelectWrap { flex: 1 1 110px; max-width: 100%; min-width: 100px; }
     .resetBtn    { flex: 0 0 auto; padding: 0 10px; font-size: 8px; height: 32px; }
@@ -421,6 +422,8 @@
     flex: 1 1 140px !important;
     min-width: 130px !important;
     max-width: 260px !important;
+    position: relative !important;
+    overflow: visible !important;
 }
 .hwSelectWrap [class*="selectBox"], .resetBtn {
     border-radius: var(--radius-sm, 6px) !important;
