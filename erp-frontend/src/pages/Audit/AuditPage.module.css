@@ -80,9 +80,7 @@
     position: sticky;
     top: 0;
     z-index: 200;
-    background: rgba(244, 242, 239, 0.96);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: transparent;
     padding: clamp(8px, 1vw, 12px) 0;
     margin-left: clamp(-8px, -1.6vw, -16px);
     margin-right: clamp(-8px, -1.6vw, -16px);
@@ -170,7 +168,7 @@
 
 /* ── TIMELINE ───────────────────────────────────────────────────── */
 .timelineFrame { background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
-.timelineStream { display: flex; flex-direction: column; max-height: clamp(340px, 55vh, 700px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
+.timelineStream { display: flex; flex-direction: column; max-height: none; overflow-y: visible; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
 .timelineStream::-webkit-scrollbar { width: 5px; }
 .timelineStream::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 

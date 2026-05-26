@@ -94,9 +94,7 @@
     position: sticky;
     top: 0;
     z-index: 200;
-    background: rgba(244, 242, 239, 0.96);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: transparent;
     padding: clamp(8px, 1vw, 12px) 0;
     margin-left: clamp(-12px, -2vw, -24px);
     margin-right: clamp(-12px, -2vw, -24px);
@@ -224,13 +222,13 @@
 /* ── TABLE SHELL ────────────────────────────────────────────────── */
 .tableScroll {
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: visible;
     border-radius: var(--radius);
     background: rgba(0, 0, 0, 0.15);
     margin: -30px;
     margin-bottom: 0;
     -webkit-overflow-scrolling: touch;
-    max-height: clamp(340px, 55vh, 700px);
+    max-height: none;
     scrollbar-width: thin;
     scrollbar-color: var(--orange) transparent;
 }

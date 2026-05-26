@@ -76,9 +76,7 @@
     position:sticky;
     top:0;
     z-index:200;
-    background:rgba(244,242,239,0.96);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    background:transparent;
     padding:clamp(8px,1vw,12px) 0;
     margin-left:clamp(-8px,-1.5vw,-16px);
     margin-right:clamp(-8px,-1.5vw,-16px);

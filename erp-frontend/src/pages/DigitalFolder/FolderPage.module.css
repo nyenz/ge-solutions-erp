@@ -533,8 +533,7 @@
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(244, 242, 239, 0.95);
-    backdrop-filter: blur(12px);
+    background: transparent;
     -webkit-backdrop-filter: blur(12px);
     /* Sticks to top of scroll area so Overview/Financials/Owners/Documents always accessible */
 }
