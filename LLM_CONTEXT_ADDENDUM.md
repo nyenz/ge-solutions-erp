@@ -75,13 +75,18 @@ Every element must be explicitly styled -- no browser defaults are ever acceptab
 - localStorage-based approach for same-browser tab detection
 - Status: DONE PREVIOUS SESSION
 
-### 6. Server-side single-session enforcement (THIS SESSION)
+### 6. Server-side single-session enforcement (previous)
 - Added sessionVersion (Integer) column to users table in User.java
 - On every login: sessionVersion incremented in DB, embedded in JWT as "sv" claim
 - JwtAuthenticationFilter: on every request, extracts "sv" from JWT and compares
   to the current DB value. If mismatch (old token), request is rejected with 401.
 - This means: logging in from computer B immediately invalidates computer A's token.
 - The axios interceptor on the frontend already handles 401 by redirecting to /login.
+- Status: DONE
+
+### 7. Transparent Filter Headers & Unified Scrolling (THIS SESSION)
+- Removed background color and backdrop blur from sticky headers on Ledger, Payments, Audit, Recovery, and Digital Folder pages.
+- Consolidated vertical scrolling by removing fixed heights and list scrollbars on Ledger, Payments, and Audit pages, allowing the pages to scroll uniformly under the sticky headers.
 - Status: DONE THIS SESSION
 
 ---

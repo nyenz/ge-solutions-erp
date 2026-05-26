@@ -125,7 +125,6 @@
     max-width: 240px;
     min-width: 120px;
     position: relative;
-    z-index: 9000;
     overflow: visible !important;
 }
 /* Override HardwareSelect internal margin */
