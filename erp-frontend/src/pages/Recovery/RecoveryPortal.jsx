@@ -358,37 +358,34 @@ const RecoveryPortal = () => {
             <div key={mission.clientId}
                 className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>
 
-                <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
-                    {mission.isLocked && <FiLock size={10} />}
-                    {mission.missionStatus}
-                </div>
-
-                {/* COMPACT CLOSED VIEW */}
+                {/* COMPACT SINGLE-ROW HEADER */}
                 <div className={styles.cardHeader} onClick={toggle} role="button" tabIndex={0}
                     aria-expanded={isExpanded}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}>
 
+                    <div className={styles.cardTopRow}>
+                        <PaymentBadge badge={mission.plots?.[0]?.paymentHealthBadge} />
+                        <span className={styles.plotId}>{plotNumbers}</span>
+                        {mission.hasBacklogPlots && <span className={styles.backlogPill}>BACKLOG</span>}
+                        <span className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
+                            {mission.isLocked && <FiLock size={8} />}
+                            {mission.missionStatus}
+                        </span>
+                    </div>
+
                     <div className={styles.cardMain}>
-                        <div className={styles.cardTopRow}>
-                            {/* Uses payment health badge of first plot */}
-                            <PaymentBadge badge={mission.plots?.[0]?.paymentHealthBadge} />
-                            <span className={styles.plotId}>{plotNumbers}</span>
-                            {mission.hasBacklogPlots && (
-                                <span className={styles.backlogPill}>BACKLOG</span>
-                            )}
-                        </div>
-                        <div className={styles.ownerLine}>{mission.ownerName}</div>
-                        <div className={styles.phoneLine}>{mission.phoneNumber}</div>
-                        <div className={styles.balanceLine}>
-                            <span className={styles.balanceLabel}>TOTAL DEBT:</span>
-                            <span className={`${styles.balanceVal} ${mission.hasBacklogPlots ? styles.balanceRed : ''}`}>
-                                UGX {fmt(mission.totalDemand)}
-                            </span>
-                        </div>
+                        <span className={styles.ownerLine}>{mission.ownerName}</span>
+                        <span className={styles.phoneLine}>{mission.phoneNumber}</span>
+                    </div>
+
+                    <div className={styles.balanceLine}>
+                        <span className={styles.balanceLabel}>OWED</span>
+                        <span className={`${styles.balanceVal} ${mission.hasBacklogPlots ? styles.balanceRed : ''}`}>
+                            UGX {fmt(mission.totalDemand)}
+                        </span>
                     </div>
 
                     <div className={styles.cardSideActions}>
-                        {/* Log call targets the primary/first plot */}
                         <button className={styles.logCallBtnSmall}
                             disabled={mission.isLocked}
                             onClick={e => {
@@ -399,7 +396,7 @@ const RecoveryPortal = () => {
                                 }
                             }}
                             aria-label="Log call">
-                            <FiPhoneCall size={12} />
+                            <FiPhoneCall size={11} />
                             {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
                         </button>
                         <div className={styles.expandIcon} aria-hidden="true">
