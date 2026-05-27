@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,8 +8,7 @@ import {
     FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
-    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
-    FiArchive, FiZap, FiSettings, FiRepeat
+    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiSettings
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -73,7 +72,6 @@ const PaymentBadge = ({ badge }) => (
     />
 );
 
-// ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
 const StorageFeeInlineControls = ({ plot, onUpdated, toast }) => {
     const [rateInput, setRateInput] = React.useState('');
     const [saving, setSaving] = React.useState(false);
@@ -326,18 +324,15 @@ const RecoveryPortal = () => {
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().replace(/\s+/g, '');
             list = list.filter(m =>
-                m.plotNumber?.toLowerCase().includes(term) ||
-                m.physicalBoxNumber?.toLowerCase().includes(term) ||
-                (m.owners || []).some(o =>
-                    o.fullName?.toLowerCase().includes(term) ||
-                    o.phoneNumber?.replace(/\s+/g, '').includes(term)
-                )
+                (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term)) ||
+                m.ownerName?.toLowerCase().includes(term) ||
+                m.phoneNumber?.replace(/\s+/g, '').includes(term)
             );
         }
 
         // Status filter
-        if (statusFilter === 'BACKLOG') list = list.filter(m => m.backlog || m.isBacklog);
-        if (statusFilter === 'ACTIVE')  list = list.filter(m => !(m.backlog || m.isBacklog));
+        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
         if (statusFilter === 'DUE')     list = list.filter(m => !m.isLocked);
 
         return list;
@@ -350,23 +345,18 @@ const RecoveryPortal = () => {
         return styles.statusDefault;
     };
 
-    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.isBacklog || m.backlog).reduce((s, m) => s + Number(m.totalBacklogOwed || 0), 0), [filteredMissions]);
-    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !(m.isBacklog || m.backlog)).reduce((s, m) => s + Number(m.currentBalance || 0), 0), [filteredMissions]);
-    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.storageFeesAccumulated || 0), 0), [filteredMissions]);
+    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0), [filteredMissions]);
 
     const renderCard = (mission) => {
-        const isExpanded = expandedId === mission.projectId;
-        const toggle = () => setExpandedId(prev => prev === mission.projectId ? null : mission.projectId);
-        const owners = mission.owners || [];
-        const ownerNames = owners.map(o => o.fullName).join(' & ') || '---';
-        const phones = owners.map(o => o.phoneNumber).join(' / ') || '---';
-        const balance = mission.isBacklog || mission.backlog
-            ? mission.totalBacklogOwed
-            : mission.currentBalance;
+        const isExpanded = expandedId === mission.clientId;
+        const toggle = () => setExpandedId(prev => prev === mission.clientId ? null : mission.clientId);
+        const plotNumbers = (mission.plots || []).map(p => p.plotNumber).join(' & ') || '---';
 
         return (
-            <div key={mission.projectId}
-                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${(mission.isBacklog || mission.backlog) ? styles.cardBacklog : ''}`}>
+            <div key={mission.clientId}
+                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>
 
                 <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
                     {mission.isLocked && <FiLock size={10} />}
@@ -380,26 +370,34 @@ const RecoveryPortal = () => {
 
                     <div className={styles.cardMain}>
                         <div className={styles.cardTopRow}>
-                            <PaymentBadge badge={mission.paymentHealthBadge} />
-                            <span className={styles.plotId}>{mission.plotNumber}</span>
-                            {(mission.isBacklog || mission.backlog) && (
+                            {/* Uses payment health badge of first plot */}
+                            <PaymentBadge badge={mission.plots?.[0]?.paymentHealthBadge} />
+                            <span className={styles.plotId}>{plotNumbers}</span>
+                            {mission.hasBacklogPlots && (
                                 <span className={styles.backlogPill}>BACKLOG</span>
                             )}
                         </div>
-                        <div className={styles.ownerLine}>{ownerNames}</div>
-                        <div className={styles.phoneLine}>{phones}</div>
+                        <div className={styles.ownerLine}>{mission.ownerName}</div>
+                        <div className={styles.phoneLine}>{mission.phoneNumber}</div>
                         <div className={styles.balanceLine}>
-                            <span className={styles.balanceLabel}>OWED:</span>
-                            <span className={`${styles.balanceVal} ${(mission.isBacklog || mission.backlog) ? styles.balanceRed : ''}`}>
-                                UGX {fmt(balance)}
+                            <span className={styles.balanceLabel}>TOTAL DEBT:</span>
+                            <span className={`${styles.balanceVal} ${mission.hasBacklogPlots ? styles.balanceRed : ''}`}>
+                                UGX {fmt(mission.totalDemand)}
                             </span>
                         </div>
                     </div>
 
                     <div className={styles.cardSideActions}>
+                        {/* Log call targets the primary/first plot */}
                         <button className={styles.logCallBtnSmall}
                             disabled={mission.isLocked}
-                            onClick={e => { e.stopPropagation(); setCallModal({ open: true, mission }); setLogContent(''); }}
+                            onClick={e => {
+                                e.stopPropagation();
+                                if (mission.plots?.[0]) {
+                                    setCallModal({ open: true, mission: mission.plots[0] });
+                                    setLogContent('');
+                                }
+                            }}
                             aria-label="Log call">
                             <FiPhoneCall size={12} />
                             {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
@@ -410,7 +408,7 @@ const RecoveryPortal = () => {
                     </div>
                 </div>
 
-                {/* EXPANDED DETAILS */}
+                {/* EXPANDED DETAILS — List each plot owned by this client */}
                 {isExpanded && (
                     <div className={styles.cardBody}>
                         <div className={styles.divider} />
@@ -422,64 +420,87 @@ const RecoveryPortal = () => {
                             <span className={styles.timingSep} />
                             <span>Calls: <strong>{mission.monthlyCallCount}/2</strong></span>
                         </div>
-                        {/* financial detail */}
-                        {(mission.isBacklog || mission.backlog) ? (
-                            <div className={styles.finDetail}>
-                                <div className={styles.finDetailRow}>
-                                    <span>Title cost</span><strong>UGX {fmt(mission.totalCost)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span style={{color:'#fca5a5'}}>+ Storage fees</span>
-                                    <strong style={{color:'#ef4444'}}>UGX {fmt(mission.storageFeesAccumulated)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span>- Paid</span>
-                                    <strong style={{color:'#86efac'}}>UGX {fmt(mission.amountPaid)}</strong>
-                                </div>
-                                <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
-                                    <span>NOW OWED</span>
-                                    <strong style={{color:'#ef4444'}}>UGX {fmt(mission.totalBacklogOwed)}</strong>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={styles.finDetail}>
-                                <div className={styles.finDetailRow}>
-                                    <span>Total cost</span><strong>UGX {fmt(mission.totalCost)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span>Paid</span>
-                                    <strong style={{color:'#86efac'}}>UGX {fmt(mission.amountPaid)}</strong>
-                                </div>
-                                <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
-                                    <span>BALANCE</span>
-                                    <strong>UGX {fmt(mission.currentBalance)}</strong>
-                                </div>
-                            </div>
-                        )}
-                        <div className={styles.lastNote}>
-                            <FiMessageSquare size={11} />
-                            <span>"{mission.lastInteractionNote}"</span>
-                        </div>
-                        
-                        {(mission.isBacklog || mission.backlog) && isAdmin && (
-                            <StorageFeeInlineControls
-                                plot={mission}
-                                onUpdated={loadData}
-                                toast={toast}
-                            />
-                        )}
 
-                        <div className={styles.expandedActions}>
-                            <button className={styles.folderBtn}
-                                onClick={() => navigate(`/folder/${mission.projectId}#financials`)}>
-                                <FiChevronRight size={12} /> OPEN FOLDER
-                            </button>
-                            {isAdmin && (
-                                <button className={styles.payBtn}
-                                    onClick={() => navigate(`/folder/${mission.projectId}?action=pay#financials`)}>
-                                    <FiDollarSign size={12} /> RECORD PAYMENT
-                                </button>
-                            )}
+                        <div className={styles.plotsSubList}>
+                            {(mission.plots || []).map(plot => (
+                                <div key={plot.projectId} className={styles.plotSubCard} style={{
+                                    borderLeft: plot.isBacklog ? '3px solid #ef4444' : '3px solid #EE8C3A',
+                                    background: 'rgba(0, 0, 0, 0.2)',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    marginBottom: '10px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <span className={styles.plotId} style={{ fontSize: '12px' }}>
+                                            {plot.plotNumber} {plot.isBacklog && <span className={styles.backlogPill}>BACKLOG</span>}
+                                        </span>
+                                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Space Mono, monospace' }}>
+                                            Box {plot.physicalBoxNumber}
+                                        </span>
+                                    </div>
+
+                                    {/* financial detail per plot */}
+                                    {plot.isBacklog ? (
+                                        <div className={styles.finDetail} style={{ background: 'transparent', padding: 0 }}>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Title cost</span><strong>UGX {fmt(plot.totalCost)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span style={{color:'#fca5a5'}}>+ Storage fees</span>
+                                                <strong style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span>- Paid</span>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</strong>
+                                            </div>
+                                            <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
+                                                <span>NOW OWED</span>
+                                                <strong style={{color:'#ef4444'}}>UGX {fmt(plot.totalBacklogOwed)}</strong>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.finDetail} style={{ background: 'transparent', padding: 0 }}>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Total cost</span><strong>UGX {fmt(plot.totalCost)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Paid</span>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</strong>
+                                            </div>
+                                            <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
+                                                <span>BALANCE</span>
+                                                <strong>UGX {fmt(plot.currentBalance)}</strong>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={styles.lastNote} style={{ marginTop: 8 }}>
+                                        <FiMessageSquare size={11} />
+                                        <span>"{plot.lastInteractionNote}"</span>
+                                    </div>
+
+                                    {plot.isBacklog && isAdmin && (
+                                        <StorageFeeInlineControls
+                                            plot={plot}
+                                            onUpdated={loadData}
+                                            toast={toast}
+                                        />
+                                    )}
+
+                                    <div className={styles.expandedActions} style={{ marginTop: 10 }}>
+                                        <button className={styles.folderBtn}
+                                            onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
+                                            <FiChevronRight size={12} /> OPEN FOLDER
+                                        </button>
+                                        {isAdmin && (
+                                            <button className={styles.payBtn}
+                                                onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
+                                                <FiDollarSign size={12} /> RECORD PAYMENT
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -487,8 +508,8 @@ const RecoveryPortal = () => {
         );
     };
 
-    const backlogMissions = filteredMissions.filter(m => m.backlog || m.isBacklog);
-    const activeMissions  = filteredMissions.filter(m => !(m.backlog || m.isBacklog));
+    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);
+    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);
 
     if (loading) return (
         <div className={styles.bootScreen} role="status">
@@ -528,12 +549,12 @@ const RecoveryPortal = () => {
                 <div className={styles.finHUDCard}>
                     <label>ACTIVE TITLES OWED</label>
                     <strong style={{color:'#EE8C3A'}}>UGX {fmt(totalActiveOwed)}</strong>
-                    <span>{activeMissions.length} active plot{activeMissions.length !== 1 ? 's' : ''}</span>
+                    <span>{activeMissions.length} active client{activeMissions.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.35)'}}>
                     <label style={{color:'#fca5a5'}}>BACKLOG TOTAL OWED</label>
                     <strong style={{color:'#ef4444'}}>UGX {fmt(totalBacklogOwed)}</strong>
-                    <span>{backlogMissions.length} backlog plot{backlogMissions.length !== 1 ? 's' : ''}</span>
+                    <span>{backlogMissions.length} backlog client{backlogMissions.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.2)'}}>
                     <label style={{color:'rgba(252,165,165,0.8)'}}>STORAGE FEES IN BACKLOG</label>

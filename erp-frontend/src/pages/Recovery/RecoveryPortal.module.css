@@ -13,6 +13,7 @@
     --gap-xl:   clamp(12px,1.8vw,20px);
     --gap-lg:   clamp(8px,1.2vw,14px);
     --gap-md:   clamp(6px,0.9vw,11px);
+    --pad-card: clamp(12px,1.5vw,18px);
     --radius:   10px;
     --radius-sm:7px;
     --fs-label: clamp(8px,0.82vw,10px);
@@ -138,11 +139,19 @@
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
     padding: clamp(6px,0.8vw,8px) clamp(12px,1.4vw,18px);
-    border-radius:var(--radius-sm);
-    font-family:'DM Sans',sans-serif; font-weight:900;
-    font-size:clamp(9px,0.9vw,11px); letter-spacing:1.5px;
-    text-transform:uppercase; cursor:pointer; white-space:nowrap;
-    transition:all 0.2s ease; flex-shrink:0;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px,0.9vw,11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .filterPill:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 .filterPillActive { background: #EE8C3A !important; color: #1a2e30 !important; border-color: #EE8C3A !important; box-shadow: 0 0 12px rgba(238, 140, 58, 0.35); }

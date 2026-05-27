@@ -10,308 +10,13 @@ def write(path, content):
         f.write(content.strip() + '\n')
     print(f"OK (OVERWRITTEN): {path}")
 
-def patch(path, old, new, label):
-    content = read(path)
-    if old in content:
-        write(path, content.replace(old, new, 1))
-        print(f"OK (PATCHED): {label}")
-    else:
-        print(f"MISSING: {label}")
-
 BASE = os.path.dirname(os.path.abspath(__file__))
 
-print("=== STARTING COMPREHENSIVE RECOVERY REDESIGN ===")
+print("=== FIXING CONTRACT MISMATCH IN RECOVERY PORTAL ===")
 
-# ─── 1. OVERWRITE: RecoveryTaskDTO.java ──────────────────────────────
-dto_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'client', 'dto', 'RecoveryTaskDTO.java')
-write(dto_path, """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/dto/RecoveryTaskDTO.java
-package com.gesolutions.erp.modules.client.dto;
-
-import lombok.*;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class RecoveryTaskDTO {
-    private UUID clientId;
-    private String ownerName;
-    private String phoneNumber;
-    private String email;
-
-    private String lastContactDate;
-    private String nextCallDue;
-    private String missionStatus;
-    private boolean isLocked;
-    private int monthlyCallCount;
-
-    private BigDecimal totalDemand;
-    private BigDecimal totalOriginalDebt;
-    private BigDecimal totalStorageFees;
-    private boolean hasBacklogPlots;
-
-    private List<PlotSummary> plots;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PlotSummary {
-        private UUID projectId;
-        private String plotNumber;
-        private String physicalBoxNumber;
-        private boolean isBacklog;
-
-        private BigDecimal totalCost;
-        private BigDecimal amountPaid;
-        private BigDecimal currentBalance;
-
-        private BigDecimal originalDebt;
-        private BigDecimal storageFeesAccumulated;
-        private BigDecimal totalBacklogOwed;
-        private long storageMonthsCount;
-        private boolean storagePaused;
-        private BigDecimal storageFeeOverride;
-
-        private String paymentHealthBadge;
-        private String lastPaymentDate;
-        private String lastInteractionNote;
-    }
-}""")
-
-# ─── 2. OVERWRITE: RecoveryController.java ───────────────────────────
-ctrl_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'client', 'controller', 'RecoveryController.java')
-write(ctrl_path, """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java
-package com.gesolutions.erp.modules.client.controller;
-
-import com.gesolutions.erp.modules.client.dto.RecoveryTaskDTO;
-import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.land.model.FollowUpLog;
-import com.gesolutions.erp.modules.land.model.LandProject;
-import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
-import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
-import com.gesolutions.erp.modules.land.service.LandService;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAdjusters;
-import java.util.*;
-import java.util.stream.Collectors;
-
-@RestController
-@RequestMapping("/api/v1/recovery")
-@RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
-public class RecoveryController {
-
-    private final LandProjectRepository projectRepository;
-    private final FollowUpRepository followUpRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final LandService landService;
-
-    @GetMapping("/count")
-    public ResponseEntity<Map<String, Long>> getStaleCount() {
-        List<LandProject> allProjects = projectRepository.findAll();
-        long count = buildOwnerTasks(allProjects).stream()
-                .filter(dto -> !dto.isLocked())
-                .count();
-        return ResponseEntity.ok(Map.of("staleCount", count));
-    }
-
-    @GetMapping("/queue")
-    public ResponseEntity<List<RecoveryTaskDTO>> getRecoveryQueue() {
-        List<LandProject> allProjects = projectRepository.findAll();
-        List<RecoveryTaskDTO> queue = buildOwnerTasks(allProjects).stream()
-                .filter(dto -> !dto.isLocked())
-                .filter(dto -> dto.getTotalDemand().compareTo(BigDecimal.ZERO) > 0)
-                .sorted(Comparator.comparing(RecoveryTaskDTO::getNextCallDue))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(queue);
-    }
-
-    @GetMapping("/schedule")
-    public ResponseEntity<List<RecoveryTaskDTO>> getFullSchedule() {
-        List<LandProject> allProjects = projectRepository.findAll();
-        List<RecoveryTaskDTO> all = buildOwnerTasks(allProjects).stream()
-                .filter(dto -> dto.getTotalDemand().compareTo(BigDecimal.ZERO) > 0)
-                .sorted(Comparator.comparing(RecoveryTaskDTO::getNextCallDue))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(all);
-    }
-
-    private List<RecoveryTaskDTO> buildOwnerTasks(List<LandProject> allProjects) {
-        Map<UUID, List<LandProject>> clientPlotsMap = new LinkedHashMap<>();
-        Map<UUID, Client> clientRegistry = new HashMap<>();
-
-        for (LandProject plot : allProjects) {
-            BigDecimal balance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
-            if (balance.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            Set<Client> proprietors = plot.getProprietors();
-            if (proprietors == null || proprietors.isEmpty()) continue;
-
-            Client primary = proprietors.stream()
-                    .sorted(Comparator.comparing(Client::getFullName))
-                    .findFirst().orElse(null);
-
-            if (primary != null) {
-                clientPlotsMap.computeIfAbsent(primary.getId(), k -> new ArrayList<>()).add(plot);
-                clientRegistry.put(primary.getId(), primary);
-            }
-        }
-
-        List<RecoveryTaskDTO> result = new ArrayList<>();
-
-        for (Map.Entry<UUID, List<LandProject>> entry : clientPlotsMap.entrySet()) {
-            UUID clientId = entry.getKey();
-            List<LandProject> plots = entry.getValue();
-            Client client = clientRegistry.get(clientId);
-
-            if (client.shouldResetMonthlyCounter()) {
-                client.setMonthlyContactCount(0);
-            }
-
-            LocalDateTime lastContact = client.getLastContactedAt();
-            int callCount = client.getMonthlyContactCount();
-
-            String missionStatus;
-            String nextCallDue;
-            boolean isLocked;
-
-            if (lastContact == null) {
-                missionStatus = "NEW ASSIGNMENT";
-                nextCallDue = LocalDate.now().toString();
-                isLocked = false;
-            } else if (callCount >= 2) {
-                missionStatus = "MONTHLY LIMIT";
-                nextCallDue = LocalDate.now().plusMonths(1)
-                        .with(TemporalAdjusters.firstDayOfMonth()).toString();
-                isLocked = true;
-            } else {
-                LocalDate eligibleDate = lastContact.toLocalDate().plusDays(14);
-                if (!LocalDate.now().isBefore(eligibleDate)) {
-                    missionStatus = "ACTION REQUIRED";
-                    nextCallDue = LocalDate.now().toString();
-                    isLocked = false;
-                } else {
-                    missionStatus = "COOLING DOWN";
-                    nextCallDue = eligibleDate.toString();
-                    isLocked = true;
-                }
-            }
-
-            BigDecimal totalDemand = BigDecimal.ZERO;
-            BigDecimal totalOriginalDebt = BigDecimal.ZERO;
-            BigDecimal totalStorageFees = BigDecimal.ZERO;
-            boolean hasBacklog = false;
-
-            List<RecoveryTaskDTO.PlotSummary> plotSummaries = new ArrayList<>();
-
-            for (LandProject plot : plots) {
-                List<FollowUpLog> logs = followUpRepository.findByProjectIdOrderByTimestampDesc(plot.getId());
-                String lastNote = logs.isEmpty() ? "NO PRIOR CONTACT" : logs.get(0).getNotes();
-
-                BigDecimal plotBalance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
-                totalDemand = totalDemand.add(plotBalance);
-
-                String badge = computePaymentBadge(plot);
-                String lastPaymentStr = plot.getLastPaymentDate() != null
-                        ? plot.getLastPaymentDate().toLocalDate().toString() : "NEVER";
-
-                RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()
-                        .projectId(plot.getId())
-                        .plotNumber(plot.getLandTitle().getPlotNumber())
-                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())
-                        .isBacklog(plot.isBacklog())
-                        .lastInteractionNote(lastNote)
-                        .paymentHealthBadge(badge)
-                        .lastPaymentDate(lastPaymentStr);
-
-                if (plot.isBacklog()) {
-                    hasBacklog = true;
-                    BigDecimal fees = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-                    BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
-                    long months = plot.getBacklogStartDate() != null
-                            ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
-
-                    summaryBuilder
-                            .originalDebt(origDebt)
-                            .storageFeesAccumulated(fees)
-                            .totalBacklogOwed(plotBalance)
-                            .storageMonthsCount(months)
-                            .storagePaused(plot.isStoragePaused())
-                            .storageFeeOverride(plot.getStorageFeeOverride())
-                            .amountPaid(plot.getAmountPaid());
-
-                    totalOriginalDebt = totalOriginalDebt.add(origDebt);
-                    totalStorageFees = totalStorageFees.add(fees);
-                } else {
-                    summaryBuilder
-                            .totalCost(plot.getTotalCost())
-                            .amountPaid(plot.getAmountPaid())
-                            .currentBalance(plotBalance);
-                }
-
-                plotSummaries.add(summaryBuilder.build());
-            }
-
-            RecoveryTaskDTO dto = RecoveryTaskDTO.builder()
-                    .clientId(client.getId())
-                    .ownerName(client.getFullName())
-                    .phoneNumber(client.getPhoneNumber())
-                    .email(client.getEmail())
-                    .lastContactDate(lastContact != null ? lastContact.toLocalDate().toString() : "NEVER")
-                    .nextCallDue(nextCallDue)
-                    .missionStatus(missionStatus)
-                    .isLocked(isLocked)
-                    .monthlyCallCount(callCount)
-                    .totalDemand(totalDemand)
-                    .totalOriginalDebt(totalOriginalDebt)
-                    .totalStorageFees(totalStorageFees)
-                    .hasBacklogPlots(hasBacklog)
-                    .plots(plotSummaries)
-                    .build();
-
-            result.add(dto);
-        }
-
-        return result;
-    }
-
-    private String computePaymentBadge(LandProject plot) {
-        if (plot.getLastPaymentDate() == null) return "RED";
-        long daysSince = ChronoUnit.DAYS.between(plot.getLastPaymentDate(), LocalDateTime.now());
-        if (daysSince <= 14) return "GREEN";
-        if (daysSince <= 30) return "YELLOW";
-        return "RED";
-    }
-}""")
-
-# ─── 3. PATCH: DashboardController.java ────────────────────────────────
-dash_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules/land/controller/DashboardController.java')
-patch(
-    dash_path,
-    'long staleCalls = allPlots.stream()',
-    '''// Stale count = unique owners (Client IDs) who are due for a call today
-        long staleCalls = allPlots.stream()''',
-    'DashboardController: Sync Bell Logic'
-)
-
-# ─── 4. OVERWRITE: RecoveryPortal.jsx ──────────────────────────────────
 jsx_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx')
 write(jsx_path, """// PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -320,8 +25,7 @@ import {
     FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
-    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
-    FiArchive, FiZap, FiSettings, FiRepeat
+    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiSettings
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -385,7 +89,6 @@ const PaymentBadge = ({ badge }) => (
     />
 );
 
-// ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
 const StorageFeeInlineControls = ({ plot, onUpdated, toast }) => {
     const [rateInput, setRateInput] = React.useState('');
     const [saving, setSaving] = React.useState(false);
@@ -638,18 +341,15 @@ const RecoveryPortal = () => {
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().replace(/\\s+/g, '');
             list = list.filter(m =>
-                m.plotNumber?.toLowerCase().includes(term) ||
-                m.physicalBoxNumber?.toLowerCase().includes(term) ||
-                (m.owners || []).some(o =>
-                    o.fullName?.toLowerCase().includes(term) ||
-                    o.phoneNumber?.replace(/\\s+/g, '').includes(term)
-                )
+                (m.plots || []).some(p => p.plotNumber?.toLowerCase().includes(term)) ||
+                m.ownerName?.toLowerCase().includes(term) ||
+                m.phoneNumber?.replace(/\\s+/g, '').includes(term)
             );
         }
 
         // Status filter
-        if (statusFilter === 'BACKLOG') list = list.filter(m => m.backlog || m.isBacklog);
-        if (statusFilter === 'ACTIVE')  list = list.filter(m => !(m.backlog || m.isBacklog));
+        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
         if (statusFilter === 'DUE')     list = list.filter(m => !m.isLocked);
 
         return list;
@@ -662,23 +362,18 @@ const RecoveryPortal = () => {
         return styles.statusDefault;
     };
 
-    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.isBacklog || m.backlog).reduce((s, m) => s + Number(m.totalBacklogOwed || 0), 0), [filteredMissions]);
-    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !(m.isBacklog || m.backlog)).reduce((s, m) => s + Number(m.currentBalance || 0), 0), [filteredMissions]);
-    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.storageFeesAccumulated || 0), 0), [filteredMissions]);
+    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0), [filteredMissions]);
+    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0), [filteredMissions]);
 
     const renderCard = (mission) => {
-        const isExpanded = expandedId === mission.projectId;
-        const toggle = () => setExpandedId(prev => prev === mission.projectId ? null : mission.projectId);
-        const owners = mission.owners || [];
-        const ownerNames = owners.map(o => o.fullName).join(' & ') || '---';
-        const phones = owners.map(o => o.phoneNumber).join(' / ') || '---';
-        const balance = mission.isBacklog || mission.backlog
-            ? mission.totalBacklogOwed
-            : mission.currentBalance;
+        const isExpanded = expandedId === mission.clientId;
+        const toggle = () => setExpandedId(prev => prev === mission.clientId ? null : mission.clientId);
+        const plotNumbers = (mission.plots || []).map(p => p.plotNumber).join(' & ') || '---';
 
         return (
-            <div key={mission.projectId}
-                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${(mission.isBacklog || mission.backlog) ? styles.cardBacklog : ''}`}>
+            <div key={mission.clientId}
+                className={`${styles.missionCard} ${mission.isLocked ? styles.cardLocked : ''} ${mission.hasBacklogPlots ? styles.cardBacklog : ''}`}>
 
                 <div className={`${styles.statusBadge} ${getStatusStyle(mission.missionStatus)}`}>
                     {mission.isLocked && <FiLock size={10} />}
@@ -692,26 +387,34 @@ const RecoveryPortal = () => {
 
                     <div className={styles.cardMain}>
                         <div className={styles.cardTopRow}>
-                            <PaymentBadge badge={mission.paymentHealthBadge} />
-                            <span className={styles.plotId}>{mission.plotNumber}</span>
-                            {(mission.isBacklog || mission.backlog) && (
+                            {/* Uses payment health badge of first plot */}
+                            <PaymentBadge badge={mission.plots?.[0]?.paymentHealthBadge} />
+                            <span className={styles.plotId}>{plotNumbers}</span>
+                            {mission.hasBacklogPlots && (
                                 <span className={styles.backlogPill}>BACKLOG</span>
                             )}
                         </div>
-                        <div className={styles.ownerLine}>{ownerNames}</div>
-                        <div className={styles.phoneLine}>{phones}</div>
+                        <div className={styles.ownerLine}>{mission.ownerName}</div>
+                        <div className={styles.phoneLine}>{mission.phoneNumber}</div>
                         <div className={styles.balanceLine}>
-                            <span className={styles.balanceLabel}>OWED:</span>
-                            <span className={`${styles.balanceVal} ${(mission.isBacklog || mission.backlog) ? styles.balanceRed : ''}`}>
-                                UGX {fmt(balance)}
+                            <span className={styles.balanceLabel}>TOTAL DEBT:</span>
+                            <span className={`${styles.balanceVal} ${mission.hasBacklogPlots ? styles.balanceRed : ''}`}>
+                                UGX {fmt(mission.totalDemand)}
                             </span>
                         </div>
                     </div>
 
                     <div className={styles.cardSideActions}>
+                        {/* Log call targets the primary/first plot */}
                         <button className={styles.logCallBtnSmall}
                             disabled={mission.isLocked}
-                            onClick={e => { e.stopPropagation(); setCallModal({ open: true, mission }); setLogContent(''); }}
+                            onClick={e => {
+                                e.stopPropagation();
+                                if (mission.plots?.[0]) {
+                                    setCallModal({ open: true, mission: mission.plots[0] });
+                                    setLogContent('');
+                                }
+                            }}
                             aria-label="Log call">
                             <FiPhoneCall size={12} />
                             {mission.isLocked ? 'LOCKED' : 'LOG CALL'}
@@ -722,7 +425,7 @@ const RecoveryPortal = () => {
                     </div>
                 </div>
 
-                {/* EXPANDED DETAILS */}
+                {/* EXPANDED DETAILS — List each plot owned by this client */}
                 {isExpanded && (
                     <div className={styles.cardBody}>
                         <div className={styles.divider} />
@@ -734,64 +437,87 @@ const RecoveryPortal = () => {
                             <span className={styles.timingSep} />
                             <span>Calls: <strong>{mission.monthlyCallCount}/2</strong></span>
                         </div>
-                        {/* financial detail */}
-                        {(mission.isBacklog || mission.backlog) ? (
-                            <div className={styles.finDetail}>
-                                <div className={styles.finDetailRow}>
-                                    <span>Title cost</span><strong>UGX {fmt(mission.totalCost)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span style={{color:'#fca5a5'}}>+ Storage fees</span>
-                                    <strong style={{color:'#ef4444'}}>UGX {fmt(mission.storageFeesAccumulated)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span>- Paid</span>
-                                    <strong style={{color:'#86efac'}}>UGX {fmt(mission.amountPaid)}</strong>
-                                </div>
-                                <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
-                                    <span>NOW OWED</span>
-                                    <strong style={{color:'#ef4444'}}>UGX {fmt(mission.totalBacklogOwed)}</strong>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={styles.finDetail}>
-                                <div className={styles.finDetailRow}>
-                                    <span>Total cost</span><strong>UGX {fmt(mission.totalCost)}</strong>
-                                </div>
-                                <div className={styles.finDetailRow}>
-                                    <span>Paid</span>
-                                    <strong style={{color:'#86efac'}}>UGX {fmt(mission.amountPaid)}</strong>
-                                </div>
-                                <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
-                                    <span>BALANCE</span>
-                                    <strong>UGX {fmt(mission.currentBalance)}</strong>
-                                </div>
-                            </div>
-                        )}
-                        <div className={styles.lastNote}>
-                            <FiMessageSquare size={11} />
-                            <span>"{mission.lastInteractionNote}"</span>
-                        </div>
-                        
-                        {(mission.isBacklog || mission.backlog) && isAdmin && (
-                            <StorageFeeInlineControls
-                                plot={mission}
-                                onUpdated={loadData}
-                                toast={toast}
-                            />
-                        )}
 
-                        <div className={styles.expandedActions}>
-                            <button className={styles.folderBtn}
-                                onClick={() => navigate(`/folder/${mission.projectId}#financials`)}>
-                                <FiChevronRight size={12} /> OPEN FOLDER
-                            </button>
-                            {isAdmin && (
-                                <button className={styles.payBtn}
-                                    onClick={() => navigate(`/folder/${mission.projectId}?action=pay#financials`)}>
-                                    <FiDollarSign size={12} /> RECORD PAYMENT
-                                </button>
-                            )}
+                        <div className={styles.plotsSubList}>
+                            {(mission.plots || []).map(plot => (
+                                <div key={plot.projectId} className={styles.plotSubCard} style={{
+                                    borderLeft: plot.isBacklog ? '3px solid #ef4444' : '3px solid #EE8C3A',
+                                    background: 'rgba(0, 0, 0, 0.2)',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    marginBottom: '10px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <span className={styles.plotId} style={{ fontSize: '12px' }}>
+                                            {plot.plotNumber} {plot.isBacklog && <span className={styles.backlogPill}>BACKLOG</span>}
+                                        </span>
+                                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Space Mono, monospace' }}>
+                                            Box {plot.physicalBoxNumber}
+                                        </span>
+                                    </div>
+
+                                    {/* financial detail per plot */}
+                                    {plot.isBacklog ? (
+                                        <div className={styles.finDetail} style={{ background: 'transparent', padding: 0 }}>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Title cost</span><strong>UGX {fmt(plot.totalCost)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span style={{color:'#fca5a5'}}>+ Storage fees</span>
+                                                <strong style={{color:'#ef4444'}}>UGX {fmt(plot.storageFeesAccumulated)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span>- Paid</span>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</strong>
+                                            </div>
+                                            <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
+                                                <span>NOW OWED</span>
+                                                <strong style={{color:'#ef4444'}}>UGX {fmt(plot.totalBacklogOwed)}</strong>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.finDetail} style={{ background: 'transparent', padding: 0 }}>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Total cost</span><strong>UGX {fmt(plot.totalCost)}</strong>
+                                            </div>
+                                            <div className={styles.finDetailRow}>
+                                                <span>Paid</span>
+                                                <strong style={{color:'#86efac'}}>UGX {fmt(plot.amountPaid)}</strong>
+                                            </div>
+                                            <div className={`${styles.finDetailRow} ${styles.finDetailTotal}`}>
+                                                <span>BALANCE</span>
+                                                <strong>UGX {fmt(plot.currentBalance)}</strong>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={styles.lastNote} style={{ marginTop: 8 }}>
+                                        <FiMessageSquare size={11} />
+                                        <span>"{plot.lastInteractionNote}"</span>
+                                    </div>
+
+                                    {plot.isBacklog && isAdmin && (
+                                        <StorageFeeInlineControls
+                                            plot={plot}
+                                            onUpdated={loadData}
+                                            toast={toast}
+                                        />
+                                    )}
+
+                                    <div className={styles.expandedActions} style={{ marginTop: 10 }}>
+                                        <button className={styles.folderBtn}
+                                            onClick={() => navigate(`/folder/${plot.projectId}#financials`)}>
+                                            <FiChevronRight size={12} /> OPEN FOLDER
+                                        </button>
+                                        {isAdmin && (
+                                            <button className={styles.payBtn}
+                                                onClick={() => navigate(`/folder/${plot.projectId}?action=pay#financials`)}>
+                                                <FiDollarSign size={12} /> RECORD PAYMENT
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -799,8 +525,8 @@ const RecoveryPortal = () => {
         );
     };
 
-    const backlogMissions = filteredMissions.filter(m => m.backlog || m.isBacklog);
-    const activeMissions  = filteredMissions.filter(m => !(m.backlog || m.isBacklog));
+    const backlogMissions = filteredMissions.filter(m => m.hasBacklogPlots);
+    const activeMissions  = filteredMissions.filter(m => !m.hasBacklogPlots);
 
     if (loading) return (
         <div className={styles.bootScreen} role="status">
@@ -840,12 +566,12 @@ const RecoveryPortal = () => {
                 <div className={styles.finHUDCard}>
                     <label>ACTIVE TITLES OWED</label>
                     <strong style={{color:'#EE8C3A'}}>UGX {fmt(totalActiveOwed)}</strong>
-                    <span>{activeMissions.length} active plot{activeMissions.length !== 1 ? 's' : ''}</span>
+                    <span>{activeMissions.length} active client{activeMissions.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.35)'}}>
                     <label style={{color:'#fca5a5'}}>BACKLOG TOTAL OWED</label>
                     <strong style={{color:'#ef4444'}}>UGX {fmt(totalBacklogOwed)}</strong>
-                    <span>{backlogMissions.length} backlog plot{backlogMissions.length !== 1 ? 's' : ''}</span>
+                    <span>{backlogMissions.length} backlog client{backlogMissions.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.2)'}}>
                     <label style={{color:'rgba(252,165,165,0.8)'}}>STORAGE FEES IN BACKLOG</label>
@@ -1012,6 +738,7 @@ write(css_path, '''/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.modul
     --gap-xl:   clamp(12px,1.8vw,20px);
     --gap-lg:   clamp(8px,1.2vw,14px);
     --gap-md:   clamp(6px,0.9vw,11px);
+    --pad-card: clamp(12px,1.5vw,18px);
     --radius:   10px;
     --radius-sm:7px;
     --fs-label: clamp(8px,0.82vw,10px);
@@ -1137,11 +864,19 @@ write(css_path, '''/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.modul
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
     padding: clamp(6px,0.8vw,8px) clamp(12px,1.4vw,18px);
-    border-radius:var(--radius-sm);
-    font-family:'DM Sans',sans-serif; font-weight:900;
-    font-size:clamp(9px,0.9vw,11px); letter-spacing:1.5px;
-    text-transform:uppercase; cursor:pointer; white-space:nowrap;
-    transition:all 0.2s ease; flex-shrink:0;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px,0.9vw,11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .filterPill:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 .filterPillActive { background: #EE8C3A !important; color: #1a2e30 !important; border-color: #EE8C3A !important; box-shadow: 0 0 12px rgba(238, 140, 58, 0.35); }
@@ -1343,4 +1078,4 @@ write(css_path, '''/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.modul
 }
 ''')
 
-print("\n=== COMPLETE ===")git add -A && git commit -m "recovery" && git push
+print("\n=== RECOVERY FIXES APPLIED SUCCESSFULLY ===")
