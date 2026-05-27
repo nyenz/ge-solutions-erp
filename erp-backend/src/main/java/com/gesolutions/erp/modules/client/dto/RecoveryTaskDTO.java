@@ -11,49 +11,47 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecoveryTaskDTO {
+    private UUID clientId;
+    private String ownerName;
+    private String phoneNumber;
+    private String email;
 
-    // ── PRIMARY ENTITY: the Plot ──────────────────────────────────────────
-    private UUID   projectId;
-    private String plotNumber;
-    private String physicalBoxNumber;
-    private boolean isBacklog;
-
-    // ── ALL OWNERS of this plot ────────────────────────────────────────────
-    private List<OwnerInfo> owners;
-
-    // ── CALL STATUS (driven by the primary owner's client record) ──────────
-    private String  lastContactDate;
-    private String  nextCallDue;
-    private String  missionStatus;   // NEW ASSIGNMENT | ACTION REQUIRED | COOLING DOWN | MONTHLY LIMIT
+    private String lastContactDate;
+    private String nextCallDue;
+    private String missionStatus;
     private boolean isLocked;
-    private int     monthlyCallCount;
+    private int monthlyCallCount;
 
-    // ── FINANCIAL SUMMARY ──────────────────────────────────────────────────
-    private BigDecimal totalCost;
-    private BigDecimal amountPaid;
-    private BigDecimal currentBalance;   // for active plots
+    private BigDecimal totalDemand;
+    private BigDecimal totalOriginalDebt;
+    private BigDecimal totalStorageFees;
+    private boolean hasBacklogPlots;
 
-    // backlog-only extras
-    private BigDecimal originalDebt;
-    private BigDecimal storageFeesAccumulated;
-    private BigDecimal totalBacklogOwed;
-    private long       storageMonthsCount;
+    private List<PlotSummary> plots;
 
-    // payment health
-    private String paymentHealthBadge;  // GREEN | YELLOW | RED
-    private String lastPaymentDate;
-
-    private String lastInteractionNote;
-
-    // ── INNER: owner identity ─────────────────────────────────────────────
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class OwnerInfo {
-        private UUID   clientId;
-        private String fullName;
-        private String phoneNumber;
-        private String email;
+    public static class PlotSummary {
+        private UUID projectId;
+        private String plotNumber;
+        private String physicalBoxNumber;
+        private boolean isBacklog;
+
+        private BigDecimal totalCost;
+        private BigDecimal amountPaid;
+        private BigDecimal currentBalance;
+
+        private BigDecimal originalDebt;
+        private BigDecimal storageFeesAccumulated;
+        private BigDecimal totalBacklogOwed;
+        private long storageMonthsCount;
+        private boolean storagePaused;
+        private BigDecimal storageFeeOverride;
+
+        private String paymentHealthBadge;
+        private String lastPaymentDate;
+        private String lastInteractionNote;
     }
 }

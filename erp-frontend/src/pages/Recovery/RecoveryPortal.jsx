@@ -8,7 +8,8 @@ import {
     FiCheckCircle, FiChevronRight, FiMessageSquare, FiSave,
     FiList, FiCalendar, FiLock, FiUser, FiChevronDown, FiChevronUp,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo,
-    FiDollarSign, FiAlertOctagon, FiActivity
+    FiDollarSign, FiAlertOctagon, FiActivity, FiHome, FiTrendingDown,
+    FiArchive, FiZap, FiSettings, FiRepeat
 } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import HardwareButton from '../../components/common/HardwareButton';
@@ -64,7 +65,7 @@ const PaymentBadge = ({ badge }) => (
         style={{
             display: 'inline-block', width: 9, height: 9, borderRadius: '50%',
             background: BADGE_COLORS[badge] || BADGE_COLORS.RED,
-            flexShrink: 0,
+            flexShrink: 0, marginTop: 3,
             boxShadow: `0 0 5px ${BADGE_COLORS[badge] || BADGE_COLORS.RED}`
         }}
         title={BADGE_LABELS[badge] || 'No recent payment'}
@@ -72,30 +73,192 @@ const PaymentBadge = ({ badge }) => (
     />
 );
 
+// ── STORAGE FEE INLINE CONTROLS ────────────────────────────────
+const StorageFeeInlineControls = ({ plot, onUpdated, toast }) => {
+    const [rateInput, setRateInput] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+    const [expanded, setExpanded] = React.useState(false);
+
+    const handleSetRate = async () => {
+        const val = Number(rateInput);
+        if (rateInput === '' || val < 0) {
+            toast('ENTER A VALID MONTHLY RATE', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            await recoveryService.setStorageRate(plot.projectId, val);
+            setRateInput('');
+            setExpanded(false);
+            await onUpdated();
+            toast('MONTHLY FEE UPDATED', 'success');
+        } catch {
+            toast('FEE UPDATE FAILED', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleTogglePause = async () => {
+        setSaving(true);
+        try {
+            await recoveryService.pauseStorageFees(plot.projectId, !plot.storagePaused);
+            await onUpdated();
+            toast(plot.storagePaused ? 'STORAGE FEES RESUMED' : 'STORAGE FEES PAUSED', 'info');
+        } catch {
+            toast('ACTION FAILED', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const currentRate = plot.storageFeeOverride && Number(plot.storageFeeOverride) > 0
+        ? Number(plot.storageFeeOverride)
+        : 50000;
+
+    if (!expanded) {
+        return (
+            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                    onClick={() => setExpanded(true)}
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 5,
+                        color: 'rgba(252,165,165,0.7)',
+                        fontFamily: 'DM Sans,sans-serif',
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: 1,
+                        textTransform: 'uppercase',
+                        padding: '4px 10px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                    }}>
+                    <FiSettings size={10} />
+                    FEE: UGX {Number(currentRate).toLocaleString()}/mo
+                    {plot.storagePaused && <span style={{color:'#fcd34d'}}> · PAUSED</span>}
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            marginTop: 10,
+            padding: '10px 12px',
+            background: 'rgba(239,68,68,0.06)',
+            border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 7,
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 900, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                    STORAGE FEE SETTINGS
+                </span>
+                <button onClick={() => setExpanded(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14 }}>
+                    <FiX size={13} />
+                </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                    <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 8, fontWeight: 900, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>
+                        MONTHLY RATE (UGX)
+                    </div>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                        <input
+                            type="number"
+                            value={rateInput}
+                            onChange={e => setRateInput(e.target.value)}
+                            placeholder={String(currentRate)}
+                            style={{
+                                flex: 1,
+                                background: '#fff',
+                                border: '1.5px solid #c8d6d7',
+                                borderRadius: 5,
+                                color: '#1a2e30',
+                                fontFamily: 'Space Mono,monospace',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                padding: '5px 8px',
+                                outline: 'none',
+                                minWidth: 0,
+                            }}
+                        />
+                        <button
+                            onClick={handleSetRate}
+                            disabled={saving}
+                            style={{
+                                background: '#EE8C3A',
+                                border: 'none',
+                                borderRadius: 5,
+                                color: '#1a2e30',
+                                fontFamily: 'DM Sans,sans-serif',
+                                fontSize: 9,
+                                fontWeight: 900,
+                                padding: '0 9px',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                            }}>
+                            SET
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 8, fontWeight: 900, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>
+                        FEE STATUS
+                    </div>
+                    <button
+                        onClick={handleTogglePause}
+                        disabled={saving}
+                        style={{
+                            width: '100%',
+                            background: plot.storagePaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                            border: plot.storagePaused ? '1.5px solid rgba(16,185,129,0.5)' : '1.5px solid rgba(245,158,11,0.5)',
+                            borderRadius: 5,
+                            color: plot.storagePaused ? '#34d399' : '#fcd34d',
+                            fontFamily: 'DM Sans,sans-serif',
+                            fontSize: 9,
+                            fontWeight: 900,
+                            padding: '6px 0',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                        }}>
+                        {plot.storagePaused ? 'RESUME FEES' : 'PAUSE FEES'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ── MAIN COMPONENT ──────────────────────────────────────────────
 const RecoveryPortal = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
     const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
 
-    const [viewMode,    setViewMode]    = useState('ACTION');
-    const [missions,    setMissions]    = useState([]);
-    const [loading,     setLoading]     = useState(true);
-    const [expandedId,  setExpandedId]  = useState(null);
-    const [searchTerm,  setSearchTerm]  = useState('');
+    const [viewMode,      setViewMode]      = useState('ACTION');
+    const [missions,      setMissions]      = useState([]);
+    const [loading,       setLoading]       = useState(true);
+    const [expandedId,    setExpandedId]    = useState(null);
+    const [searchTerm,    setSearchTerm]    = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [statusFilter,  setStatusFilter]  = useState('ALL');
 
-    const [callModal,   setCallModal]   = useState({ open: false, mission: null });
-    const [callHistory, setCallHistory] = useState([]);
-    const [logContent,  setLogContent]  = useState('');
-    const [committing,  setCommitting]  = useState(false);
+    const [callModal,     setCallModal]     = useState({ open: false, mission: null });
+    const [callHistory,   setCallHistory]   = useState([]);
+    const [logContent,    setLogContent]    = useState('');
+    const [committing,    setCommitting]    = useState(false);
 
     const callDirty = callModal.open && logContent.trim() !== '';
     const { blocked: guardOpen, proceed: guardLeave, reset: guardStay } = useRouterBlock(callDirty);
 
     const [discardModalOpen, setDiscardModalOpen] = useState(false);
-    const [pendingClose, setPendingClose] = useState(false);
 
     const handleCloseCallModal = () => {
         if (callDirty) {
@@ -158,6 +321,8 @@ const RecoveryPortal = () => {
 
     const filteredMissions = useMemo(() => {
         let list = missions;
+
+        // Search filter
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().replace(/\s+/g, '');
             list = list.filter(m =>
@@ -169,9 +334,12 @@ const RecoveryPortal = () => {
                 )
             );
         }
+
+        // Status filter
         if (statusFilter === 'BACKLOG') list = list.filter(m => m.backlog || m.isBacklog);
         if (statusFilter === 'ACTIVE')  list = list.filter(m => !(m.backlog || m.isBacklog));
         if (statusFilter === 'DUE')     list = list.filter(m => !m.isLocked);
+
         return list;
     }, [missions, searchTerm, statusFilter]);
 
@@ -182,8 +350,9 @@ const RecoveryPortal = () => {
         return styles.statusDefault;
     };
 
-    const backlogMissions = filteredMissions.filter(m => m.backlog || m.isBacklog);
-    const activeMissions  = filteredMissions.filter(m => !(m.backlog || m.isBacklog));
+    const totalBacklogOwed  = useMemo(() => filteredMissions.filter(m => m.isBacklog || m.backlog).reduce((s, m) => s + Number(m.totalBacklogOwed || 0), 0), [filteredMissions]);
+    const totalActiveOwed   = useMemo(() => filteredMissions.filter(m => !(m.isBacklog || m.backlog)).reduce((s, m) => s + Number(m.currentBalance || 0), 0), [filteredMissions]);
+    const totalStorageFees  = useMemo(() => filteredMissions.reduce((s, m) => s + Number(m.storageFeesAccumulated || 0), 0), [filteredMissions]);
 
     const renderCard = (mission) => {
         const isExpanded = expandedId === mission.projectId;
@@ -291,6 +460,15 @@ const RecoveryPortal = () => {
                             <FiMessageSquare size={11} />
                             <span>"{mission.lastInteractionNote}"</span>
                         </div>
+                        
+                        {(mission.isBacklog || mission.backlog) && isAdmin && (
+                            <StorageFeeInlineControls
+                                plot={mission}
+                                onUpdated={loadData}
+                                toast={toast}
+                            />
+                        )}
+
                         <div className={styles.expandedActions}>
                             <button className={styles.folderBtn}
                                 onClick={() => navigate(`/folder/${mission.projectId}#financials`)}>
@@ -308,6 +486,9 @@ const RecoveryPortal = () => {
             </div>
         );
     };
+
+    const backlogMissions = filteredMissions.filter(m => m.backlog || m.isBacklog);
+    const activeMissions  = filteredMissions.filter(m => !(m.backlog || m.isBacklog));
 
     if (loading) return (
         <div className={styles.bootScreen} role="status">
@@ -341,6 +522,25 @@ const RecoveryPortal = () => {
                     </div>
                 </div>
             </header>
+
+            {/* FINANCIAL SUMMARY HUD */}
+            <div className={styles.finHUD}>
+                <div className={styles.finHUDCard}>
+                    <label>ACTIVE TITLES OWED</label>
+                    <strong style={{color:'#EE8C3A'}}>UGX {fmt(totalActiveOwed)}</strong>
+                    <span>{activeMissions.length} active plot{activeMissions.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.35)'}}>
+                    <label style={{color:'#fca5a5'}}>BACKLOG TOTAL OWED</label>
+                    <strong style={{color:'#ef4444'}}>UGX {fmt(totalBacklogOwed)}</strong>
+                    <span>{backlogMissions.length} backlog plot{backlogMissions.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={styles.finHUDCard} style={{borderColor:'rgba(239,68,68,0.2)'}}>
+                    <label style={{color:'rgba(252,165,165,0.8)'}}>STORAGE FEES IN BACKLOG</label>
+                    <strong style={{color:'rgba(239,68,68,0.85)'}}>UGX {fmt(totalStorageFees)}</strong>
+                    <span>across all backlog plots</span>
+                </div>
+            </div>
 
             {/* SEARCH + FILTER */}
             <div className={styles.filterBar}>

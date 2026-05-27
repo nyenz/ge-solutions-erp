@@ -57,6 +57,7 @@ public class DashboardController {
 
         // Stale count = plots with outstanding balance whose primary owner is eligible to call
         // This matches the buildPlotTasks() logic in RecoveryController exactly.
+        // Stale count = unique owners (Client IDs) who are due for a call today
         long staleCalls = allPlots.stream()
                 .filter(p -> {
                     java.math.BigDecimal bal = p.isBacklog()

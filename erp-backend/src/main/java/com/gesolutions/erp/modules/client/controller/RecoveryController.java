@@ -34,107 +34,70 @@ public class RecoveryController {
     private final PaymentRecordRepository paymentRecordRepository;
     private final LandService landService;
 
-    // ── BELL COUNT ───────────────────────────────────────────────────────
-    // Counts plots eligible for a call today (outstanding balance + call not locked)
     @GetMapping("/count")
     public ResponseEntity<Map<String, Long>> getStaleCount() {
         List<LandProject> allProjects = projectRepository.findAll();
-        long count = buildPlotTasks(allProjects).stream()
+        long count = buildOwnerTasks(allProjects).stream()
                 .filter(dto -> !dto.isLocked())
                 .count();
         return ResponseEntity.ok(Map.of("staleCount", count));
     }
 
-    // ── ACTION QUEUE — only plots eligible to call today ──────────────────
     @GetMapping("/queue")
     public ResponseEntity<List<RecoveryTaskDTO>> getRecoveryQueue() {
         List<LandProject> allProjects = projectRepository.findAll();
-        List<RecoveryTaskDTO> queue = buildPlotTasks(allProjects).stream()
+        List<RecoveryTaskDTO> queue = buildOwnerTasks(allProjects).stream()
                 .filter(dto -> !dto.isLocked())
-                .filter(dto -> dto.getCurrentBalance() != null
-                        ? dto.getCurrentBalance().compareTo(BigDecimal.ZERO) > 0
-                        : (dto.getTotalBacklogOwed() != null && dto.getTotalBacklogOwed().compareTo(BigDecimal.ZERO) > 0))
+                .filter(dto -> dto.getTotalDemand().compareTo(BigDecimal.ZERO) > 0)
                 .sorted(Comparator.comparing(RecoveryTaskDTO::getNextCallDue))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(queue);
     }
 
-    // ── FULL SCHEDULE — all outstanding regardless of call eligibility ─────
     @GetMapping("/schedule")
     public ResponseEntity<List<RecoveryTaskDTO>> getFullSchedule() {
         List<LandProject> allProjects = projectRepository.findAll();
-        List<RecoveryTaskDTO> all = buildPlotTasks(allProjects).stream()
-                .filter(dto -> {
-                    BigDecimal bal = dto.isBacklog()
-                            ? dto.getTotalBacklogOwed()
-                            : dto.getCurrentBalance();
-                    return bal != null && bal.compareTo(BigDecimal.ZERO) > 0;
-                })
+        List<RecoveryTaskDTO> all = buildOwnerTasks(allProjects).stream()
+                .filter(dto -> dto.getTotalDemand().compareTo(BigDecimal.ZERO) > 0)
                 .sorted(Comparator.comparing(RecoveryTaskDTO::getNextCallDue))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(all);
     }
 
-    // ── RECORD PAYMENT (Admin/Root only) ──────────────────────────────────
-    @PostMapping("/projects/{projectId}/payment")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public ResponseEntity<Void> recordPayment(
-            @PathVariable UUID projectId,
-            @RequestParam BigDecimal amount,
-            @RequestParam(required = false) String notes) {
-        landService.recordPayment(projectId, amount, notes);
-        return ResponseEntity.ok().build();
-    }
-
-    // ── BACKLOG MANAGEMENT ────────────────────────────────────────────────
-    @PostMapping("/projects/{projectId}/backlog")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public ResponseEntity<Void> moveToBacklog(@PathVariable UUID projectId) {
-        landService.moveToBacklog(projectId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/projects/{projectId}/exit-backlog")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public ResponseEntity<Void> exitBacklog(@PathVariable UUID projectId) {
-        landService.exitBacklog(projectId);
-        return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/projects/{projectId}/payments")
-    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(paymentRecordRepository.findByProjectIdOrderByTimestampDesc(projectId));
-    }
-
-    // ── CORE BUILDER — one DTO per Plot ───────────────────────────────────
-    private List<RecoveryTaskDTO> buildPlotTasks(List<LandProject> allProjects) {
-        List<RecoveryTaskDTO> result = new ArrayList<>();
+    private List<RecoveryTaskDTO> buildOwnerTasks(List<LandProject> allProjects) {
+        Map<UUID, List<LandProject>> clientPlotsMap = new LinkedHashMap<>();
+        Map<UUID, Client> clientRegistry = new HashMap<>();
 
         for (LandProject plot : allProjects) {
-            // Skip plots with no outstanding balance
-            BigDecimal balance = plot.isBacklog()
-                    ? plot.backlogTotalOwed()
-                    : plot.activeTotalOwed();
+            BigDecimal balance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
             if (balance.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-            // Use the first proprietor as the "primary" for call-status tracking
             Set<Client> proprietors = plot.getProprietors();
             if (proprietors == null || proprietors.isEmpty()) continue;
 
-            // Sort owners to get a stable primary (earliest by fullName)
-            List<Client> ownerList = proprietors.stream()
+            Client primary = proprietors.stream()
                     .sorted(Comparator.comparing(Client::getFullName))
-                    .collect(Collectors.toList());
+                    .findFirst().orElse(null);
 
-            Client primary = ownerList.get(0);
+            if (primary != null) {
+                clientPlotsMap.computeIfAbsent(primary.getId(), k -> new ArrayList<>()).add(plot);
+                clientRegistry.put(primary.getId(), primary);
+            }
+        }
 
-            // Reset monthly counter if needed
-            if (primary.shouldResetMonthlyCounter()) {
-                primary.setMonthlyContactCount(0);
+        List<RecoveryTaskDTO> result = new ArrayList<>();
+
+        for (Map.Entry<UUID, List<LandProject>> entry : clientPlotsMap.entrySet()) {
+            UUID clientId = entry.getKey();
+            List<LandProject> plots = entry.getValue();
+            Client client = clientRegistry.get(clientId);
+
+            if (client.shouldResetMonthlyCounter()) {
+                client.setMonthlyContactCount(0);
             }
 
-            LocalDateTime lastContact = primary.getLastContactedAt();
-            int callCount = primary.getMonthlyContactCount();
+            LocalDateTime lastContact = client.getLastContactedAt();
+            int callCount = client.getMonthlyContactCount();
 
             String missionStatus;
             String nextCallDue;
@@ -162,54 +125,76 @@ public class RecoveryController {
                 }
             }
 
-            // Last note
-            List<FollowUpLog> logs = followUpRepository
-                    .findByProjectIdOrderByTimestampDesc(plot.getId());
-            String lastNote = logs.isEmpty() ? "NO PRIOR CONTACT" : logs.get(0).getNotes();
+            BigDecimal totalDemand = BigDecimal.ZERO;
+            BigDecimal totalOriginalDebt = BigDecimal.ZERO;
+            BigDecimal totalStorageFees = BigDecimal.ZERO;
+            boolean hasBacklog = false;
 
-            // Payment badge
-            String badge = computePaymentBadge(plot);
-            String lastPaymentStr = plot.getLastPaymentDate() != null
-                    ? plot.getLastPaymentDate().toLocalDate().toString() : "NEVER";
+            List<RecoveryTaskDTO.PlotSummary> plotSummaries = new ArrayList<>();
 
-            // Build owner list
-            List<RecoveryTaskDTO.OwnerInfo> ownerInfos = ownerList.stream()
-                    .map(c -> RecoveryTaskDTO.OwnerInfo.builder()
-                            .clientId(c.getId())
-                            .fullName(c.getFullName())
-                            .phoneNumber(c.getPhoneNumber())
-                            .email(c.getEmail())
-                            .build())
-                    .collect(Collectors.toList());
+            for (LandProject plot : plots) {
+                List<FollowUpLog> logs = followUpRepository.findByProjectIdOrderByTimestampDesc(plot.getId());
+                String lastNote = logs.isEmpty() ? "NO PRIOR CONTACT" : logs.get(0).getNotes();
 
-            // Financial fields
-            BigDecimal totalCost  = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
-            BigDecimal amountPaid = plot.getAmountPaid() != null ? plot.getAmountPaid() : BigDecimal.ZERO;
-            BigDecimal fees       = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-            long months = plot.getBacklogStartDate() != null
-                    ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
+                BigDecimal plotBalance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
+                totalDemand = totalDemand.add(plotBalance);
+
+                String badge = computePaymentBadge(plot);
+                String lastPaymentStr = plot.getLastPaymentDate() != null
+                        ? plot.getLastPaymentDate().toLocalDate().toString() : "NEVER";
+
+                RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()
+                        .projectId(plot.getId())
+                        .plotNumber(plot.getLandTitle().getPlotNumber())
+                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())
+                        .isBacklog(plot.isBacklog())
+                        .lastInteractionNote(lastNote)
+                        .paymentHealthBadge(badge)
+                        .lastPaymentDate(lastPaymentStr);
+
+                if (plot.isBacklog()) {
+                    hasBacklog = true;
+                    BigDecimal fees = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
+                    BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
+                    long months = plot.getBacklogStartDate() != null
+                            ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
+
+                    summaryBuilder
+                            .originalDebt(origDebt)
+                            .storageFeesAccumulated(fees)
+                            .totalBacklogOwed(plotBalance)
+                            .storageMonthsCount(months)
+                            .storagePaused(plot.isStoragePaused())
+                            .storageFeeOverride(plot.getStorageFeeOverride())
+                            .amountPaid(plot.getAmountPaid());
+
+                    totalOriginalDebt = totalOriginalDebt.add(origDebt);
+                    totalStorageFees = totalStorageFees.add(fees);
+                } else {
+                    summaryBuilder
+                            .totalCost(plot.getTotalCost())
+                            .amountPaid(plot.getAmountPaid())
+                            .currentBalance(plotBalance);
+                }
+
+                plotSummaries.add(summaryBuilder.build());
+            }
 
             RecoveryTaskDTO dto = RecoveryTaskDTO.builder()
-                    .projectId(plot.getId())
-                    .plotNumber(plot.getLandTitle().getPlotNumber())
-                    .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())
-                    .isBacklog(plot.isBacklog())
-                    .owners(ownerInfos)
+                    .clientId(client.getId())
+                    .ownerName(client.getFullName())
+                    .phoneNumber(client.getPhoneNumber())
+                    .email(client.getEmail())
                     .lastContactDate(lastContact != null ? lastContact.toLocalDate().toString() : "NEVER")
                     .nextCallDue(nextCallDue)
                     .missionStatus(missionStatus)
                     .isLocked(isLocked)
                     .monthlyCallCount(callCount)
-                    .totalCost(totalCost)
-                    .amountPaid(amountPaid)
-                    .currentBalance(plot.isBacklog() ? null : balance)
-                    .originalDebt(plot.isBacklog() ? totalCost : null)
-                    .storageFeesAccumulated(plot.isBacklog() ? fees : null)
-                    .totalBacklogOwed(plot.isBacklog() ? balance : null)
-                    .storageMonthsCount(months)
-                    .paymentHealthBadge(badge)
-                    .lastPaymentDate(lastPaymentStr)
-                    .lastInteractionNote(lastNote)
+                    .totalDemand(totalDemand)
+                    .totalOriginalDebt(totalOriginalDebt)
+                    .totalStorageFees(totalStorageFees)
+                    .hasBacklogPlots(hasBacklog)
+                    .plots(plotSummaries)
                     .build();
 
             result.add(dto);
