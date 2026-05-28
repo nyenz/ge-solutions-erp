@@ -1,379 +1,36 @@
+# PATH: fix.py
 import os
 
-# RecoveryPortal.module.css - replace the card-related CSS sections
-css_path = r'erp-frontend/src/pages/Recovery/RecoveryPortal.module.css'
+def read(path):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
 
-with open(css_path, 'r', encoding='utf-8', errors='replace') as f:
-    content = f.read()
+def write(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(content.strip() + '\n')
+    print(f"OK (OVERWRITTEN): {path}")
 
-# Replace mission card styles
-old_card = """.missionCard {
-    background: var(--panel-bg);
-    border: 1px solid rgba(238,140,58,0.18);
-    border-radius: var(--radius);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.14);
-    transition: border-color 0.22s, box-shadow 0.22s;
-    overflow: hidden;
-    width: 100%;
-}
-.missionCard:hover {
-    border-color: rgba(238,140,58,0.42);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.22);
-}
-.cardLocked  { opacity:0.68; border-style:dashed; }
-.cardLocked:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.14); }
-.cardBacklog { border-color: rgba(239,68,68,0.25); }
-.cardBacklog:hover { border-color: rgba(239,68,68,0.5); }
+BASE = os.path.dirname(os.path.abspath(__file__))
 
-/* ── CARD HEADER — compact single row ── */
-.cardHeader {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(6px,0.8vw,9px);
-    padding: clamp(14px, 1.8vw, 22px) clamp(16px, 2.2vw, 28px);
-    cursor: pointer;
-    user-select: none;
-}
-.cardHeader:focus-visible { outline:2px solid var(--orange); outline-offset:-2px; border-radius:var(--radius); }
+print("=== EXECUTING MASTER UNIFORMITY OVERWRITE (FIXED) ===")
 
-/* ── STATUS BADGE — inline, small ── */
-.statusBadge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 2px 7px;
-    font-family:'DM Sans',sans-serif;
-    font-size:var(--fs-2xs); font-weight:900; letter-spacing:0.8px;
-    text-transform:uppercase;
-    border-radius: 20px;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-.statusRed    { color:#fca5a5; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); }
-.statusBlue   { color:#93c5fd; background:rgba(59,130,246,0.1);  border:1px solid rgba(59,130,246,0.2); }
-.statusGrey   { color:rgba(255,255,255,0.35); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); }
-.statusDefault{ color:rgba(255,255,255,0.4); background:transparent; border:1px solid rgba(255,255,255,0.1); }
+# ─── 1. OVERWRITE: RecoveryPortal.module.css (Robust & Bold) ──────────
+rec_css_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css')
+write(rec_css_path, '''
+.container {
+    --orange:        #EE8C3A;
+    --orange-dim:    rgba(238,140,58,0.18);
+    --orange-border: rgba(238,140,58,0.3);
+    --navy:          #1a2e30;
+    --navy-mid:      #213E40;
+    --panel-bg:      linear-gradient(160deg,#1c3335 0%,#213E40 100%);
+    --red:           #ef4444;
+    --green:         #10b981;
+    --cyan:          #06b6d4;
 
-/* ── CARD MAIN — horizontal, single-line layout ── */
-.cardMain {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(8px,1vw,12px);
-    width: 100%;
-    flex-wrap: nowrap;
-}
-
-/* payment dot slot */
-.cardTopRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(8px,1vw,12px);
-    width: 100%;
-}
-.cardTopRowLeft {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px,0.8vw,9px);
-    min-width: 0;
-    flex: 1;
-}
-
-.plotId {
-    font-family:'Space Mono',monospace;
-    color: var(--orange);
-    font-size: var(--fs-value);
-    font-weight: 900; letter-spacing:0.3px;
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-.backlogPill {
-    font-family:'DM Sans',sans-serif; font-size:var(--fs-2xs);
-    font-weight:900; text-transform:uppercase; letter-spacing:0.8px;
-    background:rgba(239,68,68,0.18);
-    border:1px solid rgba(239,68,68,0.4);
-    border-radius:3px; padding: 1px 6px; color:#fca5a5; flex-shrink:0;
-}
-
-/* owner + phone stacked, centre column */
-.ownerLine {
-    font-family:'DM Sans',sans-serif; color:rgba(255,255,255,0.9);
-    font-size: var(--fs-td); font-weight:800;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    flex: 1; min-width: 0;
-}
-
-.phoneLine {
-    font-family:'Space Mono',monospace;
-    color: rgba(255,255,255,0.85);
-    font-size: var(--fs-meta); font-weight:700;
-    white-space:nowrap; flex-shrink:0;
-}
-
-/* debt amount — right side */
-.balanceLine {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-shrink: 0;
-}
-.balanceLabel {
-    font-family:'DM Sans',sans-serif;
-    font-size: clamp(9px,0.9vw,10px); font-weight:900;
-    color: rgba(255,255,255,0.5);
-    text-transform:uppercase; letter-spacing:0.8px;
-}
-.balanceVal {
-    font-family:'Space Mono',monospace;
-    font-size: var(--fs-value); font-weight:900; color:#fff;
-}
-.balanceRed { color:#fca5a5 !important; }
-
-/* ── SIDE ACTIONS — compact vertical stack ── */
-.cardSideActions {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px,0.8vw,9px);
-    flex-shrink: 0;
-    margin-left: auto;
-}
-
-.logCallBtnSmall {
-    background: var(--orange); color: var(--navy); border: none;
-    border-radius: var(--radius-sm);
-    font-family:'DM Sans',sans-serif; font-weight:900;
-    font-size: var(--fs-btn); text-transform:uppercase; letter-spacing:1px;
-    padding: clamp(7px,0.9vw,10px) clamp(12px,1.4vw,16px);
-    cursor:pointer; display:inline-flex; align-items:center; gap:5px;
-    transition: background 0.18s, transform 0.12s;
-    white-space:nowrap;
-}
-.logCallBtnSmall:hover:not(:disabled) { background:#f09a48; transform:translateY(-1px); }
-.logCallBtnSmall:disabled {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.22);
-    cursor:not-allowed; font-size:var(--fs-2xs);
-    transform:none;
-}
-
-.expandIcon {
-    color: rgba(255,255,255,0.28); font-size:16px;
-    transition: color 0.18s;
-    flex-shrink: 0;
-}
-.missionCard:hover .expandIcon { color:var(--orange); }"""
-
-new_card = """.missionCard {
-    background: var(--panel-bg);
-    border: 1.5px solid rgba(238,140,58,0.22);
-    border-radius: var(--radius);
-    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
-    transition: border-color 0.22s, box-shadow 0.22s, transform 0.18s;
-    overflow: hidden;
-    width: 100%;
-}
-.missionCard:hover {
-    border-color: rgba(238,140,58,0.52);
-    box-shadow: 0 10px 36px rgba(0,0,0,0.28);
-    transform: translateY(-1px);
-}
-.cardLocked  { opacity:0.62; border-style:dashed; }
-.cardLocked:hover { transform: none; box-shadow: 0 6px 24px rgba(0,0,0,0.18); }
-.cardBacklog { border-color: rgba(239,68,68,0.32); }
-.cardBacklog:hover { border-color: rgba(239,68,68,0.62); }
-
-/* ── CARD HEADER — spacious two-line layout ── */
-.cardHeader {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(10px,1.4vw,16px);
-    padding: clamp(18px, 2.2vw, 28px) clamp(20px, 2.8vw, 32px);
-    cursor: pointer;
-    user-select: none;
-}
-.cardHeader:focus-visible { outline:2px solid var(--orange); outline-offset:-2px; border-radius:var(--radius); }
-
-/* ── STATUS BADGE — inline, small ── */
-.statusBadge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 9px;
-    font-family:'DM Sans',sans-serif;
-    font-size:clamp(8px,0.82vw,10px); font-weight:900; letter-spacing:0.8px;
-    text-transform:uppercase;
-    border-radius: 20px;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-.statusRed    { color:#fca5a5; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); }
-.statusBlue   { color:#93c5fd; background:rgba(59,130,246,0.1);  border:1px solid rgba(59,130,246,0.2); }
-.statusGrey   { color:rgba(255,255,255,0.35); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); }
-.statusDefault{ color:rgba(255,255,255,0.4); background:transparent; border:1px solid rgba(255,255,255,0.1); }
-
-/* ── CARD TOP ROW — Line 1: Plot ID + Debt ── */
-.cardMain {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(10px,1.4vw,18px);
-    width: 100%;
-    flex-wrap: nowrap;
-}
-
-.cardTopRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(10px,1.4vw,18px);
-    width: 100%;
-}
-.cardTopRowLeft {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px,1.1vw,13px);
-    min-width: 0;
-    flex: 1;
-}
-
-/* ── PLOT ID — prominent, bold, Space Mono ── */
-.plotId {
-    font-family:'Space Mono',monospace;
-    color: var(--orange);
-    font-size: clamp(15px,1.7vw,20px);
-    font-weight: 900;
-    letter-spacing: 0.5px;
-    line-height: 1;
-    flex-shrink: 0;
-    text-shadow: 0 0 16px rgba(238,140,58,0.25);
-}
-
-.backlogPill {
-    font-family:'DM Sans',sans-serif; font-size:clamp(8px,0.82vw,9px);
-    font-weight:900; text-transform:uppercase; letter-spacing:0.8px;
-    background:rgba(239,68,68,0.18);
-    border:1px solid rgba(239,68,68,0.4);
-    border-radius:4px; padding: 2px 8px; color:#fca5a5; flex-shrink:0;
-}
-
-/* ── LINE 2: OWNER + PHONE — strong and readable ── */
-.ownerLine {
-    font-family:'DM Sans',sans-serif;
-    color: rgba(255,255,255,0.95);
-    font-size: clamp(13px,1.4vw,16px);
-    font-weight: 900;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    flex: 1; min-width: 0;
-    letter-spacing: 0.2px;
-}
-
-.phoneLine {
-    font-family:'Space Mono',monospace;
-    color: rgba(255,255,255,0.75);
-    font-size: clamp(11px,1.15vw,14px);
-    font-weight: 700;
-    white-space:nowrap; flex-shrink:0;
-    background: rgba(255,255,255,0.05);
-    padding: clamp(3px,0.4vw,5px) clamp(8px,1vw,12px);
-    border-radius: 5px;
-    border: 1px solid rgba(255,255,255,0.08);
-}
-
-/* ── DEBT AMOUNT — bold, right-aligned ── */
-.balanceLine {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    flex-shrink: 0;
-}
-.balanceLabel {
-    font-family:'DM Sans',sans-serif;
-    font-size: clamp(8px,0.82vw,10px); font-weight:900;
-    color: rgba(255,255,255,0.4);
-    text-transform:uppercase; letter-spacing:1px;
-}
-.balanceVal {
-    font-family:'Space Mono',monospace;
-    font-size: clamp(14px,1.6vw,19px);
-    font-weight: 900;
-    color: #fff;
-    line-height: 1;
-}
-.balanceRed { color:#fca5a5 !important; text-shadow: 0 0 10px rgba(239,68,68,0.3); }
-
-/* ── SIDE ACTIONS ── */
-.cardSideActions {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px,1vw,12px);
-    flex-shrink: 0;
-    margin-left: clamp(8px,1vw,14px);
-}
-
-.logCallBtnSmall {
-    background: var(--orange);
-    color: var(--navy);
-    border: none;
-    border-radius: var(--radius-sm);
-    font-family:'DM Sans',sans-serif;
-    font-weight: 900;
-    font-size: clamp(10px,1vw,12px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: clamp(10px,1.2vw,14px) clamp(16px,1.8vw,22px);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
-    white-space: nowrap;
-    box-shadow: 0 3px 10px rgba(238,140,58,0.28);
-}
-.logCallBtnSmall:hover:not(:disabled) {
-    background: #f09a48;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(238,140,58,0.42);
-}
-.logCallBtnSmall:disabled {
-    background: rgba(255,255,255,0.07);
-    border: 1.5px solid rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.25);
-    cursor: not-allowed;
-    font-size: clamp(9px,0.9vw,11px);
-    transform: none;
-    box-shadow: none;
-}
-
-.expandIcon {
-    color: rgba(255,255,255,0.25);
-    font-size: clamp(16px,1.8vw,20px);
-    transition: color 0.18s;
-    flex-shrink: 0;
-}
-.missionCard:hover .expandIcon { color:var(--orange); }"""
-
-if old_card in content:
-    content = content.replace(old_card, new_card)
-    print("OK: card styles replaced")
-else:
-    print("MISSING: card styles block not found - checking for partial match")
-    # Try replacing just the missionCard block
-    if '.missionCard {' in content and '.expandIcon {' in content:
-        print("INFO: found individual classes, will do targeted replacements")
-
-# Also update font size variables to be larger
-old_vars = """    --fs-h1:     clamp(18px, 2.5vw, 24px);
-    --fs-sub:    clamp(9px,  0.9vw, 11px);
-    --fs-label:  clamp(8px,  0.85vw, 10px);
-    --fs-value:  clamp(11px, 1.1vw, 13px);
-    --fs-tag:    clamp(7px,  0.75vw, 9px);
-    --fs-input:  clamp(11px, 1.1vw, 13px);
-    --fs-th:     clamp(8px,  0.85vw, 10px);
-    --fs-td:     clamp(10px, 1.05vw, 12px);
-    --fs-meta:   clamp(8px,  0.85vw, 10px);
-    --fs-btn:    clamp(9px,  0.9vw, 11px);"""
-
-new_vars = """    --fs-h1:     clamp(18px, 2.5vw, 24px);
+    /* Official Uniform Font Sizes */
+    --fs-h1:     clamp(18px, 2.5vw, 24px);
     --fs-sub:    clamp(9px,  0.9vw, 11px);
     --fs-label:  clamp(8px,  0.85vw, 10px);
     --fs-value:  clamp(13px, 1.4vw, 16px);
@@ -382,202 +39,297 @@ new_vars = """    --fs-h1:     clamp(18px, 2.5vw, 24px);
     --fs-th:     clamp(9px,  0.9vw, 11px);
     --fs-td:     clamp(12px, 1.2vw, 14px);
     --fs-meta:   clamp(10px, 1vw,   12px);
-    --fs-btn:    clamp(10px, 1vw,   12px);"""
+    --fs-btn:    clamp(10px, 1vw,   12px);
 
-if old_vars in content:
-    content = content.replace(old_vars, new_vars)
-    print("OK: font size variables updated")
-else:
-    print("MISSING: font size variables block")
+    --radius:    12px;
+    --radius-sm: 8px;
 
-# Update section header to have more breathing room
-old_section = """.sectionHeader {
-    display: inline-flex; align-items: center; gap: 7px;
-    align-self: flex-start;
-    font-family:'DM Sans',sans-serif;
-    font-size:var(--fs-2xs); font-weight:900;
-    color: rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:1.8px;
-    padding: clamp(4px,0.5vw,6px) clamp(10px,1.3vw,16px);
-    border-radius: 4px;
-    background: rgba(26,46,48,0.7);
-    border: 1px solid rgba(238,140,58,0.2);
-    margin-bottom: clamp(3px,0.4vw,5px);
-}"""
-
-new_section = """.sectionHeader {
-    display: inline-flex; align-items: center; gap: 8px;
-    align-self: flex-start;
-    font-family:'DM Sans',sans-serif;
-    font-size:clamp(9px,0.9vw,11px); font-weight:900;
-    color: rgba(255,255,255,0.8); text-transform:uppercase; letter-spacing:2px;
-    padding: clamp(7px,0.9vw,10px) clamp(14px,1.7vw,20px);
-    border-radius: 6px;
-    background: rgba(26,46,48,0.8);
-    border: 1.5px solid rgba(238,140,58,0.28);
-    margin-bottom: clamp(6px,0.8vw,10px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}"""
-
-if old_section in content:
-    content = content.replace(old_section, new_section)
-    print("OK: section header updated")
-else:
-    print("MISSING: section header block")
-
-# Update card body padding
-old_body = """.cardBody {
-    border-top: 1px solid rgba(255,255,255,0.06);
-    padding: clamp(8px,1vw,12px) clamp(10px,1.3vw,16px) clamp(10px,1.3vw,14px);
-}"""
-
-new_body = """.cardBody {
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding: clamp(14px,1.8vw,20px) clamp(20px,2.8vw,32px) clamp(16px,2vw,24px);
-    background: rgba(0,0,0,0.12);
-}"""
-
-if old_body in content:
-    content = content.replace(old_body, new_body)
-    print("OK: card body padding updated")
-else:
-    print("MISSING: card body block")
-
-# Update timing row to be more substantial
-old_timing = """.timingRow {
-    display: flex; align-items: center; flex-wrap: wrap;
-    gap: clamp(5px,0.7vw,9px);
-    font-size:var(--fs-xs); color:rgba(255,255,255,0.55); font-weight:700;
-    background: rgba(0,0,0,0.2);
-    padding: clamp(5px,0.6vw,7px) clamp(9px,1.1vw,12px);
-    border-radius: var(--radius-xs);
-    margin-bottom: clamp(6px,0.8vw,9px);
-}"""
-
-new_timing = """.timingRow {
-    display: flex; align-items: center; flex-wrap: wrap;
-    gap: clamp(8px,1vw,14px);
-    font-family:'DM Sans',sans-serif;
-    font-size:clamp(10px,1vw,12px); color:rgba(255,255,255,0.6); font-weight:800;
-    background: rgba(0,0,0,0.25);
-    padding: clamp(8px,1vw,11px) clamp(12px,1.5vw,18px);
-    border-radius: var(--radius-sm);
-    margin-bottom: clamp(10px,1.3vw,14px);
-    border: 1px solid rgba(255,255,255,0.06);
-}"""
-
-if old_timing in content:
-    content = content.replace(old_timing, new_timing)
-    print("OK: timing row updated")
-else:
-    print("MISSING: timing row block")
-
-# Update fin HUD cards to be more substantial
-old_hud = """.finHUDCard {
-    background: var(--panel-bg);
-    border: 1.5px solid var(--orange-border);
-    border-radius: var(--radius);
-    padding: clamp(10px,1.4vw,16px);
-    display: flex; flex-direction: column; gap: 3px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(60px, 8vw, 100px);
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
-.finHUDCard label {
-    font-family:'DM Sans',sans-serif; font-size:var(--fs-2xs);
-    font-weight:900; color:rgba(255,255,255,0.4);
-    text-transform:uppercase; letter-spacing:1px;
+
+/* ── HUD CARDS ── */
+.finHUD { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.finHUDCard {
+    background: var(--panel-bg); border: 1.5px solid var(--orange-border);
+    border-radius: var(--radius); padding: 18px 24px;
+    display: flex; flex-direction: column; gap: 4px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
-.finHUDCard strong {
-    font-family:'Space Mono',monospace;
-    font-size:clamp(12px,1.5vw,17px);
-    font-weight:700; word-break:break-all; line-height:1.1;
+.finHUDCard label { font-family:'DM Sans'; font-size:var(--fs-label); font-weight:900; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px; }
+.finHUDCard strong { font-family:'Space Mono'; font-size:clamp(16px, 1.8vw, 22px); font-weight:700; color: #fff; }
+
+/* ── HEADER & SEARCH ── */
+.pageHeader {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+    gap: 12px; margin-bottom: 24px; border-left: 5px solid var(--orange);
+    padding: 16px 28px; background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 12px 12px 0; backdrop-filter: blur(15px); box-shadow: 0 4px 15px rgba(0,0,0,0.07);
 }
-.finHUDCard span {
-    font-size:var(--fs-2xs); color:rgba(255,255,255,0.25);
-    font-family:'DM Sans',sans-serif; font-weight:800;
-}"""
+.pageTitle { font-family: 'Cinzel'; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; margin: 0; }
+.pageSubtitle { font-family: 'DM Sans'; color: #64748b; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin: 0; }
 
-new_hud = """.finHUDCard {
-    background: var(--panel-bg);
-    border: 1.5px solid var(--orange-border);
-    border-radius: var(--radius);
-    padding: clamp(16px,2vw,22px) clamp(18px,2.2vw,26px);
-    display: flex; flex-direction: column; gap: clamp(4px,0.5vw,6px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+.modeSwitch { display: flex; background: var(--navy); padding: 4px; border-radius: 8px; border: 1px solid var(--orange-border); gap: 4px; }
+.modeActive { background: var(--orange); color: var(--navy); border: none; padding: 8px 16px; border-radius: 6px; font-weight: 900; font-size: var(--fs-btn); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.modeInactive { background: transparent; color: rgba(255,255,255,0.7); border: none; padding: 8px 16px; border-radius: 6px; font-weight: 900; font-size: var(--fs-btn); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+.filterBar { position: sticky; top: 0; z-index: 200; padding: 12px 0; display: flex; flex-direction: column; gap: 12px; }
+.searchInner {
+    position: relative; display: flex; align-items: center; background: #fff;
+    border: 1.5px solid #c8d6d7; border-radius: 8px; height: 44px; width: 100%; max-width: 500px;
 }
-.finHUDCard label {
-    font-family:'DM Sans',sans-serif; font-size:clamp(8px,0.82vw,10px);
-    font-weight:900; color:rgba(255,255,255,0.45);
-    text-transform:uppercase; letter-spacing:1.2px;
+.searchInput { width: 100%; border: none; outline: none; background: transparent; color: var(--navy); padding: 0 40px !important; font-size: var(--fs-input); font-weight: 800; }
+.searchIcon { position: absolute; left: 12px; color: var(--orange); font-size: 18px; }
+
+.filterPills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.filterPill { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); padding: 8px 18px; border-radius: 6px; font-weight: 900; font-size: var(--fs-btn); text-transform: uppercase; cursor: pointer; }
+.filterPillActive { background: var(--orange) !important; color: var(--navy) !important; border-color: var(--orange) !important; }
+
+/* ── MISSION CARDS (THE ROBUST PANELS) ── */
+.missionGrid { display: flex; flex-direction: column; gap: 16px; }
+.sectionHeader {
+    font-family:'DM Sans'; font-size:var(--fs-btn); font-weight:900; color: #fff;
+    background: rgba(26,46,48,0.75); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--orange-border); align-self: flex-start; margin-bottom: 8px;
 }
-.finHUDCard strong {
-    font-family:'Space Mono',monospace;
-    font-size:clamp(14px,1.7vw,20px);
-    font-weight:700; word-break:break-all; line-height:1.1;
+.missionCard {
+    background: var(--panel-bg); border: 1.5px solid var(--orange-border);
+    border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transition: transform 0.2s, border-color 0.2s; overflow: hidden;
 }
-.finHUDCard span {
-    font-size:clamp(9px,0.9vw,11px); color:rgba(255,255,255,0.3);
-    font-family:'DM Sans',sans-serif; font-weight:800;
-}"""
+.missionCard:hover { transform: translateY(-2px); border-color: var(--orange); }
 
-if old_hud in content:
-    content = content.replace(old_hud, new_hud)
-    print("OK: fin HUD cards updated")
-else:
-    print("MISSING: fin HUD cards block")
+.cardHeader { display: flex; flex-direction: column; gap: 12px; padding: 20px 28px; cursor: pointer; }
 
-# Update mission grid gap
-old_grid = """.missionGrid { display: flex; flex-direction: column; gap: var(--gap-lg); }
+/* LINE 1: ID and Debt */
+.cardTopRow { display: flex; justify-content: space-between; align-items: center; }
+.cardTopRowLeft { display: flex; align-items: center; gap: 10px; }
+.plotId { font-family: 'Space Mono'; font-size: var(--fs-value); font-weight: 900; color: var(--orange); letter-spacing: 0.5px; }
+.backlogPill { background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; }
 
-.sectionGroup { display: flex; flex-direction: column; gap: clamp(3px,0.4vw,5px); }"""
+.balanceLine { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.balanceLabel { font-size: var(--fs-label); font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+.balanceVal { font-family: 'Space Mono'; font-size: 18px; font-weight: 900; color: #fff; }
 
-new_grid = """.missionGrid { display: flex; flex-direction: column; gap: clamp(10px,1.5vw,16px); }
+/* LINE 2: Owner and Actions */
+.cardMain { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; }
+.ownerLine { font-family: 'DM Sans'; font-size: var(--fs-td); font-weight: 900; color: rgba(255,255,255,0.9); flex: 1; }
+.phoneLine { font-family: 'Space Mono'; font-size: var(--fs-meta); color: var(--orange); font-weight: 700; margin: 0 20px; }
 
-.sectionGroup { display: flex; flex-direction: column; gap: clamp(6px,0.8vw,9px); }"""
+.logCallBtnSmall {
+    background: var(--orange); color: var(--navy); border: none; border-radius: 6px;
+    font-weight: 900; font-size: var(--fs-btn); padding: 10px 20px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: 0.2s;
+}
+.logCallBtnSmall:hover { background: #f09a48; box-shadow: 0 0 15px rgba(238,140,58,0.4); }
 
-if old_grid in content:
-    content = content.replace(old_grid, new_grid)
-    print("OK: mission grid gap updated")
-else:
-    print("MISSING: mission grid gap block")
+.cardBody { padding: 0 28px 24px; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1); }
+.timingRow { display: flex; gap: 12px; background: rgba(0,0,0,0.3); padding: 10px 16px; border-radius: 6px; margin: 12px 0; font-size: var(--fs-meta); font-weight: 800; color: rgba(255,255,255,0.6); }
 
-# Update responsive overrides for mobile
-old_mobile = """@media (max-width: 480px) {
-    .container { padding: 10px 10px 50px; }
-    .finHUD { grid-template-columns: 1fr; }
-    .finHUD .finHUDCard:last-child { grid-column:1; }
-    .balanceLabel { display: none; }
-    .cardHeader { gap: 8px; padding: 10px 12px; }
-    .cardTopRow { flex-wrap: wrap; gap: 6px; }
-    .cardTopRowLeft { flex-wrap: wrap; }
-    .cardMain { flex-wrap: wrap; gap: 6px; }
-    .ownerLine { font-size: 13px; }
-    .phoneLine { font-size: 11px; width: 100%; }
-    .cardSideActions { width: 100%; justify-content: flex-end; margin-left: 0; }
-    .logCallBtnSmall { font-size: 10px; padding: 7px 12px; }
-    .balanceVal { font-size: 12px; }
-}"""
+/* MOBILE */
+@media (max-width: 600px) {
+    .cardTopRow, .cardMain { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .balanceLine { align-items: flex-start; }
+    .phoneLine { margin: 0; }
+    .logCallBtnSmall { width: 100%; justify-content: center; }
+}
 
-new_mobile = """@media (max-width: 480px) {
-    .container { padding: 10px 10px 60px; }
-    .finHUD { grid-template-columns: 1fr; }
-    .finHUD .finHUDCard:last-child { grid-column:1; }
-    .cardHeader { gap: 10px; padding: 16px 14px; }
-    .cardTopRow { flex-wrap: wrap; gap: 8px; }
-    .cardTopRowLeft { flex-wrap: wrap; }
-    .cardMain { flex-wrap: wrap; gap: 8px; }
-    .ownerLine { font-size: 14px; }
-    .phoneLine { font-size: 12px; width: 100%; }
-    .cardSideActions { width: 100%; justify-content: flex-end; margin-left: 0; margin-top: 4px; }
-    .logCallBtnSmall { font-size: 11px; padding: 10px 14px; width: 100%; justify-content: center; }
-    .balanceVal { font-size: 14px; }
-    .plotId { font-size: 14px; }
-}"""
+.legend { display: flex; gap: 16px; padding: 12px 0; }
+.legendItem { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); font-weight: 800; color: rgba(26,46,48,0.7); }
+''')
 
-if old_mobile in content:
-    content = content.replace(old_mobile, new_mobile)
-    print("OK: mobile overrides updated")
-else:
-    print("MISSING: mobile overrides block")
+# ─── 2. OVERWRITE: RecoveryPortal.jsx (Spacious Layout) ──────────────
+rec_jsx_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx')
+write(rec_jsx_path, """
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import {
+    FiPhoneCall, FiClock, FiSearch, FiCheckCircle, FiChevronRight, 
+    FiMessageSquare, FiSave, FiList, FiCalendar, FiLock, FiUser, 
+    FiChevronDown, FiChevronUp, FiX, FiCheckSquare, FiAlertCircle, 
+    FiAlertTriangle, FiInfo, FiDollarSign, FiAlertOctagon, FiActivity, FiSettings
+} from 'react-icons/fi';
+import recoveryService from '../../services/recoveryService';
+import HardwareButton from '../../components/common/HardwareButton';
+import HardwareModal from '../../components/common/HardwareModal';
+import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import { useRouterBlock } from '../../components/common/RouterBlocker';
+import styles from './RecoveryPortal.module.css';
+import modalStyles from '../../components/common/HardwareModal.module.css';
 
-with open(css_path, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(content)
+const fmt = (n) => Number(n || 0).toLocaleString();
+const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
+const BADGE_LABELS = { GREEN: 'Paid within 14 days', YELLOW: 'Paid within 30 days', RED: 'No recent payment' };
 
-print("\nDONE: RecoveryPortal.module.css patched successfully")
+const RecoveryPortal = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const [viewMode, setViewMode] = useState('ACTION');
+    const [missions, setMissions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [expandedId, setExpandedId] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [callModal, setCallModal] = useState({ open: false, mission: null });
+    const [logContent, setLogContent] = useState('');
+    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = viewMode === 'ACTION' ? await recoveryService.getMissionQueue() : await recoveryService.getRecoverySchedule();
+            setMissions(data);
+        } catch { console.error("SIGNAL_LOST"); }
+        finally { setLoading(false); }
+    }, [viewMode]);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    const filteredMissions = useMemo(() => {
+        let list = missions;
+        if (searchTerm.trim()) {
+            const t = searchTerm.toLowerCase();
+            list = list.filter(m => m.ownerName.toLowerCase().includes(t) || m.phoneNumber.includes(t) || m.plots.some(p => p.plotNumber.toLowerCase().includes(t)));
+        }
+        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
+        return list;
+    }, [missions, searchTerm, statusFilter]);
+
+    return (
+        <div className={styles.container}>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.pageTitle}>Call Recovery</h1>
+                    <p className={styles.pageSubtitle}>Log client calls and record payments</p>
+                </div>
+                <div className={styles.headerRight}>
+                    <div className={styles.modeSwitch}>
+                        <button className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive} onClick={() => setViewMode('ACTION')}><FiList /> DUE FOR CALL</button>
+                        <button className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive} onClick={() => setViewMode('FORECAST')}><FiCalendar /> ALL TARGETS</button>
+                    </div>
+                </div>
+            </header>
+
+            <div className={styles.finHUD}>
+                <div className={styles.finHUDCard}><label>ACTIVE TITLES OWED</label><strong>UGX {fmt(missions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + m.totalDemand, 0))}</strong></div>
+                <div className={styles.finHUDCard}><label>BACKLOG TOTAL OWED</label><strong>UGX {fmt(missions.filter(m => m.hasBacklogPlots).reduce((s, m) => s + m.totalDemand, 0))}</strong></div>
+                <div className={styles.finHUDCard}><label>STORAGE FEES</label><strong>UGX {fmt(missions.reduce((s, m) => s + m.totalStorageFees, 0))}</strong></div>
+            </div>
+
+            <div className={styles.filterBar}>
+                <div className={styles.searchInner}><FiSearch className={styles.searchIcon} /><input className={styles.searchInput} placeholder="Search names, plots, phones..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                <div className={styles.filterPills}>
+                    {['ALL', 'ACTIVE', 'BACKLOG'].map(f => (
+                        <button key={f} className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`} onClick={() => setStatusFilter(f)}>{f}</button>
+                    ))}
+                </div>
+            </div>
+
+            <div className={styles.legend}>
+                {Object.entries(BADGE_COLORS).map(([k, c]) => (
+                    <span key={k} className={styles.legendItem}><span style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />{BADGE_LABELS[k]}</span>
+                ))}
+            </div>
+
+            <div className={styles.missionGrid}>
+                {filteredMissions.map(m => (
+                    <div key={m.clientId} className={`${styles.missionCard} ${m.hasBacklogPlots ? styles.cardBacklog : ''}`}>
+                        <div className={styles.cardHeader} onClick={() => setExpandedId(expandedId === m.clientId ? null : m.clientId)}>
+                            <div className={styles.cardTopRow}>
+                                <div className={styles.cardTopRowLeft}>
+                                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: BADGE_COLORS[m.plots[0].paymentHealthBadge] }} />
+                                    <span className={styles.plotId}>{m.plots.map(p => p.plotNumber).join(' & ')}</span>
+                                    {m.hasBacklogPlots && <span className={styles.backlogPill}>BACKLOG</span>}
+                                </div>
+                                <div className={styles.balanceLine}>
+                                    <span className={styles.balanceLabel}>TOTAL OWED</span>
+                                    <span className={`${styles.balanceVal} ${m.hasBacklogPlots ? styles.balanceRed : ''}`}>UGX {fmt(m.totalDemand)}</span>
+                                </div>
+                            </div>
+                            <div className={styles.cardMain}>
+                                <span className={styles.ownerLine}>{m.ownerName}</span>
+                                <span className={styles.phoneLine}>{m.phoneNumber}</span>
+                                <div className={styles.cardSideActions}>
+                                    <button className={styles.logCallBtnSmall} disabled={m.isLocked} onClick={(e) => { e.stopPropagation(); setCallModal({ open: true, mission: m.plots[0] }); }}>
+                                        <FiPhoneCall /> {m.isLocked ? 'LOCKED' : 'LOG CALL'}
+                                    </button>
+                                    {expandedId === m.clientId ? <FiChevronUp className={styles.expandIcon} /> : <FiChevronDown className={styles.expandIcon} />}
+                                </div>
+                            </div>
+                        </div>
+                        {expandedId === m.clientId && (
+                            <div className={styles.cardBody}>
+                                <div className={styles.timingRow}><FiClock /> Last: {m.lastContactDate} | Next: {m.nextCallDue} | Monthly: {m.monthlyCallCount}/2</div>
+                                {m.plots.map(p => (
+                                    <div key={p.projectId} className={styles.plotSubCard}>
+                                        <div style={{display:'flex', justifyContent:'space-between', marginBottom:8}}>
+                                            <strong style={{color:'var(--orange)'}}>{p.plotNumber}</strong>
+                                            <span style={{fontSize:10, opacity:0.5}}>Box: {p.physicalBoxNumber}</span>
+                                        </div>
+                                        <div className={styles.finDetail}>
+                                            <div className={styles.finDetailRow}><span>Arrears</span><strong>UGX {fmt(p.isBacklog ? p.totalBacklogOwed : p.currentBalance)}</strong></div>
+                                            <div className={styles.finDetailRow}><span>Last Note</span><i>"{p.lastInteractionNote}"</i></div>
+                                        </div>
+                                        <div className={styles.expandedActions}>
+                                            <button className={styles.folderBtn} onClick={() => navigate(`/folder/${p.projectId}`)}>OPEN FOLDER</button>
+                                            {isAdmin && <button className={styles.payBtn} onClick={() => navigate(`/folder/${p.projectId}?action=pay`)}>RECORD PAYMENT</button>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <HardwareModal isOpen={callModal.open} onClose={() => setCallModal({ open: false, mission: null })} title="LOG CALL">
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
+                    <textarea className={modalStyles.modalTextarea} value={logContent} onChange={e => setLogContent(e.target.value)} placeholder="Type result of call..." />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <HardwareButton onClick={async () => {
+                        await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
+                        setCallModal({ open: false, mission: null });
+                        setLogContent('');
+                        loadData();
+                    }} icon={FiSave}>SAVE LOG</HardwareButton>
+                </div>
+            </HardwareModal>
+        </div>
+    );
+};
+export default RecoveryPortal;
+""")
+
+# ─── 3. PATCH: SettingsPage.jsx (Legend Added) ──────────────────────
+set_jsx_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'settings', 'SettingsPage.jsx')
+try:
+    jsx_content = read(set_jsx_path)
+    old_header = '<div className={styles.ledgerActions}>'
+    new_header = '''
+                    <div className={styles.statusLegend}>
+                        <span className={`${styles.legendDot} ${styles.dotGreen}`}></span>
+                        <span className={styles.legendText}>Active Operator</span>
+                        <span className={styles.legendSep}></span>
+                        <span className={`${styles.legendDot} ${styles.dotRed}`}></span>
+                        <span className={styles.legendText}>Suspended / Inactive</span>
+                    </div>
+                    <div className={styles.ledgerActions}>'''
+    if old_header in jsx_content and 'statusLegend' not in jsx_content:
+        jsx_content = jsx_content.replace(old_header, new_header)
+        with open(set_jsx_path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(jsx_content)
+        print("OK (PATCHED): SettingsPage Legend Added")
+except Exception as e:
+    print(f"ERROR: SettingsPage patch failed: {e}")
+
+print("\n=== COMPLETE: UNIFORMITY RESTORED ===")
