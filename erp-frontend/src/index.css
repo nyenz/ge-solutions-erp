@@ -166,3 +166,62 @@ input[type="search"]::-webkit-search-results-decoration {
     opacity: 1 !important;
 }
 
+
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL PRINT — hide all shell/app chrome, enable full-page layout
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+
+    /* Hide sidebar, global header, all app chrome */
+    aside,
+    nav[aria-label="System navigation"],
+    [class*="sidebar"],
+    [class*="Sidebar"],
+    [class*="sidebarBackdrop"],
+    [class*="header"],
+    [class*="Header"],
+    [class*="CircuitBackground"],
+    [class*="circuitBg"],
+    [class*="bgSvg"],
+    [class*="particle"],
+    [class*="logoutTrigger"],
+    [class*="sidebarToggle"],
+    [class*="notificationGroup"],
+    [class*="toastContainer"],
+    [class*="savingOverlay"] {
+        display: none !important;
+    }
+
+    /* Reset shell layout to allow full-page multi-page printing */
+    html,
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        overflow: visible !important;
+        height: auto !important;
+        width: 100% !important;
+    }
+
+    #root,
+    [class*="shell"],
+    [class*="Shell"],
+    [class*="mainWrapper"],
+    [class*="mainContent"],
+    [class*="scrollArea"] {
+        background: #ffffff !important;
+        color: #000000 !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        position: static !important;
+        display: block !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: none !important;
+        filter: none !important;
+    }
+}

@@ -869,16 +869,30 @@ const FolderPage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing || paying} />
 
-            {/* PRINT-ONLY DOSSIER HEADER */}
+            {/* PRINT-ONLY CORPORATE DOSSIER HEADER */}
             <div className={styles.printDossierHeader} aria-hidden="true">
-                <div className={styles.printDossierLogo}>GOLDEN SEED ERP</div>
-                <div className={styles.printDossierTitle}>ASSET DOSSIER</div>
+                <div className={styles.printDossierTopBar}>
+                    <div className={styles.printDossierLeft}>
+                        <div className={styles.printDossierCompany}>GE SOLUTIONS</div>
+                        <div className={styles.printDossierDivision}>LAND REGISTRY DIVISION</div>
+                    </div>
+                    <div className={styles.printDossierCenter}>
+                        <div className={styles.printDossierTitleBox}>OFFICIAL LAND DOSSIER</div>
+                    </div>
+                    <div className={styles.printDossierRight}>
+                        <div className={styles.printDossierDateLabel}>PRINTED ON</div>
+                        <div className={styles.printDossierDateVal}>
+                            {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </div>
+                    </div>
+                </div>
                 <div className={styles.printDossierMeta}>
-                    <span>PLOT: {project.landTitle.plotNumber}</span>
-                    <span>TENURE: {project.landTitle.tenure}</span>
-                    {project.landTitle.district && <span>DISTRICT: {project.landTitle.district}</span>}
-                    <span>BOX: {project.landTitle.physicalBoxNumber}</span>
-                    <span>PRINTED: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    <span><strong>PLOT ID:</strong> {project.landTitle.plotNumber}</span>
+                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>
+                    {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}
+                    <span><strong>BOX:</strong> {project.landTitle.physicalBoxNumber}</span>
+                    <span><strong>STATUS:</strong> {project.status}</span>
+                    <span><strong>STAGE:</strong> {STAGE_LABELS[(project.currentStageIndex || 1) - 1] || project.currentStageIndex}</span>
                 </div>
             </div>
 
@@ -996,8 +1010,12 @@ const FolderPage = () => {
                 {/* ════════════════════════════════════════════════════
                     OVERVIEW TAB — Plot technical details
                     ════════════════════════════════════════════════════ */}
-                {activeTab === 'OVERVIEW' && (
-                    <section className={styles.hwPanel} aria-label="Plot Details">
+                <section
+                    className={styles.hwPanel}
+                    aria-label="Plot Details"
+                    style={activeTab !== 'OVERVIEW' ? {display:'none'} : {}}
+                    data-print-section="OVERVIEW"
+                >
                         <DrawerHeader label="PLOT DETAILS" isOpen={drawers.overview} onClick={() => toggleDrawer('overview')} icon={FiMap} />
                         <div className={`${styles.panelBody} ${drawers.overview ? styles.bodyOpen : styles.bodyClosed}`}>
                         <div className={styles.panelInner}>
@@ -1050,8 +1068,7 @@ const FolderPage = () => {
                             )}
                         </div>
                         </div>
-                    </section>
-                )}
+                </section>
 
                 {/* ════════════════════════════════════════════════════
                     FINANCIALS TAB — Central hub:
@@ -1061,8 +1078,11 @@ const FolderPage = () => {
                     4. Payment History
                     5. Notes & Call Log
                     ════════════════════════════════════════════════════ */}
-                {activeTab === 'FINANCIALS' && (
-                    <div className={styles.financialsStack}>
+                <div
+                    className={styles.financialsStack}
+                    style={activeTab !== 'FINANCIALS' ? {display:'none'} : {}}
+                    data-print-section="FINANCIALS"
+                >
 
                         {/* ── 1. BALANCE SUMMARY ── */}
                         <section className={styles.hwPanel} aria-label="Balance Summary">
@@ -1337,14 +1357,17 @@ const FolderPage = () => {
                             </div>
                         </section>
 
-                    </div>
-                )}
+                </div>
 
                 {/* ════════════════════════════════════════════════════
                     OWNERS TAB
                     ════════════════════════════════════════════════════ */}
-                {activeTab === 'OWNERS' && (
-                    <section className={styles.hwPanel} aria-label="Owners">
+                <section
+                    className={styles.hwPanel}
+                    aria-label="Owners"
+                    style={activeTab !== 'OWNERS' ? {display:'none'} : {}}
+                    data-print-section="OWNERS"
+                >
                         <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={project.proprietors.length} />
                         <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}>
                         <div className={styles.panelInner}>
@@ -1374,14 +1397,17 @@ const FolderPage = () => {
                             </div>
                         </div>
                         </div>
-                    </section>
-                )}
+                </section>
 
                 {/* ════════════════════════════════════════════════════
                     DOCUMENTS TAB — Files + upload
                     ════════════════════════════════════════════════════ */}
-                {activeTab === 'DOCUMENTS' && (
-                    <section className={styles.hwPanel} aria-label="Documents">
+                <section
+                    className={styles.hwPanel}
+                    aria-label="Documents"
+                    style={activeTab !== 'DOCUMENTS' ? {display:'none'} : {}}
+                    data-print-section="DOCUMENTS"
+                >
                         <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
                         <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}>
                         <div className={styles.panelInner}>
@@ -1427,8 +1453,7 @@ const FolderPage = () => {
                             )}
                         </div>
                         </div>
-                    </section>
-                )}
+                </section>
 
             </main>
 

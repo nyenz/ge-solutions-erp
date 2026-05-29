@@ -2141,62 +2141,522 @@
 }
 
 @media print {
+
+    /* ================================================================
+       GE SOLUTIONS — CORPORATE PRINT / PDF DOSSIER
+       A4 portrait, 15mm margins, crisp black-on-white.
+       ================================================================ */
+
+    @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 18mm 15mm;
+    }
+
+    /* ── GLOBAL RESET ── */
+    *, *::before, *::after {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        animation: none !important;
+        transition: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    /* ── CONTAINER ── */
+    .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        font-family: 'Georgia', serif !important;
+        animation: none !important;
+    }
+
+    /* ── HIDE INTERACTIVE / APP CHROME ── */
+    .toastContainer,
+    .savingOverlay,
+    .ctrlZone,
+    .printBtn,
+    .addDocBtn,
+    .addNoteBtn,
+    .iconBtn,
+    .editBadge,
+    .tabBar,
+    .pipelineHUD,
+    .chevron,
+    .confirmOverlay,
+    .actionBlock,
+    .expandedActions,
+    .recordPayBtnRow,
+    .recordPayBtn,
+    .backlogFeeConfig,
+    .editBacklogFeeSection,
+    [class*="ctrlBtn"],
+    [class*="purgeBtn"],
+    [class*="unlockMaster"],
+    [class*="ctrlBtnPay"],
+    [class*="ctrlBtnBacklog"],
+    [class*="filterBtn"],
+    [class*="tabBtn"] {
+        display: none !important;
+    }
+
+    /* ── CORPORATE DOSSIER HEADER ── */
     .printDossierHeader {
         display: block !important;
-        border-bottom: 3px solid #1a2e30 !important;
+        border-bottom: 2px solid #000000 !important;
         padding-bottom: 10px !important;
-        margin-bottom: 14px !important;
+        margin-bottom: 16px !important;
         page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
-    .printDossierLogo {
+
+    .printDossierTopBar {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 16px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .printDossierLeft {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 2px !important;
+    }
+
+    .printDossierCompany {
+        font-family: 'Arial Black', Arial, sans-serif !important;
+        font-size: 13pt !important;
+        font-weight: 900 !important;
+        color: #000000 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 2px !important;
+    }
+
+    .printDossierDivision {
         font-family: Arial, sans-serif !important;
         font-size: 7pt !important;
         font-weight: 700 !important;
-        letter-spacing: 4px !important;
+        color: #555555 !important;
         text-transform: uppercase !important;
-        color: #888 !important;
-        margin-bottom: 3px !important;
+        letter-spacing: 3px !important;
     }
-    .printDossierTitle {
+
+    .printDossierCenter {
+        flex: 1 !important;
+        display: flex !important;
+        justify-content: center !important;
+    }
+
+    .printDossierTitleBox {
+        border: 2px solid #000000 !important;
+        padding: 8px 20px !important;
         font-family: 'Arial Black', Arial, sans-serif !important;
-        font-size: 22pt !important;
+        font-size: 14pt !important;
         font-weight: 900 !important;
-        letter-spacing: 2px !important;
-        color: #1a2e30 !important;
+        color: #000000 !important;
         text-transform: uppercase !important;
-        margin-bottom: 6px !important;
-        line-height: 1 !important;
+        letter-spacing: 3px !important;
+        text-align: center !important;
+        background: #f0f0f0 !important;
     }
+
+    .printDossierRight {
+        text-align: right !important;
+    }
+
+    .printDossierDateLabel {
+        font-family: Arial, sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        color: #555555 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    .printDossierDateVal {
+        font-family: 'Courier New', monospace !important;
+        font-size: 9pt !important;
+        font-weight: 700 !important;
+        color: #000000 !important;
+    }
+
     .printDossierMeta {
         display: flex !important;
         flex-wrap: wrap !important;
         gap: 4px 20px !important;
         font-family: Arial, sans-serif !important;
         font-size: 8pt !important;
-        color: #333 !important;
+        color: #333333 !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
+        padding-top: 6px !important;
+        border-top: 1px solid #cccccc !important;
     }
 
-    /* Force ALL tab panels to be visible (override JS-driven tab switching) */
-    [role="tabpanel"] > *,
-    .workstationBody > * {
+    .printDossierMeta strong {
+        color: #000000 !important;
+        font-weight: 900 !important;
+    }
+
+    /* ── TERMINAL HEADER — hide on print (dossier header replaces it) ── */
+    .terminalHeader {
+        display: none !important;
+    }
+
+    /* ── ALL TAB SECTIONS VISIBLE ON PRINT ── */
+    [data-print-section] {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
     }
 
-    /* Hide the empty-state "no docs" / "no notes" blocks when printing */
-    .emptyState { display: none !important; }
-
-    /* Tighter inline-double-row for print */
-    .intelDoubleRow {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
+    .financialsStack {
+        display: flex !important;
+        flex-direction: column !important;
         gap: 10px !important;
     }
 
-    /* Remove glow from payment type colours */
-    .paymentRow[style] { border-left-color: #333 !important; }
+    /* ── SECTION LABELS ── */
+    [data-print-section]::before {
+        display: block !important;
+        font-family: 'Arial Black', Arial, sans-serif !important;
+        font-size: 9pt !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 3px !important;
+        color: #000000 !important;
+        padding: 6px 0 4px 0 !important;
+        border-top: 2px solid #000000 !important;
+        margin-top: 16px !important;
+        margin-bottom: 8px !important;
+    }
+
+    [data-print-section="OVERVIEW"]::before { content: 'SECTION A: PLOT TECHNICAL DETAILS'; }
+    [data-print-section="FINANCIALS"]::before { content: 'SECTION B: FINANCIAL RECORDS'; }
+    [data-print-section="OWNERS"]::before { content: 'SECTION C: REGISTERED PROPRIETORS'; }
+    [data-print-section="DOCUMENTS"]::before { content: 'SECTION D: DOCUMENT VAULT'; }
+
+    /* ── PANELS ── */
+    .hwPanel {
+        display: block !important;
+        background: #ffffff !important;
+        border: 1px solid #333333 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin-bottom: 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: visible !important;
+        width: 100% !important;
+    }
+
+    /* ── FORCE ALL DRAWERS OPEN ── */
+    .panelBody,
+    .bodyOpen,
+    .bodyClosed {
+        display: block !important;
+        max-height: none !important;
+        height: auto !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+    }
+
+    .panelInner {
+        padding: 8px 12px !important;
+    }
+
+    /* ── DRAWER HEADERS ── */
+    .drawerHeader {
+        background: #e8e8e8 !important;
+        border-bottom: 1px solid #333333 !important;
+        padding: 6px 12px !important;
+        border-radius: 0 !important;
+        cursor: default !important;
+    }
+
+    .drawerTitle {
+        font-family: Arial, sans-serif !important;
+        font-size: 8pt !important;
+        font-weight: 900 !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+        color: #000000 !important;
+    }
+
+    .drawerIcon { color: #000000 !important; }
+
+    .drawerCount {
+        background: #dddddd !important;
+        color: #333333 !important;
+        border: 1px solid #999999 !important;
+        border-radius: 10px !important;
+        padding: 1px 6px !important;
+        font-size: 7pt !important;
+    }
+
+    /* ── SPEC GRID ── */
+    .readOnlyGrid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px 18px !important;
+    }
+
+    .specItem {
+        border-left: 2px solid #000000 !important;
+        padding: 3px 0 3px 8px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .specLabel {
+        color: #555555 !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    .specValue {
+        color: #000000 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 10pt !important;
+        font-weight: 700 !important;
+        word-break: break-word !important;
+    }
+
+    /* ── FINANCIALS ── */
+    .moneyStatsRow {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .statBox {
+        background: #f7f7f7 !important;
+        border: 1px solid #cccccc !important;
+        border-radius: 0 !important;
+        padding: 8px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .statBox label {
+        color: #555555 !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        display: block !important;
+        margin-bottom: 3px !important;
+    }
+
+    .statBox strong {
+        color: #000000 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 12pt !important;
+        font-weight: 900 !important;
+        display: block !important;
+    }
+
+    .redGlow { color: #aa0000 !important; text-shadow: none !important; }
+
+    .backlogNotice {
+        background: #fff0f0 !important;
+        border-left: 3px solid #aa0000 !important;
+        padding: 6px 10px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .backlogNoticeText strong { color: #aa0000 !important; font-size: 8pt !important; }
+    .backlogNoticeText span   { color: #333333 !important; font-size: 8pt !important; }
+
+    .totalOwedBanner {
+        background: #fff0f0 !important;
+        border: 1px solid #cccccc !important;
+        padding: 8px 12px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    .totalOwedBanner span { color: #aa0000 !important; font-size: 8pt !important; font-weight: 700 !important; }
+    .totalOwedBanner strong { color: #aa0000 !important; font-size: 14pt !important; font-weight: 900 !important; }
+
+    .collectionBar {
+        height: 5px !important;
+        background: #e0e0e0 !important;
+        border-radius: 0 !important;
+        overflow: hidden !important;
+        margin: 8px 0 4px !important;
+    }
+
+    .collectionFill {
+        height: 5px !important;
+        background: #000000 !important;
+        border-radius: 0 !important;
+    }
+
+    .velocityNote {
+        background: #f0fdf4 !important;
+        border: 1px solid #aaaaaa !important;
+        color: #166534 !important;
+        padding: 6px 10px !important;
+        font-size: 9pt !important;
+    }
+
+    /* ── PAYMENT HISTORY ── */
+    .paymentList {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+
+    .paymentRow {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        padding: 6px 10px !important;
+        background: #f9f9f9 !important;
+        border: 1px solid #dddddd !important;
+        border-left: 3px solid #333333 !important;
+        border-radius: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .payAmount { font-family: 'Courier New', monospace !important; font-size: 11pt !important; font-weight: 900 !important; color: #000000 !important; }
+    .payType   { color: #333333 !important; font-size: 8pt !important; }
+    .payBy     { color: #555555 !important; font-size: 8pt !important; }
+    .payNotes  { color: #555555 !important; font-style: italic !important; font-size: 8pt !important; }
+    .payDate   { font-family: 'Courier New', monospace !important; font-size: 8pt !important; color: #333333 !important; }
+    .payBalance { font-size: 8pt !important; color: #555555 !important; }
+
+    /* ── BACKLOG MGMT SECTION ── */
+    .readOnlyGrid .specItem { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+    /* ── OWNERS ── */
+    .ownersScroll {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .ownersGrid2 {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .ownerStaticCard {
+        background: #f9f9f9 !important;
+        border: 1px solid #cccccc !important;
+        border-radius: 0 !important;
+        padding: 8px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .ownerName {
+        font-family: 'Arial Black', Arial, sans-serif !important;
+        font-size: 11pt !important;
+        font-weight: 900 !important;
+        color: #000000 !important;
+        border-bottom: 1px solid #dddddd !important;
+        padding-bottom: 4px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .infoRow {
+        color: #333333 !important;
+        font-size: 9pt !important;
+        margin-bottom: 3px !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+
+    .infoRow svg { color: #000000 !important; flex-shrink: 0 !important; }
+    .phoneHighlight { font-family: 'Courier New', monospace !important; color: #000000 !important; font-size: 10pt !important; font-weight: 700 !important; }
+
+    /* ── NOTES ── */
+    .notebookTimeline {
+        max-height: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+
+    .ruledNote {
+        background: #ffffff !important;
+        border: 1px solid #cccccc !important;
+        border-left: 3px solid #000000 !important;
+        box-shadow: none !important;
+        padding: 6px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .noteContent { color: #000000 !important; font-size: 9pt !important; line-height: 1.5 !important; }
+    .noteTime    { color: #555555 !important; font-size: 8pt !important; }
+    .noteAuthor  { color: #777777 !important; font-size: 8pt !important; }
+
+    .noteMeta {
+        display: flex !important;
+        justify-content: space-between !important;
+        border-bottom: 1px solid #eeeeee !important;
+        padding-bottom: 3px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* ── DOCUMENTS ── */
+    .compactVault {
+        max-height: none !important;
+        overflow: visible !important;
+        background: #f9f9f9 !important;
+        border: 1px solid #dddddd !important;
+        padding: 8px 10px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+
+    .docTag {
+        background: #f0f0f0 !important;
+        border: 1px solid #cccccc !important;
+        border-radius: 0 !important;
+        padding: 4px 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        page-break-inside: avoid !important;
+    }
+
+    .docName { color: #000000 !important; font-size: 9pt !important; font-weight: 700 !important; text-decoration: none !important; }
+    .docIcon { color: #000000 !important; }
+
+    /* ── EMPTY STATES — hide on print ── */
+    .emptyState { display: none !important; }
+
+    /* ── PRINT FOOTER ── */
+    @page {
+        @bottom-center {
+            content: "GE SOLUTIONS — LAND REGISTRY DIVISION  |  CONFIDENTIAL  |  Page " counter(page) " of " counter(pages);
+            font-family: Arial, sans-serif;
+            font-size: 7pt;
+            color: #888888;
+        }
+    }
+
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
 }
