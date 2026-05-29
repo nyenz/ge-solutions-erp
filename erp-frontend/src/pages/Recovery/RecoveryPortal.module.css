@@ -206,7 +206,7 @@
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26, 46, 48, 0.3); }
 
-/* Filter pills — identical to Ledger filter buttons */
+/* Filter pills */
 .filterPills {
     display: flex;
     flex-wrap: nowrap;
@@ -289,7 +289,7 @@
 }
 .cardBacklog:hover { border-color: rgba(239, 68, 68, 0.6) !important; }
 
-/* Card header — clickable accordion toggle */
+/* Card header */
 .cardHeader {
     display: flex;
     flex-direction: column;
@@ -374,26 +374,35 @@
     padding-top: clamp(10px, 1.3vw, 14px);
     flex-wrap: wrap;
 }
+
+/* Owner + phone stacked together */
+.ownerPhoneBlock {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    flex: 1;
+    min-width: 0;
+}
+
 .ownerLine {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
     font-weight: 900;
     color: rgba(255, 255, 255, 0.9);
-    flex: 1;
-    min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
+/* Phone number — large, bold, high visibility */
 .phoneLine {
     font-family: 'Space Mono', monospace;
-    font-size: var(--fs-meta);
-    font-weight: 700;
+    font-size: var(--fs-td);
+    font-weight: 900;
     color: var(--orange);
     white-space: nowrap;
-    flex-shrink: 0;
+    letter-spacing: 0.5px;
 }
 .cardSideActions {
     display: flex;
@@ -464,9 +473,10 @@
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-meta);
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.45);
     letter-spacing: 0.3px;
 }
+.timingRow strong { color: #fff; font-weight: 900; }
 .timingRow svg { color: var(--orange); flex-shrink: 0; }
 
 /* ── PLOT SUB-CARD ── */
@@ -486,32 +496,57 @@
 }
 .plotSubCard:last-child { margin-bottom: 0; }
 
-/* Sub-card header row */
 .plotSubCardHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: clamp(8px, 1vw, 11px);
-    padding-bottom: clamp(6px, 0.8vw, 9px);
+    margin-bottom: clamp(10px, 1.3vw, 14px);
+    padding-bottom: clamp(8px, 1vw, 10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
+.plotSubCardTitle {
+    font-family: 'Space Mono', monospace;
+    color: var(--orange);
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 900;
+}
+.plotSubCardBox {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(9px, 0.95vw, 10px);
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+    text-transform: uppercase;
+}
 
-.finDetail {
+/* Financial breakdown — clean aligned rows */
+.finBreakdown {
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.8vw, 8px);
-    margin-bottom: clamp(10px, 1.3vw, 14px);
+    gap: clamp(6px, 0.8vw, 9px);
+    margin-bottom: clamp(12px, 1.5vw, 16px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
 }
-.finDetailRow {
+.finRow {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: clamp(10px, 1.4vw, 16px);
+}
+.finRowTotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(10px, 1.4vw, 16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: clamp(6px, 0.8vw, 9px);
+    margin-top: clamp(3px, 0.4vw, 5px);
+}
+.finLabel {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-meta);
-    flex-wrap: wrap;
-}
-.finDetailRow span {
     font-weight: 800;
     color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
@@ -519,20 +554,37 @@
     white-space: nowrap;
     flex-shrink: 0;
 }
-.finDetailRow strong {
+.finLabelTotal {
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-meta);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.finValWhite {
     font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
     font-weight: 700;
     color: #fff;
     word-break: break-all;
 }
-.finDetailRow i {
-    font-size: var(--fs-label);
-    color: rgba(255, 255, 255, 0.35);
-    font-style: italic;
-    max-width: clamp(160px, 40vw, 320px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.finValGreen {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
+    font-weight: 700;
+    color: #22c55e;
+    word-break: break-all;
+}
+.finValRed {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(13px, 1.4vw, 16px);
+    font-weight: 900;
+    color: #fca5a5;
+    word-break: break-all;
+    text-shadow: 0 0 8px rgba(239,68,68,0.35);
 }
 
 /* Expanded action buttons */
@@ -540,7 +592,6 @@
     display: flex;
     gap: clamp(8px, 1.1vw, 12px);
     flex-wrap: wrap;
-    margin-top: clamp(8px, 1vw, 10px);
 }
 .folderBtn {
     display: inline-flex;
@@ -619,17 +670,23 @@
     .finHUD { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
+    /* Stack HUD cards vertically on mobile */
     .finHUD { grid-template-columns: 1fr; gap: 8px; }
+    .finHUDCard { flex-direction: row; justify-content: space-between; align-items: center; padding: clamp(12px,3vw,16px); }
+    .finHUDCard label { margin-bottom: 0; }
+    .finHUDCard strong { font-size: clamp(14px, 4vw, 18px); }
     .cardTopRow { flex-direction: column; align-items: flex-start; gap: 8px; }
     .balanceLine { align-items: flex-start; }
     .cardMain { flex-direction: column; align-items: flex-start; gap: 10px; }
     .cardSideActions { width: 100%; }
     .logCallBtnSmall { flex: 1; justify-content: center; }
-    .phoneLine { margin: 0; }
     .expandedActions { flex-direction: column; }
     .folderBtn, .payBtn { width: 100%; justify-content: center; }
 }
 @media (max-width: 480px) {
-    .finHUD { grid-template-columns: 1fr 1fr; }
     .searchInner { max-width: 100%; }
+    .finHUD { grid-template-columns: 1fr; }
+    .finHUDCard { flex-direction: column; align-items: flex-start; }
+    .finHUDCard strong { font-size: clamp(16px, 5vw, 20px); }
+    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }

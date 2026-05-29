@@ -33,7 +33,7 @@ const RecoveryPortal = () => {
     const [expandedId,   setExpandedId]   = useState(null);
     const [searchTerm,   setSearchTerm]   = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null });
+    const [callModal,    setCallModal]    = useState({ open: false, mission: null, lastNote: '' });
     const [logContent,   setLogContent]   = useState('');
     const [committing,   setCommitting]   = useState(false);
 
@@ -74,11 +74,18 @@ const RecoveryPortal = () => {
         setCommitting(true);
         try {
             await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
-            setCallModal({ open: false, mission: null });
+            setCallModal({ open: false, mission: null, lastNote: '' });
             setLogContent('');
             loadData();
         } catch { /* silent */ }
         finally { setCommitting(false); }
+    };
+
+    const openCallModal = (e, plot) => {
+        e.stopPropagation();
+        const lastNote = plot.lastInteractionNote || 'NO PRIOR CONTACT';
+        setCallModal({ open: true, mission: plot, lastNote });
+        setLogContent('');
     };
 
     return (
@@ -182,7 +189,7 @@ const RecoveryPortal = () => {
                                 key={m.clientId}
                                 className={`${styles.missionCard} ${m.hasBacklogPlots ? styles.cardBacklog : ''}`}
                             >
-                                {/* CARD HEADER (accordion trigger) */}
+                                {/* CARD HEADER */}
                                 <div
                                     className={styles.cardHeader}
                                     onClick={() => setExpandedId(isExpanded ? null : m.clientId)}
@@ -216,16 +223,15 @@ const RecoveryPortal = () => {
 
                                     {/* ROW 2: Owner + Phone + Actions */}
                                     <div className={styles.cardMain}>
-                                        <span className={styles.ownerLine}>{m.ownerName}</span>
-                                        <span className={styles.phoneLine}>{m.phoneNumber}</span>
+                                        <div className={styles.ownerPhoneBlock}>
+                                            <span className={styles.ownerLine}>{m.ownerName}</span>
+                                            <span className={styles.phoneLine}>{m.phoneNumber}</span>
+                                        </div>
                                         <div className={styles.cardSideActions}>
                                             <button
                                                 className={styles.logCallBtnSmall}
                                                 disabled={m.isLocked}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    setCallModal({ open: true, mission: m.plots[0] });
-                                                }}
+                                                onClick={e => openCallModal(e, m.plots[0])}
                                                 aria-label={m.isLocked ? 'Call locked' : `Log call for ${m.ownerName}`}
                                             >
                                                 <FiPhoneCall aria-hidden="true" />
@@ -249,26 +255,33 @@ const RecoveryPortal = () => {
                                             <span>This month: <strong>{m.monthlyCallCount}/2</strong></span>
                                         </div>
 
-                                        {m.plots.map(p => (
+                                        {m.plots.map(p => {
+                                            const totalCost  = Number(p.isBacklog ? (Number(p.originalDebt || 0)) : (p.totalCost || 0));
+                                            const amtPaid    = Number(p.amountPaid || 0);
+                                            const amtUnpaid  = Number(p.isBacklog ? p.totalBacklogOwed : p.currentBalance) || 0;
+                                            return (
                                             <div key={p.projectId} className={styles.plotSubCard}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                                                    <strong style={{ fontFamily: 'Space Mono, monospace', color: 'var(--orange)', fontSize: 'clamp(11px,1.2vw,13px)', fontWeight: 900 }}>
-                                                        {p.plotNumber}
-                                                    </strong>
-                                                    <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '10px', opacity: 0.4, fontWeight: 700 }}>
-                                                        BOX: {p.physicalBoxNumber || '---'}
-                                                    </span>
+                                                <div className={styles.plotSubCardHeader}>
+                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
+                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
-                                                <div className={styles.finDetail}>
-                                                    <div className={styles.finDetailRow}>
-                                                        <span>Arrears</span>
-                                                        <strong>UGX {fmt(p.isBacklog ? p.totalBacklogOwed : p.currentBalance)}</strong>
+
+                                                {/* Financial breakdown */}
+                                                <div className={styles.finBreakdown}>
+                                                    <div className={styles.finRow}>
+                                                        <span className={styles.finLabel}>Total Cost</span>
+                                                        <span className={styles.finValWhite}>UGX {fmt(totalCost)}</span>
                                                     </div>
-                                                    <div className={styles.finDetailRow}>
-                                                        <span>Last Note</span>
-                                                        <i>"{p.lastInteractionNote}"</i>
+                                                    <div className={styles.finRow}>
+                                                        <span className={styles.finLabel}>Paid</span>
+                                                        <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
+                                                    </div>
+                                                    <div className={styles.finRowTotal}>
+                                                        <span className={styles.finLabelTotal}>Amount Unpaid</span>
+                                                        <span className={styles.finValRed}>UGX {fmt(amtUnpaid)}</span>
                                                     </div>
                                                 </div>
+
                                                 <div className={styles.expandedActions}>
                                                     <button
                                                         className={styles.folderBtn}
@@ -286,7 +299,8 @@ const RecoveryPortal = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -298,9 +312,20 @@ const RecoveryPortal = () => {
             {/* LOG CALL MODAL */}
             <HardwareModal
                 isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
+                onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
                 title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
             >
+                {/* Last interaction note shown at top */}
+                {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
+                    <div className={modalStyles.modalInfoBox} style={{ marginBottom: '14px' }}>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                            LAST INTERACTION NOTE
+                        </div>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, fontStyle: 'italic' }}>
+                            "{callModal.lastNote}"
+                        </div>
+                    </div>
+                )}
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
                     <textarea
@@ -315,7 +340,7 @@ const RecoveryPortal = () => {
                     <button
                         type="button"
                         className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
+                        onClick={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
                     >
                         CANCEL
                     </button>

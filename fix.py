@@ -1,9 +1,5 @@
 import os
 
-def read(path):
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        return f.read()
-
 def write(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
@@ -12,9 +8,368 @@ def write(path, content):
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
+# ── RecoveryPortal.jsx ───────────────────────────────────────────────
+write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx'), """
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import {
+    FiPhoneCall, FiClock, FiSearch,
+    FiSave, FiList, FiCalendar,
+    FiChevronDown, FiChevronUp,
+    FiDollarSign, FiAlertOctagon, FiActivity
+} from 'react-icons/fi';
+import recoveryService from '../../services/recoveryService';
+import HardwareButton from '../../components/common/HardwareButton';
+import HardwareModal from '../../components/common/HardwareModal';
+import styles from './RecoveryPortal.module.css';
+import modalStyles from '../../components/common/HardwareModal.module.css';
+
+const fmt = (n) => Number(n || 0).toLocaleString();
+
+const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
+const BADGE_LABELS = {
+    GREEN:  'Paid within 14 days',
+    YELLOW: 'Paid within 30 days',
+    RED:    'No recent payment',
+};
+
+const RecoveryPortal = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
+
+    const [viewMode,     setViewMode]     = useState('ACTION');
+    const [missions,     setMissions]     = useState([]);
+    const [loading,      setLoading]      = useState(true);
+    const [expandedId,   setExpandedId]   = useState(null);
+    const [searchTerm,   setSearchTerm]   = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [callModal,    setCallModal]    = useState({ open: false, mission: null, lastNote: '' });
+    const [logContent,   setLogContent]   = useState('');
+    const [committing,   setCommitting]   = useState(false);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = viewMode === 'ACTION'
+                ? await recoveryService.getMissionQueue()
+                : await recoveryService.getRecoverySchedule();
+            setMissions(data);
+        } catch { /* silent */ }
+        finally { setLoading(false); }
+    }, [viewMode]);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    const filteredMissions = useMemo(() => {
+        let list = missions;
+        if (searchTerm.trim()) {
+            const t = searchTerm.toLowerCase();
+            list = list.filter(m =>
+                m.ownerName.toLowerCase().includes(t) ||
+                m.phoneNumber.includes(t) ||
+                m.plots.some(p => p.plotNumber.toLowerCase().includes(t))
+            );
+        }
+        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
+        return list;
+    }, [missions, searchTerm, statusFilter]);
+
+    const totalActiveOwed  = missions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
+    const totalBacklogOwed = missions.filter(m =>  m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
+    const totalStorageFees = missions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0);
+
+    const handleLogCall = async () => {
+        if (!callModal.mission) return;
+        setCommitting(true);
+        try {
+            await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
+            setCallModal({ open: false, mission: null, lastNote: '' });
+            setLogContent('');
+            loadData();
+        } catch { /* silent */ }
+        finally { setCommitting(false); }
+    };
+
+    const openCallModal = (e, plot) => {
+        e.stopPropagation();
+        const lastNote = plot.lastInteractionNote || 'NO PRIOR CONTACT';
+        setCallModal({ open: true, mission: plot, lastNote });
+        setLogContent('');
+    };
+
+    return (
+        <div className={styles.container}>
+
+            {/* HEADER */}
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.pageTitle}>Call Recovery</h1>
+                    <p className={styles.pageSubtitle}>Log client calls and record payments</p>
+                </div>
+                <div className={styles.headerRight}>
+                    <div className={styles.modeSwitch}>
+                        <button
+                            className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
+                            onClick={() => setViewMode('ACTION')}
+                        >
+                            <FiList aria-hidden="true" /> DUE FOR CALL
+                        </button>
+                        <button
+                            className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}
+                            onClick={() => setViewMode('FORECAST')}
+                        >
+                            <FiCalendar aria-hidden="true" /> ALL TARGETS
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            {/* FINANCIAL HUD */}
+            <div className={styles.finHUD}>
+                <div className={styles.finHUDCard}>
+                    <label>ACTIVE TITLES OWED</label>
+                    <strong>UGX {fmt(totalActiveOwed)}</strong>
+                </div>
+                <div className={styles.finHUDCard}>
+                    <label>BACKLOG TOTAL OWED</label>
+                    <strong>UGX {fmt(totalBacklogOwed)}</strong>
+                </div>
+                <div className={styles.finHUDCard}>
+                    <label>STORAGE FEES</label>
+                    <strong>UGX {fmt(totalStorageFees)}</strong>
+                </div>
+            </div>
+
+            {/* FILTER BAR */}
+            <div className={styles.filterBar}>
+                <div className={styles.searchInner}>
+                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                    <input
+                        className={styles.searchInput}
+                        type="search"
+                        placeholder="Search owner name, plot ID, phone..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        aria-label="Search recovery missions"
+                    />
+                </div>
+                <div className={styles.filterPills} role="group" aria-label="Filter missions">
+                    {['ALL', 'ACTIVE', 'BACKLOG'].map(f => (
+                        <button
+                            key={f}
+                            className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`}
+                            onClick={() => setStatusFilter(f)}
+                            aria-pressed={statusFilter === f}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* BADGE LEGEND */}
+            <div className={styles.legend} aria-label="Payment health legend">
+                {Object.entries(BADGE_COLORS).map(([k, c]) => (
+                    <span key={k} className={styles.legendItem}>
+                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 4px ${c}` }} />
+                        {BADGE_LABELS[k]}
+                    </span>
+                ))}
+            </div>
+
+            {/* MISSION LIST */}
+            {loading ? (
+                <div className={styles.emptyState} role="status">
+                    <div className={styles.loadingSpinner} aria-hidden="true" />
+                    <span>LOADING RECOVERY QUEUE...</span>
+                </div>
+            ) : filteredMissions.length === 0 ? (
+                <div className={styles.emptyState} role="status">
+                    <FiActivity className={styles.emptyIcon} aria-hidden="true" />
+                    <span>{searchTerm ? `NO MISSIONS MATCH "${searchTerm.toUpperCase()}"` : 'NO MISSIONS IN QUEUE'}</span>
+                </div>
+            ) : (
+                <div className={styles.missionGrid}>
+                    {filteredMissions.map(m => {
+                        const isExpanded = expandedId === m.clientId;
+                        const badgeColor = BADGE_COLORS[m.plots[0]?.paymentHealthBadge] || '#ef4444';
+                        return (
+                            <div
+                                key={m.clientId}
+                                className={`${styles.missionCard} ${m.hasBacklogPlots ? styles.cardBacklog : ''}`}
+                            >
+                                {/* CARD HEADER */}
+                                <div
+                                    className={styles.cardHeader}
+                                    onClick={() => setExpandedId(isExpanded ? null : m.clientId)}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={isExpanded}
+                                    aria-label={`${m.ownerName} — ${isExpanded ? 'collapse' : 'expand'}`}
+                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : m.clientId); } }}
+                                >
+                                    {/* ROW 1: Plot ID + Balance */}
+                                    <div className={styles.cardTopRow}>
+                                        <div className={styles.cardTopRowLeft}>
+                                            <span
+                                                style={{ width: 9, height: 9, borderRadius: '50%', background: badgeColor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 5px ${badgeColor}` }}
+                                                title={BADGE_LABELS[m.plots[0]?.paymentHealthBadge]}
+                                            />
+                                            <span className={styles.plotId}>
+                                                {m.plots.map(p => p.plotNumber).join(' / ')}
+                                            </span>
+                                            {m.hasBacklogPlots && (
+                                                <span className={styles.backlogPill}>BACKLOG</span>
+                                            )}
+                                        </div>
+                                        <div className={styles.balanceLine}>
+                                            <span className={styles.balanceLabel}>TOTAL OWED</span>
+                                            <span className={`${styles.balanceVal} ${m.hasBacklogPlots ? styles.balanceRed : ''}`}>
+                                                UGX {fmt(m.totalDemand)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* ROW 2: Owner + Phone + Actions */}
+                                    <div className={styles.cardMain}>
+                                        <div className={styles.ownerPhoneBlock}>
+                                            <span className={styles.ownerLine}>{m.ownerName}</span>
+                                            <span className={styles.phoneLine}>{m.phoneNumber}</span>
+                                        </div>
+                                        <div className={styles.cardSideActions}>
+                                            <button
+                                                className={styles.logCallBtnSmall}
+                                                disabled={m.isLocked}
+                                                onClick={e => openCallModal(e, m.plots[0])}
+                                                aria-label={m.isLocked ? 'Call locked' : `Log call for ${m.ownerName}`}
+                                            >
+                                                <FiPhoneCall aria-hidden="true" />
+                                                {m.isLocked ? 'LOCKED' : 'LOG CALL'}
+                                            </button>
+                                            {isExpanded
+                                                ? <FiChevronUp  className={styles.expandIcon} aria-hidden="true" />
+                                                : <FiChevronDown className={styles.expandIcon} aria-hidden="true" />
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* EXPANDED BODY */}
+                                {isExpanded && (
+                                    <div className={styles.cardBody}>
+                                        <div className={styles.timingRow}>
+                                            <FiClock aria-hidden="true" />
+                                            <span>Last contact: <strong>{m.lastContactDate}</strong></span>
+                                            <span>Next due: <strong>{m.nextCallDue}</strong></span>
+                                            <span>This month: <strong>{m.monthlyCallCount}/2</strong></span>
+                                        </div>
+
+                                        {m.plots.map(p => {
+                                            const totalCost  = Number(p.isBacklog ? (Number(p.originalDebt || 0)) : (p.totalCost || 0));
+                                            const amtPaid    = Number(p.amountPaid || 0);
+                                            const amtUnpaid  = Number(p.isBacklog ? p.totalBacklogOwed : p.currentBalance) || 0;
+                                            return (
+                                            <div key={p.projectId} className={styles.plotSubCard}>
+                                                <div className={styles.plotSubCardHeader}>
+                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
+                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
+                                                </div>
+
+                                                {/* Financial breakdown */}
+                                                <div className={styles.finBreakdown}>
+                                                    <div className={styles.finRow}>
+                                                        <span className={styles.finLabel}>Total Cost</span>
+                                                        <span className={styles.finValWhite}>UGX {fmt(totalCost)}</span>
+                                                    </div>
+                                                    <div className={styles.finRow}>
+                                                        <span className={styles.finLabel}>Paid</span>
+                                                        <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
+                                                    </div>
+                                                    <div className={styles.finRowTotal}>
+                                                        <span className={styles.finLabelTotal}>Amount Unpaid</span>
+                                                        <span className={styles.finValRed}>UGX {fmt(amtUnpaid)}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className={styles.expandedActions}>
+                                                    <button
+                                                        className={styles.folderBtn}
+                                                        onClick={() => navigate(`/folder/${p.projectId}`)}
+                                                    >
+                                                        OPEN FOLDER
+                                                    </button>
+                                                    {isAdmin && (
+                                                        <button
+                                                            className={styles.payBtn}
+                                                            onClick={() => navigate(`/folder/${p.projectId}?action=pay`)}
+                                                        >
+                                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* LOG CALL MODAL */}
+            <HardwareModal
+                isOpen={callModal.open}
+                onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
+            >
+                {/* Last interaction note shown at top */}
+                {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
+                    <div className={modalStyles.modalInfoBox} style={{ marginBottom: '14px' }}>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                            LAST INTERACTION NOTE
+                        </div>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, fontStyle: 'italic' }}>
+                            "{callModal.lastNote}"
+                        </div>
+                    </div>
+                )}
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
+                    <textarea
+                        className={modalStyles.modalTextarea}
+                        value={logContent}
+                        onChange={e => setLogContent(e.target.value)}
+                        placeholder="e.g. Client confirmed payment by Friday, awaiting bank transfer..."
+                        autoFocus
+                    />
+                </div>
+                <div className={modalStyles.modalFooter}>
+                    <button
+                        type="button"
+                        className={modalStyles.modalBtnSecondary}
+                        onClick={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                    >
+                        CANCEL
+                    </button>
+                    <HardwareButton onClick={handleLogCall} loading={committing} icon={FiSave}>
+                        SAVE LOG
+                    </HardwareButton>
+                </div>
+            </HardwareModal>
+        </div>
+    );
+};
+
+export default RecoveryPortal;
+""")
+
 # ── RecoveryPortal.module.css ────────────────────────────────────────
-css_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css')
-write(css_path, r"""
+write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css'), """
 /* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
 
 .container {
@@ -223,7 +578,7 @@ write(css_path, r"""
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26, 46, 48, 0.3); }
 
-/* Filter pills — identical to Ledger filter buttons */
+/* Filter pills */
 .filterPills {
     display: flex;
     flex-wrap: nowrap;
@@ -306,7 +661,7 @@ write(css_path, r"""
 }
 .cardBacklog:hover { border-color: rgba(239, 68, 68, 0.6) !important; }
 
-/* Card header — clickable accordion toggle */
+/* Card header */
 .cardHeader {
     display: flex;
     flex-direction: column;
@@ -391,26 +746,35 @@ write(css_path, r"""
     padding-top: clamp(10px, 1.3vw, 14px);
     flex-wrap: wrap;
 }
+
+/* Owner + phone stacked together */
+.ownerPhoneBlock {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 5px);
+    flex: 1;
+    min-width: 0;
+}
+
 .ownerLine {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
     font-weight: 900;
     color: rgba(255, 255, 255, 0.9);
-    flex: 1;
-    min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
+/* Phone number — large, bold, high visibility */
 .phoneLine {
     font-family: 'Space Mono', monospace;
-    font-size: var(--fs-meta);
-    font-weight: 700;
+    font-size: var(--fs-td);
+    font-weight: 900;
     color: var(--orange);
     white-space: nowrap;
-    flex-shrink: 0;
+    letter-spacing: 0.5px;
 }
 .cardSideActions {
     display: flex;
@@ -481,9 +845,10 @@ write(css_path, r"""
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-meta);
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.45);
     letter-spacing: 0.3px;
 }
+.timingRow strong { color: #fff; font-weight: 900; }
 .timingRow svg { color: var(--orange); flex-shrink: 0; }
 
 /* ── PLOT SUB-CARD ── */
@@ -503,32 +868,57 @@ write(css_path, r"""
 }
 .plotSubCard:last-child { margin-bottom: 0; }
 
-/* Sub-card header row */
 .plotSubCardHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: clamp(8px, 1vw, 11px);
-    padding-bottom: clamp(6px, 0.8vw, 9px);
+    margin-bottom: clamp(10px, 1.3vw, 14px);
+    padding-bottom: clamp(8px, 1vw, 10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
+.plotSubCardTitle {
+    font-family: 'Space Mono', monospace;
+    color: var(--orange);
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 900;
+}
+.plotSubCardBox {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(9px, 0.95vw, 10px);
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+    text-transform: uppercase;
+}
 
-.finDetail {
+/* Financial breakdown — clean aligned rows */
+.finBreakdown {
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.8vw, 8px);
-    margin-bottom: clamp(10px, 1.3vw, 14px);
+    gap: clamp(6px, 0.8vw, 9px);
+    margin-bottom: clamp(12px, 1.5vw, 16px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
 }
-.finDetailRow {
+.finRow {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: clamp(10px, 1.4vw, 16px);
+}
+.finRowTotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(10px, 1.4vw, 16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: clamp(6px, 0.8vw, 9px);
+    margin-top: clamp(3px, 0.4vw, 5px);
+}
+.finLabel {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-meta);
-    flex-wrap: wrap;
-}
-.finDetailRow span {
     font-weight: 800;
     color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
@@ -536,20 +926,37 @@ write(css_path, r"""
     white-space: nowrap;
     flex-shrink: 0;
 }
-.finDetailRow strong {
+.finLabelTotal {
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-meta);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.finValWhite {
     font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
     font-weight: 700;
     color: #fff;
     word-break: break-all;
 }
-.finDetailRow i {
-    font-size: var(--fs-label);
-    color: rgba(255, 255, 255, 0.35);
-    font-style: italic;
-    max-width: clamp(160px, 40vw, 320px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.finValGreen {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
+    font-weight: 700;
+    color: #22c55e;
+    word-break: break-all;
+}
+.finValRed {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(13px, 1.4vw, 16px);
+    font-weight: 900;
+    color: #fca5a5;
+    word-break: break-all;
+    text-shadow: 0 0 8px rgba(239,68,68,0.35);
 }
 
 /* Expanded action buttons */
@@ -557,7 +964,6 @@ write(css_path, r"""
     display: flex;
     gap: clamp(8px, 1.1vw, 12px);
     flex-wrap: wrap;
-    margin-top: clamp(8px, 1vw, 10px);
 }
 .folderBtn {
     display: inline-flex;
@@ -636,356 +1042,26 @@ write(css_path, r"""
     .finHUD { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
+    /* Stack HUD cards vertically on mobile */
     .finHUD { grid-template-columns: 1fr; gap: 8px; }
+    .finHUDCard { flex-direction: row; justify-content: space-between; align-items: center; padding: clamp(12px,3vw,16px); }
+    .finHUDCard label { margin-bottom: 0; }
+    .finHUDCard strong { font-size: clamp(14px, 4vw, 18px); }
     .cardTopRow { flex-direction: column; align-items: flex-start; gap: 8px; }
     .balanceLine { align-items: flex-start; }
     .cardMain { flex-direction: column; align-items: flex-start; gap: 10px; }
     .cardSideActions { width: 100%; }
     .logCallBtnSmall { flex: 1; justify-content: center; }
-    .phoneLine { margin: 0; }
     .expandedActions { flex-direction: column; }
     .folderBtn, .payBtn { width: 100%; justify-content: center; }
 }
 @media (max-width: 480px) {
-    .finHUD { grid-template-columns: 1fr 1fr; }
     .searchInner { max-width: 100%; }
+    .finHUD { grid-template-columns: 1fr; }
+    .finHUDCard { flex-direction: column; align-items: flex-start; }
+    .finHUDCard strong { font-size: clamp(16px, 5vw, 20px); }
+    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }
 """)
 
-# ── RecoveryPortal.jsx ───────────────────────────────────────────────
-jsx_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx')
-write(jsx_path, """
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import {
-    FiPhoneCall, FiClock, FiSearch,
-    FiSave, FiList, FiCalendar,
-    FiChevronDown, FiChevronUp,
-    FiDollarSign, FiAlertOctagon, FiActivity
-} from 'react-icons/fi';
-import recoveryService from '../../services/recoveryService';
-import HardwareButton from '../../components/common/HardwareButton';
-import HardwareModal from '../../components/common/HardwareModal';
-import styles from './RecoveryPortal.module.css';
-import modalStyles from '../../components/common/HardwareModal.module.css';
-
-const fmt = (n) => Number(n || 0).toLocaleString();
-
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = {
-    GREEN:  'Paid within 14 days',
-    YELLOW: 'Paid within 30 days',
-    RED:    'No recent payment',
-};
-
-const RecoveryPortal = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
-
-    const [viewMode,     setViewMode]     = useState('ACTION');
-    const [missions,     setMissions]     = useState([]);
-    const [loading,      setLoading]      = useState(true);
-    const [expandedId,   setExpandedId]   = useState(null);
-    const [searchTerm,   setSearchTerm]   = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null });
-    const [logContent,   setLogContent]   = useState('');
-    const [committing,   setCommitting]   = useState(false);
-
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = viewMode === 'ACTION'
-                ? await recoveryService.getMissionQueue()
-                : await recoveryService.getRecoverySchedule();
-            setMissions(data);
-        } catch { /* silent */ }
-        finally { setLoading(false); }
-    }, [viewMode]);
-
-    useEffect(() => { loadData(); }, [loadData]);
-
-    const filteredMissions = useMemo(() => {
-        let list = missions;
-        if (searchTerm.trim()) {
-            const t = searchTerm.toLowerCase();
-            list = list.filter(m =>
-                m.ownerName.toLowerCase().includes(t) ||
-                m.phoneNumber.includes(t) ||
-                m.plots.some(p => p.plotNumber.toLowerCase().includes(t))
-            );
-        }
-        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
-        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
-        return list;
-    }, [missions, searchTerm, statusFilter]);
-
-    const totalActiveOwed  = missions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
-    const totalBacklogOwed = missions.filter(m =>  m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
-    const totalStorageFees = missions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0);
-
-    const handleLogCall = async () => {
-        if (!callModal.mission) return;
-        setCommitting(true);
-        try {
-            await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
-            setCallModal({ open: false, mission: null });
-            setLogContent('');
-            loadData();
-        } catch { /* silent */ }
-        finally { setCommitting(false); }
-    };
-
-    return (
-        <div className={styles.container}>
-
-            {/* HEADER */}
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.pageTitle}>Call Recovery</h1>
-                    <p className={styles.pageSubtitle}>Log client calls and record payments</p>
-                </div>
-                <div className={styles.headerRight}>
-                    <div className={styles.modeSwitch}>
-                        <button
-                            className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => setViewMode('ACTION')}
-                        >
-                            <FiList aria-hidden="true" /> DUE FOR CALL
-                        </button>
-                        <button
-                            className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => setViewMode('FORECAST')}
-                        >
-                            <FiCalendar aria-hidden="true" /> ALL TARGETS
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* FINANCIAL HUD */}
-            <div className={styles.finHUD}>
-                <div className={styles.finHUDCard}>
-                    <label>ACTIVE TITLES OWED</label>
-                    <strong>UGX {fmt(totalActiveOwed)}</strong>
-                </div>
-                <div className={styles.finHUDCard}>
-                    <label>BACKLOG TOTAL OWED</label>
-                    <strong>UGX {fmt(totalBacklogOwed)}</strong>
-                </div>
-                <div className={styles.finHUDCard}>
-                    <label>STORAGE FEES</label>
-                    <strong>UGX {fmt(totalStorageFees)}</strong>
-                </div>
-            </div>
-
-            {/* FILTER BAR */}
-            <div className={styles.filterBar}>
-                <div className={styles.searchInner}>
-                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                    <input
-                        className={styles.searchInput}
-                        type="search"
-                        placeholder="Search owner name, plot ID, phone..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        aria-label="Search recovery missions"
-                    />
-                </div>
-                <div className={styles.filterPills} role="group" aria-label="Filter missions">
-                    {['ALL', 'ACTIVE', 'BACKLOG'].map(f => (
-                        <button
-                            key={f}
-                            className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`}
-                            onClick={() => setStatusFilter(f)}
-                            aria-pressed={statusFilter === f}
-                        >
-                            {f}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* BADGE LEGEND */}
-            <div className={styles.legend} aria-label="Payment health legend">
-                {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                    <span key={k} className={styles.legendItem}>
-                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 4px ${c}` }} />
-                        {BADGE_LABELS[k]}
-                    </span>
-                ))}
-            </div>
-
-            {/* MISSION LIST */}
-            {loading ? (
-                <div className={styles.emptyState} role="status">
-                    <div className={styles.loadingSpinner} aria-hidden="true" />
-                    <span>LOADING RECOVERY QUEUE...</span>
-                </div>
-            ) : filteredMissions.length === 0 ? (
-                <div className={styles.emptyState} role="status">
-                    <FiActivity className={styles.emptyIcon} aria-hidden="true" />
-                    <span>{searchTerm ? `NO MISSIONS MATCH "${searchTerm.toUpperCase()}"` : 'NO MISSIONS IN QUEUE'}</span>
-                </div>
-            ) : (
-                <div className={styles.missionGrid}>
-                    {filteredMissions.map(m => {
-                        const isExpanded = expandedId === m.clientId;
-                        const badgeColor = BADGE_COLORS[m.plots[0]?.paymentHealthBadge] || '#ef4444';
-                        return (
-                            <div
-                                key={m.clientId}
-                                className={`${styles.missionCard} ${m.hasBacklogPlots ? styles.cardBacklog : ''}`}
-                            >
-                                {/* CARD HEADER (accordion trigger) */}
-                                <div
-                                    className={styles.cardHeader}
-                                    onClick={() => setExpandedId(isExpanded ? null : m.clientId)}
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-expanded={isExpanded}
-                                    aria-label={`${m.ownerName} — ${isExpanded ? 'collapse' : 'expand'}`}
-                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : m.clientId); } }}
-                                >
-                                    {/* ROW 1: Plot ID + Balance */}
-                                    <div className={styles.cardTopRow}>
-                                        <div className={styles.cardTopRowLeft}>
-                                            <span
-                                                style={{ width: 9, height: 9, borderRadius: '50%', background: badgeColor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 5px ${badgeColor}` }}
-                                                title={BADGE_LABELS[m.plots[0]?.paymentHealthBadge]}
-                                            />
-                                            <span className={styles.plotId}>
-                                                {m.plots.map(p => p.plotNumber).join(' / ')}
-                                            </span>
-                                            {m.hasBacklogPlots && (
-                                                <span className={styles.backlogPill}>BACKLOG</span>
-                                            )}
-                                        </div>
-                                        <div className={styles.balanceLine}>
-                                            <span className={styles.balanceLabel}>TOTAL OWED</span>
-                                            <span className={`${styles.balanceVal} ${m.hasBacklogPlots ? styles.balanceRed : ''}`}>
-                                                UGX {fmt(m.totalDemand)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* ROW 2: Owner + Phone + Actions */}
-                                    <div className={styles.cardMain}>
-                                        <span className={styles.ownerLine}>{m.ownerName}</span>
-                                        <span className={styles.phoneLine}>{m.phoneNumber}</span>
-                                        <div className={styles.cardSideActions}>
-                                            <button
-                                                className={styles.logCallBtnSmall}
-                                                disabled={m.isLocked}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    setCallModal({ open: true, mission: m.plots[0] });
-                                                }}
-                                                aria-label={m.isLocked ? 'Call locked' : `Log call for ${m.ownerName}`}
-                                            >
-                                                <FiPhoneCall aria-hidden="true" />
-                                                {m.isLocked ? 'LOCKED' : 'LOG CALL'}
-                                            </button>
-                                            {isExpanded
-                                                ? <FiChevronUp  className={styles.expandIcon} aria-hidden="true" />
-                                                : <FiChevronDown className={styles.expandIcon} aria-hidden="true" />
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* EXPANDED BODY */}
-                                {isExpanded && (
-                                    <div className={styles.cardBody}>
-                                        <div className={styles.timingRow}>
-                                            <FiClock aria-hidden="true" />
-                                            <span>Last contact: <strong>{m.lastContactDate}</strong></span>
-                                            <span>Next due: <strong>{m.nextCallDue}</strong></span>
-                                            <span>This month: <strong>{m.monthlyCallCount}/2</strong></span>
-                                        </div>
-
-                                        {m.plots.map(p => (
-                                            <div key={p.projectId} className={styles.plotSubCard}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                                                    <strong style={{ fontFamily: 'Space Mono, monospace', color: 'var(--orange)', fontSize: 'clamp(11px,1.2vw,13px)', fontWeight: 900 }}>
-                                                        {p.plotNumber}
-                                                    </strong>
-                                                    <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '10px', opacity: 0.4, fontWeight: 700 }}>
-                                                        BOX: {p.physicalBoxNumber || '---'}
-                                                    </span>
-                                                </div>
-                                                <div className={styles.finDetail}>
-                                                    <div className={styles.finDetailRow}>
-                                                        <span>Arrears</span>
-                                                        <strong>UGX {fmt(p.isBacklog ? p.totalBacklogOwed : p.currentBalance)}</strong>
-                                                    </div>
-                                                    <div className={styles.finDetailRow}>
-                                                        <span>Last Note</span>
-                                                        <i>"{p.lastInteractionNote}"</i>
-                                                    </div>
-                                                </div>
-                                                <div className={styles.expandedActions}>
-                                                    <button
-                                                        className={styles.folderBtn}
-                                                        onClick={() => navigate(`/folder/${p.projectId}`)}
-                                                    >
-                                                        OPEN FOLDER
-                                                    </button>
-                                                    {isAdmin && (
-                                                        <button
-                                                            className={styles.payBtn}
-                                                            onClick={() => navigate(`/folder/${p.projectId}?action=pay`)}
-                                                        >
-                                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* LOG CALL MODAL */}
-            <HardwareModal
-                isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
-                title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
-            >
-                <div className={modalStyles.modalField}>
-                    <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
-                    <textarea
-                        className={modalStyles.modalTextarea}
-                        value={logContent}
-                        onChange={e => setLogContent(e.target.value)}
-                        placeholder="e.g. Client confirmed payment by Friday, awaiting bank transfer..."
-                        autoFocus
-                    />
-                </div>
-                <div className={modalStyles.modalFooter}>
-                    <button
-                        type="button"
-                        className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
-                    >
-                        CANCEL
-                    </button>
-                    <HardwareButton onClick={handleLogCall} loading={committing} icon={FiSave}>
-                        SAVE LOG
-                    </HardwareButton>
-                </div>
-            </HardwareModal>
-        </div>
-    );
-};
-
-export default RecoveryPortal;
-""")
-
-print("\\n=== DONE ===")
+print("\n=== DONE ===")
