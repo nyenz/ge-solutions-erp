@@ -3,6 +3,7 @@ package com.gesolutions.erp.modules.land.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -59,6 +60,9 @@ public class LandTitle {
      */
     @Column(name = "physical_box_number", nullable = false, length = 100)
     private String physicalBoxNumber;
+
+    @Column(name = "survey_date")
+    private LocalDate surveyDate;
 
     @Builder.Default
     @Column(name = "is_released", nullable = false)

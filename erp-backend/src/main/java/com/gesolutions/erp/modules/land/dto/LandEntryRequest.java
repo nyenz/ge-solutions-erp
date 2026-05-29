@@ -4,6 +4,7 @@ package com.gesolutions.erp.modules.land.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -23,6 +24,7 @@ public class LandEntryRequest {
     private String folio;
     private String instrumentNo;
     private String physicalBoxNumber;
+    private LocalDate surveyDate;
 
     @Builder.Default
     private List<OwnerRequest> owners = new ArrayList<>();

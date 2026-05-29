@@ -275,6 +275,11 @@ const RecoveryPortal = () => {
                                                     <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
+                                                {p.isBacklog && p.surveyDate && (
+                                                    <div className={styles.surveyDateRow}>
+                                                        SURVEYED: <strong>{p.surveyDate}</strong>
+                                                    </div>
+                                                )}
 
                                                 {/* Last interaction note — notebook style */}
                                                 {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (

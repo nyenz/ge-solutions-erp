@@ -609,6 +609,7 @@ const FolderPage = () => {
                     folio:             data.project?.landTitle?.folio             || '',
                     instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
                     physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',
+                    surveyDate:        data.project?.landTitle?.surveyDate         || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
                     isLegacy:          data.project?.isLegacy                     || false,
@@ -1004,6 +1005,14 @@ const FolderPage = () => {
                                         <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
                                         <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
                                     </div>
+                                    <div className={styles.inputGrid3}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                value={buffer.surveyDate || ''}
+                                                onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
+                                        </div>
+                                    </div>
                                 </>
                             ) : (
                                 <div className={styles.readOnlyGrid}>
@@ -1017,6 +1026,7 @@ const FolderPage = () => {
                                         ['VOLUME',       project.landTitle.volume],
                                         ['FOLIO',        project.landTitle.folio],
                                         ['INSTRUMENT',   project.landTitle.instrumentNo],
+                                        ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
                                     ].map(([l,v],i) => (
                                         <div key={i} className={styles.specItem}>
                                             <span className={styles.specLabel}>{l}</span>

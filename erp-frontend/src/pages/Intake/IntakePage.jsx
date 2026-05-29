@@ -271,6 +271,7 @@ const IntakePage = () => {
     const [isBacklog,         setIsBacklog]         = useState(false);
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');
     const [initialStorageFee, setInitialStorageFee] = useState('');
+    const [surveyDate,        setSurveyDate]        = useState('');
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
@@ -299,6 +300,7 @@ const IntakePage = () => {
         if (initialPayment !== '') return true;
         if (monthlyStorageFee !== '50000') return true;
         if (initialStorageFee !== '') return true;
+        if (surveyDate !== '') return true;
         if (fileQueue.length > 0) return true;
         if (notesList.length > 0) return true;
         if (owners.some(o =>
@@ -367,6 +369,7 @@ const IntakePage = () => {
                 totalCost:      Number(totalCost)      || 0,
                 initialPayment: Number(initialPayment) || 0,
                 isStartAsBacklog: isBacklog,
+                surveyDate: surveyDate || undefined,
                 isLegacy: false,
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -420,6 +423,7 @@ const IntakePage = () => {
                 isStartAsBacklog: isBacklog,
                 monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
                 initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
+                surveyDate: surveyDate || undefined,
                 isLegacy: false, // Always false for new plots - legacy is a historical flag only
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -617,6 +621,19 @@ const IntakePage = () => {
                                 <div className={styles.backlogFeeConfig}>
                                     <div className={styles.backlogFeeConfigTitle}>
                                         BACKLOG FEE CONFIGURATION
+                                    </div>
+                                    <div className={styles.grid2} style={{marginBottom: 12}}>
+                                        <div className={styles.inputWrap}>
+                                            <div className={styles.labelRow}>
+                                                <label className={styles.fieldLabel}>DATE OF SURVEY</label>
+                                            </div>
+                                            <input
+                                                type="date"
+                                                className={styles.hwInput}
+                                                value={surveyDate}
+                                                onChange={e => setSurveyDate(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
                                     <div className={styles.grid2} style={{marginBottom: 0}}>
                                         <CurrencyInput

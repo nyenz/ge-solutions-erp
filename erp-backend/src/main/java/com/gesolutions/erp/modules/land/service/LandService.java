@@ -209,6 +209,7 @@ public class LandService {
                 .volume(request.getVolume())
                 .folio(request.getFolio())
                 .instrumentNo(request.getInstrumentNo())
+                .surveyDate(request.getSurveyDate())
                 .build();
 
         BigDecimal initialPayment = request.getInitialPayment() != null
@@ -314,6 +315,7 @@ public class LandService {
         title.setFolio(request.getFolio());
         title.setInstrumentNo(request.getInstrumentNo());
         title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());
+        title.setSurveyDate(request.getSurveyDate());
 
         if (request.getOwners() != null) {
             Set<Client> updatedRegistry = new HashSet<>();

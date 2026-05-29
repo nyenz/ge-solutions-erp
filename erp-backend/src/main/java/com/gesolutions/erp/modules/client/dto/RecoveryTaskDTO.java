@@ -3,6 +3,7 @@ package com.gesolutions.erp.modules.client.dto;
 
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,5 +54,6 @@ public class RecoveryTaskDTO {
         private String paymentHealthBadge;
         private String lastPaymentDate;
         private String lastInteractionNote;
+        private LocalDate surveyDate;
     }
 }

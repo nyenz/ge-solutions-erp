@@ -150,7 +150,8 @@ public class RecoveryController {
                         .isBacklog(plot.isBacklog())
                         .lastInteractionNote(lastNote)
                         .paymentHealthBadge(badge)
-                        .lastPaymentDate(lastPaymentStr);
+                        .lastPaymentDate(lastPaymentStr)
+                        .surveyDate(plot.getLandTitle().getSurveyDate());
 
                 if (plot.isBacklog()) {
                     hasBacklog = true;
