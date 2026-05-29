@@ -104,7 +104,7 @@
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--fs-value); color: #fff; font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--fs-label); color: rgba(255,255,255,0.35); }
 
-/* CONTROLS — sticky so filters stay accessible after header scrolls */
+/* CONTROLS */
 .controls {
     display: flex;
     flex-direction: column;
@@ -155,7 +155,7 @@
 }
 .clearBtn:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
 
-/* FILTER ROW - matches Ledger style exactly */
+/* FILTER ROW */
 .filterRow {
     display: flex;
     flex-wrap: nowrap;
@@ -193,7 +193,7 @@
     box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
 }
 
-/* ─── TABLE SHELL - identical to Ledger ─────────────────────────── */
+/* TABLE SHELL */
 .tableScroll {
     overflow-x: auto;
     overflow-y: visible;
@@ -209,9 +209,6 @@
 }
 .tableScroll::-webkit-scrollbar { width: 5px; height: 4px; }
 .tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-.tableScroll::-webkit-scrollbar { height: 4px; }
-.tableScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.35); border-radius: 2px; }
 
 .ledgerTable {
     width: 100%;
@@ -220,7 +217,7 @@
     min-width: clamp(700px, 90vw, 1100px);
 }
 
-/* ── TABLE HEADER ───────────────────────────────────────────────── */
+/* TABLE HEADER */
 .ledgerTable th {
     background: #162a2c;
     padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
@@ -243,7 +240,7 @@
 .thSortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
 .thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }
 
-/* ── TABLE BODY ─────────────────────────────────────────────────── */
+/* TABLE BODY */
 .ledgerTable td {
     padding: clamp(9px, 1.3vw, 14px) clamp(12px, 1.8vw, 20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -253,21 +250,139 @@
     font-size: var(--fs-td);
 }
 
-.ledgerTable tbody tr {
+/* DATA ROW — clickable, no immediate navigation */
+.dataRow {
     cursor: pointer;
     transition: background 0.18s, border-left-color 0.18s;
     border-left: 3px solid transparent;
     outline: none;
 }
-.ledgerTable tbody tr:hover {
+.dataRow:hover {
     background: rgba(255, 255, 255, 0.04);
     border-left-color: var(--orange);
 }
-.ledgerTable tbody tr:focus-visible {
+.dataRow:focus-visible {
     background: rgba(238, 140, 58, 0.07);
     border-left-color: var(--orange);
     outline: 2px solid var(--orange);
     outline-offset: -2px;
+}
+.dataRowExpanded {
+    background: rgba(238, 140, 58, 0.06);
+    border-left-color: var(--orange);
+}
+
+/* INSPECT ICON */
+.inspectIcon {
+    color: rgba(255,255,255,0.2);
+    font-size: clamp(14px,1.5vw,17px);
+    transition: color 0.18s, transform 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dataRow:hover .inspectIcon { color: var(--orange); }
+.inspectIconOpen { color: var(--orange) !important; }
+
+/* DRAWER ROW */
+.drawerRow {
+    background: #0a0a0a;
+}
+.drawerRow td {
+    border-bottom: 2px solid rgba(238, 140, 58, 0.2);
+    padding: 0 !important;
+}
+.drawerCell { padding: 0 !important; }
+
+.drawerInner {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+}
+
+.drawerHeader {
+    display: flex;
+    align-items: center;
+    gap: clamp(7px, 0.9vw, 10px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: #4ade80;
+    letter-spacing: 2px;
+    padding: clamp(10px, 1.3vw, 13px) clamp(14px, 1.8vw, 22px);
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.drawerHeader svg { color: #4ade80; flex-shrink: 0; }
+
+.drawerBody {
+    padding: clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 22px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 1.8vw, 20px);
+}
+
+/* Analysis text block — plain English explanation */
+.analysisText {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(10px, 1.3vw, 14px);
+    padding: clamp(12px, 1.5vw, 16px) clamp(14px, 1.8vw, 18px);
+    background: rgba(238, 140, 58, 0.05);
+    border: 1px solid rgba(238, 140, 58, 0.2);
+    border-left: clamp(3px, 0.4vw, 4px) solid var(--orange);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.analysisIcon {
+    color: var(--orange);
+    font-size: clamp(15px, 1.6vw, 18px);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.analysisText p {
+    margin: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.65;
+}
+
+/* Meta grid */
+.drawerMeta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 20vw, 220px), 1fr));
+    gap: clamp(10px, 1.3vw, 14px);
+}
+.drawerMetaItem {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.5vw, 6px);
+    border-left: 2px solid rgba(238,140,58,0.25);
+    padding-left: clamp(8px, 1vw, 11px);
+}
+.drawerMetaLabel {
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+.drawerMetaValue {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(10px, 1.05vw, 12px);
+    font-weight: 700;
+    color: #fff;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+/* Drawer action buttons */
+.drawerActions {
+    display: flex;
+    gap: clamp(8px, 1.1vw, 12px);
+    flex-wrap: wrap;
 }
 
 /* CELL TYPES */
@@ -291,19 +406,21 @@
 .amount { font-family: 'Space Mono', monospace; font-size: var(--fs-value); font-weight: 700; }
 .balance { font-family: 'Space Mono', monospace; font-size: var(--fs-meta); color: rgba(255,255,255,0.5); }
 .recorder { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: rgba(255,255,255,0.6); }
-.notesCell { font-style: italic; color: rgba(255,255,255,0.45); max-width: clamp(100px, 14vw, 180px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
+
 .goBtn {
     background: rgba(238,140,58,0.1); border: 1.5px solid rgba(238,140,58,0.35);
-    color: #EE8C3A; border-radius: var(--radius-sm); padding: clamp(5px,0.7vw,7px) clamp(8px,1vw,10px);
-    cursor: pointer; display: flex; align-items: center; gap: 4px;
-    transition: all 0.2s; font-size: var(--fs-tag); font-weight: 900;
+    color: #EE8C3A; border-radius: var(--radius-sm); padding: clamp(7px,0.9vw,10px) clamp(14px,1.8vw,20px);
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s; font-size: var(--fs-btn); font-weight: 900;
     font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
 }
-.goBtn:hover { background: #EE8C3A; color: #1a2e30; }
+.goBtn:hover { background: #EE8C3A; color: #1a2e30; box-shadow: 0 0 14px rgba(238,140,58,0.35); }
+.goBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
 .sortArrow { color: #fff; font-size: 10px; opacity: 0.9; margin-left: 3px; }
 .sortArrowInactive { color: rgba(255,255,255,0.25); font-size: 10px; margin-left: 3px; }
 
-/* NO RECORDS - matches Ledger emptyCell */
+/* NO RECORDS */
 .noRecords { text-align: center; }
 .noRecordsInner {
     display: flex;
@@ -353,6 +470,7 @@
     .searchWrap { max-width: 100%; }
     .filterRow { gap: 6px; }
     .ledgerTable { min-width: 650px; }
+    .drawerMeta { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 480px) {
     .summaryRow { grid-template-columns: 1fr 1fr; }
@@ -361,34 +479,6 @@
     .ledgerTable th { font-size: 7px; letter-spacing: 1px; }
     .ledgerTable td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
+    .drawerMeta { grid-template-columns: 1fr; }
+    .drawerBody { padding: 12px; }
 }
-
-
-/* --- MOBILE TABLE RE-ALIGNMENT --- */
-@media (max-width: 480px) {
-    .tableScroll { 
-        margin: -10px; 
-        margin-bottom: 0; 
-        border-radius: 0; 
-        padding-bottom: 10px;
-    }
-    .ledgerTable th, .ledgerTable td { 
-        font-size: 8.5px !important; 
-        padding: 8px 6px !important; 
-        white-space: nowrap; 
-    }
-}
-
-
-/* --- PRIORITY 1 FINAL POLISH --- */
-
-/* Revert mobile table shell to match Ledger exactly */
-@media (max-width: 480px) {
-    .tableScroll {
-        margin: 0 !important;
-        border-radius: var(--radius) !important;
-        padding-bottom: 0 !important;
-        overflow-y: visible !important;
-    }
-}
-
