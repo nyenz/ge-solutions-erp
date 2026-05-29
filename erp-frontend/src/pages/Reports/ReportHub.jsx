@@ -77,7 +77,7 @@ const ReportHub = () => {
         debt: false, map: false, perf: false,
         stage: false, legal: false, risk: false,
         audit: false, revenue: false,
-        backlog: false, completed: false, payhist: false, storage: false, monthly: false,
+        backlog: false, completed: false, reconcile: false, monthly: false,
     });
 
     const toggleDrawer = key => setDrawers(prev => ({ ...prev, [key]: !prev[key] }));
@@ -110,11 +110,10 @@ const ReportHub = () => {
     ];
 
     const PRIORITY2_GROUP = [
-        { id: 'backlog',   title: 'Backlog Breakdown',       desc: 'All backlog plots with storage fees, months owed, and total outstanding.',          icon: FiLock,       action: reportService.downloadBacklogBreakdown  },
-        { id: 'completed', title: 'Completed Titles',        desc: 'All released or fully paid plots ready for handover.',                               icon: FiCheckSquare, action: reportService.downloadCompletedTitles  },
-        { id: 'payhist',   title: 'Full Payment History',    desc: 'Every payment record across all plots — type, amount, balance after.',              icon: FiCreditCard, action: reportService.downloadPaymentHistory    },
-        { id: 'storage',   title: 'Storage Fees Per Plot',   desc: 'Per-plot breakdown of accumulated storage fees and outstanding backlog balance.',    icon: FiDatabase,   action: reportService.downloadStorageFees       },
-        { id: 'monthly',   title: 'Monthly Collection',      desc: 'Total cash collected per calendar month for the last 24 months.',                   icon: FiBarChart2,  action: reportService.downloadMonthlyCollection },
+        { id: 'backlog',   title: 'Backlog Breakdown',            desc: 'All backlog plots with storage fees, months owed, and total outstanding.',                                         icon: FiLock,       action: reportService.downloadBacklogBreakdown         },
+        { id: 'completed', title: 'Completed Titles',             desc: 'All released or fully paid plots ready for handover.',                                                            icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
+        { id: 'reconcile', title: 'Operator Cash Reconciliation', desc: 'Anti-theft: total cash collected per operator, transaction count, and date range. Compare against physical cash.', icon: FiShield,     action: reportService.downloadOperatorReconciliation   },
+        { id: 'monthly',   title: 'Monthly Collection',           desc: 'Total cash collected per calendar month for the last 24 months.',                                                 icon: FiBarChart2,  action: reportService.downloadMonthlyCollection        },
     ];
 
     const ReportRow = ({ item }) => {

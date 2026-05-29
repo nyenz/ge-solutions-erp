@@ -1,178 +1,291 @@
-import os
+import os, re
+
+def read(path):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
 
 def write(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(content)
-    print(f"OK: {path}")
 
-def patch(path, old, new):
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        content = f.read()
-    if old not in content:
-        print(f"MISSING patch target in: {path}")
-        return
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content.replace(old, new, 1))
-    print(f"OK (patched): {path}")
+def patch(path, old, new, label):
+    content = read(path)
+    if old in content:
+        write(path, content.replace(old, new, 1))
+        print(f"OK: {label}")
+    else:
+        print(f"MISSING: {label}")
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = "erp-backend/src/main/java/com/gesolutions/erp/modules/land"
+SERVICE = f"{BASE}/service/ReportService.java"
+CONTROLLER = f"{BASE}/controller/ReportController.java"
+FRONTEND_HUB = "erp-frontend/src/pages/Reports/ReportHub.jsx"
+FRONTEND_SERVICE = "erp-frontend/src/services/reportService.js"
 
-# ============================================================
-# 1. LandTitle.java — add surveyDate field
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'model', 'LandTitle.java'),
-    '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java\npackage com.gesolutions.erp.modules.land.model;\n\nimport jakarta.persistence.*;\nimport lombok.*;\nimport java.time.LocalDateTime;\nimport java.util.UUID;',
-    '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java\npackage com.gesolutions.erp.modules.land.model;\n\nimport jakarta.persistence.*;\nimport lombok.*;\nimport java.time.LocalDate;\nimport java.time.LocalDateTime;\nimport java.util.UUID;'
-)
+# ─── 1. ReportService.java ────────────────────────────────────────────────────
 
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'model', 'LandTitle.java'),
-    '    @Builder.Default\n    @Column(name = "is_released", nullable = false)\n    private boolean isReleased = false;',
-    '    @Column(name = "survey_date")\n    private LocalDate surveyDate;\n\n    @Builder.Default\n    @Column(name = "is_released", nullable = false)\n    private boolean isReleased = false;'
-)
+# Replace generateRevenueHistory (Pillar 8) with full payment history version
+OLD_PILLAR8 = '''    /**
+     * PILLAR 8: REVENUE INFLOW HISTORY (NEW)
+     * Lists actual financial intake movements.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateRevenueHistory() {
+        List<LandProject> data = projectRepository.findAll();
+        StringBuilder csv = new StringBuilder();
+        csv.append("PLOT_ID,PAID_AMOUNT,CUMULATIVE_COLLECTION,PROTOCOL_MODE").append(NEW_LINE);
 
-# ============================================================
-# 2. LandEntryRequest.java — add surveyDate field
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'dto', 'LandEntryRequest.java'),
-    'import com.fasterxml.jackson.annotation.JsonProperty;\nimport lombok.*;\nimport java.math.BigDecimal;\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.UUID;',
-    'import com.fasterxml.jackson.annotation.JsonProperty;\nimport lombok.*;\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.UUID;'
-)
+        for (LandProject p : data) {
+            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
+               .append(p.getAmountPaid()).append(CSV_DIVIDER)
+               .append(p.getAmountPaid()).append(CSV_DIVIDER)
+               .append(p.isLegacy() ? "BACKLOG_RECOVERY" : "STANDARD_INGESTION").append(NEW_LINE);
+        }
+        return csv.toString().getBytes();
+    }'''
 
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'dto', 'LandEntryRequest.java'),
-    '    private String instrumentNo;\n    private String physicalBoxNumber;',
-    '    private String instrumentNo;\n    private String physicalBoxNumber;\n    private LocalDate surveyDate;'
-)
+NEW_PILLAR8 = '''    /**
+     * PILLAR 8: FULL PAYMENT HISTORY (PROMOTED FROM P2)
+     * Every payment record across all plots - date, amount, operator, notes.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateRevenueHistory() {
+        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
+            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
+        StringBuilder csv = new StringBuilder();
+        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
 
-# ============================================================
-# 3. RecoveryTaskDTO.PlotSummary — add surveyDate
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'client', 'dto', 'RecoveryTaskDTO.java'),
-    'import lombok.*;\nimport java.math.BigDecimal;\nimport java.util.List;\nimport java.util.UUID;',
-    'import lombok.*;\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport java.util.List;\nimport java.util.UUID;'
-)
+        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
+            String plotNumber = "---";
+            String ownerName = "---";
+            try {
+                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
+                if (proj.isPresent()) {
+                    plotNumber = proj.get().getLandTitle().getPlotNumber();
+                    ownerName = proj.get().getProprietors().stream()
+                        .findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse("---");
+                }
+            } catch (Exception ignored) {}
 
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'client', 'dto', 'RecoveryTaskDTO.java'),
-    '        private String lastPaymentDate;\n        private String lastInteractionNote;',
-    '        private String lastPaymentDate;\n        private String lastInteractionNote;\n        private LocalDate surveyDate;'
-)
+            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
+            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
+               .append(plotNumber).append(CSV_DIVIDER)
+               .append(ownerName).append(CSV_DIVIDER)
+               .append(pay.getPaymentType()).append(CSV_DIVIDER)
+               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
+               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
+               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
+               .append(notes).append(NEW_LINE);
+        }
+        auditService.logAction("REPORT_EXPORT", "Pillar 8: Full Payment History Exported");
+        return csv.toString().getBytes();
+    }'''
 
-# ============================================================
-# 4. LandService.java — map surveyDate in atomicIntake and updateProjectFull
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'service', 'LandService.java'),
-    '        LandTitle title = LandTitle.builder()\n                .tenure(request.getTenure())\n                .plotNumber(request.getPlotNumber())\n                .physicalBoxNumber(request.getPhysicalBoxNumber())\n                .district(request.getDistrict())\n                .blockRoad(request.getBlockRoad())\n                .county(request.getCounty())\n                .volume(request.getVolume())\n                .folio(request.getFolio())\n                .instrumentNo(request.getInstrumentNo())\n                .build();',
-    '        LandTitle title = LandTitle.builder()\n                .tenure(request.getTenure())\n                .plotNumber(request.getPlotNumber())\n                .physicalBoxNumber(request.getPhysicalBoxNumber())\n                .district(request.getDistrict())\n                .blockRoad(request.getBlockRoad())\n                .county(request.getCounty())\n                .volume(request.getVolume())\n                .folio(request.getFolio())\n                .instrumentNo(request.getInstrumentNo())\n                .surveyDate(request.getSurveyDate())\n                .build();'
-)
+patch(SERVICE, OLD_PILLAR8, NEW_PILLAR8, "ReportService: Replace Pillar 8 with full payment history")
 
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'land', 'service', 'LandService.java'),
-    '        title.setPlotNumber(request.getPlotNumber());\n        title.setTenure(request.getTenure());\n        title.setBlockRoad(request.getBlockRoad());\n        title.setDistrict(request.getDistrict());\n        title.setCounty(request.getCounty());\n        title.setVolume(request.getVolume());\n        title.setFolio(request.getFolio());\n        title.setInstrumentNo(request.getInstrumentNo());\n        title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());',
-    '        title.setPlotNumber(request.getPlotNumber());\n        title.setTenure(request.getTenure());\n        title.setBlockRoad(request.getBlockRoad());\n        title.setDistrict(request.getDistrict());\n        title.setCounty(request.getCounty());\n        title.setVolume(request.getVolume());\n        title.setFolio(request.getFolio());\n        title.setInstrumentNo(request.getInstrumentNo());\n        title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());\n        title.setSurveyDate(request.getSurveyDate());'
-)
+# Replace generatePaymentHistory (P2-3) - remove it and storage fees (P2-4), add operator reconciliation
+OLD_PAYHIST = '''    /**
+     * PRIORITY 2 - REPORT 3: FULL PAYMENT HISTORY REPORT
+     * All payment records across all plots.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generatePaymentHistory() {
+        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
+            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
+        StringBuilder csv = new StringBuilder();
+        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
 
-# ============================================================
-# 5. RecoveryController.java — pass surveyDate into PlotSummary builder
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'modules', 'client', 'controller', 'RecoveryController.java'),
-    '                RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()\n                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())\n                        .isBacklog(plot.isBacklog())\n                        .lastInteractionNote(lastNote)\n                        .paymentHealthBadge(badge)\n                        .lastPaymentDate(lastPaymentStr);',
-    '                RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()\n                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())\n                        .isBacklog(plot.isBacklog())\n                        .lastInteractionNote(lastNote)\n                        .paymentHealthBadge(badge)\n                        .lastPaymentDate(lastPaymentStr)\n                        .surveyDate(plot.getLandTitle().getSurveyDate());'
-)
+        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
+            String plotNumber = "---";
+            String ownerName = "---";
+            try {
+                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
+                if (proj.isPresent()) {
+                    plotNumber = proj.get().getLandTitle().getPlotNumber();
+                    ownerName = proj.get().getProprietors().stream()
+                        .findFirst().map(Client::getFullName).orElse("---");
+                }
+            } catch (Exception ignored) {}
 
-# ============================================================
-# 6. DataInitializer.java — add migration for survey_date column
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp', 'config', 'DataInitializer.java'),
-    '            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",',
-    '            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",\n            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS survey_date DATE",'
-)
+            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
+            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
+               .append(plotNumber).append(CSV_DIVIDER)
+               .append(ownerName).append(CSV_DIVIDER)
+               .append(pay.getPaymentType()).append(CSV_DIVIDER)
+               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
+               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
+               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
+               .append(notes).append(NEW_LINE);
+        }
+        auditService.logAction("REPORT_EXPORT", "Priority 2: Full Payment History Exported");
+        return csv.toString().getBytes();
+    }'''
 
-# ============================================================
-# 7. IntakePage.jsx — add surveyDate state + date input in backlog section
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx'),
-    "    const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');\n    const [initialStorageFee, setInitialStorageFee] = useState('');",
-    "    const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');\n    const [initialStorageFee, setInitialStorageFee] = useState('');\n    const [surveyDate,        setSurveyDate]        = useState('');"
-)
+NEW_PAYHIST = '''    /**
+     * PRIORITY 2 - REPORT 3: OPERATOR CASH RECONCILIATION (ANTI-THEFT)
+     * Groups all payments by the operator who recorded them.
+     * Allows Root Owner to reconcile physical cash against system records.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generatePaymentHistory() {
+        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
+            paymentRecordRepository.findAll(Sort.by("timestamp").ascending());
+        StringBuilder csv = new StringBuilder();
+        csv.append("OPERATOR_ID,TOTAL_CASH_COLLECTED_UGX,NUMBER_OF_TRANSACTIONS,FIRST_PAYMENT_DATE,LAST_PAYMENT_DATE").append(NEW_LINE);
 
-# isDirty: add surveyDate check
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx'),
-    "        if (initialStorageFee !== '') return true;\n        if (fileQueue.length > 0) return true;",
-    "        if (initialStorageFee !== '') return true;\n        if (surveyDate !== '') return true;\n        if (fileQueue.length > 0) return true;"
-)
+        java.util.Map<String, java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord>> byOperator =
+            records.stream().collect(java.util.stream.Collectors.groupingBy(
+                com.gesolutions.erp.modules.land.model.PaymentRecord::getRecordedBy));
 
-# handleDuplicatePlot payload — add surveyDate
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx'),
-    "                isStartAsBacklog: isBacklog,\n                isLegacy: false,\n                owners: owners.map(o => ({",
-    "                isStartAsBacklog: isBacklog,\n                surveyDate: surveyDate || undefined,\n                isLegacy: false,\n                owners: owners.map(o => ({"
-)
+        byOperator.entrySet().stream()
+            .sorted(java.util.Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                String operator = entry.getKey();
+                java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord> ops = entry.getValue();
+                java.math.BigDecimal total = ops.stream()
+                    .map(com.gesolutions.erp.modules.land.model.PaymentRecord::getAmountPaid)
+                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                long count = ops.size();
+                String firstDate = ops.get(0).getTimestamp().toLocalDate().toString();
+                String lastDate = ops.get(ops.size() - 1).getTimestamp().toLocalDate().toString();
+                csv.append(operator).append(CSV_DIVIDER)
+                   .append(total).append(CSV_DIVIDER)
+                   .append(count).append(CSV_DIVIDER)
+                   .append(firstDate).append(CSV_DIVIDER)
+                   .append(lastDate).append(NEW_LINE);
+            });
 
-# handleSubmit payload — add surveyDate (second occurrence, after monthlyStorageFee line)
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx'),
-    "                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                isLegacy: false, // Always false for new plots - legacy is a historical flag only",
-    "                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,\n                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,\n                surveyDate: surveyDate || undefined,\n                isLegacy: false, // Always false for new plots - legacy is a historical flag only"
-)
+        auditService.logAction("REPORT_EXPORT", "Priority 2: Operator Cash Reconciliation Exported");
+        return csv.toString().getBytes();
+    }'''
 
-# Add date input inside backlogFeeConfig section — after backlogFeeConfigTitle
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx'),
-    "                                    <div className={styles.backlogFeeConfigTitle}>\n                                        BACKLOG FEE CONFIGURATION\n                                    </div>\n                                    <div className={styles.grid2} style={{marginBottom: 0}}>",
-    "                                    <div className={styles.backlogFeeConfigTitle}>\n                                        BACKLOG FEE CONFIGURATION\n                                    </div>\n                                    <div className={styles.grid2} style={{marginBottom: 12}}>\n                                        <div className={styles.inputWrap}>\n                                            <div className={styles.labelRow}>\n                                                <label className={styles.fieldLabel}>DATE OF SURVEY</label>\n                                            </div>\n                                            <input\n                                                type=\"date\"\n                                                className={styles.hwInput}\n                                                value={surveyDate}\n                                                onChange={e => setSurveyDate(e.target.value)}\n                                            />\n                                        </div>\n                                    </div>\n                                    <div className={styles.grid2} style={{marginBottom: 0}}>"
-)
+patch(SERVICE, OLD_PAYHIST, NEW_PAYHIST, "ReportService: Replace payment history with operator reconciliation")
 
-# ============================================================
-# 8. FolderPage.jsx — show/edit surveyDate in Overview tab
-# ============================================================
-# In buffer initialisation, add surveyDate
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.jsx'),
-    "                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',\n                    totalCost:         String(data.project?.totalCost             || 0),",
-    "                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',\n                    surveyDate:        data.project?.landTitle?.surveyDate         || '',\n                    totalCost:         String(data.project?.totalCost             || 0),"
-)
+# Remove generateStorageFeesReport entirely
+OLD_STORAGE = '''        /**
+     * PRIORITY 2 - REPORT 4: STORAGE FEES PER PLOT REPORT
+     * Total storage fees accumulated per backlog plot.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateStorageFeesReport() {
+        List<LandProject> data = projectRepository.findAllBacklogPlots();
+        StringBuilder csv = new StringBuilder();
+        csv.append("PLOT_ID,BOX,PRIMARY_OWNER,PHONE,BACKLOG_START_DATE,MONTHS_IN_BACKLOG,ORIGINAL_DEBT_UGX,STORAGE_FEES_UGX,RATE_PER_MONTH_UGX,TOTAL_PAID_UGX,OUTSTANDING_UGX").append(NEW_LINE);
 
-# In handleCommit, pass surveyDate (it's already spread via ...buffer so nothing needed)
+        java.math.BigDecimal monthlyRate = new java.math.BigDecimal("50000");
 
-# In the edit mode inputGrid3 for plot details — add surveyDate after instrumentNo row
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.jsx'),
-    "                                    <div className={styles.inputGrid3}>\n                                        <SmartInput label=\"INSTRUMENT NO.\" value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />\n                                        <SmartInput label=\"VOLUME\" value={buffer.volume} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\\D/g,'')})} />\n                                        <SmartInput label=\"FOLIO\" value={buffer.folio} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\\D/g,'')})} />\n                                    </div>",
-    "                                    <div className={styles.inputGrid3}>\n                                        <SmartInput label=\"INSTRUMENT NO.\" value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />\n                                        <SmartInput label=\"VOLUME\" value={buffer.volume} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\\D/g,'')})} />\n                                        <SmartInput label=\"FOLIO\" value={buffer.folio} inputMode=\"numeric\" hint=\"Numbers only\" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\\D/g,'')})} />\n                                    </div>\n                                    <div className={styles.inputGrid3}>\n                                        <div className={styles.hwInputWrap}>\n                                            <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>\n                                            <input type=\"date\" className={styles.hwInput}\n                                                value={buffer.surveyDate || ''}\n                                                onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />\n                                        </div>\n                                    </div>"
-)
+        for (LandProject p : data) {
+            Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
+            java.math.BigDecimal origDebt = p.getTotalCost() != null ? p.getTotalCost() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal outstanding = origDebt.add(storageFees).subtract(amountPaid).max(java.math.BigDecimal.ZERO);
+            long months = p.getBacklogStartDate() != null
+                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getBacklogStartDate(), java.time.LocalDateTime.now())
+                : 0;
+            String backlogStart = p.getBacklogStartDate() != null
+                ? p.getBacklogStartDate().toLocalDate().toString() : "UNKNOWN";
 
-# In the read-only grid for Overview tab — add SURVEY DATE row
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.jsx'),
-    "                                        ['INSTRUMENT',   project.landTitle.instrumentNo],\n                                    ].map(([l,v],i) => (",
-    "                                        ['INSTRUMENT',   project.landTitle.instrumentNo],\n                                        ['SURVEY DATE',  project.landTitle.surveyDate || '---'],\n                                    ].map(([l,v],i) => ("
-)
+            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
+               .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
+               .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
+               .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
+               .append(backlogStart).append(CSV_DIVIDER)
+               .append(months).append(CSV_DIVIDER)
+               .append(origDebt).append(CSV_DIVIDER)
+               .append(storageFees).append(CSV_DIVIDER)
+               .append(monthlyRate).append(CSV_DIVIDER)
+               .append(amountPaid).append(CSV_DIVIDER)
+               .append(outstanding).append(NEW_LINE);
+        }
+        auditService.logAction("REPORT_EXPORT", "Priority 2: Storage Fees Report Exported");
+        return csv.toString().getBytes();
+    }'''
 
-# ============================================================
-# 9. RecoveryPortal.jsx — show surveyDate in expanded backlog plot card
-# ============================================================
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx'),
-    "                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>\n                                                </div>",
-    "                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>\n                                                </div>\n                                                {p.isBacklog && p.surveyDate && (\n                                                    <div className={styles.surveyDateRow}>\n                                                        SURVEYED: <strong>{p.surveyDate}</strong>\n                                                    </div>\n                                                )}"
-)
+patch(SERVICE, OLD_STORAGE, '', "ReportService: Remove storage fees report")
 
-# Add surveyDateRow CSS to RecoveryPortal.module.css
-patch(
-    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css'),
-    ".plotSubCard:last-child { margin-bottom: 0; }",
-    ".plotSubCard:last-child { margin-bottom: 0; }\n\n.surveyDateRow {\n    font-family: 'DM Sans', sans-serif;\n    font-size: clamp(8px, 0.85vw, 10px);\n    font-weight: 800;\n    color: rgba(255, 255, 255, 0.4);\n    text-transform: uppercase;\n    letter-spacing: 1px;\n    margin-bottom: clamp(8px, 1vw, 11px);\n    display: flex;\n    align-items: center;\n    gap: 6px;\n}\n.surveyDateRow strong {\n    font-family: 'Space Mono', monospace;\n    font-weight: 900;\n    color: rgba(255, 255, 255, 0.75);\n    font-size: clamp(9px, 0.9vw, 11px);\n    letter-spacing: 0.5px;\n}"
-)
+# ─── 2. ReportController.java ─────────────────────────────────────────────────
 
-print("\n=== ALL DONE ===")
+OLD_CTRL_STORAGE = '''    /** P2-4: Storage Fees Per Plot */
+    @GetMapping("/storage-fees")
+    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
+    public ResponseEntity<byte[]> downloadStorageFees() {
+        return streamCsv(reportService.generateStorageFeesReport(), "STORAGE_FEES_REPORT");
+    }
+
+    /** P2-5: Monthly Collection */'''
+
+NEW_CTRL_STORAGE = '''    /** P2-4: Monthly Collection */'''
+
+patch(CONTROLLER, OLD_CTRL_STORAGE, NEW_CTRL_STORAGE, "ReportController: Remove storage fees endpoint")
+
+# Update monthly collection from P2-5 to P2-4 in controller (label only, method unchanged)
+# Also rename payment-history endpoint label
+OLD_CTRL_PAYHIST = '''    /** P2-3: Full Payment History */
+    @GetMapping("/payment-history")
+    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
+    public ResponseEntity<byte[]> downloadPaymentHistory() {
+        return streamCsv(reportService.generatePaymentHistory(), "FULL_PAYMENT_HISTORY");
+    }'''
+
+NEW_CTRL_PAYHIST = '''    /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
+    @GetMapping("/payment-history")
+    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
+    public ResponseEntity<byte[]> downloadPaymentHistory() {
+        return streamCsv(reportService.generatePaymentHistory(), "OPERATOR_CASH_RECONCILIATION");
+    }'''
+
+patch(CONTROLLER, OLD_CTRL_PAYHIST, NEW_CTRL_PAYHIST, "ReportController: Rename payment-history to operator reconciliation")
+
+# ─── 3. reportService.js ─────────────────────────────────────────────────────
+
+OLD_JS_STORAGE = '''    downloadStorageFees:       () => reportService._triggerDownload(\'/storage-fees\',       \'STORAGE_FEES_REPORT\'),
+    downloadMonthlyCollection: () => reportService._triggerDownload(\'/monthly-collection\', \'MONTHLY_COLLECTION\'),'''
+
+NEW_JS_STORAGE = '''    downloadMonthlyCollection: () => reportService._triggerDownload(\'/monthly-collection\', \'MONTHLY_COLLECTION\'),'''
+
+patch(FRONTEND_SERVICE, OLD_JS_STORAGE, NEW_JS_STORAGE, "reportService.js: Remove downloadStorageFees")
+
+OLD_JS_PAYHIST = '''    downloadPaymentHistory:    () => reportService._triggerDownload(\'/payment-history\',    \'FULL_PAYMENT_HISTORY\'),'''
+NEW_JS_PAYHIST = '''    downloadOperatorReconciliation: () => reportService._triggerDownload(\'/payment-history\', \'OPERATOR_CASH_RECONCILIATION\'),'''
+
+patch(FRONTEND_SERVICE, OLD_JS_PAYHIST, NEW_JS_PAYHIST, "reportService.js: Rename to downloadOperatorReconciliation")
+
+# ─── 4. ReportHub.jsx ─────────────────────────────────────────────────────────
+
+OLD_HUB_P2 = '''    const PRIORITY2_GROUP = [
+        { id: \'backlog\',   title: \'Backlog Breakdown\',       desc: \'All backlog plots with storage fees, months owed, and total outstanding.\',          icon: FiLock,       action: reportService.downloadBacklogBreakdown  },
+        { id: \'completed\', title: \'Completed Titles\',        desc: \'All released or fully paid plots ready for handover.\',                               icon: FiCheckSquare, action: reportService.downloadCompletedTitles  },
+        { id: \'payhist\',   title: \'Full Payment History\',    desc: \'Every payment record across all plots — type, amount, balance after.\',              icon: FiCreditCard, action: reportService.downloadPaymentHistory    },
+        { id: \'storage\',   title: \'Storage Fees Per Plot\',   desc: \'Per-plot breakdown of accumulated storage fees and outstanding backlog balance.\',    icon: FiDatabase,   action: reportService.downloadStorageFees       },
+        { id: \'monthly\',   title: \'Monthly Collection\',      desc: \'Total cash collected per calendar month for the last 24 months.\',                   icon: FiBarChart2,  action: reportService.downloadMonthlyCollection },
+    ];'''
+
+NEW_HUB_P2 = '''    const PRIORITY2_GROUP = [
+        { id: \'backlog\',   title: \'Backlog Breakdown\',            desc: \'All backlog plots with storage fees, months owed, and total outstanding.\',                                         icon: FiLock,       action: reportService.downloadBacklogBreakdown         },
+        { id: \'completed\', title: \'Completed Titles\',             desc: \'All released or fully paid plots ready for handover.\',                                                            icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
+        { id: \'reconcile\', title: \'Operator Cash Reconciliation\', desc: \'Anti-theft: total cash collected per operator, transaction count, and date range. Compare against physical cash.\', icon: FiShield,     action: reportService.downloadOperatorReconciliation   },
+        { id: \'monthly\',   title: \'Monthly Collection\',           desc: \'Total cash collected per calendar month for the last 24 months.\',                                                 icon: FiBarChart2,  action: reportService.downloadMonthlyCollection        },
+    ];'''
+
+patch(FRONTEND_HUB, OLD_HUB_P2, NEW_HUB_P2, "ReportHub.jsx: Update Priority 2 group")
+
+# Update status keys in ReportHub
+OLD_HUB_STATUS = '''    const [status,  setStatus]  = useState({
+        debt: false, map: false, perf: false,
+        stage: false, legal: false, risk: false,
+        audit: false, revenue: false,
+        backlog: false, completed: false, payhist: false, storage: false, monthly: false,
+    });'''
+
+NEW_HUB_STATUS = '''    const [status,  setStatus]  = useState({
+        debt: false, map: false, perf: false,
+        stage: false, legal: false, risk: false,
+        audit: false, revenue: false,
+        backlog: false, completed: false, reconcile: false, monthly: false,
+    });'''
+
+patch(FRONTEND_HUB, OLD_HUB_STATUS, NEW_HUB_STATUS, "ReportHub.jsx: Update status keys")
+
+print("\nDone. All patches applied.")

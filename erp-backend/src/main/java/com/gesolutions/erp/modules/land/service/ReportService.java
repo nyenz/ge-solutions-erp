@@ -187,21 +187,39 @@ public class ReportService {
     }
 
     /**
-     * PILLAR 8: REVENUE INFLOW HISTORY (NEW)
-     * Lists actual financial intake movements.
+     * PILLAR 8: FULL PAYMENT HISTORY (PROMOTED FROM P2)
+     * Every payment record across all plots - date, amount, operator, notes.
      */
     @Transactional(readOnly = true)
     public byte[] generateRevenueHistory() {
-        List<LandProject> data = projectRepository.findAll();
+        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
+            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,PAID_AMOUNT,CUMULATIVE_COLLECTION,PROTOCOL_MODE").append(NEW_LINE);
+        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
 
-        for (LandProject p : data) {
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getAmountPaid()).append(CSV_DIVIDER)
-               .append(p.getAmountPaid()).append(CSV_DIVIDER)
-               .append(p.isLegacy() ? "BACKLOG_RECOVERY" : "STANDARD_INGESTION").append(NEW_LINE);
+        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
+            String plotNumber = "---";
+            String ownerName = "---";
+            try {
+                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
+                if (proj.isPresent()) {
+                    plotNumber = proj.get().getLandTitle().getPlotNumber();
+                    ownerName = proj.get().getProprietors().stream()
+                        .findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse("---");
+                }
+            } catch (Exception ignored) {}
+
+            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
+            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
+               .append(plotNumber).append(CSV_DIVIDER)
+               .append(ownerName).append(CSV_DIVIDER)
+               .append(pay.getPaymentType()).append(CSV_DIVIDER)
+               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
+               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
+               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
+               .append(notes).append(NEW_LINE);
         }
+        auditService.logAction("REPORT_EXPORT", "Pillar 8: Full Payment History Exported");
         return csv.toString().getBytes();
     }
 
@@ -275,81 +293,44 @@ public class ReportService {
     }
 
     /**
-     * PRIORITY 2 - REPORT 3: FULL PAYMENT HISTORY REPORT
-     * All payment records across all plots.
+     * PRIORITY 2 - REPORT 3: OPERATOR CASH RECONCILIATION (ANTI-THEFT)
+     * Groups all payments by the operator who recorded them.
+     * Allows Root Owner to reconcile physical cash against system records.
      */
     @Transactional(readOnly = true)
     public byte[] generatePaymentHistory() {
         List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
-            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
+            paymentRecordRepository.findAll(Sort.by("timestamp").ascending());
         StringBuilder csv = new StringBuilder();
-        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
+        csv.append("OPERATOR_ID,TOTAL_CASH_COLLECTED_UGX,NUMBER_OF_TRANSACTIONS,FIRST_PAYMENT_DATE,LAST_PAYMENT_DATE").append(NEW_LINE);
 
-        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
-            String plotNumber = "---";
-            String ownerName = "---";
-            try {
-                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
-                if (proj.isPresent()) {
-                    plotNumber = proj.get().getLandTitle().getPlotNumber();
-                    ownerName = proj.get().getProprietors().stream()
-                        .findFirst().map(Client::getFullName).orElse("---");
-                }
-            } catch (Exception ignored) {}
+        java.util.Map<String, java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord>> byOperator =
+            records.stream().collect(java.util.stream.Collectors.groupingBy(
+                com.gesolutions.erp.modules.land.model.PaymentRecord::getRecordedBy));
 
-            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
-            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
-               .append(plotNumber).append(CSV_DIVIDER)
-               .append(ownerName).append(CSV_DIVIDER)
-               .append(pay.getPaymentType()).append(CSV_DIVIDER)
-               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
-               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
-               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
-               .append(notes).append(NEW_LINE);
-        }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Full Payment History Exported");
+        byOperator.entrySet().stream()
+            .sorted(java.util.Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                String operator = entry.getKey();
+                java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord> ops = entry.getValue();
+                java.math.BigDecimal total = ops.stream()
+                    .map(com.gesolutions.erp.modules.land.model.PaymentRecord::getAmountPaid)
+                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                long count = ops.size();
+                String firstDate = ops.get(0).getTimestamp().toLocalDate().toString();
+                String lastDate = ops.get(ops.size() - 1).getTimestamp().toLocalDate().toString();
+                csv.append(operator).append(CSV_DIVIDER)
+                   .append(total).append(CSV_DIVIDER)
+                   .append(count).append(CSV_DIVIDER)
+                   .append(firstDate).append(CSV_DIVIDER)
+                   .append(lastDate).append(NEW_LINE);
+            });
+
+        auditService.logAction("REPORT_EXPORT", "Priority 2: Operator Cash Reconciliation Exported");
         return csv.toString().getBytes();
     }
 
-        /**
-     * PRIORITY 2 - REPORT 4: STORAGE FEES PER PLOT REPORT
-     * Total storage fees accumulated per backlog plot.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generateStorageFeesReport() {
-        List<LandProject> data = projectRepository.findAllBacklogPlots();
-        StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,PRIMARY_OWNER,PHONE,BACKLOG_START_DATE,MONTHS_IN_BACKLOG,ORIGINAL_DEBT_UGX,STORAGE_FEES_UGX,RATE_PER_MONTH_UGX,TOTAL_PAID_UGX,OUTSTANDING_UGX").append(NEW_LINE);
 
-        java.math.BigDecimal monthlyRate = new java.math.BigDecimal("50000");
-
-        for (LandProject p : data) {
-            Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-            java.math.BigDecimal origDebt = p.getTotalCost() != null ? p.getTotalCost() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal outstanding = origDebt.add(storageFees).subtract(amountPaid).max(java.math.BigDecimal.ZERO);
-            long months = p.getBacklogStartDate() != null
-                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getBacklogStartDate(), java.time.LocalDateTime.now())
-                : 0;
-            String backlogStart = p.getBacklogStartDate() != null
-                ? p.getBacklogStartDate().toLocalDate().toString() : "UNKNOWN";
-
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
-               .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
-               .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
-               .append(backlogStart).append(CSV_DIVIDER)
-               .append(months).append(CSV_DIVIDER)
-               .append(origDebt).append(CSV_DIVIDER)
-               .append(storageFees).append(CSV_DIVIDER)
-               .append(monthlyRate).append(CSV_DIVIDER)
-               .append(amountPaid).append(CSV_DIVIDER)
-               .append(outstanding).append(NEW_LINE);
-        }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Storage Fees Report Exported");
-        return csv.toString().getBytes();
-    }
 
     /**
      * PRIORITY 2 - REPORT 5: MONTHLY COLLECTION REPORT

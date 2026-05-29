@@ -113,21 +113,14 @@ public class ReportController {
         return streamCsv(reportService.generateCompletedTitles(), "COMPLETED_TITLES");
     }
 
-    /** P2-3: Full Payment History */
+    /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
     @GetMapping("/payment-history")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> downloadPaymentHistory() {
-        return streamCsv(reportService.generatePaymentHistory(), "FULL_PAYMENT_HISTORY");
+        return streamCsv(reportService.generatePaymentHistory(), "OPERATOR_CASH_RECONCILIATION");
     }
 
-    /** P2-4: Storage Fees Per Plot */
-    @GetMapping("/storage-fees")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<byte[]> downloadStorageFees() {
-        return streamCsv(reportService.generateStorageFeesReport(), "STORAGE_FEES_REPORT");
-    }
-
-    /** P2-5: Monthly Collection */
+    /** P2-4: Monthly Collection */
     @GetMapping("/monthly-collection")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> downloadMonthlyCollection() {
