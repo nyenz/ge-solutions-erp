@@ -65,6 +65,22 @@ const DrawerTitle = ({ label, isOpen, onClick, icon: IconComponent }) => (
     </div>
 );
 
+// ─── REPORT DATA ──────────────────────────────────────────────────
+const REPORT_SCHEMA = {
+    debt:      { columns: 'PLOT_ID, PRIMARY_OWNER, PHONE, TOTAL_VAL, PAID_VAL, ARREARS, BOX_LOC, STATUS', desc: 'Lists every plot with an outstanding balance. Shows the full financial picture per client — what they owe, what they have paid, and where their physical file is stored.' },
+    revenue:   { columns: 'DATE, PLOT_ID, OWNER_NAME, PAYMENT_TYPE, AMOUNT_UGX, BALANCE_AFTER_UGX, RECORDED_BY, NOTES', desc: 'A chronological log of every cash payment ever recorded in the system, including who logged it and the running balance after each transaction.' },
+    perf:      { columns: 'TIMESTAMP, OPERATOR, PLOT_ID, NOTE_SNIPPET', desc: 'Pulls every call log and follow-up note entered by staff. Use this to audit which managers are actively contacting clients and how frequently.' },
+    map:       { columns: 'BOX_LOCATION, PLOT_ID, TENURE, DISTRICT, STAGE_INDEX, IS_LEGACY', desc: 'A full inventory of every physical file sorted by cabinet box number. Useful for locating a specific title in the office archive quickly.' },
+    stage:     { columns: 'PHASE_NUMBER, TOTAL_FILES_IN_STAGE', desc: 'Shows how many title files are stuck at each of the five survey stages. Helps identify bottlenecks slowing down the processing pipeline.' },
+    risk:      { columns: 'OWNER_NAME, SCORE_PERCENT, LAST_CALL_DATE', desc: 'Ranks all registered clients by their reliability score — a measure of payment consistency and responsiveness to calls.' },
+    legal:     { columns: 'PLOT, OWNER, PHONE, NIN_STATUS, ADDRESS_STATUS, READINESS', desc: 'Checks whether every registered owner has a valid National ID and home address on file — the two fields required before issuing a legal demand notice.' },
+    audit:     { columns: 'TIMESTAMP, OPERATOR, ACTION_CODE, HARDWARE_DETAILS', desc: 'The complete forensic footprint of every action taken inside the system — edits, deletions, logins, payment recordings, and stage changes.' },
+    backlog:   { columns: 'PLOT_ID, BOX, DISTRICT, TENURE, PRIMARY_OWNER, PHONE, BACKLOG_START, TITLE_COST_UGX, STORAGE_FEES_UGX, MONTHS_IN_BACKLOG, TOTAL_PAID, TOTAL_OWED', desc: 'A detailed breakdown of every plot currently in the backlog system, including accumulated storage fees and months elapsed since the backlog start date.' },
+    completed: { columns: 'PLOT_ID, BOX, DISTRICT, TENURE, PRIMARY_OWNER, PHONE, TOTAL_COST, AMOUNT_PAID, STATUS', desc: 'Lists all titles that have been fully paid or officially released to the client. Use this to track closed cases and measure overall throughput.' },
+    reconcile: { columns: 'OPERATOR_ID, TOTAL_CASH_COLLECTED_UGX, NUMBER_OF_TRANSACTIONS, FIRST_PAYMENT_DATE, LAST_PAYMENT_DATE', desc: 'Anti-theft report: groups all payments by the staff member who recorded them. Compare these totals against physical cash in the office to detect discrepancies.' },
+    monthly:   { columns: 'YEAR_MONTH, TOTAL_COLLECTED_UGX, TRANSACTION_COUNT', desc: 'Shows total cash collected each calendar month for the past 24 months. Use this to spot seasonal patterns and track collection performance over time.' },
+};
+
 // ─── MAIN ─────────────────────────────────────────────────────────
 const ReportHub = () => {
     const { user } = useAuth();
@@ -72,8 +88,9 @@ const ReportHub = () => {
 
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';
 
-    const [drawers, setDrawers] = useState({ finance: true, ops: true, system: false, p2: true });
-    const [status,  setStatus]  = useState({
+    const [drawers,    setDrawers]    = useState({ finance: true, ops: true, system: false, p2: true });
+    const [expandedId, setExpandedId] = useState(null);
+    const [status,     setStatus]     = useState({
         debt: false, map: false, perf: false,
         stage: false, legal: false, risk: false,
         audit: false, revenue: false,
@@ -86,7 +103,7 @@ const ReportHub = () => {
         setStatus(prev => ({ ...prev, [id]: true }));
         try {
             await action();
-            toast(`${label} — EXPORT COMPLETE`, 'success', 4000);
+            toast(`${label} -- EXPORT COMPLETE`, 'success', 4000);
         } catch (err) {
             toast(`REPORT FAULT: ${err.message || 'UNKNOWN ERROR'}`, 'error', 8000);
         } finally {
@@ -95,48 +112,77 @@ const ReportHub = () => {
     };
 
     const FINANCIAL_GROUP = [
-        { id: 'debt',    title: 'Master Debt Ledger',     desc: 'Global map of all plots with outstanding arrears.',         icon: FiCreditCard, action: reportService.downloadDebtLedger   },
-        { id: 'revenue', title: 'Revenue Inflow History',  desc: 'Chronological log of all cash ingested into the system.',   icon: FiDatabase,   action: reportService.downloadRevenue      },
-        { id: 'perf',    title: 'Recovery Throughput',     desc: 'Manager performance audit based on call volume.',           icon: FiActivity,   action: reportService.downloadPerformance  },
+        { id: 'debt',    title: 'Master Debt Ledger',     icon: FiCreditCard, action: reportService.downloadDebtLedger   },
+        { id: 'revenue', title: 'Revenue Inflow History',  icon: FiDatabase,   action: reportService.downloadRevenue      },
+        { id: 'perf',    title: 'Recovery Throughput',     icon: FiActivity,   action: reportService.downloadPerformance  },
     ];
     const OPS_GROUP = [
-        { id: 'map',   title: 'Physical Archive Map',  desc: 'Inventory list sorted by Cabinet Box numbers.',            icon: FiMap,        action: reportService.downloadArchiveMap   },
-        { id: 'stage', title: 'Survey Stage Audit',    desc: 'Bottleneck analysis of titles in the 5-phase pipeline.',   icon: FiLayers,     action: reportService.downloadBottlenecks  },
-        { id: 'risk',  title: 'Reliability Scorecard', desc: 'Client rankings based on historical payment behavior.',     icon: FiTrendingUp, action: reportService.downloadReliability  },
+        { id: 'map',   title: 'Physical Archive Map',  icon: FiMap,        action: reportService.downloadArchiveMap   },
+        { id: 'stage', title: 'Survey Stage Audit',    icon: FiLayers,     action: reportService.downloadBottlenecks  },
+        { id: 'risk',  title: 'Reliability Scorecard', icon: FiTrendingUp, action: reportService.downloadReliability  },
     ];
     const SYSTEM_GROUP = [
-        { id: 'legal', title: 'Legal Readiness Audit', desc: 'NIN and Address completeness check for demand notices.',   icon: FiFileText, action: reportService.downloadLegalReady  },
-        { id: 'audit', title: 'Master System Audit',   desc: 'Forensic footprint of data rewrites and stage jumps.',     icon: FiShield,   action: reportService.downloadAuditTrail  },
+        { id: 'legal', title: 'Legal Readiness Audit', icon: FiFileText, action: reportService.downloadLegalReady  },
+        { id: 'audit', title: 'Master System Audit',   icon: FiShield,   action: reportService.downloadAuditTrail  },
     ];
-
     const PRIORITY2_GROUP = [
-        { id: 'backlog',   title: 'Backlog Breakdown',            desc: 'All backlog plots with storage fees, months owed, and total outstanding.',                                         icon: FiLock,       action: reportService.downloadBacklogBreakdown         },
-        { id: 'completed', title: 'Completed Titles',             desc: 'All released or fully paid plots ready for handover.',                                                            icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
-        { id: 'reconcile', title: 'Operator Cash Reconciliation', desc: 'Anti-theft: total cash collected per operator, transaction count, and date range. Compare against physical cash.', icon: FiShield,     action: reportService.downloadOperatorReconciliation   },
-        { id: 'monthly',   title: 'Monthly Collection',           desc: 'Total cash collected per calendar month for the last 24 months.',                                                 icon: FiBarChart2,  action: reportService.downloadMonthlyCollection        },
+        { id: 'backlog',   title: 'Backlog Breakdown',            icon: FiLock,        action: reportService.downloadBacklogBreakdown         },
+        { id: 'completed', title: 'Completed Titles',             icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
+        { id: 'reconcile', title: 'Operator Cash Reconciliation', icon: FiShield,      action: reportService.downloadOperatorReconciliation   },
+        { id: 'monthly',   title: 'Monthly Collection',           icon: FiBarChart2,   action: reportService.downloadMonthlyCollection        },
     ];
 
     const ReportRow = ({ item }) => {
         const ItemIcon = item.icon;
         const isLoading = status[item.id];
+        const isExpanded = expandedId === item.id;
+        const schema = REPORT_SCHEMA[item.id] || {};
+
         return (
-            <div className={styles.reportRow}>
-                <div className={styles.iconFrame} aria-hidden="true">
-                    <ItemIcon aria-hidden="true" />
-                </div>
-                <span className={styles.rptTitle}>{item.title}</span>
-                <span className={styles.rptDesc}>{item.desc}</span>
-                <button
-                    className={styles.exportBtn}
-                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
-                    disabled={isLoading}
-                    aria-label={isLoading ? `Exporting ${item.title}` : `Download ${item.title}`}
+            <div className={styles.reportRowWrap}>
+                <div
+                    className={`${styles.reportRow} ${isExpanded ? styles.reportRowActive : ''}`}
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-label={`${item.title}, ${isExpanded ? 'collapse' : 'expand details'}`}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : item.id); } }}
                 >
-                    {isLoading
-                        ? 'STREAMING...'
-                        : <><FiDownloadCloud aria-hidden="true" /> DOWNLOAD</>
-                    }
-                </button>
+                    <div className={styles.iconFrame} aria-hidden="true">
+                        <ItemIcon aria-hidden="true" />
+                    </div>
+                    <span className={styles.rptTitle}>{item.title}</span>
+                    <FiChevronDown className={`${styles.rowChevron} ${isExpanded ? styles.rotated : ''}`} aria-hidden="true" />
+                </div>
+
+                <div className={`${styles.reportDetails} ${isExpanded ? styles.detailsOpen : styles.detailsClosed}`}>
+                    <div className={styles.detailBox}>
+                        <div className={styles.detailHeader}>
+                            <span>REPORT INTELLIGENCE DISCOVERY [SECURE]</span>
+                        </div>
+                        <p className={styles.detailDesc}>{schema.desc}</p>
+                        {schema.columns && (
+                            <div className={styles.schemaBlock}>
+                                <span className={styles.schemaLabel}>CSV COLUMN SCHEMA:</span>
+                                <p className={styles.schemaColumns}>{schema.columns}</p>
+                            </div>
+                        )}
+                        <div className={styles.detailActions}>
+                            <button
+                                className={styles.exportBtnLarge}
+                                onClick={e => { e.stopPropagation(); triggerPillarExport(item.id, item.action, item.title); }}
+                                disabled={isLoading}
+                                aria-label={isLoading ? `Exporting ${item.title}` : `Download ${item.title}`}
+                            >
+                                {isLoading
+                                    ? <><div className={styles.exportSpinner} aria-hidden="true" /> STREAMING DATA...</>
+                                    : <><FiDownloadCloud aria-hidden="true" /> DOWNLOAD CSV</>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     };
