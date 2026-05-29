@@ -6,9 +6,87 @@ def write(path, content):
         f.write(content)
     print(f"OK: {path}")
 
+def patch(path, old, new):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        content = f.read()
+    if old not in content:
+        print(f"MISSING patch target in: {path}")
+        return
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(content.replace(old, new, 1))
+    print(f"OK (patched): {path}")
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 
-# ── RecoveryPortal.jsx ───────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
+# 1. FIX RecoveryController.java — ensure totalCost + originalDebt
+#    are mapped for BOTH backlog and active plot branches
+# ────────────────────────────────────────────────────────────────────
+CONTROLLER_PATH = os.path.join(
+    BASE, 'erp-backend', 'src', 'main', 'java', 'com', 'gesolutions', 'erp',
+    'modules', 'client', 'controller', 'RecoveryController.java'
+)
+
+# Replace the entire plotSummaries-building block so both branches
+# include all required fields
+patch(CONTROLLER_PATH,
+    """                if (plot.isBacklog()) {
+                    hasBacklog = true;
+                    BigDecimal fees = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
+                    BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
+                    long months = plot.getBacklogStartDate() != null
+                            ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
+
+                    summaryBuilder
+                            .originalDebt(origDebt)
+                            .storageFeesAccumulated(fees)
+                            .totalBacklogOwed(plotBalance)
+                            .storageMonthsCount(months)
+                            .storagePaused(plot.isStoragePaused())
+                            .storageFeeOverride(plot.getStorageFeeOverride())
+                            .amountPaid(plot.getAmountPaid());
+
+                    totalOriginalDebt = totalOriginalDebt.add(origDebt);
+                    totalStorageFees = totalStorageFees.add(fees);
+                } else {
+                    summaryBuilder
+                            .totalCost(plot.getTotalCost())
+                            .amountPaid(plot.getAmountPaid())
+                            .currentBalance(plotBalance);
+                }""",
+    """                if (plot.isBacklog()) {
+                    hasBacklog = true;
+                    BigDecimal fees = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
+                    BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
+                    long months = plot.getBacklogStartDate() != null
+                            ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
+
+                    summaryBuilder
+                            .totalCost(origDebt)
+                            .originalDebt(origDebt)
+                            .storageFeesAccumulated(fees)
+                            .totalBacklogOwed(plotBalance)
+                            .storageMonthsCount(months)
+                            .storagePaused(plot.isStoragePaused())
+                            .storageFeeOverride(plot.getStorageFeeOverride())
+                            .amountPaid(plot.getAmountPaid())
+                            .currentBalance(plotBalance);
+
+                    totalOriginalDebt = totalOriginalDebt.add(origDebt);
+                    totalStorageFees = totalStorageFees.add(fees);
+                } else {
+                    BigDecimal cost = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
+                    summaryBuilder
+                            .totalCost(cost)
+                            .originalDebt(cost)
+                            .amountPaid(plot.getAmountPaid())
+                            .currentBalance(plotBalance);
+                }"""
+)
+
+# ────────────────────────────────────────────────────────────────────
+# 2. FIX RecoveryPortal.jsx — correct math + pre-fill textarea
+# ────────────────────────────────────────────────────────────────────
 RECOVERY_JSX = r"""import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,7 +122,7 @@ const RecoveryPortal = () => {
     const [expandedId,   setExpandedId]   = useState(null);
     const [searchTerm,   setSearchTerm]   = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null, lastNote: '' });
+    const [callModal,    setCallModal]    = useState({ open: false, mission: null });
     const [logContent,   setLogContent]   = useState('');
     const [committing,   setCommitting]   = useState(false);
 
@@ -85,7 +163,7 @@ const RecoveryPortal = () => {
         setCommitting(true);
         try {
             await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
-            setCallModal({ open: false, mission: null, lastNote: '' });
+            setCallModal({ open: false, mission: null });
             setLogContent('');
             loadData();
         } catch { /* silent */ }
@@ -94,9 +172,12 @@ const RecoveryPortal = () => {
 
     const openCallModal = (e, plot) => {
         e.stopPropagation();
-        const lastNote = plot.lastInteractionNote || 'NO PRIOR CONTACT';
-        setCallModal({ open: true, mission: plot, lastNote });
-        setLogContent('');
+        // PRE-FILL textarea with the last interaction note so user can edit/append
+        const lastNote = plot.lastInteractionNote && plot.lastInteractionNote !== 'NO PRIOR CONTACT'
+            ? plot.lastInteractionNote
+            : '';
+        setCallModal({ open: true, mission: plot });
+        setLogContent(lastNote);
     };
 
     return (
@@ -261,27 +342,21 @@ const RecoveryPortal = () => {
                                     <div className={styles.cardBody}>
                                         <div className={styles.timingRow}>
                                             <FiClock aria-hidden="true" />
-                                            <span>Last contact: <strong>{m.lastContactDate}</strong></span>
-                                            <span>Next due: <strong>{m.nextCallDue}</strong></span>
-                                            <span>This month: <strong>{m.monthlyCallCount}/2</strong></span>
+                                            <span className={styles.timingItem}>Last contact: <strong>{m.lastContactDate}</strong></span>
+                                            <span className={styles.timingItem}>Next due: <strong>{m.nextCallDue}</strong></span>
+                                            <span className={styles.timingItem}>This month: <strong>{m.monthlyCallCount}/2</strong></span>
                                         </div>
 
                                         {m.plots.map(p => {
-                                            // UNIFIED FINANCIAL MATH:
-                                            // TOTAL VALUE = totalCost (active) or originalDebt (backlog baseline)
-                                            // AMOUNT OWED = totalCost + storageFees - amountPaid
-                                            const totalValue = Number(
-                                                p.isBacklog
-                                                    ? (p.originalDebt || p.totalCost || 0)
-                                                    : (p.totalCost || 0)
-                                            );
-                                            const amtPaid = Number(p.amountPaid || 0);
+                                            // CORRECT MATH:
+                                            // totalValue  = the true plot cost (totalCost from DTO, same as originalDebt for backlog)
+                                            // amtPaid     = what has been paid so far
+                                            // storageFees = accumulated fees (backlog only)
+                                            // amountOwed  = totalValue + storageFees - amtPaid
+                                            const totalValue  = Number(p.totalCost  || p.originalDebt || 0);
+                                            const amtPaid     = Number(p.amountPaid || 0);
                                             const storageFees = Number(p.storageFeesAccumulated || 0);
-                                            const amountOwed = Number(
-                                                p.isBacklog
-                                                    ? (p.totalBacklogOwed || Math.max(0, totalValue + storageFees - amtPaid))
-                                                    : (p.currentBalance || Math.max(0, totalValue - amtPaid))
-                                            );
+                                            const amountOwed  = Math.max(0, totalValue + storageFees - amtPaid);
 
                                             return (
                                             <div key={p.projectId} className={styles.plotSubCard}>
@@ -290,7 +365,7 @@ const RecoveryPortal = () => {
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
 
-                                                {/* LAST INTERACTION NOTE — notebook style */}
+                                                {/* Last interaction note — notebook style */}
                                                 {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
                                                     <div className={styles.interactionNote}>
                                                         <span className={styles.interactionNoteLabel}>LAST CONTACT NOTE</span>
@@ -298,7 +373,7 @@ const RecoveryPortal = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Financial breakdown: TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */}
+                                                {/* Financial breakdown */}
                                                 <div className={styles.finBreakdown}>
                                                     <div className={styles.finRow}>
                                                         <span className={styles.finLabel}>TOTAL VALUE</span>
@@ -347,19 +422,12 @@ const RecoveryPortal = () => {
                 </div>
             )}
 
-            {/* LOG CALL MODAL */}
+            {/* LOG CALL MODAL — textarea pre-filled with last note */}
             <HardwareModal
                 isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                onClose={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
                 title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
             >
-                {/* Last interaction note — notebook style */}
-                {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
-                    <div className={styles.modalInteractionNote}>
-                        <span className={styles.modalInteractionNoteLabel}>LAST INTERACTION NOTE</span>
-                        <p className={styles.modalInteractionNoteText}>{callModal.lastNote}</p>
-                    </div>
-                )}
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
                     <textarea
@@ -374,7 +442,7 @@ const RecoveryPortal = () => {
                     <button
                         type="button"
                         className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                        onClick={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
                     >
                         CANCEL
                     </button>
@@ -390,7 +458,9 @@ const RecoveryPortal = () => {
 export default RecoveryPortal;
 """
 
-# ── RecoveryPortal.module.css ────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
+# 3. FIX RecoveryPortal.module.css — high-contrast values, mobile HUD
+# ────────────────────────────────────────────────────────────────────
 RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
 
 .container {
@@ -468,41 +538,23 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     gap: clamp(4px, 0.5vw, 6px);
 }
 .modeActive {
-    background: #EE8C3A;
-    color: #1a2e30;
-    border: none;
+    background: #EE8C3A; color: #1a2e30; border: none;
     padding: clamp(7px, 0.9vw, 10px) clamp(12px, 1.5vw, 18px);
     border-radius: calc(var(--radius-sm) - 2px);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.7vw, 8px);
-    white-space: nowrap;
-    transition: background 0.2s;
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn);
+    letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.7vw, 8px);
+    white-space: nowrap; transition: background 0.2s;
 }
 .modeActive:hover { background: #f0a050; }
 .modeInactive {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.6);
-    border: none;
+    background: transparent; color: rgba(255, 255, 255, 0.6); border: none;
     padding: clamp(7px, 0.9vw, 10px) clamp(12px, 1.5vw, 18px);
     border-radius: calc(var(--radius-sm) - 2px);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.7vw, 8px);
-    white-space: nowrap;
-    transition: color 0.2s, background 0.2s;
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn);
+    letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.7vw, 8px);
+    white-space: nowrap; transition: color 0.2s, background 0.2s;
 }
 .modeInactive:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .modeActive:focus-visible, .modeInactive:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
@@ -576,100 +628,58 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
 }
 .searchInner:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18); }
 .searchIcon {
-    position: absolute;
-    left: clamp(10px, 1.2vw, 14px);
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--orange);
-    font-size: clamp(14px, 1.6vw, 18px);
-    pointer-events: none;
-    flex-shrink: 0;
+    position: absolute; left: clamp(10px, 1.2vw, 14px); top: 50%;
+    transform: translateY(-50%); color: var(--orange);
+    font-size: clamp(14px, 1.6vw, 18px); pointer-events: none; flex-shrink: 0;
 }
 .searchInput {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: #1a2e30;
-    padding: 0 clamp(10px, 1.2vw, 14px) 0 clamp(36px, 4.5vw, 44px) !important;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 800;
-    font-size: clamp(11px, 1.1vw, 13px);
-    height: 100%;
+    width: 100%; border: none; outline: none; background: transparent;
+    color: #1a2e30; padding: 0 clamp(10px, 1.2vw, 14px) 0 clamp(36px, 4.5vw, 44px) !important;
+    font-family: 'DM Sans', sans-serif; font-weight: 800;
+    font-size: clamp(11px, 1.1vw, 13px); height: 100%;
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26, 46, 48, 0.3); }
 
 /* Filter pills */
 .filterPills {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: clamp(6px, 0.9vw, 10px);
-    scrollbar-width: none;
-    padding-bottom: 2px;
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    gap: clamp(6px, 0.9vw, 10px); scrollbar-width: none; padding-bottom: 2px;
 }
 .filterPills::-webkit-scrollbar { display: none; }
 
 .filterPill {
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-    flex-shrink: 0;
+    background: rgba(26, 46, 48, 0.75); border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85); padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900;
+    font-size: var(--fs-btn); letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0;
 }
 .filterPill:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 .filterPillActive {
-    background: #EE8C3A !important;
-    color: #1a2e30 !important;
-    border-color: #EE8C3A !important;
-    box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
+    background: #EE8C3A !important; color: #1a2e30 !important;
+    border-color: #EE8C3A !important; box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
 }
 .filterPill:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* ── BADGE LEGEND ── */
 .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(12px, 1.8vw, 20px);
-    padding: clamp(6px, 0.8vw, 8px) 0;
-    margin-bottom: var(--gap-lg);
-    flex-shrink: 0;
+    display: flex; flex-wrap: wrap; gap: clamp(12px, 1.8vw, 20px);
+    padding: clamp(6px, 0.8vw, 8px) 0; margin-bottom: var(--gap-lg); flex-shrink: 0;
 }
 .legendItem {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 0.8vw, 8px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(9px, 0.9vw, 11px);
-    font-weight: 800;
-    color: rgba(26, 46, 48, 0.65);
-    white-space: nowrap;
+    display: flex; align-items: center; gap: clamp(6px, 0.8vw, 8px);
+    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 800; color: rgba(26, 46, 48, 0.65); white-space: nowrap;
 }
 
 /* ── MISSION GRID ── */
-.missionGrid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-lg);
-}
+.missionGrid { display: flex; flex-direction: column; gap: var(--gap-lg); }
 
 /* ── MISSION CARD ── */
 .missionCard {
-    background: var(--panel-bg);
-    border: 1.5px solid var(--panel-border);
-    border-radius: var(--radius);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-    overflow: hidden;
-    transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+    background: var(--panel-bg); border: 1.5px solid var(--panel-border);
+    border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+    overflow: hidden; transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
 }
 .missionCard:hover {
     border-color: rgba(238, 140, 58, 0.45);
@@ -684,71 +694,40 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
 
 /* Card header */
 .cardHeader {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(10px, 1.3vw, 14px);
+    display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px);
     padding: clamp(16px, 2.2vw, 24px) clamp(18px, 2.5vw, 28px);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.15s;
+    cursor: pointer; user-select: none; transition: background 0.15s;
 }
 .cardHeader:hover { background: rgba(255, 255, 255, 0.025); }
 
-/* Top row: plot ID + balance */
+/* Top row */
 .cardTopRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: clamp(10px, 1.4vw, 16px);
-    flex-wrap: wrap;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: clamp(10px, 1.4vw, 16px); flex-wrap: wrap;
 }
 .cardTopRowLeft {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1vw, 12px);
-    min-width: 0;
-    flex: 1;
+    display: flex; align-items: center; gap: clamp(8px, 1vw, 12px); min-width: 0; flex: 1;
 }
 .plotId {
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-value);
-    font-weight: 900;
-    color: var(--orange);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-family: 'Space Mono', monospace; font-size: var(--fs-value); font-weight: 900;
+    color: var(--orange); letter-spacing: 0.5px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
 }
 .backlogPill {
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.45);
-    color: #fca5a5;
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(7px, 0.75vw, 8px);
-    font-weight: 900;
-    padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fca5a5; font-family: 'DM Sans', sans-serif; font-size: clamp(7px, 0.75vw, 8px);
+    font-weight: 900; padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);
+    border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;
+    white-space: nowrap; flex-shrink: 0;
 }
 .balanceLine {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: clamp(2px, 0.3vw, 3px);
-    flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: clamp(2px, 0.3vw, 3px); flex-shrink: 0;
 }
 .balanceLabel {
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-label);
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.35);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-family: 'DM Sans', sans-serif; font-size: var(--fs-label); font-weight: 900;
+    color: rgba(255, 255, 255, 0.35); text-transform: uppercase; letter-spacing: 1px;
 }
-/* BOLD WHITE prominent total owed */
 .balanceVal {
     font-family: 'Space Mono', monospace;
     font-size: clamp(16px, 2vw, 22px);
@@ -756,100 +735,60 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     color: #fff;
     letter-spacing: 0.3px;
 }
-.balanceRed {
-    color: #fca5a5 !important;
-    text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
-}
+.balanceRed { color: #fca5a5 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
 
 /* Main row: owner + phone + actions */
 .cardMain {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
     gap: clamp(10px, 1.4vw, 16px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding-top: clamp(10px, 1.3vw, 14px);
-    flex-wrap: wrap;
+    padding-top: clamp(10px, 1.3vw, 14px); flex-wrap: wrap;
 }
-
-/* Owner + phone stacked together */
 .ownerPhoneBlock {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(4px, 0.5vw, 6px);
-    flex: 1;
-    min-width: 0;
+    display: flex; flex-direction: column; gap: clamp(4px, 0.5vw, 6px);
+    flex: 1; min-width: 0;
 }
-
-/* Owner name — large, bold */
+/* Owner name */
 .ownerLine {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
     font-weight: 900;
     color: rgba(255, 255, 255, 0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-transform: uppercase; letter-spacing: 0.3px;
 }
-
-/* Phone — SAME SIZE AND WEIGHT as owner name (the most important call tool) */
+/* Phone — EXACT SAME SIZE as owner name */
 .phoneLine {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
     font-weight: 900;
     color: var(--orange);
-    white-space: nowrap;
-    letter-spacing: 0.5px;
+    white-space: nowrap; letter-spacing: 0.5px;
 }
-
 .cardSideActions {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1.1vw, 12px);
-    flex-shrink: 0;
+    display: flex; align-items: center; gap: clamp(8px, 1.1vw, 12px); flex-shrink: 0;
 }
 .expandIcon {
-    color: rgba(255, 255, 255, 0.3);
-    font-size: clamp(16px, 1.8vw, 20px);
-    transition: color 0.2s;
-    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.3); font-size: clamp(16px, 1.8vw, 20px);
+    transition: color 0.2s; flex-shrink: 0;
 }
 .cardHeader:hover .expandIcon { color: var(--orange); }
 
 /* Log call button */
 .logCallBtnSmall {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.7vw, 7px);
-    height: clamp(34px, 4vw, 40px);
-    padding: 0 clamp(12px, 1.6vw, 18px);
-    background: #EE8C3A;
-    border: none;
-    color: #1a2e30;
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.7vw, 7px);
+    height: clamp(34px, 4vw, 40px); padding: 0 clamp(12px, 1.6vw, 18px);
+    background: #EE8C3A; border: none; color: #1a2e30;
+    border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900;
+    font-size: var(--fs-btn); text-transform: uppercase; letter-spacing: 1px;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
     transition: background 0.2s, box-shadow 0.2s;
     box-shadow: 0 3px 10px rgba(238, 140, 58, 0.3);
 }
-.logCallBtnSmall:hover:not(:disabled) {
-    background: #f0a050;
-    box-shadow: 0 0 18px rgba(238, 140, 58, 0.5);
-}
+.logCallBtnSmall:hover:not(:disabled) { background: #f0a050; box-shadow: 0 0 18px rgba(238, 140, 58, 0.5); }
 .logCallBtnSmall:disabled {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1.5px solid rgba(255, 255, 255, 0.12);
-    color: rgba(255, 255, 255, 0.3);
-    cursor: not-allowed;
-    box-shadow: none;
+    background: rgba(255, 255, 255, 0.08); border: 1.5px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.3); cursor: not-allowed; box-shadow: none;
 }
 .logCallBtnSmall:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
@@ -860,26 +799,34 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     background: rgba(0, 0, 0, 0.12);
 }
 
+/* ── TIMING ROW — high-contrast values ── */
 .timingRow {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    display: flex; align-items: center; flex-wrap: wrap;
     gap: clamp(8px, 1.2vw, 14px);
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06);
     padding: clamp(9px, 1.2vw, 12px) clamp(12px, 1.5vw, 16px);
     border-radius: var(--radius-sm);
     margin: clamp(12px, 1.6vw, 16px) 0;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'DM Sans', sans-serif; font-size: var(--fs-meta);
+    font-weight: 800; color: rgba(255, 255, 255, 0.45); letter-spacing: 0.3px;
+}
+/* Each timing item — muted label, pure white bold value */
+.timingItem {
+    color: rgba(255, 255, 255, 0.45);
     font-size: var(--fs-meta);
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.45);
-    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
-.timingRow strong { color: #fff; font-weight: 900; }
+.timingRow strong,
+.timingItem strong {
+    color: #ffffff;
+    font-weight: 900;
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-meta);
+}
 .timingRow svg { color: var(--orange); flex-shrink: 0; }
 
-/* ── INTERACTION NOTE — notebook style (white bg, navy text, orange left border) ── */
+/* ── INTERACTION NOTE — notebook style ── */
 .interactionNote {
     background: #ffffff;
     border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
@@ -892,20 +839,15 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     display: block;
     font-family: 'Space Mono', monospace;
     font-size: clamp(7px, 0.75vw, 9px);
-    font-weight: 900;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-weight: 900; color: #64748b;
+    text-transform: uppercase; letter-spacing: 1px;
     margin-bottom: clamp(3px, 0.4vw, 5px);
 }
 .interactionNoteText {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(11px, 1.05vw, 13px);
-    font-weight: 700;
-    color: #1a2e30;
-    line-height: 1.5;
-    margin: 0;
-    word-break: break-word;
+    font-weight: 700; color: #1a2e30;
+    line-height: 1.5; margin: 0; word-break: break-word;
 }
 
 /* ── PLOT SUB-CARD ── */
@@ -918,99 +860,73 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     margin-bottom: var(--gap-md);
     transition: border-color 0.2s, background 0.2s;
 }
-.plotSubCard:hover {
-    border-color: rgba(238, 140, 58, 0.5);
-    border-left-color: var(--orange);
-    background: rgba(255, 255, 255, 0.05);
-}
+.plotSubCard:hover { border-color: rgba(238, 140, 58, 0.5); border-left-color: var(--orange); background: rgba(255, 255, 255, 0.05); }
 .plotSubCard:last-child { margin-bottom: 0; }
 
 .plotSubCardHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
     margin-bottom: clamp(10px, 1.3vw, 14px);
     padding-bottom: clamp(8px, 1vw, 10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .plotSubCardTitle {
-    font-family: 'Space Mono', monospace;
-    color: var(--orange);
-    font-size: clamp(11px, 1.2vw, 14px);
-    font-weight: 900;
+    font-family: 'Space Mono', monospace; color: var(--orange);
+    font-size: clamp(11px, 1.2vw, 14px); font-weight: 900;
 }
 .plotSubCardBox {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(9px, 0.95vw, 10px);
-    color: rgba(255, 255, 255, 0.35);
-    font-weight: 700;
-    text-transform: uppercase;
+    font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 10px);
+    color: rgba(255, 255, 255, 0.35); font-weight: 700; text-transform: uppercase;
 }
 
-/* Financial breakdown — TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */
+/* ── FINANCIAL BREAKDOWN — high-contrast values ── */
 .finBreakdown {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(6px, 0.8vw, 9px);
+    display: flex; flex-direction: column; gap: clamp(6px, 0.8vw, 9px);
     margin-bottom: clamp(12px, 1.5vw, 16px);
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: var(--radius-sm);
     padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
 }
 .finRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
     gap: clamp(10px, 1.4vw, 16px);
 }
 .finRowTotal {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
     gap: clamp(10px, 1.4vw, 16px);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     padding-top: clamp(6px, 0.8vw, 9px);
     margin-top: clamp(3px, 0.4vw, 5px);
 }
+/* Labels: muted grey */
 .finLabel {
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-meta);
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    font-family: 'DM Sans', sans-serif; font-size: var(--fs-meta); font-weight: 800;
+    color: rgba(255, 255, 255, 0.4); text-transform: uppercase;
+    letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
 }
 .finLabelTotal {
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-meta);
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.55);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    font-family: 'DM Sans', sans-serif; font-size: var(--fs-meta); font-weight: 900;
+    color: rgba(255, 255, 255, 0.55); text-transform: uppercase;
+    letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
 }
+/* Values: PURE BOLD WHITE for maximum contrast */
 .finValWhite {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
-    font-weight: 700;
-    color: #fff;
+    font-weight: 900;
+    color: #ffffff;
     word-break: break-all;
 }
 .finValGreen {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
-    font-weight: 700;
+    font-weight: 900;
     color: #22c55e;
     word-break: break-all;
 }
 .finValOrange {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
-    font-weight: 700;
+    font-weight: 900;
     color: #EE8C3A;
     word-break: break-all;
 }
@@ -1024,110 +940,44 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
 }
 
 /* Expanded action buttons */
-.expandedActions {
-    display: flex;
-    gap: clamp(8px, 1.1vw, 12px);
-    flex-wrap: wrap;
-}
+.expandedActions { display: flex; gap: clamp(8px, 1.1vw, 12px); flex-wrap: wrap; }
 .folderBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    height: clamp(32px, 3.8vw, 38px);
-    padding: 0 clamp(12px, 1.5vw, 17px);
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.8);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.6vw, 7px);
+    height: clamp(32px, 3.8vw, 38px); padding: 0 clamp(12px, 1.5vw, 17px);
+    background: rgba(26, 46, 48, 0.75); border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.8); border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn);
+    text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+    white-space: nowrap; transition: all 0.2s;
 }
 .folderBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 .folderBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .payBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(5px, 0.6vw, 7px);
-    height: clamp(32px, 3.8vw, 38px);
-    padding: 0 clamp(12px, 1.5vw, 17px);
-    background: rgba(16, 185, 129, 0.12);
-    border: 1.5px solid rgba(16, 185, 129, 0.4);
-    color: #34d399;
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.6vw, 7px);
+    height: clamp(32px, 3.8vw, 38px); padding: 0 clamp(12px, 1.5vw, 17px);
+    background: rgba(16, 185, 129, 0.12); border: 1.5px solid rgba(16, 185, 129, 0.4);
+    color: #34d399; border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn);
+    text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+    white-space: nowrap; transition: all 0.2s;
 }
 .payBtn:hover { background: #10b981; color: #1a2e30; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .payBtn:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
-/* ── LOG CALL MODAL — notebook interaction note ── */
-.modalInteractionNote {
-    background: #ffffff;
-    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
-    border-radius: 0 4px 4px 0;
-    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
-    margin-bottom: clamp(14px, 1.8vw, 18px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-}
-.modalInteractionNoteLabel {
-    display: block;
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(7px, 0.75vw, 9px);
-    font-weight: 900;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: clamp(4px, 0.5vw, 7px);
-}
-.modalInteractionNoteText {
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(12px, 1.2vw, 14px);
-    font-weight: 700;
-    color: #1a2e30;
-    line-height: 1.55;
-    margin: 0;
-    word-break: break-word;
-    font-style: italic;
-}
-
 /* ── EMPTY / LOADING ── */
 .emptyState {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(10px, 1.5vw, 16px);
-    padding: clamp(48px, 8vh, 80px) 24px;
-    background: var(--panel-bg);
-    border: 1.5px solid var(--panel-border);
-    border-radius: var(--radius);
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-meta);
-    font-weight: 900;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(10px, 1.5vw, 16px); padding: clamp(48px, 8vh, 80px) 24px;
+    background: var(--panel-bg); border: 1.5px solid var(--panel-border);
+    border-radius: var(--radius); font-family: 'Space Mono', monospace;
+    font-size: var(--fs-meta); font-weight: 900; letter-spacing: 2px;
+    text-transform: uppercase; color: rgba(255, 255, 255, 0.2);
 }
 .emptyIcon { font-size: clamp(32px, 5vw, 48px); opacity: 0.18; }
 .loadingSpinner {
-    width: clamp(30px, 4vw, 40px);
-    height: clamp(30px, 4vw, 40px);
-    border: 3px solid rgba(238, 140, 58, 0.15);
-    border-top-color: #EE8C3A;
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
+    width: clamp(30px, 4vw, 40px); height: clamp(30px, 4vw, 40px);
+    border: 3px solid rgba(238, 140, 58, 0.15); border-top-color: #EE8C3A;
+    border-radius: 50%; animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -1136,22 +986,21 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     .finHUD { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* MOBILE: stack HUD cards vertically, center content */
+/* MOBILE: stack HUD cards cleanly in a single column */
 @media (max-width: 600px) {
     .finHUD {
         grid-template-columns: 1fr;
-        gap: clamp(8px, 2vw, 12px);
+        gap: clamp(8px, 2vw, 10px);
     }
     .finHUDCard {
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         align-items: center;
-        justify-content: space-between;
         padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px);
-        text-align: left;
     }
     .finHUDCard label {
-        font-size: clamp(8px, 2.5vw, 10px);
-        margin-bottom: 0;
+        font-size: clamp(9px, 2.5vw, 11px);
+        letter-spacing: 0.8px;
     }
     .finHUDCard strong {
         font-size: clamp(15px, 4.5vw, 19px);
@@ -1165,17 +1014,28 @@ RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module
     .expandedActions { flex-direction: column; }
     .folderBtn, .payBtn { width: 100%; justify-content: center; }
     .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
+    .searchInner { max-width: 100%; }
 }
 
 @media (max-width: 480px) {
-    .searchInner { max-width: 100%; }
-    .finHUD { grid-template-columns: 1fr; }
+    .finHUD {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
     .finHUDCard {
+        display: flex;
         flex-direction: column;
         align-items: flex-start;
+        padding: clamp(12px, 4vw, 16px);
+        gap: clamp(4px, 1vw, 6px);
+    }
+    .finHUDCard label {
+        font-size: clamp(9px, 3vw, 11px);
+    }
+    .finHUDCard strong {
+        font-size: clamp(16px, 5vw, 20px);
         text-align: left;
     }
-    .finHUDCard strong { font-size: clamp(16px, 5vw, 20px); }
 }
 """
 
@@ -1190,3 +1050,4 @@ write(
 )
 
 print("\n=== ALL DONE ===")
+git add -A && git commit -m 'new dcahnges3' && git push

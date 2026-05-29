@@ -33,7 +33,7 @@ const RecoveryPortal = () => {
     const [expandedId,   setExpandedId]   = useState(null);
     const [searchTerm,   setSearchTerm]   = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null, lastNote: '' });
+    const [callModal,    setCallModal]    = useState({ open: false, mission: null });
     const [logContent,   setLogContent]   = useState('');
     const [committing,   setCommitting]   = useState(false);
 
@@ -74,7 +74,7 @@ const RecoveryPortal = () => {
         setCommitting(true);
         try {
             await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
-            setCallModal({ open: false, mission: null, lastNote: '' });
+            setCallModal({ open: false, mission: null });
             setLogContent('');
             loadData();
         } catch { /* silent */ }
@@ -83,9 +83,12 @@ const RecoveryPortal = () => {
 
     const openCallModal = (e, plot) => {
         e.stopPropagation();
-        const lastNote = plot.lastInteractionNote || 'NO PRIOR CONTACT';
-        setCallModal({ open: true, mission: plot, lastNote });
-        setLogContent('');
+        // PRE-FILL textarea with the last interaction note so user can edit/append
+        const lastNote = plot.lastInteractionNote && plot.lastInteractionNote !== 'NO PRIOR CONTACT'
+            ? plot.lastInteractionNote
+            : '';
+        setCallModal({ open: true, mission: plot });
+        setLogContent(lastNote);
     };
 
     return (
@@ -250,27 +253,21 @@ const RecoveryPortal = () => {
                                     <div className={styles.cardBody}>
                                         <div className={styles.timingRow}>
                                             <FiClock aria-hidden="true" />
-                                            <span>Last contact: <strong>{m.lastContactDate}</strong></span>
-                                            <span>Next due: <strong>{m.nextCallDue}</strong></span>
-                                            <span>This month: <strong>{m.monthlyCallCount}/2</strong></span>
+                                            <span className={styles.timingItem}>Last contact: <strong>{m.lastContactDate}</strong></span>
+                                            <span className={styles.timingItem}>Next due: <strong>{m.nextCallDue}</strong></span>
+                                            <span className={styles.timingItem}>This month: <strong>{m.monthlyCallCount}/2</strong></span>
                                         </div>
 
                                         {m.plots.map(p => {
-                                            // UNIFIED FINANCIAL MATH:
-                                            // TOTAL VALUE = totalCost (active) or originalDebt (backlog baseline)
-                                            // AMOUNT OWED = totalCost + storageFees - amountPaid
-                                            const totalValue = Number(
-                                                p.isBacklog
-                                                    ? (p.originalDebt || p.totalCost || 0)
-                                                    : (p.totalCost || 0)
-                                            );
-                                            const amtPaid = Number(p.amountPaid || 0);
+                                            // CORRECT MATH:
+                                            // totalValue  = the true plot cost (totalCost from DTO, same as originalDebt for backlog)
+                                            // amtPaid     = what has been paid so far
+                                            // storageFees = accumulated fees (backlog only)
+                                            // amountOwed  = totalValue + storageFees - amtPaid
+                                            const totalValue  = Number(p.totalCost  || p.originalDebt || 0);
+                                            const amtPaid     = Number(p.amountPaid || 0);
                                             const storageFees = Number(p.storageFeesAccumulated || 0);
-                                            const amountOwed = Number(
-                                                p.isBacklog
-                                                    ? (p.totalBacklogOwed || Math.max(0, totalValue + storageFees - amtPaid))
-                                                    : (p.currentBalance || Math.max(0, totalValue - amtPaid))
-                                            );
+                                            const amountOwed  = Math.max(0, totalValue + storageFees - amtPaid);
 
                                             return (
                                             <div key={p.projectId} className={styles.plotSubCard}>
@@ -279,7 +276,7 @@ const RecoveryPortal = () => {
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
 
-                                                {/* LAST INTERACTION NOTE — notebook style */}
+                                                {/* Last interaction note — notebook style */}
                                                 {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
                                                     <div className={styles.interactionNote}>
                                                         <span className={styles.interactionNoteLabel}>LAST CONTACT NOTE</span>
@@ -287,7 +284,7 @@ const RecoveryPortal = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Financial breakdown: TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */}
+                                                {/* Financial breakdown */}
                                                 <div className={styles.finBreakdown}>
                                                     <div className={styles.finRow}>
                                                         <span className={styles.finLabel}>TOTAL VALUE</span>
@@ -336,19 +333,12 @@ const RecoveryPortal = () => {
                 </div>
             )}
 
-            {/* LOG CALL MODAL */}
+            {/* LOG CALL MODAL — textarea pre-filled with last note */}
             <HardwareModal
                 isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                onClose={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
                 title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
             >
-                {/* Last interaction note — notebook style */}
-                {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
-                    <div className={styles.modalInteractionNote}>
-                        <span className={styles.modalInteractionNoteLabel}>LAST INTERACTION NOTE</span>
-                        <p className={styles.modalInteractionNoteText}>{callModal.lastNote}</p>
-                    </div>
-                )}
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
                     <textarea
@@ -363,7 +353,7 @@ const RecoveryPortal = () => {
                     <button
                         type="button"
                         className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
+                        onClick={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
                     >
                         CANCEL
                     </button>

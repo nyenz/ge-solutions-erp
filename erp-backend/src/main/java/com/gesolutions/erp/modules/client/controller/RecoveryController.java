@@ -160,19 +160,23 @@ public class RecoveryController {
                             ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
 
                     summaryBuilder
+                            .totalCost(origDebt)
                             .originalDebt(origDebt)
                             .storageFeesAccumulated(fees)
                             .totalBacklogOwed(plotBalance)
                             .storageMonthsCount(months)
                             .storagePaused(plot.isStoragePaused())
                             .storageFeeOverride(plot.getStorageFeeOverride())
-                            .amountPaid(plot.getAmountPaid());
+                            .amountPaid(plot.getAmountPaid())
+                            .currentBalance(plotBalance);
 
                     totalOriginalDebt = totalOriginalDebt.add(origDebt);
                     totalStorageFees = totalStorageFees.add(fees);
                 } else {
+                    BigDecimal cost = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
                     summaryBuilder
-                            .totalCost(plot.getTotalCost())
+                            .totalCost(cost)
+                            .originalDebt(cost)
                             .amountPaid(plot.getAmountPaid())
                             .currentBalance(plotBalance);
                 }
