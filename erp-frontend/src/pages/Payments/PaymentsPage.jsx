@@ -3,9 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiDollarSign, FiSearch, FiX,
-    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw,
-    FiLayers, FiArrowUp, FiArrowDown, FiMaximize2,
-    FiDatabase, FiFileText
+    FiAlertOctagon, FiUser, FiRefreshCw,
+    FiLayers, FiArrowUp, FiArrowDown
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
@@ -14,42 +13,26 @@ import styles from './PaymentsPage.module.css';
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 const TYPE_LABELS = {
-    STANDARD:            'Title Payment',
-    INITIAL_DEPOSIT:     'Initial Deposit',
-    BACKLOG_PARTIAL:     'Backlog Payment',
+    STANDARD:        'Title Payment',
+    INITIAL_DEPOSIT: 'Initial Deposit',
+    BACKLOG_PARTIAL: 'Backlog Payment',
 };
 
 const TYPE_COLORS = {
-    STANDARD:            '#22c55e',
-    INITIAL_DEPOSIT:     '#06b6d4',
-    BACKLOG_PARTIAL:     '#ef4444',
-};
-
-const getAnalysis = (pay) => {
-    const amount = fmt(pay.amountPaid);
-    const balance = fmt(pay.balanceAfter);
-    switch (pay.paymentType) {
-        case 'INITIAL_DEPOSIT':
-            return `This was the initial deposit of UGX ${amount} paid during plot registration. It established the account and left a remaining title balance of UGX ${balance}.`;
-        case 'STANDARD':
-            return `This was a standard title payment of UGX ${amount} made toward the plot cost. It successfully reduced the remaining outstanding balance to UGX ${balance}.`;
-        case 'BACKLOG_PARTIAL':
-            return `This was a backlog storage fee payment of UGX ${amount}. It was applied toward accumulated penalty fees, leaving a total outstanding backlog balance of UGX ${balance}.`;
-        default:
-            return `A payment of UGX ${amount} was recorded. Remaining balance after this transaction: UGX ${balance}.`;
-    }
+    STANDARD:        '#22c55e',
+    INITIAL_DEPOSIT: '#06b6d4',
+    BACKLOG_PARTIAL: '#ef4444',
 };
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
-    const [payments,    setPayments]   = useState([]);
-    const [loading,     setLoading]    = useState(true);
-    const [searchTerm,  setSearchTerm] = useState('');
+    const [payments,   setPayments]   = useState([]);
+    const [loading,    setLoading]    = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [typeFilter,  setTypeFilter] = useState('ALL');
-    const [sortKey,     setSortKey]    = useState('date');
-    const [sortDir,     setSortDir]    = useState('desc');
-    const [expandedId,  setExpandedId] = useState(null);
+    const [typeFilter, setTypeFilter] = useState('ALL');
+    const [sortKey,    setSortKey]    = useState('date');
+    const [sortDir,    setSortDir]    = useState('desc');
 
     const loadPayments = useCallback(async () => {
         setLoading(true);
@@ -106,8 +89,10 @@ const PaymentsPage = () => {
             : <FiArrowDown style={{display:'inline',marginLeft:3,fontSize:10,color:'#fff'}} />;
     };
 
-    const handleRowClick = (payId) => {
-        setExpandedId(prev => prev === payId ? null : payId);
+    const handleRowClick = (pay) => {
+        if (pay.projectId) {
+            navigate(`/folder/${pay.projectId}#payment-${pay.id}`);
+        }
     };
 
     return (
@@ -199,7 +184,7 @@ const PaymentsPage = () => {
                                     </th>
                                     <th>BALANCE AFTER</th>
                                     <th>RECORDED BY</th>
-                                    <th></th>
+                                    <th>NOTES</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -212,108 +197,52 @@ const PaymentsPage = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filtered.map((pay, i) => {
-                                    const isExpanded = expandedId === (pay.id || i);
-                                    return (
-                                        <React.Fragment key={pay.id || i}>
-                                            <tr
-                                                onClick={() => handleRowClick(pay.id || i)}
-                                                tabIndex={0}
-                                                role="row"
-                                                aria-expanded={isExpanded}
-                                                className={`${styles.dataRow} ${isExpanded ? styles.dataRowExpanded : ''}`}
-                                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(pay.id || i); } }}
-                                            >
-                                                <td>
-                                                    <div className={styles.dateCell}>
-                                                        <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
-                                                        <span className={styles.time}>
-                                                            {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
-                                                </td>
-                                                <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
-                                                <td>
-                                                    <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
-                                                        {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
-                                                        {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
-                                                        UGX {fmt(pay.amountPaid)}
-                                                    </strong>
-                                                </td>
-                                                <td className={styles.balance}>
-                                                    {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
-                                                </td>
-                                                <td>
-                                                    <span className={styles.recorder}>
-                                                        <FiUser size={10} /> {pay.recordedBy}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className={`${styles.inspectIcon} ${isExpanded ? styles.inspectIconOpen : ''}`} aria-hidden="true">
-                                                        {isExpanded ? <FiX size={14} /> : <FiMaximize2 size={14} />}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {isExpanded && (
-                                                <tr className={styles.drawerRow}>
-                                                    <td colSpan="8" className={styles.drawerCell}>
-                                                        <div className={styles.drawerInner}>
-                                                            <div className={styles.drawerHeader}>
-                                                                <FiDatabase aria-hidden="true" />
-                                                                <span>PAYMENT DETAILS &amp; ANALYSIS</span>
-                                                            </div>
-                                                            <div className={styles.drawerBody}>
-                                                                <div className={styles.analysisText}>
-                                                                    <FiFileText className={styles.analysisIcon} aria-hidden="true" />
-                                                                    <p>{getAnalysis(pay)}</p>
-                                                                </div>
-                                                                <div className={styles.drawerMeta}>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>RECORDED BY</span>
-                                                                        <span className={styles.drawerMetaValue}>{pay.recordedBy}</span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>EXACT TIMESTAMP</span>
-                                                                        <span className={styles.drawerMetaValue}>
-                                                                            {new Date(pay.timestamp).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>TRANSACTION NOTES</span>
-                                                                        <span className={styles.drawerMetaValue}>{pay.notes || 'No notes recorded.'}</span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>PAYMENT TYPE</span>
-                                                                        <span className={styles.drawerMetaValue} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
-                                                                            {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                {pay.projectId && (
-                                                                    <div className={styles.drawerActions}>
-                                                                        <button
-                                                                            className={styles.goBtn}
-                                                                            onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}
-                                                                        >
-                                                                            <FiChevronRight size={12} /> OPEN FOLDER
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
+                                ) : filtered.map((pay, i) => (
+                                    <tr
+                                        key={pay.id || i}
+                                        onClick={() => handleRowClick(pay)}
+                                        tabIndex={0}
+                                        role="row"
+                                        className={styles.dataRow}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(pay); } }}
+                                        title={pay.projectId ? 'Click to open folder' : ''}
+                                    >
+                                        <td>
+                                            <div className={styles.dateCell}>
+                                                <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
+                                                <span className={styles.time}>
+                                                    {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
+                                        </td>
+                                        <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
+                                        <td>
+                                            <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
+                                                {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
+                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
+                                                UGX {fmt(pay.amountPaid)}
+                                            </strong>
+                                        </td>
+                                        <td className={styles.balance}>
+                                            {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
+                                        </td>
+                                        <td>
+                                            <span className={styles.recorder}>
+                                                <FiUser size={10} /> {pay.recordedBy}
+                                            </span>
+                                        </td>
+                                        <td className={styles.notesCell}>
+                                            {pay.notes || '---'}
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>

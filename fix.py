@@ -1,13 +1,12 @@
 import os
 
-PAYMENTS_JSX = r"""// PATH: erp-frontend/src/pages/Payments/PaymentsPage.jsx
+payments_jsx = r'''// PATH: erp-frontend/src/pages/Payments/PaymentsPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiDollarSign, FiSearch, FiX,
-    FiChevronRight, FiAlertOctagon, FiUser, FiRefreshCw,
-    FiLayers, FiArrowUp, FiArrowDown, FiMaximize2,
-    FiDatabase, FiFileText
+    FiAlertOctagon, FiUser, FiRefreshCw,
+    FiLayers, FiArrowUp, FiArrowDown
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
@@ -16,42 +15,26 @@ import styles from './PaymentsPage.module.css';
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 const TYPE_LABELS = {
-    STANDARD:            'Title Payment',
-    INITIAL_DEPOSIT:     'Initial Deposit',
-    BACKLOG_PARTIAL:     'Backlog Payment',
+    STANDARD:        'Title Payment',
+    INITIAL_DEPOSIT: 'Initial Deposit',
+    BACKLOG_PARTIAL: 'Backlog Payment',
 };
 
 const TYPE_COLORS = {
-    STANDARD:            '#22c55e',
-    INITIAL_DEPOSIT:     '#06b6d4',
-    BACKLOG_PARTIAL:     '#ef4444',
-};
-
-const getAnalysis = (pay) => {
-    const amount = fmt(pay.amountPaid);
-    const balance = fmt(pay.balanceAfter);
-    switch (pay.paymentType) {
-        case 'INITIAL_DEPOSIT':
-            return `This was the initial deposit of UGX ${amount} paid during plot registration. It established the account and left a remaining title balance of UGX ${balance}.`;
-        case 'STANDARD':
-            return `This was a standard title payment of UGX ${amount} made toward the plot cost. It successfully reduced the remaining outstanding balance to UGX ${balance}.`;
-        case 'BACKLOG_PARTIAL':
-            return `This was a backlog storage fee payment of UGX ${amount}. It was applied toward accumulated penalty fees, leaving a total outstanding backlog balance of UGX ${balance}.`;
-        default:
-            return `A payment of UGX ${amount} was recorded. Remaining balance after this transaction: UGX ${balance}.`;
-    }
+    STANDARD:        '#22c55e',
+    INITIAL_DEPOSIT: '#06b6d4',
+    BACKLOG_PARTIAL: '#ef4444',
 };
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
-    const [payments,    setPayments]   = useState([]);
-    const [loading,     setLoading]    = useState(true);
-    const [searchTerm,  setSearchTerm] = useState('');
+    const [payments,   setPayments]   = useState([]);
+    const [loading,    setLoading]    = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [typeFilter,  setTypeFilter] = useState('ALL');
-    const [sortKey,     setSortKey]    = useState('date');
-    const [sortDir,     setSortDir]    = useState('desc');
-    const [expandedId,  setExpandedId] = useState(null);
+    const [typeFilter, setTypeFilter] = useState('ALL');
+    const [sortKey,    setSortKey]    = useState('date');
+    const [sortDir,    setSortDir]    = useState('desc');
 
     const loadPayments = useCallback(async () => {
         setLoading(true);
@@ -108,8 +91,10 @@ const PaymentsPage = () => {
             : <FiArrowDown style={{display:'inline',marginLeft:3,fontSize:10,color:'#fff'}} />;
     };
 
-    const handleRowClick = (payId) => {
-        setExpandedId(prev => prev === payId ? null : payId);
+    const handleRowClick = (pay) => {
+        if (pay.projectId) {
+            navigate(`/folder/${pay.projectId}#payment-${pay.id}`);
+        }
     };
 
     return (
@@ -201,7 +186,7 @@ const PaymentsPage = () => {
                                     </th>
                                     <th>BALANCE AFTER</th>
                                     <th>RECORDED BY</th>
-                                    <th></th>
+                                    <th>NOTES</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -214,108 +199,52 @@ const PaymentsPage = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filtered.map((pay, i) => {
-                                    const isExpanded = expandedId === (pay.id || i);
-                                    return (
-                                        <React.Fragment key={pay.id || i}>
-                                            <tr
-                                                onClick={() => handleRowClick(pay.id || i)}
-                                                tabIndex={0}
-                                                role="row"
-                                                aria-expanded={isExpanded}
-                                                className={`${styles.dataRow} ${isExpanded ? styles.dataRowExpanded : ''}`}
-                                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(pay.id || i); } }}
-                                            >
-                                                <td>
-                                                    <div className={styles.dateCell}>
-                                                        <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
-                                                        <span className={styles.time}>
-                                                            {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
-                                                </td>
-                                                <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
-                                                <td>
-                                                    <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
-                                                        {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
-                                                        {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
-                                                        UGX {fmt(pay.amountPaid)}
-                                                    </strong>
-                                                </td>
-                                                <td className={styles.balance}>
-                                                    {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
-                                                </td>
-                                                <td>
-                                                    <span className={styles.recorder}>
-                                                        <FiUser size={10} /> {pay.recordedBy}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className={`${styles.inspectIcon} ${isExpanded ? styles.inspectIconOpen : ''}`} aria-hidden="true">
-                                                        {isExpanded ? <FiX size={14} /> : <FiMaximize2 size={14} />}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {isExpanded && (
-                                                <tr className={styles.drawerRow}>
-                                                    <td colSpan="8" className={styles.drawerCell}>
-                                                        <div className={styles.drawerInner}>
-                                                            <div className={styles.drawerHeader}>
-                                                                <FiDatabase aria-hidden="true" />
-                                                                <span>PAYMENT DETAILS &amp; ANALYSIS</span>
-                                                            </div>
-                                                            <div className={styles.drawerBody}>
-                                                                <div className={styles.analysisText}>
-                                                                    <FiFileText className={styles.analysisIcon} aria-hidden="true" />
-                                                                    <p>{getAnalysis(pay)}</p>
-                                                                </div>
-                                                                <div className={styles.drawerMeta}>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>RECORDED BY</span>
-                                                                        <span className={styles.drawerMetaValue}>{pay.recordedBy}</span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>EXACT TIMESTAMP</span>
-                                                                        <span className={styles.drawerMetaValue}>
-                                                                            {new Date(pay.timestamp).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>TRANSACTION NOTES</span>
-                                                                        <span className={styles.drawerMetaValue}>{pay.notes || 'No notes recorded.'}</span>
-                                                                    </div>
-                                                                    <div className={styles.drawerMetaItem}>
-                                                                        <span className={styles.drawerMetaLabel}>PAYMENT TYPE</span>
-                                                                        <span className={styles.drawerMetaValue} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
-                                                                            {TYPE_LABELS[pay.paymentType] || pay.paymentType}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                {pay.projectId && (
-                                                                    <div className={styles.drawerActions}>
-                                                                        <button
-                                                                            className={styles.goBtn}
-                                                                            onClick={e => { e.stopPropagation(); navigate(`/folder/${pay.projectId}#payment-${pay.id}`); }}
-                                                                        >
-                                                                            <FiChevronRight size={12} /> OPEN FOLDER
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
+                                ) : filtered.map((pay, i) => (
+                                    <tr
+                                        key={pay.id || i}
+                                        onClick={() => handleRowClick(pay)}
+                                        tabIndex={0}
+                                        role="row"
+                                        className={styles.dataRow}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(pay); } }}
+                                        title={pay.projectId ? 'Click to open folder' : ''}
+                                    >
+                                        <td>
+                                            <div className={styles.dateCell}>
+                                                <span>{new Date(pay.timestamp).toLocaleDateString()}</span>
+                                                <span className={styles.time}>
+                                                    {new Date(pay.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <strong className={styles.plotNum}>{pay.plotNumber || '---'}</strong>
+                                        </td>
+                                        <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
+                                        <td>
+                                            <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
+                                                {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
+                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong className={styles.amount} style={{ color: TYPE_COLORS[pay.paymentType] || '#fff' }}>
+                                                UGX {fmt(pay.amountPaid)}
+                                            </strong>
+                                        </td>
+                                        <td className={styles.balance}>
+                                            {pay.balanceAfter != null ? `UGX ${fmt(pay.balanceAfter)}` : '---'}
+                                        </td>
+                                        <td>
+                                            <span className={styles.recorder}>
+                                                <FiUser size={10} /> {pay.recordedBy}
+                                            </span>
+                                        </td>
+                                        <td className={styles.notesCell}>
+                                            {pay.notes || '---'}
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -327,9 +256,10 @@ const PaymentsPage = () => {
 };
 
 export default PaymentsPage;
-"""
+'''
 
-PAYMENTS_CSS = """.container {
+payments_css = r'''/* PATH: erp-frontend/src/pages/Payments/PaymentsPage.module.css */
+.container {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
     --orange-border: rgba(238, 140, 58, 0.28);
@@ -474,9 +404,7 @@ PAYMENTS_CSS = """.container {
     height: 100%;
     transition: padding 0.2s ease;
 }
-.searchInputActive {
-    padding-left: 14px !important;
-}
+.searchInputActive { padding-left: 14px !important; }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn {
     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -533,8 +461,6 @@ PAYMENTS_CSS = """.container {
     margin: -30px;
     margin-bottom: -30px;
     -webkit-overflow-scrolling: touch;
-    flex: 1;
-    min-height: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--orange) transparent;
 }
@@ -560,7 +486,6 @@ PAYMENTS_CSS = """.container {
     text-transform: uppercase;
     letter-spacing: 2px;
     border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238,140,58,0.15);
     white-space: nowrap;
     user-select: none;
     position: sticky;
@@ -581,7 +506,6 @@ PAYMENTS_CSS = """.container {
     font-size: var(--fs-td);
 }
 
-/* DATA ROW — clickable, no immediate navigation */
 .dataRow {
     cursor: pointer;
     transition: background 0.18s, border-left-color 0.18s;
@@ -589,7 +513,7 @@ PAYMENTS_CSS = """.container {
     outline: none;
 }
 .dataRow:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.05);
     border-left-color: var(--orange);
 }
 .dataRow:focus-visible {
@@ -597,123 +521,6 @@ PAYMENTS_CSS = """.container {
     border-left-color: var(--orange);
     outline: 2px solid var(--orange);
     outline-offset: -2px;
-}
-.dataRowExpanded {
-    background: rgba(238, 140, 58, 0.06);
-    border-left-color: var(--orange);
-}
-
-/* INSPECT ICON */
-.inspectIcon {
-    color: rgba(255,255,255,0.2);
-    font-size: clamp(14px,1.5vw,17px);
-    transition: color 0.18s, transform 0.25s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.dataRow:hover .inspectIcon { color: var(--orange); }
-.inspectIconOpen { color: var(--orange) !important; }
-
-/* DRAWER ROW */
-.drawerRow {
-    background: #0a0a0a;
-}
-.drawerRow td {
-    border-bottom: 2px solid rgba(238, 140, 58, 0.2);
-    padding: 0 !important;
-}
-.drawerCell { padding: 0 !important; }
-
-.drawerInner {
-    border-top: 1px solid rgba(255,255,255,0.08);
-    overflow: hidden;
-}
-
-.drawerHeader {
-    display: flex;
-    align-items: center;
-    gap: clamp(7px, 0.9vw, 10px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-label);
-    font-weight: 900;
-    color: #4ade80;
-    letter-spacing: 2px;
-    padding: clamp(10px, 1.3vw, 13px) clamp(14px, 1.8vw, 22px);
-    text-transform: uppercase;
-    background: rgba(0,0,0,0.4);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.drawerHeader svg { color: #4ade80; flex-shrink: 0; }
-
-.drawerBody {
-    padding: clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 22px);
-    display: flex;
-    flex-direction: column;
-    gap: clamp(14px, 1.8vw, 20px);
-}
-
-/* Analysis text block — plain English explanation */
-.analysisText {
-    display: flex;
-    align-items: flex-start;
-    gap: clamp(10px, 1.3vw, 14px);
-    padding: clamp(12px, 1.5vw, 16px) clamp(14px, 1.8vw, 18px);
-    background: rgba(238, 140, 58, 0.05);
-    border: 1px solid rgba(238, 140, 58, 0.2);
-    border-left: clamp(3px, 0.4vw, 4px) solid var(--orange);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-.analysisIcon {
-    color: var(--orange);
-    font-size: clamp(15px, 1.6vw, 18px);
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-.analysisText p {
-    margin: 0;
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(12px, 1.2vw, 14px);
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.82);
-    line-height: 1.65;
-}
-
-/* Meta grid */
-.drawerMeta {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 20vw, 220px), 1fr));
-    gap: clamp(10px, 1.3vw, 14px);
-}
-.drawerMetaItem {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(4px, 0.5vw, 6px);
-    border-left: 2px solid rgba(238,140,58,0.25);
-    padding-left: clamp(8px, 1vw, 11px);
-}
-.drawerMetaLabel {
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-label);
-    font-weight: 900;
-    color: rgba(255,255,255,0.3);
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-}
-.drawerMetaValue {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(10px, 1.05vw, 12px);
-    font-weight: 700;
-    color: #fff;
-    word-break: break-word;
-    line-height: 1.4;
-}
-
-/* Drawer action buttons */
-.drawerActions {
-    display: flex;
-    gap: clamp(8px, 1.1vw, 12px);
-    flex-wrap: wrap;
 }
 
 /* CELL TYPES */
@@ -730,25 +537,12 @@ PAYMENTS_CSS = """.container {
     text-transform: uppercase;
     white-space: nowrap;
     letter-spacing: 0.5px;
-    background: transparent !important;
-    border: none !important;
-    padding: 0;
 }
 .amount { font-family: 'Space Mono', monospace; font-size: var(--fs-value); font-weight: 700; }
 .balance { font-family: 'Space Mono', monospace; font-size: var(--fs-meta); color: rgba(255,255,255,0.5); }
 .recorder { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: rgba(255,255,255,0.6); }
+.notesCell { font-size: var(--fs-meta); color: rgba(255,255,255,0.45); font-style: italic; max-width: clamp(120px, 16vw, 200px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.goBtn {
-    background: rgba(238,140,58,0.1); border: 1.5px solid rgba(238,140,58,0.35);
-    color: #EE8C3A; border-radius: var(--radius-sm); padding: clamp(7px,0.9vw,10px) clamp(14px,1.8vw,20px);
-    cursor: pointer; display: flex; align-items: center; gap: 6px;
-    transition: all 0.2s; font-size: var(--fs-btn); font-weight: 900;
-    font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
-}
-.goBtn:hover { background: #EE8C3A; color: #1a2e30; box-shadow: 0 0 14px rgba(238,140,58,0.35); }
-.goBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-
-.sortArrow { color: #fff; font-size: 10px; opacity: 0.9; margin-left: 3px; }
 .sortArrowInactive { color: rgba(255,255,255,0.25); font-size: 10px; margin-left: 3px; }
 
 /* NO RECORDS */
@@ -774,7 +568,6 @@ PAYMENTS_CSS = """.container {
     background: var(--panel-bg);
     border: 1.5px solid var(--orange-border);
     border-radius: var(--radius);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.15);
     padding: clamp(40px, 6vw, 70px) 20px;
     display: flex; align-items: center; justify-content: center;
 }
@@ -793,15 +586,12 @@ PAYMENTS_CSS = """.container {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* RESPONSIVE */
-@media (max-width: 900px) {
-    .summaryRow { grid-template-columns: repeat(3, 1fr); }
-}
+@media (max-width: 900px) { .summaryRow { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) {
     .summaryRow { grid-template-columns: 1fr; gap: 8px; }
     .searchWrap { max-width: 100%; }
     .filterRow { gap: 6px; }
     .ledgerTable { min-width: 650px; }
-    .drawerMeta { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 480px) {
     .summaryRow { grid-template-columns: 1fr 1fr; }
@@ -810,21 +600,16 @@ PAYMENTS_CSS = """.container {
     .ledgerTable th { font-size: 7px; letter-spacing: 1px; }
     .ledgerTable td { padding: 8px; }
     .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
-    .drawerMeta { grid-template-columns: 1fr; }
-    .drawerBody { padding: 12px; }
 }
-"""
+'''
 
-base = os.path.join('erp-frontend', 'src', 'pages', 'Payments')
+base = 'erp-frontend/src/pages/Payments'
 os.makedirs(base, exist_ok=True)
 
-jsx_path = os.path.join(base, 'PaymentsPage.jsx')
-css_path = os.path.join(base, 'PaymentsPage.module.css')
+with open(os.path.join(base, 'PaymentsPage.jsx'), 'w', encoding='utf-8', newline='\n') as f:
+    f.write(payments_jsx)
+print('OK: PaymentsPage.jsx')
 
-with open(jsx_path, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(PAYMENTS_JSX)
-print(f'OK: {jsx_path}')
-
-with open(css_path, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(PAYMENTS_CSS)
-print(f'OK: {css_path}')
+with open(os.path.join(base, 'PaymentsPage.module.css'), 'w', encoding='utf-8', newline='\n') as f:
+    f.write(payments_css)
+print('OK: PaymentsPage.module.css')git add -A && git commit -m "feat 1 - PaymentsPage" && git push
