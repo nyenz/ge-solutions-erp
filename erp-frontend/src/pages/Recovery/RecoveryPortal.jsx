@@ -256,9 +256,22 @@ const RecoveryPortal = () => {
                                         </div>
 
                                         {m.plots.map(p => {
-                                            const totalCost  = Number(p.isBacklog ? (Number(p.originalDebt || 0)) : (p.totalCost || 0));
-                                            const amtPaid    = Number(p.amountPaid || 0);
-                                            const amtUnpaid  = Number(p.isBacklog ? p.totalBacklogOwed : p.currentBalance) || 0;
+                                            // UNIFIED FINANCIAL MATH:
+                                            // TOTAL VALUE = totalCost (active) or originalDebt (backlog baseline)
+                                            // AMOUNT OWED = totalCost + storageFees - amountPaid
+                                            const totalValue = Number(
+                                                p.isBacklog
+                                                    ? (p.originalDebt || p.totalCost || 0)
+                                                    : (p.totalCost || 0)
+                                            );
+                                            const amtPaid = Number(p.amountPaid || 0);
+                                            const storageFees = Number(p.storageFeesAccumulated || 0);
+                                            const amountOwed = Number(
+                                                p.isBacklog
+                                                    ? (p.totalBacklogOwed || Math.max(0, totalValue + storageFees - amtPaid))
+                                                    : (p.currentBalance || Math.max(0, totalValue - amtPaid))
+                                            );
+
                                             return (
                                             <div key={p.projectId} className={styles.plotSubCard}>
                                                 <div className={styles.plotSubCardHeader}>
@@ -266,19 +279,33 @@ const RecoveryPortal = () => {
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
 
-                                                {/* Financial breakdown */}
+                                                {/* LAST INTERACTION NOTE — notebook style */}
+                                                {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
+                                                    <div className={styles.interactionNote}>
+                                                        <span className={styles.interactionNoteLabel}>LAST CONTACT NOTE</span>
+                                                        <p className={styles.interactionNoteText}>{p.lastInteractionNote}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Financial breakdown: TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */}
                                                 <div className={styles.finBreakdown}>
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>Total Cost</span>
-                                                        <span className={styles.finValWhite}>UGX {fmt(totalCost)}</span>
+                                                        <span className={styles.finLabel}>TOTAL VALUE</span>
+                                                        <span className={styles.finValWhite}>UGX {fmt(totalValue)}</span>
                                                     </div>
+                                                    {p.isBacklog && storageFees > 0 && (
+                                                        <div className={styles.finRow}>
+                                                            <span className={styles.finLabel}>+ STORAGE FEES</span>
+                                                            <span className={styles.finValOrange}>UGX {fmt(storageFees)}</span>
+                                                        </div>
+                                                    )}
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>Paid</span>
+                                                        <span className={styles.finLabel}>PAID</span>
                                                         <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
                                                     </div>
                                                     <div className={styles.finRowTotal}>
-                                                        <span className={styles.finLabelTotal}>Amount Unpaid</span>
-                                                        <span className={styles.finValRed}>UGX {fmt(amtUnpaid)}</span>
+                                                        <span className={styles.finLabelTotal}>AMOUNT OWED</span>
+                                                        <span className={styles.finValRed}>UGX {fmt(amountOwed)}</span>
                                                     </div>
                                                 </div>
 
@@ -315,15 +342,11 @@ const RecoveryPortal = () => {
                 onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
                 title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
             >
-                {/* Last interaction note shown at top */}
+                {/* Last interaction note — notebook style */}
                 {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
-                    <div className={modalStyles.modalInfoBox} style={{ marginBottom: '14px' }}>
-                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
-                            LAST INTERACTION NOTE
-                        </div>
-                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, fontStyle: 'italic' }}>
-                            "{callModal.lastNote}"
-                        </div>
+                    <div className={styles.modalInteractionNote}>
+                        <span className={styles.modalInteractionNoteLabel}>LAST INTERACTION NOTE</span>
+                        <p className={styles.modalInteractionNoteText}>{callModal.lastNote}</p>
                     </div>
                 )}
                 <div className={modalStyles.modalField}>

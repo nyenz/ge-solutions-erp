@@ -355,14 +355,18 @@
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+/* BOLD WHITE prominent total owed */
 .balanceVal {
     font-family: 'Space Mono', monospace;
-    font-size: clamp(14px, 1.8vw, 20px);
+    font-size: clamp(16px, 2vw, 22px);
     font-weight: 900;
     color: #fff;
     letter-spacing: 0.3px;
 }
-.balanceRed { color: #fca5a5 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+.balanceRed {
+    color: #fca5a5 !important;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
 
 /* Main row: owner + phone + actions */
 .cardMain {
@@ -379,11 +383,12 @@
 .ownerPhoneBlock {
     display: flex;
     flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
+    gap: clamp(4px, 0.5vw, 6px);
     flex: 1;
     min-width: 0;
 }
 
+/* Owner name — large, bold */
 .ownerLine {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
@@ -395,7 +400,8 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
-/* Phone number — large, bold, high visibility */
+
+/* Phone — SAME SIZE AND WEIGHT as owner name (the most important call tool) */
 .phoneLine {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
@@ -404,6 +410,7 @@
     white-space: nowrap;
     letter-spacing: 0.5px;
 }
+
 .cardSideActions {
     display: flex;
     align-items: center;
@@ -479,6 +486,35 @@
 .timingRow strong { color: #fff; font-weight: 900; }
 .timingRow svg { color: var(--orange); flex-shrink: 0; }
 
+/* ── INTERACTION NOTE — notebook style (white bg, navy text, orange left border) ── */
+.interactionNote {
+    background: #ffffff;
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 4px 4px 0;
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+    margin-bottom: var(--gap-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.interactionNoteLabel {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(3px, 0.4vw, 5px);
+}
+.interactionNoteText {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(11px, 1.05vw, 13px);
+    font-weight: 700;
+    color: #1a2e30;
+    line-height: 1.5;
+    margin: 0;
+    word-break: break-word;
+}
+
 /* ── PLOT SUB-CARD ── */
 .plotSubCard {
     background: rgba(255, 255, 255, 0.03);
@@ -518,7 +554,7 @@
     text-transform: uppercase;
 }
 
-/* Financial breakdown — clean aligned rows */
+/* Financial breakdown — TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */
 .finBreakdown {
     display: flex;
     flex-direction: column;
@@ -576,6 +612,13 @@
     font-size: var(--fs-td);
     font-weight: 700;
     color: #22c55e;
+    word-break: break-all;
+}
+.finValOrange {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
+    font-weight: 700;
+    color: #EE8C3A;
     word-break: break-all;
 }
 .finValRed {
@@ -636,6 +679,36 @@
 .payBtn:hover { background: #10b981; color: #1a2e30; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .payBtn:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
+/* ── LOG CALL MODAL — notebook interaction note ── */
+.modalInteractionNote {
+    background: #ffffff;
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 4px 4px 0;
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    margin-bottom: clamp(14px, 1.8vw, 18px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.modalInteractionNoteLabel {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(4px, 0.5vw, 7px);
+}
+.modalInteractionNoteText {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    color: #1a2e30;
+    line-height: 1.55;
+    margin: 0;
+    word-break: break-word;
+    font-style: italic;
+}
+
 /* ── EMPTY / LOADING ── */
 .emptyState {
     display: flex;
@@ -669,12 +742,28 @@
 @media (max-width: 900px) {
     .finHUD { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 640px) {
-    /* Stack HUD cards vertically on mobile */
-    .finHUD { grid-template-columns: 1fr; gap: 8px; }
-    .finHUDCard { flex-direction: row; justify-content: space-between; align-items: center; padding: clamp(12px,3vw,16px); }
-    .finHUDCard label { margin-bottom: 0; }
-    .finHUDCard strong { font-size: clamp(14px, 4vw, 18px); }
+
+/* MOBILE: stack HUD cards vertically, center content */
+@media (max-width: 600px) {
+    .finHUD {
+        grid-template-columns: 1fr;
+        gap: clamp(8px, 2vw, 12px);
+    }
+    .finHUDCard {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px);
+        text-align: left;
+    }
+    .finHUDCard label {
+        font-size: clamp(8px, 2.5vw, 10px);
+        margin-bottom: 0;
+    }
+    .finHUDCard strong {
+        font-size: clamp(15px, 4.5vw, 19px);
+        text-align: right;
+    }
     .cardTopRow { flex-direction: column; align-items: flex-start; gap: 8px; }
     .balanceLine { align-items: flex-start; }
     .cardMain { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -682,11 +771,16 @@
     .logCallBtnSmall { flex: 1; justify-content: center; }
     .expandedActions { flex-direction: column; }
     .folderBtn, .payBtn { width: 100%; justify-content: center; }
+    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }
+
 @media (max-width: 480px) {
     .searchInner { max-width: 100%; }
     .finHUD { grid-template-columns: 1fr; }
-    .finHUDCard { flex-direction: column; align-items: flex-start; }
+    .finHUDCard {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
     .finHUDCard strong { font-size: clamp(16px, 5vw, 20px); }
-    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }

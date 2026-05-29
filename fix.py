@@ -3,14 +3,13 @@ import os
 def write(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content.strip() + '\n')
+        f.write(content)
     print(f"OK: {path}")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
 # ── RecoveryPortal.jsx ───────────────────────────────────────────────
-write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx'), """
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+RECOVERY_JSX = r"""import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -268,9 +267,22 @@ const RecoveryPortal = () => {
                                         </div>
 
                                         {m.plots.map(p => {
-                                            const totalCost  = Number(p.isBacklog ? (Number(p.originalDebt || 0)) : (p.totalCost || 0));
-                                            const amtPaid    = Number(p.amountPaid || 0);
-                                            const amtUnpaid  = Number(p.isBacklog ? p.totalBacklogOwed : p.currentBalance) || 0;
+                                            // UNIFIED FINANCIAL MATH:
+                                            // TOTAL VALUE = totalCost (active) or originalDebt (backlog baseline)
+                                            // AMOUNT OWED = totalCost + storageFees - amountPaid
+                                            const totalValue = Number(
+                                                p.isBacklog
+                                                    ? (p.originalDebt || p.totalCost || 0)
+                                                    : (p.totalCost || 0)
+                                            );
+                                            const amtPaid = Number(p.amountPaid || 0);
+                                            const storageFees = Number(p.storageFeesAccumulated || 0);
+                                            const amountOwed = Number(
+                                                p.isBacklog
+                                                    ? (p.totalBacklogOwed || Math.max(0, totalValue + storageFees - amtPaid))
+                                                    : (p.currentBalance || Math.max(0, totalValue - amtPaid))
+                                            );
+
                                             return (
                                             <div key={p.projectId} className={styles.plotSubCard}>
                                                 <div className={styles.plotSubCardHeader}>
@@ -278,19 +290,33 @@ const RecoveryPortal = () => {
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
 
-                                                {/* Financial breakdown */}
+                                                {/* LAST INTERACTION NOTE — notebook style */}
+                                                {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
+                                                    <div className={styles.interactionNote}>
+                                                        <span className={styles.interactionNoteLabel}>LAST CONTACT NOTE</span>
+                                                        <p className={styles.interactionNoteText}>{p.lastInteractionNote}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Financial breakdown: TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */}
                                                 <div className={styles.finBreakdown}>
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>Total Cost</span>
-                                                        <span className={styles.finValWhite}>UGX {fmt(totalCost)}</span>
+                                                        <span className={styles.finLabel}>TOTAL VALUE</span>
+                                                        <span className={styles.finValWhite}>UGX {fmt(totalValue)}</span>
                                                     </div>
+                                                    {p.isBacklog && storageFees > 0 && (
+                                                        <div className={styles.finRow}>
+                                                            <span className={styles.finLabel}>+ STORAGE FEES</span>
+                                                            <span className={styles.finValOrange}>UGX {fmt(storageFees)}</span>
+                                                        </div>
+                                                    )}
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>Paid</span>
+                                                        <span className={styles.finLabel}>PAID</span>
                                                         <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
                                                     </div>
                                                     <div className={styles.finRowTotal}>
-                                                        <span className={styles.finLabelTotal}>Amount Unpaid</span>
-                                                        <span className={styles.finValRed}>UGX {fmt(amtUnpaid)}</span>
+                                                        <span className={styles.finLabelTotal}>AMOUNT OWED</span>
+                                                        <span className={styles.finValRed}>UGX {fmt(amountOwed)}</span>
                                                     </div>
                                                 </div>
 
@@ -327,15 +353,11 @@ const RecoveryPortal = () => {
                 onClose={() => { setCallModal({ open: false, mission: null, lastNote: '' }); setLogContent(''); }}
                 title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
             >
-                {/* Last interaction note shown at top */}
+                {/* Last interaction note — notebook style */}
                 {callModal.lastNote && callModal.lastNote !== 'NO PRIOR CONTACT' && (
-                    <div className={modalStyles.modalInfoBox} style={{ marginBottom: '14px' }}>
-                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
-                            LAST INTERACTION NOTE
-                        </div>
-                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, fontStyle: 'italic' }}>
-                            "{callModal.lastNote}"
-                        </div>
+                    <div className={styles.modalInteractionNote}>
+                        <span className={styles.modalInteractionNoteLabel}>LAST INTERACTION NOTE</span>
+                        <p className={styles.modalInteractionNoteText}>{callModal.lastNote}</p>
                     </div>
                 )}
                 <div className={modalStyles.modalField}>
@@ -366,11 +388,10 @@ const RecoveryPortal = () => {
 };
 
 export default RecoveryPortal;
-""")
+"""
 
 # ── RecoveryPortal.module.css ────────────────────────────────────────
-write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css'), """
-/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
+RECOVERY_CSS = """/* PATH: erp-frontend/src/pages/Recovery/RecoveryPortal.module.css */
 
 .container {
     --orange:        #EE8C3A;
@@ -727,14 +748,18 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+/* BOLD WHITE prominent total owed */
 .balanceVal {
     font-family: 'Space Mono', monospace;
-    font-size: clamp(14px, 1.8vw, 20px);
+    font-size: clamp(16px, 2vw, 22px);
     font-weight: 900;
     color: #fff;
     letter-spacing: 0.3px;
 }
-.balanceRed { color: #fca5a5 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+.balanceRed {
+    color: #fca5a5 !important;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
 
 /* Main row: owner + phone + actions */
 .cardMain {
@@ -751,11 +776,12 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
 .ownerPhoneBlock {
     display: flex;
     flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
+    gap: clamp(4px, 0.5vw, 6px);
     flex: 1;
     min-width: 0;
 }
 
+/* Owner name — large, bold */
 .ownerLine {
     font-family: 'DM Sans', sans-serif;
     font-size: var(--fs-td);
@@ -767,7 +793,8 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
-/* Phone number — large, bold, high visibility */
+
+/* Phone — SAME SIZE AND WEIGHT as owner name (the most important call tool) */
 .phoneLine {
     font-family: 'Space Mono', monospace;
     font-size: var(--fs-td);
@@ -776,6 +803,7 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     white-space: nowrap;
     letter-spacing: 0.5px;
 }
+
 .cardSideActions {
     display: flex;
     align-items: center;
@@ -851,6 +879,35 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
 .timingRow strong { color: #fff; font-weight: 900; }
 .timingRow svg { color: var(--orange); flex-shrink: 0; }
 
+/* ── INTERACTION NOTE — notebook style (white bg, navy text, orange left border) ── */
+.interactionNote {
+    background: #ffffff;
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 4px 4px 0;
+    padding: clamp(8px, 1vw, 11px) clamp(10px, 1.3vw, 14px);
+    margin-bottom: var(--gap-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.interactionNoteLabel {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(3px, 0.4vw, 5px);
+}
+.interactionNoteText {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(11px, 1.05vw, 13px);
+    font-weight: 700;
+    color: #1a2e30;
+    line-height: 1.5;
+    margin: 0;
+    word-break: break-word;
+}
+
 /* ── PLOT SUB-CARD ── */
 .plotSubCard {
     background: rgba(255, 255, 255, 0.03);
@@ -890,7 +947,7 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     text-transform: uppercase;
 }
 
-/* Financial breakdown — clean aligned rows */
+/* Financial breakdown — TOTAL VALUE + STORAGE FEES - PAID = AMOUNT OWED */
 .finBreakdown {
     display: flex;
     flex-direction: column;
@@ -948,6 +1005,13 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     font-size: var(--fs-td);
     font-weight: 700;
     color: #22c55e;
+    word-break: break-all;
+}
+.finValOrange {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-td);
+    font-weight: 700;
+    color: #EE8C3A;
     word-break: break-all;
 }
 .finValRed {
@@ -1008,6 +1072,36 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
 .payBtn:hover { background: #10b981; color: #1a2e30; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .payBtn:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
+/* ── LOG CALL MODAL — notebook interaction note ── */
+.modalInteractionNote {
+    background: #ffffff;
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    border-radius: 0 4px 4px 0;
+    padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 16px);
+    margin-bottom: clamp(14px, 1.8vw, 18px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.modalInteractionNoteLabel {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(4px, 0.5vw, 7px);
+}
+.modalInteractionNoteText {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    color: #1a2e30;
+    line-height: 1.55;
+    margin: 0;
+    word-break: break-word;
+    font-style: italic;
+}
+
 /* ── EMPTY / LOADING ── */
 .emptyState {
     display: flex;
@@ -1041,12 +1135,28 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
 @media (max-width: 900px) {
     .finHUD { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 640px) {
-    /* Stack HUD cards vertically on mobile */
-    .finHUD { grid-template-columns: 1fr; gap: 8px; }
-    .finHUDCard { flex-direction: row; justify-content: space-between; align-items: center; padding: clamp(12px,3vw,16px); }
-    .finHUDCard label { margin-bottom: 0; }
-    .finHUDCard strong { font-size: clamp(14px, 4vw, 18px); }
+
+/* MOBILE: stack HUD cards vertically, center content */
+@media (max-width: 600px) {
+    .finHUD {
+        grid-template-columns: 1fr;
+        gap: clamp(8px, 2vw, 12px);
+    }
+    .finHUDCard {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px);
+        text-align: left;
+    }
+    .finHUDCard label {
+        font-size: clamp(8px, 2.5vw, 10px);
+        margin-bottom: 0;
+    }
+    .finHUDCard strong {
+        font-size: clamp(15px, 4.5vw, 19px);
+        text-align: right;
+    }
     .cardTopRow { flex-direction: column; align-items: flex-start; gap: 8px; }
     .balanceLine { align-items: flex-start; }
     .cardMain { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1054,14 +1164,29 @@ write(os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPo
     .logCallBtnSmall { flex: 1; justify-content: center; }
     .expandedActions { flex-direction: column; }
     .folderBtn, .payBtn { width: 100%; justify-content: center; }
+    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }
+
 @media (max-width: 480px) {
     .searchInner { max-width: 100%; }
     .finHUD { grid-template-columns: 1fr; }
-    .finHUDCard { flex-direction: column; align-items: flex-start; }
+    .finHUDCard {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
     .finHUDCard strong { font-size: clamp(16px, 5vw, 20px); }
-    .timingRow { flex-direction: column; align-items: flex-start; gap: 5px; }
 }
-""")
+"""
 
-print("\n=== DONE ===")
+write(
+    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx'),
+    RECOVERY_JSX
+)
+
+write(
+    os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.module.css'),
+    RECOVERY_CSS
+)
+
+print("\n=== ALL DONE ===")
