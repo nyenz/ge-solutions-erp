@@ -1,5 +1,9 @@
 import os, re
 
+BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
 def read(path):
     with open(path, 'r', encoding='utf-8', errors='replace') as f:
         return f.read()
@@ -13,279 +17,729 @@ def patch(path, old, new, label):
     content = read(path)
     if old in content:
         write(path, content.replace(old, new, 1))
-        print(f"OK: {label}")
+        print(f'OK: {label}')
     else:
-        print(f"MISSING: {label}")
+        print(f'MISSING: {label}')
 
-BASE = "erp-backend/src/main/java/com/gesolutions/erp/modules/land"
-SERVICE = f"{BASE}/service/ReportService.java"
-CONTROLLER = f"{BASE}/controller/ReportController.java"
-FRONTEND_HUB = "erp-frontend/src/pages/Reports/ReportHub.jsx"
-FRONTEND_SERVICE = "erp-frontend/src/services/reportService.js"
+# ── 1. Replace the @media print block in FolderPage.module.css ───────────────
 
-# ─── 1. ReportService.java ────────────────────────────────────────────────────
+CSS_PATH = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.module.css')
 
-# Replace generateRevenueHistory (Pillar 8) with full payment history version
-OLD_PILLAR8 = '''    /**
-     * PILLAR 8: REVENUE INFLOW HISTORY (NEW)
-     * Lists actual financial intake movements.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generateRevenueHistory() {
-        List<LandProject> data = projectRepository.findAll();
-        StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,PAID_AMOUNT,CUMULATIVE_COLLECTION,PROTOCOL_MODE").append(NEW_LINE);
+OLD_PRINT = '''@media print {
+    /* Hide interactive elements */
+    .toastContainer, .savingOverlay, .ctrlZone, .printBtn,
+    .addDocBtn, .addNoteBtn, .iconBtn, .editBadge,
+    .drawerHeader .chevron, .pipelineHUD .protocolReadout { display: none !important; }
 
-        for (LandProject p : data) {
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getAmountPaid()).append(CSV_DIVIDER)
-               .append(p.getAmountPaid()).append(CSV_DIVIDER)
-               .append(p.isLegacy() ? "BACKLOG_RECOVERY" : "STANDARD_INGESTION").append(NEW_LINE);
-        }
-        return csv.toString().getBytes();
-    }'''
-
-NEW_PILLAR8 = '''    /**
-     * PILLAR 8: FULL PAYMENT HISTORY (PROMOTED FROM P2)
-     * Every payment record across all plots - date, amount, operator, notes.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generateRevenueHistory() {
-        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
-            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
-        StringBuilder csv = new StringBuilder();
-        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
-
-        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
-            String plotNumber = "---";
-            String ownerName = "---";
-            try {
-                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
-                if (proj.isPresent()) {
-                    plotNumber = proj.get().getLandTitle().getPlotNumber();
-                    ownerName = proj.get().getProprietors().stream()
-                        .findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse("---");
-                }
-            } catch (Exception ignored) {}
-
-            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
-            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
-               .append(plotNumber).append(CSV_DIVIDER)
-               .append(ownerName).append(CSV_DIVIDER)
-               .append(pay.getPaymentType()).append(CSV_DIVIDER)
-               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
-               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
-               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
-               .append(notes).append(NEW_LINE);
-        }
-        auditService.logAction("REPORT_EXPORT", "Pillar 8: Full Payment History Exported");
-        return csv.toString().getBytes();
-    }'''
-
-patch(SERVICE, OLD_PILLAR8, NEW_PILLAR8, "ReportService: Replace Pillar 8 with full payment history")
-
-# Replace generatePaymentHistory (P2-3) - remove it and storage fees (P2-4), add operator reconciliation
-OLD_PAYHIST = '''    /**
-     * PRIORITY 2 - REPORT 3: FULL PAYMENT HISTORY REPORT
-     * All payment records across all plots.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generatePaymentHistory() {
-        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
-            paymentRecordRepository.findAll(Sort.by("timestamp").descending());
-        StringBuilder csv = new StringBuilder();
-        csv.append("DATE,PLOT_ID,OWNER_NAME,PAYMENT_TYPE,AMOUNT_UGX,BALANCE_AFTER_UGX,RECORDED_BY,NOTES").append(NEW_LINE);
-
-        for (com.gesolutions.erp.modules.land.model.PaymentRecord pay : records) {
-            String plotNumber = "---";
-            String ownerName = "---";
-            try {
-                java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
-                if (proj.isPresent()) {
-                    plotNumber = proj.get().getLandTitle().getPlotNumber();
-                    ownerName = proj.get().getProprietors().stream()
-                        .findFirst().map(Client::getFullName).orElse("---");
-                }
-            } catch (Exception ignored) {}
-
-            String notes = pay.getNotes() != null ? pay.getNotes().replace(",", ";") : "";
-            csv.append(pay.getTimestamp().toLocalDate()).append(CSV_DIVIDER)
-               .append(plotNumber).append(CSV_DIVIDER)
-               .append(ownerName).append(CSV_DIVIDER)
-               .append(pay.getPaymentType()).append(CSV_DIVIDER)
-               .append(pay.getAmountPaid()).append(CSV_DIVIDER)
-               .append(pay.getBalanceAfter() != null ? pay.getBalanceAfter() : "").append(CSV_DIVIDER)
-               .append(pay.getRecordedBy()).append(CSV_DIVIDER)
-               .append(notes).append(NEW_LINE);
-        }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Full Payment History Exported");
-        return csv.toString().getBytes();
-    }'''
-
-NEW_PAYHIST = '''    /**
-     * PRIORITY 2 - REPORT 3: OPERATOR CASH RECONCILIATION (ANTI-THEFT)
-     * Groups all payments by the operator who recorded them.
-     * Allows Root Owner to reconcile physical cash against system records.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generatePaymentHistory() {
-        List<com.gesolutions.erp.modules.land.model.PaymentRecord> records =
-            paymentRecordRepository.findAll(Sort.by("timestamp").ascending());
-        StringBuilder csv = new StringBuilder();
-        csv.append("OPERATOR_ID,TOTAL_CASH_COLLECTED_UGX,NUMBER_OF_TRANSACTIONS,FIRST_PAYMENT_DATE,LAST_PAYMENT_DATE").append(NEW_LINE);
-
-        java.util.Map<String, java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord>> byOperator =
-            records.stream().collect(java.util.stream.Collectors.groupingBy(
-                com.gesolutions.erp.modules.land.model.PaymentRecord::getRecordedBy));
-
-        byOperator.entrySet().stream()
-            .sorted(java.util.Map.Entry.comparingByKey())
-            .forEach(entry -> {
-                String operator = entry.getKey();
-                java.util.List<com.gesolutions.erp.modules.land.model.PaymentRecord> ops = entry.getValue();
-                java.math.BigDecimal total = ops.stream()
-                    .map(com.gesolutions.erp.modules.land.model.PaymentRecord::getAmountPaid)
-                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                long count = ops.size();
-                String firstDate = ops.get(0).getTimestamp().toLocalDate().toString();
-                String lastDate = ops.get(ops.size() - 1).getTimestamp().toLocalDate().toString();
-                csv.append(operator).append(CSV_DIVIDER)
-                   .append(total).append(CSV_DIVIDER)
-                   .append(count).append(CSV_DIVIDER)
-                   .append(firstDate).append(CSV_DIVIDER)
-                   .append(lastDate).append(NEW_LINE);
-            });
-
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Operator Cash Reconciliation Exported");
-        return csv.toString().getBytes();
-    }'''
-
-patch(SERVICE, OLD_PAYHIST, NEW_PAYHIST, "ReportService: Replace payment history with operator reconciliation")
-
-# Remove generateStorageFeesReport entirely
-OLD_STORAGE = '''        /**
-     * PRIORITY 2 - REPORT 4: STORAGE FEES PER PLOT REPORT
-     * Total storage fees accumulated per backlog plot.
-     */
-    @Transactional(readOnly = true)
-    public byte[] generateStorageFeesReport() {
-        List<LandProject> data = projectRepository.findAllBacklogPlots();
-        StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,PRIMARY_OWNER,PHONE,BACKLOG_START_DATE,MONTHS_IN_BACKLOG,ORIGINAL_DEBT_UGX,STORAGE_FEES_UGX,RATE_PER_MONTH_UGX,TOTAL_PAID_UGX,OUTSTANDING_UGX").append(NEW_LINE);
-
-        java.math.BigDecimal monthlyRate = new java.math.BigDecimal("50000");
-
-        for (LandProject p : data) {
-            Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-            java.math.BigDecimal origDebt = p.getTotalCost() != null ? p.getTotalCost() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal outstanding = origDebt.add(storageFees).subtract(amountPaid).max(java.math.BigDecimal.ZERO);
-            long months = p.getBacklogStartDate() != null
-                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getBacklogStartDate(), java.time.LocalDateTime.now())
-                : 0;
-            String backlogStart = p.getBacklogStartDate() != null
-                ? p.getBacklogStartDate().toLocalDate().toString() : "UNKNOWN";
-
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
-               .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
-               .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
-               .append(backlogStart).append(CSV_DIVIDER)
-               .append(months).append(CSV_DIVIDER)
-               .append(origDebt).append(CSV_DIVIDER)
-               .append(storageFees).append(CSV_DIVIDER)
-               .append(monthlyRate).append(CSV_DIVIDER)
-               .append(amountPaid).append(CSV_DIVIDER)
-               .append(outstanding).append(NEW_LINE);
-        }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Storage Fees Report Exported");
-        return csv.toString().getBytes();
-    }'''
-
-patch(SERVICE, OLD_STORAGE, '', "ReportService: Remove storage fees report")
-
-# ─── 2. ReportController.java ─────────────────────────────────────────────────
-
-OLD_CTRL_STORAGE = '''    /** P2-4: Storage Fees Per Plot */
-    @GetMapping("/storage-fees")
-    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
-    public ResponseEntity<byte[]> downloadStorageFees() {
-        return streamCsv(reportService.generateStorageFeesReport(), "STORAGE_FEES_REPORT");
+    /* Reset container */
+    .container {
+        padding: 0 !important;
+        animation: none !important;
+        color: #000 !important;
+        max-width: 100% !important;
     }
 
-    /** P2-5: Monthly Collection */'''
+    /* Pipeline HUD — compact horizontal row */
+    .pipelineHUD {
+        border: 1px solid #ccc !important;
+        background: #f8f8f8 !important;
+        box-shadow: none !important;
+        padding: 8px 12px !important;
+        margin-bottom: 12px !important;
+        flex-wrap: nowrap !important;
+    }
+    .track { gap: 4px !important; }
+    .stageModule { gap: 2px !important; }
+    .dot {
+        width: 20px !important; height: 20px !important;
+        font-size: 9px !important;
+        border: 1.5px solid #888 !important;
+        background: #eee !important;
+        color: #555 !important;
+    }
+    .dotActive {
+        background: #1a2e30 !important;
+        color: #fff !important;
+        border-color: #1a2e30 !important;
+    }
+    .stageLabel { font-size: 7px !important; color: #666 !important; display: block !important; }
 
-NEW_CTRL_STORAGE = '''    /** P2-4: Monthly Collection */'''
+    /* Terminal header */
+    .terminalHeader {
+        background: #fff !important;
+        border-left: 4px solid #1a2e30 !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        padding: 10px 16px !important;
+        margin-bottom: 10px !important;
+    }
+    .idPlate h1 { color: #1a2e30 !important; font-size: 18px !important; }
+    .metaTag { background: #eee !important; color: #333 !important; border: 1px solid #ccc !important; }
+    .editBadge { display: none !important; }
 
-patch(CONTROLLER, OLD_CTRL_STORAGE, NEW_CTRL_STORAGE, "ReportController: Remove storage fees endpoint")
+    /* Panels — all open, white background */
+    .hwPanel {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        background: #fff !important;
+        margin-bottom: 12px !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    
+    
 
-# Update monthly collection from P2-5 to P2-4 in controller (label only, method unchanged)
-# Also rename payment-history endpoint label
-OLD_CTRL_PAYHIST = '''    /** P2-3: Full Payment History */
-    @GetMapping("/payment-history")
-    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
-    public ResponseEntity<byte[]> downloadPaymentHistory() {
-        return streamCsv(reportService.generatePaymentHistory(), "FULL_PAYMENT_HISTORY");
-    }'''
+    scroll-margin-top: 60px;}
+    .drawerHeader {
+        border-bottom: 1px solid #ddd !important;
+        padding: 8px 14px !important;
+        background: #f5f5f5 !important;
+        border-radius: 10.5px 10.5px 0 0;
+}
+    .drawerTitle { color: #1a2e30 !important; font-size: 10px !important; }
+    .panelBody { overflow: visible !important; }
+    .bodyOpen   { max-height: none !important; }
+    .bodyClosed { max-height: none !important; display: block !important; }
+    .panelInner { padding: 12px 14px !important; }
 
-NEW_CTRL_PAYHIST = '''    /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
-    @GetMapping("/payment-history")
-    @PreAuthorize("hasRole(\'ROLE_ADMIN\')")
-    public ResponseEntity<byte[]> downloadPaymentHistory() {
-        return streamCsv(reportService.generatePaymentHistory(), "OPERATOR_CASH_RECONCILIATION");
-    }'''
+    /* Read-only grid */
+    .readOnlyGrid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px 16px !important; }
+    .specLabel { color: #666 !important; font-size: 8px !important; }
+    .specValue { color: #000 !important; font-size: 12px !important; }
+    .specItem { border-left: 2px solid #1a2e30 !important; }
 
-patch(CONTROLLER, OLD_CTRL_PAYHIST, NEW_CTRL_PAYHIST, "ReportController: Rename payment-history to operator reconciliation")
+    /* Owners */
+    .ownersGrid2 { grid-template-columns: repeat(2, 1fr) !important; }
+    .ownerStaticCard { background: #f9f9f9 !important; border: 1px solid #ddd !important; }
+    .ownerName { color: #000 !important; font-size: 13px !important; }
+    .infoRow { color: #333 !important; font-size: 11px !important; }
+    .infoRow svg { color: #1a2e30 !important; }
+    .phoneHighlight { color: #1a2e30 !important; }
 
-# ─── 3. reportService.js ─────────────────────────────────────────────────────
+    /* Financials */
+    .statBox { background: #f5f5f5 !important; border: 1px solid #ddd !important; }
+    .statBox label { color: #555 !important; font-size: 8px !important; }
+    .statBox strong { color: #000 !important; font-size: 14px !important; }
+    .redGlow { color: #c00 !important; text-shadow: none !important; }
+    .velocityNote { background: #f0fdf4 !important; border: 1px solid #ccc !important; color: #166534 !important; }
+    .moneyStatsRow { grid-template-columns: repeat(3, 1fr) !important; }
 
-OLD_JS_STORAGE = '''    downloadStorageFees:       () => reportService._triggerDownload(\'/storage-fees\',       \'STORAGE_FEES_REPORT\'),
-    downloadMonthlyCollection: () => reportService._triggerDownload(\'/monthly-collection\', \'MONTHLY_COLLECTION\'),'''
+    /* Notes */
+    .ruledNote { background: #fff !important; border: 1px solid #ddd !important; box-shadow: none !important; }
+    .noteContent { color: #000 !important; }
+    .noteTime { color: #666 !important; }
+    .notebookTimeline { max-height: none !important; overflow: visible !important; }
 
-NEW_JS_STORAGE = '''    downloadMonthlyCollection: () => reportService._triggerDownload(\'/monthly-collection\', \'MONTHLY_COLLECTION\'),'''
+    /* Documents */
+    .compactVault { max-height: none !important; overflow: visible !important; background: #f9f9f9 !important; border: 1px solid #ddd !important; }
+    .docTag { background: #f0f0f0 !important; border: 1px solid #ccc !important; }
+    .docName { color: #1a2e30 !important; }
 
-patch(FRONTEND_SERVICE, OLD_JS_STORAGE, NEW_JS_STORAGE, "reportService.js: Remove downloadStorageFees")
+    /* Double row */
+    .intelDoubleRow { grid-template-columns: 1fr 1fr !important; }
 
-OLD_JS_PAYHIST = '''    downloadPaymentHistory:    () => reportService._triggerDownload(\'/payment-history\',    \'FULL_PAYMENT_HISTORY\'),'''
-NEW_JS_PAYHIST = '''    downloadOperatorReconciliation: () => reportService._triggerDownload(\'/payment-history\', \'OPERATOR_CASH_RECONCILIATION\'),'''
+    /* Page setup */
+    @page { margin: 15mm; size: A4 portrait; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}'''
 
-patch(FRONTEND_SERVICE, OLD_JS_PAYHIST, NEW_JS_PAYHIST, "reportService.js: Rename to downloadOperatorReconciliation")
+NEW_PRINT = '''@media print {
+    /* ================================================================
+       GOLDEN SEED ERP — PROFESSIONAL PRINT / PDF DOSSIER
+       A4 portrait, 15 mm margins, pure black-on-white.
+       ================================================================ */
 
-# ─── 4. ReportHub.jsx ─────────────────────────────────────────────────────────
+    /* ── GLOBAL RESET ── */
+    *, *::before, *::after {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        animation: none !important;
+        transition: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
 
-OLD_HUB_P2 = '''    const PRIORITY2_GROUP = [
-        { id: \'backlog\',   title: \'Backlog Breakdown\',       desc: \'All backlog plots with storage fees, months owed, and total outstanding.\',          icon: FiLock,       action: reportService.downloadBacklogBreakdown  },
-        { id: \'completed\', title: \'Completed Titles\',        desc: \'All released or fully paid plots ready for handover.\',                               icon: FiCheckSquare, action: reportService.downloadCompletedTitles  },
-        { id: \'payhist\',   title: \'Full Payment History\',    desc: \'Every payment record across all plots — type, amount, balance after.\',              icon: FiCreditCard, action: reportService.downloadPaymentHistory    },
-        { id: \'storage\',   title: \'Storage Fees Per Plot\',   desc: \'Per-plot breakdown of accumulated storage fees and outstanding backlog balance.\',    icon: FiDatabase,   action: reportService.downloadStorageFees       },
-        { id: \'monthly\',   title: \'Monthly Collection\',      desc: \'Total cash collected per calendar month for the last 24 months.\',                   icon: FiBarChart2,  action: reportService.downloadMonthlyCollection },
-    ];'''
+    html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: 'Georgia', serif !important;
+        font-size: 10pt !important;
+    }
 
-NEW_HUB_P2 = '''    const PRIORITY2_GROUP = [
-        { id: \'backlog\',   title: \'Backlog Breakdown\',            desc: \'All backlog plots with storage fees, months owed, and total outstanding.\',                                         icon: FiLock,       action: reportService.downloadBacklogBreakdown         },
-        { id: \'completed\', title: \'Completed Titles\',             desc: \'All released or fully paid plots ready for handover.\',                                                            icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
-        { id: \'reconcile\', title: \'Operator Cash Reconciliation\', desc: \'Anti-theft: total cash collected per operator, transaction count, and date range. Compare against physical cash.\', icon: FiShield,     action: reportService.downloadOperatorReconciliation   },
-        { id: \'monthly\',   title: \'Monthly Collection\',           desc: \'Total cash collected per calendar month for the last 24 months.\',                                                 icon: FiBarChart2,  action: reportService.downloadMonthlyCollection        },
-    ];'''
+    /* ── HIDE APP CHROME ── */
+    /* sidebar, global header, circuit background */
+    aside, nav[aria-label="System navigation"],
+    header.header, /* Shell header */
+    [class*="CircuitBackground"],
+    [class*="circuitBg"],
+    [class*="bgSvg"],
+    [class*="particle"],
+    [class*="wrapper"]:not(.container):not(.workstationBody) {
+        display: none !important;
+    }
 
-patch(FRONTEND_HUB, OLD_HUB_P2, NEW_HUB_P2, "ReportHub.jsx: Update Priority 2 group")
+    /* Shell layout: make main content fill page */
+    [class*="shell"],
+    [class*="mainWrapper"],
+    [class*="mainContent"],
+    [class*="scrollArea"] {
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        background: #fff !important;
+        backdrop-filter: none !important;
+    }
 
-# Update status keys in ReportHub
-OLD_HUB_STATUS = '''    const [status,  setStatus]  = useState({
-        debt: false, map: false, perf: false,
-        stage: false, legal: false, risk: false,
-        audit: false, revenue: false,
-        backlog: false, completed: false, payhist: false, storage: false, monthly: false,
-    });'''
+    /* ── HIDE INTERACTIVE ELEMENTS ── */
+    .toastContainer,
+    .savingOverlay,
+    .ctrlZone,
+    .printBtn,
+    .addDocBtn,
+    .addNoteBtn,
+    .iconBtn,
+    .editBadge,
+    .tabBar,
+    .pipelineHUD,
+    .chevron,
+    .confirmOverlay,
+    .actionBlock,
+    .expandedActions,
+    .recordPayBtnRow,
+    .recordPayBtn,
+    [class*="ctrlBtn"],
+    [class*="purgeBtn"],
+    [class*="unlockMaster"],
+    [class*="ctrlBtnPay"],
+    [class*="ctrlBtnBacklog"],
+    [class*="filterBtn"],
+    [class*="tabBtn"] {
+        display: none !important;
+    }
 
-NEW_HUB_STATUS = '''    const [status,  setStatus]  = useState({
-        debt: false, map: false, perf: false,
-        stage: false, legal: false, risk: false,
-        audit: false, revenue: false,
-        backlog: false, completed: false, reconcile: false, monthly: false,
-    });'''
+    /* ── PAGE SETUP ── */
+    @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 18mm 15mm;
+    }
 
-patch(FRONTEND_HUB, OLD_HUB_STATUS, NEW_HUB_STATUS, "ReportHub.jsx: Update status keys")
+    /* ── CONTAINER ── */
+    .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+        animation: none !important;
+        font-family: 'Georgia', serif !important;
+    }
 
-print("\nDone. All patches applied.")
+    /* ── DOSSIER LETTERHEAD ── */
+    /* Inject a printed header using the terminal header element */
+    .terminalHeader {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        background: #fff !important;
+        border: none !important;
+        border-bottom: 3px solid #1a2e30 !important;
+        border-radius: 0 !important;
+        padding: 0 0 10px 0 !important;
+        margin-bottom: 14px !important;
+        page-break-inside: avoid !important;
+        width: 100% !important;
+    }
+    .terminalHeader::before {
+        content: "GOLDEN SEED ERP \2014  ASSET DOSSIER";
+        display: block !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        font-family: 'Arial', sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        letter-spacing: 3px !important;
+        text-transform: uppercase !important;
+        color: #555 !important;
+        margin-bottom: 4px !important;
+    }
+
+    .idPlate {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+    .idPlate h1 {
+        font-family: 'Arial Black', 'Arial', sans-serif !important;
+        color: #1a2e30 !important;
+        font-size: 22pt !important;
+        font-weight: 900 !important;
+        letter-spacing: 1px !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+    }
+    .metaLine {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+    }
+    .metaTag {
+        background: #e8e8e8 !important;
+        color: #1a2e30 !important;
+        border: 1px solid #bbb !important;
+        border-radius: 3px !important;
+        padding: 2px 7px !important;
+        font-family: 'Arial', sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    /* ── WORKSTATION BODY ── */
+    .workstationBody {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    /* ── FORCE ALL PANELS AND TABS VISIBLE ── */
+    /* Override the tab system: show ALL content regardless of active tab */
+    .hwPanel {
+        display: block !important;
+        visibility: visible !important;
+        background: #fff !important;
+        border: 1.5px solid #333 !important;
+        border-radius: 5px !important;
+        box-shadow: none !important;
+        margin-bottom: 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: visible !important;
+        width: 100% !important;
+    }
+
+    /* Show panels that are hidden by the tab system */
+    .financialsStack,
+    [class*="financialsStack"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    /* Force ALL drawer bodies open */
+    .panelBody,
+    .panelBody.bodyClosed,
+    .bodyClosed {
+        display: block !important;
+        max-height: none !important;
+        height: auto !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+    }
+
+    .bodyOpen,
+    .bodyClosed {
+        max-height: none !important;
+        opacity: 1 !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+
+    .panelInner {
+        padding: 8px 12px !important;
+    }
+
+    /* ── DRAWER HEADER ── */
+    .drawerHeader {
+        background: #f0f0f0 !important;
+        border-bottom: 1px solid #ccc !important;
+        padding: 6px 12px !important;
+        border-radius: 4px 4px 0 0 !important;
+        cursor: default !important;
+    }
+    .drawerTitle {
+        color: #1a2e30 !important;
+        font-family: 'Arial', sans-serif !important;
+        font-size: 8pt !important;
+        font-weight: 900 !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+    }
+    .drawerIcon { color: #1a2e30 !important; }
+    .drawerCount {
+        background: #ddd !important;
+        color: #333 !important;
+        border: 1px solid #bbb !important;
+        border-radius: 10px !important;
+        padding: 1px 6px !important;
+        font-size: 7pt !important;
+    }
+
+    /* ── READ-ONLY SPEC GRID ── */
+    .readOnlyGrid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px 18px !important;
+    }
+    .specItem {
+        border-left: 2px solid #1a2e30 !important;
+        padding: 3px 0 3px 8px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    .specLabel {
+        color: #555 !important;
+        font-family: 'Arial', sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+    .specValue {
+        color: #000 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 10pt !important;
+        font-weight: 700 !important;
+        word-break: break-word !important;
+    }
+
+    /* ── FINANCIAL SECTION ── */
+    .moneyStatsRow {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+    .statBox {
+        background: #f7f7f7 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        padding: 8px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    .statBox label {
+        color: #555 !important;
+        font-family: 'Arial', sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        display: block !important;
+        margin-bottom: 3px !important;
+    }
+    .statBox strong {
+        color: #000 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 12pt !important;
+        font-weight: 900 !important;
+        display: block !important;
+    }
+    .redGlow { color: #b00 !important; text-shadow: none !important; }
+    .velocityNote {
+        background: #f0fdf4 !important;
+        border: 1px solid #aaa !important;
+        border-radius: 4px !important;
+        color: #166534 !important;
+        padding: 6px 10px !important;
+        font-size: 9pt !important;
+    }
+    .backlogNotice {
+        background: #fff0f0 !important;
+        border-left: 3px solid #b00 !important;
+        padding: 6px 10px !important;
+        border-radius: 0 4px 4px 0 !important;
+        margin-bottom: 8px !important;
+    }
+    .backlogNoticeText strong { color: #b00 !important; font-size: 8pt !important; }
+    .backlogNoticeText span   { color: #333 !important; font-size: 8pt !important; }
+    .totalOwedBanner {
+        background: #fff0f0 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        padding: 8px 12px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+    .totalOwedBanner span { color: #b00 !important; font-size: 8pt !important; font-weight: 700 !important; }
+    .totalOwedBanner strong { color: #b00 !important; font-size: 14pt !important; font-weight: 900 !important; }
+    .collectionBar {
+        height: 5px !important;
+        background: #e0e0e0 !important;
+        border-radius: 3px !important;
+        overflow: hidden !important;
+        margin: 8px 0 4px !important;
+    }
+    .collectionFill {
+        height: 5px !important;
+        background: #1a2e30 !important;
+        border-radius: 3px !important;
+    }
+
+    /* ── PAYMENT HISTORY ── */
+    .paymentList {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+    .paymentRow {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        padding: 6px 10px !important;
+        background: #f9f9f9 !important;
+        border: 1px solid #ddd !important;
+        border-left: 3px solid #333 !important;
+        border-radius: 3px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    .payAmount {
+        font-family: 'Courier New', monospace !important;
+        font-size: 11pt !important;
+        font-weight: 900 !important;
+        color: #000 !important;
+    }
+    .payType   { color: #333 !important; font-size: 8pt !important; }
+    .payBy     { color: #555 !important; font-size: 8pt !important; }
+    .payNotes  { color: #555 !important; font-style: italic !important; font-size: 8pt !important; }
+    .payDate   { font-family: 'Courier New', monospace !important; font-size: 8pt !important; color: #333 !important; }
+    .payBalance { font-size: 8pt !important; color: #555 !important; }
+
+    /* ── OWNERS ── */
+    .ownersScroll {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    .ownersGrid2 {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+    .ownerStaticCard {
+        background: #f9f9f9 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        padding: 8px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    .ownerName {
+        font-family: 'Arial Black', 'Arial', sans-serif !important;
+        color: #000 !important;
+        font-size: 12pt !important;
+        font-weight: 900 !important;
+        border-bottom: 1px solid #ddd !important;
+        padding-bottom: 4px !important;
+        margin-bottom: 5px !important;
+    }
+    .infoRow {
+        color: #333 !important;
+        font-size: 9pt !important;
+        margin-bottom: 3px !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+    .infoRow svg { color: #1a2e30 !important; flex-shrink: 0 !important; margin-top: 2px !important; }
+    .phoneHighlight {
+        font-family: 'Courier New', monospace !important;
+        color: #1a2e30 !important;
+        font-size: 11pt !important;
+        font-weight: 700 !important;
+    }
+
+    /* ── NOTES ── */
+    .notebookTimeline {
+        max-height: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+    .ruledNote {
+        background: #fff !important;
+        border: 1px solid #ccc !important;
+        border-left: 3px solid #1a2e30 !important;
+        box-shadow: none !important;
+        padding: 6px 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    .noteContent {
+        color: #000 !important;
+        font-size: 9pt !important;
+        line-height: 1.5 !important;
+    }
+    .noteTime   { color: #555 !important; font-size: 8pt !important; }
+    .noteAuthor { color: #777 !important; font-size: 8pt !important; }
+    .noteMeta {
+        display: flex !important;
+        justify-content: space-between !important;
+        border-bottom: 1px solid #eee !important;
+        padding-bottom: 3px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* ── DOCUMENTS ── */
+    .compactVault {
+        max-height: none !important;
+        overflow: visible !important;
+        background: #f9f9f9 !important;
+        border: 1px solid #ddd !important;
+        border-radius: 4px !important;
+        padding: 8px 10px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+    .docTag {
+        background: #f0f0f0 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 3px !important;
+        padding: 4px 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+    .docName {
+        color: #1a2e30 !important;
+        font-size: 9pt !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
+    }
+    .docIcon { color: #1a2e30 !important; }
+
+    /* ── BACKLOG MANAGEMENT SECTION ── */
+    .readOnlyGrid .specItem { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+    /* ── PRINT FOOTER (page numbers via CSS) ── */
+    @page {
+        @bottom-center {
+            content: "GOLDEN SEED ERP  |  Page " counter(page) " of " counter(pages);
+            font-family: Arial, sans-serif;
+            font-size: 7pt;
+            color: #888;
+        }
+    }
+
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}'''
+
+patch(CSS_PATH, OLD_PRINT, NEW_PRINT, 'FolderPage.module.css @media print block replaced')
+
+# ── 2. Add a print-only dossier heading above the terminal header in JSX ────
+
+JSX_PATH = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.jsx')
+
+OLD_JSX = '''            {/* PIPELINE HUD */}
+            <nav className={styles.pipelineHUD} aria-label="Project pipeline">'''
+
+NEW_JSX = '''            {/* PRINT-ONLY DOSSIER HEADER */}
+            <div className={styles.printDossierHeader} aria-hidden="true">
+                <div className={styles.printDossierLogo}>GOLDEN SEED ERP</div>
+                <div className={styles.printDossierTitle}>ASSET DOSSIER</div>
+                <div className={styles.printDossierMeta}>
+                    <span>PLOT: {project.landTitle.plotNumber}</span>
+                    <span>TENURE: {project.landTitle.tenure}</span>
+                    {project.landTitle.district && <span>DISTRICT: {project.landTitle.district}</span>}
+                    <span>BOX: {project.landTitle.physicalBoxNumber}</span>
+                    <span>PRINTED: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                </div>
+            </div>
+
+            {/* PIPELINE HUD */}
+            <nav className={styles.pipelineHUD} aria-label="Project pipeline">'''
+
+patch(JSX_PATH, OLD_JSX, NEW_JSX, 'FolderPage.jsx print dossier header injected')
+
+# ── 3. Add CSS classes for the print-only header and force all tabs visible ──
+
+CSS_APPEND = '''
+
+/* ── PRINT-ONLY DOSSIER HEADER ─────────────────────────────────────────────
+   Hidden on screen, rendered at the very top of the printed page.
+   ─────────────────────────────────────────────────────────────────────────── */
+.printDossierHeader {
+    display: none; /* hidden on screen */
+}
+
+@media print {
+    .printDossierHeader {
+        display: block !important;
+        border-bottom: 3px solid #1a2e30 !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 14px !important;
+        page-break-inside: avoid !important;
+    }
+    .printDossierLogo {
+        font-family: Arial, sans-serif !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        letter-spacing: 4px !important;
+        text-transform: uppercase !important;
+        color: #888 !important;
+        margin-bottom: 3px !important;
+    }
+    .printDossierTitle {
+        font-family: 'Arial Black', Arial, sans-serif !important;
+        font-size: 22pt !important;
+        font-weight: 900 !important;
+        letter-spacing: 2px !important;
+        color: #1a2e30 !important;
+        text-transform: uppercase !important;
+        margin-bottom: 6px !important;
+        line-height: 1 !important;
+    }
+    .printDossierMeta {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px 20px !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 8pt !important;
+        color: #333 !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    /* Force ALL tab panels to be visible (override JS-driven tab switching) */
+    [role="tabpanel"] > *,
+    .workstationBody > * {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /* Hide the empty-state "no docs" / "no notes" blocks when printing */
+    .emptyState { display: none !important; }
+
+    /* Tighter inline-double-row for print */
+    .intelDoubleRow {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Remove glow from payment type colours */
+    .paymentRow[style] { border-left-color: #333 !important; }
+}
+'''
+
+css_content = read(CSS_PATH)
+if '.printDossierHeader' not in css_content:
+    css_content += CSS_APPEND
+    write(CSS_PATH, css_content)
+    print('OK: Appended print-only dossier header CSS classes')
+else:
+    print('OK: Print dossier CSS classes already present, skipping append')
+
+print('\nAll patches applied. Run: git add -A && git commit -m "print: professional A4 dossier layout" && git push')

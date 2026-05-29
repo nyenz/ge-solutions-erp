@@ -869,6 +869,19 @@ const FolderPage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing || paying} />
 
+            {/* PRINT-ONLY DOSSIER HEADER */}
+            <div className={styles.printDossierHeader} aria-hidden="true">
+                <div className={styles.printDossierLogo}>GOLDEN SEED ERP</div>
+                <div className={styles.printDossierTitle}>ASSET DOSSIER</div>
+                <div className={styles.printDossierMeta}>
+                    <span>PLOT: {project.landTitle.plotNumber}</span>
+                    <span>TENURE: {project.landTitle.tenure}</span>
+                    {project.landTitle.district && <span>DISTRICT: {project.landTitle.district}</span>}
+                    <span>BOX: {project.landTitle.physicalBoxNumber}</span>
+                    <span>PRINTED: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                </div>
+            </div>
+
             {/* PIPELINE HUD */}
             <nav className={styles.pipelineHUD} aria-label="Project pipeline">
                 <div className={styles.track}>
