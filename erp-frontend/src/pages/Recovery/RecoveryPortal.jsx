@@ -264,9 +264,10 @@ const RecoveryPortal = () => {
                                             // amtPaid     = what has been paid so far
                                             // storageFees = accumulated fees (backlog only)
                                             // amountOwed  = totalValue + storageFees - amtPaid
-                                            const totalValue  = Number(p.totalCost  || p.originalDebt || 0);
+                                            // 4-Pocket Math: AMOUNT OWED = (TOTAL VALUE + STORAGE FEES) - PAID
+                                            const totalValue  = Number(p.totalCost || 0);
                                             const amtPaid     = Number(p.amountPaid || 0);
-                                            const storageFees = Number(p.storageFeesAccumulated || 0);
+                                            const storageFees = p.isBacklog ? Number(p.storageFeesAccumulated || 0) : 0;
                                             const amountOwed  = Math.max(0, totalValue + storageFees - amtPaid);
 
                                             return (
@@ -302,7 +303,7 @@ const RecoveryPortal = () => {
                                                         </div>
                                                     )}
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>PAID</span>
+                                                        <span className={styles.finLabel} style={{color:"#22c55e"}}>PAID</span>
                                                         <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
                                                     </div>
                                                     <div className={styles.finRowTotal}>

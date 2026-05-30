@@ -51,8 +51,10 @@ const recoveryService = {
         return true;
     },
 
-    exitBacklog: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/exit-backlog`);
+    exitBacklog: async (projectId, capitalizeFees = false) => {
+        await api.post(`/land/projects/${projectId}/exit-backlog`, null, {
+            params: { capitalizeFees }
+        });
         return true;
     },
 

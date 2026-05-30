@@ -11,51 +11,63 @@ def write(path, content):
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 folder_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'DigitalFolder', 'FolderPage.jsx')
+recovery_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Recovery', 'RecoveryPortal.jsx')
 
-print("=== FINAL REFINEMENT: FOLDER PAGE LABELS ===")
+print("=== FINAL REFINEMENT: MATH & TERMINOLOGY CLEANUP ===")
 
-content = read(folder_path)
+# ─── 1. FIX FOLDER PAGE MATH VARIABLES ───────────────────────────
+f_content = read(folder_path)
+# Target the start of the financial calculation block
+old_math_block = "const totalCost          = Number(project?.totalCost || 0);"
+new_math_block = """// 4-Pocket Math: AMOUNT OWED = (TOTAL VALUE + STORAGE FEES) - PAID
+    const totalValue         = Number(project?.totalCost || 0);
+    const paid               = Number(project?.amountPaid || 0);
+    const storageFees        = Number(project?.storageFeesAccumulated || 0);
+    const backlogAmountOwed  = Math.max(0, totalValue + storageFees - paid);
+    const activeAmountOwed   = Math.max(0, totalValue - paid);
+    const amountOwed         = isBacklog ? backlogAmountOwed : activeAmountOwed;
+    // Legacy aliases
+    const totalCost          = totalValue;
+    const amountPaid         = paid;
+    const remaining          = amountOwed;
+    const backlogOwed        = backlogAmountOwed;
+    const activeOwed         = activeAmountOwed;"""
 
-# 1. Force replace any remaining ARREARS labels in FolderPage
-if '>ARREARS<' in content:
-    content = content.replace('>ARREARS<', '>AMOUNT OWED<')
-    print("OK: Updated HTML labels")
+if old_math_block in f_content:
+    f_content = f_content.replace(old_math_block, new_math_block)
+    print("OK: FolderPage math variables defined")
 
-if "'ARREARS'" in content:
-    content = content.replace("'ARREARS'", "'AMOUNT OWED'")
-    print("OK: Updated Data labels")
+# Remove the redundant Total Now Owed banner
+old_banner = """<div className={styles.totalOwedBanner}>
+                                            <span>TOTAL NOW OWED</span>
+                                            <strong>UGX {fmt(Math.max(0, backlogOwed))}</strong>
+                                        </div>"""
+if old_banner in f_content:
+    f_content = f_content.replace(old_banner, "")
+    print("OK: Removed redundant banner")
 
-# 2. Cleanup redundant code (Claude's Finding #21)
-# Removing the second identical copy of the auto-open payment effect
-redundant_block = """    // Auto-open payment modal when navigated from Recovery Portal
-    useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const action = params.get('action');
-        if (!action || !binder) return;
-        if (action === 'pay') {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                setPayType('TITLE');
-                setPayAmount('');
-                setPayNotes('');
-                setPayModal({ open: true });
-            }, 400);
-        } else if (action === 'storage') {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                setPayType('STORAGE');
-                setPayAmount('');
-                setPayNotes('');
-                setPayModal({ open: true });
-            }, 400);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.search, binder]);"""
+write(folder_path, f_content)
 
-if content.count(redundant_block) > 0:
-    # We only want to keep ONE. So we replace the block with an empty string once.
-    content = content.replace(redundant_block, "", 1)
-    print("OK: Removed redundant payment listener")
+# ─── 2. FIX RECOVERY PORTAL LABELS ──────────────────────────────
+r_content = read(recovery_path)
 
-write(folder_path, content)
-print("=== SYSTEM IS NOW 100% OPTIMIZED ===")
+old_rec_labels = """<div className={styles.finRow}>
+                                                    <span className={styles.finLabel}>PAID</span>
+                                                    <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
+                                                </div>"""
+new_rec_labels = """<div className={styles.finRow}>
+                                                    <span className={styles.finLabel} style={{color:'#22c55e'}}>PAID</span>
+                                                    <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
+                                                </div>"""
+
+if old_rec_labels in r_content:
+    r_content = r_content.replace(old_rec_labels, new_rec_labels)
+    print("OK: RecoveryPortal labels updated")
+else:
+    # Try a more generic match if exact failed
+    r_content = r_content.replace('className={styles.finLabel}>PAID</span>', 'className={styles.finLabel} style={{color:"#22c55e"}}>PAID</span>')
+    print("OK: RecoveryPortal labels updated (fallback)")
+
+write(recovery_path, r_content)
+
+print("=== CLEANUP COMPLETE ===") 

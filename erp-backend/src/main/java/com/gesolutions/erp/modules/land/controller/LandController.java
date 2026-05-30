@@ -141,8 +141,9 @@ public class LandController {
 
     @PostMapping("/projects/{id}/exit-backlog")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id) {
-        landService.exitBacklog(id);
+    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id,
+                                            @RequestParam(defaultValue = "false") boolean capitalizeFees) {
+        landService.exitBacklog(id, capitalizeFees);
         return ResponseEntity.ok().build();
     }
 

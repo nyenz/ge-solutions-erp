@@ -175,11 +175,12 @@ public class RecoveryController {
                     totalStorageFees = totalStorageFees.add(fees);
                 } else {
                     BigDecimal cost = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
+                    BigDecimal paid = plot.getAmountPaid() != null ? plot.getAmountPaid() : BigDecimal.ZERO;
                     summaryBuilder
                             .totalCost(cost)
                             .originalDebt(cost)
-                            .amountPaid(plot.getAmountPaid())
-                            .currentBalance(plotBalance);
+                            .amountPaid(paid)
+                            .currentBalance(cost.subtract(paid).max(java.math.BigDecimal.ZERO));
                 }
 
                 plotSummaries.add(summaryBuilder.build());

@@ -139,7 +139,7 @@ public class LandService {
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + project.getLandTitle().getPlotNumber()
             + " | Type: " + paymentType
-            + " | Balance after: UGX " + balanceAfter);
+            + " | Amount owed after: UGX " + balanceAfter);
     }
 
     // ─── BACKLOG MANAGEMENT ───────────────────────────────────────────────────
@@ -174,7 +174,7 @@ public class LandService {
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public void exitBacklog(UUID projectId) {
+    public void exitBacklog(UUID projectId, boolean capitalizeFees) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
@@ -182,27 +182,27 @@ public class LandService {
             throw new BusinessException("BACKLOG_FAULT: Plot is not in backlog.");
         }
 
-        // FIX 3: Recalibrate amountPaid on exit so active math is correct.
-        // Payments made toward storage fees should not be counted against the title cost.
-        // We recalculate how much was actually paid toward the title by subtracting
-        // storage fees that were paid (excess over original debt).
         BigDecimal titleCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
         BigDecimal totalPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal storageFees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
 
-        // Amount that went toward the title = totalPaid minus any overpayment that covered storage fees
-        BigDecimal backlogTotal = titleCost.add(storageFees);
-        BigDecimal titlePaymentPortion = totalPaid;
-        if (totalPaid.compareTo(backlogTotal) >= 0) {
-            // Fully paid everything; title is fully paid
-            titlePaymentPortion = titleCost;
-        } else if (totalPaid.compareTo(titleCost) > 0) {
-            // Paid more than title cost - excess went to storage
-            titlePaymentPortion = titleCost;
+        if (capitalizeFees && storageFees.compareTo(BigDecimal.ZERO) > 0) {
+            // Add storage fees to total value — client now owes the combined amount
+            BigDecimal newTotalCost = titleCost.add(storageFees);
+            project.setTotalCost(newTotalCost);
+            // amountPaid stays as-is; amount owed = newTotalCost - totalPaid
+        } else {
+            // Waive fees: recalibrate paid toward title only
+            BigDecimal backlogTotal = titleCost.add(storageFees);
+            BigDecimal titlePaymentPortion = totalPaid;
+            if (totalPaid.compareTo(backlogTotal) >= 0) {
+                titlePaymentPortion = titleCost;
+            } else if (totalPaid.compareTo(titleCost) > 0) {
+                titlePaymentPortion = titleCost;
+            }
+            project.setAmountPaid(titlePaymentPortion);
         }
-        // else: paid less than or equal to title cost, all goes to title
 
-        project.setAmountPaid(titlePaymentPortion);
         project.setBacklog(false);
         project.setBacklogStartDate(null);
         project.setOriginalDebt(BigDecimal.ZERO);
@@ -211,10 +211,12 @@ public class LandService {
         project.setStatus("ACTIVE");
         projectRepository.save(project);
 
+        String feeAction = capitalizeFees ? "Storage fees ADDED TO TOTAL VALUE (UGX " + storageFees + ")" : "Storage fees WAIVED";
         auditService.logAction("BACKLOG_EXIT",
-            "Operator [" + getCurrentOperator() + "] manually removed plot "
+            "Operator [" + getCurrentOperator() + "] removed plot "
             + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. Storage fees cleared. Title amount paid recalibrated to UGX " + titlePaymentPortion + ".");
+            + " from BACKLOG. " + feeAction
+            + ". Title total value: UGX " + project.getTotalCost() + ".");
     }
 
     // ─── INTAKE ───────────────────────────────────────────────────────────────

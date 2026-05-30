@@ -462,11 +462,12 @@ const FolderPage = () => {
     const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];
 
     const [noteModal,  setNoteModal]  = useState({ open:false, id:null, content:'' });
-    const [payModal,   setPayModal]   = useState({ open:false });
-    const [payAmount,  setPayAmount]  = useState('');
-    const [payNotes,   setPayNotes]   = useState('');
-    const [payType,    setPayType]    = useState('TITLE');
-    const [paying,     setPaying]     = useState(false);
+    const [payModal,        setPayModal]        = useState({ open:false });
+    const [payAmount,       setPayAmount]       = useState('');
+    const [payNotes,        setPayNotes]        = useState('');
+    const [payType,         setPayType]         = useState('TITLE');
+    const [paying,          setPaying]          = useState(false);
+    const [exitBacklogModal, setExitBacklogModal] = useState(false);
 
     const [drawers, setDrawers] = useState({ overview: true, balance: true, backlog: true, history: true, notes: true, owners: true, docs: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
@@ -745,14 +746,19 @@ const FolderPage = () => {
         } catch (err) { toast('BACKLOG FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
-    const handleExitBacklog = async () => {
-        const ok = await confirm('EXIT BACKLOG',
-            'This will clear backlog status and storage fees. The original debt amount stays. Continue?', 'warn');
-        if (!ok) return;
+    const handleExitBacklog = () => {
+        setExitBacklogModal(true);
+    };
+
+    const handleExitBacklogConfirm = async (capitalizeFees) => {
+        setExitBacklogModal(false);
         try {
-            await recoveryService.exitBacklog(id);
+            await recoveryService.exitBacklog(id, capitalizeFees);
             await loadFolderData();
-            toast('Plot removed from backlog', 'success');
+            toast(capitalizeFees
+                ? 'Plot exited backlog. Storage fees added to total value.'
+                : 'Plot exited backlog. Storage fees waived.',
+                'success');
         } catch (err) { toast('EXIT FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
@@ -828,7 +834,19 @@ const FolderPage = () => {
     const paymentCount = payments.length;
 
     // Financial figures
-    const totalCost          = Number(project?.totalCost || 0);
+    // 4-Pocket Math: AMOUNT OWED = (TOTAL VALUE + STORAGE FEES) - PAID
+    const totalValue         = Number(project?.totalCost || 0);
+    const paid               = Number(project?.amountPaid || 0);
+    const storageFees        = Number(project?.storageFeesAccumulated || 0);
+    const backlogAmountOwed  = Math.max(0, totalValue + storageFees - paid);
+    const activeAmountOwed   = Math.max(0, totalValue - paid);
+    const amountOwed         = isBacklog ? backlogAmountOwed : activeAmountOwed;
+    // Legacy aliases
+    const totalCost          = totalValue;
+    const amountPaid         = paid;
+    const remaining          = amountOwed;
+    const backlogOwed        = backlogAmountOwed;
+    const activeOwed         = activeAmountOwed;
     const amountPaid         = Number(project?.amountPaid || 0);
     const origDebt           = Number(project?.originalDebt || 0);
     const storageFees        = Number(project?.storageFeesAccumulated || 0);
@@ -1088,12 +1106,12 @@ const FolderPage = () => {
                                         </div>
                                         <div className={styles.moneyStatsRow}>
                                             <div className={styles.statBox}>
-                                                <label>ORIGINAL DEBT</label>
-                                                <strong>UGX {fmt(origDebt)}</strong>
+                                                <label>TOTAL VALUE</label>
+                                                <strong>UGX {fmt(totalValue)}</strong>
                                             </div>
                                             <div className={styles.statBox}>
                                                 <label style={{color:'#ef4444'}}>+ STORAGE FEES</label>
-                                                <strong className={styles.redGlow}>UGX {fmt(storageFees)}</strong>
+                                                <strong style={{color:'#fca5a5',textShadow:'0 0 8px rgba(239,68,68,0.35)'}}>UGX {fmt(storageFees)}</strong>
                                                 <small style={{opacity:0.5,fontSize:'0.7rem'}}>
                                                     {project.backlogStartDate
                                                         ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()}`
@@ -1101,25 +1119,26 @@ const FolderPage = () => {
                                                 </small>
                                             </div>
                                             <div className={styles.statBox}>
-                                                <label>- PAYMENTS MADE</label>
-                                                <strong style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</strong>
+                                                <label style={{color:'#22c55e'}}>PAID</label>
+                                                <strong style={{color:'#22c55e'}}>UGX {fmt(paid)}</strong>
                                             </div>
-                                        </div>
-                                        <div className={styles.totalOwedBanner}>
-                                            <span>TOTAL NOW OWED</span>
-                                            <strong>UGX {fmt(Math.max(0, backlogOwed))}</strong>
+                                            <div className={styles.statBox} style={{borderLeft:'2px solid rgba(239,68,68,0.6)',background:'rgba(239,68,68,0.07)'}}>
+                                                <label style={{color:'#fca5a5'}}>AMOUNT OWED</label>
+                                                <strong style={{color:'#fca5a5',textShadow:'0 0 12px rgba(239,68,68,0.45)'}}>UGX {fmt(backlogAmountOwed)}</strong>
+                                                <small style={{opacity:0.5,fontSize:'0.7rem'}}>(Total Value + Fees - Paid)</small>
+                                            </div>
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         <div className={styles.moneyStatsRow}>
-                                            <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
-                                            <div className={styles.statBox}><label>COLLECTED</label><strong style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</strong></div>
-                                            <div className={styles.statBox}><label>AMOUNT OWED</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
+                                            <div className={styles.statBox}><label>TOTAL VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
+                                            <div className={styles.statBox}><label>PAID</label><strong style={{color:'#22c55e'}}>UGX {fmt(paid)}</strong></div>
+                                            <div className={styles.statBox}><label>AMOUNT OWED</label><strong style={{color:'#fca5a5',textShadow:'0 0 12px rgba(239,68,68,0.45)'}}>UGX {fmt(activeAmountOwed)}</strong></div>
                                         </div>
                                         <div className={styles.collectionBar}>
                                             <div className={styles.collectionFill}
-                                                style={{width: totalCost > 0 ? `${Math.min(100,(amountPaid/totalCost)*100)}%` : '0%'}} />
+                                                style={{width: totalValue > 0 ? `${Math.min(100,(paid/totalValue)*100)}%` : '0%'}} />
                                         </div>
                                         <div className={styles.velocityNote}>
                                             <FiClock aria-hidden="true" />
@@ -1473,46 +1492,69 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
 
+            {/* EXIT BACKLOG MODAL — choose fee handling */}
+            <HardwareModal isOpen={exitBacklogModal} onClose={() => setExitBacklogModal(false)} title="EXIT BACKLOG — STORAGE FEES">
+                <div className={modalStyles.modalInfoBoxDanger} style={{marginBottom:16}}>
+                    <strong>How should the accumulated storage fees be handled?</strong>
+                    <br /><br />
+                    Accumulated storage fees: <strong>UGX {fmt(storageFees)}</strong>
+                </div>
+                <div className={modalStyles.modalFooter} style={{flexDirection:'column',gap:10}}>
+                    <button type="button" className={modalStyles.modalBtnPrimary} style={{width:'100%',justifyContent:'center',background:'#ef4444',marginBottom:4}}
+                        onClick={() => handleExitBacklogConfirm(true)}>
+                        ADD TO TOTAL VALUE — Client owes UGX {fmt(totalValue + storageFees)} going forward
+                    </button>
+                    <button type="button" className={modalStyles.modalBtnPrimary} style={{width:'100%',justifyContent:'center'}}
+                        onClick={() => handleExitBacklogConfirm(false)}>
+                        WAIVE FEES — Client owes UGX {fmt(Math.max(0, totalValue - paid))} going forward
+                    </button>
+                    <button type="button" className={modalStyles.modalBtnSecondary} style={{width:'100%',justifyContent:'center'}}
+                        onClick={() => setExitBacklogModal(false)}>
+                        CANCEL
+                    </button>
+                </div>
+            </HardwareModal>
+
             {/* PAYMENT MODAL */}
             <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
                 <div className={styles.payBreakdownBox}>
                     {isBacklog ? (
                         <>
                             <div className={styles.payBreakdownTitle}>
-                                <FiAlertOctagon size={11} /> BACKLOG BALANCE BREAKDOWN
+                                <FiAlertOctagon size={11} /> BACKLOG — AMOUNT OWED BREAKDOWN
                             </div>
                             <div className={styles.payBreakdownGrid}>
                                 <div className={styles.pbItem}>
-                                    <span className={styles.pbLabel}>TITLE COST</span>
-                                    <span className={styles.pbVal}>UGX {fmt(totalCost)}</span>
+                                    <span className={styles.pbLabel}>TOTAL VALUE</span>
+                                    <span className={styles.pbVal}>UGX {fmt(totalValue)}</span>
                                 </div>
                                 <div className={styles.pbItem}>
-                                    <span className={styles.pbLabel} style={{color:'#fca5a5'}}>STORAGE FEES (MONTHLY)</span>
-                                    <span className={styles.pbVal} style={{color:'#ef4444'}}>+ UGX {fmt(storageFees)}</span>
+                                    <span className={styles.pbLabel} style={{color:'#fca5a5'}}>+ STORAGE FEES</span>
+                                    <span className={styles.pbVal} style={{color:'#ef4444'}}>UGX {fmt(storageFees)}</span>
                                 </div>
                                 <div className={styles.pbItem}>
-                                    <span className={styles.pbLabel}>PAYMENTS MADE</span>
-                                    <span className={styles.pbVal} style={{color:'#86efac'}}>- UGX {fmt(amountPaid)}</span>
+                                    <span className={styles.pbLabel} style={{color:'#22c55e'}}>PAID</span>
+                                    <span className={styles.pbVal} style={{color:'#22c55e'}}>UGX {fmt(paid)}</span>
                                 </div>
                                 <div className={styles.pbItemTotal}>
-                                    <span className={styles.pbLabel}>TOTAL NOW OWED</span>
-                                    <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, backlogOwed))}</span>
+                                    <span className={styles.pbLabel}>AMOUNT OWED</span>
+                                    <span className={styles.pbValTotal}>UGX {fmt(backlogAmountOwed)}</span>
                                 </div>
                             </div>
                         </>
                     ) : (
                         <div className={styles.payBreakdownGrid}>
                             <div className={styles.pbItem}>
-                                <span className={styles.pbLabel}>TITLE COST</span>
-                                <span className={styles.pbVal}>UGX {fmt(totalCost)}</span>
+                                <span className={styles.pbLabel}>TOTAL VALUE</span>
+                                <span className={styles.pbVal}>UGX {fmt(totalValue)}</span>
                             </div>
                             <div className={styles.pbItem}>
-                                <span className={styles.pbLabel}>PAID SO FAR</span>
-                                <span className={styles.pbVal} style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</span>
+                                <span className={styles.pbLabel} style={{color:'#22c55e'}}>PAID</span>
+                                <span className={styles.pbVal} style={{color:'#22c55e'}}>UGX {fmt(paid)}</span>
                             </div>
                             <div className={styles.pbItemTotal}>
-                                <span className={styles.pbLabel}>REMAINING BALANCE</span>
-                                <span className={styles.pbValTotal}>UGX {fmt(Math.max(0, activeOwed))}</span>
+                                <span className={styles.pbLabel}>AMOUNT OWED</span>
+                                <span className={styles.pbValTotal}>UGX {fmt(activeAmountOwed)}</span>
                             </div>
                         </div>
                     )}

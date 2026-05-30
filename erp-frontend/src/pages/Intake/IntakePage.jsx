@@ -476,7 +476,7 @@ const IntakePage = () => {
         });
     };
 
-    const arrears = (Number(totalCost) || 0) - (Number(initialPayment) || 0);
+    const arrears = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
 
     return (
         <div className={styles.container}>
@@ -589,7 +589,7 @@ const IntakePage = () => {
                                         <label className={styles.fieldLabel}>AMOUNT OWED</label>
                                         <span className={styles.capsBadge} style={{ background: 'rgba(6,182,212,0.15)', color:'#06b6d4' }}>AUTO</span>
                                     </div>
-                                    <div className={styles.diagBox}>
+                                    <div className={styles.diagBox} style={{color: arrears > 0 ? '#fca5a5' : '#22c55e'}}>
                                         UGX {arrears >= 0 ? arrears.toLocaleString() : 0}
                                     </div>
                                 </div>
