@@ -264,7 +264,7 @@ const RecoveryPortal = () => {
                                             // amtPaid     = what has been paid so far
                                             // storageFees = accumulated fees (backlog only)
                                             // amountOwed  = totalValue + storageFees - amtPaid
-                                            // 4-Pocket Math: AMOUNT OWED = (TOTAL VALUE + STORAGE FEES) - PAID
+                                            // 4-Pocket Math: AMOUNT OWED = (PLOT VALUE + STORAGE FEES) - PAID
                                             const totalValue  = Number(p.totalCost || 0);
                                             const amtPaid     = Number(p.amountPaid || 0);
                                             const storageFees = p.isBacklog ? Number(p.storageFeesAccumulated || 0) : 0;
@@ -293,7 +293,7 @@ const RecoveryPortal = () => {
                                                 {/* Financial breakdown */}
                                                 <div className={styles.finBreakdown}>
                                                     <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>TOTAL VALUE</span>
+                                                        <span className={styles.finLabel}>PLOT VALUE</span>
                                                         <span className={styles.finValWhite}>UGX {fmt(totalValue)}</span>
                                                     </div>
                                                     {p.isBacklog && storageFees > 0 && (

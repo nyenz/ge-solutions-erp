@@ -182,24 +182,18 @@ public class LandService {
             throw new BusinessException("BACKLOG_FAULT: Plot is not in backlog.");
         }
 
-        BigDecimal titleCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal totalPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+        BigDecimal titleCost   = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal totalPaid   = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal storageFees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
 
         if (capitalizeFees && storageFees.compareTo(BigDecimal.ZERO) > 0) {
-            // Add storage fees to total value — client now owes the combined amount
-            BigDecimal newTotalCost = titleCost.add(storageFees);
-            project.setTotalCost(newTotalCost);
-            // amountPaid stays as-is; amount owed = newTotalCost - totalPaid
+            // ADD TO TOTAL VALUE: client owes titleCost + storageFees going forward
+            // amountPaid stays as-is; amount owed = (titleCost + fees) - paid
+            project.setTotalCost(titleCost.add(storageFees));
         } else {
-            // Waive fees: recalibrate paid toward title only
-            BigDecimal backlogTotal = titleCost.add(storageFees);
-            BigDecimal titlePaymentPortion = totalPaid;
-            if (totalPaid.compareTo(backlogTotal) >= 0) {
-                titlePaymentPortion = titleCost;
-            } else if (totalPaid.compareTo(titleCost) > 0) {
-                titlePaymentPortion = titleCost;
-            }
+            // WAIVE FEES: reset amountPaid to only what was paid toward the title
+            // Cap paid at titleCost so client cannot over-pay on exit
+            BigDecimal titlePaymentPortion = totalPaid.min(titleCost);
             project.setAmountPaid(titlePaymentPortion);
         }
 

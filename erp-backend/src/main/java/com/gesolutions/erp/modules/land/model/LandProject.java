@@ -133,10 +133,11 @@ public class LandProject {
     }
 
     public BigDecimal backlogTotalOwed() {
-        BigDecimal base = totalCost != null ? totalCost : BigDecimal.ZERO;
-        BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
-        BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
-        return base.add(fees).subtract(paid);
+        // 4-Pocket Math: AMOUNT OWED = (totalCost + storageFeesAccumulated) - amountPaid
+        BigDecimal value = totalCost != null ? totalCost : BigDecimal.ZERO;
+        BigDecimal fees  = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
+        BigDecimal paid  = amountPaid != null ? amountPaid : BigDecimal.ZERO;
+        return value.add(fees).subtract(paid).max(BigDecimal.ZERO);
     }
 
     public BigDecimal activeTotalOwed() {

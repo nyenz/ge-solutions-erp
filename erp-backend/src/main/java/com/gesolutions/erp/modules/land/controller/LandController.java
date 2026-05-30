@@ -147,6 +147,13 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/projects/{id}/exit-backlog-capitalize")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> exitBacklogCapitalize(@PathVariable UUID id) {
+        landService.exitBacklog(id, true);
+        return ResponseEntity.ok().build();
+    }
+
     // NEW: Payment history per plot
     @GetMapping("/projects/{id}/payments")
     public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {

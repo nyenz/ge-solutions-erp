@@ -58,6 +58,13 @@ const recoveryService = {
         return true;
     },
 
+    exitBacklogCapitalize: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/exit-backlog`, null, {
+            params: { capitalizeFees: true }
+        });
+        return true;
+    },
+
     pauseStorageFees: async (projectId, paused) => {
         await api.patch(`/land/projects/${projectId}/storage-pause`, null, {
             params: { paused }
