@@ -553,30 +553,7 @@ const FolderPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.search, binder]);
 
-    // Auto-open payment modal when navigated from Recovery Portal
-    useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const action = params.get('action');
-        if (!action || !binder) return;
-        if (action === 'pay') {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                setPayType('TITLE');
-                setPayAmount('');
-                setPayNotes('');
-                setPayModal({ open: true });
-            }, 400);
-        } else if (action === 'storage') {
-            setActiveTab('FINANCIALS');
-            setTimeout(() => {
-                setPayType('STORAGE');
-                setPayAmount('');
-                setPayNotes('');
-                setPayModal({ open: true });
-            }, 400);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.search, binder]);
+
 
     // beforeunload -- catches tab close, hard refresh, browser back to external site
     // useRouterBlock also adds beforeunload, this is a belt-and-suspenders backup
@@ -1095,7 +1072,7 @@ const FolderPage = () => {
                                             <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({...buffer, totalCost:v})} />
                                             <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({...buffer, initialPayment:v})} />
                                             <div className={styles.hwInputWrap}>
-                                                <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
+                                                <div className={styles.inputLabelRow}><label>AMOUNT OWED</label><span className={styles.autoCalcBadge}>AUTO</span></div>
                                                 <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
                                             </div>
                                         </div>
@@ -1138,7 +1115,7 @@ const FolderPage = () => {
                                         <div className={styles.moneyStatsRow}>
                                             <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalCost)}</strong></div>
                                             <div className={styles.statBox}><label>COLLECTED</label><strong style={{color:'#86efac'}}>UGX {fmt(amountPaid)}</strong></div>
-                                            <div className={styles.statBox}><label>ARREARS</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
+                                            <div className={styles.statBox}><label>AMOUNT OWED</label><strong className={styles.redGlow}>UGX {fmt(remaining)}</strong></div>
                                         </div>
                                         <div className={styles.collectionBar}>
                                             <div className={styles.collectionFill}
