@@ -1,319 +1,140 @@
 import os
 
+def read_file(path):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 def write_file(path, content):
-    os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path) else None
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(content)
-    print(f"OK: {path}")
 
-def patch_file(path, old, new):
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        content = f.read()
-    if old not in content:
-        print(f"MISSING: patch target not found in {path}")
-        return
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content.replace(old, new, 1))
-    print(f"OK: patched {path}")
+def patch(path, old, new, label):
+    content = read_file(path)
+    if old in content:
+        write_file(path, content.replace(old, new, 1))
+        print(f"OK: {label}")
+    else:
+        print(f"MISSING: {label}")
 
-BASE = "erp-backend/src/main/java/com/gesolutions/erp"
+BASE = os.path.dirname(os.path.abspath(__file__))
 
-# ============================================================
-# 1. LandProject.java - Add backlogMonthsBilled field
-# ============================================================
-patch_file(
-    f"{BASE}/modules/land/model/LandProject.java",
-    """    @Column(name = "backlog_start_override")
-    private java.time.LocalDateTime backlogStartOverride;""",
-    """    @Column(name = "backlog_start_override")
-    private java.time.LocalDateTime backlogStartOverride;
+# ── PATCH 1: Auto-backlog glitch ─────────────────────────────────
+# LandTitle has createdAt. LandProject links to LandTitle via landTitle.
+# We update the JPQL query to also require landTitle.createdAt older than cutoff.
 
-    /**
-     * BACKLOG MONTHS BILLED COUNTER
-     * Tracks how many monthly storage fee periods have been billed.
-     * Used by BacklogSchedulerService instead of division math, so
-     * rate changes mid-way do not corrupt the billing calculation.
-     */
-    @Builder.Default
-    @Column(name = "backlog_months_billed", nullable = false)
-    private Integer backlogMonthsBilled = 0;"""
+scheduler_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
+    'gesolutions', 'erp', 'modules', 'land', 'service', 'BacklogSchedulerService.java')
+
+patch(
+    scheduler_path,
+    '    @Scheduled(cron = "0 0 6 * * *")\n    @Transactional\n    public void autoFlagStaleAsBacklog() {\n        LocalDateTime cutoff = LocalDateTime.now().minusDays(365);\n        List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);',
+    '    @Scheduled(cron = "0 0 6 * * *")\n    @Transactional\n    public void autoFlagStaleAsBacklog() {\n        LocalDateTime cutoff = LocalDateTime.now().minusDays(365);\n        // Pass cutoff for both lastPaymentDate AND registration date checks\n        List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);',
+    'BacklogSchedulerService cron comment (no-op marker)'
 )
 
-# ============================================================
-# 2. DataInitializer.java - Add migration for new column
-# ============================================================
-patch_file(
-    f"{BASE}/config/DataInitializer.java",
-    """            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS survey_date DATE",""",
-    """            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS survey_date DATE",
-            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0","""
+# Update the repository query to also check landTitle.createdAt
+repo_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
+    'gesolutions', 'erp', 'modules', 'land', 'repository', 'LandProjectRepository.java')
+
+patch(
+    repo_path,
+    '    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +\n           "AND p.amountPaid < p.totalCost " +\n           "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")\n    List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);',
+    '    // Fixed: require BOTH registration date AND last payment date to be older than cutoff\n    // This prevents newly registered plots with no initial payment from being instantly flagged\n    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +\n           "AND p.amountPaid < p.totalCost " +\n           "AND p.landTitle.createdAt < :cutoff " +\n           "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")\n    List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);',
+    'LandProjectRepository.findAutoBacklogCandidates - require registration date also old'
 )
 
-# ============================================================
-# 3. BacklogSchedulerService.java - Use counter instead of division
-# ============================================================
-patch_file(
-    f"{BASE}/modules/land/service/BacklogSchedulerService.java",
-    """            long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
-            long periodsOwed = daysSinceBacklog / 30;
+# ── PATCH 2 & 3: Joint owner contact spreading + multi-plot sync ──
+land_service_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
+    'gesolutions', 'erp', 'modules', 'land', 'service', 'LandService.java')
 
-            if (periodsOwed <= 0) continue;
-
-            BigDecimal monthlyRate = (plot.getStorageFeeOverride() != null && plot.getStorageFeeOverride().compareTo(BigDecimal.ZERO) > 0)
-                    ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
-
-            BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
-                    ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-
-            long feesAlreadyApplied = monthlyRate.compareTo(BigDecimal.ZERO) > 0
-                    ? currentFees.divide(monthlyRate, 0, RoundingMode.DOWN).longValue()
-                    : 0L;
-
-            if (feesAlreadyApplied >= periodsOwed) continue;
-
-            long feesMissing = periodsOwed - feesAlreadyApplied;
-            BigDecimal toAdd = monthlyRate.multiply(BigDecimal.valueOf(feesMissing));
-
-            plot.setStorageFeesAccumulated(currentFees.add(toAdd));
-            projectRepository.save(plot);
-
-            auditService.logAction("STORAGE_FEE_APPLIED",
-                "SYSTEM: Added UGX " + toAdd + " monthly storage fee to backlog plot: "
-                + plot.getLandTitle().getPlotNumber()
-                + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
-                + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());""",
-    """            long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
-            long periodsOwed = daysSinceBacklog / 30;
-
-            if (periodsOwed <= 0) continue;
-
-            // Use the counter (not division) to determine how many months remain to bill.
-            // This is immune to rate changes mid-way through the backlog period.
-            int alreadyBilled = plot.getBacklogMonthsBilled() != null ? plot.getBacklogMonthsBilled() : 0;
-
-            if (alreadyBilled >= periodsOwed) continue;
-
-            BigDecimal monthlyRate = (plot.getStorageFeeOverride() != null && plot.getStorageFeeOverride().compareTo(BigDecimal.ZERO) > 0)
-                    ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
-
-            BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
-                    ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
-
-            long feesMissing = periodsOwed - alreadyBilled;
-            BigDecimal toAdd = monthlyRate.multiply(BigDecimal.valueOf(feesMissing));
-
-            plot.setStorageFeesAccumulated(currentFees.add(toAdd));
-            plot.setBacklogMonthsBilled((int) periodsOwed);
-            projectRepository.save(plot);
-
-            auditService.logAction("STORAGE_FEE_APPLIED",
-                "SYSTEM: Added UGX " + toAdd + " monthly storage fee to backlog plot: "
-                + plot.getLandTitle().getPlotNumber()
-                + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
-                + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());"""
-)
-
-# ============================================================
-# 4. LandService.java - Fix updateProjectFull to sync originalDebt
-# ============================================================
-patch_file(
-    f"{BASE}/modules/land/service/LandService.java",
-    """        project.setTotalCost(request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO);
-        project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
-        project.setLegacy(request.isLegacy());""",
-    """        BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
-        project.setTotalCost(newTotalCost);
-        project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
-        project.setLegacy(request.isLegacy());
-
-        // FIX 1: If in backlog, keep originalDebt in sync with totalCost changes.
-        // originalDebt = new title cost minus payments already made toward the title.
-        if (project.isBacklog()) {
-            BigDecimal amtPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
-            project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));
-        }"""
-)
-
-# ============================================================
-# 5. LandService.java - Fix exitBacklog to recalibrate math
-# ============================================================
-patch_file(
-    f"{BASE}/modules/land/service/LandService.java",
-    """        project.setBacklog(false);
-        project.setBacklogStartDate(null);
-        project.setOriginalDebt(BigDecimal.ZERO);
-        project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setStatus("ACTIVE");
-        projectRepository.save(project);
-
-        auditService.logAction("BACKLOG_EXIT",
-            "Operator [" + getCurrentOperator() + "] manually removed plot "
-            + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. Accumulated storage fees of UGX " + project.getStorageFeesAccumulated() + " cleared.");""",
-    """        // FIX 3: Recalibrate amountPaid on exit so active math is correct.
-        // Payments made toward storage fees should not be counted against the title cost.
-        // We recalculate how much was actually paid toward the title by subtracting
-        // storage fees that were paid (excess over original debt).
-        BigDecimal titleCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal totalPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
-        BigDecimal storageFees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
-
-        // Amount that went toward the title = totalPaid minus any overpayment that covered storage fees
-        BigDecimal backlogTotal = titleCost.add(storageFees);
-        BigDecimal titlePaymentPortion = totalPaid;
-        if (totalPaid.compareTo(backlogTotal) >= 0) {
-            // Fully paid everything; title is fully paid
-            titlePaymentPortion = titleCost;
-        } else if (totalPaid.compareTo(titleCost) > 0) {
-            // Paid more than title cost - excess went to storage
-            titlePaymentPortion = titleCost;
+old_follow_up = '''    @Transactional(rollbackFor = Exception.class)
+    public void logFollowUp(UUID projectId, String content) {
+        LandProject project = projectRepository.findById(projectId).orElseThrow();
+        if (project.getProprietors() != null) {
+            for (Client owner : project.getProprietors()) {
+                if (owner != null && owner.getId() != null) {
+                    try { clientService.logManagerContact(owner.getId()); } catch (Exception e) {}
+                }
+            }
         }
-        // else: paid less than or equal to title cost, all goes to title
-
-        project.setAmountPaid(titlePaymentPortion);
-        project.setBacklog(false);
-        project.setBacklogStartDate(null);
-        project.setOriginalDebt(BigDecimal.ZERO);
-        project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setBacklogMonthsBilled(0);
-        project.setStatus("ACTIVE");
-        projectRepository.save(project);
-
-        auditService.logAction("BACKLOG_EXIT",
-            "Operator [" + getCurrentOperator() + "] manually removed plot "
-            + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. Storage fees cleared. Title amount paid recalibrated to UGX " + titlePaymentPortion + ".");"""
-)
-
-# ============================================================
-# 6. LandService.java - Fix recordPayment to honour payment type
-# ============================================================
-patch_file(
-    f"{BASE}/modules/land/service/LandService.java",
-    """    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
-        }
-
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        String operator = getCurrentOperator();
-        String paymentType = project.isBacklog() ? "BACKLOG_PARTIAL" : "STANDARD";
-
-        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);
-        project.setAmountPaid(newAmountPaid);
-        project.setLastPaymentDate(LocalDateTime.now());
-
-        BigDecimal balanceAfter;
-        if (project.isBacklog()) {
-            balanceAfter = project.backlogTotalOwed();
-        } else {
-            balanceAfter = project.getTotalCost().subtract(newAmountPaid);
-        }
-
-        PaymentRecord record = PaymentRecord.builder()
+        FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
-                .amountPaid(amount)
-                .paymentType(paymentType)
-                .recordedBy(operator)
-                .notes(notes)
-                .balanceAfter(balanceAfter)
+                .notes(content)
+                .recordedBy(getCurrentOperator())
                 .build();
-        paymentRecordRepository.save(record);
+        followUpRepository.save(entry);
+        auditService.logAction("RECOVERY_SYNC",
+            "Operator [" + getCurrentOperator() + "] logged call for plot: "
+            + project.getLandTitle().getPlotNumber());
+    }'''
 
-        // Auto-exit backlog if fully paid
-        if (project.isBacklog() && balanceAfter.compareTo(BigDecimal.ZERO) <= 0) {
-            project.setBacklog(false);
-            project.setStatus("ACTIVE");
-            projectRepository.save(project);
-            auditService.logAction("BACKLOG_EXIT",
-                "Operator [" + operator + "] -- Plot " + project.getLandTitle().getPlotNumber()
-                + " EXITED BACKLOG after full payment clearance.");
-        } else {
-            projectRepository.save(project);
-        }
+new_follow_up = '''    @Transactional(rollbackFor = Exception.class)
+    public void logFollowUp(UUID projectId, String content) {
+        LandProject project = projectRepository.findById(projectId).orElseThrow();
 
-        auditService.logAction("PAYMENT_RECORDED",
-            "Operator [" + operator + "] recorded UGX " + amount
-            + " for plot: " + project.getLandTitle().getPlotNumber()
-            + " | Type: " + paymentType
-            + " | Balance after: UGX " + balanceAfter);
-    }""",
-    """    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
-        }
-
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        String operator = getCurrentOperator();
-
-        // FIX 4: Honour payment type. If notes start with [STORAGE FEE PAYMENT],
-        // deduct from storageFeesAccumulated and record as BACKLOG_STORAGE.
-        // Otherwise treat as title payment (STANDARD or BACKLOG_PARTIAL).
-        boolean isStorageFeePayment = project.isBacklog()
-                && notes != null && notes.startsWith("[STORAGE FEE PAYMENT]");
-
-        String paymentType;
-        BigDecimal balanceAfter;
-
-        if (isStorageFeePayment) {
-            // Payment goes toward storage fees
-            paymentType = "BACKLOG_STORAGE";
-            BigDecimal currentFees = project.getStorageFeesAccumulated() != null
-                    ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
-            BigDecimal newFees = currentFees.subtract(amount).max(BigDecimal.ZERO);
-            project.setStorageFeesAccumulated(newFees);
-            project.setLastPaymentDate(LocalDateTime.now());
-            balanceAfter = project.backlogTotalOwed();
-        } else {
-            // Payment goes toward title cost
-            paymentType = project.isBacklog() ? "BACKLOG_PARTIAL" : "STANDARD";
-            BigDecimal newAmountPaid = project.getAmountPaid().add(amount);
-            project.setAmountPaid(newAmountPaid);
-            project.setLastPaymentDate(LocalDateTime.now());
-            if (project.isBacklog()) {
-                balanceAfter = project.backlogTotalOwed();
-            } else {
-                balanceAfter = project.getTotalCost().subtract(newAmountPaid);
+        // PATCH 2: Only increment call counter for the PRIMARY owner (alphabetically first),
+        // not all joint owners, to avoid accidental counter inflation.
+        Client primaryOwner = null;
+        if (project.getProprietors() != null && !project.getProprietors().isEmpty()) {
+            primaryOwner = project.getProprietors().stream()
+                    .filter(o -> o != null && o.getId() != null)
+                    .min(java.util.Comparator.comparing(Client::getFullName))
+                    .orElse(null);
+            if (primaryOwner != null) {
+                try { clientService.logManagerContact(primaryOwner.getId()); } catch (Exception e) {}
             }
         }
 
-        PaymentRecord record = PaymentRecord.builder()
+        // Save note to this plot
+        String operator = getCurrentOperator();
+        FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
-                .amountPaid(amount)
-                .paymentType(paymentType)
+                .notes(content)
                 .recordedBy(operator)
-                .notes(notes)
-                .balanceAfter(balanceAfter)
                 .build();
-        paymentRecordRepository.save(record);
+        followUpRepository.save(entry);
 
-        // Auto-exit backlog if fully paid
-        if (project.isBacklog() && balanceAfter.compareTo(BigDecimal.ZERO) <= 0) {
-            project.setBacklog(false);
-            project.setStatus("ACTIVE");
-            projectRepository.save(project);
-            auditService.logAction("BACKLOG_EXIT",
-                "Operator [" + operator + "] -- Plot " + project.getLandTitle().getPlotNumber()
-                + " EXITED BACKLOG after full payment clearance.");
-        } else {
-            projectRepository.save(project);
+        // PATCH 3: If the primary owner also owns other outstanding plots,
+        // automatically copy this follow-up note to those plots as well.
+        if (primaryOwner != null) {
+            final Client finalPrimary = primaryOwner;
+            List<LandProject> allProjects = projectRepository.findAll();
+            for (LandProject otherPlot : allProjects) {
+                if (otherPlot.getId().equals(projectId)) continue;
+                boolean ownedByPrimary = otherPlot.getProprietors() != null &&
+                    otherPlot.getProprietors().stream()
+                        .anyMatch(o -> o != null && o.getId() != null &&
+                                  o.getId().equals(finalPrimary.getId()));
+                if (!ownedByPrimary) continue;
+                // Only sync to plots with outstanding balance (active cases)
+                java.math.BigDecimal bal = otherPlot.isBacklog()
+                        ? otherPlot.backlogTotalOwed() : otherPlot.activeTotalOwed();
+                if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+                FollowUpLog syncEntry = FollowUpLog.builder()
+                        .projectId(otherPlot.getId())
+                        .notes("[SYNCED FROM " + project.getLandTitle().getPlotNumber() + "] " + content)
+                        .recordedBy(operator)
+                        .build();
+                followUpRepository.save(syncEntry);
+            }
         }
 
-        auditService.logAction("PAYMENT_RECORDED",
-            "Operator [" + operator + "] recorded UGX " + amount
-            + " for plot: " + project.getLandTitle().getPlotNumber()
-            + " | Type: " + paymentType
-            + " | Balance after: UGX " + balanceAfter);
-    }"""
+        auditService.logAction("RECOVERY_SYNC",
+            "Operator [" + operator + "] logged call for plot: "
+            + project.getLandTitle().getPlotNumber());
+    }'''
+
+patch(land_service_path, old_follow_up, new_follow_up,
+      'LandService.logFollowUp - primary owner only + multi-plot sync')
+
+# ── PATCH 4: Duplicate plot resets surveyDate ─────────────────────
+intake_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx')
+
+patch(
+    intake_path,
+    "            setPlotNumber('');\n            setInitialPayment('');\n            setInitialStorageFee('');\n            setFileQueue([]);\n            setNotesList([]);\n            setErrors({});",
+    "            setPlotNumber('');\n            setInitialPayment('');\n            setInitialStorageFee('');\n            setSurveyDate('');\n            setFileQueue([]);\n            setNotesList([]);\n            setErrors({});",
+    'IntakePage.handleDuplicatePlot - reset surveyDate'
 )
 
-print("\nAll patches applied.")
-print("Run: git add -A && git commit -m 'fix: sync originalDebt, months-billed counter, exitBacklog recalibration, payment type routing' && git push")
+print('Done.')

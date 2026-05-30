@@ -30,8 +30,11 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
 
     // All active (non-backlog) plots with outstanding balance
     // that have had no payment for over 365 days — candidates for auto-backlog
+    // Fixed: require BOTH registration date AND last payment date to be older than cutoff
+    // This prevents newly registered plots with no initial payment from being instantly flagged
     @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +
            "AND p.amountPaid < p.totalCost " +
+           "AND p.landTitle.createdAt < :cutoff " +
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
     List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);
 

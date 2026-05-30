@@ -86,6 +86,7 @@ public class BacklogSchedulerService {
     @Transactional
     public void autoFlagStaleAsBacklog() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(365);
+        // Pass cutoff for both lastPaymentDate AND registration date checks
         List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);
 
         for (LandProject plot : candidates) {

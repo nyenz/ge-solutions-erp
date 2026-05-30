@@ -405,21 +405,56 @@ public class LandService {
     @Transactional(rollbackFor = Exception.class)
     public void logFollowUp(UUID projectId, String content) {
         LandProject project = projectRepository.findById(projectId).orElseThrow();
-        if (project.getProprietors() != null) {
-            for (Client owner : project.getProprietors()) {
-                if (owner != null && owner.getId() != null) {
-                    try { clientService.logManagerContact(owner.getId()); } catch (Exception e) {}
-                }
+
+        // PATCH 2: Only increment call counter for the PRIMARY owner (alphabetically first),
+        // not all joint owners, to avoid accidental counter inflation.
+        Client primaryOwner = null;
+        if (project.getProprietors() != null && !project.getProprietors().isEmpty()) {
+            primaryOwner = project.getProprietors().stream()
+                    .filter(o -> o != null && o.getId() != null)
+                    .min(java.util.Comparator.comparing(Client::getFullName))
+                    .orElse(null);
+            if (primaryOwner != null) {
+                try { clientService.logManagerContact(primaryOwner.getId()); } catch (Exception e) {}
             }
         }
+
+        // Save note to this plot
+        String operator = getCurrentOperator();
         FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
                 .notes(content)
-                .recordedBy(getCurrentOperator())
+                .recordedBy(operator)
                 .build();
         followUpRepository.save(entry);
+
+        // PATCH 3: If the primary owner also owns other outstanding plots,
+        // automatically copy this follow-up note to those plots as well.
+        if (primaryOwner != null) {
+            final Client finalPrimary = primaryOwner;
+            List<LandProject> allProjects = projectRepository.findAll();
+            for (LandProject otherPlot : allProjects) {
+                if (otherPlot.getId().equals(projectId)) continue;
+                boolean ownedByPrimary = otherPlot.getProprietors() != null &&
+                    otherPlot.getProprietors().stream()
+                        .anyMatch(o -> o != null && o.getId() != null &&
+                                  o.getId().equals(finalPrimary.getId()));
+                if (!ownedByPrimary) continue;
+                // Only sync to plots with outstanding balance (active cases)
+                java.math.BigDecimal bal = otherPlot.isBacklog()
+                        ? otherPlot.backlogTotalOwed() : otherPlot.activeTotalOwed();
+                if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+                FollowUpLog syncEntry = FollowUpLog.builder()
+                        .projectId(otherPlot.getId())
+                        .notes("[SYNCED FROM " + project.getLandTitle().getPlotNumber() + "] " + content)
+                        .recordedBy(operator)
+                        .build();
+                followUpRepository.save(syncEntry);
+            }
+        }
+
         auditService.logAction("RECOVERY_SYNC",
-            "Operator [" + getCurrentOperator() + "] logged call for plot: "
+            "Operator [" + operator + "] logged call for plot: "
             + project.getLandTitle().getPlotNumber());
     }
 

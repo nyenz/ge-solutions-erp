@@ -387,6 +387,7 @@ const IntakePage = () => {
             setPlotNumber('');
             setInitialPayment('');
             setInitialStorageFee('');
+            setSurveyDate('');
             setFileQueue([]);
             setNotesList([]);
             setErrors({});
