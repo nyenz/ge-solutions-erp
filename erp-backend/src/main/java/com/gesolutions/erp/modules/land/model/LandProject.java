@@ -93,6 +93,16 @@ public class LandProject {
     @Column(name = "backlog_start_override")
     private java.time.LocalDateTime backlogStartOverride;
 
+    /**
+     * BACKLOG MONTHS BILLED COUNTER
+     * Tracks how many monthly storage fee periods have been billed.
+     * Used by BacklogSchedulerService instead of division math, so
+     * rate changes mid-way do not corrupt the billing calculation.
+     */
+    @Builder.Default
+    @Column(name = "backlog_months_billed", nullable = false)
+    private Integer backlogMonthsBilled = 0;
+
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 

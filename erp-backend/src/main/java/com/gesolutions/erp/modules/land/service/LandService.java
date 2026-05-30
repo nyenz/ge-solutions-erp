@@ -182,17 +182,39 @@ public class LandService {
             throw new BusinessException("BACKLOG_FAULT: Plot is not in backlog.");
         }
 
+        // FIX 3: Recalibrate amountPaid on exit so active math is correct.
+        // Payments made toward storage fees should not be counted against the title cost.
+        // We recalculate how much was actually paid toward the title by subtracting
+        // storage fees that were paid (excess over original debt).
+        BigDecimal titleCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal totalPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+        BigDecimal storageFees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
+
+        // Amount that went toward the title = totalPaid minus any overpayment that covered storage fees
+        BigDecimal backlogTotal = titleCost.add(storageFees);
+        BigDecimal titlePaymentPortion = totalPaid;
+        if (totalPaid.compareTo(backlogTotal) >= 0) {
+            // Fully paid everything; title is fully paid
+            titlePaymentPortion = titleCost;
+        } else if (totalPaid.compareTo(titleCost) > 0) {
+            // Paid more than title cost - excess went to storage
+            titlePaymentPortion = titleCost;
+        }
+        // else: paid less than or equal to title cost, all goes to title
+
+        project.setAmountPaid(titlePaymentPortion);
         project.setBacklog(false);
         project.setBacklogStartDate(null);
         project.setOriginalDebt(BigDecimal.ZERO);
         project.setStorageFeesAccumulated(BigDecimal.ZERO);
+        project.setBacklogMonthsBilled(0);
         project.setStatus("ACTIVE");
         projectRepository.save(project);
 
         auditService.logAction("BACKLOG_EXIT",
             "Operator [" + getCurrentOperator() + "] manually removed plot "
             + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. Accumulated storage fees of UGX " + project.getStorageFeesAccumulated() + " cleared.");
+            + " from BACKLOG. Storage fees cleared. Title amount paid recalibrated to UGX " + titlePaymentPortion + ".");
     }
 
     // ─── INTAKE ───────────────────────────────────────────────────────────────
@@ -335,9 +357,17 @@ public class LandService {
             project.setProprietors(updatedRegistry);
         }
 
-        project.setTotalCost(request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO);
+        BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
+        project.setTotalCost(newTotalCost);
         project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
         project.setLegacy(request.isLegacy());
+
+        // FIX 1: If in backlog, keep originalDebt in sync with totalCost changes.
+        // originalDebt = new title cost minus payments already made toward the title.
+        if (project.isBacklog()) {
+            BigDecimal amtPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+            project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));
+        }
 
         LandProject saved = projectRepository.save(project);
         auditService.logAction("RECORD_UPDATED",

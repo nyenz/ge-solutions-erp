@@ -51,6 +51,7 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS survey_date DATE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
         };
 
         try (Connection conn = dataSource.getConnection();

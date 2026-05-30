@@ -54,22 +54,23 @@ public class BacklogSchedulerService {
 
             if (periodsOwed <= 0) continue;
 
+            // Use the counter (not division) to determine how many months remain to bill.
+            // This is immune to rate changes mid-way through the backlog period.
+            int alreadyBilled = plot.getBacklogMonthsBilled() != null ? plot.getBacklogMonthsBilled() : 0;
+
+            if (alreadyBilled >= periodsOwed) continue;
+
             BigDecimal monthlyRate = (plot.getStorageFeeOverride() != null && plot.getStorageFeeOverride().compareTo(BigDecimal.ZERO) > 0)
                     ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
 
             BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
                     ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
 
-            long feesAlreadyApplied = monthlyRate.compareTo(BigDecimal.ZERO) > 0
-                    ? currentFees.divide(monthlyRate, 0, RoundingMode.DOWN).longValue()
-                    : 0L;
-
-            if (feesAlreadyApplied >= periodsOwed) continue;
-
-            long feesMissing = periodsOwed - feesAlreadyApplied;
+            long feesMissing = periodsOwed - alreadyBilled;
             BigDecimal toAdd = monthlyRate.multiply(BigDecimal.valueOf(feesMissing));
 
             plot.setStorageFeesAccumulated(currentFees.add(toAdd));
+            plot.setBacklogMonthsBilled((int) periodsOwed);
             projectRepository.save(plot);
 
             auditService.logAction("STORAGE_FEE_APPLIED",
