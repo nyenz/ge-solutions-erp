@@ -328,14 +328,38 @@
 /* RESPONSIVE */
 @media (max-width: 900px) { .summaryRow { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) {
-    .summaryRow { grid-template-columns: 1fr; gap: 8px; }
+    .container {
+        padding: 0 0 clamp(24px, 3vw, 36px);
+    }
+    .pageHeader {
+        border-radius: 0;
+    }
+    .controls {
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: clamp(8px, 2vw, 12px);
+        padding-right: clamp(8px, 2vw, 12px);
+    }
+    .summaryRow {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 0 clamp(8px, 2vw, 12px);
+    }
     .searchWrap { max-width: 100%; }
     .filterRow { gap: 6px; }
+    .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: 650px; }
 }
 @media (max-width: 480px) {
-    .summaryRow { grid-template-columns: 1fr 1fr; }
+    .container {
+        padding: 0 0 clamp(24px, 3vw, 36px);
+    }
+    .summaryRow {
+        grid-template-columns: 1fr 1fr;
+        padding: 0 clamp(8px, 2vw, 12px);
+    }
     .sumCard strong { font-size: 13px; }
+    .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: 600px; }
     .ledgerTable th { font-size: 7px; letter-spacing: 1px; }
     .ledgerTable td { padding: 8px; }

@@ -592,18 +592,35 @@
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+    .container {
+        padding: 0 0 clamp(24px, 3vw, 36px);
+    }
+    .pageHeader {
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: 0;
+    }
+    .controlHub {
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: clamp(8px, 2vw, 12px);
+        padding-right: clamp(8px, 2vw, 12px);
+    }
     .searchBlock { max-width: 100%; }
     .ownerName   { max-width: clamp(80px, 28vw, 140px); }
-    .tableScroll { margin: -20px; margin-bottom: 0; }
+    .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: clamp(560px, 90vw, 900px); }
     .ledgerTable th { padding: 9px 10px; font-size: 7px; }
     .ledgerTable td { padding: 8px 10px; }
-    .pagination { padding: 8px 10px; }
+    .pagination { padding: 8px 10px; border-radius: 0; }
 }
 @media (max-width: 480px) {
+    .container {
+        padding: 0 0 clamp(24px, 3vw, 36px);
+    }
     .jointBadge  { display: none; }
     .pctLabel    { display: none; }
-    .tableScroll { margin: -15px; margin-bottom: 0; }
+    .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: 480px; font-size: 10px; }
     .plotCell strong { font-size: 10px; }
     .ownerName { max-width: 90px; font-size: 10px; }

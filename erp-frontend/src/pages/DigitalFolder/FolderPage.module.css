@@ -1996,35 +1996,75 @@
 .tabShort { display: none; }
 
 @media (max-width: 600px) {
+    .container {
+        padding: 0 0 clamp(40px, 5vw, 60px);
+    }
     .tabBar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(6px, 0.8vw, 10px);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: clamp(8px, 2vw, 10px);
-    padding-top: clamp(8px, 2vw, 10px);
-    margin-bottom: clamp(10px, 1.3vw, 14px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(244, 242, 239, 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-}
-    .drawerHeader, .finPanelHeader { top: 22px;     border-radius: 10.5px 10.5px 0 0;
-}
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: clamp(4px, 1.5vw, 8px);
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding: clamp(8px, 2vw, 10px) clamp(8px, 2vw, 12px);
+        margin-bottom: clamp(8px, 1.3vw, 12px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(244, 242, 239, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+    .pipelineHUD {
+        border-radius: 0;
+    }
+    .terminalHeader {
+        border-radius: 0;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    .drawerHeader, .finPanelHeader { top: 22px; border-radius: 10.5px 10.5px 0 0; }
     .tabFull  { display: none; }
     .tabShort { display: inline; font-weight: 900; letter-spacing: 1px; }
     .tabBtn {
         flex: 1;
-        min-width: 0;
-        padding: clamp(7px, 2vw, 9px) clamp(8px, 2.5vw, 14px) !important;
-        font-size: clamp(8px, 2.5vw, 10px) !important;
-        letter-spacing: 1px !important;
+        min-width: 44px;
+        height: clamp(42px, 11vw, 48px);
+        padding: clamp(10px, 3vw, 12px) clamp(6px, 2vw, 10px) !important;
+        font-size: clamp(9px, 2.8vw, 11px) !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.5px !important;
         justify-content: center;
+        display: flex;
+        align-items: center;
+    }
+    .ctrlGroup {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(6px, 1.5vw, 8px);
+        width: 100%;
+    }
+    .unlockMasterBtn,
+    .ctrlBtnPay,
+    .ctrlBtnBacklog,
+    .purgeBtn {
+        width: 100% !important;
+        height: clamp(44px, 12vw, 50px) !important;
+        justify-content: center !important;
+        font-size: clamp(10px, 2.8vw, 12px) !important;
+    }
+    .btn {
+        width: 100% !important;
+        height: clamp(44px, 12vw, 50px) !important;
+        justify-content: center !important;
+    }
+    .printBtn {
+        width: 100% !important;
+        height: clamp(44px, 12vw, 50px) !important;
+    }
+    .hwPanel {
+        border-radius: 0;
     }
 }
 
@@ -2033,10 +2073,38 @@
     .protocolReadout { border-left: none; border-top: 1px solid var(--white-10); padding-left: 0; padding-top: clamp(8px, 1.2vw, 12px); min-width: unset; display: flex; justify-content: space-between; align-items: center; text-align: left; }
     .terminalHeader { flex-direction: column; align-items: stretch; }
     .ctrlZone { width: 100%; }
+    .ctrlGroup {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+        gap: clamp(6px, 1vw, 8px);
+        width: 100%;
+    }
     .handshakeActions { width: 100%; }
     .handshakeActions .btn { flex: 1; justify-content: center; }
-    .unlockMasterBtn { width: 100%; justify-content: center; }
-    .purgeBtn { align-self: flex-start; }
+    .unlockMasterBtn {
+        width: 100%;
+        justify-content: center;
+        height: clamp(44px, 5.5vw, 50px);
+    }
+    .ctrlBtnPay, .ctrlBtnBacklog {
+        height: clamp(44px, 5.5vw, 50px);
+        justify-content: center;
+        flex: 1;
+    }
+    .purgeBtn {
+        align-self: stretch;
+        height: clamp(44px, 5.5vw, 50px);
+        justify-content: center;
+    }
+    .btn {
+        height: clamp(44px, 5.5vw, 50px);
+        flex: 1;
+        justify-content: center;
+    }
+    .printBtn {
+        height: clamp(44px, 5.5vw, 50px);
+        width: clamp(44px, 5.5vw, 50px);
+    }
     .intelDoubleRow { grid-template-columns: 1fr; width: 100%; }
     .ownersGrid2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
     /* inputGrid3 stays 3-col at 960px — only narrows at 680px */
