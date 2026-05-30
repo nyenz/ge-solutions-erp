@@ -614,6 +614,20 @@
    ═══════════════════════════════════════════════════════════════ */
 .vaultWrapper { display: flex; flex-direction: column; gap: var(--gap-md); }
 
+.vaultError .fileDisplay {
+    border: 2px solid var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.2) !important;
+    animation: shake 0.35s cubic-bezier(0.36,0.07,0.19,0.97) both;
+}
+
+@keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-6px); }
+    40%     { transform: translateX(6px); }
+    60%     { transform: translateX(-4px); }
+    80%     { transform: translateX(4px); }
+}
+
 .fileDisplay {
     background: rgba(0, 0, 0, 0.25);
     border: 1.5px solid rgba(238, 140, 58, 0.2);

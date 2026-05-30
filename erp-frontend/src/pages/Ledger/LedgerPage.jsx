@@ -102,8 +102,8 @@ const LedgerPage = () => {
         if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
         if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
         if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isBacklog);
-        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);
-        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);
+        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isBacklog ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);
+        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isBacklog && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);
 
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -243,10 +243,13 @@ const LedgerPage = () => {
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.map((proj) => {
-                                const pct        = proj.totalCost > 0 ? Math.min((proj.amountPaid / proj.totalCost) * 100, 100) : 0;
-                                const debt       = (proj.totalCost || 0) - (proj.amountPaid || 0);
-                                const isCritical = pct < 25 && proj.totalCost > 0;
                                 const isBacklog  = proj.isBacklog;
+                                const storageFees = Number(proj.storageFeesAccumulated || 0);
+                                const debt       = isBacklog
+                                    ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
+                                    : (proj.totalCost || 0) - (proj.amountPaid || 0);
+                                const pct        = proj.totalCost > 0 ? Math.min((proj.amountPaid / proj.totalCost) * 100, 100) : 0;
+                                const isCritical = pct < 25 && proj.totalCost > 0;
 
                                 return (
                                     <tr key={proj.id}

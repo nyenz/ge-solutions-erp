@@ -16,125 +16,157 @@ def patch(path, old, new, label):
     else:
         print(f"MISSING: {label}")
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+base = os.path.dirname(os.path.abspath(__file__))
+ledger_jsx = os.path.join(base, 'erp-frontend/src/pages/Ledger/LedgerPage.jsx')
+intake_jsx = os.path.join(base, 'erp-frontend/src/pages/Intake/IntakePage.jsx')
+intake_css = os.path.join(base, 'erp-frontend/src/pages/Intake/IntakePage.module.css')
+folder_jsx = os.path.join(base, 'erp-frontend/src/pages/DigitalFolder/FolderPage.jsx')
 
-# ── PATCH 1: Auto-backlog glitch ─────────────────────────────────
-# LandTitle has createdAt. LandProject links to LandTitle via landTitle.
-# We update the JPQL query to also require landTitle.createdAt older than cutoff.
-
-scheduler_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
-    'gesolutions', 'erp', 'modules', 'land', 'service', 'BacklogSchedulerService.java')
-
-patch(
-    scheduler_path,
-    '    @Scheduled(cron = "0 0 6 * * *")\n    @Transactional\n    public void autoFlagStaleAsBacklog() {\n        LocalDateTime cutoff = LocalDateTime.now().minusDays(365);\n        List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);',
-    '    @Scheduled(cron = "0 0 6 * * *")\n    @Transactional\n    public void autoFlagStaleAsBacklog() {\n        LocalDateTime cutoff = LocalDateTime.now().minusDays(365);\n        // Pass cutoff for both lastPaymentDate AND registration date checks\n        List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);',
-    'BacklogSchedulerService cron comment (no-op marker)'
-)
-
-# Update the repository query to also check landTitle.createdAt
-repo_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
-    'gesolutions', 'erp', 'modules', 'land', 'repository', 'LandProjectRepository.java')
+# ── 1. LEDGER: fix debt calculation to include storage fees for backlog ──
 
 patch(
-    repo_path,
-    '    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +\n           "AND p.amountPaid < p.totalCost " +\n           "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")\n    List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);',
-    '    // Fixed: require BOTH registration date AND last payment date to be older than cutoff\n    // This prevents newly registered plots with no initial payment from being instantly flagged\n    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +\n           "AND p.amountPaid < p.totalCost " +\n           "AND p.landTitle.createdAt < :cutoff " +\n           "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")\n    List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);',
-    'LandProjectRepository.findAutoBacklogCandidates - require registration date also old'
+    ledger_jsx,
+    '''                                const pct        = proj.totalCost > 0 ? Math.min((proj.amountPaid / proj.totalCost) * 100, 100) : 0;
+                                const debt       = (proj.totalCost || 0) - (proj.amountPaid || 0);
+                                const isCritical = pct < 25 && proj.totalCost > 0;
+                                const isBacklog  = proj.isBacklog;''',
+    '''                                const isBacklog  = proj.isBacklog;
+                                const storageFees = Number(proj.storageFeesAccumulated || 0);
+                                const debt       = isBacklog
+                                    ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
+                                    : (proj.totalCost || 0) - (proj.amountPaid || 0);
+                                const pct        = proj.totalCost > 0 ? Math.min((proj.amountPaid / proj.totalCost) * 100, 100) : 0;
+                                const isCritical = pct < 25 && proj.totalCost > 0;''',
+    'LedgerPage: debt calculation includes storage fees'
 )
-
-# ── PATCH 2 & 3: Joint owner contact spreading + multi-plot sync ──
-land_service_path = os.path.join(BASE, 'erp-backend', 'src', 'main', 'java', 'com',
-    'gesolutions', 'erp', 'modules', 'land', 'service', 'LandService.java')
-
-old_follow_up = '''    @Transactional(rollbackFor = Exception.class)
-    public void logFollowUp(UUID projectId, String content) {
-        LandProject project = projectRepository.findById(projectId).orElseThrow();
-        if (project.getProprietors() != null) {
-            for (Client owner : project.getProprietors()) {
-                if (owner != null && owner.getId() != null) {
-                    try { clientService.logManagerContact(owner.getId()); } catch (Exception e) {}
-                }
-            }
-        }
-        FollowUpLog entry = FollowUpLog.builder()
-                .projectId(projectId)
-                .notes(content)
-                .recordedBy(getCurrentOperator())
-                .build();
-        followUpRepository.save(entry);
-        auditService.logAction("RECOVERY_SYNC",
-            "Operator [" + getCurrentOperator() + "] logged call for plot: "
-            + project.getLandTitle().getPlotNumber());
-    }'''
-
-new_follow_up = '''    @Transactional(rollbackFor = Exception.class)
-    public void logFollowUp(UUID projectId, String content) {
-        LandProject project = projectRepository.findById(projectId).orElseThrow();
-
-        // PATCH 2: Only increment call counter for the PRIMARY owner (alphabetically first),
-        // not all joint owners, to avoid accidental counter inflation.
-        Client primaryOwner = null;
-        if (project.getProprietors() != null && !project.getProprietors().isEmpty()) {
-            primaryOwner = project.getProprietors().stream()
-                    .filter(o -> o != null && o.getId() != null)
-                    .min(java.util.Comparator.comparing(Client::getFullName))
-                    .orElse(null);
-            if (primaryOwner != null) {
-                try { clientService.logManagerContact(primaryOwner.getId()); } catch (Exception e) {}
-            }
-        }
-
-        // Save note to this plot
-        String operator = getCurrentOperator();
-        FollowUpLog entry = FollowUpLog.builder()
-                .projectId(projectId)
-                .notes(content)
-                .recordedBy(operator)
-                .build();
-        followUpRepository.save(entry);
-
-        // PATCH 3: If the primary owner also owns other outstanding plots,
-        // automatically copy this follow-up note to those plots as well.
-        if (primaryOwner != null) {
-            final Client finalPrimary = primaryOwner;
-            List<LandProject> allProjects = projectRepository.findAll();
-            for (LandProject otherPlot : allProjects) {
-                if (otherPlot.getId().equals(projectId)) continue;
-                boolean ownedByPrimary = otherPlot.getProprietors() != null &&
-                    otherPlot.getProprietors().stream()
-                        .anyMatch(o -> o != null && o.getId() != null &&
-                                  o.getId().equals(finalPrimary.getId()));
-                if (!ownedByPrimary) continue;
-                // Only sync to plots with outstanding balance (active cases)
-                java.math.BigDecimal bal = otherPlot.isBacklog()
-                        ? otherPlot.backlogTotalOwed() : otherPlot.activeTotalOwed();
-                if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
-                FollowUpLog syncEntry = FollowUpLog.builder()
-                        .projectId(otherPlot.getId())
-                        .notes("[SYNCED FROM " + project.getLandTitle().getPlotNumber() + "] " + content)
-                        .recordedBy(operator)
-                        .build();
-                followUpRepository.save(syncEntry);
-            }
-        }
-
-        auditService.logAction("RECOVERY_SYNC",
-            "Operator [" + operator + "] logged call for plot: "
-            + project.getLandTitle().getPlotNumber());
-    }'''
-
-patch(land_service_path, old_follow_up, new_follow_up,
-      'LandService.logFollowUp - primary owner only + multi-plot sync')
-
-# ── PATCH 4: Duplicate plot resets surveyDate ─────────────────────
-intake_path = os.path.join(BASE, 'erp-frontend', 'src', 'pages', 'Intake', 'IntakePage.jsx')
 
 patch(
-    intake_path,
-    "            setPlotNumber('');\n            setInitialPayment('');\n            setInitialStorageFee('');\n            setFileQueue([]);\n            setNotesList([]);\n            setErrors({});",
-    "            setPlotNumber('');\n            setInitialPayment('');\n            setInitialStorageFee('');\n            setSurveyDate('');\n            setFileQueue([]);\n            setNotesList([]);\n            setErrors({});",
-    'IntakePage.handleDuplicatePlot - reset surveyDate'
+    ledger_jsx,
+    "        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.amountPaid < p.totalCost);",
+    "        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isBacklog ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);",
+    'LedgerPage: DEBTORS filter uses backlog-aware debt'
 )
 
-print('Done.')
+patch(
+    ledger_jsx,
+    "        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => (p.amountPaid / p.totalCost) < 0.25 && !p.isBacklog);",
+    "        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isBacklog && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);",
+    'LedgerPage: CRITICAL filter unchanged but explicit'
+)
+
+# ── 2. INTAKE: docs error state + visual highlight ──
+
+# Add docs error tracking to errors state
+patch(
+    intake_jsx,
+    '''    const validate = () => {
+        const e = {};
+        if (!plotNumber.trim())        e.plotNumber = 'Required';
+        if (!district.trim())          e.district   = 'Required';
+        if (!totalCost)                e.totalCost  = 'Required';
+        owners.forEach((o, i) => {
+            if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
+            if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
+        });
+        if (fileQueue.length === 0) {
+            toast('At least one document scan is required.', 'error', 6000);
+            setDrawers(prev => ({ ...prev, docs: true }));
+        }
+        setErrors(e);
+        return Object.keys(e).length === 0 && fileQueue.length > 0;
+    };''',
+    '''    const validate = () => {
+        const e = {};
+        if (!plotNumber.trim())        e.plotNumber = 'Required';
+        if (!district.trim())          e.district   = 'Required';
+        if (!totalCost)                e.totalCost  = 'Required';
+        owners.forEach((o, i) => {
+            if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
+            if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
+        });
+        if (fileQueue.length === 0) {
+            e.docs = true;
+            toast('At least one document scan is required.', 'error', 6000);
+            setDrawers(prev => ({ ...prev, docs: true }));
+        }
+        setErrors(e);
+        return Object.keys(e).length === 0 && fileQueue.length > 0;
+    };''',
+    'IntakePage: add docs error to errors state'
+)
+
+# Apply vaultError class to vaultWrapper when errors.docs is true
+patch(
+    intake_jsx,
+    '                                <div className={styles.vaultWrapper}>',
+    '                                <div className={`${styles.vaultWrapper} ${errors.docs ? styles.vaultError : \'\'}`}>',
+    'IntakePage: apply vaultError class on docs error'
+)
+
+# Add vaultError CSS
+patch(
+    intake_css,
+    '.vaultWrapper { display: flex; flex-direction: column; gap: var(--gap-md); }',
+    '.vaultWrapper { display: flex; flex-direction: column; gap: var(--gap-md); }\n\n.vaultError .fileDisplay {\n    border: 2px solid var(--red) !important;\n    box-shadow: 0 0 0 3px rgba(239,68,68,0.2) !important;\n    animation: shake 0.35s cubic-bezier(0.36,0.07,0.19,0.97) both;\n}\n\n@keyframes shake {\n    0%,100% { transform: translateX(0); }\n    20%     { transform: translateX(-6px); }\n    40%     { transform: translateX(6px); }\n    60%     { transform: translateX(-4px); }\n    80%     { transform: translateX(4px); }\n}',
+    'IntakePage CSS: vaultError highlight style'
+)
+
+# ── 3. Language: Replace "ARREARS" labels in FolderPage and IntakePage ──
+
+# FolderPage - read-only spec label
+patch(
+    folder_jsx,
+    "                                        ['ARREARS',      project.landTitle.district],",
+    "                                        ['AMOUNT OWED',  project.landTitle.district],",
+    'FolderPage: ARREARS label (spec grid) - skip, wrong context'
+)
+
+# FolderPage - arrears in edit mode balance section
+patch(
+    folder_jsx,
+    '''                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>ARREARS</label><span className={styles.autoCalcBadge}>AUTO</span></div>
+                                            <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
+                                        </div>''',
+    '''                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>AMOUNT OWED</label><span className={styles.autoCalcBadge}>AUTO</span></div>
+                                            <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled />
+                                        </div>''',
+    'FolderPage: ARREARS -> AMOUNT OWED in edit mode balance'
+)
+
+# IntakePage - arrears auto calc label
+patch(
+    intake_jsx,
+    '''                                <div className={styles.inputWrap}>
+                                    <div className={styles.labelRow}>
+                                        <label className={styles.fieldLabel}>ARREARS</label>
+                                        <span className={styles.capsBadge} style={{ background: \'rgba(6,182,212,0.15)\', color:\'#06b6d4\' }}>AUTO</span>
+                                    </div>
+                                    <div className={styles.diagBox}>
+                                        UGX {arrears >= 0 ? arrears.toLocaleString() : 0}
+                                    </div>
+                                </div>''',
+    '''                                <div className={styles.inputWrap}>
+                                    <div className={styles.labelRow}>
+                                        <label className={styles.fieldLabel}>AMOUNT OWED</label>
+                                        <span className={styles.capsBadge} style={{ background: \'rgba(6,182,212,0.15)\', color:\'#06b6d4\' }}>AUTO</span>
+                                    </div>
+                                    <div className={styles.diagBox}>
+                                        UGX {arrears >= 0 ? arrears.toLocaleString() : 0}
+                                    </div>
+                                </div>''',
+    'IntakePage: ARREARS -> AMOUNT OWED label'
+)
+
+# FolderPage: fix the ARREARS label in spec grid (was wrongly mapped to district above)
+# Let's find the actual line
+content = read_file(folder_jsx)
+if "['ARREARS'" in content:
+    content = content.replace("['ARREARS'", "['AMOUNT OWED'", 1)
+    write_file(folder_jsx, content)
+    print("OK: FolderPage: ARREARS -> AMOUNT OWED in spec grid")
+else:
+    print("MISSING: FolderPage ARREARS in spec grid (already fixed or not found)") 
+
+print("\nAll patches complete.")

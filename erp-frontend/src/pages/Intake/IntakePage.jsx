@@ -341,6 +341,7 @@ const IntakePage = () => {
             if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
         });
         if (fileQueue.length === 0) {
+            e.docs = true;
             toast('At least one document scan is required.', 'error', 6000);
             setDrawers(prev => ({ ...prev, docs: true }));
         }
@@ -585,7 +586,7 @@ const IntakePage = () => {
                                     onChange={setInitialPayment} id="initialPayment" />
                                 <div className={styles.inputWrap}>
                                     <div className={styles.labelRow}>
-                                        <label className={styles.fieldLabel}>ARREARS</label>
+                                        <label className={styles.fieldLabel}>AMOUNT OWED</label>
                                         <span className={styles.capsBadge} style={{ background: 'rgba(6,182,212,0.15)', color:'#06b6d4' }}>AUTO</span>
                                     </div>
                                     <div className={styles.diagBox}>
@@ -668,7 +669,7 @@ const IntakePage = () => {
                             icon={FiUploadCloud} badge={fileQueue.length || undefined} />
                         <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}>
                             <div className={styles.panelInner}>
-                                <div className={styles.vaultWrapper}>
+                                <div className={`${styles.vaultWrapper} ${errors.docs ? styles.vaultError : ''}`}>
                                     <div className={styles.fileDisplay}>
                                         {fileQueue.length === 0 ? (
                                             <div className={styles.emptyState}>
