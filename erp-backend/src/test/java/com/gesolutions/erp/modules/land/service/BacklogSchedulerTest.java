@@ -1,8 +1,3 @@
-import os
-
-path = "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/BacklogSchedulerTest.java"
-
-content = """\
 package com.gesolutions.erp.modules.land.service;
 
 import com.gesolutions.erp.modules.land.model.LandProject;
@@ -124,11 +119,3 @@ public class BacklogSchedulerTest {
                 "Step 6: Expected backlogMonthsBilled to remain 2 — scheduler should skip");
     }
 }
-"""
-
-os.makedirs(os.path.dirname(path), exist_ok=True)
-
-with open(path, "w", encoding="utf-8", newline="\n") as f:
-    f.write(content)
-
-print("OK: Created " + path)
