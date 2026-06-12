@@ -1,53 +1,52 @@
 import os
 
-path = 'erp-backend/src/main/resources/application.properties'
+# ── PATCH 1: application.properties — fix server port ──────────────
+props_path = 'erp-backend/src/main/resources/application.properties'
 
-new_content = """\
-# PATH: erp-backend/src/main/resources/application.properties
+with open(props_path, 'r', encoding='utf-8', errors='replace') as f:
+    props_content = f.read()
 
-server.port=${PORT:10000}
-spring.application.name=ge-solutions-erp
+if 'server.port=10000' in props_content:
+    props_content = props_content.replace('server.port=10000', 'server.port=8080')
+    with open(props_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(props_content)
+    print('OK  ' + props_path + ' — server.port set to 8080')
+elif 'server.port=8080' in props_content:
+    print('OK  ' + props_path + ' — server.port already 8080, no change needed')
+else:
+    print('MISSING  server.port line not found in ' + props_path)
 
-# DATABASE
-spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ge_solutions_db}
-spring.datasource.username=${SPRING_DATASOURCE_USERNAME:postgres}
-spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:able1212}
+# ── PATCH 2: login.spec.js — fix credentials ────────────────────────
+spec_path = 'erp-frontend/tests/login.spec.js'
 
-# ENGINE SETTINGS
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.open-in-view=false
+with open(spec_path, 'r', encoding='utf-8', errors='replace') as f:
+    spec_content = f.read()
 
-# SECURITY
-ge.solutions.jwt.secret=${JWT_SECRET:YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
-ge.solutions.jwt.expiration=86400000
+patched = spec_content
 
-# CLOUDINARY
-cloudinary.cloud-name=${CLOUDINARY_CLOUD_NAME:test}
-cloudinary.api-key=${CLOUDINARY_API_KEY:test}
-cloudinary.api-secret=${CLOUDINARY_API_SECRET:test}
+if "await usernameInput.fill('admin');" in patched:
+    patched = patched.replace(
+        "await usernameInput.fill('admin');",
+        "await usernameInput.fill('admin_root');"
+    )
+    print('OK  ' + spec_path + ' — username patched to admin_root')
+elif "await usernameInput.fill('admin_root');" in patched:
+    print('OK  ' + spec_path + ' — username already admin_root, no change needed')
+else:
+    print('MISSING  username fill line not found in ' + spec_path)
 
-# MAIL
-MAIL_USERNAME=${MAIL_USERNAME:test@gesolutions.com}
-MAIL_PASSWORD=${MAIL_PASSWORD:testpassword}
+if "await passwordInput.fill('admin123');" in patched:
+    patched = patched.replace(
+        "await passwordInput.fill('admin123');",
+        "await passwordInput.fill('TestPassword123');"
+    )
+    print('OK  ' + spec_path + ' — password patched to TestPassword123')
+elif "await passwordInput.fill('TestPassword123');" in patched:
+    print('OK  ' + spec_path + ' — password already TestPassword123, no change needed')
+else:
+    print('MISSING  password fill line not found in ' + spec_path)
 
-# ADMIN SEED
-ADMIN_EMAIL=${ADMIN_EMAIL:test@gesolutions.com}
-ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:TestPassword123}
-
-# PERFORMANCE
-spring.datasource.hikari.maximum-pool-size=3
-spring.datasource.hikari.minimum-idle=1
-spring.datasource.hikari.connection-timeout=20000
-spring.datasource.hikari.initialization-fail-timeout=0
-
-# STARTUP SPEED -- reduce Hibernate scan time
-spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
-"""
-
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(new_content)
-
-print(f'OK  {path}')
+if patched != spec_content:
+    with open(spec_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(patched)
+    print('OK  ' + spec_path + ' — file written')

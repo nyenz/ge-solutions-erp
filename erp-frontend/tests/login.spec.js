@@ -18,8 +18,8 @@ test('should successfully log in and redirect to dashboard', async ({ page }) =>
   const usernameInput = page.locator('input[autocomplete="username"]');
   const passwordInput = page.locator('input[autocomplete="current-password"]');
 
-  await usernameInput.fill('admin');
-  await passwordInput.fill('admin123');
+  await usernameInput.fill('admin_root');
+  await passwordInput.fill('TestPassword123');
 
   // ── STEP 4: Click the "Authorize" button ──
   const authorizeBtn = page.locator('button[type="submit"]');
