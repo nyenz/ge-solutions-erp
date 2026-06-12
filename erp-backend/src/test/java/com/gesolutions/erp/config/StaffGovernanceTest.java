@@ -1,8 +1,3 @@
-import os
-
-path = "erp-backend/src/test/java/com/gesolutions/erp/config/StaffGovernanceTest.java"
-
-content = """\
 package com.gesolutions.erp.config;
 
 import com.gesolutions.erp.modules.auth.model.Role;
@@ -141,11 +136,3 @@ public class StaffGovernanceTest {
         assertNotEquals(403, auditStreamStatus, "Admin should not be forbidden from audit stream");
     }
 }
-"""
-
-os.makedirs(os.path.dirname(path), exist_ok=True)
-
-with open(path, "w", encoding="utf-8", newline="\n") as f:
-    f.write(content)
-
-print("OK: Created " + path)
