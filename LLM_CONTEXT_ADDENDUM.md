@@ -1,6 +1,6 @@
 # GE SOLUTIONS ERP -- CONTEXT ADDENDUM
 # This file receives all small incremental updates each session.
-# Last updated: 30 May 2026
+# Last updated: June 2026
 
 ---
 
@@ -85,4 +85,29 @@ All financial displays must follow the unified logic:
 - Sticky Headers: Search bars and table headers now stick to the top during scroll.
 - Mobile Boundaries: Tables now bleed to the edges of the screen on mobile to maximize space.
 - Button Scale: Increased touch target size for mobile action buttons.
+- Status: DONE & PUSHED
+
+---
+
+## SESSION: June 2026 -- AUTOMATED TESTING INFRASTRUCTURE & BUG ELIMINATION
+
+### 1. Zero-Dependency H2 Local Test Suite
+- Context Loading: Configured property overrides on `@SpringBootTest` to allow the complete Spring application context to boot offline in-memory.
+- Dummy Environment Injection: Mocked all production-only environment variables (H2 Database JDBC Drivers, JWT keys, Cloudinary credentials, Mail configurations, and Admin default variables) specifically for the test phase, preventing environment placeholder crashes.
+- Status: DONE & PUSHED
+
+### 2. Core Security & Auth Automation
+- Brute-Force Rate Limiting: Created `LoginRateLimiterTest` to verify that an IP is safely blocked after 10 consecutive failed login attempts.
+- Single-Session Enforcement: Created `SingleSessionEnforcementTest` to verify that when a user's `sessionVersion` increments in the database (indicating a concurrent login on another device), the older JWT token is immediately rejected with a 403 Forbidden status.
+- Role Restriction Gatekeeping: Created `StaffGovernanceTest` to verify that standard `ROLE_MANAGER` accounts are strictly blocked (403) from accessing admin-only endpoints (Debt Ledger reports and raw Audit log streams), while authorized `ROLE_ADMIN` accounts are granted access.
+- Status: DONE & PUSHED
+
+### 3. Financial Scheduler & Billing Lifecycle
+- Time-Travel Scheduler Billing: Created `BacklogSchedulerTest` to simulate the background scheduler daily processes.
+- Verification: Verified that the scheduler charges the default monthly storage fee of 50,000 UGX after 30 days, correctly applies custom monthly rate overrides (e.g. 75,000 UGX), and automatically pauses fee accumulation when an active negotiation deadline is set in the future.
+- Status: DONE & PUSHED
+
+### 4. Database Integrity & Plot Intake Automation
+- Plot Intake Ingestion: Created `LandServiceTest` to verify the complete `atomicIntake` workflow, ensuring a land project, land title, linked primary proprietor, and the initial deposit payment record are saved concurrently in the database.
+- Silent Data Leak Elimination: Identified and resolved a database leak where associated payments and notes were left orphaned in the database when a plot was deleted. Patched the codebase (`LandService.nuclearDelete()`) to manually clean up associated records, verified as working by the new `LandCascadeDeleteTest`.
 - Status: DONE & PUSHED
