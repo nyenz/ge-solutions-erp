@@ -1,6 +1,6 @@
 # GE SOLUTIONS ERP -- CONTEXT ADDENDUM
 # This file receives all small incremental updates each session.
-# Last updated: May 2026
+# Last updated: 30 May 2026
 
 ---
 
@@ -29,64 +29,60 @@ RULE: The addendum is the running log. The master guide Sections 10 and 11 are t
 ## NEW UI RULES ADDED (May 2026)
 
 ### UI UNIFORMITY RULE (DEFAULT DESIGN APPROACH)
-Every element of the same type must look and behave identically across all pages and sections regardless of where it appears. Only deviate when explicitly instructed.
+Every element of the same type must look and behave identically across all pages and sections regardless of where it appears. This includes fonts, padding, and math logic.
 
-### RESPONSIVENESS RULE (DEFAULT DESIGN APPROACH)
-Every element, property, and value must respond to screen size changes by default.
+### 4-POCKET FINANCIAL MATH STANDARD
+All financial displays must follow the unified logic: 
+[PLOT VALUE] + [STORAGE FEES] - [PAID] = [AMOUNT OWED].
 
-### "SAME DESIGN" PHRASE RULE
-When the instruction says "same design", the element must be identical in every measurable way.
-
-### NO BROWSER DEFAULT STYLING RULE (DEFAULT DESIGN APPROACH)
-Every element must be explicitly styled -- no browser defaults are ever acceptable anywhere in the app.
+### TERMINOLOGY STANDARD
+- 'Arrears' is DEPRECATED. Use 'AMOUNT OWED' or 'UNPAID'.
+- 'Total Cost' or 'Original Debt' is DEPRECATED. Use 'PLOT VALUE'.
+- 'Collected' is DEPRECATED. Use 'PAID'.
 
 ---
 
-## SESSION: May 2026 -- FIXES APPLIED THIS SESSION
+## SESSION: May 2026 -- THE SYSTEM HARDENING & RECOVERY REBOOT
 
-### 1. Print Preview (FolderPage)
-- Completely rewrote @media print CSS in FolderPage.module.css
-- Pipeline HUD: compact horizontal row with visible stage dots
-- Terminal header: white background, navy border-left
-- All panels: white background, grey borders, all drawers forced open
-- Read-only grid: 3 columns on print
-- Owners: 2 columns on print
-- Financials: all visible, no glow effects
-- Notes + docs: scroll disabled, full height shown
-- @page: A4 portrait, 15mm margins
-- Status: DONE PREVIOUS SESSION
+### 1. Recovery Portal Architectural Redesign
+- Grouping: Switched from 'Phone Number' grouping to 'Primary Owner (Client ID)' grouping. 
+- Multi-plot Support: Clients with multiple plots now appear as one card, listing all plots inside.
+- Visuals: Implemented a robust 2-line header. Line 1: ID & Owed. Line 2: Name, Phone, & Actions.
+- High Contrast: Actual values (dates, money, counts) are pure white; Labels are muted grey.
+- Status: DONE & PUSHED
 
-### 2. PDF viewing in FolderPage (from Cloudinary)
-- Added isPDF() helper function to detect PDF files by path/URL
-- PDF files now show with open-in-new-tab link + 📄 emoji prefix
-- Cloudinary raw PDFs served directly via their secure_url
-- Status: DONE PREVIOUS SESSION
+### 2. Financial Reconciliation & Backlog Logic
+- Math Fix: Repaired the bug where 'Paid' amounts were ignored in Backlog calculations.
+- Exit Backlog Choice: Implemented a Decision Modal. Admin must choose to either 'WAIVE' fees or 'CAPITALIZE' (add fees to Total Value).
+- Backend Sync: Logic updated in LandService and RecoveryController to ensure no "0" values are sent to frontend.
+- Status: DONE & PUSHED
 
-### 3. Document preview on New Plot page (IntakePage)
-- Fixed file queue to allow opening uploaded files before submission
-- Files show emoji prefix (📄 for PDF, 🖼 for image) as visual hint
-- Status: DONE PREVIOUS SESSION
+### 3. Professional Print Output (Asset Dossier)
+- Layout: Completely overhauled @media print to look like a legal corporate document.
+- Design: Recreated the provided sample PDF layout using dark navy header bars and clean white backgrounds.
+- Integrity: Forced all tabs and drawers open during print and added 'break-inside: avoid' to prevent cutting data in half across pages.
+- Status: DONE & PUSHED
 
-### 4. Audit Page filter dropdowns (ALL STAFF / ALL ACTIONS)
-- Resized hwSelectWrap to flex: 1 1 140px, max-width: 260px
-- Status: DONE PREVIOUS SESSION
+### 4. Reporting Hub Overhaul
+- Anti-Theft: Added "Operator Cash Reconciliation" report to track collection by staff member.
+- UX: Added expandable "Black Drawers" (matching Audit Page) that show the CSV column schema and report descriptions before downloading.
+- Cleanup: Deleted redundant P2-4 report and merged Revenue History with Payment History.
+- Status: DONE & PUSHED
 
-### 5. Single-session enforcement -- BROWSER TABS ONLY (previous)
-- localStorage-based approach for same-browser tab detection
-- Status: DONE PREVIOUS SESSION
+### 5. Security & Navigation Guards
+- Unsaved Changes: Upgraded to 'Hyper-Strict' mode. One character typed triggers the guard.
+- Interceptors: Updated axios.js to redirect to /login?reason=session_conflict on 401 errors.
+- Popups: Replaced all native 'window.confirm' browser boxes with styled Golden Seed ConfirmModals.
+- Status: DONE & PUSHED
 
-### 6. Server-side single-session enforcement (previous)
-- Added sessionVersion (Integer) column to users table in User.java
-- On every login: sessionVersion incremented in DB, embedded in JWT as "sv" claim
-- JwtAuthenticationFilter: on every request, extracts "sv" from JWT and compares
-  to the current DB value. If mismatch (old token), request is rejected with 401.
-- This means: logging in from computer B immediately invalidates computer A's token.
-- The axios interceptor on the frontend already handles 401 by redirecting to /login.
-- Status: DONE
+### 6. Intake Page Polish
+- Date of Survey: Added a manual field for historical accountability on backlog entries.
+- Validation: Document vault now turns red and shakes if user tries to save with 0 scans.
+- Phone Hint: Added UI text instructing use of '/' for dual numbers.
+- Status: DONE & PUSHED
 
-### 7. Transparent Filter Headers, Unified Scrolling & Mobile Dropdown Clipping (THIS SESSION)
-- Removed background color and backdrop blur from sticky headers on Ledger, Payments, Audit, Recovery, and Digital Folder pages.
-- Consolidated vertical scrolling by removing fixed heights and list scrollbars on Ledger, Payments, and Audit pages, allowing the pages to scroll uniformly under the sticky headers.
-- Restored layout scrolling on Recovery and Ledger pages by removing restricted heights (`height: 100%`, `min-height: 0`, and `overflow: hidden`) on their respective containers.
-- Fixed stacking context clipping of select dropdowns on the Audit page by removing the static `z-index: 9000` rule from `.hwSelectWrap`.
-- Status: DONE THIS SESSION
+### 7. Global Scrolling & Mobile Fixes
+- Sticky Headers: Search bars and table headers now stick to the top during scroll.
+- Mobile Boundaries: Tables now bleed to the edges of the screen on mobile to maximize space.
+- Button Scale: Increased touch target size for mobile action buttons.
+- Status: DONE & PUSHED
