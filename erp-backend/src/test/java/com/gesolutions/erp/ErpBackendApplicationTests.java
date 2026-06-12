@@ -13,7 +13,11 @@ import org.springframework.boot.test.context.SpringBootTest;
     "JWT_SECRET=YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
     "CLOUDINARY_CLOUD_NAME=test",
     "CLOUDINARY_API_KEY=test",
-    "CLOUDINARY_API_SECRET=test"
+    "CLOUDINARY_API_SECRET=test",
+    "ADMIN_EMAIL=test@gesolutions.com",
+    "ADMIN_DEFAULT_PASSWORD=TestPassword123",
+    "MAIL_USERNAME=test@gmail.com",
+    "MAIL_PASSWORD=testpassword"
 })
 class ErpBackendApplicationTests {
 

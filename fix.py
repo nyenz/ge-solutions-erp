@@ -1,22 +1,41 @@
-import re
+import os
 
-path = "erp-backend/pom.xml"
+path = "erp-backend/src/test/java/com/gesolutions/erp/ErpBackendApplicationTests.java"
 
-with open(path, "r") as f:
-    content = f.read()
+content = "\n".join([
+    "package com.gesolutions.erp;",
+    "",
+    "import org.junit.jupiter.api.Test;",
+    "import org.springframework.boot.test.context.SpringBootTest;",
+    "",
+    "@SpringBootTest(properties = {",
+    '    "SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",',
+    '    "SPRING_DATASOURCE_USERNAME=sa",',
+    '    "SPRING_DATASOURCE_PASSWORD=",',
+    '    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",',
+    '    "spring.jpa.hibernate.ddl-auto=update",',
+    '    "spring.datasource.driver-class-name=org.h2.Driver",',
+    '    "JWT_SECRET=YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",',
+    '    "CLOUDINARY_CLOUD_NAME=test",',
+    '    "CLOUDINARY_API_KEY=test",',
+    '    "CLOUDINARY_API_SECRET=test",',
+    '    "ADMIN_EMAIL=test@gesolutions.com",',
+    '    "ADMIN_DEFAULT_PASSWORD=TestPassword123",',
+    '    "MAIL_USERNAME=test@gmail.com",',
+    '    "MAIL_PASSWORD=testpassword"',
+    "})",
+    "class ErpBackendApplicationTests {",
+    "",
+    "    @Test",
+    "    void contextLoads() {",
+    "    }",
+    "}",
+    "",
+])
 
-h2_dependency = """
-		<!-- H2 DATABASE FOR LOCAL INTEGRATION TESTING -->
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>"""
+os.makedirs(os.path.dirname(path), exist_ok=True)
 
-content = content.replace("</dependencies>", h2_dependency, 1)
-
-with open(path, "w") as f:
+with open(path, "w", encoding="utf-8", newline="\n") as f:
     f.write(content)
 
-print("pom.xml patched successfully with H2 test dependency.")
+print("OK: " + path)
