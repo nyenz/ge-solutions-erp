@@ -1,110 +1,70 @@
 import os
 
-path = "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandServiceTest.java"
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
 
-content = "\n".join([
-    "package com.gesolutions.erp.modules.land.service;",
-    "",
-    "import com.gesolutions.erp.modules.land.dto.LandEntryRequest;",
-    "import com.gesolutions.erp.modules.land.model.LandProject;",
-    "import com.gesolutions.erp.modules.land.model.PaymentRecord;",
-    "import com.gesolutions.erp.modules.land.repository.LandProjectRepository;",
-    "import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;",
-    "import org.junit.jupiter.api.Test;",
-    "import org.springframework.beans.factory.annotation.Autowired;",
-    "import org.springframework.boot.test.context.SpringBootTest;",
-    "import org.springframework.transaction.annotation.Transactional;",
-    "",
-    "import java.math.BigDecimal;",
-    "import java.util.ArrayList;",
-    "import java.util.List;",
-    "import java.util.Optional;",
-    "",
-    "import static org.junit.jupiter.api.Assertions.assertEquals;",
-    "import static org.junit.jupiter.api.Assertions.assertTrue;",
-    "import static org.junit.jupiter.api.Assertions.assertFalse;",
-    "",
-    "@SpringBootTest(properties = {",
-    '    "SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",',
-    '    "SPRING_DATASOURCE_USERNAME=sa",',
-    '    "SPRING_DATASOURCE_PASSWORD=",',
-    '    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",',
-    '    "spring.jpa.hibernate.ddl-auto=update",',
-    '    "spring.datasource.driver-class-name=org.h2.Driver",',
-    '    "JWT_SECRET=YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",',
-    '    "CLOUDINARY_CLOUD_NAME=test",',
-    '    "CLOUDINARY_API_KEY=test",',
-    '    "CLOUDINARY_API_SECRET=test",',
-    '    "ADMIN_EMAIL=test@gesolutions.com",',
-    '    "ADMIN_DEFAULT_PASSWORD=TestPassword123",',
-    '    "MAIL_USERNAME=test@gmail.com",',
-    '    "MAIL_PASSWORD=testpassword"',
-    "})",
-    "@Transactional",
-    "public class LandServiceTest {",
-    "",
-    "    @Autowired",
-    "    private LandService landService;",
-    "",
-    "    @Autowired",
-    "    private LandProjectRepository landProjectRepository;",
-    "",
-    "    @Autowired",
-    "    private PaymentRecordRepository paymentRecordRepository;",
-    "",
-    "    @Test",
-    "    public void testAtomicIntakeSavesCorrectly() throws Exception {",
-    "        LandEntryRequest.OwnerRequest owner = LandEntryRequest.OwnerRequest.builder()",
-    '                .fullName("Test Owner")',
-    '                .phone("0700000000")',
-    '                .email("owner@test.com")',
-    '                .nationalId("CM12345678ABCDE")',
-    '                .address("Kampala, Uganda")',
-    "                .build();",
-    "",
-    "        List<LandEntryRequest.OwnerRequest> owners = new ArrayList<>();",
-    "        owners.add(owner);",
-    "",
-    "        LandEntryRequest request = LandEntryRequest.builder()",
-    '                .plotNumber("KLA-001-TEST")',
-    '                .tenure("FREEHOLD")',
-    '                .blockRoad("Test Block")',
-    '                .district("Kampala")',
-    '                .county("Test County")',
-    '                .volume("V1")',
-    '                .folio("F1")',
-    '                .instrumentNo("INS-001")',
-    '                .physicalBoxNumber("BOX-01")',
-    "                .owners(owners)",
-    "                .totalCost(new BigDecimal(\"5000000\"))",
-    "                .initialPayment(new BigDecimal(\"1000000\"))",
-    "                .isLegacy(false)",
-    "                .isStartAsBacklog(false)",
-    "                .build();",
-    "",
-    "        LandProject saved = landService.atomicIntake(request, null);",
-    "",
-    "        assertEquals(\"KLA-001-TEST\", saved.getLandTitle().getPlotNumber());",
-    "",
-    "        Optional<LandProject> fetched = landProjectRepository.findById(saved.getId());",
-    "        assertTrue(fetched.isPresent());",
-    "        assertEquals(\"KLA-001-TEST\", fetched.get().getLandTitle().getPlotNumber());",
-    "        assertEquals(1, fetched.get().getProprietors().size());",
-    "",
-    "        List<PaymentRecord> payments = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(saved.getId());",
-    "        assertFalse(payments.isEmpty());",
-    "",
-    "        boolean foundInitialPayment = payments.stream()",
-    "                .anyMatch(p -> p.getAmountPaid().compareTo(new BigDecimal(\"1000000\")) == 0);",
-    "        assertTrue(foundInitialPayment);",
-    "    }",
-    "}",
-    "",
-])
+old = """    @Transactional
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public void nuclearDelete(UUID id) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        String plotNo = project.getLandTitle().getPlotNumber();
 
-os.makedirs(os.path.dirname(path), exist_ok=True)
+        List<ProjectDocument> docs = documentRepository.findByProjectId(id);
+        for (ProjectDocument doc : docs) {
+            fileStorageService.deleteFile(doc.getFilePath());
+        }
 
-with open(path, "w", encoding="utf-8", newline="\n") as f:
-    f.write(content)
+        try {
+            fileStorageService.deleteFolder("ge_solutions/" + id.toString());
+        } catch (Exception e) {
+            System.err.println(">>> FOLDER DELETE WARNING: " + e.getMessage());
+        }
 
-print("OK: " + path)
+        projectRepository.delete(project);
+        auditService.logAction("RECORD_DELETED",
+            "Root user [" + getCurrentOperator() + "] permanently deleted plot: " + plotNo);
+    }"""
+
+new = """    @Transactional
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public void nuclearDelete(UUID id) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        String plotNo = project.getLandTitle().getPlotNumber();
+
+        List<ProjectDocument> docs = documentRepository.findByProjectId(id);
+        for (ProjectDocument doc : docs) {
+            fileStorageService.deleteFile(doc.getFilePath());
+        }
+
+        try {
+            fileStorageService.deleteFolder("ge_solutions/" + id.toString());
+        } catch (Exception e) {
+            System.err.println(">>> FOLDER DELETE WARNING: " + e.getMessage());
+        }
+
+        List<PaymentRecord> payments = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(id);
+        if (!payments.isEmpty()) {
+            paymentRecordRepository.deleteAll(payments);
+            System.out.println(">>> NUCLEAR DELETE: Removed " + payments.size() + " payment record(s) for plot: " + plotNo);
+        }
+
+        List<FollowUpLog> notes = followUpRepository.findByProjectIdOrderByTimestampDesc(id);
+        if (!notes.isEmpty()) {
+            followUpRepository.deleteAll(notes);
+            System.out.println(">>> NUCLEAR DELETE: Removed " + notes.size() + " follow-up log(s) for plot: " + plotNo);
+        }
+
+        projectRepository.delete(project);
+        auditService.logAction("RECORD_DELETED",
+            "Root user [" + getCurrentOperator() + "] permanently deleted plot: " + plotNo);
+    }"""
+
+with open(path, "r", encoding="utf-8", errors="replace") as f:
+    content = f.read()
+
+if old in content:
+    content = content.replace(old, new)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print("OK: nuclearDelete patched in " + path)
+else:
+    print("MISSING: patch target not found in " + path)

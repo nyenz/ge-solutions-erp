@@ -391,6 +391,18 @@ public class LandService {
             System.err.println(">>> FOLDER DELETE WARNING: " + e.getMessage());
         }
 
+        List<PaymentRecord> payments = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(id);
+        if (!payments.isEmpty()) {
+            paymentRecordRepository.deleteAll(payments);
+            System.out.println(">>> NUCLEAR DELETE: Removed " + payments.size() + " payment record(s) for plot: " + plotNo);
+        }
+
+        List<FollowUpLog> notes = followUpRepository.findByProjectIdOrderByTimestampDesc(id);
+        if (!notes.isEmpty()) {
+            followUpRepository.deleteAll(notes);
+            System.out.println(">>> NUCLEAR DELETE: Removed " + notes.size() + " follow-up log(s) for plot: " + plotNo);
+        }
+
         projectRepository.delete(project);
         auditService.logAction("RECORD_DELETED",
             "Root user [" + getCurrentOperator() + "] permanently deleted plot: " + plotNo);
