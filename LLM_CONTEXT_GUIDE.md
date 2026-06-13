@@ -267,6 +267,16 @@ Step 1: INTAKE → Step 2: LEDGER → Step 3: FOLDER PAGE → Step 4: RECOVERY H
 - Reports: all 8 pillars + 5 Priority 2 reports (backlog breakdown, completed titles, payment history, storage fees, monthly collection) — DONE
 - Login rate limiter — DONE
 
+### Automated Testing Infrastructure (June 2026)
+- Zero-Dependency H2 Local Test Suite: full Spring context boots offline in-memory with mocked env vars — DONE
+- LoginRateLimiterTest: verifies IP blocked after 10 failed login attempts — DONE
+- SingleSessionEnforcementTest: verifies older JWT rejected with 403 after sessionVersion increments — DONE
+- StaffGovernanceTest: verifies ROLE_MANAGER blocked (403) from admin endpoints, ROLE_ADMIN allowed — DONE
+- BacklogSchedulerTest: verifies monthly storage fee scheduler (default rate, custom rate override, negotiation deadline pause) — DONE
+- LandServiceTest: verifies atomicIntake workflow saves project, title, proprietor, and initial payment — DONE
+- LandCascadeDeleteTest + LandService.nuclearDelete() fix: verifies deleting a plot cascades to payments and notes (silent data leak patched) — DONE
+- Playwright login.spec.js: verifies successful login and redirect to /dashboard or /settings — DONE
+
 ---
 
 ## 11. WHAT STILL NEEDS TO BE DONE
@@ -295,7 +305,11 @@ Step 1: INTAKE → Step 2: LEDGER → Step 3: FOLDER PAGE → Step 4: RECOVERY H
 ### Future (not started)
 - Multi-company: clone repo per client company
 - Notification model (exists in code but never used)
-- Rate limiting on login endpoint (exists via LoginRateLimiter but could be improved)
+
+### UI Test Coverage (in progress)
+- Playwright UI test for Intake Flow (/land/new -> /land/projects) — IN PROGRESS
+- Playwright UI test for Ledger -> Folder navigation
+- Playwright UI test for Recovery -> Log Call flow
 
 ---
 
