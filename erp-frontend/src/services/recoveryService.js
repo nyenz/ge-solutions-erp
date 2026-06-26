@@ -40,7 +40,7 @@ const recoveryService = {
     },
 
     recordPayment: async (projectId, amount, notes) => {
-        await api.post(`/recovery/projects/${projectId}/payment`, null, {
+        await api.post(`/land/projects/${projectId}/payment`, null, {
             params: { amount, notes }
         });
         return true;

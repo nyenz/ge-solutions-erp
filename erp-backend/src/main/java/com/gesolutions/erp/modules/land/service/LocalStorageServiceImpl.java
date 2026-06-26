@@ -15,6 +15,7 @@ import java.util.Objects;
 @Service
 public class LocalStorageServiceImpl implements FileStorageService {
 
+    private final String cloudName;
     private final Cloudinary cloudinary;
 
     public LocalStorageServiceImpl(
@@ -22,6 +23,7 @@ public class LocalStorageServiceImpl implements FileStorageService {
             @Value("${cloudinary.api-key}") String apiKey,
             @Value("${cloudinary.api-secret}") String apiSecret) {
 
+        this.cloudName = cloudName;
         this.cloudinary = new Cloudinary(ObjectUtils.asMap(
                 "cloud_name", cloudName,
                 "api_key",    apiKey,
@@ -47,6 +49,12 @@ public class LocalStorageServiceImpl implements FileStorageService {
     public String storeFile(@NonNull MultipartFile file,
                             @NonNull String subFolder) throws IOException {
         MultipartFile verified = Objects.requireNonNull(file);
+        
+        // LOCAL MOCK BYPASS FOR TESTING
+        if (this.cloudName != null && this.cloudName.trim().equals("test")) {
+            System.out.println(">>> LOCAL TEST MOCK: Bypassing real Cloudinary upload.");
+            return "http://localhost:8080/api/v1/vault/mock-cloudinary-url/" + verified.getOriginalFilename();
+        }
         String folder = Objects.requireNonNull(subFolder);
 
         String resourceType = detectResourceType(verified);
