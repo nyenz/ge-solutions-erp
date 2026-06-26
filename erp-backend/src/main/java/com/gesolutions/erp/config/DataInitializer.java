@@ -79,6 +79,8 @@ public class DataInitializer implements CommandLineRunner {
             String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
             String password = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
 
+            System.out.println(">>> [REGISTRY] Preparing to seed/reset 'admin_root' with password: '" + password + "'");
+
             java.util.Optional<User> existing = userRepository.findByUsername("admin_root");
             if (existing.isEmpty()) {
                 User root = User.builder()
@@ -91,14 +93,14 @@ public class DataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .mustChangePassword(true)
                         .build();
-                userRepository.save(root);
+                userRepository.saveAndFlush(root);
                 System.out.println(">>> [REGISTRY] Master Founder Account Seeded with fallback default credentials.");
             } else {
                 User root = existing.get();
                 root.setPassword(passwordEncoder.encode(password));
                 root.setMustChangePassword(true);
                 root.setActive(true);
-                userRepository.save(root);
+                userRepository.saveAndFlush(root);
                 System.out.println(">>> [REGISTRY] Master Account found. Forced password reset to default for testing.");
             }
         } catch (Exception e) {
