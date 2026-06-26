@@ -76,22 +76,34 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void seedRootUser() {
         try {
-            if (userRepository.findByUsername("admin_root").isEmpty()) {
+            String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
+            String password = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+
+            java.util.Optional<User> existing = userRepository.findByUsername("admin_root");
+            if (existing.isEmpty()) {
                 User root = User.builder()
                         .id(UUID.randomUUID())
                         .username("admin_root")
-                        .email(adminEmail)
-                        .password(passwordEncoder.encode(adminDefaultPassword))
+                        .email(email)
+                        .password(passwordEncoder.encode(password))
                         .role(Role.ROLE_ADMIN)
                         .isRoot(true)
                         .isActive(true)
                         .mustChangePassword(true)
                         .build();
                 userRepository.save(root);
-                System.out.println(">>> [REGISTRY] Master Founder Account Seeded.");
+                System.out.println(">>> [REGISTRY] Master Founder Account Seeded with fallback default credentials.");
+            } else {
+                User root = existing.get();
+                root.setPassword(passwordEncoder.encode(password));
+                root.setMustChangePassword(true);
+                root.setActive(true);
+                userRepository.save(root);
+                System.out.println(">>> [REGISTRY] Master Account found. Forced password reset to default for testing.");
             }
         } catch (Exception e) {
-            System.err.println(">>> [REGISTRY] Seed skipped: " + e.getMessage());
+            System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:");
+            e.printStackTrace();
         }
     }
 }
