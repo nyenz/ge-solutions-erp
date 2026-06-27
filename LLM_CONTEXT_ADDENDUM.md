@@ -111,3 +111,8 @@ All financial displays must follow the unified logic:
 - Plot Intake Ingestion: Created `LandServiceTest` to verify the complete `atomicIntake` workflow, ensuring a land project, land title, linked primary proprietor, and the initial deposit payment record are saved concurrently in the database.
 - Silent Data Leak Elimination: Identified and resolved a database leak where associated payments and notes were left orphaned in the database when a plot was deleted. Patched the codebase (`LandService.nuclearDelete()`) to manually clean up associated records, verified as working by the new `LandCascadeDeleteTest`.
 - Status: DONE & PUSHED
+---
+
+## CRITICAL CLOUD DEBUGGING RULE (Added June 2026)
+**RULE:** When debugging Authentication, Credential mismatches, or Database Seeding failures in a Cloud Environment (Render/Neon), **ALWAYS verify the live Environment Variables FIRST.** 
+Never assume a Spring Boot framework bug, Hibernate caching issue, or write complex code workarounds until you have explicitly confirmed that the Cloud Environment is not injecting unexpected variables (e.g., `ADMIN_DEFAULT_PASSWORD`).
