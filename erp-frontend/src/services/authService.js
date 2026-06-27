@@ -31,6 +31,10 @@ const authService = {
 
         } catch (error) {
             const status = error.response?.status;
+            const serverMsg = error.response?.data?.message;
+            // BEST PRACTICE: If the server provided a specific business error, propagate it 
+            // directly to the UI instead of blindly swallowing it.
+            if (serverMsg) throw new Error(serverMsg);
             if (status === 401 || status === 400) throw new Error("IDENTIFICATION_FAILED");
             if (status === 403) throw new Error("ACCOUNT_SUSPENDED");
                         // Check if it was a timeout (server waking up on Render free tier)

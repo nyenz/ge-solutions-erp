@@ -48,7 +48,14 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request,
                                                HttpServletRequest httpRequest) {
-        String ip = httpRequest.getRemoteAddr();
+        // BEST PRACTICE: Read the standard X-Forwarded-For header to extract the 
+        // real client IP when running behind a cloud proxy/load balancer like Render.
+        String ip = httpRequest.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) {
+            ip = httpRequest.getRemoteAddr();
+        } else {
+            ip = ip.split(",")[0].trim();
+        }
         if (rateLimiter.isBlocked(ip)) {
             throw new BusinessException("TOO_MANY_ATTEMPTS: Account locked for 15 minutes. Try again later.");
         }
