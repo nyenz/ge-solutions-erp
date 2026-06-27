@@ -38,10 +38,18 @@ public class ApplicationConfig {
     public UserDetailsService userDetailsService() {
         return username -> {
             User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new UsernameNotFoundException("Operator missing in registry"));
+                    .orElseThrow(() -> new UsernameNotFoundException("Operator missing in registry: " + username));
 
-            // Physically return our CUSTOM USER (the entity itself) 
-            // but wrapped for Spring Security compatibility.
+            // Defensive diagnostics -- visible in Render deploy logs
+            System.out.println(">>> [UDS] loadUserByUsername('" + username + "')");
+            System.out.println(">>>   isActive=" + user.isActive()
+                + "  role=" + user.getRole()
+                + "  passwordHashPrefix=" + (user.getPassword() != null ? user.getPassword().substring(0, Math.min(15, user.getPassword().length())) : "NULL"));
+
+            if (user.getRole() == null) {
+                throw new UsernameNotFoundException("Operator '" + username + "' has NULL role -- cannot build authorities");
+            }
+
             return new CustomUserPrincipal(user);
         };
     }

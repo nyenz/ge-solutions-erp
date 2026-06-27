@@ -45,7 +45,8 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
         } catch (Exception e) {
-            // DIAGNOSTIC: Triggered if username or password hash don't match
+            // DIAGNOSTIC: Log the REAL cause so we can see it in Render logs
+            System.err.println(">>> [AUTH_FAULT] authenticate() threw: " + e.getClass().getName() + " -- " + e.getMessage());
             throw new BusinessException("IDENTIFICATION_FAILED: INVALID SECURITY KEY");
         }
 

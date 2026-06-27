@@ -73,36 +73,72 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    @Transactional
+    // NOTE: Deliberately NOT @Transactional -- we use raw JDBC so this is
+    // completely immune to Spring AOP proxy bypass, Hibernate L1 cache,
+    // EntityManager flush timing, and @Builder.Default field conflicts.
     public void seedRootUser() {
-        try {
-            String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
-            String password = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
+        String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String encodedPassword = passwordEncoder.encode(rawPassword);
 
-            System.out.println(">>> [REGISTRY] Preparing to seed/reset 'admin_root' with password: '" + password + "'");
+        System.out.println(">>> [REGISTRY] seedRootUser() via raw JDBC. Raw password=" + rawPassword.substring(0,3) + "***");
 
-            java.util.Optional<User> existing = userRepository.findByUsername("admin_root");
-            if (existing.isEmpty()) {
-                User root = User.builder()
-                        .id(UUID.randomUUID())
-                        .username("admin_root")
-                        .email(email)
-                        .password(passwordEncoder.encode(password))
-                        .role(Role.ROLE_ADMIN)
-                        .isRoot(true)
-                        .isActive(true)
-                        .mustChangePassword(true)
-                        .build();
-                userRepository.saveAndFlush(root);
-                System.out.println(">>> [REGISTRY] Master Founder Account Seeded with fallback default credentials.");
-            } else {
-                User root = existing.get();
-                root.setPassword(passwordEncoder.encode(password));
-                root.setMustChangePassword(true);
-                root.setActive(true);
-                userRepository.saveAndFlush(root);
-                System.out.println(">>> [REGISTRY] Master Account found. Forced password reset to default for testing.");
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            // Check if admin_root exists
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exists = rs.getInt(1) > 0;
+                }
             }
+
+            if (!exists) {
+                // INSERT brand-new admin_root row
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
+                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, java.util.UUID.randomUUID());
+                    ps.setString(2, email);
+                    ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+            } else {
+                // UPDATE existing row -- raw JDBC, auto-commits, no cache issues
+                String sql = "UPDATE users SET password = ?, is_active = true, must_change_password = true "
+                           + "WHERE username = 'admin_root'";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] UPDATE admin_root rows affected: " + rows);
+                }
+            }
+
+            // Verify by re-reading the stored hash
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String storedHash = rs.getString("password");
+                        boolean active = rs.getBoolean("is_active");
+                        boolean matches = passwordEncoder.matches(rawPassword, storedHash);
+                        System.out.println(">>> [REGISTRY] Post-write verification:");
+                        System.out.println(">>>   is_active in DB = " + active);
+                        System.out.println(">>>   hash starts with = " + storedHash.substring(0, Math.min(20, storedHash.length())));
+                        System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
+                        if (!matches) {
+                            System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                        } else {
+                            System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                        }
+                    } else {
+                        System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
+                    }
+                }
+            }
+
         } catch (Exception e) {
             System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:");
             e.printStackTrace();
