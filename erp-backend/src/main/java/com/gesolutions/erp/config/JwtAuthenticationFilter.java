@@ -50,38 +50,52 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        jwt = authHeader.substring(7);
-        username = jwtService.extractUsername(jwt);
+        try {
+            jwt = authHeader.substring(7);
+            username = jwtService.extractUsername(jwt);
 
-        // 2. Validate Security Context and Perform Handshake
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-            
-            // PROVING non-nullity to the compiler to clear warnings
-            // Validate session version — rejects tokens from older sessions
-            Integer tokenSv = jwtService.extractClaim(jwt, claims -> {
-                Object sv = claims.get("sv");
-                return sv != null ? ((Number) sv).intValue() : null;
-            });
-            boolean sessionValid = userRepository.findByUsername(userDetails.getUsername())
-                .map(u -> {
-                    Integer dbSv = u.getSessionVersion();
-                    if (dbSv == null) return false; // not yet set, reject until login
-                    return tokenSv != null && tokenSv.equals(dbSv);
-                })
-                .orElse(false);
-
-            if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails)) && sessionValid) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            // 2. Validate Security Context and Perform Handshake
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
                 
-                // AUTHORIZE OPERATOR SESSION
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                Integer tokenSv = jwtService.extractClaim(jwt, claims -> {
+                    Object sv = claims.get("sv");
+                    return sv != null ? ((Number) sv).intValue() : null;
+                });
+                boolean sessionValid = userRepository.findByUsername(userDetails.getUsername())
+                    .map(u -> {
+                        Integer dbSv = u.getSessionVersion();
+                        if (dbSv == null) return false; 
+                        return tokenSv != null && tokenSv.equals(dbSv);
+                    })
+                    .orElse(false);
+
+                if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails))) {
+                    if (!sessionValid) {
+                        // VITAL FIX: Force a 401 Unauthorized response for session conflicts
+                        // This triggers the frontend Axios interceptor to instantly redirect to /login
+                        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\": \"SESSION_CONFLICT\", \"message\": \"Session expired on another device\"}");
+                        return;
+                    }
+
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // VITAL FIX: Catch ExpiredJwtException and force a 401 instead of crashing to a 500/403
+            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"INVALID_TOKEN\", \"message\": \"Token expired or malformed\"}");
+            return;
         }
         filterChain.doFilter(request, response);
     }
