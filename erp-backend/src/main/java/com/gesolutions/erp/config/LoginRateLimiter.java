@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LoginRateLimiter {
 
     private static final int  MAX_ATTEMPTS  = 10;
-    private static final long BLOCK_SECONDS = 15 * 60; // 15 minutes
+    private static final long BLOCK_SECONDS = 10 * 60; // 10 minutes
 
     private final ConcurrentHashMap<String, int[]> attempts = new ConcurrentHashMap<>();
     // int[0] = count, int[1] = first-attempt epoch-second

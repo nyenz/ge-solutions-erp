@@ -57,7 +57,7 @@ public class AuthController {
             ip = ip.split(",")[0].trim();
         }
         if (rateLimiter.isBlocked(ip)) {
-            throw new BusinessException("TOO_MANY_ATTEMPTS: Account locked for 15 minutes. Try again later.");
+            throw new BusinessException("TOO_MANY_ATTEMPTS: Account locked for 10 minutes. Try again later.");
         }
         try {
             LoginResponse response = authService.authenticate(request);

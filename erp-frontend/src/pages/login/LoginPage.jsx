@@ -67,7 +67,7 @@ const LoginPage = () => {
             if (msg === "IDENTIFICATION_FAILED") {
                 msg = "Wrong username or password. Please try again.";
             } else if (msg && msg.startsWith("TOO_MANY_ATTEMPTS")) {
-                msg = "Account locked for 15 minutes due to too many failed attempts. Try again later.";
+                msg = "Account locked for 10 minutes due to too many failed attempts. Try again later.";
             } else if (msg === "ACCOUNT_SUSPENDED") {
                 msg = "This account has been suspended. Contact the admin.";
             } else if (msg === "SERVER_STARTING_UP") {
