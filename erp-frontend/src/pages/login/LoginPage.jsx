@@ -144,9 +144,13 @@ const LoginPage = () => {
                 <div className={styles.modalBody}>
                     {recoverySuccess ? (
                         <div className={styles.successScreen}>
-                            <FiCheckCircle size={50} color="#10b981" />
+                            <div className={styles.successIconWrap}>
+                                <FiCheckCircle size={32} color="#10b981" />
+                            </div>
                             <p className={styles.successMsg}>{recoverySuccess}</p>
-                            <HardwareButton onClick={() => setIsRecovering(false)}>Return to Login</HardwareButton>
+                            <div className={styles.btnWrap} style={{ marginTop: '10px' }}>
+                                <HardwareButton onClick={() => { setIsRecovering(false); setRecoverySuccess(''); }}>Return to Login</HardwareButton>
+                            </div>
                         </div>
                     ) : (
                         <>
