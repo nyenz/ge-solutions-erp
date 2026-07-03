@@ -22,14 +22,16 @@ public class MailConfig {
     public JavaMailSender javaMailSender() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost("smtp.gmail.com");
-        mailSender.setPort(587);
+        // BEST PRACTICE: Use Port 465 with strict SSL for cloud deployments.
+        // Port 587 (STARTTLS) is frequently blocked by cloud firewalls.
+        mailSender.setPort(465);
         mailSender.setUsername(mailUsername);
         mailSender.setPassword(mailPassword);
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
         return mailSender;
