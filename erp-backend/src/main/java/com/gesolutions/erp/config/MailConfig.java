@@ -34,6 +34,17 @@ public class MailConfig {
         props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
+        // VITAL FIX: JavaMail's default timeout is INFINITE.
+        // Without these, if Gmail's SMTP relay is slow to respond, the
+        // request hangs until Render's own gateway kills it and returns
+        // an HTML error page instead of JSON. That is why the frontend
+        // shows "RECOVERY_FAULT: UNKNOWN" -- it cannot find a .message
+        // field in a non-JSON response. With these limits, a real SMTP
+        // failure surfaces within 10 seconds with a proper error message.
+        props.put("mail.smtp.connectiontimeout", "10000");
+        props.put("mail.smtp.timeout", "10000");
+        props.put("mail.smtp.writetimeout", "10000");
+
         return mailSender;
     }
 }
