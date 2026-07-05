@@ -72,8 +72,12 @@ public class GlobalExceptionHandler {
     // --- 4. DIGITAL VAULT FAULTS ---
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleFileSizeLimit(MaxUploadSizeExceededException ex) {
-        System.err.println(">>> [HARDWARE_LIMIT]: Upload exceeded 50MB threshold.");
-        return buildResponse(HttpStatus.PAYLOAD_TOO_LARGE, "VAULT_CAPACITY_EXCEEDED", "File size exceeds 50MB limit.");
+        // VITAL FIX: message now reflects the ACTUAL configured limits in
+        // application.properties (50MB per file, 250MB per full upload batch),
+        // instead of the old hardcoded text that did not match reality.
+        System.err.println(">>> [HARDWARE_LIMIT]: Upload exceeded configured size threshold. " + ex.getMessage());
+        return buildResponse(HttpStatus.PAYLOAD_TOO_LARGE, "VAULT_CAPACITY_EXCEEDED",
+            "File too large. Each file must be under 50MB, and the total of all files in one upload must be under 250MB.");
     }
 
     // --- 5. DATABASE INTEGRITY FAULTS ---
