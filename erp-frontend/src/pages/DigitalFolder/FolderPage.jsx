@@ -918,6 +918,12 @@ const FolderPage = () => {
                                 PROJECT #{project.landTitle.projectIndex}
                             </span>
                         )}
+                        <span className={`${styles.metaTag} ${styles.tagGreen}`}>
+                            STARTED: {project.landTitle?.projectStartDate ? new Date(project.landTitle.projectStartDate).toLocaleDateString() : '---'}
+                        </span>
+                        <span className={`${styles.metaTag} ${styles.tagPurple}`}>
+                            TITLE: {project.landTitle?.titleIssueDate ? new Date(project.landTitle.titleIssueDate).toLocaleDateString() : 'Pending'}
+                        </span>
                         <span className={`${styles.metaTag} ${styles.tagBlue}`}>
                             COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
                         </span>

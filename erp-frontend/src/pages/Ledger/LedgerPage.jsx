@@ -218,6 +218,8 @@ const LedgerPage = () => {
                                     <FiUser aria-hidden="true" /> PRIMARY OWNER {renderSortIcon('owner')}
                                 </th>
                                 <th>BOX</th>
+                                <th>START DATE</th>
+                                <th>TITLE DATE</th>
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
@@ -295,6 +297,16 @@ const LedgerPage = () => {
                                         </td>
                                         <td>
                                             <span className={styles.boxTag}>{proj.landTitle?.physicalBoxNumber || '---'}</span>
+                                        </td>
+                                        <td>
+                                            {proj.landTitle?.projectStartDate 
+                                                ? new Date(proj.landTitle.projectStartDate).toLocaleDateString()
+                                                : '---'}
+                                        </td>
+                                        <td>
+                                            {proj.landTitle?.titleIssueDate 
+                                                ? new Date(proj.landTitle.titleIssueDate).toLocaleDateString()
+                                                : 'Pending'}
                                         </td>
                                         <td className={styles.moneyCell}>
                                             <div className={styles.moneyRow}>

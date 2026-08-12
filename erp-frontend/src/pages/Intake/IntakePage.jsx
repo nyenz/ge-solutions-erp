@@ -272,6 +272,8 @@ const IntakePage = () => {
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');
     const [initialStorageFee, setInitialStorageFee] = useState('');
     const [surveyDate,        setSurveyDate]        = useState('');
+    const [projectStartDate,  setProjectStartDate]  = useState(new Date().toISOString().split('T')[0]);
+    const [titleIssueDate,    setTitleIssueDate]    = useState('');
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
@@ -371,6 +373,8 @@ const IntakePage = () => {
                 initialPayment: Number(initialPayment) || 0,
                 isStartAsBacklog: isBacklog,
                 surveyDate: surveyDate || undefined,
+                projectStartDate: projectStartDate || undefined,
+                titleIssueDate: titleIssueDate || undefined,
                 isLegacy: false,
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -426,6 +430,8 @@ const IntakePage = () => {
                 monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
                 initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
                 surveyDate: surveyDate || undefined,
+                projectStartDate: projectStartDate || undefined,
+                titleIssueDate: titleIssueDate || undefined,
                 isLegacy: false, // Always false for new plots - legacy is a historical flag only
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -635,6 +641,31 @@ const IntakePage = () => {
                                                 value={surveyDate}
                                                 onChange={e => setSurveyDate(e.target.value)}
                                             />
+                                        </div>
+                                        <div>
+                                            <div className={styles.labelRow}>
+                                                <label className={styles.fieldLabel}>PROJECT START DATE *</label>
+                                            </div>
+                                            <input
+                                                type="date"
+                                                className={styles.hwInput}
+                                                value={projectStartDate}
+                                                onChange={e => setProjectStartDate(e.target.value)}
+                                                required
+                                            />
+                                            <small style={{color: '#666', fontSize: '12px'}}>Auto-filled with today. Adjust if project started earlier.</small>
+                                        </div>
+                                        <div>
+                                            <div className={styles.labelRow}>
+                                                <label className={styles.fieldLabel}>TITLE ISSUE DATE</label>
+                                            </div>
+                                            <input
+                                                type="date"
+                                                className={styles.hwInput}
+                                                value={titleIssueDate}
+                                                onChange={e => setTitleIssueDate(e.target.value)}
+                                            />
+                                            <small style={{color: '#666', fontSize: '12px'}}>Optional. Enter when title was issued (can be backdated).</small>
                                         </div>
                                     </div>
                                     <div className={styles.grid2} style={{marginBottom: 0}}>

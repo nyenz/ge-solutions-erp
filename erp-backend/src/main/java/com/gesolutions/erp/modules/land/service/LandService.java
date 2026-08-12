@@ -230,6 +230,8 @@ public class LandService {
                 .instrumentNo(request.getInstrumentNo())
                 .surveyDate(request.getSurveyDate())
                 .projectIndex(projectIndexService.generateNextIndex())
+                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                .titleIssueDate(request.getTitleIssueDate())
                 .build();
 
         BigDecimal initialPayment = request.getInitialPayment() != null
