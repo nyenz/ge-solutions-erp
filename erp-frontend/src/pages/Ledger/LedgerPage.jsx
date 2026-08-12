@@ -17,6 +17,7 @@ const matchesSearch = (proj, term) => {
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
         proj.landTitle?.plotNumber,
+        proj.landTitle?.projectIndex,
         proj.landTitle?.physicalBoxNumber,
         proj.landTitle?.district,
         proj.landTitle?.county,
@@ -264,6 +265,9 @@ const LedgerPage = () => {
                                                 <PaymentDot proj={proj} />
                                                 <div>
                                                     <strong>{proj.landTitle?.plotNumber || '---'}</strong>
+                                                    {proj.landTitle?.projectIndex && (
+                                                        <span className={styles.districtTag}> #{proj.landTitle.projectIndex}</span>
+                                                    )}
                                                     <div>
                                                         {proj.landTitle?.tenure && (
                                                             <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>

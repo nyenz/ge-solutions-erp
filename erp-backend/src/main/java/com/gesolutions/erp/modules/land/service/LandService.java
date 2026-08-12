@@ -35,6 +35,7 @@ public class LandService {
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
     private final PaymentRecordRepository paymentRecordRepository;
+    private final ProjectIndexService projectIndexService;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -228,6 +229,7 @@ public class LandService {
                 .folio(request.getFolio())
                 .instrumentNo(request.getInstrumentNo())
                 .surveyDate(request.getSurveyDate())
+                .projectIndex(projectIndexService.generateNextIndex())
                 .build();
 
         BigDecimal initialPayment = request.getInitialPayment() != null

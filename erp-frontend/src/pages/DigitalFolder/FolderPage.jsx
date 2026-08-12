@@ -913,6 +913,11 @@ const FolderPage = () => {
                 <div className={styles.idPlate}>
                     <h1>{project.landTitle.plotNumber}</h1>
                     <div className={styles.metaLine}>
+                        {project.landTitle?.projectIndex && (
+                            <span className={`${styles.metaTag} ${styles.tagBlue}`}>
+                                PROJECT #{project.landTitle.projectIndex}
+                            </span>
+                        )}
                         <span className={`${styles.metaTag} ${styles.tagBlue}`}>
                             COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
                         </span>

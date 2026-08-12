@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: May 2026
+# Last updated: August 2026 (Major Revamp Architecture Added -- Section 17)
 
 ---
 
@@ -16,24 +16,25 @@
 
 - Simple English. Bullets/outline format. Short unless doing code.
 - Read errors yourself and say exactly what's wrong in one sentence.
-- Never ask A or B — just do everything needed unless a real decision is required.
+- Never ask A or B -- just do everything needed unless a real decision is required.
 - Confirm one step at a time. Read screenshots carefully before responding.
 
 ---
 
-## 3. THE fix.py SYSTEM — CRITICAL RULES
+## 3. THE fix.py SYSTEM -- CRITICAL RULES
 
 **RULE: Always output fix.py immediately without asking questions.**
 **RULE: Never ask David to manually copy-paste code into files. Always use fix.py.**
 **RULE: The LLM context guide is a SEPARATE file from fix.py. Output them separately.**
 **RULE: Use str.replace patches when only part of a file changes. Full rewrites only when changes are large/widespread.**
-**RULE: Never put triple-quoted strings inside triple-quoted strings — use joined line lists instead.**
-**RULE: Never use special unicode characters (em dashes, smart quotes etc.) in fix.py strings — ASCII only.**
+**RULE: Never put triple-quoted strings inside triple-quoted strings -- use joined line lists instead.**
+**RULE: Never use special unicode characters (em dashes, smart quotes etc.) in fix.py strings -- ASCII only.**
 **RULE: Always open files with errors='replace': open(path, 'r', encoding='utf-8', errors='replace')**
 **RULE: Always write files with: open(path, 'w', encoding='utf-8', newline='\n')**
 **RULE: Always verify the exact text to replace by reading the document context before writing patches.**
 **RULE: Print OK/MISSING for every patch.**
 **RULE: Use os.makedirs(os.path.dirname(path), exist_ok=True) before writing new files (skip for root-level files).**
+**RULE (NEW -- August 2026): For large multi-phase rebuilds (like the ERP Revamp in Section 17), split work into small, independently-testable fix.py files -- one phase per fix.py. Never bundle multiple phases into one giant fix.py. Each phase must be confirmed working by David before the next phase's fix.py is written.**
 
 ### Why patches fail:
 - If fix.py says 'patch target not found', the text doesn't match exactly OR the change was already applied.
@@ -45,15 +46,17 @@
 3. Check output for OK/MISSING
 4. `git add -A && git commit -m 'message' && git push`
 5. Watch Render Events tab for green tick (5-10 min free tier)
-6. Test at golden-seed.onrender.com. If red: click deploy logs, read error, fix, repeat.
+6. Test at golden-seed.onrender.com. If red: click deploy logs, read error, fix, repeat
 
 ---
 
 ## 4. THE PROJECT
 
 **Name:** Golden Seed ERP (code name: NYENZ)
-**Purpose:** Internal staff accountability tool for GE Solutions — a Ugandan land surveying and title processing company. Staff-only. Not client-facing.
-**Core functions:** Store land title records digitally, remind staff which clients to call (2x/month, 14-day interval rule), log calls, management sees full audit trail, backlog system with UGX 50,000/month storage penalty, payment recording with full history.
+**Purpose (ORIGINAL, pre-revamp):** Internal staff accountability tool for GE Solutions -- a Ugandan land surveying and title processing company. Staff-only. Not client-facing.
+**Purpose (REVAMPED -- see Section 17 for full detail):** A full project-based company ERP. Land titles remain the only project type for now, but the system now tracks detailed per-stage project costs, a real processing pipeline, company-wide expenses separate from project costs, NIN-based identity, and a 4-tier role hierarchy so the Director has full company visibility while lower roles see only what they need.
+**Core functions (original, still true):** Store land title records digitally, remind staff which clients to call (2x/month, 14-day interval rule), log calls, management sees full audit trail, backlog system with UGX 50,000/month storage penalty, payment recording with full history.
+**IMPORTANT:** The revamp in Section 17 is being built in phases. Until each phase ships, the ORIGINAL business rules in Section 9 remain in effect for that part of the system. Do not assume revamp rules apply to code that hasn't been touched yet -- check the Phase Tracker in Section 17 for what's actually live.
 
 ---
 
@@ -109,6 +112,7 @@ ge solns/
       services/
   LLM_CONTEXT_GUIDE.md
   LLM_CONTEXT_ADDENDUM.md
+  ERP_REVAMP_PLAN.md   <-- NEW: plain-English revamp plan for showing the employer
   fix.py
 ```
 
@@ -126,7 +130,7 @@ Every element, property, and value must respond to screen size changes by defaul
 When the instruction says "same design", the element must be identical in every measurable way: size, padding, margin, gap, font, color, border, shadow, responsiveness, hover/active/selected/focus/error states, animation, alignment.
 
 ### NO BROWSER DEFAULT STYLING RULE
-Every element must be explicitly styled — no browser defaults anywhere. Covers: buttons, inputs, dropdowns, checkboxes, scrollbars, arrows, links, tables, focus outlines, placeholder text, number spinners, date pickers, search cancel buttons. Every new element must match the existing app theme.
+Every element must be explicitly styled -- no browser defaults anywhere. Covers: buttons, inputs, dropdowns, checkboxes, scrollbars, arrows, links, tables, focus outlines, placeholder text, number spinners, date pickers, search cancel buttons. Every new element must match the existing app theme.
 
 ### Page Header Style (ALL pages must match Dashboard)
 - `className={styles.pageHeader}` on `<header>`
@@ -145,13 +149,13 @@ Every element must be explicitly styled — no browser defaults anywhere. Covers
 - `.headerRight`: flex row, align-items:center, gap, flex-shrink:0, flex-wrap:wrap
 - NEVER use position:absolute on buttons inside the header
 
-### Filter Button Style (CONFIRMED STANDARD — ALL pages)
+### Filter Button Style (CONFIRMED STANDARD -- ALL pages)
 - Inactive: `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)`
 - Hover: `background: rgba(238,140,58,0.12)`, `color: #EE8C3A`, `border-color: var(--orange)`
 - Active/Selected: `background: #EE8C3A`, `color: #1a2e30`, `border-color: #EE8C3A`
 - Font: DM Sans 900, uppercase, letter-spacing 1.5px, font-size clamp(9px,0.95vw,11px)
 - Layout: single horizontal row, flex-direction:ROW, flex-wrap:nowrap, overflow-x:auto, scrollbar hidden
-- NO icons inside filter buttons — text only
+- NO icons inside filter buttons -- text only
 
 ### Table Design Standard (Ledger is the master reference)
 - Table wraps in: `background: rgba(0,0,0,0.15)`
@@ -172,6 +176,7 @@ Every element must be explicitly styled — no browser defaults anywhere. Covers
 - Tenure tag: muted pill (rgba white bg, no orange), small DM Sans 900
 - District: orange-tinted text, no background, same row as tenure
 - NO orange background on any text tag in the plot column
+- NEW (Phase 1 revamp): Project Index (e.g. "#001A") shown next to plot number, reuses districtTag styling
 
 ### Text on Light Background Rule
 - The controlHub area (search, filters) sits on warm cream/beige background
@@ -205,133 +210,148 @@ Every element must be explicitly styled — no browser defaults anywhere. Covers
 - Use Ledger logic as the absolute source of truth
 
 ### FolderPage Header
-- Uses `.terminalHeader` — its own unique design, do NOT change to pageHeader
+- Uses `.terminalHeader` -- its own unique design, do NOT change to pageHeader
 
 ---
 
-## 8. HOW THE APP WORKS — LINEAR FLOW
+## 8. HOW THE APP WORKS -- LINEAR FLOW
 
-Step 1: INTAKE → Step 2: LEDGER → Step 3: FOLDER PAGE → Step 4: RECOVERY HUB → Step 5: PAYMENTS → Step 6: AUDIT
+**Original flow (pre-revamp, still the live behavior until Phase 4 ships):**
+Step 1: INTAKE -> Step 2: LEDGER -> Step 3: FOLDER PAGE -> Step 4: RECOVERY HUB -> Step 5: PAYMENTS -> Step 6: AUDIT
+
+**Target flow (post-revamp, see Section 17):**
+Step 1: INTAKE (with NIN check + project index auto-assigned) -> Step 2: STAGE SELECTION (checkbox template, per-stage cost) -> Step 3: LEDGER (searchable by index, name, NIN) -> Step 4: FOLDER PAGE (per-stage cost/notes, processing pipeline) -> Step 5: RECOVERY HUB (BACKLOG = work not done; RECEIVABLES = done but unpaid) -> Step 6: PAYMENTS -> Step 7: DIRECTOR DASHBOARD (company-wide view) -> Step 8: AUDIT
 
 ---
 
 ## 9. KEY BUSINESS RULES
 
-- **2-14 Rule:** Max 2 calls/client/month. Min 14 days between calls.
-- **Recovery grouping:** By unique phone number.
-- **Backlog trigger:** 365 days no payment (auto) OR admin manually.
-- **Storage fee:** UGX 50,000 every 30 days from backlog START DATE.
-- **Payment types:** STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL.
-- **Phone uniqueness:** Two owners cannot share the same phone number.
-- **Admin/Root only:** Payments, backlog management, Reports, Audit.
-- **Cloudinary:** All files stored on Cloudinary.
+**NOTE: These are the ORIGINAL rules. Several are being redefined by the revamp (Section 17).
+Check the Phase Tracker before assuming a rule below still applies as-is.**
+
+- **2-14 Rule:** Max 2 calls/client/month. Min 14 days between calls. (unchanged by revamp)
+- **Recovery grouping:** By unique phone number. (REVAMP: will change to NIN-based once Phase 2 ships)
+- **Backlog trigger:** 365 days no payment (auto) OR admin manually. (REVAMP: "Backlog" is being redefined -- see Section 17. This old trigger describes what will become "Receivables" logic once Phase 6 ships)
+- **Storage fee:** UGX 50,000 every 30 days from backlog START DATE. (applies to the old backlog/new Receivables concept, unchanged mechanically)
+- **Payment types:** STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL. (naming may need to shift to RECEIVABLE_PARTIAL once Phase 6 ships -- flag this for a future session)
+- **Phone uniqueness:** Two owners cannot share the same phone number. (REVAMP: NIN becomes the real uniqueness check once Phase 2 ships. Phone uniqueness will likely be dropped or downgraded to a soft warning.)
+- **Admin/Root only:** Payments, backlog management, Reports, Audit. (REVAMP: this simple 2-tier check is being replaced by the 4-tier role table in Section 17 once Phase 3 ships)
+- **Cloudinary:** All files stored on Cloudinary. (unchanged)
 
 ---
 
 ## 10. WHAT HAS BEEN COMPLETED
 
 ### UI & Styling
-- All page headers: unified glass panel using `.pageHeader` class — DONE
-- Filter bar unification: all pages use identical filter button styles (dark inactive, orange hover, orange-filled active, single horizontal row, side-scrollable, no icons, flex-direction:ROW) — DONE
-- Subtitle positioning: all pages use headerLeft wrapper for title+subtitle — DONE
-- Header padding/margin matched to Dashboard on ALL pages — DONE
-- RecoveryPortal: 2-column grid, mobile responsive — DONE
-- PaymentsPage: filter buttons unified to dark-bg inactive style — DONE
-- IntakePage: cleaned up financials — DONE
-- LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines — DONE
-- LedgerPage badge legend + search hint: dark text for light background — DONE
-- LedgerPage search hint moved to placeholder (no redundant text below) — DONE
-- LedgerPage plot column: no orange bg on tags, clean two-line layout, smaller dots — DONE
-- LedgerPage table: breaks out of HardwarePanel padding to use full width — DONE
-- AuditPage: RESET FILTERS aligned; fully responsive — DONE
-- AuditPage: HardwareSelect dropdown z-index fixed — DONE
-- Modal popups: all now use uniform HardwareModal form classes — DONE
-- PaymentsPage: full table rewrite to match Ledger dark table design — DONE
+- All page headers: unified glass panel using `.pageHeader` class -- DONE
+- Filter bar unification: all pages use identical filter button styles (dark inactive, orange hover, orange-filled active, single horizontal row, side-scrollable, no icons, flex-direction:ROW) -- DONE
+- Subtitle positioning: all pages use headerLeft wrapper for title+subtitle -- DONE
+- Header padding/margin matched to Dashboard on ALL pages -- DONE
+- RecoveryPortal: 2-column grid, mobile responsive -- DONE
+- PaymentsPage: filter buttons unified to dark-bg inactive style -- DONE
+- IntakePage: cleaned up financials -- DONE
+- LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines -- DONE
+- LedgerPage badge legend + search hint: dark text for light background -- DONE
+- LedgerPage search hint moved to placeholder (no redundant text below) -- DONE
+- LedgerPage plot column: no orange bg on tags, clean two-line layout, smaller dots -- DONE
+- LedgerPage table: breaks out of HardwarePanel padding to use full width -- DONE
+- AuditPage: RESET FILTERS aligned; fully responsive -- DONE
+- AuditPage: HardwareSelect dropdown z-index fixed -- DONE
+- Modal popups: all now use uniform HardwareModal form classes -- DONE
+- PaymentsPage: full table rewrite to match Ledger dark table design -- DONE
 
 ### Backend / Auth
-- Server-side single-session enforcement — DONE
+- Server-side single-session enforcement -- DONE
   - `sessionVersion` (Integer) column added to users table via DataInitializer migration
   - On every login: sessionVersion incremented in DB, embedded in JWT as "sv" claim
-  - JwtAuthenticationFilter: on every request, extracts "sv" from JWT, compares to DB. If mismatch → 401
+  - JwtAuthenticationFilter: on every request, extracts "sv" from JWT, compares to DB. If mismatch -> 401
   - Axios interceptor handles 401 by redirecting to /login
-- Browser-tab-based single-session enforcement (localStorage) — DONE
+- Browser-tab-based single-session enforcement (localStorage) -- DONE
 
 ### Features
-- PDF viewing in FolderPage (from Cloudinary): isPDF() helper, open-in-new-tab with 📄 prefix — DONE
-- Document preview on IntakePage: file queue allows opening uploaded files before submission — DONE
-- Print Preview (FolderPage): complete @media print CSS rewrite — DONE
-- Backlog system: move to backlog, exit backlog, storage fees, pause/resume, rate override, negotiation deadline, backlog start override — DONE
-- Payment recording with full history per plot — DONE
-- Payment type selector in modal (TITLE vs STORAGE) — DONE
-- StorageFeeInlineControls in RecoveryPortal — DONE
-- Reports: all 8 pillars + 5 Priority 2 reports (backlog breakdown, completed titles, payment history, storage fees, monthly collection) — DONE
-- Login rate limiter — DONE
+- PDF viewing in FolderPage (from Cloudinary): isPDF() helper, open-in-new-tab with (icon) prefix -- DONE
+- Document preview on IntakePage: file queue allows opening uploaded files before submission -- DONE
+- Print Preview (FolderPage): complete @media print CSS rewrite -- DONE
+- Backlog system: move to backlog, exit backlog, storage fees, pause/resume, rate override, negotiation deadline, backlog start override -- DONE (note: this is the OLD backlog meaning -- payment overdue. Will be renamed/absorbed into Receivables under the revamp)
+- Payment recording with full history per plot -- DONE
+- Payment type selector in modal (TITLE vs STORAGE) -- DONE
+- StorageFeeInlineControls in RecoveryPortal -- DONE
+- Reports: all 8 pillars + 5 Priority 2 reports (backlog breakdown, completed titles, payment history, storage fees, monthly collection) -- DONE
+- Login rate limiter -- DONE
 
 ### Automated Testing Infrastructure (June 2026)
-- Zero-Dependency H2 Local Test Suite: full Spring context boots offline in-memory with mocked env vars — DONE
-- LoginRateLimiterTest: verifies IP blocked after 10 failed login attempts — DONE
-- SingleSessionEnforcementTest: verifies older JWT rejected with 403 after sessionVersion increments — DONE
-- StaffGovernanceTest: verifies ROLE_MANAGER blocked (403) from admin endpoints, ROLE_ADMIN allowed — DONE
-- BacklogSchedulerTest: verifies monthly storage fee scheduler (default rate, custom rate override, negotiation deadline pause) — DONE
-- LandServiceTest: verifies atomicIntake workflow saves project, title, proprietor, and initial payment — DONE
-- LandCascadeDeleteTest + LandService.nuclearDelete() fix: verifies deleting a plot cascades to payments and notes (silent data leak patched) — DONE
-- Playwright login.spec.js: verifies successful login and redirect to /dashboard or /settings — DONE
+- Zero-Dependency H2 Local Test Suite: full Spring context boots offline in-memory with mocked env vars -- DONE
+- LoginRateLimiterTest: verifies IP blocked after 10 failed login attempts -- DONE
+- SingleSessionEnforcementTest: verifies older JWT rejected with 403 after sessionVersion increments -- DONE
+- StaffGovernanceTest: verifies ROLE_MANAGER blocked (403) from admin endpoints, ROLE_ADMIN allowed -- DONE (note: this test will need updating once the 4-tier role system in Phase 3 ships)
+- BacklogSchedulerTest: verifies monthly storage fee scheduler (default rate, custom rate override, negotiation deadline pause) -- DONE
+- LandServiceTest: verifies atomicIntake workflow saves project, title, proprietor, and initial payment -- DONE
+- LandCascadeDeleteTest + LandService.nuclearDelete() fix: verifies deleting a plot cascades to payments and notes (silent data leak patched) -- DONE
+- Playwright login.spec.js: verifies successful login and redirect to /dashboard or /settings -- DONE
 
 ---
 
 ## 11. WHAT STILL NEEDS TO BE DONE
 
-### Remaining uniformity checks
+### Remaining uniformity checks (pre-revamp, still open)
 - Check screenshot of each page after deploy
 - Table header alignment, row spacing uniformity across pages
 - Pagination controls uniformity
 
-### Mobile audit + small fixes
+### Mobile audit + small fixes (pre-revamp, still open)
 - Full mobile responsiveness check on all pages
 - Completed clients count on dashboard
 - Print layout cleanup
-- Phone uniqueness frontend validation
+- Phone uniqueness frontend validation (NOTE: may become moot once NIN is the real identity check in Phase 2)
 - Release button should warn if no documents uploaded
 
 ### Language simplification (can do alongside any priority)
-- 'Master Hardware Override' → 'Edit'
-- 'Nuclear Purge' → 'Delete'
-- 'Intel' → 'Notes'
-- 'Vault' → 'Documents'
-- 'Recovery Sync' → 'Call Logged'
-- 'Asset Intake' → 'New Plot'
-- 'Forensic Stream' → 'Recent Activity'
+- 'Master Hardware Override' -> 'Edit'
+- 'Nuclear Purge' -> 'Delete'
+- 'Intel' -> 'Notes'
+- 'Vault' -> 'Documents'
+- 'Recovery Sync' -> 'Call Logged'
+- 'Asset Intake' -> 'New Plot'
+- 'Forensic Stream' -> 'Recent Activity'
 
 ### Future (not started)
 - Multi-company: clone repo per client company
 - Notification model (exists in code but never used)
 
 ### UI Test Coverage (in progress)
-- Playwright UI test for Intake Flow (/land/new -> /land/projects) — IN PROGRESS
+- Playwright UI test for Intake Flow (/land/new -> /land/projects) -- IN PROGRESS
 - Playwright UI test for Ledger -> Folder navigation
 - Playwright UI test for Recovery -> Log Call flow
+
+### MAJOR REVAMP -- SEE SECTION 17 FOR FULL DETAIL
+The single biggest item in this section is the full project-based ERP revamp requested by
+the employer (identity/NIN, 4-tier roles, stage templates, financials module, Director
+dashboard, project index, legacy receivables). Do not try to summarize it here -- Section 17
+is the authoritative source with the full architecture and Phase Tracker. This line exists
+only as a pointer so nobody looking at Section 11 misses that the revamp is the current
+top priority.
 
 ---
 
 ## 12. KNOWN ISSUES (not blocking)
 
-- WebConfig.java has old local file serving reference — harmless (Cloudinary is used)
+- WebConfig.java has old local file serving reference -- harmless (Cloudinary is used)
 - Notification model exists but never used
 - Release button does not check for uploaded documents first
-- payment_schedules table still exists in DB — no longer used (harmless)
+- payment_schedules table still exists in DB -- no longer used (harmless)
 - App name inconsistency: 'NYENZ ERP' vs 'Golden Seed' in different places
 
 ---
 
 ## 13. DEPLOYMENT PROCESS
 
-1. Create fix.py AND updated LLM_CONTEXT_ADDENDUM.md → present_files both → David downloads both
-2. David replaces local fix.py → `py fix.py` → check output for OK/MISSING
+1. Create fix.py AND updated LLM_CONTEXT_ADDENDUM.md -> present_files both -> David downloads both
+2. David replaces local fix.py -> `py fix.py` -> check output for OK/MISSING
 3. David replaces local LLM_CONTEXT_ADDENDUM.md
 4. `git add -A && git commit -m 'message' && git push`
-5. Render → Events tab → wait for green tick (5-10 min free tier)
+5. Render -> Events tab -> wait for green tick (5-10 min free tier)
 6. Test at golden-seed.onrender.com
-7. If red: click 'deploy logs' → read error → fix → repeat
+7. If red: click 'deploy logs' -> read error -> fix -> repeat
 
 ---
 
@@ -349,7 +369,7 @@ Step 1: INTAKE → Step 2: LEDGER → Step 3: FOLDER PAGE → Step 4: RECOVERY H
 | `SyntaxError in fix.py with triple quotes` | LLM guide embedded inside triple-quoted string | Use list of lines joined with newlines instead |
 | `fix.py shows 'patch target not found'` | Text to replace doesn't match file exactly | Read actual file from conversation context before writing patch |
 | Header buttons overlapping title | position:absolute in CSS | Remove !important block, use .pageHeader flex layout |
-| Text invisible on light bg | Color was rgba(255,255,255,x) — white on cream | Use rgba(26,46,48,x) — dark on light |
+| Text invisible on light bg | Color was rgba(255,255,255,x) -- white on cream | Use rgba(26,46,48,x) -- dark on light |
 
 ### HOW TO PREVENT "undefined" ERRORS FOREVER
 
@@ -378,7 +398,7 @@ Step 1: INTAKE → Step 2: LEDGER → Step 3: FOLDER PAGE → Step 4: RECOVERY H
 
 At the end of every session the AI must:
 1. Ask David: "Are you happy with X, Y, Z? Should I mark them as done?"
-2. Wait for David to confirm — do not assume anything is done without confirmation
+2. Wait for David to confirm -- do not assume anything is done without confirmation
 3. Once confirmed: move confirmed items INTO Section 10 (COMPLETED), remove from Section 11 (TO DO)
 4. If something new came up, add it to Section 11
 5. Both sections must reflect: what the addendum says was worked on + what David explicitly confirmed + what the code actually shows
@@ -387,3 +407,145 @@ At the end of every session the AI must:
 **RULE:** Section 11 only contains things not yet done.
 **RULE:** The addendum is the running log. The master guide Sections 10 and 11 are the clean summary.
 **RULE:** The master guide (LLM_CONTEXT_GUIDE.md) is NEVER edited for incremental changes each session. All new rules, discoveries, and session notes go into LLM_CONTEXT_ADDENDUM.md only. The ONLY parts of the master guide that ever get updated are Sections 10 and 11.
+**EXCEPTION (August 2026):** Section 17 below is a deliberate, one-time full-architecture addition requested directly by David to represent the revamp's permanent target design. It is NOT a violation of the above rule -- it is guide-level reference content, not a session note. Within Section 17 itself, only the Phase Tracker subsection updates as phases complete; the rest of Section 17 (decisions, role table, module list) is meant to stay stable once phases start shipping, the same way Section 9's business rules stay stable.
+
+---
+
+## 17. PROJECT-BASED ERP REVAMP -- FULL TARGET ARCHITECTURE
+
+**This section is the permanent, authoritative reference for the revamp. Do not re-litigate
+these decisions in future sessions -- they are locked in. Only the Phase Tracker at the
+bottom of this section should change as work progresses.**
+
+**Companion document:** `ERP_REVAMP_PLAN.md` has the full plain-English write-up of all of
+this, written for showing the employer directly. This section is the compressed version for
+AI/technical context.
+
+### 17.1 WHY THIS EXISTS
+The employer wants the ERP transformed from a land-title tracking tool into a full
+project-based company ERP: detailed cost breakdowns per project stage, a redefined BACKLOG
+meaning, a searchable project index, NIN-based identity instead of phone-based, a 4-tier
+role hierarchy, and a company-wide financials module separate from project costs.
+
+### 17.2 TERMINOLOGY (redefined from the original system)
+- **BACKLOG** = work not yet done / in progress (this is a NEW meaning -- the OLD system used
+  "backlog" to mean overdue payment on a finished title. That old concept is renamed below.)
+- **RECEIVABLES** = work finished, payment still owed (this is what "backlog" used to mean in
+  the original system -- see Section 9 for the original mechanics, which carry over unchanged,
+  just under the new name)
+
+### 17.3 IDENTITY (NIN-based)
+- NIN is mandatory for every person on every project, including foreigners. No exceptions --
+  no project can be created without it.
+- If a person's NIN changes, they are treated as a brand new person record. No merge/history
+  needed -- old projects stay correctly linked to the old NIN, new projects link to the new one.
+- Joint owners: every owner listed on a project must have their own valid NIN.
+- Duplicate NIN handling: if a NIN already exists under a DIFFERENT name, warn (likely typo).
+  If the NIN matches an EXISTING person being reused (second project, joint owner elsewhere),
+  auto-fill their known details but allow staff to edit those details per-project (e.g. their
+  address changed).
+
+### 17.4 PROJECT INDEX
+- Format: 001A, 002A ... 999A, then rolls to 001B, 002B ... 999B, then 001C, etc.
+- Never repeats, never grows past 4 characters. Tied to the project/title itself, not the owner.
+- Must be searchable in the Ledger.
+
+### 17.5 PROCESSING STAGES
+- Real stage list (confirmed by employer): Field Work, Deed Plan, LC Inspection,
+  District Land Board Approval, Tax Assessment and Stamp Duty, Registration and Title Issuance.
+- Model: a master "Stage Template" (checkbox list) with a default cost per stage (starts at 0,
+  fully editable). Staff pick which stages apply per project via checkboxes. A "+" button lets
+  staff add a custom one-off stage per project (and delete it). Every checked stage has its own
+  editable cost field and its own notes field.
+- Template editing rights: everyone EXCEPT Secretary can edit the master template
+  (add/remove/rename stages, change default costs). Secretary can only pick from it.
+- Stages can move backward (e.g. Approved -> Refused). Refused is not final -- can be resubmitted.
+
+### 17.6 LEGACY RECEIVABLES (old titles in storage needing payment demanded)
+- NOT an estimation system. Employer has real ledger totals for these, just no stage breakdown.
+  Staff enter ONE lump total cost (the real number from the ledger). No "estimated" flag needed
+  -- it's a real figure. Behaves exactly like normal project payment tracking once entered.
+  Same duplicate-NIN check as regular projects applies.
+
+### 17.7 ROLES (4-tier hierarchy, replacing current ROLE_ADMIN/ROLE_MANAGER)
+| Role | Company Financials | Edits Costs | Changes Stages | Edits Template | Data Entry |
+|---|---|---|---|---|---|
+| Programmer (David, isRoot) | Yes | Yes | Yes | Yes | Setup/emergency only |
+| Director | Yes -- full picture | Yes | Yes | Yes | Yes |
+| Manager | No -- project-level only | Yes | Yes | Yes | Yes |
+| Secretary | No | No | Yes (stage only, not cost) | No | Yes |
+| Normal workers | -- | -- | -- | -- | No system access at all |
+
+### 17.8 FINANCIALS MODULE
+- Two completely separate, UNLINKED cost streams: (1) Project costs, tracked per-stage as
+  above, and (2) Company/office costs (fuel, office costs, general field costs) -- NOT linked
+  to any specific project, ever.
+- Company cost categories are free-form: staff can add/delete categories as needed. The system
+  should remember past entries and suggest them (same pattern as the existing `predictionService`
+  used for district/county autocomplete in Intake -- reuse this exact mechanism).
+- Cost timing: system suggests recurring vs one-off based on memory (e.g. recognizes "rent" was
+  entered last month), but it's always the staff member's choice and editable at any time.
+- Adopted the same "total committed vs amount paid" pattern already used for client debt,
+  applied to company expenses too, so the Director can see both money owed/committed and money
+  actually paid out -- not just cash that has already left the building.
+
+### 17.9 DIRECTOR'S DASHBOARD
+- Shows: company-wide cost/revenue/receivables snapshot, project pipeline overview (how many
+  projects sitting at each stage), staff activity summary.
+- Time period breakdown: must be possible to break down by day if needed. DEFAULT view is
+  week + month (not day, not year, unless the Director changes it).
+
+### 17.10 PHASE TRACKER (this is the only part of Section 17 that updates as work progresses)
+
+**PHASE 1: Project Index System**
+- What: `ProjectIndexService.java` (generates 001A/002A/etc), `project_index_counter` DB table,
+  `project_index` column on `land_titles`, auto-assignment at intake, display + search in
+  Ledger, display on Folder page header.
+- Status: CODE WRITTEN, NOT YET APPLIED. David has not run fix.py for this phase yet.
+- Known limitation (expected, not a bug, once applied): existing/old plots will show a blank
+  index until they are opened in edit mode and re-saved.
+
+**PHASE 2: NIN-Based Identity (NOT STARTED)**
+- Will involve: making `nationalId` mandatory and unique-checked on the `Client` model, removing
+  the current phone-number-based uniqueness assumption, building the duplicate-NIN warning +
+  auto-fill-with-edit-allowed behavior described in 17.3, and updating Intake/Folder forms.
+- Higher risk than Phase 1 -- touches core client identity logic used everywhere. Test in
+  isolation before going live.
+
+**PHASE 3: 4-Tier Role System (NOT STARTED)**
+- Will involve: expanding the `Role` enum beyond `ROLE_ADMIN`/`ROLE_MANAGER` to the 4-tier
+  system in 17.7, updating every `@PreAuthorize` check across all controllers, and updating
+  every frontend role check (`user.role === 'ROLE_ADMIN'`, `user.isRoot`, etc. -- appears in
+  Sidebar.jsx, App.jsx, Dashboard.jsx, FolderPage.jsx, ReportHub.jsx, and more).
+- Highest-risk phase -- touches security and access control everywhere. Do this on a quiet day
+  with time to fully test each role's access before pushing live.
+
+**PHASE 4: Processing Stage Template System (NOT STARTED)**
+- Will involve: a new `StageTemplate` model (the master checkbox list with default costs), the
+  checkbox + "+" custom-stage UI on Intake, per-stage cost + notes fields, and updating the
+  Folder page's stage display to work off the new flexible template instead of the current
+  fixed 5-stage pipeline (`STAGE_LABELS` in FolderPage.jsx currently hardcodes 5 stages --
+  this will need to become dynamic).
+
+**PHASE 5: Financials Module (Company Costs) (NOT STARTED)**
+- Will involve: a new `CompanyExpense` model, free-form category entry with memory/suggestions
+  (reusing `predictionService` pattern), the committed-vs-paid tracking pattern, and a new page
+  for entering/viewing company costs (separate from project costs entirely).
+
+**PHASE 6: Legacy Receivables Entry Mode (NOT STARTED)**
+- Will involve: a simplified intake path for old titles -- single lump-sum cost field instead
+  of the full stage checklist, marked as a Legacy Receivable, otherwise behaves like a normal
+  project for payment tracking purposes.
+
+**PHASE 7: Director's Dashboard (NOT STARTED)**
+- Will involve: the company-wide snapshot view in 17.9, with day/week/month/year breakdown
+  toggle (defaulting to week + month), pipeline stage counts, and staff activity summary.
+  Depends on Phases 3, 4, and 5 being done first, since it displays data from all of them.
+
+### 17.11 RECOMMENDED BUILD ORDER
+Phase 1 (index) -> Phase 2 (NIN identity) -> Phase 3 (roles) -> Phase 4 (stage templates) ->
+Phase 5 (financials) -> Phase 6 (legacy receivables) -> Phase 7 (Director dashboard).
+Reasoning: identity and roles are foundational and everything else builds on top of them.
+Stage templates and financials depend on roles existing first (permission checks need real
+roles to check against). The Director dashboard comes last because it visualizes data that
+only exists once the other phases are built.

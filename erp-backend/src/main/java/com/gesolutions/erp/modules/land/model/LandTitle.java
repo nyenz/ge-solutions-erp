@@ -61,6 +61,15 @@ public class LandTitle {
     @Column(name = "physical_box_number", nullable = false, length = 100)
     private String physicalBoxNumber;
 
+    /**
+     * PROJECT INDEX
+     * Short, never-repeating, searchable code shown to clients and staff.
+     * Format: 001A, 002A ... 999A, 001B, 002B ... 999B, 001C ...
+     * Generated automatically at intake by ProjectIndexService.
+     */
+    @Column(name = "project_index", unique = true, length = 10)
+    private String projectIndex;
+
     @Column(name = "survey_date")
     private LocalDate surveyDate;
 
