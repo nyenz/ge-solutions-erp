@@ -268,8 +268,10 @@ public class LandService {
 
         if (request.getOwners() != null) {
             for (LandEntryRequest.OwnerRequest o : request.getOwners()) {
-                Client c = clientService.findOrCreateClient(o.getFullName(), o.getPhone(), o.getEmail());
-                c.setNationalId(o.getNationalId());
+                if (o.getNationalId() == null || o.getNationalId().isBlank()) {
+                    throw new BusinessException("NIN_REQUIRED: Owner \"" + o.getFullName() + "\" is missing a National ID (NIN).");
+                }
+                Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
                 c.setHomeAddress(o.getAddress());
                 project.addProprietor(c);
             }
@@ -343,15 +345,21 @@ public class LandService {
         if (request.getOwners() != null) {
             Set<Client> updatedRegistry = new HashSet<>();
             for (LandEntryRequest.OwnerRequest incoming : request.getOwners()) {
-                Client person = clientRepository.findByPhoneNumber(incoming.getPhone())
-                        .orElseGet(() -> clientService.findOrCreateClient(
-                                incoming.getFullName(), incoming.getPhone(), incoming.getEmail()));
+                if (incoming.getNationalId() == null || incoming.getNationalId().isBlank()) {
+                    throw new BusinessException("NIN_REQUIRED: Owner \"" + incoming.getFullName() + "\" is missing a National ID (NIN).");
+                }
+                String normalizedNin = incoming.getNationalId().trim().toUpperCase();
+                Client person = clientRepository.findByNationalId(normalizedNin)
+                        .orElseGet(() -> clientService.findOrCreateClientByNin(
+                                incoming.getFullName(), normalizedNin, incoming.getPhone(), incoming.getEmail()));
                 person.setFullName(incoming.getFullName().toUpperCase());
-                person.setNationalId(incoming.getNationalId() != null
-                        ? incoming.getNationalId().toUpperCase() : null);
+                person.setNationalId(normalizedNin);
                 person.setEmail(incoming.getEmail() != null
                         ? incoming.getEmail().toLowerCase() : null);
                 person.setHomeAddress(incoming.getAddress());
+                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
+                    person.setPhoneNumber(incoming.getPhone());
+                }
                 clientRepository.save(person);
                 updatedRegistry.add(person);
             }

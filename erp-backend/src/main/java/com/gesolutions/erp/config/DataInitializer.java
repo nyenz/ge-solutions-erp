@@ -62,6 +62,14 @@ public class DataInitializer implements CommandLineRunner {
             // PHASE 1.5 - DATE TRACKING SYSTEM
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
+
+            // PHASE 2 - NIN-BASED IDENTITY
+            // Unique constraint on national_id. Postgres allows multiple NULLs under
+            // a UNIQUE constraint, so old clients with no NIN yet are not affected.
+            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",
+            // Phone numbers are no longer required to be unique -- joint owners or
+            // family members can share one phone. NIN is now the real identity check.
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
         };
 
         try (Connection conn = dataSource.getConnection();

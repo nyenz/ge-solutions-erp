@@ -12,6 +12,7 @@ import landService from '../../services/landService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import predictionService from '../../services/predictionService';
+import clientService from '../../services/clientService';
 import styles from './IntakePage.module.css';
 
 // ── TOAST ────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ const DrawerHeader = ({ label, isOpen, onClick, icon: Icon, badge }) => (
 );
 
 // ── SMART INPUT ───────────────────────────────────────────────────
-const SmartInput = ({ label, value, onChange, placeholder, suggestions = [], showCaps, required, error, inputMode, maxLength, hint, id }) => {
+const SmartInput = ({ label, value, onChange, onBlur, placeholder, suggestions = [], showCaps, required, error, inputMode, maxLength, hint, id }) => {
     const inputId = id || 'si-' + (label || '').replace(/\W/g, '-').toLowerCase();
     return (
         <div className={`${styles.inputWrap} ${error ? styles.inputError : ''}`}>
@@ -87,7 +88,7 @@ const SmartInput = ({ label, value, onChange, placeholder, suggestions = [], sho
                 {showCaps && <span className={styles.capsBadge}>CAPS</span>}
             </div>
             <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
-                type="text" value={value} onChange={onChange} placeholder={placeholder}
+                type="text" value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder}
                 inputMode={inputMode} maxLength={maxLength} autoComplete="off"
                 list={suggestions.length ? inputId + '_dl' : undefined} />
             {suggestions.length > 0 && (
@@ -344,6 +345,7 @@ const IntakePage = () => {
         owners.forEach((o, i) => {
             if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
             if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
+            if (!o.nationalId.trim())  e['owner_' + i + '_nin']   = 'Required';
         });
         if (fileQueue.length === 0) {
             e.docs = true;
@@ -462,6 +464,34 @@ const IntakePage = () => {
     };
 
     const addOwner = () => setOwners(prev => [...prev, EMPTY_OWNER()]);
+
+    // PHASE 2: NIN duplicate/auto-fill check. Warns on likely typo (NIN already
+    // registered under a different name), auto-fills known details on a real match.
+    const handleNinBlurCheck = async (idx, val) => {
+        if (!val.trim()) return;
+        const result = await clientService.lookupNin(val.trim());
+        if (!result.exists) return;
+
+        const existingName = (result.fullName || '').trim().toUpperCase();
+        const enteredName  = (owners[idx]?.fullName || '').trim().toUpperCase();
+
+        if (existingName && enteredName && existingName !== enteredName) {
+            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            return;
+        }
+
+        setOwners(prev => prev.map((o, i) => {
+            if (i !== idx) return o;
+            return {
+                ...o,
+                fullName: o.fullName.trim() ? o.fullName : (result.fullName || o.fullName),
+                phone:    o.phone.trim()    ? o.phone    : (result.phoneNumber || o.phone),
+                email:    o.email.trim()    ? o.email    : (result.email || o.email),
+                address:  o.address.trim()  ? o.address  : (result.homeAddress || o.address),
+            };
+        }));
+        toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
+    };
 
     // Warn if a phone number is already used by another owner on this form
     const handlePhoneBlurCheck = (idx, val) => {
@@ -585,9 +615,11 @@ const IntakePage = () => {
                                             id={'owner_'+idx+'_phone'} />
                                     </div>
                                     <div className={styles.grid3}>
-                                        <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps
+                                        <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps required
+                                            error={errors['owner_'+idx+'_nin']}
                                             maxLength={14}
-                                            onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\s/g,''))} />
+                                            onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\s/g,''))}
+                                            onBlur={e => handleNinBlurCheck(idx, e.target.value)} />
                                         <SmartInput label="EMAIL" value={o.email}
                                             onChange={e => updateOwner(idx, 'email', e.target.value.toLowerCase())} />
                                         <SmartInput label="HOME ADDRESS" value={o.address}

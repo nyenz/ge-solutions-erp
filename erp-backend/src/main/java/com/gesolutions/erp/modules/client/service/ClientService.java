@@ -101,6 +101,38 @@ public class ClientService {
     }
 
     /**
+     * PHASE 2: NIN-BASED IDENTITY LOOKUP
+     * Finds an existing person by their National ID (NIN), or creates a new one.
+     * Per business rule (Section 17.3): if a person's NIN changes, they are
+     * treated as a brand new person record -- this method never merges by
+     * name or phone, only ever by NIN.
+     */
+    @Transactional
+    public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email) {
+        if (nin == null || nin.isBlank()) {
+            throw new BusinessException("NIN_REQUIRED: A National ID (NIN) is mandatory for every project owner.");
+        }
+        String normalizedNin = nin.trim().toUpperCase();
+
+        return clientRepository.findByNationalId(normalizedNin)
+                .orElseGet(() -> {
+                    Client newClient = Client.builder()
+                            .fullName(fullName)
+                            .phoneNumber(phone)
+                            .nationalId(normalizedNin)
+                            .email(email)
+                            .monthlyContactCount(0)
+                            .reliabilityScore(100.0)
+                            .build();
+
+                    Client saved = clientRepository.save(newClient);
+                    auditService.logAction("CLIENT_ARCHIVE",
+                        "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
+                    return saved;
+                });
+    }
+
+    /**
      * SYSTEM UTILITY: ADJUST RELIABILITY
      * Manually adjusted by financial events (e.g., missed payments lower score).
      */

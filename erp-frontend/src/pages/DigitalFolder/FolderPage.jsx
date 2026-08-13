@@ -17,6 +17,7 @@ import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
+import clientService from '../../services/clientService';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
@@ -41,6 +42,7 @@ const validateBuffer = (buffer) => {
     if (!buffer.tenure?.trim())     errors.push('TENURE IS REQUIRED');
     buffer.owners?.forEach((o, i) => {
         if (!o.fullName?.trim()) errors.push(`OWNER ${i + 1}: LEGAL NAME IS REQUIRED`);
+        if (!o.nationalId?.trim()) errors.push(`OWNER ${i + 1}: NATIONAL ID (NIN) IS REQUIRED`);
     });
     return errors;
 };
@@ -277,17 +279,17 @@ const PhoneInput = ({ label = 'RECOVERY PHONE', value, onChange, onBlur, id, req
     );
 };
 
-const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, id }) => {
+const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, onBlur, id, required }) => {
     const inputId = id || 'nin_input';
     const MAX = 14;
     const handleChange = (e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,MAX));
     return (
         <div className={styles.hwInputWrap}>
             <div className={styles.inputLabelRow}>
-                <label htmlFor={inputId}>{label}</label>
+                <label htmlFor={inputId}>{label}{required && <span className={styles.reqStar}> *</span>}</label>
                 <span className={styles.capsBadge}>CAPS</span>
             </div>
-            <input id={inputId} type="text" value={value} onChange={handleChange}
+            <input id={inputId} type="text" value={value} onChange={handleChange} onBlur={onBlur}
                 maxLength={MAX} placeholder="CM90XXXXXXXX12"
                 className={styles.hwInput} autoComplete="off" autoCapitalize="characters" />
         </div>
@@ -661,6 +663,33 @@ const FolderPage = () => {
             await loadFolderData();
             toast('Stage updated: ' + STAGE_LABELS[num-1], 'info', 3000);
         } catch { toast('STAGE UPDATE FAILED', 'error'); }
+    };
+
+    // PHASE 2: NIN duplicate/auto-fill check on edit -- same behavior as Intake.
+    const handleNinBlurCheck = async (idx, val) => {
+        if (!val.trim()) return;
+        const result = await clientService.lookupNin(val.trim());
+        if (!result.exists) return;
+
+        const existingName = (result.fullName || '').trim().toUpperCase();
+        const enteredName  = (buffer.owners[idx]?.fullName || '').trim().toUpperCase();
+
+        if (existingName && enteredName && existingName !== enteredName) {
+            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            return;
+        }
+
+        const owners = buffer.owners.map((o, i) => {
+            if (i !== idx) return o;
+            return {
+                ...o,
+                phone:   o.phone.trim()   ? o.phone   : (result.phoneNumber || o.phone),
+                email:   o.email.trim()   ? o.email   : (result.email || o.email),
+                address: o.address.trim() ? o.address : (result.homeAddress || o.address),
+            };
+        });
+        touchedSetBuffer(p => ({ ...p, owners }));
+        toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
     };
 
     const handlePhoneBlurCheck = (idx, val) => {
@@ -1384,7 +1413,10 @@ const FolderPage = () => {
                                             <div className={styles.ownerCardLabel}>ENTITY #{idx+1} {idx===0&&'(PRIMARY)'}</div>
                                             <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
                                             <PhoneInput value={o.phone} onChange={v => handleOwnerChange(idx,'phone',v)} onBlur={v => handlePhoneBlurCheck(idx, v)} id={`owner_${idx}_phone`} />
-                                            <NINInput value={o.nationalId} onChange={v => handleOwnerChange(idx,'nationalId',v)} id={`owner_${idx}_nin`} />
+                                            <NINInput value={o.nationalId} required
+                                                onChange={v => handleOwnerChange(idx,'nationalId',v)}
+                                                onBlur={e => handleNinBlurCheck(idx, e.target.value)}
+                                                id={`owner_${idx}_nin`} />
                                             <EmailInput value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
                                             <AddressInput label="HOME ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
                                         </div>

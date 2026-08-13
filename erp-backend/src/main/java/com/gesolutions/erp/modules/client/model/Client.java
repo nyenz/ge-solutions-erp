@@ -9,7 +9,12 @@ import java.util.UUID;
 
 /**
  * GE SOLUTIONS - HUMAN IDENTITY REGISTRY
- * 
+ *
+ * PHASE 2: Identity is now anchored on National ID (NIN), not phone number.
+ * Phone number is still required as a contact field, but is no longer
+ * enforced as unique at the database level -- joint owners or family
+ * members may legitimately share one phone.
+ *
  * Physically manages the "Recovery Cool-Down" logic:
  * - 14-Day Interval Check
  * - 2-Call Per Month Handbrake
@@ -17,6 +22,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "clients", indexes = {
     @Index(name = "idx_client_phone", columnList = "phone_number"),
+    @Index(name = "idx_client_nin", columnList = "national_id"),
     @Index(name = "idx_client_last_call", columnList = "last_contacted_at")
 })
 @Getter 
@@ -33,9 +39,17 @@ public class Client {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "phone_number", unique = true, nullable = false, length = 50)
+    // NOTE: unique=true intentionally removed in Phase 2 -- see DataInitializer
+    // migration that drops the old DB-level unique constraint on this column.
+    @Column(name = "phone_number", nullable = false, length = 50)
     private String phoneNumber;
 
+    /**
+     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR (Phase 2)
+     * Mandatory for every project owner going forward. Unique at the DB level
+     * (see DataInitializer). Legacy client rows created before Phase 2 may
+     * have this blank until next edited.
+     */
     @Column(name = "national_id", length = 100)
     private String nationalId;
 

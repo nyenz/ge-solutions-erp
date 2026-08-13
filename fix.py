@@ -1,6 +1,22 @@
 # PATH: fix.py
-# PHASE 1.5 REPAIR PATCH - Fixes corrupted files + adds date tracking to Intake form
+# PHASE 2 - NIN-BASED IDENTITY
 # Run this from the project root: py fix.py
+#
+# WHAT THIS PATCH DOES (matches Section 17.3 of LLM_CONTEXT_GUIDE.md):
+#   1. National ID (NIN) becomes MANDATORY for every owner at Intake and on Edit.
+#   2. People are now matched/created by NIN instead of by phone number.
+#      - Different NIN on a re-registration = treated as a brand new person.
+#      - Existing NIN found = staff get an auto-fill (still editable) on blur.
+#      - Existing NIN under a DIFFERENT name = staff get a typo warning (not blocked).
+#   3. Phone number uniqueness is DOWNGRADED (removed as a hard DB constraint) since
+#      joint owners / family members can now legitimately share a phone number --
+#      NIN is the real uniqueness check going forward.
+#   4. New endpoint: GET /api/v1/clients/lookup-nin?nin=XXXX for the frontend to
+#      check a NIN before/while the form is being filled in.
+#
+# KNOWN LIMITATION (expected, not a bug): old client records created before this
+# patch may have a blank national_id. That is fine -- they simply won't match
+# anything via NIN lookup until they are next edited and given a real NIN.
 
 import os
 
@@ -18,288 +34,640 @@ def write_file(path, content):
         f.write(content)
     print(f"  -> Saved: {path}")
 
-print("Starting Phase 1.5 Repair Patch...")
-print("-" * 50)
+def patch_file(path, anchor, replacement, label):
+    content = read_file(path)
+    if content is None:
+        print(f"FAIL: {label} ({path} not found)")
+        return
+    if anchor not in content:
+        print(f"MISSING: {label} (anchor not found in {path} -- may already be patched, or file changed)")
+        return
+    if content.count(anchor) > 1:
+        print(f"WARN: {label} (anchor appears more than once in {path} -- patching first occurrence only)")
+    content = content.replace(anchor, replacement, 1)
+    write_file(path, content)
+    print(f"OK: {label}")
+
+print("Starting Phase 2 Patch - NIN-Based Identity...")
+print("-" * 60)
 
 # ============================================================
-# 1. FULL REWRITE: PaymentRecordRepository.java (was corrupted
-#    with test-file content in a previous session, causing every
-#    file that imports it to fail to compile)
+# BACKEND 1/8: DataInitializer.java -- schema migrations
 # ============================================================
-path_prr = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/PaymentRecordRepository.java"
+path = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
+anchor = """            // PHASE 1.5 - DATE TRACKING SYSTEM
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
+        };"""
+replacement = """            // PHASE 1.5 - DATE TRACKING SYSTEM
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
 
-content_prr = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/PaymentRecordRepository.java
-package com.gesolutions.erp.modules.land.repository;
+            // PHASE 2 - NIN-BASED IDENTITY
+            // Unique constraint on national_id. Postgres allows multiple NULLs under
+            // a UNIQUE constraint, so old clients with no NIN yet are not affected.
+            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",
+            // Phone numbers are no longer required to be unique -- joint owners or
+            // family members can share one phone. NIN is now the real identity check.
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+        };"""
+patch_file(path, anchor, replacement, "1/8 DataInitializer.java (Phase 2 migrations)")
 
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
+# ============================================================
+# BACKEND 2/8: Client.java -- full rewrite (drop unique=true on phone)
+# ============================================================
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/model/Client.java"
+content = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/model/Client.java
+package com.gesolutions.erp.modules.client.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.UUID;
+
+/**
+ * GE SOLUTIONS - HUMAN IDENTITY REGISTRY
+ *
+ * PHASE 2: Identity is now anchored on National ID (NIN), not phone number.
+ * Phone number is still required as a contact field, but is no longer
+ * enforced as unique at the database level -- joint owners or family
+ * members may legitimately share one phone.
+ *
+ * Physically manages the "Recovery Cool-Down" logic:
+ * - 14-Day Interval Check
+ * - 2-Call Per Month Handbrake
+ */
+@Entity
+@Table(name = "clients", indexes = {
+    @Index(name = "idx_client_phone", columnList = "phone_number"),
+    @Index(name = "idx_client_nin", columnList = "national_id"),
+    @Index(name = "idx_client_last_call", columnList = "last_contacted_at")
+})
+@Getter 
+@Setter 
+@NoArgsConstructor 
+@AllArgsConstructor 
+@Builder
+public class Client {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
+
+    // NOTE: unique=true intentionally removed in Phase 2 -- see DataInitializer
+    // migration that drops the old DB-level unique constraint on this column.
+    @Column(name = "phone_number", nullable = false, length = 50)
+    private String phoneNumber;
+
+    /**
+     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR (Phase 2)
+     * Mandatory for every project owner going forward. Unique at the DB level
+     * (see DataInitializer). Legacy client rows created before Phase 2 may
+     * have this blank until next edited.
+     */
+    @Column(name = "national_id", length = 100)
+    private String nationalId;
+
+    @Column(name = "home_address", columnDefinition = "TEXT")
+    private String homeAddress;
+
+    @Column(name = "email")
+    private String email;
+
+    /* --- RECOVERY ARCHITECTURE (THE 2-14 RULE) --- */
+
+    @Column(name = "last_contacted_at")
+    private LocalDateTime lastContactedAt;
+
+    /**
+     * THE MONTHLY COUNTER
+     * Physically counts successful interactions in the current month.
+     */
+    @Builder.Default
+    @Column(name = "monthly_contact_count", nullable = false)
+    private Integer monthlyContactCount = 0;
+
+    /**
+     * RELIABILITY METER (0-100)
+     * Decreases on defaults, increases on successful calls and payments.
+     */
+    @Builder.Default
+    @Column(name = "reliability_score", nullable = false)
+    private Double reliabilityScore = 100.0;
+
+    /**
+     * HARDWARE LOGIC: Contact Suppression Check
+     * This method tells the system if the counter needs to be reset 
+     * before a new call is logged.
+     */
+    public boolean shouldResetMonthlyCounter() {
+        if (lastContactedAt == null) return true;
+        
+        Month currentMonth = LocalDateTime.now().getMonth();
+        int currentYear = LocalDateTime.now().getYear();
+        
+        return lastContactedAt.getMonth() != currentMonth || lastContactedAt.getYear() != currentYear;
+    }
+}
+"""
+write_file(path, content)
+print("OK: 2/8 Client.java (unique=true removed from phone_number, national_id indexed)")
+
+# ============================================================
+# BACKEND 3/8: ClientRepository.java -- full rewrite (add findByNationalId)
+# ============================================================
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/repository/ClientRepository.java"
+content = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/repository/ClientRepository.java
+package com.gesolutions.erp.modules.client.repository;
+
+import com.gesolutions.erp.modules.client.model.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UUID> {
+public interface ClientRepository extends JpaRepository<Client, UUID> {
 
-    List<PaymentRecord> findByProjectIdOrderByTimestampDesc(UUID projectId);
+    Optional<Client> findByPhoneNumber(String phoneNumber);
 
-    @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM PaymentRecord p WHERE p.projectId = :projectId")
-    BigDecimal sumPaymentsByProjectId(UUID projectId);
+    /**
+     * PHASE 2: THE REAL IDENTITY LOOKUP
+     * Used at intake and edit time to find an existing person by NIN,
+     * and by the /clients/lookup-nin endpoint for pre-submit duplicate checks.
+     */
+    Optional<Client> findByNationalId(String nationalId);
 
-    @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM PaymentRecord p WHERE p.timestamp >= :since")
-    BigDecimal sumAllPaymentsSince(LocalDateTime since);
+    @Query(value = "SELECT * FROM clients c " +
+                   "WHERE (c.last_contacted_at IS NULL " +
+                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
+                   "AND c.monthly_contact_count < 2 " +
+                   "ORDER BY c.last_contacted_at ASC", nativeQuery = true)
+    List<Client> findStaleClientsForRecovery();
 
-    @Query(value = "SELECT DATE_TRUNC('month', timestamp) as month, SUM(amount_paid) as total " +
-                   "FROM payment_records WHERE timestamp >= :since " +
-                   "GROUP BY DATE_TRUNC('month', timestamp) ORDER BY month ASC", nativeQuery = true)
-    List<Object[]> monthlyRevenueSince(LocalDateTime since);
+    @Query(value = "SELECT COUNT(*) FROM clients c " +
+                   "WHERE (c.last_contacted_at IS NULL " +
+                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
+                   "AND c.monthly_contact_count < 2", nativeQuery = true)
+    long countTotalStaleClients();
+
+    @Query(value = "SELECT COUNT(DISTINCT c.phone_number) FROM clients c " +
+                   "WHERE (c.last_contacted_at IS NULL " +
+                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
+                   "AND c.monthly_contact_count < 2", nativeQuery = true)
+    long countUniqueEligiblePhones();
+
+    boolean existsByNationalId(String nationalId);
 }
 """
-
-write_file(path_prr, content_prr)
-print("OK: 1/6 PaymentRecordRepository.java (full rewrite - fixes PaymentController, ReportService, LandServiceTest)")
+write_file(path, content)
+print("OK: 3/8 ClientRepository.java (added findByNationalId)")
 
 # ============================================================
-# 2. FULL REWRITE: LandEntryRequest.java (had duplicate
-#    projectStartDate / titleIssueDate fields from a bad patch)
+# BACKEND 4/8: ClientService.java -- add findOrCreateClientByNin
 # ============================================================
-path_ler = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/LandEntryRequest.java"
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/service/ClientService.java"
+anchor = """    /**
+     * SYSTEM UTILITY: ADJUST RELIABILITY
+     * Manually adjusted by financial events (e.g., missed payments lower score).
+     */
+    @Transactional
+    public void adjustReliability(UUID clientId, double delta) {"""
+replacement = """    /**
+     * PHASE 2: NIN-BASED IDENTITY LOOKUP
+     * Finds an existing person by their National ID (NIN), or creates a new one.
+     * Per business rule (Section 17.3): if a person's NIN changes, they are
+     * treated as a brand new person record -- this method never merges by
+     * name or phone, only ever by NIN.
+     */
+    @Transactional
+    public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email) {
+        if (nin == null || nin.isBlank()) {
+            throw new BusinessException("NIN_REQUIRED: A National ID (NIN) is mandatory for every project owner.");
+        }
+        String normalizedNin = nin.trim().toUpperCase();
 
-content_ler = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/LandEntryRequest.java
-package com.gesolutions.erp.modules.land.dto;
+        return clientRepository.findByNationalId(normalizedNin)
+                .orElseGet(() -> {
+                    Client newClient = Client.builder()
+                            .fullName(fullName)
+                            .phoneNumber(phone)
+                            .nationalId(normalizedNin)
+                            .email(email)
+                            .monthlyContactCount(0)
+                            .reliabilityScore(100.0)
+                            .build();
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class LandEntryRequest {
-
-    private String plotNumber;
-    private String tenure;
-    private String blockRoad;
-    private String district;
-    private String county;
-    private String volume;
-    private String folio;
-    private String instrumentNo;
-    private String physicalBoxNumber;
-    private LocalDate surveyDate;
-    private LocalDate projectStartDate;
-    private LocalDate titleIssueDate;
-
-    @Builder.Default
-    private List<OwnerRequest> owners = new ArrayList<>();
-
-    private BigDecimal totalCost;
-    private BigDecimal initialPayment;
-
-    // Legacy fields -- kept to avoid breaking existing data, no longer used in new logic
-    private BigDecimal weeklyInstallment;
-    private String planType;
-
-    @Builder.Default
-    private List<NoteRequest> notes = new ArrayList<>();
-
-    private Integer currentStageIndex;
-
-    @JsonProperty("isLegacy")
-    private boolean isLegacy;
-
-    // Staff can flag a plot as backlog right at intake (for old/existing cases)
-    @JsonProperty("isStartAsBacklog")
-    private boolean isStartAsBacklog;
-
-    private java.math.BigDecimal monthlyStorageFee;
-    private java.math.BigDecimal initialStorageFee;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class OwnerRequest {
-        private String fullName;
-        private String phone;
-        private String email;
-        private String nationalId;
-        private String address;
+                    Client saved = clientRepository.save(newClient);
+                    auditService.logAction("CLIENT_ARCHIVE",
+                        "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
+                    return saved;
+                });
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class NoteRequest {
-        private UUID id;
-        private String content;
+    /**
+     * SYSTEM UTILITY: ADJUST RELIABILITY
+     * Manually adjusted by financial events (e.g., missed payments lower score).
+     */
+    @Transactional
+    public void adjustReliability(UUID clientId, double delta) {"""
+patch_file(path, anchor, replacement, "4/8 ClientService.java (findOrCreateClientByNin)")
+
+# ============================================================
+# BACKEND 5/8: LandService.java -- atomicIntake now requires + uses NIN
+# ============================================================
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
+anchor = """        if (request.getOwners() != null) {
+            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {
+                Client c = clientService.findOrCreateClient(o.getFullName(), o.getPhone(), o.getEmail());
+                c.setNationalId(o.getNationalId());
+                c.setHomeAddress(o.getAddress());
+                project.addProprietor(c);
+            }
+        }"""
+replacement = """        if (request.getOwners() != null) {
+            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {
+                if (o.getNationalId() == null || o.getNationalId().isBlank()) {
+                    throw new BusinessException("NIN_REQUIRED: Owner \\"" + o.getFullName() + "\\" is missing a National ID (NIN).");
+                }
+                Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
+                c.setHomeAddress(o.getAddress());
+                project.addProprietor(c);
+            }
+        }"""
+patch_file(path, anchor, replacement, "5/8 LandService.java atomicIntake (NIN required)")
+
+# ============================================================
+# BACKEND 6/8: LandService.java -- updateProjectFull now matches by NIN
+# ============================================================
+anchor2 = """        if (request.getOwners() != null) {
+            Set<Client> updatedRegistry = new HashSet<>();
+            for (LandEntryRequest.OwnerRequest incoming : request.getOwners()) {
+                Client person = clientRepository.findByPhoneNumber(incoming.getPhone())
+                        .orElseGet(() -> clientService.findOrCreateClient(
+                                incoming.getFullName(), incoming.getPhone(), incoming.getEmail()));
+                person.setFullName(incoming.getFullName().toUpperCase());
+                person.setNationalId(incoming.getNationalId() != null
+                        ? incoming.getNationalId().toUpperCase() : null);
+                person.setEmail(incoming.getEmail() != null
+                        ? incoming.getEmail().toLowerCase() : null);
+                person.setHomeAddress(incoming.getAddress());
+                clientRepository.save(person);
+                updatedRegistry.add(person);
+            }
+            project.setProprietors(updatedRegistry);
+        }"""
+replacement2 = """        if (request.getOwners() != null) {
+            Set<Client> updatedRegistry = new HashSet<>();
+            for (LandEntryRequest.OwnerRequest incoming : request.getOwners()) {
+                if (incoming.getNationalId() == null || incoming.getNationalId().isBlank()) {
+                    throw new BusinessException("NIN_REQUIRED: Owner \\"" + incoming.getFullName() + "\\" is missing a National ID (NIN).");
+                }
+                String normalizedNin = incoming.getNationalId().trim().toUpperCase();
+                Client person = clientRepository.findByNationalId(normalizedNin)
+                        .orElseGet(() -> clientService.findOrCreateClientByNin(
+                                incoming.getFullName(), normalizedNin, incoming.getPhone(), incoming.getEmail()));
+                person.setFullName(incoming.getFullName().toUpperCase());
+                person.setNationalId(normalizedNin);
+                person.setEmail(incoming.getEmail() != null
+                        ? incoming.getEmail().toLowerCase() : null);
+                person.setHomeAddress(incoming.getAddress());
+                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
+                    person.setPhoneNumber(incoming.getPhone());
+                }
+                clientRepository.save(person);
+                updatedRegistry.add(person);
+            }
+            project.setProprietors(updatedRegistry);
+        }"""
+patch_file(path, anchor2, replacement2, "6/8 LandService.java updateProjectFull (NIN required)")
+
+# ============================================================
+# BACKEND 7/8: ClientController.java -- NEW FILE (NIN lookup endpoint)
+# ============================================================
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java"
+content = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java
+package com.gesolutions.erp.modules.client.controller;
+
+import com.gesolutions.erp.modules.client.model.Client;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * GE SOLUTIONS - PHASE 2 IDENTITY LOOKUP
+ *
+ * Lets the frontend check a National ID (NIN) before or while a form is
+ * being filled in, so staff can be warned about a likely typo (NIN already
+ * registered to a different name) or have known details auto-filled
+ * (NIN matches an existing person), per Section 17.3.
+ */
+@RestController
+@RequestMapping("/api/v1/clients")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class ClientController {
+
+    private final ClientRepository clientRepository;
+
+    @GetMapping("/lookup-nin")
+    public ResponseEntity<Map<String, Object>> lookupByNin(@RequestParam String nin) {
+        Map<String, Object> result = new HashMap<>();
+
+        if (nin == null || nin.isBlank()) {
+            result.put("exists", false);
+            return ResponseEntity.ok(result);
+        }
+
+        return clientRepository.findByNationalId(nin.trim().toUpperCase())
+                .map(c -> {
+                    result.put("exists", true);
+                    result.put("fullName", c.getFullName());
+                    result.put("phoneNumber", c.getPhoneNumber());
+                    result.put("email", c.getEmail());
+                    result.put("homeAddress", c.getHomeAddress());
+                    result.put("nationalId", c.getNationalId());
+                    return ResponseEntity.ok(result);
+                })
+                .orElseGet(() -> {
+                    result.put("exists", false);
+                    return ResponseEntity.ok(result);
+                });
     }
 }
 """
-
-write_file(path_ler, content_ler)
-print("OK: 2/6 LandEntryRequest.java (full rewrite - removed duplicate fields)")
-
-# ============================================================
-# 3. PATCH: LandService.java - add missing java.time.LocalDate
-#    import (LocalDate.now() is used in atomicIntake but the
-#    import was never added, causing "LocalDate cannot be resolved")
-# ============================================================
-path_ls = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
-content_ls = read_file(path_ls)
-if content_ls:
-    if "import java.time.LocalDate;" in content_ls:
-        print("SKIP: 3/6 LandService.java (import already present)")
-    else:
-        anchor = "import java.time.LocalDateTime;"
-        if anchor in content_ls:
-            content_ls = content_ls.replace(anchor, "import java.time.LocalDate;\nimport java.time.LocalDateTime;")
-            write_file(path_ls, content_ls)
-            print("OK: 3/6 LandService.java (added LocalDate import)")
-        else:
-            print("FAIL: 3/6 LandService.java (anchor not found -- add 'import java.time.LocalDate;' manually near the other java.time imports)")
-else:
-    print("FAIL: 3/6 LandService.java (file not found)")
+write_file(path, content)
+print("OK: 7/8 ClientController.java (new file - GET /api/v1/clients/lookup-nin)")
 
 # ============================================================
-# 4. FRONTEND: IntakePage.jsx -- add Project Start Date and
-#    Title Issue Date fields (auto-fills today, editable; title
-#    date optional/backdatable for when the title is received)
+# FRONTEND 8/8a: clientService.js -- NEW FILE
 # ============================================================
-path_intake = "erp-frontend/src/pages/Intake/IntakePage.jsx"
-content_intake = read_file(path_intake)
+path = "erp-frontend/src/services/clientService.js"
+content = """// PATH: erp-frontend/src/services/clientService.js
+import api from '../api/axios';
 
-if content_intake:
+const clientService = {
+    // PHASE 2: check a NIN before/while the form is filled in.
+    // Returns { exists: false } on any error so the UI never blocks on this.
+    lookupNin: async (nin) => {
+        if (!nin || !nin.trim()) return { exists: false };
+        try {
+            const response = await api.get('/clients/lookup-nin', {
+                params: { nin: nin.trim().toUpperCase() }
+            });
+            return response.data;
+        } catch {
+            return { exists: false };
+        }
+    }
+};
 
-    # 4a: state hooks
-    if "projectStartDate" in content_intake and "setProjectStartDate" in content_intake:
-        print("SKIP: 4a/6 Intake date state (already present)")
-    else:
-        anchor_state = "    const [surveyDate,        setSurveyDate]        = useState('');"
-        new_state = """    const [surveyDate,        setSurveyDate]        = useState('');
-    const [projectStartDate,  setProjectStartDate]  = useState(() => new Date().toISOString().split('T')[0]);
-    const [titleIssueDate,    setTitleIssueDate]    = useState('');"""
-        if anchor_state in content_intake:
-            content_intake = content_intake.replace(anchor_state, new_state)
-            print("OK: 4a/6 Intake date state added")
-        else:
-            print("FAIL: 4a/6 Intake date state (anchor not found)")
+export default clientService;
+"""
+write_file(path, content)
+print("OK: 8a/8 clientService.js (new file)")
 
-    # 4b: isDirty tracking (only count projectStartDate as dirty if
-    # the user actually changed it away from today's auto-filled value)
-    if "DEFAULT_START_DATE" in content_intake:
-        print("SKIP: 4b/6 Intake isDirty tracking (already present)")
-    else:
-        anchor_dirty = "        if (surveyDate !== '') return true;"
-        new_dirty = """        if (surveyDate !== '') return true;
-        if (titleIssueDate !== '') return true;
-        if (projectStartDate !== DEFAULT_START_DATE) return true;"""
-        if anchor_dirty in content_intake:
-            content_intake = content_intake.replace(anchor_dirty, new_dirty)
-            # Insert the DEFAULT_START_DATE constant near the top of the component
-            anchor_const = "    const navigate = useNavigate();"
-            new_const = """    const navigate = useNavigate();
-    const DEFAULT_START_DATE = React.useMemo(() => new Date().toISOString().split('T')[0], []);"""
-            if anchor_const in content_intake:
-                content_intake = content_intake.replace(anchor_const, new_const)
-                print("OK: 4b/6 Intake isDirty tracking added")
-            else:
-                print("WARN: 4b/6 Added dirty check but could not insert DEFAULT_START_DATE constant -- add manually")
-        else:
-            print("FAIL: 4b/6 Intake isDirty tracking (anchor not found)")
+# ============================================================
+# FRONTEND 8b: IntakePage.jsx -- NIN required + duplicate check
+# ============================================================
+path = "erp-frontend/src/pages/Intake/IntakePage.jsx"
 
-    # 4c: form inputs in Plot Details drawer
-    if 'label="PROJECT START DATE"' in content_intake:
-        print("SKIP: 4c/6 Intake date inputs (already present)")
-    else:
-        anchor_grid = """                            <div className={styles.grid3}>
-                                <SmartInput label="INSTRUMENT NO." value={instrumentNo} showCaps
-                                    onChange={e => setInstrumentNo(e.target.value.toUpperCase())} />
-                                <SmartInput label="VOLUME" value={volume} inputMode="numeric"
-                                    onChange={e => setVolume(e.target.value.replace(/\\D/g,''))} />
-                                <SmartInput label="FOLIO" value={folio} inputMode="numeric"
-                                    onChange={e => setFolio(e.target.value.replace(/\\D/g,''))} />
-                            </div>"""
-        new_date_inputs = """
-                            <div className={styles.grid2}>
-                                <div className={styles.inputWrap}>
-                                    <div className={styles.labelRow}>
-                                        <label className={styles.fieldLabel}>PROJECT START DATE</label>
-                                    </div>
-                                    <input type="date" className={styles.hwInput}
-                                        value={projectStartDate}
-                                        onChange={e => setProjectStartDate(e.target.value)} />
-                                    <span className={styles.fieldHint}>Auto-filled with today. Edit if the project actually started earlier.</span>
-                                </div>
-                                <div className={styles.inputWrap}>
-                                    <div className={styles.labelRow}>
-                                        <label className={styles.fieldLabel}>TITLE ISSUE DATE (OPTIONAL)</label>
-                                    </div>
-                                    <input type="date" className={styles.hwInput}
-                                        value={titleIssueDate}
-                                        onChange={e => setTitleIssueDate(e.target.value)} />
-                                    <span className={styles.fieldHint}>Leave blank if not yet received. Can be backdated.</span>
-                                </div>
-                            </div>"""
-        if anchor_grid in content_intake:
-            content_intake = content_intake.replace(anchor_grid, anchor_grid + new_date_inputs)
-            print("OK: 4c/6 Intake date inputs added")
-        else:
-            print("FAIL: 4c/6 Intake date inputs (anchor not found)")
+anchor = """import predictionService from '../../services/predictionService';
+import styles from './IntakePage.module.css';"""
+replacement = """import predictionService from '../../services/predictionService';
+import clientService from '../../services/clientService';
+import styles from './IntakePage.module.css';"""
+patch_file(path, anchor, replacement, "8b-1/8 IntakePage.jsx (import clientService)")
 
-    # 4d: submit payload (handleSubmit)
-    if content_intake.count("projectStartDate: projectStartDate || undefined") >= 1:
-        print("SKIP: 4d/6 Intake handleSubmit payload (already present)")
-    else:
-        anchor_submit = """                surveyDate: surveyDate || undefined,
-                isLegacy: false, // Always false for new plots - legacy is a historical flag only"""
-        new_submit = """                surveyDate: surveyDate || undefined,
-                projectStartDate: projectStartDate || undefined,
-                titleIssueDate: titleIssueDate || undefined,
-                isLegacy: false, // Always false for new plots - legacy is a historical flag only"""
-        if anchor_submit in content_intake:
-            content_intake = content_intake.replace(anchor_submit, new_submit)
-            print("OK: 4d/6 Intake handleSubmit payload updated")
-        else:
-            print("FAIL: 4d/6 Intake handleSubmit payload (anchor not found)")
+anchor = """const SmartInput = ({ label, value, onChange, placeholder, suggestions = [], showCaps, required, error, inputMode, maxLength, hint, id }) => {
+    const inputId = id || 'si-' + (label || '').replace(/\\W/g, '-').toLowerCase();
+    return (
+        <div className={`${styles.inputWrap} ${error ? styles.inputError : ''}`}>
+            <div className={styles.labelRow}>
+                <label htmlFor={inputId} className={styles.fieldLabel}>
+                    {label}{required && <span className={styles.requiredStar}> *</span>}
+                </label>
+                {showCaps && <span className={styles.capsBadge}>CAPS</span>}
+            </div>
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+                type="text" value={value} onChange={onChange} placeholder={placeholder}
+                inputMode={inputMode} maxLength={maxLength} autoComplete="off"
+                list={suggestions.length ? inputId + '_dl' : undefined} />"""
+replacement = """const SmartInput = ({ label, value, onChange, onBlur, placeholder, suggestions = [], showCaps, required, error, inputMode, maxLength, hint, id }) => {
+    const inputId = id || 'si-' + (label || '').replace(/\\W/g, '-').toLowerCase();
+    return (
+        <div className={`${styles.inputWrap} ${error ? styles.inputError : ''}`}>
+            <div className={styles.labelRow}>
+                <label htmlFor={inputId} className={styles.fieldLabel}>
+                    {label}{required && <span className={styles.requiredStar}> *</span>}
+                </label>
+                {showCaps && <span className={styles.capsBadge}>CAPS</span>}
+            </div>
+            <input id={inputId} className={`${styles.hwInput} ${error ? styles.hwInputErr : ''}`}
+                type="text" value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder}
+                inputMode={inputMode} maxLength={maxLength} autoComplete="off"
+                list={suggestions.length ? inputId + '_dl' : undefined} />"""
+patch_file(path, anchor, replacement, "8b-2/8 IntakePage.jsx (SmartInput onBlur support)")
 
-    # 4e: duplicate-plot payload (handleDuplicatePlot)
-    if content_intake.count("projectStartDate: projectStartDate || undefined") >= 2:
-        print("SKIP: 4e/6 Intake handleDuplicatePlot payload (already present)")
-    else:
-        anchor_dup = """                surveyDate: surveyDate || undefined,
-                isLegacy: false,
-                owners: owners.map(o => ({"""
-        new_dup = """                surveyDate: surveyDate || undefined,
-                projectStartDate: projectStartDate || undefined,
-                titleIssueDate: titleIssueDate || undefined,
-                isLegacy: false,
-                owners: owners.map(o => ({"""
-        if anchor_dup in content_intake:
-            content_intake = content_intake.replace(anchor_dup, new_dup)
-            print("OK: 4e/6 Intake handleDuplicatePlot payload updated")
-        else:
-            print("FAIL: 4e/6 Intake handleDuplicatePlot payload (anchor not found)")
+anchor = """        owners.forEach((o, i) => {
+            if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
+            if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
+        });"""
+replacement = """        owners.forEach((o, i) => {
+            if (!o.fullName.trim())    e['owner_' + i + '_name']  = 'Required';
+            if (!o.phone.trim())       e['owner_' + i + '_phone'] = 'Required';
+            if (!o.nationalId.trim())  e['owner_' + i + '_nin']   = 'Required';
+        });"""
+patch_file(path, anchor, replacement, "8b-3/8 IntakePage.jsx (NIN required in validate())")
 
-    write_file(path_intake, content_intake)
-else:
-    print("FAIL: 4/6 IntakePage.jsx not found")
+anchor = """    // Warn if a phone number is already used by another owner on this form
+    const handlePhoneBlurCheck = (idx, val) => {"""
+replacement = """    // PHASE 2: NIN duplicate/auto-fill check. Warns on likely typo (NIN already
+    // registered under a different name), auto-fills known details on a real match.
+    const handleNinBlurCheck = async (idx, val) => {
+        if (!val.trim()) return;
+        const result = await clientService.lookupNin(val.trim());
+        if (!result.exists) return;
 
-print("-" * 50)
-print("DONE. Check for FAIL messages above.")
+        const existingName = (result.fullName || '').trim().toUpperCase();
+        const enteredName  = (owners[idx]?.fullName || '').trim().toUpperCase();
+
+        if (existingName && enteredName && existingName !== enteredName) {
+            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            return;
+        }
+
+        setOwners(prev => prev.map((o, i) => {
+            if (i !== idx) return o;
+            return {
+                ...o,
+                fullName: o.fullName.trim() ? o.fullName : (result.fullName || o.fullName),
+                phone:    o.phone.trim()    ? o.phone    : (result.phoneNumber || o.phone),
+                email:    o.email.trim()    ? o.email    : (result.email || o.email),
+                address:  o.address.trim()  ? o.address  : (result.homeAddress || o.address),
+            };
+        }));
+        toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
+    };
+
+    // Warn if a phone number is already used by another owner on this form
+    const handlePhoneBlurCheck = (idx, val) => {"""
+patch_file(path, anchor, replacement, "8b-4/8 IntakePage.jsx (handleNinBlurCheck)")
+
+anchor = """                                        <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps
+                                            maxLength={14}
+                                            onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\\s/g,''))} />"""
+replacement = """                                        <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps required
+                                            error={errors['owner_'+idx+'_nin']}
+                                            maxLength={14}
+                                            onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\\s/g,''))}
+                                            onBlur={e => handleNinBlurCheck(idx, e.target.value)} />"""
+patch_file(path, anchor, replacement, "8b-5/8 IntakePage.jsx (NIN input wired to duplicate check)")
+
+# ============================================================
+# FRONTEND 8c: FolderPage.jsx -- same NIN required + duplicate check
+# ============================================================
+path = "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx"
+
+anchor = """import predictionService from '../../services/predictionService';
+import HardwareModal from '../../components/common/HardwareModal';"""
+replacement = """import predictionService from '../../services/predictionService';
+import clientService from '../../services/clientService';
+import HardwareModal from '../../components/common/HardwareModal';"""
+patch_file(path, anchor, replacement, "8c-1/8 FolderPage.jsx (import clientService)")
+
+anchor = """const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, id }) => {
+    const inputId = id || 'nin_input';
+    const MAX = 14;
+    const handleChange = (e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,MAX));
+    return (
+        <div className={styles.hwInputWrap}>
+            <div className={styles.inputLabelRow}>
+                <label htmlFor={inputId}>{label}</label>
+                <span className={styles.capsBadge}>CAPS</span>
+            </div>
+            <input id={inputId} type="text" value={value} onChange={handleChange}
+                maxLength={MAX} placeholder="CM90XXXXXXXX12"
+                className={styles.hwInput} autoComplete="off" autoCapitalize="characters" />
+        </div>
+    );
+};"""
+replacement = """const NINInput = ({ label = 'NATIONAL ID / NIN', value, onChange, onBlur, id, required }) => {
+    const inputId = id || 'nin_input';
+    const MAX = 14;
+    const handleChange = (e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,MAX));
+    return (
+        <div className={styles.hwInputWrap}>
+            <div className={styles.inputLabelRow}>
+                <label htmlFor={inputId}>{label}{required && <span className={styles.reqStar}> *</span>}</label>
+                <span className={styles.capsBadge}>CAPS</span>
+            </div>
+            <input id={inputId} type="text" value={value} onChange={handleChange} onBlur={onBlur}
+                maxLength={MAX} placeholder="CM90XXXXXXXX12"
+                className={styles.hwInput} autoComplete="off" autoCapitalize="characters" />
+        </div>
+    );
+};"""
+patch_file(path, anchor, replacement, "8c-2/8 FolderPage.jsx (NINInput onBlur + required support)")
+
+anchor = """    buffer.owners?.forEach((o, i) => {
+        if (!o.fullName?.trim()) errors.push(`OWNER ${i + 1}: LEGAL NAME IS REQUIRED`);
+    });"""
+replacement = """    buffer.owners?.forEach((o, i) => {
+        if (!o.fullName?.trim()) errors.push(`OWNER ${i + 1}: LEGAL NAME IS REQUIRED`);
+        if (!o.nationalId?.trim()) errors.push(`OWNER ${i + 1}: NATIONAL ID (NIN) IS REQUIRED`);
+    });"""
+patch_file(path, anchor, replacement, "8c-3/8 FolderPage.jsx (NIN required in validateBuffer)")
+
+anchor = """    const handlePhoneBlurCheck = (idx, val) => {
+        if (!val.trim()) return;
+        const normalized = val.replace(/\\s+/g, '');
+        const duplicate = (buffer.owners || []).some((o, i) =>
+            i !== idx && o.phone.replace(/\\s+/g, '') === normalized
+        );
+        if (duplicate) {
+            toast('WARNING: This phone number is already used by another owner on this plot.', 'warn', 5000);
+        }
+    };"""
+replacement = """    // PHASE 2: NIN duplicate/auto-fill check on edit -- same behavior as Intake.
+    const handleNinBlurCheck = async (idx, val) => {
+        if (!val.trim()) return;
+        const result = await clientService.lookupNin(val.trim());
+        if (!result.exists) return;
+
+        const existingName = (result.fullName || '').trim().toUpperCase();
+        const enteredName  = (buffer.owners[idx]?.fullName || '').trim().toUpperCase();
+
+        if (existingName && enteredName && existingName !== enteredName) {
+            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            return;
+        }
+
+        const owners = buffer.owners.map((o, i) => {
+            if (i !== idx) return o;
+            return {
+                ...o,
+                phone:   o.phone.trim()   ? o.phone   : (result.phoneNumber || o.phone),
+                email:   o.email.trim()   ? o.email   : (result.email || o.email),
+                address: o.address.trim() ? o.address : (result.homeAddress || o.address),
+            };
+        });
+        touchedSetBuffer(p => ({ ...p, owners }));
+        toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
+    };
+
+    const handlePhoneBlurCheck = (idx, val) => {
+        if (!val.trim()) return;
+        const normalized = val.replace(/\\s+/g, '');
+        const duplicate = (buffer.owners || []).some((o, i) =>
+            i !== idx && o.phone.replace(/\\s+/g, '') === normalized
+        );
+        if (duplicate) {
+            toast('WARNING: This phone number is already used by another owner on this plot.', 'warn', 5000);
+        }
+    };"""
+patch_file(path, anchor, replacement, "8c-4/8 FolderPage.jsx (handleNinBlurCheck)")
+
+anchor = """                                            <NINInput value={o.nationalId} onChange={v => handleOwnerChange(idx,'nationalId',v)} id={`owner_${idx}_nin`} />"""
+replacement = """                                            <NINInput value={o.nationalId} required
+                                                onChange={v => handleOwnerChange(idx,'nationalId',v)}
+                                                onBlur={e => handleNinBlurCheck(idx, e.target.value)}
+                                                id={`owner_${idx}_nin`} />"""
+patch_file(path, anchor, replacement, "8c-5/8 FolderPage.jsx (NIN input wired to duplicate check)")
+
+print("-" * 60)
+print("DONE. Check for FAIL / MISSING messages above.")
 print("")
-print("If no FAILs (or only WARNs), run:")
-print("git add -A && git commit -m 'fix: repair corrupted files, add project/title dates to intake' && git push")
+print("If everything shows OK, run:")
+print("git add -A && git commit -m 'feat: Phase 2 - NIN-based identity' && git push")
 print("")
-print("NOTE: The database migration, LandTitle.java fields, and LandService.java")
-print("atomicIntake logic for projectStartDate/titleIssueDate were already correct")
-print("in your codebase from the last session -- this patch did not need to touch them.")
+print("IMPORTANT BEFORE YOU DEPLOY:")
+print("  - NIN is now REQUIRED on every new plot intake and every edit.")
+print("  - Existing plots you edit will now demand a NIN for each owner")
+print("    before the save will go through -- have that ready.")
+print("  - Phone numbers are no longer unique in the database. If the")
+print("    'ALTER TABLE clients DROP CONSTRAINT' migration line fails on")
+print("    Render startup because your DB never had that exact constraint")
+print("    name, that is harmless -- it is wrapped in a try/catch and the")
+print("    app will still start normally.")
+print("")
+print("TEST PLAN ONCE DEPLOYED:")
+print("  1. Create a new plot, leave an owner's NIN blank -> should be blocked.")
+print("  2. Create a new plot with a NIN you already used before -> should")
+print("     auto-fill that owner's phone/email/address on blur.")
+print("  3. Create a new plot with an existing NIN but type the name")
+print("     slightly wrong -> should show an orange typo warning, not block.")
+print("  4. Open an existing plot, edit mode, confirm NIN field shows the")
+print("     required red asterisk and blocks save if cleared.")

@@ -15,6 +15,13 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
 
     Optional<Client> findByPhoneNumber(String phoneNumber);
 
+    /**
+     * PHASE 2: THE REAL IDENTITY LOOKUP
+     * Used at intake and edit time to find an existing person by NIN,
+     * and by the /clients/lookup-nin endpoint for pre-submit duplicate checks.
+     */
+    Optional<Client> findByNationalId(String nationalId);
+
     @Query(value = "SELECT * FROM clients c " +
                    "WHERE (c.last_contacted_at IS NULL " +
                    "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
