@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: August 2026 (Major Revamp Architecture Added -- Section 17)
+# Last updated: August 2026 (fix.py workflow rules updated -- Section 3)
 
 ---
 
@@ -34,7 +34,8 @@
 **RULE: Always verify the exact text to replace by reading the document context before writing patches.**
 **RULE: Print OK/MISSING for every patch.**
 **RULE: Use os.makedirs(os.path.dirname(path), exist_ok=True) before writing new files (skip for root-level files).**
-**RULE (NEW -- August 2026): For large multi-phase rebuilds (like the ERP Revamp in Section 17), split work into small, independently-testable fix.py files -- one phase per fix.py. Never bundle multiple phases into one giant fix.py. Each phase must be confirmed working by David before the next phase's fix.py is written.**
+**RULE (August 2026, PERMANENT -- supersedes the earlier "one phase per fix.py, split into small parts" rule): Each phase of a large multi-phase rebuild (like the ERP Revamp in Section 17) ships as ONE complete fix.py covering that entire phase from start to finish. Never split a single phase into sub-parts (no more 4A/4B/4C-style patches). If a phase touches many files, that is fine -- it still goes in one fix.py. Only split across multiple fix.py files if David explicitly asks for it for a specific reason.**
+**RULE (August 2026, PERMANENT): Testing happens ONLY after ALL planned phases in the current rebuild are code-complete and deployed -- never after each individual phase in isolation. Do not propose or ask David to test a single phase on its own; keep shipping phases back-to-back until the full plan is code-complete, then run one comprehensive end-to-end test pass covering everything at once. This makes permanent the deferred-testing approach David adopted during the ERP Revamp.**
 
 ### Why patches fail:
 - If fix.py says 'patch target not found', the text doesn't match exactly OR the change was already applied.
@@ -408,6 +409,7 @@ At the end of every session the AI must:
 **RULE:** The addendum is the running log. The master guide Sections 10 and 11 are the clean summary.
 **RULE:** The master guide (LLM_CONTEXT_GUIDE.md) is NEVER edited for incremental changes each session. All new rules, discoveries, and session notes go into LLM_CONTEXT_ADDENDUM.md only. The ONLY parts of the master guide that ever get updated are Sections 10 and 11.
 **EXCEPTION (August 2026):** Section 17 below is a deliberate, one-time full-architecture addition requested directly by David to represent the revamp's permanent target design. It is NOT a violation of the above rule -- it is guide-level reference content, not a session note. Within Section 17 itself, only the Phase Tracker subsection updates as phases complete; the rest of Section 17 (decisions, role table, module list) is meant to stay stable once phases start shipping, the same way Section 9's business rules stay stable.
+**EXCEPTION (August 2026, second instance):** The fix.py workflow rules in Section 3 (one-complete-fix.py-per-phase, and testing deferred until all phases are done) were also explicitly requested by David as permanent process rules, not one-session notes. They were written directly into Section 3 rather than the addendum for the same reason as the Section 17 exception above: they are standing process rules meant to govern every future session, not a fact about the current state of the code.
 
 ---
 
@@ -501,36 +503,43 @@ role hierarchy, and a company-wide financials module separate from project costs
 - What: `ProjectIndexService.java` (generates 001A/002A/etc), `project_index_counter` DB table,
   `project_index` column on `land_titles`, auto-assignment at intake, display + search in
   Ledger, display on Folder page header.
-- Status: CODE WRITTEN, NOT YET APPLIED. David has not run fix.py for this phase yet.
-- Known limitation (expected, not a bug, once applied): existing/old plots will show a blank
-  index until they are opened in edit mode and re-saved.
+- Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule and
+  Section 17.11.
+- Known limitation (expected, not a bug): existing/old plots will show a blank index until
+  they are opened in edit mode and re-saved.
 
-**PHASE 2: NIN-Based Identity (NOT STARTED)**
-- Will involve: making `nationalId` mandatory and unique-checked on the `Client` model, removing
-  the current phone-number-based uniqueness assumption, building the duplicate-NIN warning +
-  auto-fill-with-edit-allowed behavior described in 17.3, and updating Intake/Folder forms.
-- Higher risk than Phase 1 -- touches core client identity logic used everywhere. Test in
-  isolation before going live.
+**PHASE 2: NIN-Based Identity**
+- What: `nationalId` mandatory and unique-checked on the `Client` model, phone-number-based
+  uniqueness assumption removed, duplicate-NIN warning + auto-fill-with-edit-allowed behavior
+  per 17.3, Intake/Folder forms updated.
+- Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule.
 
-**PHASE 3: 4-Tier Role System (NOT STARTED)**
-- Will involve: expanding the `Role` enum beyond `ROLE_ADMIN`/`ROLE_MANAGER` to the 4-tier
-  system in 17.7, updating every `@PreAuthorize` check across all controllers, and updating
-  every frontend role check (`user.role === 'ROLE_ADMIN'`, `user.isRoot`, etc. -- appears in
-  Sidebar.jsx, App.jsx, Dashboard.jsx, FolderPage.jsx, ReportHub.jsx, and more).
-- Highest-risk phase -- touches security and access control everywhere. Do this on a quiet day
-  with time to fully test each role's access before pushing live.
+**PHASE 3: 4-Tier Role System**
+- What: `Role` enum expanded to the 4-tier system in 17.7 (Phase 3A), every `@PreAuthorize`
+  check and every frontend role check wired to the new roles (Phase 3B), Settings UI updated
+  with the Director option (Phase 3C).
+- Status: APPLIED AND PUSHED (all three sub-parts). Deferred testing -- see Section 3 permanent
+  testing rule. Known limitation: the promote/demote arrow on operator cards still only toggles
+  ROLE_ADMIN/ROLE_MANAGER -- a proper 3+ tier rank selector is a small standalone follow-up,
+  not yet done.
 
-**PHASE 4: Processing Stage Template System (NOT STARTED)**
-- Will involve: a new `StageTemplate` model (the master checkbox list with default costs), the
-  checkbox + "+" custom-stage UI on Intake, per-stage cost + notes fields, and updating the
-  Folder page's stage display to work off the new flexible template instead of the current
-  fixed 5-stage pipeline (`STAGE_LABELS` in FolderPage.jsx currently hardcodes 5 stages --
-  this will need to become dynamic).
+**PHASE 4: Processing Stage Template System**
+- What: `StageTemplate` / `ProjectStage` models, master template CRUD, per-project stage
+  attach/toggle-complete/edit-cost/remove (backend), the checkbox + "+" custom-stage UI on
+  Intake, per-stage cost + notes fields, and the new STAGE CHECKLIST panel on FolderPage
+  (frontend). The OLD hardcoded 5-stage `STAGE_LABELS` pipeline on FolderPage is deliberately
+  left untouched and running in parallel -- see the design-decision comment in the relevant
+  fix.py history for why both systems coexist for now.
+- Status: APPLIED AND PUSHED (backend + frontend both landed, including the STAGES panel
+  correction patch). Deferred testing -- see Section 3 permanent testing rule.
 
 **PHASE 5: Financials Module (Company Costs) (NOT STARTED)**
 - Will involve: a new `CompanyExpense` model, free-form category entry with memory/suggestions
   (reusing `predictionService` pattern), the committed-vs-paid tracking pattern, and a new page
   for entering/viewing company costs (separate from project costs entirely).
+- Per the Section 3 permanent rule, this ships as ONE complete fix.py covering the full phase
+  (backend models/service/controller + frontend page/service in the same fix.py), not split
+  into sub-parts.
 
 **PHASE 6: Legacy Receivables Entry Mode (NOT STARTED)**
 - Will involve: a simplified intake path for old titles -- single lump-sum cost field instead
@@ -549,3 +558,7 @@ Reasoning: identity and roles are foundational and everything else builds on top
 Stage templates and financials depend on roles existing first (permission checks need real
 roles to check against). The Director dashboard comes last because it visualizes data that
 only exists once the other phases are built.
+
+Per the Section 3 permanent testing rule, Phases 1-4 above are all shipped but NOT yet
+individually tested -- David will run one full end-to-end test pass covering Phases 1
+through 7 together once Phase 7 is code-complete, not before.
