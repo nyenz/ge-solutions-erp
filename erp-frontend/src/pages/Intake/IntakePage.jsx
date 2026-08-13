@@ -253,6 +253,9 @@ const IntakePage = () => {
 
     const [errors, setErrors] = useState({});
 
+    // PHASE 6: Legacy Receivables Entry Mode -- simplified path for old
+    // titles already in storage. Single lump total cost, no stage checklist.
+    const [isLegacyMode, setIsLegacyMode] = useState(false);
 
     // Plot fields
     const [plotNumber,        setPlotNumber]        = useState('');
@@ -397,7 +400,7 @@ const IntakePage = () => {
                 surveyDate: surveyDate || undefined,
                 projectStartDate: projectStartDate || undefined,
                 titleIssueDate: titleIssueDate || undefined,
-                isLegacy: false,
+                isLegacy: isLegacyMode,
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
                     phone:      o.phone.trim(),
@@ -406,7 +409,7 @@ const IntakePage = () => {
                     address:    o.address.trim(),
                 })),
                 notes: notesList.map(n => ({ content: n })),
-                selectedStages: [
+                selectedStages: isLegacyMode ? [] : [
                     ...Object.entries(checkedStages).filter(([, v]) => v).map(([tid]) => ({
                         stageTemplateId: tid,
                         cost: stageCosts[tid] !== undefined ? Number(stageCosts[tid]) : undefined,
@@ -467,7 +470,7 @@ const IntakePage = () => {
                 surveyDate: surveyDate || undefined,
                 projectStartDate: projectStartDate || undefined,
                 titleIssueDate: titleIssueDate || undefined,
-                isLegacy: false, // Always false for new plots - legacy is a historical flag only
+                isLegacy: isLegacyMode, // Section 17.6: staff flips ENTRY MODE toggle to mark a Legacy Receivable
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
                     phone:      o.phone.trim(),
@@ -476,7 +479,7 @@ const IntakePage = () => {
                     address:    o.address.trim(),
                 })),
                 notes: notesList.map(n => ({ content: n })),
-                selectedStages: [
+                selectedStages: isLegacyMode ? [] : [
                     ...Object.entries(checkedStages).filter(([, v]) => v).map(([tid]) => ({
                         stageTemplateId: tid,
                         cost: stageCosts[tid] !== undefined ? Number(stageCosts[tid]) : undefined,
@@ -570,9 +573,41 @@ const IntakePage = () => {
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>New Plot Registration</h1>
-                    <p className={styles.subtitle}>Register a new land title into the system</p>
+                    <p className={styles.subtitle}>
+                        {isLegacyMode
+                            ? 'Legacy Receivable -- lump-sum entry for a title already in storage'
+                            : 'Register a new land title into the system'}
+                    </p>
                 </div>
             </header>
+
+            <div className={styles.hwPanel} style={{ marginBottom: 16 }}>
+                <div className={styles.panelInner}>
+                    <div className={styles.modeRow} style={{ marginTop: 0 }}>
+                        <label>ENTRY MODE</label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="button"
+                                className={!isLegacyMode ? styles.toggleLegacy : styles.toggleStandard}
+                                onClick={() => setIsLegacyMode(false)}>
+                                ✓ STANDARD PROJECT
+                            </button>
+                            <button type="button"
+                                className={isLegacyMode ? styles.toggleLegacy : styles.toggleStandard}
+                                style={isLegacyMode ? { borderColor: '#06b6d4', color: '#06b6d4', background: 'rgba(6,182,212,0.12)' } : {}}
+                                onClick={() => setIsLegacyMode(true)}>
+                                ⚠ LEGACY RECEIVABLE
+                            </button>
+                        </div>
+                        {isLegacyMode && (
+                            <div className={styles.backlogFeeNote} style={{ borderColor: 'rgba(6,182,212,0.25)', background: 'rgba(6,182,212,0.08)', color: 'rgba(255,255,255,0.55)' }}>
+                                Enter the real total cost from the ledger in the Financials section below.
+                                No stage checklist needed for legacy titles -- this behaves like a normal
+                                project for payment tracking once saved.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             <div className={styles.formFlow}>
 
@@ -767,7 +802,8 @@ const IntakePage = () => {
                     </div>
                 </div>
 
-                {/* ── STAGES (Phase 4B) ── */}
+                {/* ── STAGES (Phase 4B) -- hidden for Legacy Receivables (Section 17.6) ── */}
+                {!isLegacyMode && (
                 <div className={styles.hwPanel}>
                     <DrawerHeader label="STAGES" isOpen={drawers.stages} onClick={() => toggleDrawer('stages')}
                         icon={FiCheckSquare} badge={selectedStageCount || undefined} />
@@ -856,6 +892,7 @@ const IntakePage = () => {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* ── DOCUMENTS ── */}
                 <div className={styles.splitGrid}>
