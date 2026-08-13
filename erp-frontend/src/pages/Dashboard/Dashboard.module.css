@@ -521,3 +521,179 @@
     .errorHUD    { flex-direction: column; }
     .rebootBtn   { margin-left: 0; width: 100%; justify-content: center; }
 }
+
+
+/* ── PHASE 7: DIRECTOR'S DASHBOARD ─────────────────────────────── */
+.directorSection {
+    margin-top: var(--gap-xl);
+}
+
+.directorSectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--gap-md);
+    margin-bottom: var(--gap-lg);
+    padding-bottom: clamp(8px, 1vw, 12px);
+    border-bottom: 1.5px solid rgba(238, 140, 58, 0.2);
+    font-family: 'Cinzel', serif;
+    color: var(--orange);
+    font-size: clamp(13px, 1.6vw, 17px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.directorToggleRow {
+    display: flex;
+    gap: clamp(6px, 0.8vw, 10px);
+    flex-wrap: wrap;
+}
+
+.directorToggleBtn,
+.directorToggleBtnActive {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(4px, 0.5vw, 6px);
+    height: clamp(28px, 3.4vw, 34px);
+    padding: 0 clamp(10px, 1.3vw, 14px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: clamp(8px, 0.85vw, 10px);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.directorToggleBtn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.65);
+}
+.directorToggleBtn:hover {
+    border-color: var(--orange);
+    color: var(--orange);
+    background: rgba(238, 140, 58, 0.08);
+}
+
+.directorToggleBtnActive {
+    background: var(--orange);
+    border: 1.5px solid var(--orange);
+    color: var(--navy);
+}
+.directorToggleBtnActive:hover {
+    background: #f0a050;
+}
+
+.directorPeriodGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(220px, 30vw, 320px), 1fr));
+    gap: var(--gap-lg);
+}
+
+.periodStatRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-md);
+    margin-bottom: var(--gap-md);
+}
+
+.periodStatBox {
+    background: rgba(0, 0, 0, 0.3);
+    padding: clamp(10px, 1.4vw, 14px);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.periodStatBox label {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: clamp(4px, 0.5vw, 6px);
+}
+.periodStatBox strong {
+    font-family: 'Space Mono', monospace;
+    color: #fff;
+    font-size: clamp(13px, 1.5vw, 17px);
+    font-weight: 700;
+    word-break: break-all;
+}
+
+.staffActivityHeader {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 8px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: clamp(6px, 0.8vw, 9px);
+    padding-top: clamp(4px, 0.5vw, 6px);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.staffActivityList {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.5vw, 6px);
+}
+
+.staffActivityRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(6px, 0.8vw, 9px) clamp(9px, 1.1vw, 12px);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    border-left: 2px solid rgba(238, 140, 58, 0.3);
+}
+.staffActivityName {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.95vw, 11px);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.85);
+}
+.staffActivityCount {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 700;
+    color: var(--orange);
+}
+
+.periodEmpty {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: clamp(10px, 1.4vw, 14px) 0;
+    text-align: center;
+}
+
+.periodLoading {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-label);
+    font-weight: 900;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: clamp(20px, 3vw, 30px) 0;
+    animation: glowPulse 2s infinite;
+}
+@keyframes glowPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+@media (max-width: 600px) {
+    .directorPeriodGrid { grid-template-columns: 1fr; }
+    .periodStatRow { grid-template-columns: 1fr; }
+}

@@ -7,6 +7,7 @@ import {
     FiCreditCard, FiClock, FiGrid
 } from 'react-icons/fi';
 import styles from './Dashboard.module.css';
+import DirectorDashboardPanel from './DirectorDashboardPanel';
 
 const RootTerminal = ({ stats }) => {
     const navigate = useNavigate();
@@ -170,6 +171,9 @@ const RootTerminal = ({ stats }) => {
                     </div>
                 </div>
             </div>
+
+            {/* PHASE 7: Director's Dashboard -- company-wide snapshot */}
+            <DirectorDashboardPanel />
         </div>
     );
 };

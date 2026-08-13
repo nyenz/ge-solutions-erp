@@ -7,10 +7,12 @@ import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.common.audit.AuditLog;
 import com.gesolutions.erp.common.audit.AuditLogRepository;
 import com.gesolutions.erp.modules.land.dto.DashboardSummaryDTO;
+import com.gesolutions.erp.modules.land.dto.DirectorDashboardDTO;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.modules.finance.repository.CompanyExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,6 +21,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -38,6 +41,7 @@ public class DashboardController {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;
+    private final CompanyExpenseRepository companyExpenseRepository;
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
@@ -152,5 +156,103 @@ public class DashboardController {
         }
 
         return ResponseEntity.ok(builder.build());
+    }
+
+    /**
+     * PHASE 7: DIRECTOR'S DASHBOARD
+     *
+     * Company-wide snapshot for a single time window. Frontend calls this
+     * twice by default (period=WEEK and period=MONTH) to satisfy the
+     * "default view is week + month" rule in Section 17.9, and can call
+     * again with period=DAY or period=YEAR when the Director drills down.
+     *
+     * pipelineStageCounts and the company financials snapshot are NOT
+     * time-windowed -- they always reflect the current live state,
+     * regardless of which period was requested.
+     */
+    @GetMapping("/director")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<DirectorDashboardDTO> getDirectorDashboard(
+            @RequestParam(defaultValue = "WEEK") String period) {
+
+        String normalizedPeriod = period == null ? "WEEK" : period.toUpperCase();
+        LocalDateTime since;
+        String periodLabel;
+
+        switch (normalizedPeriod) {
+            case "DAY":
+                since = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+                periodLabel = "TODAY";
+                break;
+            case "MONTH":
+                since = LocalDateTime.now().minusDays(30);
+                periodLabel = "LAST 30 DAYS";
+                break;
+            case "YEAR":
+                since = LocalDateTime.now().minusDays(365);
+                periodLabel = "LAST 365 DAYS";
+                break;
+            case "WEEK":
+            default:
+                since = LocalDateTime.now().minusDays(7);
+                periodLabel = "LAST 7 DAYS";
+                normalizedPeriod = "WEEK";
+                break;
+        }
+
+        // Revenue collected in the window (all payment types, title + storage fee + company cost payments excluded)
+        BigDecimal revenueCollected = paymentRecordRepository.sumAllPaymentsSince(since);
+
+        List<AuditLog> logsInPeriod = auditLogRepository.findAll().stream()
+                .filter(a -> a.getTimestamp() != null && a.getTimestamp().isAfter(since))
+                .collect(Collectors.toList());
+
+        long transactionCount = logsInPeriod.stream()
+                .filter(a -> "PAYMENT_RECORDED".equals(a.getAction()) || "COMPANY_EXPENSE_PAYMENT".equals(a.getAction()))
+                .count();
+
+        // Staff activity: group audit logs in this window by operator
+        Map<String, List<AuditLog>> byOperator = logsInPeriod.stream()
+                .filter(a -> a.getPerformedBy() != null && !"SYSTEM".equals(a.getPerformedBy()))
+                .collect(Collectors.groupingBy(AuditLog::getPerformedBy));
+
+        List<DirectorDashboardDTO.StaffActivityDTO> staffActivity = byOperator.entrySet().stream()
+                .map(entry -> {
+                    LocalDateTime lastActive = entry.getValue().stream()
+                            .map(AuditLog::getTimestamp)
+                            .max(Comparator.naturalOrder())
+                            .orElse(null);
+                    return DirectorDashboardDTO.StaffActivityDTO.builder()
+                            .username(entry.getKey())
+                            .actionCount(entry.getValue().size())
+                            .lastActiveAt(lastActive)
+                            .build();
+                })
+                .sorted(Comparator.comparingInt(DirectorDashboardDTO.StaffActivityDTO::getActionCount).reversed())
+                .collect(Collectors.toList());
+
+        // Pipeline stage counts -- live snapshot, same 5-stage index used by /summary
+        List<LandProject> allPlots = projectRepository.findAll();
+        Map<Integer, Long> pipelineStageCounts = allPlots.stream()
+                .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
+
+        // Company financials -- live snapshot, not time-windowed
+        BigDecimal companyCommitted = companyExpenseRepository.sumTotalCommitted();
+        BigDecimal companyPaid = companyExpenseRepository.sumTotalPaid();
+        BigDecimal companyOutstanding = companyCommitted.subtract(companyPaid).max(BigDecimal.ZERO);
+
+        DirectorDashboardDTO dto = DirectorDashboardDTO.builder()
+                .period(normalizedPeriod)
+                .periodLabel(periodLabel)
+                .revenueCollected(revenueCollected)
+                .transactionCount(transactionCount)
+                .staffActivity(staffActivity)
+                .pipelineStageCounts(pipelineStageCounts)
+                .companyExpensesCommitted(companyCommitted)
+                .companyExpensesPaid(companyPaid)
+                .companyExpensesOutstanding(companyOutstanding)
+                .build();
+
+        return ResponseEntity.ok(dto);
     }
 }

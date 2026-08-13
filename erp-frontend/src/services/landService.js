@@ -90,6 +90,12 @@ const landService = {
         await api.patch(`/land/projects/${projectId}/release`, null, {
             params: managerNote ? { managerNote } : {}
         });
+    },
+
+    // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
+    getDirectorDashboard: async (period = 'WEEK') => {
+        const response = await api.get('/dashboard/director', { params: { period } });
+        return response.data;
     }
 };
 
