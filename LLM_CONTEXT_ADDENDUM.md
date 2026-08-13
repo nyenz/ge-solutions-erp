@@ -1,8 +1,5 @@
+# PATH: LLM_CONTEXT_ADDENDUM.md
 # GE SOLUTIONS ERP -- CONTEXT ADDENDUM
-# This file receives all small incremental updates each session.
-# Once confirmed done by David, items are erased from here and folded
-# into LLM_CONTEXT_GUIDE.md (Sections 10/11, or Section 17's Phase
-# Tracker for revamp work specifically).
 # Last updated: August 2026
 
 ---
@@ -29,29 +26,56 @@ confirmation and should be cleared out at the next opportunity.
 
 ## CURRENT STATUS: REVAMP PHASE 1 -- PROJECT INDEX SYSTEM
 
-**What this is:** The first phase of the major ERP revamp. Full architecture and all future
-phases are documented permanently in `LLM_CONTEXT_GUIDE.md`, Section 17. This addendum entry
-only tracks the current in-progress phase.
+CODE WRITTEN. Status per David's last note: not yet confirmed tested. Do not
+move to the guide until David confirms he ran it, deployed, and saw a real
+index (e.g. "001A") appear on both Ledger and Folder page.
 
-**What was built:**
-- `ProjectIndexService.java` -- generates project index codes in the format 001A, 002A ...
-  999A, then rolls to 001B, 002B ... 999B, then 001C, etc.
-- Database migration: new `project_index_counter` table, new `project_index` column on
-  `land_titles` (unique constraint).
-- `LandService.atomicIntake` now auto-assigns an index to every new project at intake.
-- `LedgerPage.jsx`: index is now searchable, and displayed next to the plot number in the table.
-- `FolderPage.jsx`: index is now displayed in the project header.
+---
 
-**Status: CODE WRITTEN AND GIVEN TO DAVID. NOT YET APPLIED.**
-David has not run this fix.py yet. Nothing described above exists in the live codebase yet.
-Do not treat any of it as done. Do not move anything into the guide until David confirms:
-1. He ran fix.py and all patches showed OK
-2. He pushed to GitHub and Render redeployed successfully
-3. He created a test plot and saw a real index (e.g. "001A") appear correctly on both the
-   Ledger page and the Folder page
+## CURRENT STATUS: REVAMP PHASE 2 -- NIN-BASED IDENTITY
 
-**Known limitation to expect (not a bug):** existing/old plots will show a blank index until
-they are opened in edit mode and re-saved. This is fine for Phase 1.
+CODE COMPLETE. Full review of the repo confirms all pieces are in place:
+- Backend: `Client.java` (nationalId field + index), `ClientRepository.java`
+  (findByNationalId), `ClientService.java` (findOrCreateClientByNin),
+  `ClientController.java` (GET /api/v1/clients/lookup-nin), `LandService.java`
+  (atomicIntake + updateProjectFull both require NIN and match by NIN),
+  `DataInitializer.java` (unique constraint on national_id, drops old phone
+  uniqueness constraint).
+- Frontend: `clientService.js` (lookupNin), `IntakePage.jsx` and
+  `FolderPage.jsx` (NIN required, duplicate/typo warning, auto-fill on blur).
 
-**Next phase queued after this one is confirmed:** Phase 2 -- NIN-Based Identity (see Section
-17.10 in the guide for full detail on what that involves).
+**David has explicitly said he is NOT testing yet** -- he wants all code
+ready across phases first, then a single test pass at the end. So this stays
+listed here as CODE COMPLETE / NOT YET CONFIRMED rather than being moved into
+Section 10 or Section 17's Phase Tracker. Do not mark Phase 2 as DONE in the
+guide until David runs the test plan (blank NIN blocked, duplicate NIN
+auto-fill, typo warning, edit-mode required asterisk) and confirms.
+
+---
+
+## CURRENT STATUS: REVAMP PHASE 3A -- ROLE ENUM FOUNDATION
+
+**APPLIED AND PUSHED.** David ran fix.py, `Role.java` updated cleanly with
+`ROLE_DIRECTOR` and `ROLE_SECRETARY` added alongside the existing
+`ROLE_ADMIN` / `ROLE_MANAGER`, committed and pushed to GitHub
+(commit `9f29489`). Purely additive -- no `@PreAuthorize` check anywhere
+references the new values yet, so nothing that currently works changed
+behavior. Not yet deploy-tested on Render, but this phase carries no runtime
+risk since it only adds unused enum values.
+
+**Known limitation (expected, not a bug):** the new roles cannot actually be
+assigned to any real permission boundary yet -- that is Phase 3B.
+
+**Next phase queued: Phase 3B -- 4-Tier Role Permission Wiring.**
+Will involve: updating every backend `@PreAuthorize` check across all
+controllers to use the real 4-tier logic from Section 17.7, and updating
+every frontend role check (`user.role === 'ROLE_ADMIN'`, `user.isRoot`, etc.
+in Sidebar.jsx, App.jsx, Dashboard.jsx, FolderPage.jsx, ReportHub.jsx, and
+more). This is the highest-risk phase per Section 17.10 -- touches security
+and access control everywhere. Will be its own dedicated fix.py, written
+only when David explicitly says to proceed, per the guide's own rule against
+bundling multiple phases into one patch.
+
+**Remaining phases after 3B:** Phase 4 (Stage Templates), Phase 5
+(Financials Module), Phase 6 (Legacy Receivables), Phase 7 (Director
+Dashboard) -- none started yet.
