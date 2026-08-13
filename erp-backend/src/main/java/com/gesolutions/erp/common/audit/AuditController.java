@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/v1/admin/audit")
 @RequiredArgsConstructor
 // Base Gate: Must be at least a Manager to hit the API, but specific methods are tighter
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class AuditController {
 
     private final AuditLogRepository auditLogRepository;
@@ -33,7 +33,7 @@ public class AuditController {
      * ACCESS: Locked to ADMIN and ROOT. Standard Managers cannot see this.
      */
     @GetMapping("/stream")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Page<AuditLog>> getRawStream(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -49,7 +49,7 @@ public class AuditController {
      * ACCESS: Locked to ADMIN and ROOT.
      */
     @GetMapping("/search")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Page<AuditLog>> searchForensics(
             @RequestParam(required = false) String operator,
             @RequestParam(required = false) String action,
@@ -70,7 +70,7 @@ public class AuditController {
      * ACCESS: Locked to ADMIN and ROOT.
      */
     @GetMapping("/investigate")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Page<AuditLog>> investigateKeyword(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,

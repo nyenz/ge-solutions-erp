@@ -446,7 +446,7 @@ const FolderPage = () => {
     const location = useLocation();
     const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
-    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
+    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR' || user?.isRoot;
 
     const [binder,      setBinder]      = useState(null);
     const [buffer,      setBuffer]      = useState(null);

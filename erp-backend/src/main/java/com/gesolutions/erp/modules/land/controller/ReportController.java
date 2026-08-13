@@ -35,35 +35,35 @@ public class ReportController {
 
     /** Pillar 1: Master Debt Ledger */
     @GetMapping("/debt-ledger")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadDebtLedger() {
         return streamCsv(reportService.generateMasterDebtLedger(), "MASTER_DEBT_LEDGER");
     }
 
     /** Pillar 3: Recovery Throughput */
     @GetMapping("/performance")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadPerformanceReport() {
         return streamCsv(reportService.generateRecoveryThroughput(), "RECOVERY_PERFORMANCE");
     }
 
     /** Pillar 5: Legal Readiness */
     @GetMapping("/legal-readiness")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadLegalAudit() {
         return streamCsv(reportService.generateLegalReadiness(), "LEGAL_COMPLIANCE_AUDIT");
     }
 
     /** Pillar 7: Master Audit Log */
     @GetMapping("/audit-trail")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadAuditTrail() {
         return streamCsv(reportService.generateMasterAuditLog(), "SYSTEM_FORENSICS_LOG");
     }
 
     /** Pillar 8: Revenue History */
     @GetMapping("/revenue")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadRevenueHistory() {
         return streamCsv(reportService.generateRevenueHistory(), "REVENUE_INFLOW_HISTORY");
     }
@@ -76,21 +76,21 @@ public class ReportController {
 
     /** Pillar 2: Physical Archive Map */
     @GetMapping("/archive-map")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadArchiveMap() {
         return streamCsv(reportService.generateArchiveMap(), "PHYSICAL_ARCHIVE_MAP");
     }
 
     /** Pillar 4: Survey Stage Bottlenecks */
     @GetMapping("/bottlenecks")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadStageAudit() {
         return streamCsv(reportService.generateStageAudit(), "SURVEY_PHASE_BOTTLENECKS");
     }
 
     /** Pillar 6: Reliability Scorecard */
     @GetMapping("/reliability")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadReliabilityRankings() {
         return streamCsv(reportService.generateReliabilityRankings(), "RELIABILITY_SCORECARD");
     }
@@ -101,28 +101,28 @@ public class ReportController {
 
     /** P2-1: Backlog Breakdown */
     @GetMapping("/backlog-breakdown")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadBacklogBreakdown() {
         return streamCsv(reportService.generateBacklogBreakdown(), "BACKLOG_BREAKDOWN");
     }
 
     /** P2-2: Completed Titles */
     @GetMapping("/completed-titles")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadCompletedTitles() {
         return streamCsv(reportService.generateCompletedTitles(), "COMPLETED_TITLES");
     }
 
     /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
     @GetMapping("/payment-history")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadPaymentHistory() {
         return streamCsv(reportService.generatePaymentHistory(), "OPERATOR_CASH_RECONCILIATION");
     }
 
     /** P2-4: Monthly Collection */
     @GetMapping("/monthly-collection")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<byte[]> downloadMonthlyCollection() {
         return streamCsv(reportService.generateMonthlyCollection(), "MONTHLY_COLLECTION");
     }

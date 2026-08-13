@@ -22,7 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/clients")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class ClientController {
 
     private final ClientRepository clientRepository;

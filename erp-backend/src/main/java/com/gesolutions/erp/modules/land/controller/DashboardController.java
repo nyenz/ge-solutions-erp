@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class DashboardController {
 
     private final LandProjectRepository projectRepository;
@@ -44,7 +44,9 @@ public class DashboardController {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByUsername(username).orElseThrow();
-        boolean showFinancials = currentUser.isRoot() || currentUser.getRole() == Role.ROLE_ADMIN;
+        boolean showFinancials = currentUser.isRoot()
+                || currentUser.getRole() == Role.ROLE_ADMIN
+                || currentUser.getRole() == Role.ROLE_DIRECTOR;
 
         List<LandProject> allPlots = projectRepository.findAll();
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);

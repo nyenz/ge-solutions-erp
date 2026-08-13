@@ -57,7 +57,7 @@ const Dashboard = () => {
                 <div className={styles.titleBlock}>
                     <h1 className={styles.pageTitle}>System Dashboard</h1>
                     <p className={styles.pageSubtitle}>
-                        {user?.isRoot ? 'ROOT OWNER ACCESS' : 'MANAGER ACCESS'}
+                        {user?.isRoot ? 'ROOT OWNER ACCESS' : user?.role === 'ROLE_DIRECTOR' ? 'DIRECTOR ACCESS' : 'MANAGER ACCESS'}
                         {' · '}SYSTEM ACTIVE
                     </p>
                 </div>
@@ -66,7 +66,7 @@ const Dashboard = () => {
                 </div>
             </header>
 
-            {user?.isRoot
+            {(user?.isRoot || user?.role === 'ROLE_DIRECTOR')
                 ? <RootTerminal stats={stats} />
                 : <ManagerTerminal stats={stats} />
             }

@@ -17,7 +17,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/recovery/payments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class PaymentController {
 
     private final PaymentRecordRepository paymentRecordRepository;

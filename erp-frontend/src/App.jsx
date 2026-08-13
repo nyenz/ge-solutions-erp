@@ -22,7 +22,7 @@ const ProtectedRoute = ({ children, adminOnly = false, isSettings = false }) => 
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
-    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN')) return <Navigate to="/dashboard" replace />;
+    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR')) return <Navigate to="/dashboard" replace />;
     return children;
 };
 

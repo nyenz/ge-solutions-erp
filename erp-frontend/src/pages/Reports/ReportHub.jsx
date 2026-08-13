@@ -86,7 +86,7 @@ const ReportHub = () => {
     const { user } = useAuth();
     const { toasts, toast, dismissToast } = useToast();
 
-    const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';
+    const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
     const [drawers,    setDrawers]    = useState({ finance: true, ops: true, system: false, p2: true });
     const [expandedId, setExpandedId] = useState(null);

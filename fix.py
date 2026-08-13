@@ -1,28 +1,71 @@
 # PATH: fix.py
-# PHASE 3A - ROLE ENUM FOUNDATION (4-TIER PREP)
+# PHASE 3B - 4-TIER ROLE PERMISSION WIRING (ADDITIVE, ROLE_DIRECTOR ONLY)
 # Run from project root: py fix.py
 #
-# STATUS CHECK: Phase 2 (NIN-Based Identity) code is fully present in the
-# repo already -- Client.java, ClientRepository, ClientService, ClientController,
-# LandService (atomicIntake + updateProjectFull), DataInitializer migrations,
-# and the frontend (clientService.js, IntakePage.jsx, FolderPage.jsx) all show
-# the Phase 2 changes applied. CODE COMPLETE. NOT YET TESTED per your note --
-# addendum below reflects that (pending your confirmation once you test).
+# SCOPE OF THIS PATCH -- READ BEFORE RUNNING:
 #
-# THIS PATCH (Phase 3A only, per LLM_CONTEXT_GUIDE.md rule: split large phases):
-#   1. Expands Role enum with ROLE_DIRECTOR and ROLE_SECRETARY (additive only --
-#      no existing @PreAuthorize check anywhere is touched, so nothing that
-#      currently works can break).
-#   2. Updates LLM_CONTEXT_ADDENDUM.md to reflect real status.
+# This wires ROLE_DIRECTOR into every place that currently grants ROLE_ADMIN
+# full/financial access, at BOTH layers (controller @PreAuthorize AND service
+# @PreAuthorize, since method security checks both and a mismatch would cause
+# a 403 even after the controller lets the request through).
 #
-# NOT included yet (deliberately -- these are Phase 3B, a separate fix.py):
-#   - Updating every @PreAuthorize across all controllers
-#   - Updating every frontend role check (Sidebar.jsx, App.jsx, Dashboard.jsx,
-#     FolderPage.jsx, ReportHub.jsx, etc.)
-#   - StaffController immutability rules for the new tiers
-# That is the highest-risk phase in the guide -- doing it blind in one shot
-# risks locking you out of your own system. Confirm this patch applied clean
-# first, then say "go" for 3B.
+# It is 100% ADDITIVE:
+#   - Every check goes from  hasRole('ROLE_ADMIN')
+#                       to    hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')
+#   - Every check goes from  hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')
+#                       to    hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')
+#   - Nothing that ROLE_ADMIN or ROLE_MANAGER can currently do is removed.
+#   - No user in your database has ROLE_DIRECTOR yet (StaffController's
+#     create/promote endpoints DO already accept it as a raw enum value via
+#     API, but nothing in the current UI offers it as a dropdown option),
+#     so until you actually assign it to someone, this patch changes
+#     ZERO real-world behavior. It is safe to deploy immediately.
+#
+# DELIBERATELY NOT INCLUDED IN THIS PATCH (and why):
+#
+#   1. ROLE_SECRETARY is NOT wired into anything yet.
+#      Per Section 17.7, Secretary can change stages but NOT edit costs.
+#      The current codebase has no endpoint-level separation between
+#      "change a stage" and "edit a cost" -- LandController's full-update
+#      endpoint does both in one call, and the backlog/storage endpoints
+#      are inherently cost operations. Wiring Secretary in now would mean
+#      Secretary could edit costs through the same door Managers use,
+#      violating the target design. That separation is exactly what
+#      Phase 4 (Stage Templates) introduces -- per-stage cost fields
+#      distinct from stage-change actions. Secretary gets wired in
+#      correctly as part of Phase 4, not bolted on early here.
+#
+#   2. SettingsPage.jsx (staff management UI) is NOT touched.
+#      I do not have its current file content in context (it was marked
+#      as a binary/unreadable file in the last full dump), and patching
+#      a file blind violates the project's own fix.py safety rule
+#      ("always verify the exact text to replace by reading the document
+#      context before writing patches"). This means: until SettingsPage.jsx
+#      is re-sent to me, there is still no UI dropdown to actually assign
+#      ROLE_DIRECTOR to anyone. The backend/API will accept it either way
+#      -- David could technically promote someone via Postman -- but no
+#      button exists in the app yet. Flagged as Phase 3C.
+#
+#   3. StaffController.java is NOT touched. Staff governance (create,
+#      promote, suspend, reset password) stays exactly as strict as it
+#      is today -- ROLE_ADMIN + isRoot gated. The 4-tier table doesn't
+#      grant Director any staff-management rights, so there's nothing to
+#      add here, and touching it unnecessarily would only add risk.
+#
+#   4. Nuclear delete (DELETE /land/projects/{id}) stays root-only.
+#      Not part of the Director grant -- deletion is a Founder-only action
+#      by existing design, table doesn't override that.
+#
+# TEST PLAN (do this at your single end-of-phases test pass):
+#   1. Log in as your existing admin_root / any ROLE_ADMIN account --
+#      confirm every page, report, and payment action still works exactly
+#      as before (this patch should be invisible to existing accounts).
+#   2. Via Postman (since no UI yet): PATCH /api/v1/staff/{username}/role
+#      with newRole=ROLE_DIRECTOR on a test account, log in as that
+#      account, and confirm it now sees financials, reports, audit trail,
+#      payments, and backlog controls -- same as ROLE_ADMIN would.
+#   3. Confirm a ROLE_MANAGER account is UNCHANGED -- still blocked from
+#      reports/audit/payments, same as before this patch.
 
 import os
 
@@ -46,7 +89,7 @@ def patch_file(path, anchor, replacement, label):
         print(f"FAIL: {label} ({path} not found)")
         return
     if anchor not in content:
-        print(f"MISSING: {label} (anchor not found in {path} -- may already be patched)")
+        print(f"MISSING: {label} (anchor not found in {path} -- may already be patched, or file changed)")
         return
     if content.count(anchor) > 1:
         print(f"WARN: {label} (anchor appears more than once -- patching first occurrence only)")
@@ -54,80 +97,505 @@ def patch_file(path, anchor, replacement, label):
     write_file(path, content)
     print(f"OK: {label}")
 
-print("Starting Phase 3A Patch - Role Enum Foundation...")
+print("Starting Phase 3B Patch - ROLE_DIRECTOR Permission Wiring...")
 print("-" * 60)
 
 # ============================================================
-# 1/2: Role.java -- add DIRECTOR and SECRETARY (additive, safe)
+# BACKEND CONTROLLERS
 # ============================================================
-path = "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/model/Role.java"
-content = """// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/auth/model/Role.java
-package com.gesolutions.erp.modules.auth.model;
 
-/**
- * NYENZ ERP - INDUSTRIAL ROLE DICTIONARY
- *
- * PHASE 3A: Enum expanded to prepare for the 4-tier hierarchy (Section 17.7
- * of LLM_CONTEXT_GUIDE.md). This is additive only -- ROLE_DIRECTOR and
- * ROLE_SECRETARY exist now but no @PreAuthorize check anywhere references
- * them yet. Every existing access-control check still only knows about
- * ROLE_ADMIN and ROLE_MANAGER, so current behavior is unchanged.
- *
- * The 'Root Founder' (Programmer tier) is still not a role here; it remains
- * the 'isRoot' boolean on the User entity, layered on top of ROLE_ADMIN.
- *
- * Wiring these new values into actual permission checks (backend
- * @PreAuthorize + frontend role gates) is Phase 3B -- a separate, dedicated
- * patch, since it touches every controller and several frontend files.
- */
-public enum Role {
+# ---- AuditController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/common/audit/AuditController.java"
 
-    /**
-     * TIER 2: SYSTEM ADMIN
-     * Current full-financials tier. Will map toward "Director" behavior
-     * once Phase 3B wires real permission checks.
-     */
-    ROLE_ADMIN,
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/admin/audit")
+@RequiredArgsConstructor
+// Base Gate: Must be at least a Manager to hit the API, but specific methods are tighter
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class AuditController {""",
+    """@RestController
+@RequestMapping("/api/v1/admin/audit")
+@RequiredArgsConstructor
+// Base Gate: Must be at least a Manager to hit the API, but specific methods are tighter
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class AuditController {""",
+    "AuditController class gate (+DIRECTOR)")
 
-    /**
-     * TIER 3: STANDARD OPERATOR (Manager)
-     * Current operational-only tier. Unchanged.
-     */
-    ROLE_MANAGER,
+patch_file(path,
+    """    @GetMapping("/stream")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Page<AuditLog>> getRawStream(""",
+    """    @GetMapping("/stream")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Page<AuditLog>> getRawStream(""",
+    "AuditController /stream (+DIRECTOR)")
 
-    /**
-     * TIER 2 (NEW, Phase 3A groundwork): DIRECTOR
-     * Full company-wide financial visibility per Section 17.7, distinct
-     * from ROLE_ADMIN in the target design (Director sees everything;
-     * Manager sees project-level only). Not yet enforced anywhere.
-     */
-    ROLE_DIRECTOR,
+patch_file(path,
+    """    @GetMapping("/search")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Page<AuditLog>> searchForensics(""",
+    """    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Page<AuditLog>> searchForensics(""",
+    "AuditController /search (+DIRECTOR)")
 
-    /**
-     * TIER 4 (NEW, Phase 3A groundwork): SECRETARY
-     * Data-entry only, stage changes but not cost changes, no company
-     * financials, no template edits, per Section 17.7. Not yet enforced
-     * anywhere -- currently behaves identically to whatever @PreAuthorize
-     * checks already exist (i.e. blocked from anything ROLE_ADMIN/
-     * ROLE_MANAGER-gated, same as any unrecognized role would be).
-     */
-    ROLE_SECRETARY
-}
-"""
-write_file(path, content)
-print("OK: 1/2 Role.java (added ROLE_DIRECTOR, ROLE_SECRETARY -- additive, non-breaking)")
+patch_file(path,
+    """    @GetMapping("/investigate")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Page<AuditLog>> investigateKeyword(""",
+    """    @GetMapping("/investigate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Page<AuditLog>> investigateKeyword(""",
+    "AuditController /investigate (+DIRECTOR)")
+
+# ---- DashboardController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java"
+
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/dashboard")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class DashboardController {""",
+    """@RestController
+@RequestMapping("/api/v1/dashboard")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class DashboardController {""",
+    "DashboardController class gate (+DIRECTOR)")
+
+patch_file(path,
+    """        boolean showFinancials = currentUser.isRoot() || currentUser.getRole() == Role.ROLE_ADMIN;""",
+    """        boolean showFinancials = currentUser.isRoot()
+                || currentUser.getRole() == Role.ROLE_ADMIN
+                || currentUser.getRole() == Role.ROLE_DIRECTOR;""",
+    "DashboardController showFinancials (+DIRECTOR)")
+
+# ---- LandController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java"
+
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/land")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class LandController {""",
+    """@RestController
+@RequestMapping("/api/v1/land")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class LandController {""",
+    "LandController class gate (+DIRECTOR)")
+
+patch_file(path,
+    """    @PostMapping("/projects/{id}/backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> moveToBacklog(@PathVariable UUID id) {""",
+    """    @PostMapping("/projects/{id}/backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> moveToBacklog(@PathVariable UUID id) {""",
+    "LandController /backlog (+DIRECTOR)")
+
+patch_file(path,
+    """    @PostMapping("/projects/{id}/exit-backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id,""",
+    """    @PostMapping("/projects/{id}/exit-backlog")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id,""",
+    "LandController /exit-backlog (+DIRECTOR)")
+
+patch_file(path,
+    """    @PostMapping("/projects/{id}/exit-backlog-capitalize")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> exitBacklogCapitalize(@PathVariable UUID id) {""",
+    """    @PostMapping("/projects/{id}/exit-backlog-capitalize")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitBacklogCapitalize(@PathVariable UUID id) {""",
+    "LandController /exit-backlog-capitalize (+DIRECTOR)")
+
+patch_file(path,
+    """    @PatchMapping("/projects/{id}/storage-pause")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,""",
+    """    @PatchMapping("/projects/{id}/storage-pause")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,""",
+    "LandController /storage-pause (+DIRECTOR)")
+
+patch_file(path,
+    """    @PatchMapping("/projects/{id}/storage-rate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,""",
+    """    @PatchMapping("/projects/{id}/storage-rate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,""",
+    "LandController /storage-rate (+DIRECTOR)")
+
+patch_file(path,
+    """    @PatchMapping("/projects/{id}/storage-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,""",
+    """    @PatchMapping("/projects/{id}/storage-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,""",
+    "LandController /storage-fees (+DIRECTOR)")
+
+patch_file(path,
+    """    @PatchMapping("/projects/{id}/negotiation-deadline")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,""",
+    """    @PatchMapping("/projects/{id}/negotiation-deadline")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,""",
+    "LandController /negotiation-deadline (+DIRECTOR)")
+
+patch_file(path,
+    """    @PatchMapping("/projects/{id}/backlog-start")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<Void> setBacklogStartOverride(@PathVariable UUID id,""",
+    """    @PatchMapping("/projects/{id}/backlog-start")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setBacklogStartOverride(@PathVariable UUID id,""",
+    "LandController /backlog-start (+DIRECTOR)")
+
+# ---- PaymentController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/PaymentController.java"
+
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/recovery/payments")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+public class PaymentController {""",
+    """@RestController
+@RequestMapping("/api/v1/recovery/payments")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class PaymentController {""",
+    "PaymentController class gate (+DIRECTOR)")
+
+# ---- RecoveryController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java"
+
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/recovery")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class RecoveryController {""",
+    """@RestController
+@RequestMapping("/api/v1/recovery")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class RecoveryController {""",
+    "RecoveryController class gate (+DIRECTOR)")
+
+# ---- ClientController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java"
+
+patch_file(path,
+    """@RestController
+@RequestMapping("/api/v1/clients")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+public class ClientController {""",
+    """@RestController
+@RequestMapping("/api/v1/clients")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class ClientController {""",
+    "ClientController class gate (+DIRECTOR)")
+
+# ---- ReportController.java ----
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/ReportController.java"
+
+patch_file(path,
+    """    /** Pillar 1: Master Debt Ledger */
+    @GetMapping("/debt-ledger")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadDebtLedger() {""",
+    """    /** Pillar 1: Master Debt Ledger */
+    @GetMapping("/debt-ledger")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadDebtLedger() {""",
+    "ReportController /debt-ledger (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 3: Recovery Throughput */
+    @GetMapping("/performance")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadPerformanceReport() {""",
+    """    /** Pillar 3: Recovery Throughput */
+    @GetMapping("/performance")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadPerformanceReport() {""",
+    "ReportController /performance (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 5: Legal Readiness */
+    @GetMapping("/legal-readiness")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadLegalAudit() {""",
+    """    /** Pillar 5: Legal Readiness */
+    @GetMapping("/legal-readiness")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadLegalAudit() {""",
+    "ReportController /legal-readiness (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 7: Master Audit Log */
+    @GetMapping("/audit-trail")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadAuditTrail() {""",
+    """    /** Pillar 7: Master Audit Log */
+    @GetMapping("/audit-trail")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadAuditTrail() {""",
+    "ReportController /audit-trail (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 8: Revenue History */
+    @GetMapping("/revenue")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadRevenueHistory() {""",
+    """    /** Pillar 8: Revenue History */
+    @GetMapping("/revenue")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadRevenueHistory() {""",
+    "ReportController /revenue (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 2: Physical Archive Map */
+    @GetMapping("/archive-map")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    public ResponseEntity<byte[]> downloadArchiveMap() {""",
+    """    /** Pillar 2: Physical Archive Map */
+    @GetMapping("/archive-map")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadArchiveMap() {""",
+    "ReportController /archive-map (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 4: Survey Stage Bottlenecks */
+    @GetMapping("/bottlenecks")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    public ResponseEntity<byte[]> downloadStageAudit() {""",
+    """    /** Pillar 4: Survey Stage Bottlenecks */
+    @GetMapping("/bottlenecks")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadStageAudit() {""",
+    "ReportController /bottlenecks (+DIRECTOR)")
+
+patch_file(path,
+    """    /** Pillar 6: Reliability Scorecard */
+    @GetMapping("/reliability")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    public ResponseEntity<byte[]> downloadReliabilityRankings() {""",
+    """    /** Pillar 6: Reliability Scorecard */
+    @GetMapping("/reliability")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadReliabilityRankings() {""",
+    "ReportController /reliability (+DIRECTOR)")
+
+patch_file(path,
+    """    /** P2-1: Backlog Breakdown */
+    @GetMapping("/backlog-breakdown")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadBacklogBreakdown() {""",
+    """    /** P2-1: Backlog Breakdown */
+    @GetMapping("/backlog-breakdown")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadBacklogBreakdown() {""",
+    "ReportController /backlog-breakdown (+DIRECTOR)")
+
+patch_file(path,
+    """    /** P2-2: Completed Titles */
+    @GetMapping("/completed-titles")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadCompletedTitles() {""",
+    """    /** P2-2: Completed Titles */
+    @GetMapping("/completed-titles")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadCompletedTitles() {""",
+    "ReportController /completed-titles (+DIRECTOR)")
+
+patch_file(path,
+    """    /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
+    @GetMapping("/payment-history")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadPaymentHistory() {""",
+    """    /** P2-3: Operator Cash Reconciliation (Anti-Theft) */
+    @GetMapping("/payment-history")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadPaymentHistory() {""",
+    "ReportController /payment-history (+DIRECTOR)")
+
+patch_file(path,
+    """    /** P2-4: Monthly Collection */
+    @GetMapping("/monthly-collection")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadMonthlyCollection() {""",
+    """    /** P2-4: Monthly Collection */
+    @GetMapping("/monthly-collection")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<byte[]> downloadMonthlyCollection() {""",
+    "ReportController /monthly-collection (+DIRECTOR)")
+
+# ============================================================
+# BACKEND SERVICE LAYER -- must match controller layer exactly,
+# since @EnableMethodSecurity checks both. A mismatch here would
+# cause Director to pass the controller gate then get a 403 from
+# the service method underneath.
+# ============================================================
+path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {""",
+    "LandService.recordPayment (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void moveToBacklog(UUID projectId) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void moveToBacklog(UUID projectId) {""",
+    "LandService.moveToBacklog (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void exitBacklog(UUID projectId, boolean capitalizeFees) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void exitBacklog(UUID projectId, boolean capitalizeFees) {""",
+    "LandService.exitBacklog (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setStoragePaused(UUID projectId, boolean paused) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void setStoragePaused(UUID projectId, boolean paused) {""",
+    "LandService.setStoragePaused (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {""",
+    "LandService.setStorageFeeOverride (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {""",
+    "LandService.setAccumulatedFees (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setNegotiationDeadline(UUID projectId, String deadlineStr) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void setNegotiationDeadline(UUID projectId, String deadlineStr) {""",
+    "LandService.setNegotiationDeadline (+DIRECTOR)")
+
+patch_file(path,
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public void setBacklogStartOverride(UUID projectId, String startDateStr) {""",
+    """    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void setBacklogStartOverride(UUID projectId, String startDateStr) {""",
+    "LandService.setBacklogStartOverride (+DIRECTOR)")
+
+# ============================================================
+# FRONTEND
+# ============================================================
+
+# ---- App.jsx ----
+path = "erp-frontend/src/App.jsx"
+
+patch_file(path,
+    """    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN')) return <Navigate to="/dashboard" replace />;""",
+    """    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR')) return <Navigate to="/dashboard" replace />;""",
+    "App.jsx adminOnly gate (+DIRECTOR)")
+
+# ---- Sidebar.jsx ----
+path = "erp-frontend/src/components/layout/Sidebar.jsx"
+
+patch_file(path,
+    """    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';""",
+    """    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';""",
+    "Sidebar.jsx hasHighLevelAccess (+DIRECTOR)")
+
+# ---- Dashboard.jsx ----
+path = "erp-frontend/src/pages/Dashboard/Dashboard.jsx"
+
+patch_file(path,
+    """            {user?.isRoot
+                ? <RootTerminal stats={stats} />
+                : <ManagerTerminal stats={stats} />
+            }""",
+    """            {(user?.isRoot || user?.role === 'ROLE_DIRECTOR')
+                ? <RootTerminal stats={stats} />
+                : <ManagerTerminal stats={stats} />
+            }""",
+    "Dashboard.jsx terminal picker (+DIRECTOR sees RootTerminal)")
+
+patch_file(path,
+    """                    <p className={styles.pageSubtitle}>
+                        {user?.isRoot ? 'ROOT OWNER ACCESS' : 'MANAGER ACCESS'}
+                        {' · '}SYSTEM ACTIVE
+                    </p>""",
+    """                    <p className={styles.pageSubtitle}>
+                        {user?.isRoot ? 'ROOT OWNER ACCESS' : user?.role === 'ROLE_DIRECTOR' ? 'DIRECTOR ACCESS' : 'MANAGER ACCESS'}
+                        {' · '}SYSTEM ACTIVE
+                    </p>""",
+    "Dashboard.jsx subtitle label (+DIRECTOR)")
+
+# ---- FolderPage.jsx ----
+path = "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx"
+
+patch_file(path,
+    """    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;""",
+    """    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR' || user?.isRoot;""",
+    "FolderPage.jsx isAdmin (+DIRECTOR)")
+
+# ---- ReportHub.jsx ----
+path = "erp-frontend/src/pages/Reports/ReportHub.jsx"
+
+patch_file(path,
+    """    const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';""",
+    """    const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';""",
+    "ReportHub.jsx hasFinancialAccess (+DIRECTOR)")
 
 print("-" * 60)
 print("DONE. Check for FAIL / MISSING messages above.")
 print("")
-print("If OK, run:")
-print("git add -A && git commit -m 'feat: Phase 3A - role enum foundation' && git push")
+print("If everything shows OK, run:")
+print("git add -A && git commit -m 'feat: Phase 3B - wire ROLE_DIRECTOR into permissions' && git push")
 print("")
-print("IMPORTANT: This patch changes NOTHING about who can access what.")
-print("It only adds two new enum values that nothing checks yet. Safe to")
-print("deploy alongside Phase 2 without retesting Phase 2 behavior.")
-print("")
-print("NEXT: once you're ready to test everything together at the end,")
-print("say 'go on 3B' and I will write the @PreAuthorize + frontend role")
-print("check overhaul as its own dedicated fix.py (per the guide's own")
-print("rule: highest-risk phase, done carefully, not bundled).")
+print("REMINDER:")
+print("  - ROLE_SECRETARY is intentionally still not wired anywhere. It")
+print("    gets wired in correctly during Phase 4 once stage/cost endpoints")
+print("    are separated.")
+print("  - SettingsPage.jsx (the staff dropdown UI) was NOT touched -- I")
+print("    don't have its current content. Please send it so I can add a")
+print("    'Director' option to the role picker as Phase 3C (small, quick).")
+print("    Until then, ROLE_DIRECTOR can only be assigned via a direct API")
+print("    call (Postman), not through the app UI.")

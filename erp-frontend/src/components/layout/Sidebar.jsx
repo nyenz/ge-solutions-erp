@@ -33,7 +33,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
     }, [location.pathname]);
 
     const isLocked           = user?.mustChangePassword;
-    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN';
+    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
     const navItems = [
         { path: '/dashboard',     label: 'DASHBOARD', icon: <FiGrid       aria-hidden="true" />, access: true },

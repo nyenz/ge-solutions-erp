@@ -92,7 +92,7 @@ public class LandService {
     // ─── PAYMENT RECORDING ────────────────────────────────────────────────────
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
@@ -147,7 +147,7 @@ public class LandService {
     // ─── BACKLOG MANAGEMENT ───────────────────────────────────────────────────
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void moveToBacklog(UUID projectId) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -175,7 +175,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void exitBacklog(UUID projectId, boolean capitalizeFees) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -570,7 +570,7 @@ public class LandService {
     // ─── READ METHODS ─────────────────────────────────────────────────────────
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void setStoragePaused(UUID projectId, boolean paused) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -584,7 +584,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -597,7 +597,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -610,7 +610,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void setNegotiationDeadline(UUID projectId, String deadlineStr) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
@@ -636,7 +636,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void setBacklogStartOverride(UUID projectId, String startDateStr) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));

@@ -23,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/land")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class LandController {
 
     private final LandService landService;
@@ -133,14 +133,14 @@ public class LandController {
 
     // NEW: Backlog management
     @PostMapping("/projects/{id}/backlog")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> moveToBacklog(@PathVariable UUID id) {
         landService.moveToBacklog(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/projects/{id}/exit-backlog")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> exitBacklog(@PathVariable UUID id,
                                             @RequestParam(defaultValue = "false") boolean capitalizeFees) {
         landService.exitBacklog(id, capitalizeFees);
@@ -148,7 +148,7 @@ public class LandController {
     }
 
     @PostMapping("/projects/{id}/exit-backlog-capitalize")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> exitBacklogCapitalize(@PathVariable UUID id) {
         landService.exitBacklog(id, true);
         return ResponseEntity.ok().build();
@@ -162,7 +162,7 @@ public class LandController {
 
     // NEW: Pause / resume storage fee accumulation
     @PatchMapping("/projects/{id}/storage-pause")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
                                                    @RequestParam boolean paused) {
         landService.setStoragePaused(id, paused);
@@ -171,7 +171,7 @@ public class LandController {
 
     // NEW: Edit the monthly storage fee rate for this plot
     @PatchMapping("/projects/{id}/storage-rate")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal rate) {
         landService.setStorageFeeOverride(id, rate);
@@ -180,7 +180,7 @@ public class LandController {
 
     // NEW: Directly adjust accumulated storage fees (waive/correct)
     @PatchMapping("/projects/{id}/storage-fees")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal amount) {
         landService.setAccumulatedFees(id, amount);
@@ -189,7 +189,7 @@ public class LandController {
 
     // NEW: Set negotiation deadline (pauses storage fees until this date)
     @PatchMapping("/projects/{id}/negotiation-deadline")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
                                                         @RequestParam(required = false) String deadline) {
         landService.setNegotiationDeadline(id, deadline);
@@ -198,7 +198,7 @@ public class LandController {
 
     // NEW: Set backlog start override date (for late-entered titles)
     @PatchMapping("/projects/{id}/backlog-start")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setBacklogStartOverride(@PathVariable UUID id,
                                                          @RequestParam String startDate) {
         landService.setBacklogStartOverride(id, startDate);
