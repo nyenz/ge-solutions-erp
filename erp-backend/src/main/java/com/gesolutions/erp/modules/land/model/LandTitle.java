@@ -70,6 +70,23 @@ public class LandTitle {
     @Column(name = "project_index", unique = true, length = 10)
     private String projectIndex;
 
+    /**
+     * PROJECT START DATE
+     * The date when the project was initiated/intake was done.
+     * Auto-filled with today's date during intake, but can be edited.
+     */
+    @Column(name = "project_start_date")
+    private LocalDate projectStartDate;
+
+    /**
+     * TITLE ISSUE DATE
+     * The date when the land title was actually issued/received.
+     * Optional field - can be set later when title is received.
+     * Can be backdated to match the actual title issue date.
+     */
+    @Column(name = "title_issue_date")
+    private LocalDate titleIssueDate;
+
     @Column(name = "survey_date")
     private LocalDate surveyDate;
 

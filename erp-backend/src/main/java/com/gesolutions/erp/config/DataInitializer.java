@@ -58,6 +58,10 @@ public class DataInitializer implements CommandLineRunner {
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index)",
+
+            // PHASE 1.5 - DATE TRACKING SYSTEM
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
         };
 
         try (Connection conn = dataSource.getConnection();
