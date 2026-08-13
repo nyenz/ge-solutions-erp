@@ -22,7 +22,6 @@ public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UU
     @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM PaymentRecord p WHERE p.timestamp >= :since")
     BigDecimal sumAllPaymentsSince(LocalDateTime since);
 
-    // For dashboard revenue trend - payments per month
     @Query(value = "SELECT DATE_TRUNC('month', timestamp) as month, SUM(amount_paid) as total " +
                    "FROM payment_records WHERE timestamp >= :since " +
                    "GROUP BY DATE_TRUNC('month', timestamp) ORDER BY month ASC", nativeQuery = true)

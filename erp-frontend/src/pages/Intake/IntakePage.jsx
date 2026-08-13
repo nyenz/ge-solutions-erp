@@ -238,6 +238,7 @@ const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '',
 
 const IntakePage = () => {
     const navigate = useNavigate();
+    const DEFAULT_START_DATE = React.useMemo(() => new Date().toISOString().split('T')[0], []);
     const { toasts, toast, dismissToast } = useToast();
 
     // Unsaved changes guard -- wired below once isDirty is defined
@@ -272,6 +273,8 @@ const IntakePage = () => {
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');
     const [initialStorageFee, setInitialStorageFee] = useState('');
     const [surveyDate,        setSurveyDate]        = useState('');
+    const [projectStartDate,  setProjectStartDate]  = useState(() => new Date().toISOString().split('T')[0]);
+    const [titleIssueDate,    setTitleIssueDate]    = useState('');
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
@@ -301,6 +304,8 @@ const IntakePage = () => {
         if (monthlyStorageFee !== '50000') return true;
         if (initialStorageFee !== '') return true;
         if (surveyDate !== '') return true;
+        if (titleIssueDate !== '') return true;
+        if (projectStartDate !== DEFAULT_START_DATE) return true;
         if (fileQueue.length > 0) return true;
         if (notesList.length > 0) return true;
         if (owners.some(o =>
@@ -371,6 +376,8 @@ const IntakePage = () => {
                 initialPayment: Number(initialPayment) || 0,
                 isStartAsBacklog: isBacklog,
                 surveyDate: surveyDate || undefined,
+                projectStartDate: projectStartDate || undefined,
+                titleIssueDate: titleIssueDate || undefined,
                 isLegacy: false,
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -426,6 +433,8 @@ const IntakePage = () => {
                 monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
                 initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
                 surveyDate: surveyDate || undefined,
+                projectStartDate: projectStartDate || undefined,
+                titleIssueDate: titleIssueDate || undefined,
                 isLegacy: false, // Always false for new plots - legacy is a historical flag only
                 owners: owners.map(o => ({
                     fullName:   o.fullName.trim().toUpperCase(),
@@ -523,6 +532,26 @@ const IntakePage = () => {
                                     onChange={e => setVolume(e.target.value.replace(/\D/g,''))} />
                                 <SmartInput label="FOLIO" value={folio} inputMode="numeric"
                                     onChange={e => setFolio(e.target.value.replace(/\D/g,''))} />
+                            </div>
+                            <div className={styles.grid2}>
+                                <div className={styles.inputWrap}>
+                                    <div className={styles.labelRow}>
+                                        <label className={styles.fieldLabel}>PROJECT START DATE</label>
+                                    </div>
+                                    <input type="date" className={styles.hwInput}
+                                        value={projectStartDate}
+                                        onChange={e => setProjectStartDate(e.target.value)} />
+                                    <span className={styles.fieldHint}>Auto-filled with today. Edit if the project actually started earlier.</span>
+                                </div>
+                                <div className={styles.inputWrap}>
+                                    <div className={styles.labelRow}>
+                                        <label className={styles.fieldLabel}>TITLE ISSUE DATE (OPTIONAL)</label>
+                                    </div>
+                                    <input type="date" className={styles.hwInput}
+                                        value={titleIssueDate}
+                                        onChange={e => setTitleIssueDate(e.target.value)} />
+                                    <span className={styles.fieldHint}>Leave blank if not yet received. Can be backdated.</span>
+                                </div>
                             </div>
                         </div>
                     </div>

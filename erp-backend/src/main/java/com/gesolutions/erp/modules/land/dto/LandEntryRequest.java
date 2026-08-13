@@ -27,8 +27,6 @@ public class LandEntryRequest {
     private LocalDate surveyDate;
     private LocalDate projectStartDate;
     private LocalDate titleIssueDate;
-    private LocalDate projectStartDate;
-    private LocalDate titleIssueDate;
 
     @Builder.Default
     private List<OwnerRequest> owners = new ArrayList<>();
@@ -36,7 +34,7 @@ public class LandEntryRequest {
     private BigDecimal totalCost;
     private BigDecimal initialPayment;
 
-    // Legacy fields — kept to avoid breaking existing data, no longer used in new logic
+    // Legacy fields -- kept to avoid breaking existing data, no longer used in new logic
     private BigDecimal weeklyInstallment;
     private String planType;
 
@@ -48,7 +46,7 @@ public class LandEntryRequest {
     @JsonProperty("isLegacy")
     private boolean isLegacy;
 
-    // NEW: Staff can flag a plot as backlog right at intake (for old/existing cases)
+    // Staff can flag a plot as backlog right at intake (for old/existing cases)
     @JsonProperty("isStartAsBacklog")
     private boolean isStartAsBacklog;
 
