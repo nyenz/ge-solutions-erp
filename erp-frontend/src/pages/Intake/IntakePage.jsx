@@ -767,6 +767,96 @@ const IntakePage = () => {
                     </div>
                 </div>
 
+                {/* ── STAGES (Phase 4B) ── */}
+                <div className={styles.hwPanel}>
+                    <DrawerHeader label="STAGES" isOpen={drawers.stages} onClick={() => toggleDrawer('stages')}
+                        icon={FiCheckSquare} badge={selectedStageCount || undefined} />
+                    <div className={`${styles.panelBody} ${drawers.stages ? styles.bodyOpen : styles.bodyClosed}`}>
+                        <div className={styles.panelInner}>
+                            <div style={{ marginBottom: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 11,
+                                fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+                                Optional -- pick which stages apply to this plot. Costs default from the master
+                                checklist and can be edited per plot. You can also add stages later from the folder.
+                            </div>
+                            {stageTemplates.map(t => {
+                                const checked = !!checkedStages[t.id];
+                                return (
+                                    <div key={t.id} style={{ marginBottom: 8 }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                                            fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 800, color: '#fff' }}>
+                                            <input type="checkbox" checked={checked}
+                                                onChange={e => setCheckedStages(prev => ({ ...prev, [t.id]: e.target.checked }))}
+                                                style={{ width: 17, height: 17 }} />
+                                            <span style={{ flex: 1 }}>{t.stageName}</span>
+                                        </label>
+                                        {checked && (
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 6, marginLeft: 27, flexWrap: 'wrap' }}>
+                                                <input type="number"
+                                                    value={stageCosts[t.id] !== undefined ? stageCosts[t.id] : String(t.defaultCost || 0)}
+                                                    onChange={e => setStageCosts(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                                    placeholder="Cost (UGX)"
+                                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                                        padding: '7px 10px', fontFamily: "'Space Mono',monospace", fontWeight: 700,
+                                                        fontSize: 12, color: '#1a2e30', width: 140 }} />
+                                                <input type="text"
+                                                    value={stageNotes[t.id] || ''}
+                                                    onChange={e => setStageNotes(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                                    placeholder="Notes (optional)"
+                                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                                        padding: '7px 10px', fontFamily: "'DM Sans',sans-serif", fontWeight: 700,
+                                                        fontSize: 12, color: '#1a2e30', flex: 1, minWidth: 140 }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {customStages.length > 0 && (
+                                <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                                    {customStages.map((cs, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <span style={{ flex: 1, fontFamily: "'DM Sans',sans-serif", fontSize: 12,
+                                                fontWeight: 800, color: '#EE8C3A' }}>{cs.name}</span>
+                                            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11,
+                                                color: 'rgba(255,255,255,0.5)' }}>UGX {Number(cs.cost || 0).toLocaleString()}</span>
+                                            <button type="button" onClick={() => setCustomStages(prev => prev.filter((_, j) => j !== i))}
+                                                style={{ background: 'transparent', border: 'none', color: '#ef4444',
+                                                    cursor: 'pointer', fontSize: 14, padding: 4 }}>
+                                                <FiX />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                                <input type="text" value={newCustomName} onChange={e => setNewCustomName(e.target.value)}
+                                    placeholder="Custom stage name"
+                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                        padding: '8px 12px', fontFamily: "'DM Sans',sans-serif", fontWeight: 700,
+                                        fontSize: 12, color: '#1a2e30', flex: 1, minWidth: 160 }} />
+                                <input type="number" value={newCustomCost} onChange={e => setNewCustomCost(e.target.value)}
+                                    placeholder="Cost"
+                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                        padding: '8px 12px', fontFamily: "'Space Mono',monospace", fontWeight: 700,
+                                        fontSize: 12, color: '#1a2e30', width: 120 }} />
+                                <button type="button" onClick={() => {
+                                        if (!newCustomName.trim()) return;
+                                        setCustomStages(prev => [...prev, { name: newCustomName.trim(), cost: Number(newCustomCost) || 0 }]);
+                                        setNewCustomName('');
+                                        setNewCustomCost('');
+                                    }}
+                                    style={{ background: 'rgba(238,140,58,0.15)', border: '1.5px solid rgba(238,140,58,0.4)',
+                                        color: '#EE8C3A', borderRadius: 6, padding: '8px 16px', fontFamily: "'DM Sans',sans-serif",
+                                        fontWeight: 900, fontSize: 11, textTransform: 'uppercase', cursor: 'pointer',
+                                        whiteSpace: 'nowrap' }}>
+                                    + ADD
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* ── DOCUMENTS ── */}
                 <div className={styles.splitGrid}>
                     <div className={styles.hwPanel}>
