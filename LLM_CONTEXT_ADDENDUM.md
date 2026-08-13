@@ -23,71 +23,37 @@ confirmation and should be cleared out at the next opportunity.
 
 ---
 
-## PERMANENT RULE CHANGE THIS SESSION (now moved to guide Section 3 -- not repeated here)
+## CURRENT STATUS: REVAMP PHASE 5 -- FINANCIALS MODULE (COMPANY COSTS)
 
-Two fix.py workflow rules were confirmed as permanent this session and written directly into
-Section 3 of LLM_CONTEXT_GUIDE.md (per the exception process already established for Section 17):
+APPLIED (fix.py generated this session, not yet run/pushed by David). Shipped as ONE complete
+fix.py per the permanent Section 3 rule -- backend (model, repository, service, controller) and
+frontend (service, page, route, nav link) all in the same fix.py.
 
-1. Each phase ships as ONE complete fix.py covering the entire phase -- no more splitting a
-   single phase into 4A/4B/4C-style sub-parts.
-2. Testing happens only after ALL planned phases in the current rebuild are code-complete --
-   never after each individual phase.
+What this phase adds:
+- Backend: `CompanyExpense` model (new `finance` module), repository, service, and controller
+  at `/api/v1/finance/company-expenses`, restricted to ROLE_ADMIN and ROLE_DIRECTOR only
+  (Manager and Secretary have no access, per Section 17.7's role table).
+- Uses the same "total committed vs amount paid" pattern already used for client debt
+  (LandProject.totalCost / amountPaid), so committed-but-unpaid company costs are visible
+  separately from cash actually paid out.
+- Category is free-form text (not an enum) with a `/categories` endpoint returning distinct
+  past categories, consumed via a `<datalist>` autocomplete on the frontend -- same idea as
+  predictionService's district/county suggestions on Intake, but server-backed instead of
+  localStorage-backed since expense categories should be shared across staff, not per-browser.
+- Frontend: new `CompanyExpensesPage` at `/financials`, new sidebar link "COMPANY COSTS"
+  (visible only to Admin/Director/Root, same `hasHighLevelAccess` gate as Payments/Reports).
+- Company costs are completely separate and unlinked from any LandProject -- no foreign key,
+  no shared totals, per Section 17.8.
+- Table is auto-created by Hibernate (`ddl-auto=update`) from the new `@Entity` -- no manual
+  DataInitializer migration was needed, consistent with how prior new entities were added.
 
-This replaces the old "TESTING APPROACH CHANGE (August 2026)" note that was previously here.
-That note is now fully superseded and has been removed from this file -- the rule it described
-is now the permanent, standing process (see guide Section 3), not a one-off session decision.
+Deferred testing per the permanent rule in Section 3 -- David's test plan (sidebar visibility
+by role, add a cost entry, autocomplete on repeat category, summary cards update correctly,
+partial payment reduces outstanding balance correctly, Manager login redirected away from
+`/financials`) will be run as part of the single end-to-end pass once Phase 7 is code-complete.
 
----
+**Next phase queued: Phase 6 -- Legacy Receivables Entry Mode.** Per the permanent rule, this
+will ship as ONE complete fix.py covering the full phase. Written only when David explicitly
+says to proceed.
 
-## CURRENT STATUS: REVAMP PHASE 1 -- PROJECT INDEX SYSTEM
-
-APPLIED AND PUSHED. Deferred testing per the permanent rule above -- will be tested together
-with all other phases once Phase 7 is code-complete, not before.
-
----
-
-## CURRENT STATUS: REVAMP PHASE 2 -- NIN-BASED IDENTITY
-
-CODE COMPLETE, APPLIED AND PUSHED. Deferred testing per the permanent rule above.
-
----
-
-## CURRENT STATUS: REVAMP PHASE 3 -- 4-TIER ROLE SYSTEM (3A + 3B + 3C)
-
-APPLIED AND PUSHED (all three sub-parts). Deferred testing per the permanent rule above.
-
-Known limitation (flagged, not fixed): the promote/demote arrow button on each operator card
-only toggles between ROLE_ADMIN and ROLE_MANAGER. If clicked on an existing ROLE_DIRECTOR
-account, it will demote them to ROLE_ADMIN. A proper 3+ tier rank selector was out of scope for
-that patch. Can be a small standalone fix.py later, or folded into a future governance UI pass.
-
----
-
-## CURRENT STATUS: REVAMP PHASE 4 -- STAGE TEMPLATE SYSTEM (BACKEND + FRONTEND)
-
-APPLIED AND PUSHED, including this session's correction patch (commit `be47aa1`) which
-inserted the STAGES panel into IntakePage.jsx between FINANCIALS and DOCUMENTS -- the one
-piece that was missing after the original patch's anchor mismatch. That patch showed OK
-against the confirmed real file content, so it landed correctly.
-
-What is now live end-to-end:
-- Backend: `StageTemplate` / `ProjectStage` models, master template CRUD, per-project stage
-  attach/toggle-complete/edit-cost/remove, default 6 stages seeded once on startup.
-- Frontend: IntakePage STAGES panel (checkbox list + custom stage "+" add), FolderPage STAGE
-  CHECKLIST panel (view/edit/add stages on an existing plot).
-- The OLD hardcoded 5-stage pipeline dots on FolderPage remain untouched and working exactly
-  as before -- the two systems intentionally coexist for now (see Section 17.5 / 17.10 in the
-  guide for the reasoning).
-
-Deferred testing per the permanent rule above -- David's test plan (check STAGES panel appears
-on New Plot, check 2 stages + add a custom one, submit, confirm STAGE CHECKLIST shows them on
-the folder page, confirm old pipeline dots still work) will be run as part of the single
-end-to-end pass once Phase 7 is code-complete.
-
-**Next phase queued: Phase 5 -- Financials Module (Company Costs).** Per the new permanent
-rule, this will ship as ONE complete fix.py covering the full phase (backend models, service,
-controller, and frontend page/service together) -- not split into parts. Written only when
-David explicitly says to proceed.
-
-**Remaining phases after 5:** Phase 6 (Legacy Receivables), Phase 7 (Director Dashboard) --
-neither started yet.
+**Remaining phases after 6:** Phase 7 (Director Dashboard) -- not started yet.

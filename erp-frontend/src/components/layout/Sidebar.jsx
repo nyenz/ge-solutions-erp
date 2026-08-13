@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
-    FiSettings, FiBarChart2, FiShield, FiDollarSign
+    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import styles from './Sidebar.module.css';
@@ -41,6 +41,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/land/projects', label: 'LEDGER',    icon: <FiLayers     aria-hidden="true" />, access: true },
         { path: '/recovery',      label: 'RECOVERY',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },
         { path: '/payments',      label: 'PAYMENTS',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },
+        { path: '/financials',    label: 'COMPANY COSTS', icon: <FiTrendingDown aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/reports',       label: 'REPORTS',   icon: <FiBarChart2  aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/audit',         label: 'AUDIT',     icon: <FiShield     aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/settings',      label: 'SETTINGS',  icon: <FiSettings   aria-hidden="true" />, access: true },
