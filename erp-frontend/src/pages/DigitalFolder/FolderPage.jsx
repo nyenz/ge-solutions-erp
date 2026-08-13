@@ -13,6 +13,7 @@ import {
     FiDollarSign, FiActivity, FiHome, FiArchive
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import stageTemplateService from '../../services/stageTemplateService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
@@ -437,6 +438,262 @@ const BacklogFeeControls = ({ project, projectId, onRefresh, toast }) => {
     );
 };
 
+const StageChecklistPanel = ({ projectId, isEditing, isAdmin, toast }) => {
+    const [stages, setStages] = useState([]);
+    const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [addModalOpen, setAddModalOpen] = useState(false);
+    const [checkedTemplates, setCheckedTemplates] = useState({});
+    const [customName, setCustomName] = useState('');
+    const [customCost, setCustomCost] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editCost, setEditCost] = useState('');
+    const [editNotes, setEditNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const loadStages = useCallback(async () => {
+        try {
+            const data = await stageTemplateService.getProjectStages(projectId);
+            setStages(data || []);
+        } catch { /* silent */ }
+        finally { setLoading(false); }
+    }, [projectId]);
+
+    useEffect(() => { loadStages(); }, [loadStages]);
+
+    const openAddModal = async () => {
+        try {
+            const t = await stageTemplateService.getTemplate();
+            setTemplates(t || []);
+        } catch { setTemplates([]); }
+        setCheckedTemplates({});
+        setCustomName('');
+        setCustomCost('');
+        setAddModalOpen(true);
+    };
+
+    const handleAttach = async () => {
+        const requests = [];
+        templates.forEach(t => {
+            if (checkedTemplates[t.id]) {
+                requests.push({ stageTemplateId: t.id, cost: t.defaultCost, isCustom: false });
+            }
+        });
+        if (customName.trim()) {
+            requests.push({
+                stageName: customName.trim(),
+                cost: Number(customCost) || 0,
+                isCustom: true,
+            });
+        }
+        if (requests.length === 0) {
+            toast && toast('Select at least one stage', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            await stageTemplateService.attachStages(projectId, requests);
+            await loadStages();
+            setAddModalOpen(false);
+            toast && toast('Stage(s) added', 'success');
+        } catch {
+            toast && toast('Failed to add stage(s)', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleToggleComplete = async (stage) => {
+        try {
+            await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted);
+            await loadStages();
+        } catch { toast && toast('Failed to update stage', 'error'); }
+    };
+
+    const startEdit = (stage) => {
+        setEditingId(stage.id);
+        setEditCost(String(stage.cost || 0));
+        setEditNotes(stage.notes || '');
+    };
+
+    const saveEdit = async (stageId) => {
+        try {
+            await stageTemplateService.updateStageCost(projectId, stageId, Number(editCost) || 0, editNotes);
+            setEditingId(null);
+            await loadStages();
+            toast && toast('Stage updated', 'success');
+        } catch { toast && toast('Failed to save stage', 'error'); }
+    };
+
+    const handleRemove = async (stageId) => {
+        try {
+            await stageTemplateService.removeStage(projectId, stageId);
+            await loadStages();
+            toast && toast('Stage removed', 'warn');
+        } catch { toast && toast('Failed to remove stage', 'error'); }
+    };
+
+    const rowStyle = (completed) => ({
+        display: 'flex', alignItems: 'center', gap: 12,
+        background: completed ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.04)',
+        border: '1px solid ' + (completed ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'),
+        borderRadius: 7, padding: '10px 14px', marginBottom: 8,
+    });
+
+    if (loading) return null;
+
+    return (
+        <div style={{ marginTop: 4 }}>
+            {stages.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,0.25)',
+                    fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 900,
+                    letterSpacing: 2, textTransform: 'uppercase' }}>
+                    NO STAGES ATTACHED YET
+                </div>
+            )}
+            {stages.map(stage => (
+                <div key={stage.id} style={rowStyle(stage.isCompleted)}>
+                    <input
+                        type="checkbox"
+                        checked={!!stage.isCompleted}
+                        onChange={() => handleToggleComplete(stage)}
+                        disabled={!isEditing}
+                        style={{ width: 18, height: 18, flexShrink: 0, cursor: isEditing ? 'pointer' : 'default' }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <strong style={{
+                                fontFamily: "'DM Sans',sans-serif", fontWeight: 900, fontSize: 13,
+                                color: stage.isCompleted ? '#6ee7b7' : '#fff', textTransform: 'uppercase',
+                                textDecoration: stage.isCompleted ? 'line-through' : 'none',
+                            }}>{stage.stageName}</strong>
+                            {stage.isCustom && (
+                                <span style={{ fontSize: 8, fontWeight: 900, color: '#EE8C3A',
+                                    background: 'rgba(238,140,58,0.15)', padding: '2px 6px', borderRadius: 3,
+                                    textTransform: 'uppercase', letterSpacing: 1 }}>CUSTOM</span>
+                            )}
+                        </div>
+                        {editingId === stage.id ? (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                                <input type="number" value={editCost} onChange={e => setEditCost(e.target.value)}
+                                    placeholder="Cost"
+                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                        padding: '6px 10px', fontFamily: "'Space Mono',monospace", fontWeight: 700,
+                                        fontSize: 12, color: '#1a2e30', width: 120 }} />
+                                <input type="text" value={editNotes} onChange={e => setEditNotes(e.target.value)}
+                                    placeholder="Notes"
+                                    style={{ background: '#fff', border: '1.5px solid #c8d6d7', borderRadius: 6,
+                                        padding: '6px 10px', fontFamily: "'DM Sans',sans-serif", fontWeight: 700,
+                                        fontSize: 12, color: '#1a2e30', flex: 1, minWidth: 140 }} />
+                                <button onClick={() => saveEdit(stage.id)}
+                                    style={{ background: '#EE8C3A', border: 'none', borderRadius: 6, padding: '6px 12px',
+                                        fontFamily: "'DM Sans',sans-serif", fontWeight: 900, fontSize: 10,
+                                        textTransform: 'uppercase', color: '#1a2e30', cursor: 'pointer' }}>SAVE</button>
+                                <button onClick={() => setEditingId(null)}
+                                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)',
+                                        borderRadius: 6, padding: '6px 12px', fontFamily: "'DM Sans',sans-serif",
+                                        fontWeight: 900, fontSize: 10, textTransform: 'uppercase', color: '#fff',
+                                        cursor: 'pointer' }}>CANCEL</button>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', gap: 14, marginTop: 4, flexWrap: 'wrap' }}>
+                                <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700,
+                                    color: 'rgba(255,255,255,0.6)' }}>UGX {Number(stage.cost || 0).toLocaleString()}</span>
+                                {stage.notes && (
+                                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600,
+                                        color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>{stage.notes}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    {isEditing && editingId !== stage.id && (
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => startEdit(stage)} title="Edit cost/notes"
+                                style={{ background: 'transparent', border: 'none', color: '#EE8C3A', cursor: 'pointer',
+                                    fontSize: 15, padding: 4 }}>
+                                <FiEdit3 />
+                            </button>
+                            {isAdmin && (
+                                <button onClick={() => handleRemove(stage.id)} title="Remove stage"
+                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer',
+                                        fontSize: 15, padding: 4 }}>
+                                    <FiTrash2 />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            ))}
+
+            {isEditing && (
+                <button type="button" onClick={openAddModal}
+                    style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'rgba(238,140,58,0.06)',
+                        border: '2px dashed rgba(238,140,58,0.4)', borderRadius: 7, color: '#EE8C3A',
+                        fontFamily: "'DM Sans',sans-serif", fontWeight: 900, fontSize: 11, textTransform: 'uppercase',
+                        letterSpacing: 1, cursor: 'pointer' }}>
+                    + ADD STAGE
+                </button>
+            )}
+
+            <HardwareModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title="ADD STAGE(S)">
+                <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900,
+                        color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                        FROM MASTER CHECKLIST
+                    </div>
+                    {templates.length === 0 && (
+                        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontFamily: "'DM Sans',sans-serif" }}>
+                            No template stages available.
+                        </div>
+                    )}
+                    {templates.map(t => (
+                        <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0',
+                            cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                            <input type="checkbox" checked={!!checkedTemplates[t.id]}
+                                onChange={e => setCheckedTemplates(prev => ({ ...prev, [t.id]: e.target.checked }))}
+                                style={{ width: 16, height: 16 }} />
+                            <span style={{ flex: 1 }}>{t.stageName}</span>
+                            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                                UGX {Number(t.defaultCost || 0).toLocaleString()}
+                            </span>
+                        </label>
+                    ))}
+                </div>
+                <div style={{ marginBottom: 14, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900,
+                        color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                        OR ADD A CUSTOM STAGE
+                    </div>
+                    <input type="text" value={customName} onChange={e => setCustomName(e.target.value)}
+                        placeholder="Custom stage name"
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.07)',
+                            border: '1.5px solid rgba(255,255,255,0.18)', borderRadius: 8, padding: '10px 12px',
+                            color: '#fff', fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: 13,
+                            marginBottom: 8 }} />
+                    <input type="number" value={customCost} onChange={e => setCustomCost(e.target.value)}
+                        placeholder="Cost (UGX)"
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.07)',
+                            border: '1.5px solid rgba(255,255,255,0.18)', borderRadius: 8, padding: '10px 12px',
+                            color: '#fff', fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 13 }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    <button onClick={() => setAddModalOpen(false)}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1.5px solid rgba(255,255,255,0.2)',
+                            color: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '10px 18px',
+                            fontFamily: "'DM Sans',sans-serif", fontWeight: 900, fontSize: 11, textTransform: 'uppercase',
+                            cursor: 'pointer' }}>CANCEL</button>
+                    <button onClick={handleAttach} disabled={saving}
+                        style={{ background: '#EE8C3A', border: 'none', color: '#1a2e30', borderRadius: 8,
+                            padding: '10px 20px', fontFamily: "'DM Sans',sans-serif", fontWeight: 900, fontSize: 11,
+                            textTransform: 'uppercase', cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                        {saving ? 'SAVING...' : 'ADD SELECTED'}
+                    </button>
+                </div>
+            </HardwareModal>
+        </div>
+    );
+};
+
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -471,7 +728,7 @@ const FolderPage = () => {
     const [paying,          setPaying]          = useState(false);
     const [exitBacklogModal, setExitBacklogModal] = useState(false);
 
-    const [drawers, setDrawers] = useState({ overview: true, balance: true, backlog: true, history: true, notes: true, owners: true, docs: true });
+    const [drawers, setDrawers] = useState({ overview: true, balance: true, backlog: true, history: true, notes: true, owners: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -1100,6 +1357,24 @@ const FolderPage = () => {
                                     ))}
                                 </div>
                             )}
+                        </div>
+                        </div>
+                </section>
+
+                {/* STAGE CHECKLIST (Phase 4B, additive -- flexible stage list from ProjectStage)
+                    NOTE: separate from the pipeline dots above (COMMITMENT/FIELD WORK/etc),
+                    which are the older fixed 5-stage system used by Dashboard and Ledger
+                    sorting. Both systems coexist for now -- see fix.py header comment. */}
+                <section
+                    className={styles.hwPanel}
+                    aria-label="Stage Checklist"
+                    style={activeTab !== 'OVERVIEW' ? {display:'none'} : {}}
+                    data-print-section="STAGES"
+                >
+                        <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
+                        <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}>
+                        <div className={styles.panelInner}>
+                            <StageChecklistPanel projectId={id} isEditing={isEditing} isAdmin={isAdmin} toast={toast} />
                         </div>
                         </div>
                 </section>

@@ -112,7 +112,10 @@ NOT YET CONFIRMED -- part of the deferred end-of-all-phases test pass.
 
 ## CURRENT STATUS: REVAMP PHASE 4A -- STAGE TEMPLATE BACKEND FOUNDATION
 
-CODE WRITTEN, NOT YET APPLIED. David has not run fix.py for this phase yet.
+APPLIED AND PUSHED (commit `64dff63`). fix.py ran clean -- every patch
+showed OK, no MISSING/FAIL. David has run this, committed, and pushed.
+**Deploy not yet confirmed** -- waiting on Render green tick and the
+test plan below.
 
 Adds (all additive, backend only):
 - `StageTemplate.java` / `ProjectStage.java` models (new tables, created
@@ -145,6 +148,24 @@ project.
 
 ROLE_SECRETARY still not wired into any `@PreAuthorize` check anywhere,
 consistent with the standing decision from Phase 3A/3B.
+
+**TEST PLAN (once Render shows green):**
+1. Check Render logs for `>>> [STAGE_TEMPLATE] Seeded 6 default stages.`
+   (only appears once, on first startup after this deploy)
+2. Via Postman: GET `/api/v1/stage-templates` -- should return the 6
+   default stages, all with defaultCost 0.
+3. Via Postman: POST `/api/v1/land/projects/{existingProjectId}/stages`
+   with a body like:
+   `[{"stageTemplateId": "<uuid from step 2>", "cost": 50000, "notes": "test"}]`
+   Then GET `/api/v1/land/projects/{projectId}/stages` to confirm it saved.
+4. Confirm existing intake (IntakePage -> New Plot) still works exactly
+   as before -- selectedStages is optional and unused by the current
+   frontend, so this should be invisible.
+
+Per the deferred testing plan, this stays unconfirmed until David runs the
+full end-of-all-phases test pass -- but flag back here if Render deploy
+itself fails or throws errors, since that's a deploy-health issue, not a
+"did the feature work as designed" issue.
 
 **Next phase queued: Phase 4B -- Stage Template UI (Intake + FolderPage).**
 Will build the checkbox + "+" custom-stage picker on Intake, per-stage

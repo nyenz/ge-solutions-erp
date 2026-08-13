@@ -12,6 +12,7 @@ import landService from '../../services/landService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import predictionService from '../../services/predictionService';
+import stageTemplateService from '../../services/stageTemplateService';
 import clientService from '../../services/clientService';
 import styles from './IntakePage.module.css';
 
@@ -247,7 +248,7 @@ const IntakePage = () => {
     const { confirmState: noteConfirmState, confirm: confirmNote, handleAnswer: handleNoteAnswer } = useIntakeConfirm();
 
     const [saving, setSaving] = useState(false);
-    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, docs: false, notes: false });
+    const [drawers, setDrawers] = useState({ plot: true, owners: true, finance: true, stages: true, docs: false, notes: false });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
     const [errors, setErrors] = useState({});
@@ -276,6 +277,15 @@ const IntakePage = () => {
     const [surveyDate,        setSurveyDate]        = useState('');
     const [projectStartDate,  setProjectStartDate]  = useState(() => new Date().toISOString().split('T')[0]);
     const [titleIssueDate,    setTitleIssueDate]    = useState('');
+
+    // Stages (Phase 4B)
+    const [stageTemplates, setStageTemplates] = useState([]);
+    const [checkedStages,  setCheckedStages]  = useState({});
+    const [stageCosts,     setStageCosts]     = useState({});
+    const [stageNotes,     setStageNotes]     = useState({});
+    const [customStages,   setCustomStages]   = useState([]);
+    const [newCustomName,  setNewCustomName]  = useState('');
+    const [newCustomCost,  setNewCustomCost]  = useState('');
 
     // Docs & notes
     const [fileQueue,    setFileQueue]    = useState([]);
@@ -337,6 +347,13 @@ const IntakePage = () => {
 
     const sg = key => predictionService.getSuggestions(key) || [];
 
+    // Load the master stage checklist once on mount (Phase 4B)
+    useEffect(() => {
+        stageTemplateService.getTemplate()
+            .then(data => setStageTemplates(data || []))
+            .catch(() => {});
+    }, []);
+
     const validate = () => {
         const e = {};
         if (!plotNumber.trim())        e.plotNumber = 'Required';
@@ -389,6 +406,19 @@ const IntakePage = () => {
                     address:    o.address.trim(),
                 })),
                 notes: notesList.map(n => ({ content: n })),
+                selectedStages: [
+                    ...Object.entries(checkedStages).filter(([, v]) => v).map(([tid]) => ({
+                        stageTemplateId: tid,
+                        cost: stageCosts[tid] !== undefined ? Number(stageCosts[tid]) : undefined,
+                        notes: stageNotes[tid] || undefined,
+                        isCustom: false,
+                    })),
+                    ...customStages.map(cs => ({
+                        stageName: cs.name,
+                        cost: Number(cs.cost) || 0,
+                        isCustom: true,
+                    })),
+                ],
             };
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
@@ -446,6 +476,19 @@ const IntakePage = () => {
                     address:    o.address.trim(),
                 })),
                 notes: notesList.map(n => ({ content: n })),
+                selectedStages: [
+                    ...Object.entries(checkedStages).filter(([, v]) => v).map(([tid]) => ({
+                        stageTemplateId: tid,
+                        cost: stageCosts[tid] !== undefined ? Number(stageCosts[tid]) : undefined,
+                        notes: stageNotes[tid] || undefined,
+                        isCustom: false,
+                    })),
+                    ...customStages.map(cs => ({
+                        stageName: cs.name,
+                        cost: Number(cs.cost) || 0,
+                        isCustom: true,
+                    })),
+                ],
             };
             predictionService.learn(payload);
             await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
@@ -516,6 +559,7 @@ const IntakePage = () => {
     };
 
     const arrears = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+    const selectedStageCount = Object.values(checkedStages).filter(Boolean).length + customStages.length;
 
     return (
         <div className={styles.container}>
