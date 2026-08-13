@@ -37,6 +37,7 @@ public class LandService {
     private final AuditService auditService;
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
+    private final StageTemplateService stageTemplateService;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -292,6 +293,10 @@ public class LandService {
             paymentRecordRepository.save(initialRecord);
             saved.setLastPaymentDate(LocalDateTime.now());
             projectRepository.save(saved);
+        }
+
+        if (request.getSelectedStages() != null && !request.getSelectedStages().isEmpty()) {
+            stageTemplateService.attachStagesToProject(saved.getId(), request.getSelectedStages());
         }
 
         if (scans != null) addScansToProject(saved.getId(), scans);

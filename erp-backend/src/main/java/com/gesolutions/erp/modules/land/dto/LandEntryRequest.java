@@ -53,6 +53,12 @@ public class LandEntryRequest {
     private java.math.BigDecimal monthlyStorageFee;
     private java.math.BigDecimal initialStorageFee;
 
+    // PHASE 4: Optional stage checklist selected at intake. If omitted,
+    // no stages are attached and staff can add them later from the
+    // Folder page once Phase 4B ships.
+    @Builder.Default
+    private List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> selectedStages = new ArrayList<>();
+
     @Data
     @Builder
     @NoArgsConstructor

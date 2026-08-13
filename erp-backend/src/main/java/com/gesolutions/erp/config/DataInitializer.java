@@ -4,6 +4,7 @@ package com.gesolutions.erp.config;
 import com.gesolutions.erp.modules.auth.model.Role;
 import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
+import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +24,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DataSource dataSource;
+    private final StageTemplateService stageTemplateService;
 
     @Value("${ADMIN_EMAIL}")
     private String adminEmail;
@@ -39,6 +41,9 @@ public class DataInitializer implements CommandLineRunner {
 
         // Seed root user if missing
         seedRootUser();
+
+        // PHASE 4: Seed the default stage template checklist if empty
+        stageTemplateService.seedDefaultStagesIfEmpty();
 
         System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");
     }
