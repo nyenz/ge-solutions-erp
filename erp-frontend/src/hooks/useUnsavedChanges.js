@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/hooks/useUnsavedChanges.js
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useBlocker } from 'react-router-dom';
 
 /**
@@ -17,7 +17,7 @@ const useUnsavedChanges = (isDirty, context = 'this form') => {
         ({ currentLocation, nextLocation }) =>
             isDirty && currentLocation.pathname !== nextLocation.pathname
     );
-
+    
     // beforeunload — tab close, hard refresh, browser-level back to external
     useEffect(() => {
         if (!isDirty) return;

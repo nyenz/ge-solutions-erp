@@ -781,7 +781,7 @@ const FolderPage = () => {
         } else {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [id]);
+    }, [id, isAdmin]);
 
 
 
@@ -810,8 +810,7 @@ const FolderPage = () => {
                 setPayModal({ open: true });
             }, 400);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.search, binder]);
+    }, [location.search, binder, isAdmin]);
 
 
 
@@ -1127,8 +1126,6 @@ const FolderPage = () => {
     const storageFees         = Number(project?.storageFeesAccumulated || 0);
     const backlogAmountOwed   = Math.max(0, totalValue + storageFees - amountPaid);
     const activeAmountOwed    = Math.max(0, totalValue - amountPaid);
-    const backlogOwed         = backlogAmountOwed; // alias
-    const activeOwed          = activeAmountOwed;  // alias
     const amountOwed          = isBacklog ? backlogAmountOwed : activeAmountOwed;
     const remaining           = amountOwed; // alias
     const arrearsEdit         = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
