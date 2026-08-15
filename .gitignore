@@ -1,25 +1,137 @@
-# UPLOAD FOLDERS - never commit uploaded files
-infra/ge_uploads/
-erp-backend/ge_uploads/
+```
+# Dependencies
+node_modules/
+target/
 
-# DATABASE FILES - never commit local database
-infra/postgres_data/
-
-# BUILD FOLDERS - auto generated, not needed in git
-erp-backend/target/
-erp-frontend/dist/
-erp-frontend/node_modules/
-
-# SECRET FILES
+# Environment
 .env
 .env.local
+*.env.*
 
-# IDE FILES
+# Editors
 .vscode/
 .idea/
 
-# LOGS
+# Logs
 *.log
 
-# OLD BACKUP FILES
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+jspm_packages/
+web_modules/
+lib-cov/
+*.lcov
+coverage/
+.nyc_output
+.grunt
+bower_components/
+.sass-cache
+connect.lock
+.urlnr
+jspm_packages/
+config.rb
+*.gem
+.rbc
+vendor/bundle/
+vendor/cache/
+vendor/gems/
+vendor/ruby/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# C/C++
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+*.obj
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
 *.zip
+*.tar
+*.gz
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+
+# System files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.swo
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
