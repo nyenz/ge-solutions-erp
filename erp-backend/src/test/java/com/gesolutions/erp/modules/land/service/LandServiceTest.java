@@ -20,16 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest(properties = {
-    "SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
-    "SPRING_DATASOURCE_USERNAME=sa",
-    "SPRING_DATASOURCE_PASSWORD=",
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
     "spring.jpa.hibernate.ddl-auto=update",
     "spring.datasource.driver-class-name=org.h2.Driver",
-    "JWT_SECRET=YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
-    "CLOUDINARY_CLOUD_NAME=test",
-    "CLOUDINARY_API_KEY=test",
-    "CLOUDINARY_API_SECRET=test",
+    "ge.solutions.jwt.secret=YTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
+    "cloudinary.cloud-name=test",
+    "cloudinary.api-key=test",
+    "cloudinary.api-secret=test",
     "ADMIN_EMAIL=test@gesolutions.com",
     "ADMIN_DEFAULT_PASSWORD=TestPassword123",
     "MAIL_USERNAME=test@gmail.com",

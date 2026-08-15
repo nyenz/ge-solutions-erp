@@ -329,7 +329,8 @@ const IntakePage = () => {
         return false;
     }, [plotNumber, district, county, blockRoad, physicalBoxNumber,
         volume, folio, instrumentNo, totalCost, initialPayment,
-        monthlyStorageFee, initialStorageFee, fileQueue, notesList, owners]);
+        monthlyStorageFee, initialStorageFee, fileQueue, notesList, owners,
+        surveyDate, titleIssueDate, projectStartDate, DEFAULT_START_DATE]);
 
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } =
         useRouterBlock(!saving && isDirty);
