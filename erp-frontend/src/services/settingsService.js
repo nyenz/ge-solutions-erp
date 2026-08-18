@@ -93,6 +93,24 @@ const settingsService = {
             const serverMsg = error.response?.data?.message || "RESET_FAILED";
             throw new Error(serverMsg.toUpperCase());
         }
+    },
+
+    /**
+     * DANGER ZONE: FULL SYSTEM WIPE (ROOT ONLY)
+     * Permanently deletes every client, project, payment, and log, then
+     * reseeds a clean root login, project index counter, and default
+     * stage template. Cannot be undone.
+     */
+    wipeAllData: async () => {
+        try {
+            const response = await api.post('/admin/system/wipe-all-data', null, {
+                params: { confirm: 'WIPE-EVERYTHING' }
+            });
+            return response.data;
+        } catch (error) {
+            const serverMsg = error.response?.data?.message || "WIPE_FAILED";
+            throw new Error(serverMsg.toUpperCase());
+        }
     }
 };
 

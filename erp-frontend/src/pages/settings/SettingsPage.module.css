@@ -429,3 +429,29 @@
     flex-shrink: 0;
     flex-wrap: wrap;
 }
+
+
+/* -- DANGER ZONE -------------------------------------------------- */
+.dangerPanel { border-color: rgba(239,68,68,0.35); }
+.dangerPanel:hover { border-color: rgba(239,68,68,0.55); }
+.dangerPanel .drawerTitle, .dangerPanel .chevron { color: var(--red); }
+.dangerPanel .drawerHeader { border-bottom-color: rgba(239,68,68,0.18); }
+.dangerPanel .drawerHeader:hover { background: rgba(239,68,68,0.05); }
+
+.wipeField { margin: var(--gap-md) 0; }
+
+.wipeBtn {
+    background: var(--red); color: #fff; border: none;
+    padding: 0 var(--btn-px, clamp(16px,2vw,24px));
+    height: var(--btn-height, clamp(38px, 5vw, 44px));
+    border-radius: var(--input-radius, var(--radius-sm));
+    font-family: 'DM Sans', sans-serif; font-weight: 900;
+    font-size: var(--fs-btn); text-transform: uppercase; letter-spacing: 1px;
+    cursor: pointer; display: inline-flex; align-items: center;
+    gap: clamp(5px,0.7vw,8px); transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    white-space: nowrap; width: 100%; justify-content: center;
+}
+.wipeBtn:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(239,68,68,0.35); }
+.wipeBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.wipeBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

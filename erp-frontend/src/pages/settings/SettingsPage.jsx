@@ -112,7 +112,7 @@ const SettingsPage = () => {
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const isRoot = user?.isRoot;
 
-    const [drawers,       setDrawers]       = useState({ security: true, governance: true });
+    const [drawers,       setDrawers]       = useState({ security: true, governance: true, danger: false });
     const [pwdState,      setPwdState]      = useState({ old: '', new: '', confirm: '' });
     const [pwdLoading,    setPwdLoading]    = useState(false);
     const [showOld,       setShowOld]       = useState(false);
@@ -123,6 +123,8 @@ const SettingsPage = () => {
     const [newOpModal,    setNewOpModal]    = useState(false);
     const [newOpData,     setNewOpData]     = useState({ username: '', email: '', role: 'ROLE_MANAGER' });
     const [tempKeyReveal, setTempKeyReveal] = useState(null);
+    const [wipeConfirmText, setWipeConfirmText] = useState('');
+    const [wiping,          setWiping]          = useState(false);
 
     const pwdDirty   = pwdState.old !== '' || pwdState.new !== '' || pwdState.confirm !== '';
     const newOpDirty = newOpModal && (newOpData.username !== '' || newOpData.email !== '');
@@ -209,6 +211,28 @@ const SettingsPage = () => {
         if (!ok) return;
         try { await settingsService.toggleOperator(opUsername, !currentlyActive); fetchOperators(); }
         catch (err) { toast(err.message || 'ACTION FAILED', 'error', 8000); }
+    };
+
+    // -- FULL SYSTEM WIPE (DANGER ZONE) --
+    const handleWipeAllData = async () => {
+        if (wipeConfirmText !== 'WIPE-EVERYTHING') return;
+        const ok = await confirm(
+            'FULL SYSTEM WIPE',
+            'This permanently deletes every client, project, payment, and log in the system. This CANNOT be undone. Continue?',
+            'danger'
+        );
+        if (!ok) return;
+        setWiping(true);
+        try {
+            await settingsService.wipeAllData();
+            toast('SYSTEM WIPED. LOGGING OUT...', 'success', 6000);
+            setWipeConfirmText('');
+            setTimeout(logout, 2500);
+        } catch (err) {
+            toast(err.message || 'WIPE FAILED', 'error', 8000);
+        } finally {
+            setWiping(false);
+        }
     };
 
     return (
@@ -334,6 +358,39 @@ const SettingsPage = () => {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* PANEL: DANGER ZONE (ROOT ONLY) */}
+                {isRoot && (
+                    <div className={`${styles.hwPanel} ${styles.dangerPanel}`}>
+                        <DrawerHeader label="DANGER ZONE" isOpen={drawers.danger} onClick={() => toggleDrawer('danger')} icon={FiAlertTriangle} />
+                        <div className={`${styles.panelBody} ${drawers.danger ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.danger}>
+                            <div className={styles.panelInner}>
+                                <div className={styles.securityAlert} style={{ borderColor: 'var(--red)' }}>
+                                    <FiAlertTriangle aria-hidden="true" style={{ color: 'var(--red)' }} />
+                                    <span>
+                                        Permanently deletes every client, project, payment, and log in the system.
+                                        Cannot be undone. Root login, project index, and default stage template
+                                        are automatically restored to defaults right after.
+                                    </span>
+                                </div>
+                                <div className={styles.wipeField}>
+                                    <HardwareInput
+                                        label='TYPE "WIPE-EVERYTHING" TO UNLOCK'
+                                        value={wipeConfirmText}
+                                        onChange={e => setWipeConfirmText(e.target.value)}
+                                    />
+                                </div>
+                                <button
+                                    className={styles.wipeBtn}
+                                    disabled={wipeConfirmText !== 'WIPE-EVERYTHING' || wiping}
+                                    onClick={handleWipeAllData}
+                                >
+                                    {wiping ? 'WIPING...' : <><FiAlertTriangle aria-hidden="true" /> WIPE ALL DATA</>}
+                                </button>
                             </div>
                         </div>
                     </div>
