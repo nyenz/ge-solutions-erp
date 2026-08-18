@@ -1,4 +1,4 @@
-// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/BacklogSchedulerService.java
+// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java
 package com.gesolutions.erp.modules.land.service;
 
 import com.gesolutions.erp.common.audit.AuditService;
@@ -17,7 +17,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class BacklogSchedulerService {
+public class ReceivableSchedulerService {
 
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
@@ -25,16 +25,16 @@ public class BacklogSchedulerService {
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
     // Runs every day at midnight
-    // Adds 50,000 per 30-day period since backlog start date
-    // Example: plot backlogged on Jan 1 — fee added Jan 31, Feb 28, etc.
+    // Adds 50,000 per 30-day period since receivable start date
+    // Example: plot receivableged on Jan 1 — fee added Jan 31, Feb 28, etc.
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void applyMonthlyStorageFees() {
-        List<LandProject> backlogPlots = projectRepository.findAllBacklogPlots();
+        List<LandProject> receivablePlots = projectRepository.findAllReceivablePlots();
         LocalDateTime now = LocalDateTime.now();
 
-        for (LandProject plot : backlogPlots) {
-            if (plot.getBacklogStartDate() == null) continue;
+        for (LandProject plot : receivablePlots) {
+            if (plot.getReceivableStartDate() == null) continue;
             if (plot.isStoragePaused()) continue; // fees paused by admin
 
             // Auto-pause if negotiation deadline is in the future; auto-resume if it has passed
@@ -49,14 +49,14 @@ public class BacklogSchedulerService {
                 }
             }
 
-            long daysSinceBacklog = ChronoUnit.DAYS.between(plot.getBacklogStartDate(), now);
-            long periodsOwed = daysSinceBacklog / 30;
+            long daysSinceReceivable = ChronoUnit.DAYS.between(plot.getReceivableStartDate(), now);
+            long periodsOwed = daysSinceReceivable / 30;
 
             if (periodsOwed <= 0) continue;
 
             // Use the counter (not division) to determine how many months remain to bill.
-            // This is immune to rate changes mid-way through the backlog period.
-            int alreadyBilled = plot.getBacklogMonthsBilled() != null ? plot.getBacklogMonthsBilled() : 0;
+            // This is immune to rate changes mid-way through the receivable period.
+            int alreadyBilled = plot.getReceivableMonthsBilled() != null ? plot.getReceivableMonthsBilled() : 0;
 
             if (alreadyBilled >= periodsOwed) continue;
 
@@ -70,11 +70,11 @@ public class BacklogSchedulerService {
             BigDecimal toAdd = monthlyRate.multiply(BigDecimal.valueOf(feesMissing));
 
             plot.setStorageFeesAccumulated(currentFees.add(toAdd));
-            plot.setBacklogMonthsBilled((int) periodsOwed);
+            plot.setReceivableMonthsBilled((int) periodsOwed);
             projectRepository.save(plot);
 
             auditService.logAction("STORAGE_FEE_APPLIED",
-                "SYSTEM: Added UGX " + toAdd + " monthly storage fee to backlog plot: "
+                "SYSTEM: Added UGX " + toAdd + " monthly storage fee to receivable plot: "
                 + plot.getLandTitle().getPlotNumber()
                 + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
                 + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());
@@ -84,25 +84,25 @@ public class BacklogSchedulerService {
     // Runs every day at 6am — auto-flags plots with no payment for 365+ days
     @Scheduled(cron = "0 0 6 * * *")
     @Transactional
-    public void autoFlagStaleAsBacklog() {
+    public void autoFlagStaleAsReceivable() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(365);
         // Pass cutoff for both lastPaymentDate AND registration date checks
-        List<LandProject> candidates = projectRepository.findAutoBacklogCandidates(cutoff);
+        List<LandProject> candidates = projectRepository.findAutoReceivableCandidates(cutoff);
 
         for (LandProject plot : candidates) {
             BigDecimal outstanding = plot.getTotalCost().subtract(plot.getAmountPaid());
             if (outstanding.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-            plot.setBacklog(true);
-            plot.setBacklogStartDate(LocalDateTime.now());
+            plot.setReceivable(true);
+            plot.setReceivableStartDate(LocalDateTime.now());
             plot.setOriginalDebt(outstanding);
             plot.setStorageFeesAccumulated(BigDecimal.ZERO);
-            plot.setStatus("BACKLOG");
+            plot.setStatus("RECEIVABLE");
             projectRepository.save(plot);
 
-            auditService.logAction("AUTO_BACKLOG",
+            auditService.logAction("AUTO_RECEIVABLE",
                 "SYSTEM: Plot " + plot.getLandTitle().getPlotNumber()
-                + " auto-flagged as BACKLOG after 365 days of no payment. "
+                + " auto-flagged as RECEIVABLE after 365 days of no payment. "
                 + "Debt frozen at: UGX " + outstanding);
         }
     }

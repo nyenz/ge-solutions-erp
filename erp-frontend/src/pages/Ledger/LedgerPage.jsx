@@ -100,11 +100,11 @@ const LedgerPage = () => {
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
-        if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isBacklog);
-        if (activeFilter === 'BACKLOG')  filtered = filtered.filter(p => p.isBacklog);
-        if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isBacklog);
-        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isBacklog ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);
-        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isBacklog && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);
+        if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
+        if (activeFilter === 'RECEIVABLE')  filtered = filtered.filter(p => p.isReceivable);
+        if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isReceivable);
+        if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isReceivable ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);
+        if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);
 
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -139,7 +139,7 @@ const LedgerPage = () => {
     const FILTERS = [
         { key: 'ALL',      label: 'ALL ARCHIVES'  },
         { key: 'PAID',     label: 'PAID TITLES'   },
-        { key: 'BACKLOG',  label: 'BACKLOG'        },
+        { key: 'RECEIVABLE',  label: 'RECEIVABLE'        },
         { key: 'ACTIVE',   label: 'ACTIVE TITLES'  },
         { key: 'DEBTORS',  label: 'UNPAID'         },
         { key: 'CRITICAL', label: 'CRITICAL'       },
@@ -244,9 +244,9 @@ const LedgerPage = () => {
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.map((proj) => {
-                                const isBacklog  = proj.isBacklog;
+                                const isReceivable  = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt       = isBacklog
+                                const debt       = isReceivable
                                     ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
                                     : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct        = proj.totalCost > 0 ? Math.min((proj.amountPaid / proj.totalCost) * 100, 100) : 0;
@@ -258,7 +258,7 @@ const LedgerPage = () => {
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.landTitle?.plotNumber}`}
-                                        className={isBacklog ? styles.rowBacklog : isCritical ? styles.rowCritical : ''}
+                                        className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}
                                     >
                                         <td className={styles.plotCell}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
@@ -303,7 +303,7 @@ const LedgerPage = () => {
                                                     UGX {debt.toLocaleString()}
                                                 </span>
                                             </div>
-                                            {isBacklog && proj.storageFeesAccumulated > 0 && (
+                                            {isReceivable && proj.storageFeesAccumulated > 0 && (
                                                 <div style={{ fontSize: '0.7rem', color: '#ef4444', marginBottom: 4 }}>
                                                     +UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees
                                                 </div>
@@ -317,10 +317,10 @@ const LedgerPage = () => {
                                         </td>
                                         <td>
                                             <div className={styles.statusGroup}>
-                                                {isBacklog && <span className={styles.tagBacklog}>BACKLOG</span>}
-                                                {!isBacklog && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
-                                                {!isBacklog && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isBacklog && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}
+                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLE</span>}
+                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
+                                                {!isReceivable && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}
+                                                {!isReceivable && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
                                             </div>
                                         </td>

@@ -218,7 +218,7 @@
     margin-bottom: clamp(12px, 1.5vw, 16px);
 }
 
-/* Info/context box (green = normal, red = backlog) */
+/* Info/context box (green = normal, red = receivable) */
 .modalInfoBox {
     background: rgba(34, 197, 94, 0.08);
     border: 1px solid rgba(34, 197, 94, 0.25);

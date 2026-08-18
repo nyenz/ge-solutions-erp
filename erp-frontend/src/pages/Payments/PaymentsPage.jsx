@@ -15,13 +15,13 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const TYPE_LABELS = {
     STANDARD:        'Title Payment',
     INITIAL_DEPOSIT: 'Initial Deposit',
-    BACKLOG_PARTIAL: 'Backlog Payment',
+    RECEIVABLE_PARTIAL: 'Receivable Payment',
 };
 
 const TYPE_COLORS = {
     STANDARD:        '#22c55e',
     INITIAL_DEPOSIT: '#06b6d4',
-    BACKLOG_PARTIAL: '#ef4444',
+    RECEIVABLE_PARTIAL: '#ef4444',
 };
 
 const PaymentsPage = () => {
@@ -79,8 +79,8 @@ const PaymentsPage = () => {
     }, [payments, typeFilter, searchTerm, sortKey, sortDir]);
 
     const totalCollected = useMemo(() => filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
     const SortIcon = ({ field }) => {
         if (sortKey !== field) return <span className={styles.sortArrowInactive}> &#8597;</span>;
@@ -116,12 +116,12 @@ const PaymentsPage = () => {
                 <div className={styles.sumCard} style={{ borderColor: '#22c55e' }}>
                     <label style={{ color: '#22c55e' }}>TITLE PAYMENTS</label>
                     <strong style={{ color: '#22c55e' }}>UGX {fmt(titleTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType !== 'BACKLOG_PARTIAL').length} records</span>
+                    <span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>
                 </div>
                 <div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>
-                    <label style={{ color: '#ef4444' }}>BACKLOG PAYMENTS</label>
+                    <label style={{ color: '#ef4444' }}>RECEIVABLE PAYMENTS</label>
                     <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType === 'BACKLOG_PARTIAL').length} records</span>
+                    <span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>
                 </div>
             </div>
 
@@ -141,7 +141,7 @@ const PaymentsPage = () => {
                     )}
                 </div>
                 <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'BACKLOG_PARTIAL'].map(t => (
+                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'RECEIVABLE_PARTIAL'].map(t => (
                         <button key={t}
                             className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
                             onClick={() => setTypeFilter(t)}>
@@ -221,7 +221,7 @@ const PaymentsPage = () => {
                                         <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
                                         <td>
                                             <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
-                                                {pay.paymentType === 'BACKLOG_PARTIAL' && <FiAlertOctagon size={9} />}
+                                                {pay.paymentType === 'RECEIVABLE_PARTIAL' && <FiAlertOctagon size={9} />}
                                                 {TYPE_LABELS[pay.paymentType] || pay.paymentType}
                                             </span>
                                         </td>

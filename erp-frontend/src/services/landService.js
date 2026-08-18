@@ -73,12 +73,12 @@ const landService = {
         return response.data;
     },
 
-    moveToBacklog: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/backlog`);
+    moveToReceivable: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/receivable`);
     },
 
-    exitBacklog: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/exit-backlog`);
+    exitReceivable: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/exit-receivable`);
     },
 
     getPaymentHistory: async (projectId) => {

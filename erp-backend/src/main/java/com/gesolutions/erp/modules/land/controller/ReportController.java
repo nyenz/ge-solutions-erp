@@ -99,11 +99,11 @@ public class ReportController {
     // SECTION C: PRIORITY 2 REPORTS (All restricted to ROLE_ADMIN)
     // ========================================================================
 
-    /** P2-1: Backlog Breakdown */
-    @GetMapping("/backlog-breakdown")
+    /** P2-1: Receivable Breakdown */
+    @GetMapping("/receivable-breakdown")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<byte[]> downloadBacklogBreakdown() {
-        return streamCsv(reportService.generateBacklogBreakdown(), "BACKLOG_BREAKDOWN");
+    public ResponseEntity<byte[]> downloadReceivableBreakdown() {
+        return streamCsv(reportService.generateReceivableBreakdown(), "RECEIVABLE_BREAKDOWN");
     }
 
     /** P2-2: Completed Titles */

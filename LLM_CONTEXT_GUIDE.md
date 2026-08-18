@@ -56,7 +56,7 @@
 **Name:** Golden Seed ERP (code name: NYENZ)
 **Purpose (ORIGINAL, pre-revamp):** Internal staff accountability tool for GE Solutions -- a Ugandan land surveying and title processing company. Staff-only. Not client-facing.
 **Purpose (REVAMPED -- see Section 17 for full detail):** A full project-based company ERP. Land titles remain the only project type for now, but the system now tracks detailed per-stage project costs, a real processing pipeline, company-wide expenses separate from project costs, NIN-based identity, and a 4-tier role hierarchy so the Director has full company visibility while lower roles see only what they need.
-**Core functions (original, still true):** Store land title records digitally, remind staff which clients to call (2x/month, 14-day interval rule), log calls, management sees full audit trail, backlog system with UGX 50,000/month storage penalty, payment recording with full history.
+**Core functions (original, still true):** Store land title records digitally, remind staff which clients to call (2x/month, 14-day interval rule), log calls, management sees full audit trail, receivable system with UGX 50,000/month storage penalty, payment recording with full history.
 **IMPORTANT:** The revamp in Section 17 is being built in phases. Until each phase ships, the ORIGINAL business rules in Section 9 remain in effect for that part of the system. Do not assume revamp rules apply to code that hasn't been touched yet -- check the Phase Tracker in Section 17 for what's actually live.
 
 ---
@@ -221,7 +221,7 @@ Every element must be explicitly styled -- no browser defaults anywhere. Covers:
 Step 1: INTAKE -> Step 2: LEDGER -> Step 3: FOLDER PAGE -> Step 4: RECOVERY HUB -> Step 5: PAYMENTS -> Step 6: AUDIT
 
 **Target flow (post-revamp, see Section 17):**
-Step 1: INTAKE (with NIN check + project index auto-assigned) -> Step 2: STAGE SELECTION (checkbox template, per-stage cost) -> Step 3: LEDGER (searchable by index, name, NIN) -> Step 4: FOLDER PAGE (per-stage cost/notes, processing pipeline) -> Step 5: RECOVERY HUB (BACKLOG = work not done; RECEIVABLES = done but unpaid) -> Step 6: PAYMENTS -> Step 7: DIRECTOR DASHBOARD (company-wide view) -> Step 8: AUDIT
+Step 1: INTAKE (with NIN check + project index auto-assigned) -> Step 2: STAGE SELECTION (checkbox template, per-stage cost) -> Step 3: LEDGER (searchable by index, name, NIN) -> Step 4: FOLDER PAGE (per-stage cost/notes, processing pipeline) -> Step 5: RECOVERY HUB (RECEIVABLE = work not done; RECEIVABLES = done but unpaid) -> Step 6: PAYMENTS -> Step 7: DIRECTOR DASHBOARD (company-wide view) -> Step 8: AUDIT
 
 ---
 
@@ -232,11 +232,11 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 
 - **2-14 Rule:** Max 2 calls/client/month. Min 14 days between calls. (unchanged by revamp)
 - **Recovery grouping:** By unique phone number. (REVAMP: will change to NIN-based once Phase 2 ships)
-- **Backlog trigger:** 365 days no payment (auto) OR admin manually. (REVAMP: "Backlog" is being redefined -- see Section 17. This old trigger describes what will become "Receivables" logic once Phase 6 ships)
-- **Storage fee:** UGX 50,000 every 30 days from backlog START DATE. (applies to the old backlog/new Receivables concept, unchanged mechanically)
-- **Payment types:** STANDARD, INITIAL_DEPOSIT, BACKLOG_PARTIAL. (naming may need to shift to RECEIVABLE_PARTIAL once Phase 6 ships -- flag this for a future session)
+- **Receivable trigger:** 365 days no payment (auto) OR admin manually. (REVAMP: "Receivable" is being redefined -- see Section 17. This old trigger describes what will become "Receivables" logic once Phase 6 ships)
+- **Storage fee:** UGX 50,000 every 30 days from receivable START DATE. (applies to the old receivable/new Receivables concept, unchanged mechanically)
+- **Payment types:** STANDARD, INITIAL_DEPOSIT, RECEIVABLE_PARTIAL. (naming may need to shift to RECEIVABLE_PARTIAL once Phase 6 ships -- flag this for a future session)
 - **Phone uniqueness:** Two owners cannot share the same phone number. (REVAMP: NIN becomes the real uniqueness check once Phase 2 ships. Phone uniqueness will likely be dropped or downgraded to a soft warning.)
-- **Admin/Root only:** Payments, backlog management, Reports, Audit. (REVAMP: this simple 2-tier check is being replaced by the 4-tier role table in Section 17 once Phase 3 ships)
+- **Admin/Root only:** Payments, receivable management, Reports, Audit. (REVAMP: this simple 2-tier check is being replaced by the 4-tier role table in Section 17 once Phase 3 ships)
 - **Cloudinary:** All files stored on Cloudinary. (unchanged)
 
 ---
@@ -251,7 +251,7 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - RecoveryPortal: 2-column grid, mobile responsive -- DONE
 - PaymentsPage: filter buttons unified to dark-bg inactive style -- DONE
 - IntakePage: cleaned up financials -- DONE
-- LedgerPage: tagBacklog + rowBacklog CSS; filter fixed; plot ID two lines -- DONE
+- LedgerPage: tagReceivable + rowReceivable CSS; filter fixed; plot ID two lines -- DONE
 - LedgerPage badge legend + search hint: dark text for light background -- DONE
 - LedgerPage search hint moved to placeholder (no redundant text below) -- DONE
 - LedgerPage plot column: no orange bg on tags, clean two-line layout, smaller dots -- DONE
@@ -273,11 +273,11 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - PDF viewing in FolderPage (from Cloudinary): isPDF() helper, open-in-new-tab with (icon) prefix -- DONE
 - Document preview on IntakePage: file queue allows opening uploaded files before submission -- DONE
 - Print Preview (FolderPage): complete @media print CSS rewrite -- DONE
-- Backlog system: move to backlog, exit backlog, storage fees, pause/resume, rate override, negotiation deadline, backlog start override -- DONE (note: this is the OLD backlog meaning -- payment overdue. Will be renamed/absorbed into Receivables under the revamp)
+- Receivable system: move to receivable, exit receivable, storage fees, pause/resume, rate override, negotiation deadline, receivable start override -- DONE (note: this is the OLD receivable meaning -- payment overdue. Will be renamed/absorbed into Receivables under the revamp)
 - Payment recording with full history per plot -- DONE
 - Payment type selector in modal (TITLE vs STORAGE) -- DONE
 - StorageFeeInlineControls in RecoveryPortal -- DONE
-- Reports: all 8 pillars + 5 Priority 2 reports (backlog breakdown, completed titles, payment history, storage fees, monthly collection) -- DONE
+- Reports: all 8 pillars + 5 Priority 2 reports (receivable breakdown, completed titles, payment history, storage fees, monthly collection) -- DONE
 - Login rate limiter -- DONE
 
 ### Automated Testing Infrastructure (June 2026)
@@ -285,7 +285,7 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - LoginRateLimiterTest: verifies IP blocked after 10 failed login attempts -- DONE
 - SingleSessionEnforcementTest: verifies older JWT rejected with 403 after sessionVersion increments -- DONE
 - StaffGovernanceTest: verifies ROLE_MANAGER blocked (403) from admin endpoints, ROLE_ADMIN allowed -- DONE (note: this test will need updating once the 4-tier role system in Phase 3 ships)
-- BacklogSchedulerTest: verifies monthly storage fee scheduler (default rate, custom rate override, negotiation deadline pause) -- DONE
+- ReceivableSchedulerTest: verifies monthly storage fee scheduler (default rate, custom rate override, negotiation deadline pause) -- DONE
 - LandServiceTest: verifies atomicIntake workflow saves project, title, proprietor, and initial payment -- DONE
 - LandCascadeDeleteTest + LandService.nuclearDelete() fix: verifies deleting a plot cascades to payments and notes (silent data leak patched) -- DONE
 - Playwright login.spec.js: verifies successful login and redirect to /dashboard or /settings -- DONE
@@ -361,7 +361,7 @@ top priority.
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `ReferenceError: XIcon is not defined` | Icon used in JSX but missing from import list | Add to the import statement at top of file |
-| `Cannot set boolean field isBacklog to null` | DB rows have NULL, Java primitive boolean | Use Boolean (capital B) not boolean |
+| `Cannot set boolean field isReceivable to null` | DB rows have NULL, Java primitive boolean | Use Boolean (capital B) not boolean |
 | `UnicodeDecodeError in fix.py` | File has special chars, Windows encoding | Use errors='replace' when reading files |
 | `UnicodeEncodeError in fix.py` | Windows default encoding on write | Always use encoding='utf-8' in open() |
 | `nothing added to commit` | Files already match git | Force add specific files |
@@ -425,14 +425,14 @@ AI/technical context.
 
 ### 17.1 WHY THIS EXISTS
 The employer wants the ERP transformed from a land-title tracking tool into a full
-project-based company ERP: detailed cost breakdowns per project stage, a redefined BACKLOG
+project-based company ERP: detailed cost breakdowns per project stage, a redefined RECEIVABLE
 meaning, a searchable project index, NIN-based identity instead of phone-based, a 4-tier
 role hierarchy, and a company-wide financials module separate from project costs.
 
 ### 17.2 TERMINOLOGY (redefined from the original system)
-- **BACKLOG** = work not yet done / in progress (this is a NEW meaning -- the OLD system used
-  "backlog" to mean overdue payment on a finished title. That old concept is renamed below.)
-- **RECEIVABLES** = work finished, payment still owed (this is what "backlog" used to mean in
+- **RECEIVABLE** = work not yet done / in progress (this is a NEW meaning -- the OLD system used
+  "receivable" to mean overdue payment on a finished title. That old concept is renamed below.)
+- **RECEIVABLES** = work finished, payment still owed (this is what "receivable" used to mean in
   the original system -- see Section 9 for the original mechanics, which carry over unchanged,
   just under the new name)
 

@@ -66,8 +66,8 @@ public class DashboardController {
         // Stale count = unique owners (Client IDs) who are due for a call today
         long staleCalls = allPlots.stream()
                 .filter(p -> {
-                    java.math.BigDecimal bal = p.isBacklog()
-                            ? p.backlogTotalOwed() : p.activeTotalOwed();
+                    java.math.BigDecimal bal = p.isReceivable()
+                            ? p.receivableTotalOwed() : p.activeTotalOwed();
                     if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) return false;
                     if (p.getProprietors() == null || p.getProprietors().isEmpty()) return false;
                     com.gesolutions.erp.modules.client.model.Client primary = p.getProprietors()
@@ -92,7 +92,7 @@ public class DashboardController {
                 .map(p -> p.getLandTitle().getPhysicalBoxNumber())
                 .distinct().count();
 
-        long backlogCount = projectRepository.countBacklogPlots();
+        long receivableCount = projectRepository.countReceivablePlots();
         long legacyCount = allPlots.stream().filter(LandProject::isLegacy).count();
         long newSurveyCount = totalPlots - legacyCount;
 
@@ -112,9 +112,9 @@ public class DashboardController {
                 .staleCallCount(staleCalls)
                 .readyForReleaseCount(readyForRelease)
                 .boxCount(uniqueBoxes)
-                .backlogCount(backlogCount)
+                .receivableCount(receivableCount)
                 .stageDistribution(bottlenecks)
-                .legacyBacklogCount(legacyCount)
+                .legacyReceivableCount(legacyCount)
                 .newSurveyCount(newSurveyCount)
                 .activeManagersOnline(onlineCount)
                 .dailyAuditCount(dailyActions)

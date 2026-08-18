@@ -71,8 +71,8 @@ public class LandService {
         BigDecimal paid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
 
         BigDecimal remaining;
-        if (project.isBacklog()) {
-            remaining = project.backlogTotalOwed();
+        if (project.isReceivable()) {
+            remaining = project.receivableTotalOwed();
         } else {
             remaining = cost.subtract(paid);
         }
@@ -103,15 +103,15 @@ public class LandService {
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
         String operator = getCurrentOperator();
-        String paymentType = project.isBacklog() ? "BACKLOG_PARTIAL" : "STANDARD";
+        String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
 
         BigDecimal newAmountPaid = project.getAmountPaid().add(amount);
         project.setAmountPaid(newAmountPaid);
         project.setLastPaymentDate(LocalDateTime.now());
 
         BigDecimal balanceAfter;
-        if (project.isBacklog()) {
-            balanceAfter = project.backlogTotalOwed();
+        if (project.isReceivable()) {
+            balanceAfter = project.receivableTotalOwed();
         } else {
             balanceAfter = project.getTotalCost().subtract(newAmountPaid);
         }
@@ -126,14 +126,14 @@ public class LandService {
                 .build();
         paymentRecordRepository.save(record);
 
-        // Auto-exit backlog if fully paid
-        if (project.isBacklog() && balanceAfter.compareTo(BigDecimal.ZERO) <= 0) {
-            project.setBacklog(false);
+        // Auto-exit receivable if fully paid
+        if (project.isReceivable() && balanceAfter.compareTo(BigDecimal.ZERO) <= 0) {
+            project.setReceivable(false);
             project.setStatus("ACTIVE");
             projectRepository.save(project);
-            auditService.logAction("BACKLOG_EXIT",
+            auditService.logAction("RECEIVABLE_EXIT",
                 "Operator [" + operator + "] — Plot " + project.getLandTitle().getPlotNumber()
-                + " EXITED BACKLOG after full payment clearance.");
+                + " EXITED RECEIVABLE after full payment clearance.");
         } else {
             projectRepository.save(project);
         }
@@ -145,44 +145,44 @@ public class LandService {
             + " | Amount owed after: UGX " + balanceAfter);
     }
 
-    // ─── BACKLOG MANAGEMENT ───────────────────────────────────────────────────
+    // ─── RECEIVABLE MANAGEMENT ───────────────────────────────────────────────────
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void moveToBacklog(UUID projectId) {
+    public void moveToReceivable(UUID projectId) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
-        if (project.isBacklog()) {
-            throw new BusinessException("BACKLOG_FAULT: Plot is already in backlog.");
+        if (project.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: Plot is already in receivable.");
         }
 
         BigDecimal outstanding = project.getTotalCost().subtract(project.getAmountPaid());
         if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("BACKLOG_FAULT: Plot has no outstanding balance.");
+            throw new BusinessException("RECEIVABLE_FAULT: Plot has no outstanding balance.");
         }
 
-        project.setBacklog(true);
-        project.setBacklogStartDate(LocalDateTime.now());
+        project.setReceivable(true);
+        project.setReceivableStartDate(LocalDateTime.now());
         project.setOriginalDebt(outstanding);
         project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setStatus("BACKLOG");
+        project.setStatus("RECEIVABLE");
         projectRepository.save(project);
 
-        auditService.logAction("BACKLOG_TRIGGER",
+        auditService.logAction("RECEIVABLE_TRIGGER",
             "Operator [" + getCurrentOperator() + "] manually moved plot "
             + project.getLandTitle().getPlotNumber()
-            + " to BACKLOG. Original debt frozen at: UGX " + outstanding);
+            + " to RECEIVABLE. Original debt frozen at: UGX " + outstanding);
     }
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void exitBacklog(UUID projectId, boolean capitalizeFees) {
+    public void exitReceivable(UUID projectId, boolean capitalizeFees) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
-        if (!project.isBacklog()) {
-            throw new BusinessException("BACKLOG_FAULT: Plot is not in backlog.");
+        if (!project.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: Plot is not in receivable.");
         }
 
         BigDecimal titleCost   = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
@@ -200,19 +200,19 @@ public class LandService {
             project.setAmountPaid(titlePaymentPortion);
         }
 
-        project.setBacklog(false);
-        project.setBacklogStartDate(null);
+        project.setReceivable(false);
+        project.setReceivableStartDate(null);
         project.setOriginalDebt(BigDecimal.ZERO);
         project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setBacklogMonthsBilled(0);
+        project.setReceivableMonthsBilled(0);
         project.setStatus("ACTIVE");
         projectRepository.save(project);
 
         String feeAction = capitalizeFees ? "Storage fees ADDED TO TOTAL VALUE (UGX " + storageFees + ")" : "Storage fees WAIVED";
-        auditService.logAction("BACKLOG_EXIT",
+        auditService.logAction("RECEIVABLE_EXIT",
             "Operator [" + getCurrentOperator() + "] removed plot "
             + project.getLandTitle().getPlotNumber()
-            + " from BACKLOG. " + feeAction
+            + " from RECEIVABLE. " + feeAction
             + ". Title total value: UGX " + project.getTotalCost() + ".");
     }
 
@@ -242,21 +242,21 @@ public class LandService {
                 ? request.getTotalCost() : BigDecimal.ZERO;
         BigDecimal outstanding = totalCost.subtract(initialPayment);
 
-        boolean startAsBacklog = request.isStartAsBacklog();
+        boolean startAsReceivable = request.isStartAsReceivable();
 
         LandProject.LandProjectBuilder builder = LandProject.builder()
                 .landTitle(title)
                 .totalCost(totalCost)
                 .amountPaid(initialPayment)
                 .isLegacy(request.isLegacy())
-                .currentStageIndex(startAsBacklog ? 5 : 1)
-                .status(startAsBacklog ? "BACKLOG" : "ACTIVE");
+                .currentStageIndex(startAsReceivable ? 5 : 1)
+                .status(startAsReceivable ? "RECEIVABLE" : "ACTIVE");
 
-        if (startAsBacklog && outstanding.compareTo(BigDecimal.ZERO) > 0) {
+        if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal initialFees = request.getInitialStorageFee() != null
                     ? request.getInitialStorageFee() : BigDecimal.ZERO;
-            builder.isBacklog(true)
-                   .backlogStartDate(LocalDateTime.now())
+            builder.isReceivable(true)
+                   .receivableStartDate(LocalDateTime.now())
                    .originalDebt(outstanding)
                    .storageFeesAccumulated(initialFees);
             if (request.getMonthlyStorageFee() != null
@@ -314,15 +314,15 @@ public class LandService {
             }
         }
 
-        String backlogNote = startAsBacklog ? " [ENTERED AS BACKLOG]" : "";
+        String receivableNote = startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "";
         auditService.logAction("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
-            + title.getPlotNumber() + backlogNote);
+            + title.getPlotNumber() + receivableNote);
 
-        if (startAsBacklog) {
-            auditService.logAction("BACKLOG_TRIGGER",
+        if (startAsReceivable) {
+            auditService.logAction("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
-                + title.getPlotNumber() + " as BACKLOG at intake. Debt: UGX " + outstanding);
+                + title.getPlotNumber() + " as RECEIVABLE at intake. Debt: UGX " + outstanding);
         }
 
         return saved;
@@ -376,9 +376,9 @@ public class LandService {
         project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
         project.setLegacy(request.isLegacy());
 
-        // FIX 1: If in backlog, keep originalDebt in sync with totalCost changes.
+        // FIX 1: If in receivable, keep originalDebt in sync with totalCost changes.
         // originalDebt = new title cost minus payments already made toward the title.
-        if (project.isBacklog()) {
+        if (project.isReceivable()) {
             BigDecimal amtPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
             project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));
         }
@@ -467,8 +467,8 @@ public class LandService {
                                   o.getId().equals(finalPrimary.getId()));
                 if (!ownedByPrimary) continue;
                 // Only sync to plots with outstanding balance (active cases)
-                java.math.BigDecimal bal = otherPlot.isBacklog()
-                        ? otherPlot.backlogTotalOwed() : otherPlot.activeTotalOwed();
+                java.math.BigDecimal bal = otherPlot.isReceivable()
+                        ? otherPlot.receivableTotalOwed() : otherPlot.activeTotalOwed();
                 if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
                 FollowUpLog syncEntry = FollowUpLog.builder()
                         .projectId(otherPlot.getId())
@@ -642,16 +642,16 @@ public class LandService {
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setBacklogStartOverride(UUID projectId, String startDateStr) {
+    public void setReceivableStartOverride(UUID projectId, String startDateStr) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         java.time.LocalDateTime startDate = java.time.LocalDate.parse(startDateStr).atStartOfDay();
-        project.setBacklogStartOverride(startDate);
-        // Apply the override to the actual backlog start date so fees calculate from correct date
-        project.setBacklogStartDate(startDate);
+        project.setReceivableStartOverride(startDate);
+        // Apply the override to the actual receivable start date so fees calculate from correct date
+        project.setReceivableStartDate(startDate);
         projectRepository.save(project);
-        auditService.logAction("BACKLOG_START_OVERRIDDEN",
-            "Operator [" + getCurrentOperator() + "] set backlog start date to " + startDateStr
+        auditService.logAction("RECEIVABLE_START_OVERRIDDEN",
+            "Operator [" + getCurrentOperator() + "] set receivable start date to " + startDateStr
             + " for plot: " + project.getLandTitle().getPlotNumber());
     }
 

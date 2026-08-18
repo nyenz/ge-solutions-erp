@@ -69,7 +69,7 @@ const reportService = {
     downloadReliability: () => reportService._triggerDownload('/reliability',       'CLIENT_RANKINGS'),
 
     // Priority 2 Reports (Admin only)
-    downloadBacklogBreakdown:  () => reportService._triggerDownload('/backlog-breakdown',  'BACKLOG_BREAKDOWN'),
+    downloadReceivableBreakdown:  () => reportService._triggerDownload('/receivable-breakdown',  'RECEIVABLE_BREAKDOWN'),
     downloadCompletedTitles:   () => reportService._triggerDownload('/completed-titles',   'COMPLETED_TITLES'),
     downloadOperatorReconciliation: () => reportService._triggerDownload('/payment-history', 'OPERATOR_CASH_RECONCILIATION'),
     downloadMonthlyCollection: () => reportService._triggerDownload('/monthly-collection', 'MONTHLY_COLLECTION'),

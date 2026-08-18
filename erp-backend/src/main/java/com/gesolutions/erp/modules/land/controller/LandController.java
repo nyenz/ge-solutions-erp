@@ -131,26 +131,26 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Backlog management
-    @PostMapping("/projects/{id}/backlog")
+    // NEW: Receivable management
+    @PostMapping("/projects/{id}/receivable")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> moveToBacklog(@PathVariable UUID id) {
-        landService.moveToBacklog(id);
+    public ResponseEntity<Void> moveToReceivable(@PathVariable UUID id) {
+        landService.moveToReceivable(id);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/projects/{id}/exit-backlog")
+    @PostMapping("/projects/{id}/exit-receivable")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> exitBacklog(@PathVariable UUID id,
+    public ResponseEntity<Void> exitReceivable(@PathVariable UUID id,
                                             @RequestParam(defaultValue = "false") boolean capitalizeFees) {
-        landService.exitBacklog(id, capitalizeFees);
+        landService.exitReceivable(id, capitalizeFees);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/projects/{id}/exit-backlog-capitalize")
+    @PostMapping("/projects/{id}/exit-receivable-capitalize")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> exitBacklogCapitalize(@PathVariable UUID id) {
-        landService.exitBacklog(id, true);
+    public ResponseEntity<Void> exitReceivableCapitalize(@PathVariable UUID id) {
+        landService.exitReceivable(id, true);
         return ResponseEntity.ok().build();
     }
 
@@ -196,12 +196,12 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Set backlog start override date (for late-entered titles)
-    @PatchMapping("/projects/{id}/backlog-start")
+    // NEW: Set receivable start override date (for late-entered titles)
+    @PatchMapping("/projects/{id}/receivable-start")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> setBacklogStartOverride(@PathVariable UUID id,
+    public ResponseEntity<Void> setReceivableStartOverride(@PathVariable UUID id,
                                                          @RequestParam String startDate) {
-        landService.setBacklogStartOverride(id, startDate);
+        landService.setReceivableStartOverride(id, startDate);
         return ResponseEntity.ok().build();
     }
 }

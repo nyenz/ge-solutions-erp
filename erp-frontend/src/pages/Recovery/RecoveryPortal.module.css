@@ -223,11 +223,11 @@
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
     transform: translateY(-2px);
 }
-.cardBacklog {
+.cardReceivable {
     border-color: rgba(239, 68, 68, 0.35) !important;
     border-left: clamp(3px, 0.4vw, 5px) solid rgba(239, 68, 68, 0.6) !important;
 }
-.cardBacklog:hover { border-color: rgba(239, 68, 68, 0.6) !important; }
+.cardReceivable:hover { border-color: rgba(239, 68, 68, 0.6) !important; }
 
 /* Card header */
 .cardHeader {
@@ -250,7 +250,7 @@
     color: var(--orange); letter-spacing: 0.5px; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
 }
-.backlogPill {
+.receivablePill {
     background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45);
     color: #fca5a5; font-family: 'DM Sans', sans-serif; font-size: clamp(7px, 0.75vw, 8px);
     font-weight: 900; padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);

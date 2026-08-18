@@ -26,7 +26,7 @@ public class RecoveryTaskDTO {
     private BigDecimal totalDemand;
     private BigDecimal totalOriginalDebt;
     private BigDecimal totalStorageFees;
-    private boolean hasBacklogPlots;
+    private boolean hasReceivablePlots;
 
     private List<PlotSummary> plots;
 
@@ -38,7 +38,7 @@ public class RecoveryTaskDTO {
         private UUID projectId;
         private String plotNumber;
         private String physicalBoxNumber;
-        private boolean isBacklog;
+        private boolean isReceivable;
 
         private BigDecimal totalCost;
         private BigDecimal amountPaid;
@@ -46,7 +46,7 @@ public class RecoveryTaskDTO {
 
         private BigDecimal originalDebt;
         private BigDecimal storageFeesAccumulated;
-        private BigDecimal totalBacklogOwed;
+        private BigDecimal totalReceivableOwed;
         private long storageMonthsCount;
         private boolean storagePaused;
         private BigDecimal storageFeeOverride;

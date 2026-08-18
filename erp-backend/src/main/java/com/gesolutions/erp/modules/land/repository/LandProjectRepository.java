@@ -28,25 +28,25 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     @EntityGraph(attributePaths = {"proprietors", "landTitle"})
     Optional<LandProject> findById(@NonNull UUID id);
 
-    // All active (non-backlog) plots with outstanding balance
-    // that have had no payment for over 365 days — candidates for auto-backlog
+    // All active (non-receivable) plots with outstanding balance
+    // that have had no payment for over 365 days — candidates for auto-receivable
     // Fixed: require BOTH registration date AND last payment date to be older than cutoff
     // This prevents newly registered plots with no initial payment from being instantly flagged
-    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = false " +
+    @Query("SELECT p FROM LandProject p WHERE p.isReceivable = false " +
            "AND p.amountPaid < p.totalCost " +
            "AND p.landTitle.createdAt < :cutoff " +
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
-    List<LandProject> findAutoBacklogCandidates(LocalDateTime cutoff);
+    List<LandProject> findAutoReceivableCandidates(LocalDateTime cutoff);
 
-    // All plots currently in backlog
-    @Query("SELECT p FROM LandProject p WHERE p.isBacklog = true")
-    List<LandProject> findAllBacklogPlots();
+    // All plots currently in receivable
+    @Query("SELECT p FROM LandProject p WHERE p.isReceivable = true")
+    List<LandProject> findAllReceivablePlots();
 
-    // Count backlog plots
-    @Query("SELECT COUNT(p) FROM LandProject p WHERE p.isBacklog = true")
-    long countBacklogPlots();
+    // Count receivable plots
+    @Query("SELECT COUNT(p) FROM LandProject p WHERE p.isReceivable = true")
+    long countReceivablePlots();
 
-    // Sum all storage fees across all backlog plots
-    @Query("SELECT COALESCE(SUM(p.storageFeesAccumulated), 0) FROM LandProject p WHERE p.isBacklog = true")
+    // Sum all storage fees across all receivable plots
+    @Query("SELECT COALESCE(SUM(p.storageFeesAccumulated), 0) FROM LandProject p WHERE p.isReceivable = true")
     java.math.BigDecimal sumAllStorageFees();
 }

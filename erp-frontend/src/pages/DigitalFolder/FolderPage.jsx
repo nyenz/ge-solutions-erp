@@ -363,9 +363,9 @@ const ConfirmModal = ({ state, onAnswer }) => {
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 // ═══════════════════════════════════════════════════════════════
-// BACKLOG FEE ADMIN CONTROLS
+// RECEIVABLE FEE ADMIN CONTROLS
 // ═══════════════════════════════════════════════════════════════
-const BacklogFeeControls = ({ project, projectId, onRefresh, toast }) => {
+const ReceivableFeeControls = ({ project, projectId, onRefresh, toast }) => {
     const [feeInput,    setFeeInput]    = React.useState('');
     const [rateInput,   setRateInput]   = React.useState('');
     const [saving,      setSaving]      = React.useState(false);
@@ -726,9 +726,9 @@ const FolderPage = () => {
     const [payNotes,        setPayNotes]        = useState('');
     const [payType,         setPayType]         = useState('TITLE');
     const [paying,          setPaying]          = useState(false);
-    const [exitBacklogModal, setExitBacklogModal] = useState(false);
+    const [exitReceivableModal, setExitReceivableModal] = useState(false);
 
-    const [drawers, setDrawers] = useState({ overview: true, balance: true, backlog: true, history: true, notes: true, owners: true, docs: true, stagesPanel: true });
+    const [drawers, setDrawers] = useState({ overview: true, balance: true, receivable: true, history: true, notes: true, owners: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -756,7 +756,7 @@ const FolderPage = () => {
                 if (hash === 'record-payment') {
                     if (isAdmin) setPayModal({ open: true });
                 } else if (hash === 'storage-fees') {
-                    const el = document.getElementById('backlog-controls');
+                    const el = document.getElementById('receivable-controls');
                     if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         el.classList.add(styles.highlightRow);
@@ -1020,29 +1020,29 @@ const FolderPage = () => {
         } catch { toast('DELETE FAILED', 'error'); }
     };
 
-    const handleMoveToBacklog = async () => {
-        const ok = await confirm('MOVE TO BACKLOG',
+    const handleMoveToReceivable = async () => {
+        const ok = await confirm('MOVE TO RECEIVABLE',
             'This will freeze the current balance as original debt and start monthly storage fees of UGX 50,000. Continue?', 'warn');
         if (!ok) return;
         try {
-            await recoveryService.moveToBacklog(id);
+            await recoveryService.moveToReceivable(id);
             await loadFolderData();
-            toast('Plot moved to backlog. Storage fees are now active.', 'warn');
-        } catch (err) { toast('BACKLOG FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
+            toast('Plot moved to receivable. Storage fees are now active.', 'warn');
+        } catch (err) { toast('RECEIVABLE FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
-    const handleExitBacklog = () => {
-        setExitBacklogModal(true);
+    const handleExitReceivable = () => {
+        setExitReceivableModal(true);
     };
 
-    const handleExitBacklogConfirm = async (capitalizeFees) => {
-        setExitBacklogModal(false);
+    const handleExitReceivableConfirm = async (capitalizeFees) => {
+        setExitReceivableModal(false);
         try {
-            await recoveryService.exitBacklog(id, capitalizeFees);
+            await recoveryService.exitReceivable(id, capitalizeFees);
             await loadFolderData();
             toast(capitalizeFees
-                ? 'Plot exited backlog. Storage fees added to total value.'
-                : 'Plot exited backlog. Storage fees waived.',
+                ? 'Plot exited receivable. Storage fees added to total value.'
+                : 'Plot exited receivable. Storage fees waived.',
                 'success');
         } catch (err) { toast('EXIT FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
@@ -1113,7 +1113,7 @@ const FolderPage = () => {
     );
 
     const project      = binder.project;
-    const isBacklog    = project?.isBacklog || false;
+    const isReceivable    = project?.isReceivable || false;
     const docCount     = (binder.documents||[]).length;
     const noteCount    = (binder.notes||[]).length;
     const paymentCount = payments.length;
@@ -1124,9 +1124,9 @@ const FolderPage = () => {
     const amountPaid          = Number(project?.amountPaid || 0);
     const paid                = amountPaid; // alias
     const storageFees         = Number(project?.storageFeesAccumulated || 0);
-    const backlogAmountOwed   = Math.max(0, totalValue + storageFees - amountPaid);
+    const receivableAmountOwed   = Math.max(0, totalValue + storageFees - amountPaid);
     const activeAmountOwed    = Math.max(0, totalValue - amountPaid);
-    const amountOwed          = isBacklog ? backlogAmountOwed : activeAmountOwed;
+    const amountOwed          = isReceivable ? receivableAmountOwed : activeAmountOwed;
     const remaining           = amountOwed; // alias
     const arrearsEdit         = (Number(buffer?.totalCost)||0) - (Number(buffer?.initialPayment)||0);
     const effectiveMonthlyFee = Number(project?.storageFeeOverride) > 0
@@ -1218,8 +1218,8 @@ const FolderPage = () => {
                         <span className={`${styles.metaTag} ${styles.tagBlue}`}>
                             COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
                         </span>
-                        {isBacklog
-                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>BACKLOG</span>
+                        {isReceivable
+                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>RECEIVABLE</span>
                             : project.landTitle?.isReleased
                             ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>RELEASED</span>
                             : amountPaid >= totalCost
@@ -1242,14 +1242,14 @@ const FolderPage = () => {
                                     <FiDollarSign aria-hidden="true" /> PAYMENT
                                 </button>
                             )}
-                            {isAdmin && !isBacklog && (
-                                <button className={styles.ctrlBtnBacklog} onClick={handleMoveToBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> BACKLOG
+                            {isAdmin && !isReceivable && (
+                                <button className={styles.ctrlBtnReceivable} onClick={handleMoveToReceivable}>
+                                    <FiAlertOctagon aria-hidden="true" /> RECEIVABLE
                                 </button>
                             )}
-                            {isAdmin && isBacklog && (
-                                <button className={styles.ctrlBtnBacklog} onClick={handleExitBacklog}>
-                                    <FiAlertOctagon aria-hidden="true" /> EXIT BACKLOG
+                            {isAdmin && isReceivable && (
+                                <button className={styles.ctrlBtnReceivable} onClick={handleExitReceivable}>
+                                    <FiAlertOctagon aria-hidden="true" /> EXIT RECEIVABLE
                                 </button>
                             )}
                             <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
@@ -1380,7 +1380,7 @@ const FolderPage = () => {
                     FINANCIALS TAB — Central hub:
                     1. Balance Summary
                     2. Record Payment (admin)
-                    3. Backlog Controls (admin, if backlog)
+                    3. Receivable Controls (admin, if receivable)
                     4. Payment History
                     5. Notes & Call Log
                     ════════════════════════════════════════════════════ */}
@@ -1406,11 +1406,11 @@ const FolderPage = () => {
                                             </div>
                                         </div>
                                     </>
-                                ) : isBacklog ? (
+                                ) : isReceivable ? (
                                     <>
-                                        <div className={styles.backlogNotice}>
-                                            <FiAlertOctagon className={styles.backlogNoticeIcon} size={14} />
-                                            <div className={styles.backlogNoticeText}>
+                                        <div className={styles.receivableNotice}>
+                                            <FiAlertOctagon className={styles.receivableNoticeIcon} size={14} />
+                                            <div className={styles.receivableNoticeText}>
                                                 <strong>STORAGE FEES ACTIVE</strong>
                                                 <span>UGX {fmt(effectiveMonthlyFee)}/month accumulates until balance is cleared</span>
                                             </div>
@@ -1424,8 +1424,8 @@ const FolderPage = () => {
                                                 <label style={{color:'#ef4444'}}>+ STORAGE FEES</label>
                                                 <strong style={{color:'#fca5a5',textShadow:'0 0 8px rgba(239,68,68,0.35)'}}>UGX {fmt(storageFees)}</strong>
                                                 <small style={{opacity:0.5,fontSize:'0.7rem'}}>
-                                                    {project.backlogStartDate
-                                                        ? `Since ${new Date(project.backlogStartDate).toLocaleDateString()}`
+                                                    {project.receivableStartDate
+                                                        ? `Since ${new Date(project.receivableStartDate).toLocaleDateString()}`
                                                         : 'UGX ' + fmt(effectiveMonthlyFee) + '/month'}
                                                 </small>
                                             </div>
@@ -1435,7 +1435,7 @@ const FolderPage = () => {
                                             </div>
                                             <div className={styles.statBox} style={{borderLeft:'2px solid rgba(239,68,68,0.6)',background:'rgba(239,68,68,0.07)'}}>
                                                 <label style={{color:'#fca5a5'}}>AMOUNT OWED</label>
-                                                <strong style={{color:'#fca5a5',textShadow:'0 0 12px rgba(239,68,68,0.45)'}}>UGX {fmt(backlogAmountOwed)}</strong>
+                                                <strong style={{color:'#fca5a5',textShadow:'0 0 12px rgba(239,68,68,0.45)'}}>UGX {fmt(receivableAmountOwed)}</strong>
                                                 <small style={{opacity:0.5,fontSize:'0.7rem'}}>(Value + Fees - Paid)</small>
                                             </div>
                                         </div>
@@ -1462,11 +1462,11 @@ const FolderPage = () => {
                             </div>
                         </section>
 
-                        {/* ── 2. BACKLOG MANAGEMENT (admin only, shown when backlog) ── */}
-                        {isAdmin && isBacklog && (
-                            <section className={styles.hwPanel} aria-label="Backlog Controls" id="backlog-controls">
-                                <DrawerHeader label="BACKLOG MANAGEMENT" isOpen={drawers.backlog} onClick={() => toggleDrawer('backlog')} icon={FiAlertOctagon} />
-                                <div className={`${styles.panelBody} ${drawers.backlog ? styles.bodyOpen : styles.bodyClosed}`}>
+                        {/* ── 2. RECEIVABLE MANAGEMENT (admin only, shown when receivable) ── */}
+                        {isAdmin && isReceivable && (
+                            <section className={styles.hwPanel} aria-label="Receivable Controls" id="receivable-controls">
+                                <DrawerHeader label="RECEIVABLE MANAGEMENT" isOpen={drawers.receivable} onClick={() => toggleDrawer('receivable')} icon={FiAlertOctagon} />
+                                <div className={`${styles.panelBody} ${drawers.receivable ? styles.bodyOpen : styles.bodyClosed}`}>
                                 <div className={styles.panelInner}>
                                     {isEditing ? (
                                         <>
@@ -1523,17 +1523,17 @@ const FolderPage = () => {
                                                         }} />
                                                 </div>
                                                 <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>BACKLOG START DATE OVERRIDE</label></div>
+                                                    <div className={styles.inputLabelRow}><label>RECEIVABLE START DATE OVERRIDE</label></div>
                                                     <input type="date" className={styles.hwInput}
-                                                        defaultValue={project.backlogStartDate ? project.backlogStartDate.substring(0,10) : ''}
+                                                        defaultValue={project.receivableStartDate ? project.receivableStartDate.substring(0,10) : ''}
                                                         onBlur={async e => {
                                                             if (!e.target.value) return;
-                                                            try { await recoveryService.setBacklogStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
+                                                            try { await recoveryService.setReceivableStartOverride(project.id, e.target.value); await loadFolderData(); toast('START DATE OVERRIDDEN', 'info', 2000); }
                                                             catch { /* silent */ }
                                                         }} />
                                                 </div>
                                             </div>
-                                            <div className={styles.editBacklogFeeHint}>
+                                            <div className={styles.editReceivableFeeHint}>
                                                 Current monthly fee: UGX {fmt(effectiveMonthlyFee)}. Negotiation deadline pauses fees automatically until that date.
                                             </div>
                                         </>
@@ -1560,9 +1560,9 @@ const FolderPage = () => {
                                                 </span>
                                             </div>
                                             <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>BACKLOG START DATE</span>
+                                                <span className={styles.specLabel}>RECEIVABLE START DATE</span>
                                                 <span className={styles.specValue}>
-                                                    {project.backlogStartDate ? new Date(project.backlogStartDate).toLocaleDateString() : 'UNKNOWN'}
+                                                    {project.receivableStartDate ? new Date(project.receivableStartDate).toLocaleDateString() : 'UNKNOWN'}
                                                 </span>
                                             </div>
                                         </div>
@@ -1586,15 +1586,15 @@ const FolderPage = () => {
                                     <div className={styles.paymentList}>
                                         {payments.map((pay, i) => (
                                             <div key={pay.id || i} id={`payment-${pay.id}`} className={styles.paymentRow}
-                                                style={{borderLeftColor: pay.paymentType === 'BACKLOG_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>
+                                                style={{borderLeftColor: pay.paymentType === 'RECEIVABLE_PARTIAL' ? '#ef4444' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#06b6d4' : '#22c55e'}}>
                                                 <div className={styles.payRowLeft}>
                                                     <div className={styles.payAmount}>UGX {fmt(pay.amountPaid)}</div>
                                                     <div className={styles.payMeta}>
                                                         <span className={styles.payType}
-                                                            style={{color: pay.paymentType === 'BACKLOG_PARTIAL' ? '#fca5a5' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#67e8f9' : '#86efac'}}>
+                                                            style={{color: pay.paymentType === 'RECEIVABLE_PARTIAL' ? '#fca5a5' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#67e8f9' : '#86efac'}}>
                                                             {pay.paymentType === 'STANDARD' ? 'Title Payment'
                                                             : pay.paymentType === 'INITIAL_DEPOSIT' ? 'Initial Deposit'
-                                                            : pay.paymentType === 'BACKLOG_PARTIAL' ? 'Backlog Payment'
+                                                            : pay.paymentType === 'RECEIVABLE_PARTIAL' ? 'Receivable Payment'
                                                             : pay.paymentType}
                                                         </span>
                                                         <span className={styles.payBy}>by {pay.recordedBy}</span>
@@ -1806,8 +1806,8 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
 
-            {/* EXIT BACKLOG MODAL — choose fee handling */}
-            <HardwareModal isOpen={exitBacklogModal} onClose={() => setExitBacklogModal(false)} title="EXIT BACKLOG">
+            {/* EXIT RECEIVABLE MODAL — choose fee handling */}
+            <HardwareModal isOpen={exitReceivableModal} onClose={() => setExitReceivableModal(false)} title="EXIT RECEIVABLE">
                 <div className={modalStyles.modalInfoBoxDanger} style={{marginBottom:16}}>
                     <strong>How should the accumulated storage fees be handled?</strong>
                     <br /><br />
@@ -1825,11 +1825,11 @@ const FolderPage = () => {
                         <span style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}> (UGX {fmt(totalValue)} + UGX {fmt(storageFees)} fees)</span>
                     </div>
                     <button type="button"
-                        onClick={() => handleExitBacklogConfirm(true)}
+                        onClick={() => handleExitReceivableConfirm(true)}
                         style={{width:'100%',padding:'10px 0',background:'#ef4444',border:'none',borderRadius:7,
                                 fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:11,
                                 textTransform:'uppercase',letterSpacing:1.5,color:'#fff',cursor:'pointer'}}>
-                        CAPITALIZE FEES — Exit Backlog
+                        CAPITALIZE FEES — Exit Receivable
                     </button>
                 </div>
 
@@ -1844,17 +1844,17 @@ const FolderPage = () => {
                         <span style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}> (UGX {fmt(totalValue)} value - UGX {fmt(amountPaid)} paid)</span>
                     </div>
                     <button type="button"
-                        onClick={() => handleExitBacklogConfirm(false)}
+                        onClick={() => handleExitReceivableConfirm(false)}
                         style={{width:'100%',padding:'10px 0',background:'#10b981',border:'none',borderRadius:7,
                                 fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:11,
                                 textTransform:'uppercase',letterSpacing:1.5,color:'#1a2e30',cursor:'pointer'}}>
-                        WAIVE FEES — Exit Backlog
+                        WAIVE FEES — Exit Receivable
                     </button>
                 </div>
 
                 <div className={modalStyles.modalFooter} style={{paddingTop:8,marginTop:0}}>
                     <button type="button" className={modalStyles.modalBtnSecondary}
-                        onClick={() => setExitBacklogModal(false)}>
+                        onClick={() => setExitReceivableModal(false)}>
                         CANCEL
                     </button>
                 </div>
@@ -1863,10 +1863,10 @@ const FolderPage = () => {
             {/* PAYMENT MODAL */}
             <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
                 <div className={styles.payBreakdownBox}>
-                    {isBacklog ? (
+                    {isReceivable ? (
                         <>
                             <div className={styles.payBreakdownTitle}>
-                                <FiAlertOctagon size={11} /> BACKLOG — AMOUNT OWED BREAKDOWN
+                                <FiAlertOctagon size={11} /> RECEIVABLE — AMOUNT OWED BREAKDOWN
                             </div>
                             <div className={styles.payBreakdownGrid}>
                                 <div className={styles.pbItem}>
@@ -1883,7 +1883,7 @@ const FolderPage = () => {
                                 </div>
                                 <div className={styles.pbItemTotal}>
                                     <span className={styles.pbLabel}>AMOUNT OWED</span>
-                                    <span className={styles.pbValTotal}>UGX {fmt(backlogAmountOwed)}</span>
+                                    <span className={styles.pbValTotal}>UGX {fmt(receivableAmountOwed)}</span>
                                 </div>
                             </div>
                         </>
@@ -1905,7 +1905,7 @@ const FolderPage = () => {
                     )}
                 </div>
 
-                {isBacklog && (
+                {isReceivable && (
                     <div className={styles.payTypeRow}>
                         <div className={styles.payTypeLabel}>WHAT IS THIS PAYMENT FOR?</div>
                         <div className={styles.payTypeButtons}>
@@ -1930,7 +1930,7 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="number" className={modalStyles.modalInput}
-                        placeholder={isBacklog && payType === 'STORAGE' ? "e.g. 50000 (1 month)" : `e.g. ${fmt(Math.max(0, remaining))}`}
+                        placeholder={isReceivable && payType === 'STORAGE' ? "e.g. 50000 (1 month)" : `e.g. ${fmt(Math.max(0, remaining))}`}
                         value={payAmount} onChange={e => setPayAmount(e.target.value)} />
                 </div>
                 <div className={modalStyles.modalField}>

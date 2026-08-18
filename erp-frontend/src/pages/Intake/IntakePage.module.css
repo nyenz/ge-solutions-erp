@@ -570,7 +570,7 @@
 .toggleLegacy:focus-visible,
 .toggleStandard:focus-visible { outline: 2px solid var(--orange); }
 
-.backlogFeeNote {
+.receivableFeeNote {
     margin-top: 8px;
     padding: clamp(7px, 0.9vw, 10px) clamp(10px, 1.2vw, 14px);
     background: rgba(239, 68, 68, 0.08);
@@ -581,7 +581,7 @@
     font-weight: 700;
 }
 
-.backlogFeeConfig {
+.receivableFeeConfig {
     margin-top: var(--gap-md);
     padding: clamp(12px, 1.5vw, 16px);
     background: rgba(0, 0, 0, 0.25);
@@ -589,7 +589,7 @@
     border-radius: var(--radius-sm);
 }
 
-.backlogFeeConfigTitle {
+.receivableFeeConfigTitle {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 900;
@@ -599,7 +599,7 @@
     margin-bottom: clamp(10px, 1.3vw, 14px);
 }
 
-.backlogFeeHint {
+.receivableFeeHint {
     margin-top: clamp(8px, 1vw, 11px);
     font-size: clamp(9px, 0.92vw, 11px);
     color: rgba(255, 255, 255, 0.35);

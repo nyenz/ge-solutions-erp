@@ -629,19 +629,19 @@
     .boxTag { font-size: 8px; padding: 2px 5px; }
 }
 
-/* ── BACKLOG ROW ────────────────────────────────────────────────── */
-/* Applied to table rows where the plot is in backlog status */
-.rowBacklog {
+/* ── RECEIVABLE ROW ────────────────────────────────────────────────── */
+/* Applied to table rows where the plot is in receivable status */
+.rowReceivable {
     background: rgba(239, 68, 68, 0.06);
     border-left: 3px solid rgba(239, 68, 68, 0.5) !important;
 }
-.rowBacklog:hover {
+.rowReceivable:hover {
     background: rgba(239, 68, 68, 0.10) !important;
 }
 
-/* ── BACKLOG STATUS TAG ─────────────────────────────────────────── */
-/* Shown in the STATUS column for backlog plots */
-.tagBacklog {
+/* ── RECEIVABLE STATUS TAG ─────────────────────────────────────────── */
+/* Shown in the STATUS column for receivable plots */
+.tagReceivable {
     font-family: 'DM Sans', sans-serif;
     background: transparent;
     color: #fca5a5;
@@ -655,19 +655,19 @@
 }
 
 
-/* ── BACKLOG ROW ────────────────────────────────────────────────── */
-/* Applied to table rows where the plot is in backlog status */
-.rowBacklog {
+/* ── RECEIVABLE ROW ────────────────────────────────────────────────── */
+/* Applied to table rows where the plot is in receivable status */
+.rowReceivable {
     background: rgba(239, 68, 68, 0.06);
     border-left: 3px solid rgba(239, 68, 68, 0.5) !important;
 }
-.rowBacklog:hover {
+.rowReceivable:hover {
     background: rgba(239, 68, 68, 0.10) !important;
 }
 
-/* ── BACKLOG STATUS TAG ─────────────────────────────────────────── */
-/* Shown in the STATUS column for backlog plots */
-.tagBacklog {
+/* ── RECEIVABLE STATUS TAG ─────────────────────────────────────────── */
+/* Shown in the STATUS column for receivable plots */
+.tagReceivable {
     font-family: 'DM Sans', sans-serif;
     background: transparent;
     color: #fca5a5;
@@ -681,19 +681,19 @@
 }
 
 
-/* ── BACKLOG ROW ────────────────────────────────────────────────── */
-/* Applied to table rows where the plot is in backlog status */
-.rowBacklog {
+/* ── RECEIVABLE ROW ────────────────────────────────────────────────── */
+/* Applied to table rows where the plot is in receivable status */
+.rowReceivable {
     background: rgba(239, 68, 68, 0.06);
     border-left: 3px solid rgba(239, 68, 68, 0.5) !important;
 }
-.rowBacklog:hover {
+.rowReceivable:hover {
     background: rgba(239, 68, 68, 0.10) !important;
 }
 
-/* ── BACKLOG STATUS TAG ─────────────────────────────────────────── */
-/* Shown in the STATUS column for backlog plots */
-.tagBacklog {
+/* ── RECEIVABLE STATUS TAG ─────────────────────────────────────────── */
+/* Shown in the STATUS column for receivable plots */
+.tagReceivable {
     font-family: 'DM Sans', sans-serif;
     background: transparent;
     color: #fca5a5;
@@ -805,7 +805,7 @@
     .ownerName, .ownerPhone { color: #000 !important; }
     .debtAmount { color: #000 !important; }
     .debtCritical { color: #c00 !important; text-shadow: none !important; }
-    .tagBacklog, .tagLegacy, .tagStandard, .tagCritical { background: #f1f5f9 !important; color: #000 !important; animation: none !important; border: 1px solid #ccc !important; }
+    .tagReceivable, .tagLegacy, .tagStandard, .tagCritical { background: #f1f5f9 !important; color: #000 !important; animation: none !important; border: 1px solid #ccc !important; }
     .velocityFill { background: #333 !important; }
     .pageHeader { background: #fff !important; box-shadow: none !important; backdrop-filter: none !important; border-left: 4px solid #333 !important; }
 }

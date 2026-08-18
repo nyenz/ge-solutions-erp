@@ -69,7 +69,7 @@ public class RecoveryController {
         Map<UUID, Client> clientRegistry = new HashMap<>();
 
         for (LandProject plot : allProjects) {
-            BigDecimal balance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
+            BigDecimal balance = plot.isReceivable() ? plot.receivableTotalOwed() : plot.activeTotalOwed();
             if (balance.compareTo(BigDecimal.ZERO) <= 0) continue;
 
             Set<Client> proprietors = plot.getProprietors();
@@ -128,7 +128,7 @@ public class RecoveryController {
             BigDecimal totalDemand = BigDecimal.ZERO;
             BigDecimal totalOriginalDebt = BigDecimal.ZERO;
             BigDecimal totalStorageFees = BigDecimal.ZERO;
-            boolean hasBacklog = false;
+            boolean hasReceivable = false;
 
             List<RecoveryTaskDTO.PlotSummary> plotSummaries = new ArrayList<>();
 
@@ -136,7 +136,7 @@ public class RecoveryController {
                 List<FollowUpLog> logs = followUpRepository.findByProjectIdOrderByTimestampDesc(plot.getId());
                 String lastNote = logs.isEmpty() ? "NO PRIOR CONTACT" : logs.get(0).getNotes();
 
-                BigDecimal plotBalance = plot.isBacklog() ? plot.backlogTotalOwed() : plot.activeTotalOwed();
+                BigDecimal plotBalance = plot.isReceivable() ? plot.receivableTotalOwed() : plot.activeTotalOwed();
                 totalDemand = totalDemand.add(plotBalance);
 
                 String badge = computePaymentBadge(plot);
@@ -147,24 +147,24 @@ public class RecoveryController {
                         .projectId(plot.getId())
                         .plotNumber(plot.getLandTitle().getPlotNumber())
                         .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())
-                        .isBacklog(plot.isBacklog())
+                        .isReceivable(plot.isReceivable())
                         .lastInteractionNote(lastNote)
                         .paymentHealthBadge(badge)
                         .lastPaymentDate(lastPaymentStr)
                         .surveyDate(plot.getLandTitle().getSurveyDate());
 
-                if (plot.isBacklog()) {
-                    hasBacklog = true;
+                if (plot.isReceivable()) {
+                    hasReceivable = true;
                     BigDecimal fees = plot.getStorageFeesAccumulated() != null ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
                     BigDecimal origDebt = plot.getTotalCost() != null ? plot.getTotalCost() : BigDecimal.ZERO;
-                    long months = plot.getBacklogStartDate() != null
-                            ? ChronoUnit.MONTHS.between(plot.getBacklogStartDate(), LocalDateTime.now()) : 0;
+                    long months = plot.getReceivableStartDate() != null
+                            ? ChronoUnit.MONTHS.between(plot.getReceivableStartDate(), LocalDateTime.now()) : 0;
 
                     summaryBuilder
                             .totalCost(origDebt)
                             .originalDebt(origDebt)
                             .storageFeesAccumulated(fees)
-                            .totalBacklogOwed(plotBalance)
+                            .totalReceivableOwed(plotBalance)
                             .storageMonthsCount(months)
                             .storagePaused(plot.isStoragePaused())
                             .storageFeeOverride(plot.getStorageFeeOverride())
@@ -199,7 +199,7 @@ public class RecoveryController {
                     .totalDemand(totalDemand)
                     .totalOriginalDebt(totalOriginalDebt)
                     .totalStorageFees(totalStorageFees)
-                    .hasBacklogPlots(hasBacklog)
+                    .hasReceivablePlots(hasReceivable)
                     .plots(plotSummaries)
                     .build();
 

@@ -271,10 +271,10 @@ const IntakePage = () => {
     // Owners
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
-    // Financials — SIMPLIFIED: only totalCost, initialPayment, isBacklog
+    // Financials — SIMPLIFIED: only totalCost, initialPayment, isReceivable
     const [totalCost,         setTotalCost]         = useState('');
     const [initialPayment,    setInitialPayment]    = useState('');
-    const [isBacklog,         setIsBacklog]         = useState(false);
+    const [isReceivable,         setIsReceivable]         = useState(false);
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('50000');
     const [initialStorageFee, setInitialStorageFee] = useState('');
     const [surveyDate,        setSurveyDate]        = useState('');
@@ -397,7 +397,7 @@ const IntakePage = () => {
                 instrumentNo: instrumentNo.trim().toUpperCase(),
                 totalCost:      Number(totalCost)      || 0,
                 initialPayment: Number(initialPayment) || 0,
-                isStartAsBacklog: isBacklog,
+                isStartAsReceivable: isReceivable,
                 surveyDate: surveyDate || undefined,
                 projectStartDate: projectStartDate || undefined,
                 titleIssueDate: titleIssueDate || undefined,
@@ -436,7 +436,7 @@ const IntakePage = () => {
             setNotesList([]);
             setErrors({});
             // Keep: tenure, physicalBoxNumber, district, county, blockRoad,
-            //       volume, folio, instrumentNo, totalCost, isBacklog,
+            //       volume, folio, instrumentNo, totalCost, isReceivable,
             //       monthlyStorageFee, owners
         } catch (err) {
             const msg = err.response?.data?.message || err.message || 'Save failed';
@@ -465,9 +465,9 @@ const IntakePage = () => {
                 instrumentNo: instrumentNo.trim().toUpperCase(),
                 totalCost:      Number(totalCost)      || 0,
                 initialPayment: Number(initialPayment) || 0,
-                isStartAsBacklog: isBacklog,
-                monthlyStorageFee: isBacklog ? (Number(monthlyStorageFee) || 50000) : undefined,
-                initialStorageFee: isBacklog ? (Number(initialStorageFee) || 0) : undefined,
+                isStartAsReceivable: isReceivable,
+                monthlyStorageFee: isReceivable ? (Number(monthlyStorageFee) || 50000) : undefined,
+                initialStorageFee: isReceivable ? (Number(initialStorageFee) || 0) : undefined,
                 surveyDate: surveyDate || undefined,
                 projectStartDate: projectStartDate || undefined,
                 titleIssueDate: titleIssueDate || undefined,
@@ -600,7 +600,7 @@ const IntakePage = () => {
                             </button>
                         </div>
                         {isLegacyMode && (
-                            <div className={styles.backlogFeeNote} style={{ borderColor: 'rgba(6,182,212,0.25)', background: 'rgba(6,182,212,0.08)', color: 'rgba(255,255,255,0.55)' }}>
+                            <div className={styles.receivableFeeNote} style={{ borderColor: 'rgba(6,182,212,0.25)', background: 'rgba(6,182,212,0.08)', color: 'rgba(255,255,255,0.55)' }}>
                                 Enter the real total cost from the ledger in the Financials section below.
                                 No stage checklist needed for legacy titles -- this behaves like a normal
                                 project for payment tracking once saved.
@@ -736,34 +736,34 @@ const IntakePage = () => {
                                 </div>
                             </div>
 
-                            {/* BACKLOG STATUS — single clean toggle */}
+                            {/* RECEIVABLE STATUS — single clean toggle */}
                             <div className={styles.modeRow}>
-                                <label>BACKLOG STATUS</label>
+                                <label>RECEIVABLE STATUS</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     <button type="button"
-                                        className={!isBacklog ? styles.toggleLegacy : styles.toggleStandard}
-                                        onClick={() => setIsBacklog(false)}>
-                                        ✓ STANDARD — NOT BACKLOG
+                                        className={!isReceivable ? styles.toggleLegacy : styles.toggleStandard}
+                                        onClick={() => setIsReceivable(false)}>
+                                        ✓ STANDARD — NOT RECEIVABLE
                                     </button>
                                     <button type="button"
-                                        className={isBacklog ? styles.toggleLegacy : styles.toggleStandard}
-                                        style={isBacklog ? { borderColor:'#ef4444', color:'#ef4444', background:'rgba(239,68,68,0.12)' } : {}}
-                                        onClick={() => setIsBacklog(true)}>
-                                        ⚠ ENTER AS BACKLOG
+                                        className={isReceivable ? styles.toggleLegacy : styles.toggleStandard}
+                                        style={isReceivable ? { borderColor:'#ef4444', color:'#ef4444', background:'rgba(239,68,68,0.12)' } : {}}
+                                        onClick={() => setIsReceivable(true)}>
+                                        ⚠ ENTER AS RECEIVABLE
                                     </button>
                                 </div>
-                                {isBacklog && (
-                                    <div className={styles.backlogFeeNote}>
+                                {isReceivable && (
+                                    <div className={styles.receivableFeeNote}>
                                         Storage fees accumulate monthly until balance is cleared.
                                     </div>
                                 )}
                             </div>
 
-                            {/* BACKLOG FEE CONFIG -- only visible when entering as backlog */}
-                            {isBacklog && (
-                                <div className={styles.backlogFeeConfig}>
-                                    <div className={styles.backlogFeeConfigTitle}>
-                                        BACKLOG FEE CONFIGURATION
+                            {/* RECEIVABLE FEE CONFIG -- only visible when entering as receivable */}
+                            {isReceivable && (
+                                <div className={styles.receivableFeeConfig}>
+                                    <div className={styles.receivableFeeConfigTitle}>
+                                        RECEIVABLE FEE CONFIGURATION
                                     </div>
                                     <div className={styles.grid2} style={{marginBottom: 12}}>
                                         <div className={styles.inputWrap}>
@@ -792,9 +792,9 @@ const IntakePage = () => {
                                             id="initialStorageFee"
                                         />
                                     </div>
-                                    <div className={styles.backlogFeeHint}>
+                                    <div className={styles.receivableFeeHint}>
                                         Set initial fees if this title was entered late into the system
-                                        (e.g. was in backlog for 3 months before being registered here).
+                                        (e.g. was in receivable for 3 months before being registered here).
                                         Leave at 0 if starting fresh.
                                     </div>
                                 </div>

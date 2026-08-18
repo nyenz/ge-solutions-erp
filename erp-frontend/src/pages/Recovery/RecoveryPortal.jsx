@@ -60,13 +60,13 @@ const RecoveryPortal = () => {
                 m.plots.some(p => p.plotNumber.toLowerCase().includes(t))
             );
         }
-        if (statusFilter === 'BACKLOG') list = list.filter(m => m.hasBacklogPlots);
-        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasBacklogPlots);
+        if (statusFilter === 'RECEIVABLE') list = list.filter(m => m.hasReceivablePlots);
+        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasReceivablePlots);
         return list;
     }, [missions, searchTerm, statusFilter]);
 
-    const totalActiveOwed  = missions.filter(m => !m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
-    const totalBacklogOwed = missions.filter(m =>  m.hasBacklogPlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
+    const totalActiveOwed  = missions.filter(m => !m.hasReceivablePlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
+    const totalReceivableOwed = missions.filter(m =>  m.hasReceivablePlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
     const totalStorageFees = missions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0);
 
     const handleLogCall = async () => {
@@ -125,8 +125,8 @@ const RecoveryPortal = () => {
                     <strong>UGX {fmt(totalActiveOwed)}</strong>
                 </div>
                 <div className={styles.finHUDCard}>
-                    <label>BACKLOG TOTAL OWED</label>
-                    <strong>UGX {fmt(totalBacklogOwed)}</strong>
+                    <label>RECEIVABLE TOTAL OWED</label>
+                    <strong>UGX {fmt(totalReceivableOwed)}</strong>
                 </div>
                 <div className={styles.finHUDCard}>
                     <label>STORAGE FEES</label>
@@ -148,7 +148,7 @@ const RecoveryPortal = () => {
                     />
                 </div>
                 <div className={styles.filterPills} role="group" aria-label="Filter missions">
-                    {['ALL', 'ACTIVE', 'BACKLOG'].map(f => (
+                    {['ALL', 'ACTIVE', 'RECEIVABLE'].map(f => (
                         <button
                             key={f}
                             className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`}
@@ -190,7 +190,7 @@ const RecoveryPortal = () => {
                         return (
                             <div
                                 key={m.clientId}
-                                className={`${styles.missionCard} ${m.hasBacklogPlots ? styles.cardBacklog : ''}`}
+                                className={`${styles.missionCard} ${m.hasReceivablePlots ? styles.cardReceivable : ''}`}
                             >
                                 {/* CARD HEADER */}
                                 <div
@@ -212,13 +212,13 @@ const RecoveryPortal = () => {
                                             <span className={styles.plotId}>
                                                 {m.plots.map(p => p.plotNumber).join(' / ')}
                                             </span>
-                                            {m.hasBacklogPlots && (
-                                                <span className={styles.backlogPill}>BACKLOG</span>
+                                            {m.hasReceivablePlots && (
+                                                <span className={styles.receivablePill}>RECEIVABLE</span>
                                             )}
                                         </div>
                                         <div className={styles.balanceLine}>
                                             <span className={styles.balanceLabel}>TOTAL OWED</span>
-                                            <span className={`${styles.balanceVal} ${m.hasBacklogPlots ? styles.balanceRed : ''}`}>
+                                            <span className={`${styles.balanceVal} ${m.hasReceivablePlots ? styles.balanceRed : ''}`}>
                                                 UGX {fmt(m.totalDemand)}
                                             </span>
                                         </div>
@@ -260,14 +260,14 @@ const RecoveryPortal = () => {
 
                                         {m.plots.map(p => {
                                             // CORRECT MATH:
-                                            // totalValue  = the true plot cost (totalCost from DTO, same as originalDebt for backlog)
+                                            // totalValue  = the true plot cost (totalCost from DTO, same as originalDebt for receivable)
                                             // amtPaid     = what has been paid so far
-                                            // storageFees = accumulated fees (backlog only)
+                                            // storageFees = accumulated fees (receivable only)
                                             // amountOwed  = totalValue + storageFees - amtPaid
                                             // 4-Pocket Math: AMOUNT OWED = (PLOT VALUE + STORAGE FEES) - PAID
                                             const totalValue  = Number(p.totalCost || 0);
                                             const amtPaid     = Number(p.amountPaid || 0);
-                                            const storageFees = p.isBacklog ? Number(p.storageFeesAccumulated || 0) : 0;
+                                            const storageFees = p.isReceivable ? Number(p.storageFeesAccumulated || 0) : 0;
                                             const amountOwed  = Math.max(0, totalValue + storageFees - amtPaid);
 
                                             return (
@@ -276,7 +276,7 @@ const RecoveryPortal = () => {
                                                     <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
-                                                {p.isBacklog && p.surveyDate && (
+                                                {p.isReceivable && p.surveyDate && (
                                                     <div className={styles.surveyDateRow}>
                                                         SURVEYED: <strong>{p.surveyDate}</strong>
                                                     </div>
@@ -296,7 +296,7 @@ const RecoveryPortal = () => {
                                                         <span className={styles.finLabel}>PLOT VALUE</span>
                                                         <span className={styles.finValWhite}>UGX {fmt(totalValue)}</span>
                                                     </div>
-                                                    {p.isBacklog && storageFees > 0 && (
+                                                    {p.isReceivable && storageFees > 0 && (
                                                         <div className={styles.finRow}>
                                                             <span className={styles.finLabel}>+ STORAGE FEES</span>
                                                             <span className={styles.finValOrange}>UGX {fmt(storageFees)}</span>

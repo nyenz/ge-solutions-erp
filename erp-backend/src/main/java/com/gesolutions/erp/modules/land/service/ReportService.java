@@ -224,14 +224,14 @@ public class ReportService {
     }
 
     /**
-     * PRIORITY 2 - REPORT 1: BACKLOG BREAKDOWN REPORT
-     * All backlog plots with storage fees breakdown.
+     * PRIORITY 2 - REPORT 1: RECEIVABLE BREAKDOWN REPORT
+     * All receivable plots with storage fees breakdown.
      */
     @Transactional(readOnly = true)
-    public byte[] generateBacklogBreakdown() {
-        List<LandProject> data = projectRepository.findAllBacklogPlots();
+    public byte[] generateReceivableBreakdown() {
+        List<LandProject> data = projectRepository.findAllReceivablePlots();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,BACKLOG_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_BACKLOG,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
+        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,RECEIVABLE_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
 
         for (LandProject p : data) {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
@@ -239,11 +239,11 @@ public class ReportService {
             java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal totalOwed = origDebt.add(storageFees).subtract(amountPaid);
-            long months = p.getBacklogStartDate() != null
-                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getBacklogStartDate(), java.time.LocalDateTime.now())
+            long months = p.getReceivableStartDate() != null
+                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now())
                 : 0;
-            String backlogStart = p.getBacklogStartDate() != null
-                ? p.getBacklogStartDate().toLocalDate().toString() : "UNKNOWN";
+            String receivableStart = p.getReceivableStartDate() != null
+                ? p.getReceivableStartDate().toLocalDate().toString() : "UNKNOWN";
 
             csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
                .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
@@ -251,14 +251,14 @@ public class ReportService {
                .append(p.getLandTitle().getTenure() != null ? p.getLandTitle().getTenure() : "").append(CSV_DIVIDER)
                .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
                .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
-               .append(backlogStart).append(CSV_DIVIDER)
+               .append(receivableStart).append(CSV_DIVIDER)
                .append(origDebt).append(CSV_DIVIDER)
                .append(storageFees).append(CSV_DIVIDER)
                .append(months).append(CSV_DIVIDER)
                .append(amountPaid).append(CSV_DIVIDER)
                .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(NEW_LINE);
         }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Backlog Breakdown Report Exported");
+        auditService.logAction("REPORT_EXPORT", "Priority 2: Receivable Breakdown Report Exported");
         return csv.toString().getBytes();
     }
 

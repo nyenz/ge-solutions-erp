@@ -441,8 +441,8 @@
 .ctrlBtnPay:hover { background: #10b981; color: #1a2e30; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .ctrlBtnPay:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
-/* BACKLOG -- grey -> full red on hover */
-.ctrlBtnBacklog {
+/* RECEIVABLE -- grey -> full red on hover */
+.ctrlBtnReceivable {
     display: inline-flex;
     align-items: center;
     gap: clamp(5px, 0.7vw, 7px);
@@ -463,8 +463,8 @@
     transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
     line-height: 1;
 }
-.ctrlBtnBacklog:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.35); }
-.ctrlBtnBacklog:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.ctrlBtnReceivable:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.35); }
+.ctrlBtnReceivable:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
 /* PRINT icon-only -- dark navy theme */
 .printBtn {
@@ -1086,11 +1086,11 @@
     box-shadow: 0 0 18px rgba(239, 68, 68, 0.5);
 }
 /* ═══════════════════════════════════════════════════════════════════
-   BACKLOG NOTICE (view mode) + EDIT MODE FEE CONTROLS
+   RECEIVABLE NOTICE (view mode) + EDIT MODE FEE CONTROLS
    ═══════════════════════════════════════════════════════════════════ */
 
 /* View mode: clean left-border notice row */
-.backlogNotice {
+.receivableNotice {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -1101,15 +1101,15 @@
     border-radius: 0 6px 6px 0;
     margin-bottom: clamp(10px, 1.3vw, 14px);
 }
-.backlogNoticeIcon { color: #ef4444; flex-shrink: 0; opacity: 0.8; }
-.backlogNoticeText {
+.receivableNoticeIcon { color: #ef4444; flex-shrink: 0; opacity: 0.8; }
+.receivableNoticeText {
     display: flex;
     flex-direction: column;
     gap: 2px;
     flex: 1;
     min-width: 0;
 }
-.backlogNoticeText strong {
+.receivableNoticeText strong {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.82vw, 10px);
     font-weight: 900;
@@ -1117,15 +1117,15 @@
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-.backlogNoticeText span {
+.receivableNoticeText span {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.8vw, 9px);
     color: rgba(255, 255, 255, 0.45);
     font-weight: 700;
 }
 
-/* Exit backlog button — small, red outline */
-.btnExitBacklog {
+/* Exit receivable button — small, red outline */
+.btnExitReceivable {
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.5vw, 6px);
@@ -1145,8 +1145,8 @@
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.btnExitBacklog:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
-.btnExitBacklog:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.btnExitReceivable:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+.btnExitReceivable:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
 
 /* btnPauseGrey = fees currently ACTIVE, click to PAUSE (show grey/danger) */
 .btnPauseGrey {
@@ -1204,16 +1204,16 @@
 }
 .btnResumeActive:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 
-/* Edit mode backlog fee section wrapper */
-.editBacklogFeeSection {
+/* Edit mode receivable fee section wrapper */
+.editReceivableFeeSection {
     margin-top: clamp(10px, 1.3vw, 14px);
     padding: clamp(10px, 1.3vw, 14px);
     background: rgba(0, 0, 0, 0.2);
     border: 1.5px solid rgba(239, 68, 68, 0.2);
     border-radius: var(--radius-sm);
 }
-/* Row with title + EXIT BACKLOG button side by side */
-.editBacklogFeeTitleRow {
+/* Row with title + EXIT RECEIVABLE button side by side */
+.editReceivableFeeTitleRow {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1221,7 +1221,7 @@
     gap: clamp(6px, 0.8vw, 10px);
     margin-bottom: clamp(8px, 1vw, 11px);
 }
-.editBacklogFeeTitle {
+.editReceivableFeeTitle {
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px, 0.82vw, 9px);
     font-weight: 900;
@@ -1229,7 +1229,7 @@
     text-transform: uppercase;
     letter-spacing: 1.5px;
 }
-.editBacklogFeeHint {
+.editReceivableFeeHint {
     margin-top: clamp(7px, 0.9vw, 9px);
     font-size: clamp(8px, 0.82vw, 10px);
     color: rgba(255, 255, 255, 0.3);
@@ -1277,7 +1277,7 @@
     margin-left: clamp(2px, 0.3vw, 4px);
 }
 
-/* Total owed banner for backlog */
+/* Total owed banner for receivable */
 .totalOwedBanner {
     display: flex;
     justify-content: space-between;
@@ -1563,7 +1563,7 @@
     [class*="purgeBtn"],
     [class*="unlockMaster"],
     [class*="ctrlBtnPay"],
-    [class*="ctrlBtnBacklog"],
+    [class*="ctrlBtnReceivable"],
     [class*="filterBtn"],
     [class*="tabBtn"] {
         display: none !important;
@@ -1799,15 +1799,15 @@
         padding: 6px 10px !important;
         font-size: 9pt !important;
     }
-    .backlogNotice {
+    .receivableNotice {
         background: #fff0f0 !important;
         border-left: 3px solid #b00 !important;
         padding: 6px 10px !important;
         border-radius: 0 4px 4px 0 !important;
         margin-bottom: 8px !important;
     }
-    .backlogNoticeText strong { color: #b00 !important; font-size: 8pt !important; }
-    .backlogNoticeText span   { color: #333 !important; font-size: 8pt !important; }
+    .receivableNoticeText strong { color: #b00 !important; font-size: 8pt !important; }
+    .receivableNoticeText span   { color: #333 !important; font-size: 8pt !important; }
     .totalOwedBanner {
         background: #fff0f0 !important;
         border: 1px solid #ccc !important;
@@ -1967,7 +1967,7 @@
     }
     .docIcon { color: #1a2e30 !important; }
 
-    /* ── BACKLOG MANAGEMENT SECTION ── */
+    /* ── RECEIVABLE MANAGEMENT SECTION ── */
     .readOnlyGrid .specItem { page-break-inside: avoid !important; break-inside: avoid !important; }
 
     /* ── PRINT FOOTER (page numbers via CSS) ── */
@@ -2047,7 +2047,7 @@
     }
     .unlockMasterBtn,
     .ctrlBtnPay,
-    .ctrlBtnBacklog,
+    .ctrlBtnReceivable,
     .purgeBtn {
         width: 100% !important;
         height: clamp(44px, 12vw, 50px) !important;
@@ -2086,7 +2086,7 @@
         justify-content: center;
         height: clamp(44px, 5.5vw, 50px);
     }
-    .ctrlBtnPay, .ctrlBtnBacklog {
+    .ctrlBtnPay, .ctrlBtnReceivable {
         height: clamp(44px, 5.5vw, 50px);
         justify-content: center;
         flex: 1;
@@ -2259,13 +2259,13 @@
     .expandedActions,
     .recordPayBtnRow,
     .recordPayBtn,
-    .backlogFeeConfig,
-    .editBacklogFeeSection,
+    .receivableFeeConfig,
+    .editReceivableFeeSection,
     [class*="ctrlBtn"],
     [class*="purgeBtn"],
     [class*="unlockMaster"],
     [class*="ctrlBtnPay"],
-    [class*="ctrlBtnBacklog"],
+    [class*="ctrlBtnReceivable"],
     [class*="filterBtn"],
     [class*="tabBtn"] {
         display: none !important;
@@ -2535,15 +2535,15 @@
 
     .redGlow { color: #aa0000 !important; text-shadow: none !important; }
 
-    .backlogNotice {
+    .receivableNotice {
         background: #fff0f0 !important;
         border-left: 3px solid #aa0000 !important;
         padding: 6px 10px !important;
         margin-bottom: 8px !important;
     }
 
-    .backlogNoticeText strong { color: #aa0000 !important; font-size: 8pt !important; }
-    .backlogNoticeText span   { color: #333333 !important; font-size: 8pt !important; }
+    .receivableNoticeText strong { color: #aa0000 !important; font-size: 8pt !important; }
+    .receivableNoticeText span   { color: #333333 !important; font-size: 8pt !important; }
 
     .totalOwedBanner {
         background: #fff0f0 !important;
@@ -2607,7 +2607,7 @@
     .payDate   { font-family: 'Courier New', monospace !important; font-size: 8pt !important; color: #333333 !important; }
     .payBalance { font-size: 8pt !important; color: #555555 !important; }
 
-    /* ── BACKLOG MGMT SECTION ── */
+    /* ── RECEIVABLE MGMT SECTION ── */
     .readOnlyGrid .specItem { page-break-inside: avoid !important; break-inside: avoid !important; }
 
     /* ── OWNERS ── */

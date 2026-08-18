@@ -29,7 +29,7 @@ public class PaymentRecord {
     @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountPaid;
 
-    // "STANDARD" for active plots, "BACKLOG_PARTIAL" for backlog plots
+    // "STANDARD" for active plots, "RECEIVABLE_PARTIAL" for receivable plots
     @Builder.Default
     @Column(name = "payment_type", nullable = false, length = 50)
     private String paymentType = "STANDARD";

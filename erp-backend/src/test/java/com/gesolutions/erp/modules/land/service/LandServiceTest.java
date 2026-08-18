@@ -74,7 +74,7 @@ public class LandServiceTest {
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))
                 .isLegacy(false)
-                .isStartAsBacklog(false)
+                .isStartAsReceivable(false)
                 .build();
 
         LandProject saved = landService.atomicIntake(request, null);

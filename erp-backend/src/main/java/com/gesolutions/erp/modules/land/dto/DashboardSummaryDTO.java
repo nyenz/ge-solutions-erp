@@ -18,10 +18,10 @@ public class DashboardSummaryDTO {
     private long staleCallCount;
     private long readyForReleaseCount;
     private long boxCount;
-    private long backlogCount;
+    private long receivableCount;
 
     private Map<Integer, Long> stageDistribution;
-    private long legacyBacklogCount;
+    private long legacyReceivableCount;
     private long newSurveyCount;
 
     private long activeManagersOnline;

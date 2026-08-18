@@ -38,8 +38,8 @@ const ManagerTerminal = ({ stats }) => {
                 </div>
                 <div className={`${styles.statTile} ${styles.emerald}`}>
                     <div className={styles.tileIconWrap} aria-hidden="true"><FiCheckSquare /></div>
-                    <div className={styles.statValue}>{stats?.backlogCount || 0}</div>
-                    <div className={styles.statLabel}>IN BACKLOG</div>
+                    <div className={styles.statValue}>{stats?.receivableCount || 0}</div>
+                    <div className={styles.statLabel}>IN RECEIVABLE</div>
                 </div>
             </div>
 

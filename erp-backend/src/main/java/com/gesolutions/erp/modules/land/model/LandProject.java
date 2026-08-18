@@ -52,10 +52,10 @@ public class LandProject {
     // Boolean (object not primitive) so existing DB rows with NULL don't crash
     @Builder.Default
     @Column(name = "is_backlog")
-    private Boolean isBacklog = false;
+    private Boolean isReceivable = false;
 
     @Column(name = "backlog_start_date")
-    private LocalDateTime backlogStartDate;
+    private LocalDateTime receivableStartDate;
 
     @Builder.Default
     @Column(name = "original_debt", precision = 15, scale = 2)
@@ -87,21 +87,21 @@ public class LandProject {
     private java.time.LocalDateTime negotiationDeadline;
 
     /**
-     * BACKLOG START DATE OVERRIDE: Allows admin to set the actual backlog start date
+     * RECEIVABLE START DATE OVERRIDE: Allows admin to set the actual receivable start date
      * for titles entered late into the system (e.g. 2 months ago).
      */
     @Column(name = "backlog_start_override")
-    private java.time.LocalDateTime backlogStartOverride;
+    private java.time.LocalDateTime receivableStartOverride;
 
     /**
-     * BACKLOG MONTHS BILLED COUNTER
+     * RECEIVABLE MONTHS BILLED COUNTER
      * Tracks how many monthly storage fee periods have been billed.
-     * Used by BacklogSchedulerService instead of division math, so
+     * Used by ReceivableSchedulerService instead of division math, so
      * rate changes mid-way do not corrupt the billing calculation.
      */
     @Builder.Default
     @Column(name = "backlog_months_billed", nullable = false)
-    private Integer backlogMonthsBilled = 0;
+    private Integer receivableMonthsBilled = 0;
 
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
@@ -123,16 +123,16 @@ public class LandProject {
         if (client != null) this.proprietors.add(client);
     }
 
-    // Safe null-check — old DB rows have NULL for isBacklog
-    public boolean isBacklog() {
-        return Boolean.TRUE.equals(this.isBacklog);
+    // Safe null-check — old DB rows have NULL for isReceivable
+    public boolean isReceivable() {
+        return Boolean.TRUE.equals(this.isReceivable);
     }
 
-    public void setBacklog(boolean value) {
-        this.isBacklog = value;
+    public void setReceivable(boolean value) {
+        this.isReceivable = value;
     }
 
-    public BigDecimal backlogTotalOwed() {
+    public BigDecimal receivableTotalOwed() {
         // 4-Pocket Math: AMOUNT OWED = (totalCost + storageFeesAccumulated) - amountPaid
         BigDecimal value = totalCost != null ? totalCost : BigDecimal.ZERO;
         BigDecimal fees  = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;

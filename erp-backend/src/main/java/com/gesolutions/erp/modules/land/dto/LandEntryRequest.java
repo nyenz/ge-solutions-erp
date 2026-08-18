@@ -46,9 +46,9 @@ public class LandEntryRequest {
     @JsonProperty("isLegacy")
     private boolean isLegacy;
 
-    // Staff can flag a plot as backlog right at intake (for old/existing cases)
-    @JsonProperty("isStartAsBacklog")
-    private boolean isStartAsBacklog;
+    // Staff can flag a plot as receivable right at intake (for old/existing cases)
+    @JsonProperty("isStartAsReceivable")
+    private boolean isStartAsReceivable;
 
     private java.math.BigDecimal monthlyStorageFee;
     private java.math.BigDecimal initialStorageFee;

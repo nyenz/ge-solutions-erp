@@ -46,20 +46,20 @@ const recoveryService = {
         return true;
     },
 
-    moveToBacklog: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/backlog`);
+    moveToReceivable: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/receivable`);
         return true;
     },
 
-    exitBacklog: async (projectId, capitalizeFees = false) => {
-        await api.post(`/land/projects/${projectId}/exit-backlog`, null, {
+    exitReceivable: async (projectId, capitalizeFees = false) => {
+        await api.post(`/land/projects/${projectId}/exit-receivable`, null, {
             params: { capitalizeFees }
         });
         return true;
     },
 
-    exitBacklogCapitalize: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/exit-backlog`, null, {
+    exitReceivableCapitalize: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/exit-receivable`, null, {
             params: { capitalizeFees: true }
         });
         return true;
@@ -89,8 +89,8 @@ const recoveryService = {
         });
     },
 
-    setBacklogStartOverride: async (projectId, startDate) => {
-        await api.patch(`/land/projects/${projectId}/backlog-start`, null, {
+    setReceivableStartOverride: async (projectId, startDate) => {
+        await api.patch(`/land/projects/${projectId}/receivable-start`, null, {
             params: { startDate }
         });
     }

@@ -115,7 +115,7 @@ public class LandCascadeDeleteTest {
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))
                 .isLegacy(false)
-                .isStartAsBacklog(false)
+                .isStartAsReceivable(false)
                 .build();
 
         LandProject project = landService.atomicIntake(request, null);
