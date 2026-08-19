@@ -218,7 +218,7 @@ const SettingsPage = () => {
         if (wipeConfirmText !== 'WIPE-EVERYTHING') return;
         const ok = await confirm(
             'FULL SYSTEM WIPE',
-            'This permanently deletes every client, project, payment, and log in the system. This CANNOT be undone. Continue?',
+            'This permanently deletes every client, project, payment, and log in the system, plus every uploaded file in storage. This CANNOT be undone. Continue?',
             'danger'
         );
         if (!ok) return;
@@ -372,9 +372,10 @@ const SettingsPage = () => {
                                 <div className={styles.securityAlert} style={{ borderColor: 'var(--red)' }}>
                                     <FiAlertTriangle aria-hidden="true" style={{ color: 'var(--red)' }} />
                                     <span>
-                                        Permanently deletes every client, project, payment, and log in the system.
-                                        Cannot be undone. Root login, project index, and default stage template
-                                        are automatically restored to defaults right after.
+                                        Permanently deletes every client, project, payment, and log in the system,
+                                        plus every file uploaded to storage. Cannot be undone. Root login,
+                                        project index, and default stage template are automatically restored
+                                        to defaults right after.
                                     </span>
                                 </div>
                                 <div className={styles.wipeField}>

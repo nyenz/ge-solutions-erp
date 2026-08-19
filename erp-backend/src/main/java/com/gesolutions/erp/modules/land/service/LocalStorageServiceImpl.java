@@ -132,4 +132,38 @@ public class LocalStorageServiceImpl implements FileStorageService {
             System.err.println(">>> FOLDER DELETE FAULT (may already be empty/gone): " + e.getMessage());
         }
     }
+
+    @Override
+    public void deleteAllFiles() {
+        if (this.cloudName != null && this.cloudName.trim().equals("test")) {
+            System.out.println(">>> LOCAL TEST MOCK: Skipping real Cloudinary purge.");
+            return;
+        }
+
+        // Every file this app ever uploads lives under the "ge_solutions/"
+        // prefix (see storeFile above). Cloudinary keeps image/raw/video as
+        // separate namespaces, so each has to be purged by prefix on its own.
+        for (String resourceType : new String[]{"image", "raw", "video"}) {
+            try {
+                cloudinary.api().deleteResourcesByPrefix(
+                        "ge_solutions/",
+                        ObjectUtils.asMap("resource_type", resourceType)
+                );
+                System.out.println(">>> CLOUDINARY PURGE OK: resource_type=" + resourceType);
+            } catch (Exception e) {
+                System.err.println(">>> CLOUDINARY PURGE FAULT (resource_type=" + resourceType + "): " + e.getMessage());
+            }
+        }
+
+        // Best-effort: remove the now-empty top-level folder. Cloudinary
+        // only deletes a folder once it has no files left in it, and this
+        // can silently no-op if a subfolder is still cached as non-empty --
+        // that is cosmetic only, the actual files above are already gone.
+        try {
+            cloudinary.api().deleteFolder("ge_solutions", ObjectUtils.emptyMap());
+            System.out.println(">>> CLOUDINARY ROOT FOLDER DELETED: ge_solutions");
+        } catch (Exception e) {
+            System.err.println(">>> CLOUDINARY ROOT FOLDER DELETE FAULT (cosmetic only, files are already gone): " + e.getMessage());
+        }
+    }
 }

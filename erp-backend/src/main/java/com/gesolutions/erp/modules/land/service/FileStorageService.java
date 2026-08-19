@@ -13,4 +13,8 @@ public interface FileStorageService {
 
     // NEW: Deletes the entire folder from Cloudinary after purge
     void deleteFolder(@NonNull String folderPath);
+
+    // NEW: Wipes every file ever uploaded by this app (all projects, all
+    // resource types) from Cloudinary. Used by the DANGER ZONE full wipe.
+    void deleteAllFiles();
 }

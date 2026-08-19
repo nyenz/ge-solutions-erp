@@ -2,6 +2,7 @@
 package com.gesolutions.erp.modules.admin.controller;
 
 import com.gesolutions.erp.config.DataInitializer;
+import com.gesolutions.erp.modules.land.service.FileStorageService;
 import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +29,9 @@ import java.util.Map;
  * the default stage-template checklist are automatically reseeded so the
  * app is immediately usable again (nobody gets permanently locked out).
  *
- * NOTE: This does NOT delete files already uploaded to Cloudinary. Any
- * documents attached to wiped projects become orphaned there -- clean those
- * up separately in the Cloudinary dashboard if needed.
+ * Also purges every file this app has ever uploaded to Cloudinary (all
+ * project documents, all resource types), so nothing is left behind in
+ * storage either.
  */
 @RestController
 @RequestMapping("/api/v1/admin/system")
@@ -61,6 +62,7 @@ public class SystemAdminController {
     private final DataSource dataSource;
     private final DataInitializer dataInitializer;
     private final StageTemplateService stageTemplateService;
+    private final FileStorageService fileStorageService;
 
     /**
      * THE BIG RED BUTTON.
@@ -114,12 +116,16 @@ public class SystemAdminController {
         stageTemplateService.seedDefaultStagesIfEmpty();
         System.out.println(">>> [WIPE] OK: default stage template reseeded");
 
+        // Purge every uploaded file from Cloudinary storage too
+        fileStorageService.deleteAllFiles();
+        System.out.println(">>> [WIPE] OK: Cloudinary storage purge attempted");
+
         System.out.println(">>> [WIPE] SYSTEM RESET COMPLETE. Fresh start.");
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("wiped", true);
         response.put("tablesWiped", TABLES_TO_WIPE);
-        response.put("message", "All business data deleted. Root admin login, project index, and default stage template were reseeded to defaults. You will need to log in again with the ADMIN_EMAIL / ADMIN_DEFAULT_PASSWORD credentials. NOTE: files already on Cloudinary were NOT deleted.");
+        response.put("message", "All business data AND all uploaded files on Cloudinary have been deleted. Root admin login, project index, and default stage template were reseeded to defaults. You will need to log in again with the ADMIN_EMAIL / ADMIN_DEFAULT_PASSWORD credentials.");
         return ResponseEntity.ok(response);
     }
 }
