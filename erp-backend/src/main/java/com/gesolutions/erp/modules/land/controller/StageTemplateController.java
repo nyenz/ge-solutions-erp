@@ -65,6 +65,8 @@ public class StageTemplateController {
 
     // ─── PER-PROJECT STAGES ──────────────────────────────────────────────
 
+    // STAGE 2 FIX: Secretary can view a project's stage checklist
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/land/projects/{projectId}/stages")
     public ResponseEntity<List<ProjectStage>> getProjectStages(@PathVariable UUID projectId) {
         return ResponseEntity.ok(stageTemplateService.getProjectStages(projectId));
@@ -76,6 +78,11 @@ public class StageTemplateController {
         return ResponseEntity.ok(stageTemplateService.attachStagesToProject(projectId, requests));
     }
 
+    // STAGE 2 FIX: "Changes Stages: Yes (stage only)" per the role table --
+    // Secretary may toggle stage completion but NOT edit stage cost, attach
+    // new stages, remove stages, or touch the master template (all below
+    // stay on the class-level Manager/Admin/Director-only default).
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
     public ResponseEntity<ProjectStage> toggleStageCompletion(
             @PathVariable UUID projectId, @PathVariable UUID stageId,

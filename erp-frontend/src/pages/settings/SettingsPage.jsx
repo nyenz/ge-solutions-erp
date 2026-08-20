@@ -336,8 +336,8 @@ const SettingsPage = () => {
                                                 </div>
                                                 <div className={styles.opInfo}>
                                                     <strong>{op.username}</strong>
-                                                    <span className={(op.role === 'ROLE_ADMIN' || op.role === 'ROLE_DIRECTOR') ? styles.rankAdmin : styles.rankManager}>
-                                                        {op.isRoot ? 'MASTER FOUNDER' : op.role === 'ROLE_DIRECTOR' ? 'TIER 2: DIRECTOR' : op.role === 'ROLE_ADMIN' ? 'TIER 2: ADMIN' : 'TIER 3: OPERATOR'}
+                                                    <span className={(op.role === 'ROLE_ADMIN' || op.role === 'ROLE_DIRECTOR') ? styles.rankAdmin : op.role === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankManager}>
+                                                        {op.isRoot ? 'MASTER FOUNDER' : op.role === 'ROLE_DIRECTOR' ? 'TIER 2: DIRECTOR' : op.role === 'ROLE_ADMIN' ? 'TIER 2: ADMIN' : op.role === 'ROLE_SECRETARY' ? 'TIER 4: SECRETARY' : 'TIER 3: OPERATOR'}
                                                     </span>
                                                 </div>
                                                 <div className={styles.opActions}>
@@ -422,7 +422,7 @@ const SettingsPage = () => {
                     <HardwareInput label="USERNAME" value={newOpData.username} onChange={e => setNewOpData({...newOpData, username: e.target.value})} required />
                     <HardwareInput label="RECOVERY EMAIL" type="email" value={newOpData.email} onChange={e => setNewOpData({...newOpData, email: e.target.value})} required />
                     <div className={styles.selectWrap}>
-                        <HardwareSelect label="INITIAL RANK" options={['ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR']} value={newOpData.role} onChange={v => setNewOpData({...newOpData, role: v})} />
+                        <HardwareSelect label="INITIAL RANK" options={['ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR']} value={newOpData.role} onChange={v => setNewOpData({...newOpData, role: v})} />
                     </div>
                     <div className={styles.modalCenter}>
                         <button className={styles.commitBtn} type="submit">EXECUTE PROVISIONING</button>

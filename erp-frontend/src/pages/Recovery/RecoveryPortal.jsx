@@ -26,6 +26,10 @@ const RecoveryPortal = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
+    // STAGE 2 FIX: matches the backend permission on POST /land/projects/{id}/payment
+    // (ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR, widened in Stage 1) -- isAdmin alone
+    // was hiding this button from Directors and Managers who could already use it.
+    const canRecordPayment = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR' || user?.role === 'ROLE_MANAGER' || user?.isRoot;
 
     const [viewMode,     setViewMode]     = useState('ACTION');
     const [missions,     setMissions]     = useState([]);
@@ -319,7 +323,7 @@ const RecoveryPortal = () => {
                                                     >
                                                         OPEN FOLDER
                                                     </button>
-                                                    {isAdmin && (
+                                                    {canRecordPayment && (
                                                         <button
                                                             className={styles.payBtn}
                                                             onClick={() => navigate(`/folder/${p.projectId}?action=pay`)}

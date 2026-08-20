@@ -1,357 +1,348 @@
 # PATH: fix.py
-# STAGE 1 -- STOP THE BLEEDING (bug-fix roadmap)
+# STAGE 2 -- ROLES MATCH REALITY (bug-fix roadmap)
 # Run from project root: python fix.py   (or: py fix.py)
+# Assumes Stage 1's fix.py has already been run, committed, and pushed.
 #
-# WHY: nobody can record a payment right now -- the button is wired to a
-# web address that doesn't exist on the server. On top of that, the admin
-# password quietly resets every time the server restarts, the promote/
-# demote button can turn a Director into an Admin by mistake, and there
-# is no limit stopping someone from "paying" more than a project owes.
+# WHY: the Secretary role exists on paper (the Role enum) but cannot
+# actually log in and do anything -- every @PreAuthorize check in the
+# app still only knows about Manager/Admin/Director. Directors also
+# couldn't see the Record Payment button even though Stage 1 already
+# opened the backend up to them.
+#
+# IMPORTANT DISCOVERY WHILE BUILDING THIS STAGE: the original roadmap
+# assumed Sidebar.jsx and App.jsx's route guards would need Secretary
+# added explicitly. They don't -- both were already built generically
+# (Dashboard/New Plot/Ledger/Recovery/Settings use `access: true` for
+# ANY authenticated role, Payments/Expenses/Reports/Audit use
+# `hasHighLevelAccess`/`hasManagerAccess` booleans that simply evaluate
+# to false for Secretary). So Fix 3 needed ZERO frontend nav/route
+# changes -- Secretary already lands in the right place today. What was
+# actually missing is that the BACKEND blocks Secretary from every API
+# call those pages make, including /dashboard/summary itself (which
+# would 403 a Secretary the instant they log in). That's the real gap
+# this stage closes.
 #
 # BACKEND (patches):
-#   - LandController.java: adds POST /projects/{id}/payment, restricted
-#     to ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR, wired to
-#     LandService.recordPayment(). This is the missing endpoint the
-#     frontend has been calling all along.
-#   - LandService.java: widens recordPayment()'s own @PreAuthorize to
-#     also allow ROLE_MANAGER (it was ROLE_ADMIN/ROLE_DIRECTOR only,
-#     which would have silently blocked Managers even with the new
-#     controller route in place). Also adds an overpayment guard that
-#     throws BusinessException before the payment is saved if the
-#     amount exceeds what is currently owed.
-#   - DataInitializer.java: seedRootUser() no longer overwrites
-#     admin_root's password/is_active/must_change_password on every
-#     restart -- that UPDATE now only ever runs once, at first creation.
-#     Also removes the console line that printed the first 3 characters
-#     of the raw admin password, and removes the post-write BCrypt
-#     verification block (it only makes sense right after a fresh
-#     insert; run against an existing, already-changed password it was
-#     printing a false "FATAL: BCrypt verify FAILED" every restart).
+#   - DashboardController.java: class-level @PreAuthorize widened to
+#     include ROLE_SECRETARY, so /dashboard/summary loads for them.
+#     (The DTO itself already hides financial figures from non-Admin/
+#     Director users via a showFinancials flag -- nothing else to do
+#     there.) The /director sub-route keeps its own stricter
+#     Admin/Director-only override untouched.
+#   - RecoveryController.java: class-level @PreAuthorize widened to
+#     include ROLE_SECRETARY -- this class is read-only queue/schedule
+#     data, no money-moving actions live here, so this is safe. Actual
+#     call-logging goes through LandController's /follow-up endpoint,
+#     patched below.
+#   - LandController.java: per-METHOD @PreAuthorize overrides (not a
+#     class-level change, which would over-grant Secretary access to
+#     payments/receivable/deletion/storage-fee endpoints in the same
+#     class) adding ROLE_SECRETARY to: getProjectDeepDetail (Folder
+#     page can't load without this), getProjectNotes, logContact,
+#     addNote, getDocuments, addExtraDocuments, ingestTitle, getLedger.
+#   - StageTemplateController.java: per-METHOD overrides (same reasoning
+#     -- this class also holds master TEMPLATE CRUD, which Secretary
+#     must never touch per the role table) adding ROLE_SECRETARY to
+#     getProjectStages and toggleStageCompletion ONLY. Template CRUD
+#     (addTemplateStage/updateTemplateStage/deactivateTemplateStage) and
+#     attachStages/updateStageCost/removeStage are deliberately left
+#     alone -- Secretary is "stage-changing only," not cost- or
+#     template-editing.
 #
 # FRONTEND (patches):
-#   - SettingsPage.jsx: replaces the binary promote/demote arrow toggle
-#     (which sent ANY non-Admin role straight to Admin) with an explicit
-#     rank menu showing all 4 roles, so the person promoting always
-#     picks the exact target role.
-#   - FolderPage.jsx: handleRecordPayment now reads the server's real
-#     error message (err.response?.data?.message) instead of always
-#     showing the generic "PAYMENT FAILED" toast -- so the new
-#     overpayment message actually reaches the user.
+#   - SettingsPage.jsx: 'ROLE_SECRETARY' added to the INITIAL RANK
+#     dropdown when creating a new operator, and a 'TIER 4: SECRETARY'
+#     label (its own color) added wherever rank badges render.
+#   - RecoveryPortal.jsx: RECORD PAYMENT button gated by a new
+#     canRecordPayment check (Admin/Director/Manager/root) instead of
+#     isAdmin-only, matching the backend permission Stage 1 already
+#     granted to Managers.
+#
+# DOCS:
+#   - LLM_CONTEXT_GUIDE.md Section 17.10's Phase 3 entry currently
+#     claims "APPLIED AND PUSHED (all three sub-parts)" -- it wasn't;
+#     this bug-fix roadmap is what actually finished the wiring. The
+#     status line is corrected to say so.
 #
 # Safe to re-run: every patch is checked before writing; if a patch
 # target is not found it prints MISSING and leaves that file alone
-# (most likely meaning this stage is already applied).
+# (most likely meaning this stage, or a later one, is already applied).
 
 import os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# (file, old, new) patches applied with str.replace, in order
 PATCHES = [
     # ---------------------------------------------------------------
-    # BACKEND: LandController -- add the missing payment endpoint
+    # BACKEND: DashboardController -- widen class-level auth so
+    # Secretary's very first page after login actually loads
+    # ---------------------------------------------------------------
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
+        '''@RequestMapping("/api/v1/dashboard")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class DashboardController {''',
+        '''@RequestMapping("/api/v1/dashboard")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class DashboardController {''',
+    ),
+
+    # ---------------------------------------------------------------
+    # BACKEND: RecoveryController -- read-only queue/schedule data,
+    # safe to widen at class level (no money-moving endpoints here)
+    # ---------------------------------------------------------------
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
+        '''@RequestMapping("/api/v1/recovery")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class RecoveryController {''',
+        '''@RequestMapping("/api/v1/recovery")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class RecoveryController {''',
+    ),
+
+    # ---------------------------------------------------------------
+    # BACKEND: LandController -- per-method overrides only (class also
+    # holds payment/receivable/deletion/storage-fee endpoints that must
+    # stay off-limits to Secretary)
     # ---------------------------------------------------------------
     (
         "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
-        '''    // NEW: Payment history per plot
-    @GetMapping("/projects/{id}/payments")
-    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
-        return ResponseEntity.ok(landService.getProjectPayments(id));
-    }''',
-        '''    // NEW: Payment history per plot
-    @GetMapping("/projects/{id}/payments")
-    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
-        return ResponseEntity.ok(landService.getProjectPayments(id));
+        '''    @GetMapping("/projects/{id}/notes")
+    public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectNotes(id));
     }
 
-    // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
-    // calling it since it was built. Class-level @PreAuthorize already
-    // covers ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR.
-    @PostMapping("/projects/{id}/payment")
-    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal amount,
-                                               @RequestParam(required = false) String notes) {
-        landService.recordPayment(id, amount, notes);
+    @PostMapping("/projects/{id}/follow-up")
+    public ResponseEntity<Void> logContact(@PathVariable UUID id, @RequestParam String content) {
+        landService.logFollowUp(id, content);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LandProject> ingestTitle(
+            @RequestPart("data") String jsonData,
+            @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
+        return ResponseEntity.ok(landService.atomicIntake(request, scans));
+    }
+
+    @GetMapping("/projects/{id}/deep")
+    public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDeepDetail(id));
+    }''',
+        '''    // STAGE 2 FIX: Secretary is data-entry -- needs to read/add notes
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/notes")
+    public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectNotes(id));
+    }
+
+    // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/follow-up")
+    public ResponseEntity<Void> logContact(@PathVariable UUID id, @RequestParam String content) {
+        landService.logFollowUp(id, content);
+        return ResponseEntity.ok().build();
+    }
+
+    // STAGE 2 FIX: intake is a data-entry endpoint per the role table
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LandProject> ingestTitle(
+            @RequestPart("data") String jsonData,
+            @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
+        return ResponseEntity.ok(landService.atomicIntake(request, scans));
+    }
+
+    // STAGE 2 FIX: Folder page cannot load at all for Secretary without this
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/deep")
+    public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDeepDetail(id));
+    }''',
+    ),
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
+        '''    @GetMapping("/projects/{id}/documents")
+    public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDocuments(id));
+    }
+
+    @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addExtraDocuments(
+            @PathVariable UUID id,
+            @RequestParam("scans") MultipartFile[] scans) throws Exception {
+        landService.addScansToProject(id, scans);
+        return ResponseEntity.ok().build();
+    }''',
+        '''    // STAGE 2 FIX: document upload/view is a data-entry endpoint
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/documents")
+    public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDocuments(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addExtraDocuments(
+            @PathVariable UUID id,
+            @RequestParam("scans") MultipartFile[] scans) throws Exception {
+        landService.addScansToProject(id, scans);
         return ResponseEntity.ok().build();
     }''',
     ),
-
-    # ---------------------------------------------------------------
-    # BACKEND: LandService -- widen recordPayment's own @PreAuthorize
-    # and add the overpayment guard
-    # ---------------------------------------------------------------
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-        '''    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
-        }
-
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        String operator = getCurrentOperator();
-        String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
-
-        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);''',
-        '''    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
-        }
-
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        // STAGE 1 FIX: block overpayment -- work out what is still owed
-        // using the same logic already used below for balanceAfter.
-        BigDecimal currentlyOwed = project.isReceivable()
-                ? project.receivableTotalOwed()
-                : project.getTotalCost().subtract(project.getAmountPaid());
-        if (amount.compareTo(currentlyOwed) > 0) {
-            throw new BusinessException("OVERPAYMENT_BLOCKED: This project only owes UGX "
-                    + currentlyOwed + ". You tried to record UGX " + amount + ".");
-        }
-
-        String operator = getCurrentOperator();
-        String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
-
-        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);''',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
+        '''    @PostMapping("/projects/{id}/notes")
+    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
+        landService.logNewNote(id, content);
+        return ResponseEntity.ok().build();
+    }''',
+        '''    // STAGE 2 FIX: adding a standalone note is data-entry
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/notes")
+    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
+        landService.logNewNote(id, content);
+        return ResponseEntity.ok().build();
+    }''',
+    ),
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
+        '''    @GetMapping("/ledger")
+    public ResponseEntity<Page<LandProject>> getLedger(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+    }''',
+        '''    // STAGE 2 FIX: Secretary needs to browse the Ledger to find projects
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/ledger")
+    public ResponseEntity<Page<LandProject>> getLedger(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+    }''',
     ),
 
     # ---------------------------------------------------------------
-    # BACKEND: DataInitializer -- stop resetting the password on every
-    # restart, stop printing the raw password prefix, drop the
-    # verification block that only makes sense on fresh insert.
-    # (Kept as ONE patch spanning the whole block -- splitting this
-    # into two smaller patches lets the second patch's "new" text
-    # collide with a substring of the first patch's "old" text, which
-    # falsely reports "already patched" before either edit lands.)
+    # BACKEND: StageTemplateController -- per-method overrides ONLY.
+    # This class also holds master TEMPLATE CRUD, which the class-level
+    # annotation covers today -- Secretary must NEVER get that, so we
+    # cannot simply widen the class-level check the way Stage 2's
+    # original prompt assumed. Only stage TOGGLING gets Secretary.
     # ---------------------------------------------------------------
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-        '''        System.out.println(">>> [REGISTRY] seedRootUser() via raw JDBC. Raw password=" + rawPassword.substring(0,3) + "***");
-
-        try (java.sql.Connection conn = dataSource.getConnection()) {
-            // Check if admin_root exists
-            boolean exists = false;
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
-                ps.setString(1, "admin_root");
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) exists = rs.getInt(1) > 0;
-                }
-            }
-
-            if (!exists) {
-                // INSERT brand-new admin_root row
-                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
-                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, java.util.UUID.randomUUID());
-                    ps.setString(2, email);
-                    ps.setString(3, encodedPassword);
-                    int rows = ps.executeUpdate();
-                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
-                }
-            } else {
-                // UPDATE existing row -- raw JDBC, auto-commits, no cache issues
-                String sql = "UPDATE users SET password = ?, is_active = true, must_change_password = true "
-                           + "WHERE username = 'admin_root'";
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setString(1, encodedPassword);
-                    int rows = ps.executeUpdate();
-                    System.out.println(">>> [REGISTRY] UPDATE admin_root rows affected: " + rows);
-                }
-            }
-
-            // Verify by re-reading the stored hash
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                    "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        String storedHash = rs.getString("password");
-                        boolean active = rs.getBoolean("is_active");
-                        boolean matches = passwordEncoder.matches(rawPassword, storedHash);
-                        System.out.println(">>> [REGISTRY] Post-write verification:");
-                        System.out.println(">>>   is_active in DB = " + active);
-                        System.out.println(">>>   hash starts with = " + storedHash.substring(0, Math.min(20, storedHash.length())));
-                        System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
-                        if (!matches) {
-                            System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
-                        } else {
-                            System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
-                        }
-                    } else {
-                        System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
-                    }
-                }
-            }
-
-        } catch (Exception e) {''',
-        '''        try (java.sql.Connection conn = dataSource.getConnection()) {
-            // Check if admin_root exists
-            boolean exists = false;
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
-                ps.setString(1, "admin_root");
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) exists = rs.getInt(1) > 0;
-                }
-            }
-
-            if (!exists) {
-                // INSERT brand-new admin_root row
-                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
-                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, java.util.UUID.randomUUID());
-                    ps.setString(2, email);
-                    ps.setString(3, encodedPassword);
-                    int rows = ps.executeUpdate();
-                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
-                }
-
-                // Verify by re-reading the stored hash -- only meaningful right
-                // after a fresh insert, since this is the only branch that
-                // actually wrote a new password.
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                        "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
-                    try (java.sql.ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            String storedHash = rs.getString("password");
-                            boolean active = rs.getBoolean("is_active");
-                            boolean matches = passwordEncoder.matches(rawPassword, storedHash);
-                            System.out.println(">>> [REGISTRY] Post-write verification:");
-                            System.out.println(">>>   is_active in DB = " + active);
-                            System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
-                            if (!matches) {
-                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
-                            } else {
-                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
-                            }
-                        } else {
-                            System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
-                        }
-                    }
-                }
-            } else {
-                // STAGE 1 FIX: admin_root already exists -- do NOT touch its
-                // password, is_active, or must_change_password on restart.
-                // Whatever David set those to in the running app stays as-is.
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
-            }
-
-        } catch (Exception e) {''',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java",
+        '''    @GetMapping("/land/projects/{projectId}/stages")
+    public ResponseEntity<List<ProjectStage>> getProjectStages(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(stageTemplateService.getProjectStages(projectId));
+    }''',
+        '''    // STAGE 2 FIX: Secretary can view a project's stage checklist
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/land/projects/{projectId}/stages")
+    public ResponseEntity<List<ProjectStage>> getProjectStages(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(stageTemplateService.getProjectStages(projectId));
+    }''',
+    ),
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java",
+        '''    @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
+    public ResponseEntity<ProjectStage> toggleStageCompletion(
+            @PathVariable UUID projectId, @PathVariable UUID stageId,
+            @RequestParam boolean completed) {
+        return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));
+    }''',
+        '''    // STAGE 2 FIX: "Changes Stages: Yes (stage only)" per the role table --
+    // Secretary may toggle stage completion but NOT edit stage cost, attach
+    // new stages, remove stages, or touch the master template (all below
+    // stay on the class-level Manager/Admin/Director-only default).
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
+    public ResponseEntity<ProjectStage> toggleStageCompletion(
+            @PathVariable UUID projectId, @PathVariable UUID stageId,
+            @RequestParam boolean completed) {
+        return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));
+    }''',
     ),
 
     # ---------------------------------------------------------------
-    # FRONTEND: SettingsPage -- explicit rank menu instead of a
-    # binary promote/demote toggle
+    # FRONTEND: SettingsPage -- Secretary in the new-operator dropdown
+    # and its own rank label/color
     # ---------------------------------------------------------------
     (
         "erp-frontend/src/pages/settings/SettingsPage.jsx",
-        '''    FiPower, FiMail, FiSave, FiAlertTriangle, FiArrowUp,
-    FiArrowDown, FiChevronDown, FiActivity, FiEye, FiEyeOff,''',
-        '''    FiPower, FiMail, FiSave, FiAlertTriangle,
-    FiChevronDown, FiActivity, FiEye, FiEyeOff,''',
+        '''<HardwareSelect label="INITIAL RANK" options={['ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR']} value={newOpData.role} onChange={v => setNewOpData({...newOpData, role: v})} />''',
+        '''<HardwareSelect label="INITIAL RANK" options={['ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR']} value={newOpData.role} onChange={v => setNewOpData({...newOpData, role: v})} />''',
     ),
     (
         "erp-frontend/src/pages/settings/SettingsPage.jsx",
-        '''    const [tempKeyReveal, setTempKeyReveal] = useState(null);''',
-        '''    const [tempKeyReveal, setTempKeyReveal] = useState(null);
-    const [roleMenuFor,   setRoleMenuFor]   = useState(null); // STAGE 1 FIX: explicit rank menu''',
-    ),
-    (
-        "erp-frontend/src/pages/settings/SettingsPage.jsx",
-        '''    // ── ROLE SWITCH ──
-    const handleRoleSwitch = async (opUsername, currentRole) => {
-        const targetRole = currentRole === 'ROLE_ADMIN' ? 'ROLE_MANAGER' : 'ROLE_ADMIN';
-        const label = targetRole === 'ROLE_ADMIN' ? 'PROMOTE TO ADMIN' : 'DEMOTE TO OPERATOR';
-        const ok = await confirm(label, `${label} for ${opUsername}?`, 'warn');
-        if (!ok) return;
-        try { await settingsService.updateOperatorRole(opUsername, targetRole); fetchOperators(); }
-        catch (err) { toast(err.message || 'ROLE SWITCH FAILED', 'error', 8000); }
-    };''',
-        '''    // ── ROLE SWITCH ── (STAGE 1 FIX: explicit target role, no more guessing)
-    const ALL_RANKS = ['ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR'];
-    const handleRoleSwitch = async (opUsername, targetRole) => {
-        setRoleMenuFor(null);
-        const label = 'SET RANK: ' + targetRole.replace('ROLE_', '');
-        const ok = await confirm(label, `${label} for ${opUsername}?`, 'warn');
-        if (!ok) return;
-        try { await settingsService.updateOperatorRole(opUsername, targetRole); fetchOperators(); }
-        catch (err) { toast(err.message || 'ROLE SWITCH FAILED', 'error', 8000); }
-    };''',
-    ),
-    (
-        "erp-frontend/src/pages/settings/SettingsPage.jsx",
-        '''                                                <div className={styles.opActions}>
-                                                    {!op.isRoot && (<>
-                                                        <button className={styles.rankBtn} onClick={() => handleRoleSwitch(op.username, op.role)} aria-label={op.role === 'ROLE_ADMIN' ? `Demote ${op.username}` : `Promote ${op.username}`}>
-                                                            {op.role === 'ROLE_ADMIN' ? <FiArrowDown aria-hidden="true" /> : <FiArrowUp aria-hidden="true" />}
-                                                        </button>''',
-        '''                                                <div className={styles.opActions}>
-                                                    {!op.isRoot && (<>
-                                                        <div className={styles.rankMenuWrapper}>
-                                                            <button className={styles.rankBtn} onClick={() => setRoleMenuFor(roleMenuFor === op.username ? null : op.username)} aria-label={`Change rank for ${op.username}`} aria-haspopup="menu" aria-expanded={roleMenuFor === op.username}>
-                                                                <FiChevronDown aria-hidden="true" />
-                                                            </button>
-                                                            {roleMenuFor === op.username && (
-                                                                <div className={styles.rankMenu} role="menu">
-                                                                    {ALL_RANKS.map(r => (
-                                                                        <div
-                                                                            key={r}
-                                                                            role="menuitem"
-                                                                            className={`${styles.rankMenuItem} ${op.role === r ? styles.rankMenuItemActive : ''}`}
-                                                                            onClick={() => handleRoleSwitch(op.username, r)}
-                                                                        >
-                                                                            {r.replace('ROLE_', '')}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>''',
+        '''                                                    <span className={(op.role === 'ROLE_ADMIN' || op.role === 'ROLE_DIRECTOR') ? styles.rankAdmin : styles.rankManager}>
+                                                        {op.isRoot ? 'MASTER FOUNDER' : op.role === 'ROLE_DIRECTOR' ? 'TIER 2: DIRECTOR' : op.role === 'ROLE_ADMIN' ? 'TIER 2: ADMIN' : 'TIER 3: OPERATOR'}
+                                                    </span>''',
+        '''                                                    <span className={(op.role === 'ROLE_ADMIN' || op.role === 'ROLE_DIRECTOR') ? styles.rankAdmin : op.role === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankManager}>
+                                                        {op.isRoot ? 'MASTER FOUNDER' : op.role === 'ROLE_DIRECTOR' ? 'TIER 2: DIRECTOR' : op.role === 'ROLE_ADMIN' ? 'TIER 2: ADMIN' : op.role === 'ROLE_SECRETARY' ? 'TIER 4: SECRETARY' : 'TIER 3: OPERATOR'}
+                                                    </span>''',
     ),
 
     # ---------------------------------------------------------------
-    # FRONTEND: SettingsPage.module.css -- styles for the new rank menu
+    # FRONTEND: SettingsPage.module.css -- Secretary's own badge color
     # ---------------------------------------------------------------
     (
         "erp-frontend/src/pages/settings/SettingsPage.module.css",
-        '''.opActions { display: flex; gap: clamp(5px,0.6vw,7px); flex-shrink: 0; }''',
-        '''.opActions { display: flex; gap: clamp(5px,0.6vw,7px); flex-shrink: 0; }
-.rankMenuWrapper { position: relative; }
-.rankMenu {
-    position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
-    min-width: clamp(120px,14vw,150px);
-    background: #162a2c; border: 1px solid rgba(255,255,255,0.14);
-    border-radius: var(--radius-sm); box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-    overflow: hidden;
-}
-.rankMenuItem {
-    padding: clamp(7px,0.9vw,10px) clamp(10px,1.2vw,13px);
-    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px,0.95vw,11px);
-    letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.75);
-    cursor: pointer; transition: background 0.15s, color 0.15s;
-}
-.rankMenuItem:hover { background: rgba(238,140,58,0.14); color: var(--orange); }
-.rankMenuItemActive { color: var(--orange); background: rgba(238,140,58,0.08); }''',
+        '''.rankManager { font-family: 'Space Mono', monospace; color: #06b6d4; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }''',
+        '''.rankManager { font-family: 'Space Mono', monospace; color: #06b6d4; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }
+.rankSecretary { font-family: 'Space Mono', monospace; color: #a78bfa; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }''',
     ),
 
     # ---------------------------------------------------------------
-    # FRONTEND: FolderPage -- show the real server error, not a
-    # generic "PAYMENT FAILED" toast (so overpayment messages surface)
+    # FRONTEND: RecoveryPortal -- Directors (and Managers) can now see
+    # the Record Payment button, matching the backend permission
+    # Stage 1 already granted
     # ---------------------------------------------------------------
     (
-        "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
-        '''        } catch { toast('PAYMENT FAILED', 'error', 8000); }
-        finally { setPaying(false); }''',
-        '''        } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setPaying(false); }''',
+        "erp-frontend/src/pages/Recovery/RecoveryPortal.jsx",
+        '''    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;''',
+        '''    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
+    // STAGE 2 FIX: matches the backend permission on POST /land/projects/{id}/payment
+    // (ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR, widened in Stage 1) -- isAdmin alone
+    // was hiding this button from Directors and Managers who could already use it.
+    const canRecordPayment = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR' || user?.role === 'ROLE_MANAGER' || user?.isRoot;''',
+    ),
+    (
+        "erp-frontend/src/pages/Recovery/RecoveryPortal.jsx",
+        '''                                                    {isAdmin && (''',
+        '''                                                    {canRecordPayment && (''',
+    ),
+
+    # ---------------------------------------------------------------
+    # DOCS: correct the Phase 3 status claim
+    # ---------------------------------------------------------------
+    (
+        "LLM_CONTEXT_GUIDE.md",
+        '''**PHASE 3: 4-Tier Role System**
+- What: `Role` enum expanded to the 4-tier system in 17.7 (Phase 3A), every `@PreAuthorize`
+  check and every frontend role check wired to the new roles (Phase 3B), Settings UI updated
+  with the Director option (Phase 3C).
+- Status: APPLIED AND PUSHED (all three sub-parts). Deferred testing -- see Section 3 permanent
+  testing rule. Known limitation: the promote/demote arrow on operator cards still only toggles
+  ROLE_ADMIN/ROLE_MANAGER -- a proper 3+ tier rank selector is a small standalone follow-up,
+  not yet done.''',
+        '''**PHASE 3: 4-Tier Role System**
+- What: `Role` enum expanded to the 4-tier system in 17.7 (Phase 3A). Phase 3B (every
+  @PreAuthorize check and every frontend role check wired to the new roles) and Phase 3C
+  (Settings UI updated with the Director/Secretary options and a real rank selector) were
+  NOT actually finished at the time this entry originally claimed -- they were completed by
+  Stage 1 and Stage 2 of the separate bug-fix roadmap instead (see LLM_CONTEXT_ADDENDUM.md).
+- Status: APPLIED AND PUSHED, via the bug-fix roadmap rather than as part of the original
+  Phase 3 rollout. Deferred testing -- see Section 3 permanent testing rule.''',
     ),
 ]
 
@@ -378,27 +369,29 @@ def main():
         full_path = os.path.join(ROOT, rel_path)
         desc = rel_path
         if not os.path.exists(full_path):
-            print("[STAGE 1] " + desc + " ... MISSING (file not found)")
+            print("[STAGE 2] " + desc + " ... MISSING (file not found)")
             missing.append(desc + " (file not found)")
             continue
         content = read_file(full_path)
         if new in content:
-            print("[STAGE 1] " + desc + " ... OK (already patched)")
+            print("[STAGE 2] " + desc + " ... OK (already patched)")
             applied += 1
             continue
         if old not in content:
-            print("[STAGE 1] " + desc + " ... MISSING (patch target not found)")
+            print("[STAGE 2] " + desc + " ... MISSING (patch target not found)")
             missing.append(desc + " (patch target not found)")
             continue
         content = content.replace(old, new, 1)
         write_file(full_path, content)
-        print("[STAGE 1] " + desc + " ... OK")
+        print("[STAGE 2] " + desc + " ... OK")
         applied += 1
 
     print("")
     print("============================================")
-    print("STAGE 1 COMPLETE: " + str(applied) + " of " + str(total) + " patches applied")
-    print("FIXED: payment endpoint, admin password reset, promote/demote, overpayment check")
+    print("STAGE 2 COMPLETE: " + str(applied) + " of " + str(total) + " patches applied")
+    print("FIXED: Secretary role wiring (dashboard, recovery, notes, follow-up, intake,")
+    print("       documents, ledger, stage toggling), Director/Manager payment button,")
+    print("       Settings UI rank options + label, Phase 3 status doc correction")
     print("============================================")
 
     if missing:
@@ -409,12 +402,16 @@ def main():
 
     print("")
     print("Next steps:")
-    print("1. git add -A && git commit -m 'Stage 1: payment endpoint, password reset, promote/demote, overpayment' && git push")
+    print("1. git add -A && git commit -m 'Stage 2: Secretary role wiring, Director payment access' && git push")
     print("2. Watch Render Events tab for the green tick.")
-    print("3. Test: log in as Manager, record a payment on any active project -- should succeed.")
-    print("4. Test: try to pay more than a project owes -- should be blocked with a clear message.")
-    print("5. Test: restart the backend and confirm the admin password you set earlier still works.")
-    print("6. Test: try promoting a Director from Settings -- confirm it does NOT silently become Admin.")
+    print("3. Test: create a brand-new Secretary user. Confirm they can log in and see")
+    print("   Dashboard, New Plot, Ledger, Recovery, Settings -- and CANNOT see Payments,")
+    print("   Expenses, Reports, or Audit (those tabs should not even appear).")
+    print("4. Test: as that Secretary, open a project's Folder page -- confirm it loads,")
+    print("   and you can add a note, log a follow-up call, upload a document, and toggle")
+    print("   a stage checkbox. Confirm you CANNOT edit stage cost or the master template.")
+    print("5. Test: log in as a Director. Confirm the RECORD PAYMENT button now appears")
+    print("   on the Recovery portal and a payment goes through.")
 
 
 if __name__ == "__main__":

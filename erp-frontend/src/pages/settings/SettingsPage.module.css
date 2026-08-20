@@ -304,6 +304,7 @@
 .opInfo strong { display: block; font-family: 'DM Sans', sans-serif; color: #fff; font-size: var(--fs-op); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rankAdmin   { font-family: 'Space Mono', monospace; color: #fbbf24; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }
 .rankManager { font-family: 'Space Mono', monospace; color: #06b6d4; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }
+.rankSecretary { font-family: 'Space Mono', monospace; color: #a78bfa; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; margin-top: clamp(2px,0.3vw,3px); display: block; }
 
 .opActions { display: flex; gap: clamp(5px,0.6vw,7px); flex-shrink: 0; }
 .rankMenuWrapper { position: relative; }

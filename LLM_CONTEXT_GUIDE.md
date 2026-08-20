@@ -515,13 +515,13 @@ role hierarchy, and a company-wide financials module separate from project costs
 - Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule.
 
 **PHASE 3: 4-Tier Role System**
-- What: `Role` enum expanded to the 4-tier system in 17.7 (Phase 3A), every `@PreAuthorize`
-  check and every frontend role check wired to the new roles (Phase 3B), Settings UI updated
-  with the Director option (Phase 3C).
-- Status: APPLIED AND PUSHED (all three sub-parts). Deferred testing -- see Section 3 permanent
-  testing rule. Known limitation: the promote/demote arrow on operator cards still only toggles
-  ROLE_ADMIN/ROLE_MANAGER -- a proper 3+ tier rank selector is a small standalone follow-up,
-  not yet done.
+- What: `Role` enum expanded to the 4-tier system in 17.7 (Phase 3A). Phase 3B (every
+  @PreAuthorize check and every frontend role check wired to the new roles) and Phase 3C
+  (Settings UI updated with the Director/Secretary options and a real rank selector) were
+  NOT actually finished at the time this entry originally claimed -- they were completed by
+  Stage 1 and Stage 2 of the separate bug-fix roadmap instead (see LLM_CONTEXT_ADDENDUM.md).
+- Status: APPLIED AND PUSHED, via the bug-fix roadmap rather than as part of the original
+  Phase 3 rollout. Deferred testing -- see Section 3 permanent testing rule.
 
 **PHASE 4: Processing Stage Template System**
 - What: `StageTemplate` / `ProjectStage` models, master template CRUD, per-project stage

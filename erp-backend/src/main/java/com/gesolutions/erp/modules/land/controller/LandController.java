@@ -34,17 +34,23 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    // STAGE 2 FIX: Secretary is data-entry -- needs to read/add notes
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/notes")
     public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectNotes(id));
     }
 
+    // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/follow-up")
     public ResponseEntity<Void> logContact(@PathVariable UUID id, @RequestParam String content) {
         landService.logFollowUp(id, content);
         return ResponseEntity.ok().build();
     }
 
+    // STAGE 2 FIX: intake is a data-entry endpoint per the role table
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LandProject> ingestTitle(
             @RequestPart("data") String jsonData,
@@ -54,6 +60,8 @@ public class LandController {
         return ResponseEntity.ok(landService.atomicIntake(request, scans));
     }
 
+    // STAGE 2 FIX: Folder page cannot load at all for Secretary without this
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/deep")
     public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectDeepDetail(id));
@@ -72,11 +80,14 @@ public class LandController {
         return ResponseEntity.noContent().build();
     }
 
+    // STAGE 2 FIX: document upload/view is a data-entry endpoint
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/documents")
     public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectDocuments(id));
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> addExtraDocuments(
             @PathVariable UUID id,
@@ -91,6 +102,8 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    // STAGE 2 FIX: adding a standalone note is data-entry
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/notes")
     public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
         landService.logNewNote(id, content);
@@ -116,6 +129,8 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    // STAGE 2 FIX: Secretary needs to browse the Ledger to find projects
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/ledger")
     public ResponseEntity<Page<LandProject>> getLedger(
             @RequestParam(defaultValue = "0") int page,

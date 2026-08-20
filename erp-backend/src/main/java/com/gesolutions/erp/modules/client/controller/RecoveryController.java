@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/recovery")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class RecoveryController {
 
     private final LandProjectRepository projectRepository;
