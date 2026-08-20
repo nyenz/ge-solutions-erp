@@ -80,6 +80,20 @@ public class LandController {
         return ResponseEntity.noContent().build();
     }
 
+    // STAGE 3: soft-delete restore + deleted-list, same restriction as delete itself
+    @PostMapping("/projects/{id}/restore")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
+        landService.restoreProject(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/projects/deleted")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<List<LandProject>> getDeletedProjects() {
+        return ResponseEntity.ok(landService.getDeletedProjects());
+    }
+
     // STAGE 2 FIX: document upload/view is a data-entry endpoint
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/documents")

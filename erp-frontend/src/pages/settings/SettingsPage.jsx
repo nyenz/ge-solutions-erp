@@ -5,10 +5,11 @@ import {
     FiShield, FiKey, FiUsers, FiUserPlus, FiRefreshCcw,
     FiPower, FiMail, FiSave, FiAlertTriangle,
     FiChevronDown, FiActivity, FiEye, FiEyeOff,
-    FiX, FiCheckSquare, FiAlertCircle, FiInfo
+    FiX, FiCheckSquare, FiAlertCircle, FiInfo, FiTrash2
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import settingsService from '../../services/settingsService';
+import landService from '../../services/landService';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareInput from '../../components/common/HardwareInput';
 import HardwareSelect from '../../components/common/HardwareSelect';
@@ -112,7 +113,7 @@ const SettingsPage = () => {
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const isRoot = user?.isRoot;
 
-    const [drawers,       setDrawers]       = useState({ security: true, governance: true, danger: false });
+    const [drawers,       setDrawers]       = useState({ security: true, governance: true, deleted: false, danger: false });
     const [pwdState,      setPwdState]      = useState({ old: '', new: '', confirm: '' });
     const [pwdLoading,    setPwdLoading]    = useState(false);
     const [showOld,       setShowOld]       = useState(false);
@@ -125,6 +126,10 @@ const SettingsPage = () => {
     const [tempKeyReveal, setTempKeyReveal] = useState(null);
     const [roleMenuFor,   setRoleMenuFor]   = useState(null); // STAGE 1 FIX: explicit rank menu
     const [wipeConfirmText, setWipeConfirmText] = useState('');
+
+    // STAGE 3: recently-deleted plots (root only)
+    const [deletedProjects, setDeletedProjects] = useState([]);
+    const [deletedLoading,  setDeletedLoading]  = useState(false);
     const [wiping,          setWiping]          = useState(false);
 
     const pwdDirty   = pwdState.old !== '' || pwdState.new !== '' || pwdState.confirm !== '';
@@ -162,6 +167,24 @@ const SettingsPage = () => {
     }, [isRoot]);
 
     useEffect(() => { fetchOperators(); }, [fetchOperators]);
+
+    // STAGE 3: load deleted plots for the restore drawer
+    const fetchDeletedProjects = useCallback(async () => {
+        if (!isRoot) return;
+        setDeletedLoading(true);
+        try { setDeletedProjects(await landService.getDeletedProjects()); }
+        catch { /* non-fatal -- drawer just shows empty */ }
+        finally { setDeletedLoading(false); }
+    }, [isRoot]);
+    useEffect(() => { fetchDeletedProjects(); }, [fetchDeletedProjects]);
+
+    const handleRestoreProject = async (projectId, plotLabel) => {
+        try {
+            await landService.restoreProject(projectId);
+            toast(`"${plotLabel}" restored`, 'success', 3000);
+            fetchDeletedProjects();
+        } catch { toast('RESTORE FAILED', 'error'); }
+    };
 
     // ── PASSWORD CHANGE ──
     const handlePasswordChange = async e => {
@@ -375,6 +398,45 @@ const SettingsPage = () => {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* PANEL: RECENTLY DELETED PLOTS (ROOT ONLY) */}
+                {isRoot && (
+                    <div className={styles.hwPanel}>
+                        <DrawerHeader label="RECENTLY DELETED PLOTS" isOpen={drawers.deleted} onClick={() => toggleDrawer('deleted')} icon={FiTrash2} />
+                        <div className={`${styles.panelBody} ${drawers.deleted ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.deleted}>
+                            <div className={styles.panelInner}>
+                                <div className={styles.staffStream} role="list" aria-label="Deleted plots">
+                                    {deletedLoading ? (
+                                        <div className={styles.hint}>
+                                            <FiActivity className={styles.spin} aria-hidden="true" /> LOADING DELETED RECORDS...
+                                        </div>
+                                    ) : deletedProjects.length === 0 ? (
+                                        <div className={styles.hint}>NO DELETED PLOTS.</div>
+                                    ) : deletedProjects.map(p => {
+                                        const label = p.landTitle?.plotNumber || p.id;
+                                        return (
+                                            <div key={p.id} className={styles.opCard} role="listitem">
+                                                <div className={styles.opHeader}>
+                                                    <div className={styles.opInfo}>
+                                                        <strong>{label}</strong>
+                                                        <span className={styles.rankManager}>
+                                                            DELETED {p.deletedAt ? new Date(p.deletedAt).toLocaleDateString() : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className={styles.opActions}>
+                                                        <button className={styles.addOpBtn} onClick={() => handleRestoreProject(p.id, label)} aria-label={`Restore ${label}`}>
+                                                            <FiRefreshCcw aria-hidden="true" /> RESTORE
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

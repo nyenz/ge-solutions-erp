@@ -26,6 +26,15 @@ const landService = {
         await api.delete(`/land/projects/${projectId}`);
     },
 
+    getDeletedProjects: async () => {
+        const response = await api.get('/land/projects/deleted');
+        return response.data;
+    },
+
+    restoreProject: async (projectId) => {
+        await api.post(`/land/projects/${projectId}/restore`);
+    },
+
     addExtraDocuments: async (projectId, scans) => {
         const formData = new FormData();
         scans.forEach(file => formData.append('scans', file));

@@ -114,22 +114,35 @@ public class ClientService {
         }
         String normalizedNin = nin.trim().toUpperCase();
 
-        return clientRepository.findByNationalId(normalizedNin)
-                .orElseGet(() -> {
-                    Client newClient = Client.builder()
-                            .fullName(fullName)
-                            .phoneNumber(phone)
-                            .nationalId(normalizedNin)
-                            .email(email)
-                            .monthlyContactCount(0)
-                            .reliabilityScore(100.0)
-                            .build();
+        java.util.Optional<Client> existing = clientRepository.findByNationalId(normalizedNin);
+        if (existing.isPresent()) {
+            // STAGE 3 FIX: a NIN match no longer silently reuses whatever name was
+            // typed -- if it does not reasonably match the name already on file,
+            // this is very likely a typo'd NIN attaching a project to the wrong
+            // person, so block it instead of guessing.
+            String existingName = existing.get().getFullName() == null ? "" : existing.get().getFullName().trim();
+            String typedName = fullName == null ? "" : fullName.trim();
+            if (!existingName.equalsIgnoreCase(typedName)) {
+                throw new BusinessException("NIN_NAME_MISMATCH: This NIN is already registered to '"
+                        + existingName + "', but you entered '" + typedName
+                        + "'. Confirm this is the same person before continuing, or check the NIN for a typo.");
+            }
+            return existing.get();
+        }
 
-                    Client saved = clientRepository.save(newClient);
-                    auditService.logAction("CLIENT_ARCHIVE",
-                        "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
-                    return saved;
-                });
+        Client newClient = Client.builder()
+                .fullName(fullName)
+                .phoneNumber(phone)
+                .nationalId(normalizedNin)
+                .email(email)
+                .monthlyContactCount(0)
+                .reliabilityScore(100.0)
+                .build();
+
+        Client saved = clientRepository.save(newClient);
+        auditService.logAction("CLIENT_ARCHIVE",
+            "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
+        return saved;
     }
 
     /**

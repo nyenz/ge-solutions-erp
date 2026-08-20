@@ -238,6 +238,9 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - **Phone uniqueness:** Two owners cannot share the same phone number. (REVAMP: NIN becomes the real uniqueness check once Phase 2 ships. Phone uniqueness will likely be dropped or downgraded to a soft warning.)
 - **Admin/Root only:** Payments, receivable management, Reports, Audit. (REVAMP: this simple 2-tier check is being replaced by the 4-tier role table in Section 17 once Phase 3 ships)
 - **Cloudinary:** All files stored on Cloudinary. (unchanged)
+- **Project deletion:** soft-delete only (Stage 3 of the bug-fix roadmap) -- deleting a plot
+  hides it from the Ledger/Recovery/Dashboard/Reports but keeps the row, payments, notes, and
+  Cloudinary files intact. Root can restore it from Settings > Recently Deleted Plots.
 
 ---
 
@@ -442,10 +445,12 @@ role hierarchy, and a company-wide financials module separate from project costs
 - If a person's NIN changes, they are treated as a brand new person record. No merge/history
   needed -- old projects stay correctly linked to the old NIN, new projects link to the new one.
 - Joint owners: every owner listed on a project must have their own valid NIN.
-- Duplicate NIN handling: if a NIN already exists under a DIFFERENT name, warn (likely typo).
-  If the NIN matches an EXISTING person being reused (second project, joint owner elsewhere),
-  auto-fill their known details but allow staff to edit those details per-project (e.g. their
-  address changed).
+- Duplicate NIN handling: if a NIN already exists under a DIFFERENT name, BLOCK with a
+  confirmation dialog (likely typo) -- staff must explicitly confirm "same person" or fix the
+  NIN before the form can be saved (Stage 3 of the bug-fix roadmap upgraded this from a
+  dismissible warning to a blocking confirm). If the NIN matches an EXISTING person being
+  reused (second project, joint owner elsewhere), auto-fill their known details but allow
+  staff to edit those details per-project (e.g. their address changed).
 
 ### 17.4 PROJECT INDEX
 - Format: 001A, 002A ... 999A, then rolls to 001B, 002B ... 999B, then 001C, etc.
@@ -533,23 +538,27 @@ role hierarchy, and a company-wide financials module separate from project costs
 - Status: APPLIED AND PUSHED (backend + frontend both landed, including the STAGES panel
   correction patch). Deferred testing -- see Section 3 permanent testing rule.
 
-**PHASE 5: Financials Module (Company Costs) (NOT STARTED)**
-- Will involve: a new `CompanyExpense` model, free-form category entry with memory/suggestions
-  (reusing `predictionService` pattern), the committed-vs-paid tracking pattern, and a new page
-  for entering/viewing company costs (separate from project costs entirely).
-- Per the Section 3 permanent rule, this ships as ONE complete fix.py covering the full phase
-  (backend models/service/controller + frontend page/service in the same fix.py), not split
-  into sub-parts.
+**PHASE 5: Financials Module (Company Costs)**
+- What: the free-form-category `CompanyExpense`/`Expense` cash-out log (backend model, service,
+  controller) plus the Expenses page (frontend), covering entry, category autocomplete, and
+  analytics -- landed as several commits (Expenses rebuild, analytics + autocomplete + audit
+  labels) rather than one combined fix.py, per `git log`.
+- Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule.
+  (Doc correction: this entry previously said "NOT STARTED," which was stale.)
 
-**PHASE 6: Legacy Receivables Entry Mode (NOT STARTED)**
-- Will involve: a simplified intake path for old titles -- single lump-sum cost field instead
-  of the full stage checklist, marked as a Legacy Receivable, otherwise behaves like a normal
-  project for payment tracking purposes.
+**PHASE 6: Legacy Receivables Entry Mode**
+- What: the pre-existing `isLegacy` flag on `LandProject`, used at intake to mark old titles
+  that skip the full stage checklist.
+- Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule.
+  (Doc correction: this entry previously said "NOT STARTED," which was stale.)
 
-**PHASE 7: Director's Dashboard (NOT STARTED)**
-- Will involve: the company-wide snapshot view in 17.9, with day/week/month/year breakdown
-  toggle (defaulting to week + month), pipeline stage counts, and staff activity summary.
-  Depends on Phases 3, 4, and 5 being done first, since it displays data from all of them.
+**PHASE 7: Director's Dashboard**
+- What: `DirectorDashboardDTO.java` and `GET /api/v1/dashboard/director` (backend, restricted
+  to ROLE_ADMIN/ROLE_DIRECTOR), and `DirectorDashboardPanel.jsx` (frontend) showing day/week/
+  month/year revenue, staff activity, pipeline stage counts, and the company financials
+  snapshot.
+- Status: APPLIED AND PUSHED. Deferred testing -- see Section 3 permanent testing rule.
+  (Doc correction: this entry previously said "NOT STARTED," which was stale.)
 
 ### 17.11 RECOMMENDED BUILD ORDER
 Phase 1 (index) -> Phase 2 (NIN identity) -> Phase 3 (roles) -> Phase 4 (stage templates) ->

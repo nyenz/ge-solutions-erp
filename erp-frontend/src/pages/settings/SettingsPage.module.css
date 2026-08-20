@@ -280,7 +280,8 @@
 .cardDimmed:hover { border-left-color: rgba(239,68,68,0.7) !important; }
 /* Mute rank label for inactive users */
 .cardDimmed .rankAdmin,
-.cardDimmed .rankManager { color: rgba(255,255,255,0.3) !important; text-shadow: none !important; }
+.cardDimmed .rankManager,
+.cardDimmed .rankSecretary { color: rgba(255,255,255,0.3) !important; text-shadow: none !important; }
 /* Mute username for inactive */
 .cardDimmed .opInfo strong { color: rgba(255,255,255,0.45) !important; }
 

@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import NinMismatchModal from '../../components/common/NinMismatchModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import predictionService from '../../services/predictionService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -252,6 +253,8 @@ const IntakePage = () => {
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
 
     const [errors, setErrors] = useState({});
+    // STAGE 3: { idx, existingName, enteredName } while unresolved, else null
+    const [ninMismatch, setNinMismatch] = useState(null);
 
     // PHASE 6: Legacy Receivables Entry Mode -- simplified path for old
     // titles already in storage. Single lump total cost, no stage checklist.
@@ -373,8 +376,12 @@ const IntakePage = () => {
             toast('At least one document scan is required.', 'error', 6000);
             setDrawers(prev => ({ ...prev, docs: true }));
         }
+        // STAGE 3: block save while an unresolved NIN mismatch warning is open
+        if (ninMismatch) {
+            toast('Confirm or fix the NIN mismatch warning before saving.', 'error', 6000);
+        }
         setErrors(e);
-        return Object.keys(e).length === 0 && fileQueue.length > 0;
+        return Object.keys(e).length === 0 && fileQueue.length > 0 && !ninMismatch;
     };
 
     // Duplicate: save current plot first, then pre-fill form for a similar new plot
@@ -512,8 +519,11 @@ const IntakePage = () => {
 
     const addOwner = () => setOwners(prev => [...prev, EMPTY_OWNER()]);
 
-    // PHASE 2: NIN duplicate/auto-fill check. Warns on likely typo (NIN already
-    // registered under a different name), auto-fills known details on a real match.
+    // PHASE 2 / STAGE 3: NIN duplicate/auto-fill check. A likely typo (NIN
+    // already registered under a different name) now opens a BLOCKING
+    // confirmation dialog instead of a dismissible toast -- the form cannot be
+    // saved until the staff member explicitly confirms it's the same person
+    // or fixes the NIN. A real match still auto-fills known details.
     const handleNinBlurCheck = async (idx, val) => {
         if (!val.trim()) return;
         const result = await clientService.lookupNin(val.trim());
@@ -523,7 +533,7 @@ const IntakePage = () => {
         const enteredName  = (owners[idx]?.fullName || '').trim().toUpperCase();
 
         if (existingName && enteredName && existingName !== enteredName) {
-            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            setNinMismatch({ idx, existingName: result.fullName, enteredName: owners[idx]?.fullName || '' });
             return;
         }
 
@@ -538,6 +548,21 @@ const IntakePage = () => {
             };
         }));
         toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
+    };
+
+    // STAGE 3: user confirmed it IS the same person -- unblock save
+    const handleNinMismatchConfirm = () => setNinMismatch(null);
+
+    // STAGE 3: user says it's NOT the same person -- clear the NIN and refocus it
+    const handleNinMismatchReject = () => {
+        if (!ninMismatch) return;
+        const idx = ninMismatch.idx;
+        updateOwner(idx, 'nationalId', '');
+        setNinMismatch(null);
+        setTimeout(() => {
+            const el = document.getElementById('owner_' + idx + '_nin');
+            if (el) el.focus();
+        }, 50);
     };
 
     // Warn if a phone number is already used by another owner on this form
@@ -698,6 +723,7 @@ const IntakePage = () => {
                                         <SmartInput label="NATIONAL ID (NIN)" value={o.nationalId} showCaps required
                                             error={errors['owner_'+idx+'_nin']}
                                             maxLength={14}
+                                            id={'owner_'+idx+'_nin'}
                                             onChange={e => updateOwner(idx, 'nationalId', e.target.value.toUpperCase().replace(/\s/g,''))}
                                             onBlur={e => handleNinBlurCheck(idx, e.target.value)} />
                                         <SmartInput label="EMAIL" value={o.email}
@@ -1020,6 +1046,15 @@ const IntakePage = () => {
                 onStay={handleStay}
                 onLeave={handleLeave}
                 context="New Plot Registration"
+            />
+
+            {/* STAGE 3: NIN NAME MISMATCH GUARD */}
+            <NinMismatchModal
+                isOpen={!!ninMismatch}
+                existingName={ninMismatch?.existingName}
+                enteredName={ninMismatch?.enteredName}
+                onConfirm={handleNinMismatchConfirm}
+                onReject={handleNinMismatchReject}
             />
 
             {/* NOTE DISCARD CONFIRM MODAL */}

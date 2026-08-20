@@ -400,7 +400,11 @@ public class LandService {
         return saved;
     }
 
-    // ─── NUCLEAR DELETE ───────────────────────────────────────────────────────
+    // ─── SOFT DELETE (formerly NUCLEAR DELETE) ───────────────────────────────
+    // STAGE 3 FIX: this used to hard-delete the Cloudinary files, every payment
+    // record, every note, and the DB row itself -- irreversible in one click.
+    // It now only flags the row as deleted. Nothing else is touched, so a
+    // mis-click is recoverable via restoreProject() below.
 
     @Transactional
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
@@ -408,32 +412,32 @@ public class LandService {
         LandProject project = projectRepository.findById(id).orElseThrow();
         String plotNo = project.getLandTitle().getPlotNumber();
 
-        List<ProjectDocument> docs = documentRepository.findByProjectId(id);
-        for (ProjectDocument doc : docs) {
-            fileStorageService.deleteFile(doc.getFilePath());
-        }
+        project.setDeleted(true);
+        project.setDeletedAt(LocalDateTime.now());
+        projectRepository.save(project);
 
-        try {
-            fileStorageService.deleteFolder("ge_solutions/" + id.toString());
-        } catch (Exception e) {
-            System.err.println(">>> FOLDER DELETE WARNING: " + e.getMessage());
-        }
-
-        List<PaymentRecord> payments = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(id);
-        if (!payments.isEmpty()) {
-            paymentRecordRepository.deleteAll(payments);
-            System.out.println(">>> NUCLEAR DELETE: Removed " + payments.size() + " payment record(s) for plot: " + plotNo);
-        }
-
-        List<FollowUpLog> notes = followUpRepository.findByProjectIdOrderByTimestampDesc(id);
-        if (!notes.isEmpty()) {
-            followUpRepository.deleteAll(notes);
-            System.out.println(">>> NUCLEAR DELETE: Removed " + notes.size() + " follow-up log(s) for plot: " + plotNo);
-        }
-
-        projectRepository.delete(project);
         auditService.logAction("RECORD_DELETED",
-            "Root user [" + getCurrentOperator() + "] permanently deleted plot: " + plotNo);
+            "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo);
+    }
+
+    @Transactional
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public void restoreProject(UUID id) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        String plotNo = project.getLandTitle().getPlotNumber();
+
+        project.setDeleted(false);
+        project.setDeletedAt(null);
+        projectRepository.save(project);
+
+        auditService.logAction("RECORD_RESTORED",
+            "Root user [" + getCurrentOperator() + "] restored plot: " + plotNo);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public List<LandProject> getDeletedProjects() {
+        return projectRepository.findAllDeleted();
     }
 
     // ─── FOLLOW-UP / NOTES ────────────────────────────────────────────────────

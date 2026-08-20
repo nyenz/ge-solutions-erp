@@ -118,6 +118,14 @@ public class LandProject {
     @Column(length = 50, nullable = false)
     private String status = "ACTIVE";
 
+    // STAGE 3: SOFT DELETE -- nuclearDelete() no longer removes the row.
+    @Builder.Default
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     public void addProprietor(Client client) {
         if (this.proprietors == null) this.proprietors = new HashSet<>();
         if (client != null) this.proprietors.add(client);

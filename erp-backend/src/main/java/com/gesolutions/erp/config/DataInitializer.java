@@ -120,6 +120,10 @@ public class DataInitializer implements CommandLineRunner {
                 "edited_by VARCHAR(100))",
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
+
+            // STAGE 3 -- SOFT DELETE
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
         };
 
         try (Connection conn = dataSource.getConnection();

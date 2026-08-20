@@ -15,6 +15,7 @@ import {
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import NinMismatchModal from '../../components/common/NinMismatchModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
@@ -712,6 +713,8 @@ const FolderPage = () => {
     const [isEditing,   setIsEditing]   = useState(false);
     const [committing,  setCommitting]  = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
+    // STAGE 3: { idx, existingName, enteredName } while unresolved, else null
+    const [ninMismatch, setNinMismatch] = useState(null);
     const [payments,    setPayments]    = useState([]);
 
     const [activeTab, setActiveTab] = useState(() => {
@@ -863,6 +866,11 @@ const FolderPage = () => {
     useEffect(() => { loadFolderData(); }, [loadFolderData]);
 
     const handleCommit = async () => {
+        // STAGE 3: block save while an unresolved NIN mismatch warning is open
+        if (ninMismatch) {
+            toast('Confirm or fix the NIN mismatch warning before saving.', 'error', 6000);
+            return;
+        }
         const errors = validateBuffer(buffer);
         if (errors.length) {
             const fe = {};
@@ -886,7 +894,10 @@ const FolderPage = () => {
             setIsEditing(false);
             await loadFolderData();
             toast('Changes saved successfully', 'success');
-        } catch (err) { toast('SAVE FAILED: ' + err.message, 'error', 8000); }
+        // STAGE 3 FIX: this only ever showed the generic axios err.message, so a
+        // backend validation message (e.g. NIN_NAME_MISMATCH) never reached the
+        // user -- same fix already applied to payments in Stage 1.
+        } catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
         finally { setCommitting(false); }
     };
 
@@ -921,7 +932,8 @@ const FolderPage = () => {
         } catch { toast('STAGE UPDATE FAILED', 'error'); }
     };
 
-    // PHASE 2: NIN duplicate/auto-fill check on edit -- same behavior as Intake.
+    // PHASE 2 / STAGE 3: NIN duplicate/auto-fill check on edit -- same blocking
+    // behavior as Intake now (see IntakePage.jsx handleNinBlurCheck).
     const handleNinBlurCheck = async (idx, val) => {
         if (!val.trim()) return;
         const result = await clientService.lookupNin(val.trim());
@@ -931,7 +943,7 @@ const FolderPage = () => {
         const enteredName  = (buffer.owners[idx]?.fullName || '').trim().toUpperCase();
 
         if (existingName && enteredName && existingName !== enteredName) {
-            toast(`WARNING: This NIN is already registered to "${result.fullName}". Check for a typo.`, 'warn', 6000);
+            setNinMismatch({ idx, existingName: result.fullName, enteredName: buffer.owners[idx]?.fullName || '' });
             return;
         }
 
@@ -946,6 +958,21 @@ const FolderPage = () => {
         });
         touchedSetBuffer(p => ({ ...p, owners }));
         toast(`NIN matched an existing record for ${result.fullName}. Details auto-filled -- you can still edit them.`, 'info', 4500);
+    };
+
+    // STAGE 3: user confirmed it IS the same person -- unblock save
+    const handleNinMismatchConfirm = () => setNinMismatch(null);
+
+    // STAGE 3: user says it's NOT the same person -- clear the NIN and refocus it
+    const handleNinMismatchReject = () => {
+        if (!ninMismatch) return;
+        const idx = ninMismatch.idx;
+        handleOwnerChange(idx, 'nationalId', '');
+        setNinMismatch(null);
+        setTimeout(() => {
+            const el = document.getElementById('owner_' + idx + '_nin');
+            if (el) el.focus();
+        }, 50);
     };
 
     const handlePhoneBlurCheck = (idx, val) => {
@@ -1777,6 +1804,15 @@ const FolderPage = () => {
                 onStay={handleStay}
                 onLeave={handleLeave}
                 context="Plot Record Edit"
+            />
+
+            {/* STAGE 3: NIN NAME MISMATCH GUARD */}
+            <NinMismatchModal
+                isOpen={!!ninMismatch}
+                existingName={ninMismatch?.existingName}
+                enteredName={ninMismatch?.enteredName}
+                onConfirm={handleNinMismatchConfirm}
+                onReject={handleNinMismatchReject}
             />
 
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
