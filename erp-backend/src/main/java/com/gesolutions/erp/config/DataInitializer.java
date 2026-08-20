@@ -4,6 +4,8 @@ package com.gesolutions.erp.config;
 import com.gesolutions.erp.modules.auth.model.Role;
 import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
+import com.gesolutions.erp.modules.finance.model.ExpensePreset;
+import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
 import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,7 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final DataSource dataSource;
     private final StageTemplateService stageTemplateService;
+    private final ExpensePresetRepository expensePresetRepository;
 
     @Value("${ADMIN_EMAIL}")
     private String adminEmail;
@@ -45,7 +48,28 @@ public class DataInitializer implements CommandLineRunner {
         // PHASE 4: Seed the default stage template checklist if empty
         stageTemplateService.seedDefaultStagesIfEmpty();
 
+        // EXPENSES REBUILD: Seed the default expense presets if empty
+        seedDefaultExpensePresets();
+
         System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");
+    }
+
+    // NOTE: Deliberately NOT @Transactional -- same raw-JDBC-safety reasoning
+    // as seedRootUser() below. Only seeds if the table is completely empty,
+    // so it never overwrites presets a Manager has already created.
+    public void seedDefaultExpensePresets() {
+        if (expensePresetRepository.count() > 0) {
+            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
+            return;
+        }
+        String[] defaults = { "Office", "Fieldwork", "Land Office" };
+        for (String name : defaults) {
+            expensePresetRepository.save(ExpensePreset.builder()
+                    .name(name)
+                    .createdBy("SYSTEM")
+                    .build());
+        }
+        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
     private void runSchemaMigrations() {
@@ -75,6 +99,27 @@ public class DataInitializer implements CommandLineRunner {
             // Phone numbers are no longer required to be unique -- joint owners or
             // family members can share one phone. NIN is now the real identity check.
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+
+            // EXPENSES REBUILD -- flat cash-out log, replaces the old
+            // committed/paid CompanyExpense model for new entries. The old
+            // company_expenses table is left untouched (deprecated, not
+            // deleted) so nothing already recorded there is lost.
+            "CREATE TABLE IF NOT EXISTS expense_presets (" +
+                "id UUID PRIMARY KEY, " +
+                "name VARCHAR(100) NOT NULL UNIQUE, " +
+                "created_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS expenses (" +
+                "id UUID PRIMARY KEY, " +
+                "category VARCHAR(150) NOT NULL, " +
+                "amount NUMERIC(15,2) NOT NULL, " +
+                "note TEXT, " +
+                "recorded_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now(), " +
+                "edited_at TIMESTAMP, " +
+                "edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
         };
 
         try (Connection conn = dataSource.getConnection();

@@ -34,6 +34,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
 
     const isLocked           = user?.mustChangePassword;
     const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
+    const hasManagerAccess   = hasHighLevelAccess || user?.role === 'ROLE_MANAGER';
 
     const navItems = [
         { path: '/dashboard',     label: 'DASHBOARD', icon: <FiGrid       aria-hidden="true" />, access: true },
@@ -41,7 +42,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/land/projects', label: 'LEDGER',    icon: <FiLayers     aria-hidden="true" />, access: true },
         { path: '/recovery',      label: 'RECOVERY',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },
         { path: '/payments',      label: 'PAYMENTS',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/financials',    label: 'COMPANY COSTS', icon: <FiTrendingDown aria-hidden="true" />, access: hasHighLevelAccess },
+        { path: '/financials',    label: 'EXPENSES', icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess },
         { path: '/reports',       label: 'REPORTS',   icon: <FiBarChart2  aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/audit',         label: 'AUDIT',     icon: <FiShield     aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/settings',      label: 'SETTINGS',  icon: <FiSettings   aria-hidden="true" />, access: true },

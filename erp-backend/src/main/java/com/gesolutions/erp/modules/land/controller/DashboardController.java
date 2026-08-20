@@ -12,7 +12,7 @@ import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.finance.repository.CompanyExpenseRepository;
+import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -41,7 +41,7 @@ public class DashboardController {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;
-    private final CompanyExpenseRepository companyExpenseRepository;
+    private final ExpenseRepository expenseRepository;
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
@@ -237,9 +237,11 @@ public class DashboardController {
                 .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
 
         // Company financials -- live snapshot, not time-windowed
-        BigDecimal companyCommitted = companyExpenseRepository.sumTotalCommitted();
-        BigDecimal companyPaid = companyExpenseRepository.sumTotalPaid();
-        BigDecimal companyOutstanding = companyCommitted.subtract(companyPaid).max(BigDecimal.ZERO);
+        BigDecimal companyExpensesTotal = expenseRepository.sumAll();
+        Map<String, BigDecimal> companyExpensesByCategory = new LinkedHashMap<>();
+        for (Object[] row : expenseRepository.sumByCategoryAll()) {
+            companyExpensesByCategory.put((String) row[0], (BigDecimal) row[1]);
+        }
 
         DirectorDashboardDTO dto = DirectorDashboardDTO.builder()
                 .period(normalizedPeriod)
@@ -248,9 +250,8 @@ public class DashboardController {
                 .transactionCount(transactionCount)
                 .staffActivity(staffActivity)
                 .pipelineStageCounts(pipelineStageCounts)
-                .companyExpensesCommitted(companyCommitted)
-                .companyExpensesPaid(companyPaid)
-                .companyExpensesOutstanding(companyOutstanding)
+                .companyExpensesTotal(companyExpensesTotal)
+                .companyExpensesByCategory(companyExpensesByCategory)
                 .build();
 
         return ResponseEntity.ok(dto);

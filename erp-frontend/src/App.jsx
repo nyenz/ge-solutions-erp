@@ -14,16 +14,17 @@ import LedgerPage     from './pages/Ledger/LedgerPage';
 import FolderPage     from './pages/DigitalFolder/FolderPage';
 import RecoveryPortal from './pages/Recovery/RecoveryPortal';
 import PaymentsPage   from './pages/Payments/PaymentsPage';
-import CompanyExpensesPage from './pages/Financials/CompanyExpensesPage';
+import ExpensesPage    from './pages/Financials/ExpensesPage';
 import ReportHub      from './pages/Reports/ReportHub';
 import AuditPage      from './pages/Audit/AuditPage';
 import SettingsPage   from './pages/settings/SettingsPage';
 
-const ProtectedRoute = ({ children, adminOnly = false, isSettings = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSettings = false }) => {
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
     if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR')) return <Navigate to="/dashboard" replace />;
+    if (managerPlus && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR' || user.role === 'ROLE_MANAGER')) return <Navigate to="/dashboard" replace />;
     return children;
 };
 
@@ -66,7 +67,7 @@ const router = createBrowserRouter([
             { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
             { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },
             { path: "payments", element: <ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute> },
-            { path: "financials", element: <ProtectedRoute adminOnly><Shell><CompanyExpensesPage /></Shell></ProtectedRoute> },
+            { path: "financials", element: <ProtectedRoute managerPlus><Shell><ExpensesPage /></Shell></ProtectedRoute> },
             { path: "reports", element: <ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute> },
             { path: "audit", element: <ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute> },
             { path: "settings", element: <ProtectedRoute isSettings><Shell><SettingsPage /></Shell></ProtectedRoute> },

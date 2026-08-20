@@ -1,0 +1,53 @@
+// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java
+package com.gesolutions.erp.modules.finance.repository;
+
+import com.gesolutions.erp.modules.finance.model.Expense;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
+
+    List<Expense> findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime since);
+
+    @Query("SELECT e FROM Expense e WHERE " +
+           "(:from IS NULL OR e.createdAt >= :from) AND " +
+           "(:to IS NULL OR e.createdAt <= :to) AND " +
+           "(:category IS NULL OR e.category = :category) AND " +
+           "(:recordedBy IS NULL OR LOWER(e.recordedBy) LIKE LOWER(CONCAT('%', :recordedBy, '%'))) AND " +
+           "(:minAmount IS NULL OR e.amount >= :minAmount) AND " +
+           "(:maxAmount IS NULL OR e.amount <= :maxAmount) " +
+           "ORDER BY e.createdAt DESC")
+    Page<Expense> search(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        @Param("category") String category,
+        @Param("recordedBy") String recordedBy,
+        @Param("minAmount") BigDecimal minAmount,
+        @Param("maxAmount") BigDecimal maxAmount,
+        Pageable pageable
+    );
+
+    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.createdAt >= :from AND e.createdAt <= :to")
+    BigDecimal sumBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e")
+    BigDecimal sumAll();
+
+    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+           "WHERE e.createdAt >= :from AND e.createdAt <= :to " +
+           "GROUP BY e.category ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByCategoryBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByCategoryAll();
+}

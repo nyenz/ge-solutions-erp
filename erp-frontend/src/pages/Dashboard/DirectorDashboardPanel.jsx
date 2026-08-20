@@ -126,23 +126,23 @@ const DirectorDashboardPanel = () => {
             {snapshot && (
                 <div className={styles.hwPanel} style={{ marginBottom: 12 }}>
                     <div className={styles.panelHeader}>
-                        <FiClock aria-hidden="true" /> COMPANY FINANCIALS SNAPSHOT
+                        <FiClock aria-hidden="true" /> COMPANY EXPENSES SNAPSHOT
                     </div>
                     <div className={styles.panelInner}>
-                        <div className={styles.moneyRow}>
-                            <div className={styles.moneyBox}>
-                                <label>COMPANY COSTS COMMITTED</label>
-                                <strong>UGX {fmt(snapshot.companyExpensesCommitted)}</strong>
-                            </div>
-                            <div className={styles.moneyBox}>
-                                <label>COMPANY COSTS PAID</label>
-                                <strong className={styles.valueEmerald}>UGX {fmt(snapshot.companyExpensesPaid)}</strong>
-                            </div>
-                        </div>
                         <div className={`${styles.moneyBox} ${styles.moneyBoxArrears}`}>
-                            <label>COMPANY COSTS OUTSTANDING</label>
-                            <strong className={styles.valueRuby}>UGX {fmt(snapshot.companyExpensesOutstanding)}</strong>
+                            <label>TOTAL SPENT (ALL TIME)</label>
+                            <strong className={styles.valueRuby}>UGX {fmt(snapshot.companyExpensesTotal)}</strong>
                         </div>
+                        {snapshot.companyExpensesByCategory && Object.keys(snapshot.companyExpensesByCategory).length > 0 && (
+                            <div className={styles.moneyRow} style={{ flexWrap: 'wrap', marginTop: 10 }}>
+                                {Object.entries(snapshot.companyExpensesByCategory).map(([cat, amt]) => (
+                                    <div className={styles.moneyBox} key={cat}>
+                                        <label>{cat.toUpperCase()}</label>
+                                        <strong>UGX {fmt(amt)}</strong>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

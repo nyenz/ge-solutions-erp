@@ -32,9 +32,8 @@ public class DirectorDashboardDTO {
 
     private Map<Integer, Long> pipelineStageCounts;
 
-    private BigDecimal companyExpensesCommitted;
-    private BigDecimal companyExpensesPaid;
-    private BigDecimal companyExpensesOutstanding;
+    private BigDecimal companyExpensesTotal;
+    private Map<String, BigDecimal> companyExpensesByCategory;
 
     @Data
     @Builder

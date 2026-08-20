@@ -55,6 +55,8 @@ public class SystemAdminController {
         "land_projects",
         "clients",
         "company_expenses",
+        "expenses",
+        "expense_presets",
         "stage_templates",
         "users"
     };
@@ -115,6 +117,10 @@ public class SystemAdminController {
         // Reseed the default stage template checklist
         stageTemplateService.seedDefaultStagesIfEmpty();
         System.out.println(">>> [WIPE] OK: default stage template reseeded");
+
+        // Reseed the default expense presets (Office, Fieldwork, Land Office)
+        dataInitializer.seedDefaultExpensePresets();
+        System.out.println(">>> [WIPE] OK: default expense presets reseeded");
 
         // Purge every uploaded file from Cloudinary storage too
         fileStorageService.deleteAllFiles();
