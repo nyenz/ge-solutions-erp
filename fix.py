@@ -1,62 +1,46 @@
 # PATH: fix.py
-# EXPENSES ANALYTICS + AUTOCOMPLETE + AUDIT LABELS (PHASE)
+# STAGE 1 -- STOP THE BLEEDING (bug-fix roadmap)
 # Run from project root: python fix.py   (or: py fix.py)
-# Requires the "Rebuild Expenses page" fix.py (Expense/ExpensePreset flat
-# model) to already be applied and deployed -- this phase builds on top
-# of it, it does not replace it.
 #
-# WHY: the Expenses rebuild shipped the flat cash-out log, presets, the
-# 24h edit window, and a Director-only category-breakdown summary -- but
-# a few things that were designed for this page never actually got
-# built:
-#
-#   1. A real spending-over-time graph. The ANALYSIS panel only ever
-#      showed a single total for the selected period, never a trend.
-#      This phase adds a DAY/WEEK/MONTH-bucketed bar chart.
-#   2. A "by staff" breakdown, so a Director can see who is spending
-#      the most without leaving the page.
-#   3. Audit page label mapping. New expense action codes (EXPENSE_
-#      LOGGED, EXPENSE_EDITED, EXPENSE_DELETED, EXPENSE_PRESET_CREATED)
-#      were showing up as raw strings in the Audit Log instead of
-#      readable text.
-#   4. Category autocomplete. Typing a category in the "OTHER" log
-#      flow, or editing a category on an existing entry, was a blank
-#      text box with no memory of what has been typed before.
-#
-# NOTE ON THE 24-HOUR EDIT RULE: this was already correct. Any
-# Manager+ user can already edit ANY entry (not just their own) within
-# 24 hours of it being logged -- ExpenseService.editExpense() only
-# checks Expense.isEditable() (a pure time check), it never checks who
-# recorded it. Nothing to fix there; left untouched.
+# WHY: nobody can record a payment right now -- the button is wired to a
+# web address that doesn't exist on the server. On top of that, the admin
+# password quietly resets every time the server restarts, the promote/
+# demote button can turn a Director into an Admin by mistake, and there
+# is no limit stopping someone from "paying" more than a project owes.
 #
 # BACKEND (patches):
-#   - ExpenseRepository.java: adds findDistinctCategories(),
-#     sumByStaffBetween(), findByCreatedAtBetweenOrderByCreatedAtAsc().
-#   - ExpenseService.java: adds getCategorySuggestions(), getByStaff(),
-#     getTimeSeries() (buckets by DAY/WEEK/MONTH in Java, same pattern
-#     used elsewhere in this codebase for the old CompanyExpense
-#     analytics).
-#   - ExpenseController.java: adds GET /categories (Manager+), and
-#     GET /analytics/by-staff + GET /analytics/timeseries (Director/
-#     Admin only, same access level as the existing /summary and
-#     /search endpoints).
+#   - LandController.java: adds POST /projects/{id}/payment, restricted
+#     to ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR, wired to
+#     LandService.recordPayment(). This is the missing endpoint the
+#     frontend has been calling all along.
+#   - LandService.java: widens recordPayment()'s own @PreAuthorize to
+#     also allow ROLE_MANAGER (it was ROLE_ADMIN/ROLE_DIRECTOR only,
+#     which would have silently blocked Managers even with the new
+#     controller route in place). Also adds an overpayment guard that
+#     throws BusinessException before the payment is saved if the
+#     amount exceeds what is currently owed.
+#   - DataInitializer.java: seedRootUser() no longer overwrites
+#     admin_root's password/is_active/must_change_password on every
+#     restart -- that UPDATE now only ever runs once, at first creation.
+#     Also removes the console line that printed the first 3 characters
+#     of the raw admin password, and removes the post-write BCrypt
+#     verification block (it only makes sense right after a fresh
+#     insert; run against an existing, already-changed password it was
+#     printing a false "FATAL: BCrypt verify FAILED" every restart).
 #
 # FRONTEND (patches):
-#   - expenseService.js: adds getCategories(), getByStaff(),
-#     getTimeSeries().
-#   - ExpensesPage.jsx / .module.css: the ANALYSIS panel gains a BY
-#     STAFF bar breakdown and a SPENDING OVER TIME chart with a DAY/
-#     WEEK/MONTH toggle, both loaded alongside the existing summary
-#     whenever a Director opens the panel. A shared <datalist> of
-#     every category ever logged now backs the "OTHER" category field
-#     and the edit-modal category field, so typing repeats what's
-#     already been used instead of starting from nothing.
-#   - AuditPage.jsx: adds friendly labels for the four expense action
-#     codes.
+#   - SettingsPage.jsx: replaces the binary promote/demote arrow toggle
+#     (which sent ANY non-Admin role straight to Admin) with an explicit
+#     rank menu showing all 4 roles, so the person promoting always
+#     picks the exact target role.
+#   - FolderPage.jsx: handleRecordPayment now reads the server's real
+#     error message (err.response?.data?.message) instead of always
+#     showing the generic "PAYMENT FAILED" toast -- so the new
+#     overpayment message actually reaches the user.
 #
 # Safe to re-run: every patch is checked before writing; if a patch
 # target is not found it prints MISSING and leaves that file alone
-# (most likely meaning this phase, or a later one, is already applied).
+# (most likely meaning this stage is already applied).
 
 import os
 
@@ -65,607 +49,309 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 # (file, old, new) patches applied with str.replace, in order
 PATCHES = [
     # ---------------------------------------------------------------
-    # BACKEND: repository -- category list, by-staff totals, raw rows
-    # for the time-series bucketer
+    # BACKEND: LandController -- add the missing payment endpoint
     # ---------------------------------------------------------------
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java",
-        '''    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
-    List<Object[]> sumByCategoryAll();
-}
-''',
-        '''    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
-    List<Object[]> sumByCategoryAll();
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
+        '''    // NEW: Payment history per plot
+    @GetMapping("/projects/{id}/payments")
+    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectPayments(id));
+    }''',
+        '''    // NEW: Payment history per plot
+    @GetMapping("/projects/{id}/payments")
+    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectPayments(id));
+    }
 
-    /** Powers the category autocomplete on the "OTHER" log field and the edit modal. */
-    @Query("SELECT DISTINCT e.category FROM Expense e ORDER BY e.category ASC")
-    List<String> findDistinctCategories();
-
-    @Query("SELECT e.recordedBy, COALESCE(SUM(e.amount), 0) FROM Expense e " +
-           "WHERE e.createdAt >= :from AND e.createdAt <= :to " +
-           "GROUP BY e.recordedBy ORDER BY SUM(e.amount) DESC")
-    List<Object[]> sumByStaffBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
-
-    /** Raw rows for the spending-over-time graph -- bucketed in Java, see ExpenseService.getTimeSeries(). */
-    List<Expense> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
-}
-''',
+    // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
+    // calling it since it was built. Class-level @PreAuthorize already
+    // covers ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR.
+    @PostMapping("/projects/{id}/payment")
+    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam(required = false) String notes) {
+        landService.recordPayment(id, amount, notes);
+        return ResponseEntity.ok().build();
+    }''',
     ),
 
     # ---------------------------------------------------------------
-    # BACKEND: service -- category suggestions, by-staff, time series
+    # BACKEND: LandService -- widen recordPayment's own @PreAuthorize
+    # and add the overpayment guard
     # ---------------------------------------------------------------
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
-        '''import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;''',
-        '''import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.WeekFields;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.UUID;''',
-    ),
-    (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
-        '''        auditService.logAction("EXPENSE_PRESET_CREATED",
-            "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
-
-        return saved;
-    }
-
-    // -- LOGGING ------------------------------------------------------''',
-        '''        auditService.logAction("EXPENSE_PRESET_CREATED",
-            "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
-
-        return saved;
-    }
-
-    /** Every distinct category ever logged -- feeds the "type it yourself" autocomplete. */
-    @Transactional(readOnly = true)
-    public List<String> getCategorySuggestions() {
-        return expenseRepository.findDistinctCategories();
-    }
-
-    // -- LOGGING ------------------------------------------------------''',
-    ),
-    (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
-        '''        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("total", total);
-        result.put("byCategory", byCategory);
-        return result;
-    }
-
-    // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -''',
-        '''        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("total", total);
-        result.put("byCategory", byCategory);
-        return result;
-    }
-
-    // -- DIRECTOR ANALYSIS: BY STAFF -----------------------------------
-
-    @Transactional(readOnly = true)
-    public Map<String, BigDecimal> getByStaff(LocalDateTime from, LocalDateTime to) {
-        Map<String, BigDecimal> byStaff = new LinkedHashMap<>();
-        for (Object[] row : expenseRepository.sumByStaffBetween(from, to)) {
-            String who = row[0] != null ? (String) row[0] : "UNKNOWN";
-            byStaff.put(who, (BigDecimal) row[1]);
-        }
-        return byStaff;
-    }
-
-    // -- DIRECTOR ANALYSIS: SPENDING OVER TIME (DAY / WEEK / MONTH) ---
-
-    /**
-     * Buckets are computed in Java (not SQL) so the same logic works the
-     * same way regardless of the underlying database -- same approach
-     * used by the old CompanyExpense analytics before the Expenses
-     * rebuild. Empty buckets are simply absent from the result; the
-     * frontend only needs the points that exist.
-     */
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> getTimeSeries(LocalDateTime from, LocalDateTime to, String bucket) {
-        List<Expense> rows = expenseRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(from, to);
-        String normalizedBucket = (bucket == null || bucket.isBlank()) ? "DAY" : bucket.toUpperCase();
-
-        Map<String, BigDecimal> totals = new TreeMap<>();
-        DateTimeFormatter dayFmt = DateTimeFormatter.ISO_LOCAL_DATE;
-        WeekFields wf = WeekFields.ISO;
-
-        for (Expense e : rows) {
-            if (e.getCreatedAt() == null) continue;
-            var date = e.getCreatedAt().toLocalDate();
-            String key;
-            switch (normalizedBucket) {
-                case "MONTH":
-                    key = date.getYear() + "-" + String.format("%02d", date.getMonthValue());
-                    break;
-                case "WEEK":
-                    int week = date.get(wf.weekOfWeekBasedYear());
-                    key = date.getYear() + "-W" + String.format("%02d", week);
-                    break;
-                case "DAY":
-                default:
-                    key = date.format(dayFmt);
-                    break;
-            }
-            totals.merge(key, e.getAmount(), BigDecimal::add);
-        }
-
-        List<Map<String, Object>> series = new ArrayList<>();
-        for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {
-            Map<String, Object> point = new LinkedHashMap<>();
-            point.put("bucket", entry.getKey());
-            point.put("total", entry.getValue());
-            series.add(point);
-        }
-        return series;
-    }
-
-    // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -''',
-    ),
-
-    # ---------------------------------------------------------------
-    # BACKEND: controller -- /categories (Manager+), /analytics/by-staff
-    # and /analytics/timeseries (Director/Admin only, same as /summary)
-    # ---------------------------------------------------------------
-    (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java",
-        '''    @PostMapping("/presets")
-    public ResponseEntity<ExpensePreset> createPreset(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        return ResponseEntity.ok(expenseService.createPreset(name));
-    }
-
-    // -- LOGGING (Manager+) -------------------------------------------''',
-        '''    @PostMapping("/presets")
-    public ResponseEntity<ExpensePreset> createPreset(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        return ResponseEntity.ok(expenseService.createPreset(name));
-    }
-
-    // -- CATEGORY AUTOCOMPLETE (Manager+) ------------------------------
-
-    @GetMapping("/categories")
-    public ResponseEntity<List<String>> getCategorySuggestions() {
-        return ResponseEntity.ok(expenseService.getCategorySuggestions());
-    }
-
-    // -- LOGGING (Manager+) -------------------------------------------''',
-    ),
-    (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java",
-        '''        return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));
-    }
-}
-''',
-        '''        return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));
-    }
-
-    // -- ANALYSIS: BY STAFF (DIRECTOR/ADMIN ONLY) -----------------------
-
-    @GetMapping("/analytics/by-staff")
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+        '''    @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Map<String, BigDecimal>> byStaff(
-            @RequestParam(defaultValue = "MONTH") String period,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
-        LocalDateTime[] range = resolveRange(period, from, to);
-        return ResponseEntity.ok(expenseService.getByStaff(range[0], range[1]));
-    }
+    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
+        }
 
-    // -- ANALYSIS: SPENDING OVER TIME (DIRECTOR/ADMIN ONLY) -------------
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
-    @GetMapping("/analytics/timeseries")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<List<Map<String, Object>>> timeseries(
-            @RequestParam(defaultValue = "MONTH") String period,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to,
-            @RequestParam(defaultValue = "DAY") String bucket) {
-        LocalDateTime[] range = resolveRange(period, from, to);
-        return ResponseEntity.ok(expenseService.getTimeSeries(range[0], range[1], bucket));
-    }
+        String operator = getCurrentOperator();
+        String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
 
-    /** Same TODAY/WEEK/MONTH/YEAR/CUSTOM resolution already used by getSummary(), shared here. */
-    private LocalDateTime[] resolveRange(String period, String from, String to) {
-        LocalDateTime fromDt;
-        LocalDateTime toDt = LocalDateTime.now();
+        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);''',
+        '''    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
+        }
 
-        if ("CUSTOM".equalsIgnoreCase(period) && from != null && !from.isBlank()) {
-            fromDt = LocalDate.parse(from).atStartOfDay();
-            toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : toDt;
-        } else {
-            switch (period.toUpperCase()) {
-                case "TODAY": fromDt = LocalDate.now().atStartOfDay(); break;
-                case "WEEK":  fromDt = LocalDate.now().minusDays(7).atStartOfDay(); break;
-                case "YEAR":  fromDt = LocalDate.now().minusYears(1).atStartOfDay(); break;
-                case "MONTH":
-                default:      fromDt = LocalDate.now().minusDays(30).atStartOfDay(); break;
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+
+        // STAGE 1 FIX: block overpayment -- work out what is still owed
+        // using the same logic already used below for balanceAfter.
+        BigDecimal currentlyOwed = project.isReceivable()
+                ? project.receivableTotalOwed()
+                : project.getTotalCost().subtract(project.getAmountPaid());
+        if (amount.compareTo(currentlyOwed) > 0) {
+            throw new BusinessException("OVERPAYMENT_BLOCKED: This project only owes UGX "
+                    + currentlyOwed + ". You tried to record UGX " + amount + ".");
+        }
+
+        String operator = getCurrentOperator();
+        String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
+
+        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);''',
+    ),
+
+    # ---------------------------------------------------------------
+    # BACKEND: DataInitializer -- stop resetting the password on every
+    # restart, stop printing the raw password prefix, drop the
+    # verification block that only makes sense on fresh insert.
+    # (Kept as ONE patch spanning the whole block -- splitting this
+    # into two smaller patches lets the second patch's "new" text
+    # collide with a substring of the first patch's "old" text, which
+    # falsely reports "already patched" before either edit lands.)
+    # ---------------------------------------------------------------
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
+        '''        System.out.println(">>> [REGISTRY] seedRootUser() via raw JDBC. Raw password=" + rawPassword.substring(0,3) + "***");
+
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            // Check if admin_root exists
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exists = rs.getInt(1) > 0;
+                }
             }
-        }
-        return new LocalDateTime[]{fromDt, toDt};
-    }
-}
-''',
+
+            if (!exists) {
+                // INSERT brand-new admin_root row
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
+                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, java.util.UUID.randomUUID());
+                    ps.setString(2, email);
+                    ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+            } else {
+                // UPDATE existing row -- raw JDBC, auto-commits, no cache issues
+                String sql = "UPDATE users SET password = ?, is_active = true, must_change_password = true "
+                           + "WHERE username = 'admin_root'";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] UPDATE admin_root rows affected: " + rows);
+                }
+            }
+
+            // Verify by re-reading the stored hash
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String storedHash = rs.getString("password");
+                        boolean active = rs.getBoolean("is_active");
+                        boolean matches = passwordEncoder.matches(rawPassword, storedHash);
+                        System.out.println(">>> [REGISTRY] Post-write verification:");
+                        System.out.println(">>>   is_active in DB = " + active);
+                        System.out.println(">>>   hash starts with = " + storedHash.substring(0, Math.min(20, storedHash.length())));
+                        System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
+                        if (!matches) {
+                            System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                        } else {
+                            System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                        }
+                    } else {
+                        System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
+                    }
+                }
+            }
+
+        } catch (Exception e) {''',
+        '''        try (java.sql.Connection conn = dataSource.getConnection()) {
+            // Check if admin_root exists
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exists = rs.getInt(1) > 0;
+                }
+            }
+
+            if (!exists) {
+                // INSERT brand-new admin_root row
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
+                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, java.util.UUID.randomUUID());
+                    ps.setString(2, email);
+                    ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+
+                // Verify by re-reading the stored hash -- only meaningful right
+                // after a fresh insert, since this is the only branch that
+                // actually wrote a new password.
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                        "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            String storedHash = rs.getString("password");
+                            boolean active = rs.getBoolean("is_active");
+                            boolean matches = passwordEncoder.matches(rawPassword, storedHash);
+                            System.out.println(">>> [REGISTRY] Post-write verification:");
+                            System.out.println(">>>   is_active in DB = " + active);
+                            System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
+                            if (!matches) {
+                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                            } else {
+                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                            }
+                        } else {
+                            System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
+                        }
+                    }
+                }
+            } else {
+                // STAGE 1 FIX: admin_root already exists -- do NOT touch its
+                // password, is_active, or must_change_password on restart.
+                // Whatever David set those to in the running app stays as-is.
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+            }
+
+        } catch (Exception e) {''',
     ),
 
     # ---------------------------------------------------------------
-    # FRONTEND: service -- categories, by-staff, timeseries calls
+    # FRONTEND: SettingsPage -- explicit rank menu instead of a
+    # binary promote/demote toggle
     # ---------------------------------------------------------------
     (
-        "erp-frontend/src/services/expenseService.js",
-        '''    getSummary: async (period = 'MONTH', from, to) => {
-        const response = await api.get('/finance/expenses/summary', {
-            params: { period, from, to }
-        });
-        return response.data;
-    },
-};''',
-        '''    getSummary: async (period = 'MONTH', from, to) => {
-        const response = await api.get('/finance/expenses/summary', {
-            params: { period, from, to }
-        });
-        return response.data;
-    },
-
-    getCategories: async () => {
-        const response = await api.get('/finance/expenses/categories');
-        return response.data;
-    },
-
-    getByStaff: async (period = 'MONTH', from, to) => {
-        const response = await api.get('/finance/expenses/analytics/by-staff', {
-            params: { period, from, to }
-        });
-        return response.data;
-    },
-
-    getTimeSeries: async (period = 'MONTH', from, to, bucket = 'DAY') => {
-        const response = await api.get('/finance/expenses/analytics/timeseries', {
-            params: { period, from, to, bucket }
-        });
-        return response.data;
-    },
-};''',
-    ),
-
-    # ---------------------------------------------------------------
-    # FRONTEND: ExpensesPage.jsx -- category state + fetch, By Staff
-    # + Spending Over Time panels, shared category datalist
-    # ---------------------------------------------------------------
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''    const [presets, setPresets] = useState([]);
-    const [recent, setRecent] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState(null);''',
-        '''    const [presets, setPresets] = useState([]);
-    const [recent, setRecent] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState(null);''',
+        "erp-frontend/src/pages/settings/SettingsPage.jsx",
+        '''    FiPower, FiMail, FiSave, FiAlertTriangle, FiArrowUp,
+    FiArrowDown, FiChevronDown, FiActivity, FiEye, FiEyeOff,''',
+        '''    FiPower, FiMail, FiSave, FiAlertTriangle,
+    FiChevronDown, FiActivity, FiEye, FiEyeOff,''',
     ),
     (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''    const loadAll = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [presetData, recentData] = await Promise.all([
-                expenseService.getPresets(),
-                expenseService.getRecent(EDIT_WINDOW_HOURS),
-            ]);
-            setPresets(presetData || []);
-            setRecent(recentData || []);
-        } catch {
-            flash('Could not load expenses. Check your connection.', 'error');
-        } finally {
-            setLoading(false);
-        }
-    }, []);''',
-        '''    const loadAll = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [presetData, recentData, categoryData] = await Promise.all([
-                expenseService.getPresets(),
-                expenseService.getRecent(EDIT_WINDOW_HOURS),
-                expenseService.getCategories(),
-            ]);
-            setPresets(presetData || []);
-            setRecent(recentData || []);
-            setCategories(categoryData || []);
-        } catch {
-            flash('Could not load expenses. Check your connection.', 'error');
-        } finally {
-            setLoading(false);
-        }
-    }, []);''',
+        "erp-frontend/src/pages/settings/SettingsPage.jsx",
+        '''    const [tempKeyReveal, setTempKeyReveal] = useState(null);''',
+        '''    const [tempKeyReveal, setTempKeyReveal] = useState(null);
+    const [roleMenuFor,   setRoleMenuFor]   = useState(null); // STAGE 1 FIX: explicit rank menu''',
     ),
     (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''    // -- DIRECTOR ANALYSIS --------------------------------------------
-    const [analysisOpen, setAnalysisOpen] = useState(false);
-    const [period, setPeriod] = useState('MONTH');
-    const [summary, setSummary] = useState({ total: 0, byCategory: {} });
-    const [summaryLoading, setSummaryLoading] = useState(false);
-
-    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
-    const [searchResults, setSearchResults] = useState(null);
-    const [searching, setSearching] = useState(false);
-
-    const loadSummary = useCallback(async (p) => {
-        setSummaryLoading(true);
-        try {
-            const data = await expenseService.getSummary(p);
-            setSummary(data || { total: 0, byCategory: {} });
-        } catch {
-            flash('Could not load the analysis summary.', 'error');
-        } finally {
-            setSummaryLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (isDirector && analysisOpen) loadSummary(period);
-    }, [isDirector, analysisOpen, period, loadSummary]);''',
-        '''    // -- DIRECTOR ANALYSIS --------------------------------------------
-    const [analysisOpen, setAnalysisOpen] = useState(false);
-    const [period, setPeriod] = useState('MONTH');
-    const [summary, setSummary] = useState({ total: 0, byCategory: {} });
-    const [summaryLoading, setSummaryLoading] = useState(false);
-    const [byStaff, setByStaff] = useState({});
-    const [staffLoading, setStaffLoading] = useState(false);
-    const [series, setSeries] = useState([]);
-    const [bucket, setBucket] = useState('DAY');
-    const [seriesLoading, setSeriesLoading] = useState(false);
-
-    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
-    const [searchResults, setSearchResults] = useState(null);
-    const [searching, setSearching] = useState(false);
-
-    const loadSummary = useCallback(async (p) => {
-        setSummaryLoading(true);
-        try {
-            const data = await expenseService.getSummary(p);
-            setSummary(data || { total: 0, byCategory: {} });
-        } catch {
-            flash('Could not load the analysis summary.', 'error');
-        } finally {
-            setSummaryLoading(false);
-        }
-    }, []);
-
-    const loadByStaff = useCallback(async (p) => {
-        setStaffLoading(true);
-        try {
-            const data = await expenseService.getByStaff(p);
-            setByStaff(data || {});
-        } catch {
-            flash('Could not load the staff breakdown.', 'error');
-        } finally {
-            setStaffLoading(false);
-        }
-    }, []);
-
-    const loadSeries = useCallback(async (p, b) => {
-        setSeriesLoading(true);
-        try {
-            const data = await expenseService.getTimeSeries(p, undefined, undefined, b);
-            setSeries(data || []);
-        } catch {
-            flash('Could not load the spending trend.', 'error');
-        } finally {
-            setSeriesLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (isDirector && analysisOpen) {
-            loadSummary(period);
-            loadByStaff(period);
-            loadSeries(period, bucket);
-        }
-    }, [isDirector, analysisOpen, period, bucket, loadSummary, loadByStaff, loadSeries]);''',
-    ),
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''    const maxCategoryAmount = useMemo(() => {
-        const vals = Object.values(summary.byCategory || {});
-        return vals.length ? Math.max(...vals.map(Number)) : 0;
-    }, [summary]);''',
-        '''    const maxCategoryAmount = useMemo(() => {
-        const vals = Object.values(summary.byCategory || {});
-        return vals.length ? Math.max(...vals.map(Number)) : 0;
-    }, [summary]);
-
-    const maxStaffAmount = useMemo(() => {
-        const vals = Object.values(byStaff || {});
-        return vals.length ? Math.max(...vals.map(Number)) : 0;
-    }, [byStaff]);
-
-    const maxSeriesAmount = useMemo(() => {
-        return series.length ? Math.max(...series.map(pt => Number(pt.total))) : 0;
-    }, [series]);''',
-    ),
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''            {message && (
-                <div className={`${styles.flashBanner} ${styles['flash_' + message.type]}`}>
-                    {message.text}
-                </div>
-            )}
-
-            {/* PRESET GRID -- ONE TAP LOGGING */}''',
-        '''            {message && (
-                <div className={`${styles.flashBanner} ${styles['flash_' + message.type]}`}>
-                    {message.text}
-                </div>
-            )}
-
-            {/* Shared autocomplete source for every "type it yourself" category field */}
-            <datalist id="expense-categories">
-                {categories.map(c => <option key={c} value={c} />)}
-            </datalist>
-
-            {/* PRESET GRID -- ONE TAP LOGGING */}''',
-    ),
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''                        <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>''',
-        '''                        <div className={styles.sectionLabel}>BY STAFF</div>
-                        <div className={styles.categoryBars}>
-                            {Object.entries(byStaff || {}).map(([who, amt]) => (
-                                <div key={who} className={styles.barRow}>
-                                    <span className={styles.barLabel}>{who}</span>
-                                    <div className={styles.barTrack}>
-                                        <div
-                                            className={styles.barFill}
-                                            style={{ width: maxStaffAmount ? `${(Number(amt) / maxStaffAmount) * 100}%` : '0%' }}
-                                        />
-                                    </div>
-                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>
-                                </div>
-                            ))}
-                            {!staffLoading && Object.keys(byStaff || {}).length === 0 && (
-                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
-                            )}
-                        </div>
-
-                        <div className={styles.sectionLabel}>SPENDING OVER TIME</div>
-                        <div className={styles.bucketRow}>
-                            {['DAY', 'WEEK', 'MONTH'].map(b => (
-                                <button
-                                    key={b}
-                                    className={bucket === b ? styles.bucketBtnActive : styles.bucketBtn}
-                                    onClick={() => setBucket(b)}
-                                >
-                                    {b}
-                                </button>
-                            ))}
-                        </div>
-                        {seriesLoading ? (
-                            <div className={styles.emptyCell}>LOADING TREND...</div>
-                        ) : series.length === 0 ? (
-                            <div className={styles.emptyCell}>NO ACTIVITY IN THIS WINDOW</div>
-                        ) : (
-                            <div className={styles.tsChart}>
-                                {series.map(point => (
-                                    <div key={point.bucket} className={styles.tsBarWrap} title={`${point.bucket}: UGX ${fmt(point.total)}`}>
-                                        <div className={styles.tsBarTrack}>
-                                            <div
-                                                className={styles.tsBarFill}
-                                                style={{ height: maxSeriesAmount ? `${Math.max(2, (Number(point.total) / maxSeriesAmount) * 100)}%` : '2%' }}
-                                            />
-                                        </div>
-                                        <span className={styles.tsBarLabel}>{point.bucket.slice(-5)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>''',
-    ),
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''                        <input
-                            type="text"
-                            className={modalStyles.modalInput}
-                            placeholder="e.g. Courier fee"
-                            value={logCategory}
-                            onChange={e => setLogCategory(e.target.value)}
-                        />''',
-        '''                        <input
-                            type="text"
-                            list="expense-categories"
-                            className={modalStyles.modalInput}
-                            placeholder="e.g. Courier fee"
-                            value={logCategory}
-                            onChange={e => setLogCategory(e.target.value)}
-                        />''',
-    ),
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
-        '''                    <input
-                        type="text"
-                        className={modalStyles.modalInput}
-                        value={editCategory}
-                        onChange={e => setEditCategory(e.target.value)}
-                    />''',
-        '''                    <input
-                        type="text"
-                        list="expense-categories"
-                        className={modalStyles.modalInput}
-                        value={editCategory}
-                        onChange={e => setEditCategory(e.target.value)}
-                    />''',
-    ),
-
-    # ---------------------------------------------------------------
-    # FRONTEND: CSS -- section labels, bucket toggle, time-series bars
-    # ---------------------------------------------------------------
-    (
-        "erp-frontend/src/pages/Financials/ExpensesPage.module.css",
-        '''.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
-
-.searchDivider {''',
-        '''.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
-
-.sectionLabel {
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    color: var(--orange);
-    text-transform: uppercase;
-    margin: 18px 0 10px;
-}
-
-.bucketRow { display: flex; gap: 6px; margin-bottom: 12px; }
-.bucketBtn, .bucketBtnActive {
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 0.6px;
-    cursor: pointer;
-}
-.bucketBtn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
-.bucketBtn:hover { background: rgba(255,255,255,0.12); }
-.bucketBtnActive { background: var(--orange); border: 1px solid var(--orange); color: #fff; }
-
-.tsChart { display: flex; gap: 6px; overflow-x: auto; padding: 4px 4px 0; align-items: flex-end; min-height: 140px; }
-.tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; }
-.tsBarTrack { height: 110px; width: 100%; display: flex; align-items: flex-end; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
-.tsBarFill { width: 100%; background: linear-gradient(180deg, var(--orange) 0%, #d97a28 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
-.tsBarLabel { font-size: 8px; color: rgba(255,255,255,0.45); white-space: nowrap; }
-
-.searchDivider {''',
-    ),
-
-    # ---------------------------------------------------------------
-    # FRONTEND: Audit page -- friendly labels for the Expenses actions
-    # ---------------------------------------------------------------
-    (
-        "erp-frontend/src/pages/Audit/AuditPage.jsx",
-        '''        if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
-        return action;
+        "erp-frontend/src/pages/settings/SettingsPage.jsx",
+        '''    // ── ROLE SWITCH ──
+    const handleRoleSwitch = async (opUsername, currentRole) => {
+        const targetRole = currentRole === 'ROLE_ADMIN' ? 'ROLE_MANAGER' : 'ROLE_ADMIN';
+        const label = targetRole === 'ROLE_ADMIN' ? 'PROMOTE TO ADMIN' : 'DEMOTE TO OPERATOR';
+        const ok = await confirm(label, `${label} for ${opUsername}?`, 'warn');
+        if (!ok) return;
+        try { await settingsService.updateOperatorRole(opUsername, targetRole); fetchOperators(); }
+        catch (err) { toast(err.message || 'ROLE SWITCH FAILED', 'error', 8000); }
     };''',
-        '''        if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
-        if (action === 'EXPENSE_LOGGED')            return 'EXPENSE LOGGED';
-        if (action === 'EXPENSE_EDITED')            return 'EXPENSE CORRECTED';
-        if (action === 'EXPENSE_DELETED')           return 'EXPENSE DELETED';
-        if (action === 'EXPENSE_PRESET_CREATED')    return 'PRESET ADDED';
-        return action;
+        '''    // ── ROLE SWITCH ── (STAGE 1 FIX: explicit target role, no more guessing)
+    const ALL_RANKS = ['ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR'];
+    const handleRoleSwitch = async (opUsername, targetRole) => {
+        setRoleMenuFor(null);
+        const label = 'SET RANK: ' + targetRole.replace('ROLE_', '');
+        const ok = await confirm(label, `${label} for ${opUsername}?`, 'warn');
+        if (!ok) return;
+        try { await settingsService.updateOperatorRole(opUsername, targetRole); fetchOperators(); }
+        catch (err) { toast(err.message || 'ROLE SWITCH FAILED', 'error', 8000); }
     };''',
+    ),
+    (
+        "erp-frontend/src/pages/settings/SettingsPage.jsx",
+        '''                                                <div className={styles.opActions}>
+                                                    {!op.isRoot && (<>
+                                                        <button className={styles.rankBtn} onClick={() => handleRoleSwitch(op.username, op.role)} aria-label={op.role === 'ROLE_ADMIN' ? `Demote ${op.username}` : `Promote ${op.username}`}>
+                                                            {op.role === 'ROLE_ADMIN' ? <FiArrowDown aria-hidden="true" /> : <FiArrowUp aria-hidden="true" />}
+                                                        </button>''',
+        '''                                                <div className={styles.opActions}>
+                                                    {!op.isRoot && (<>
+                                                        <div className={styles.rankMenuWrapper}>
+                                                            <button className={styles.rankBtn} onClick={() => setRoleMenuFor(roleMenuFor === op.username ? null : op.username)} aria-label={`Change rank for ${op.username}`} aria-haspopup="menu" aria-expanded={roleMenuFor === op.username}>
+                                                                <FiChevronDown aria-hidden="true" />
+                                                            </button>
+                                                            {roleMenuFor === op.username && (
+                                                                <div className={styles.rankMenu} role="menu">
+                                                                    {ALL_RANKS.map(r => (
+                                                                        <div
+                                                                            key={r}
+                                                                            role="menuitem"
+                                                                            className={`${styles.rankMenuItem} ${op.role === r ? styles.rankMenuItemActive : ''}`}
+                                                                            onClick={() => handleRoleSwitch(op.username, r)}
+                                                                        >
+                                                                            {r.replace('ROLE_', '')}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>''',
+    ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: SettingsPage.module.css -- styles for the new rank menu
+    # ---------------------------------------------------------------
+    (
+        "erp-frontend/src/pages/settings/SettingsPage.module.css",
+        '''.opActions { display: flex; gap: clamp(5px,0.6vw,7px); flex-shrink: 0; }''',
+        '''.opActions { display: flex; gap: clamp(5px,0.6vw,7px); flex-shrink: 0; }
+.rankMenuWrapper { position: relative; }
+.rankMenu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+    min-width: clamp(120px,14vw,150px);
+    background: #162a2c; border: 1px solid rgba(255,255,255,0.14);
+    border-radius: var(--radius-sm); box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    overflow: hidden;
+}
+.rankMenuItem {
+    padding: clamp(7px,0.9vw,10px) clamp(10px,1.2vw,13px);
+    font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px,0.95vw,11px);
+    letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.75);
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.rankMenuItem:hover { background: rgba(238,140,58,0.14); color: var(--orange); }
+.rankMenuItemActive { color: var(--orange); background: rgba(238,140,58,0.08); }''',
+    ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: FolderPage -- show the real server error, not a
+    # generic "PAYMENT FAILED" toast (so overpayment messages surface)
+    # ---------------------------------------------------------------
+    (
+        "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
+        '''        } catch { toast('PAYMENT FAILED', 'error', 8000); }
+        finally { setPaying(false); }''',
+        '''        } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+        finally { setPaying(false); }''',
     ),
 ]
 
@@ -684,34 +370,51 @@ def write_file(path, content):
 
 
 def main():
+    applied = 0
+    missing = []
+    total = len(PATCHES)
+
     for rel_path, old, new in PATCHES:
         full_path = os.path.join(ROOT, rel_path)
+        desc = rel_path
         if not os.path.exists(full_path):
-            print("MISSING (file not found): " + rel_path)
+            print("[STAGE 1] " + desc + " ... MISSING (file not found)")
+            missing.append(desc + " (file not found)")
             continue
         content = read_file(full_path)
         if new in content:
-            print("SKIP (already patched): " + rel_path)
+            print("[STAGE 1] " + desc + " ... OK (already patched)")
+            applied += 1
             continue
         if old not in content:
-            print("MISSING (patch target not found -- is the Expenses rebuild fix.py applied?): " + rel_path)
+            print("[STAGE 1] " + desc + " ... MISSING (patch target not found)")
+            missing.append(desc + " (patch target not found)")
             continue
         content = content.replace(old, new, 1)
         write_file(full_path, content)
-        print("OK: patched " + rel_path)
+        print("[STAGE 1] " + desc + " ... OK")
+        applied += 1
 
     print("")
-    print("Done. Next steps:")
-    print("1. git add -A && git commit -m 'Expenses analytics + autocomplete + audit labels' && git push")
+    print("============================================")
+    print("STAGE 1 COMPLETE: " + str(applied) + " of " + str(total) + " patches applied")
+    print("FIXED: payment endpoint, admin password reset, promote/demote, overpayment check")
+    print("============================================")
+
+    if missing:
+        print("")
+        print("MISSING ITEMS (need manual attention):")
+        for m in missing:
+            print("  - " + m)
+
+    print("")
+    print("Next steps:")
+    print("1. git add -A && git commit -m 'Stage 1: payment endpoint, password reset, promote/demote, overpayment' && git push")
     print("2. Watch Render Events tab for the green tick.")
-    print("3. Open Expenses as Director/Admin, tap ANALYSIS -- you should now see")
-    print("   BY STAFF and SPENDING OVER TIME (with a DAY/WEEK/MONTH toggle) below")
-    print("   the existing category breakdown.")
-    print("4. Tap OTHER on the log form, or edit an existing entry, and start typing")
-    print("   a category you've used before -- it should now autocomplete.")
-    print("5. Check the Audit Log after logging/editing/deleting an expense or")
-    print("   creating a preset -- the action should show a readable label, not")
-    print("   a raw code like EXPENSE_LOGGED.")
+    print("3. Test: log in as Manager, record a payment on any active project -- should succeed.")
+    print("4. Test: try to pay more than a project owes -- should be blocked with a clear message.")
+    print("5. Test: restart the backend and confirm the admin password you set earlier still works.")
+    print("6. Test: try promoting a Director from Settings -- confirm it does NOT silently become Admin.")
 
 
 if __name__ == "__main__":

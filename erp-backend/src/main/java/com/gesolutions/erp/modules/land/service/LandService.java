@@ -93,7 +93,7 @@ public class LandService {
     // ─── PAYMENT RECORDING ────────────────────────────────────────────────────
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
@@ -101,6 +101,16 @@ public class LandService {
 
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+
+        // STAGE 1 FIX: block overpayment -- work out what is still owed
+        // using the same logic already used below for balanceAfter.
+        BigDecimal currentlyOwed = project.isReceivable()
+                ? project.receivableTotalOwed()
+                : project.getTotalCost().subtract(project.getAmountPaid());
+        if (amount.compareTo(currentlyOwed) > 0) {
+            throw new BusinessException("OVERPAYMENT_BLOCKED: This project only owes UGX "
+                    + currentlyOwed + ". You tried to record UGX " + amount + ".");
+        }
 
         String operator = getCurrentOperator();
         String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";

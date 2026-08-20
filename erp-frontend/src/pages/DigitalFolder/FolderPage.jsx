@@ -1059,7 +1059,7 @@ const FolderPage = () => {
             setPayModal({ open: false });
             setPayAmount(''); setPayNotes(''); setPayType('TITLE');
             toast('Payment recorded successfully', 'success');
-        } catch { toast('PAYMENT FAILED', 'error', 8000); }
+        } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
         finally { setPaying(false); }
     };
 

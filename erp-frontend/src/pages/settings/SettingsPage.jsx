@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiShield, FiKey, FiUsers, FiUserPlus, FiRefreshCcw,
-    FiPower, FiMail, FiSave, FiAlertTriangle, FiArrowUp,
-    FiArrowDown, FiChevronDown, FiActivity, FiEye, FiEyeOff,
+    FiPower, FiMail, FiSave, FiAlertTriangle,
+    FiChevronDown, FiActivity, FiEye, FiEyeOff,
     FiX, FiCheckSquare, FiAlertCircle, FiInfo
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
@@ -123,6 +123,7 @@ const SettingsPage = () => {
     const [newOpModal,    setNewOpModal]    = useState(false);
     const [newOpData,     setNewOpData]     = useState({ username: '', email: '', role: 'ROLE_MANAGER' });
     const [tempKeyReveal, setTempKeyReveal] = useState(null);
+    const [roleMenuFor,   setRoleMenuFor]   = useState(null); // STAGE 1 FIX: explicit rank menu
     const [wipeConfirmText, setWipeConfirmText] = useState('');
     const [wiping,          setWiping]          = useState(false);
 
@@ -194,10 +195,11 @@ const SettingsPage = () => {
         }
     };
 
-    // ── ROLE SWITCH ──
-    const handleRoleSwitch = async (opUsername, currentRole) => {
-        const targetRole = currentRole === 'ROLE_ADMIN' ? 'ROLE_MANAGER' : 'ROLE_ADMIN';
-        const label = targetRole === 'ROLE_ADMIN' ? 'PROMOTE TO ADMIN' : 'DEMOTE TO OPERATOR';
+    // ── ROLE SWITCH ── (STAGE 1 FIX: explicit target role, no more guessing)
+    const ALL_RANKS = ['ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR'];
+    const handleRoleSwitch = async (opUsername, targetRole) => {
+        setRoleMenuFor(null);
+        const label = 'SET RANK: ' + targetRole.replace('ROLE_', '');
         const ok = await confirm(label, `${label} for ${opUsername}?`, 'warn');
         if (!ok) return;
         try { await settingsService.updateOperatorRole(opUsername, targetRole); fetchOperators(); }
@@ -340,9 +342,25 @@ const SettingsPage = () => {
                                                 </div>
                                                 <div className={styles.opActions}>
                                                     {!op.isRoot && (<>
-                                                        <button className={styles.rankBtn} onClick={() => handleRoleSwitch(op.username, op.role)} aria-label={op.role === 'ROLE_ADMIN' ? `Demote ${op.username}` : `Promote ${op.username}`}>
-                                                            {op.role === 'ROLE_ADMIN' ? <FiArrowDown aria-hidden="true" /> : <FiArrowUp aria-hidden="true" />}
-                                                        </button>
+                                                        <div className={styles.rankMenuWrapper}>
+                                                            <button className={styles.rankBtn} onClick={() => setRoleMenuFor(roleMenuFor === op.username ? null : op.username)} aria-label={`Change rank for ${op.username}`} aria-haspopup="menu" aria-expanded={roleMenuFor === op.username}>
+                                                                <FiChevronDown aria-hidden="true" />
+                                                            </button>
+                                                            {roleMenuFor === op.username && (
+                                                                <div className={styles.rankMenu} role="menu">
+                                                                    {ALL_RANKS.map(r => (
+                                                                        <div
+                                                                            key={r}
+                                                                            role="menuitem"
+                                                                            className={`${styles.rankMenuItem} ${op.role === r ? styles.rankMenuItemActive : ''}`}
+                                                                            onClick={() => handleRoleSwitch(op.username, r)}
+                                                                        >
+                                                                            {r.replace('ROLE_', '')}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         <button className={`${styles.killSwitchBtn} ${(op.isActive || op.active) ? styles.killSwitchActive : styles.killSwitchInactive}`} onClick={() => handleStatusToggle(op.username, (op.isActive || op.active))} aria-label={(op.isActive || op.active) ? `Suspend ${op.username}` : `Restore ${op.username}`}>
                                                             <FiPower aria-hidden="true" />
                                                         </button>

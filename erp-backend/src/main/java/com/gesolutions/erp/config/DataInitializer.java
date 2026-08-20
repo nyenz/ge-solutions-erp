@@ -149,8 +149,6 @@ public class DataInitializer implements CommandLineRunner {
         String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
-        System.out.println(">>> [REGISTRY] seedRootUser() via raw JDBC. Raw password=" + rawPassword.substring(0,3) + "***");
-
         try (java.sql.Connection conn = dataSource.getConnection()) {
             // Check if admin_root exists
             boolean exists = false;
@@ -173,38 +171,35 @@ public class DataInitializer implements CommandLineRunner {
                     int rows = ps.executeUpdate();
                     System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
                 }
-            } else {
-                // UPDATE existing row -- raw JDBC, auto-commits, no cache issues
-                String sql = "UPDATE users SET password = ?, is_active = true, must_change_password = true "
-                           + "WHERE username = 'admin_root'";
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setString(1, encodedPassword);
-                    int rows = ps.executeUpdate();
-                    System.out.println(">>> [REGISTRY] UPDATE admin_root rows affected: " + rows);
-                }
-            }
 
-            // Verify by re-reading the stored hash
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                    "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        String storedHash = rs.getString("password");
-                        boolean active = rs.getBoolean("is_active");
-                        boolean matches = passwordEncoder.matches(rawPassword, storedHash);
-                        System.out.println(">>> [REGISTRY] Post-write verification:");
-                        System.out.println(">>>   is_active in DB = " + active);
-                        System.out.println(">>>   hash starts with = " + storedHash.substring(0, Math.min(20, storedHash.length())));
-                        System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
-                        if (!matches) {
-                            System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                // Verify by re-reading the stored hash -- only meaningful right
+                // after a fresh insert, since this is the only branch that
+                // actually wrote a new password.
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                        "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            String storedHash = rs.getString("password");
+                            boolean active = rs.getBoolean("is_active");
+                            boolean matches = passwordEncoder.matches(rawPassword, storedHash);
+                            System.out.println(">>> [REGISTRY] Post-write verification:");
+                            System.out.println(">>>   is_active in DB = " + active);
+                            System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
+                            if (!matches) {
+                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                            } else {
+                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                            }
                         } else {
-                            System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                            System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
                         }
-                    } else {
-                        System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
                     }
                 }
+            } else {
+                // STAGE 1 FIX: admin_root already exists -- do NOT touch its
+                // password, is_active, or must_change_password on restart.
+                // Whatever David set those to in the running app stays as-is.
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
             }
 
         } catch (Exception e) {

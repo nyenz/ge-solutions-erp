@@ -160,6 +160,17 @@ public class LandController {
         return ResponseEntity.ok(landService.getProjectPayments(id));
     }
 
+    // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
+    // calling it since it was built. Class-level @PreAuthorize already
+    // covers ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR.
+    @PostMapping("/projects/{id}/payment")
+    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam(required = false) String notes) {
+        landService.recordPayment(id, amount, notes);
+        return ResponseEntity.ok().build();
+    }
+
     // NEW: Pause / resume storage fee accumulation
     @PatchMapping("/projects/{id}/storage-pause")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
