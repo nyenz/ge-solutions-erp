@@ -65,6 +65,10 @@ const AuditPage = () => {
         if (action === 'STAGE_OVERRIDE')            return 'STAGE OVERRIDE';
         if (action === 'INTAKE')                    return 'NEW PLOT';
         if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
+        if (action === 'EXPENSE_LOGGED')            return 'EXPENSE LOGGED';
+        if (action === 'EXPENSE_EDITED')            return 'EXPENSE CORRECTED';
+        if (action === 'EXPENSE_DELETED')           return 'EXPENSE DELETED';
+        if (action === 'EXPENSE_PRESET_CREATED')    return 'PRESET ADDED';
         return action;
     };
 

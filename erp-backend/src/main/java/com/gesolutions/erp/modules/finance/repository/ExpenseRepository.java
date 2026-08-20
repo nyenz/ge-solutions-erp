@@ -50,4 +50,16 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
     @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
     List<Object[]> sumByCategoryAll();
+
+    /** Powers the category autocomplete on the "OTHER" log field and the edit modal. */
+    @Query("SELECT DISTINCT e.category FROM Expense e ORDER BY e.category ASC")
+    List<String> findDistinctCategories();
+
+    @Query("SELECT e.recordedBy, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+           "WHERE e.createdAt >= :from AND e.createdAt <= :to " +
+           "GROUP BY e.recordedBy ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByStaffBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /** Raw rows for the spending-over-time graph -- bucketed in Java, see ExpenseService.getTimeSeries(). */
+    List<Expense> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
 }

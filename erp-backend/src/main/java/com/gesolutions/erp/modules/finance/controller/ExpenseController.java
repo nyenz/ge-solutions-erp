@@ -48,6 +48,13 @@ public class ExpenseController {
         return ResponseEntity.ok(expenseService.createPreset(name));
     }
 
+    // -- CATEGORY AUTOCOMPLETE (Manager+) ------------------------------
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> getCategorySuggestions() {
+        return ResponseEntity.ok(expenseService.getCategorySuggestions());
+    }
+
     // -- LOGGING (Manager+) -------------------------------------------
 
     @PostMapping
@@ -128,5 +135,50 @@ public class ExpenseController {
         }
 
         return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));
+    }
+
+    // -- ANALYSIS: BY STAFF (DIRECTOR/ADMIN ONLY) -----------------------
+
+    @GetMapping("/analytics/by-staff")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Map<String, BigDecimal>> byStaff(
+            @RequestParam(defaultValue = "MONTH") String period,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        LocalDateTime[] range = resolveRange(period, from, to);
+        return ResponseEntity.ok(expenseService.getByStaff(range[0], range[1]));
+    }
+
+    // -- ANALYSIS: SPENDING OVER TIME (DIRECTOR/ADMIN ONLY) -------------
+
+    @GetMapping("/analytics/timeseries")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<List<Map<String, Object>>> timeseries(
+            @RequestParam(defaultValue = "MONTH") String period,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "DAY") String bucket) {
+        LocalDateTime[] range = resolveRange(period, from, to);
+        return ResponseEntity.ok(expenseService.getTimeSeries(range[0], range[1], bucket));
+    }
+
+    /** Same TODAY/WEEK/MONTH/YEAR/CUSTOM resolution already used by getSummary(), shared here. */
+    private LocalDateTime[] resolveRange(String period, String from, String to) {
+        LocalDateTime fromDt;
+        LocalDateTime toDt = LocalDateTime.now();
+
+        if ("CUSTOM".equalsIgnoreCase(period) && from != null && !from.isBlank()) {
+            fromDt = LocalDate.parse(from).atStartOfDay();
+            toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : toDt;
+        } else {
+            switch (period.toUpperCase()) {
+                case "TODAY": fromDt = LocalDate.now().atStartOfDay(); break;
+                case "WEEK":  fromDt = LocalDate.now().minusDays(7).atStartOfDay(); break;
+                case "YEAR":  fromDt = LocalDate.now().minusYears(1).atStartOfDay(); break;
+                case "MONTH":
+                default:      fromDt = LocalDate.now().minusDays(30).atStartOfDay(); break;
+            }
+        }
+        return new LocalDateTime[]{fromDt, toDt};
     }
 }

@@ -1,176 +1,671 @@
 # PATH: fix.py
-# EXPENSES REBUILD (PHASE)
+# EXPENSES ANALYTICS + AUTOCOMPLETE + AUDIT LABELS (PHASE)
 # Run from project root: python fix.py   (or: py fix.py)
-# Requires both previous fix.py runs (system wipe + storage wipe) to
-# already be applied and deployed.
+# Requires the "Rebuild Expenses page" fix.py (Expense/ExpensePreset flat
+# model) to already be applied and deployed -- this phase builds on top
+# of it, it does not replace it.
 #
-# WHAT THIS DOES:
-# Replaces "Company Costs" with a rebuilt "Expenses" page. The old
-# committed/paid/outstanding model is gone for new entries -- every
-# expense is now a flat fact: this amount of cash left the office, for
-# this category, logged by this person, right now. Nothing owed,
-# nothing to reconcile later.
+# WHY: the Expenses rebuild shipped the flat cash-out log, presets, the
+# 24h edit window, and a Director-only category-breakdown summary -- but
+# a few things that were designed for this page never actually got
+# built:
 #
-# BACKEND (new files):
-#   - Expense.java / ExpensePreset.java -- the two new tables
-#     (expenses, expense_presets). The old company_expenses table is
-#     left alone, untouched, nothing is deleted from it.
-#   - ExpenseRepository / ExpensePresetRepository -- data access,
-#     including search-by-filter and totals-by-category queries.
-#   - ExpenseService -- logging, 24-hour edit window (enforced
-#     server-side, not just in the UI), delete, presets, search,
-#     summary. Every create/edit/delete writes an audit log entry.
-#   - ExpenseController -- REST endpoints under /api/v1/finance/expenses.
-#     Logging, editing, and presets are Manager+ (Manager, Director,
-#     Admin/Root). Delete, search, and the analysis summary are
-#     Director/Admin only.
+#   1. A real spending-over-time graph. The ANALYSIS panel only ever
+#      showed a single total for the selected period, never a trend.
+#      This phase adds a DAY/WEEK/MONTH-bucketed bar chart.
+#   2. A "by staff" breakdown, so a Director can see who is spending
+#      the most without leaving the page.
+#   3. Audit page label mapping. New expense action codes (EXPENSE_
+#      LOGGED, EXPENSE_EDITED, EXPENSE_DELETED, EXPENSE_PRESET_CREATED)
+#      were showing up as raw strings in the Audit Log instead of
+#      readable text.
+#   4. Category autocomplete. Typing a category in the "OTHER" log
+#      flow, or editing a category on an existing entry, was a blank
+#      text box with no memory of what has been typed before.
+#
+# NOTE ON THE 24-HOUR EDIT RULE: this was already correct. Any
+# Manager+ user can already edit ANY entry (not just their own) within
+# 24 hours of it being logged -- ExpenseService.editExpense() only
+# checks Expense.isEditable() (a pure time check), it never checks who
+# recorded it. Nothing to fix there; left untouched.
 #
 # BACKEND (patches):
-#   - DataInitializer.java: creates the two new tables on startup,
-#     seeds 3 default presets (Office, Fieldwork, Land Office) the
-#     first time the table is empty.
-#   - SystemAdminController.java: the DANGER ZONE full wipe now also
-#     clears expenses/expense_presets and reseeds the 3 defaults
-#     right after, same as it already does for stage templates.
-#   - DirectorDashboardDTO.java / DashboardController.java: the
-#     Director dashboard snapshot now reports total spend + a
-#     category breakdown instead of committed/paid/outstanding.
-#
-# FRONTEND (new files):
-#   - expenseService.js -- talks to the new endpoints.
-#   - ExpensesPage.jsx / .module.css -- the rebuilt page:
-#       * Preset grid, one tap to log (Office / Fieldwork / Land
-#         Office by default), "+ NEW PRESET" to add more instantly,
-#         "OTHER" as the one typing escape hatch for anything that
-#         does not fit a preset.
-#       * Amount uses a plain numeric field (inputMode=decimal),
-#         which triggers the phones native number pad -- no custom
-#         on-screen keypad needed, no typing beyond digits.
-#       * Recent entries list, editable for 24 hours by any
-#         Manager+, locked after that (Director can still delete).
-#       * Director-only ANALYSIS panel: period totals (Today/Week/
-#         Month/Year), a category breakdown bar chart, and a
-#         detailed search/filter tool.
+#   - ExpenseRepository.java: adds findDistinctCategories(),
+#     sumByStaffBetween(), findByCreatedAtBetweenOrderByCreatedAtAsc().
+#   - ExpenseService.java: adds getCategorySuggestions(), getByStaff(),
+#     getTimeSeries() (buckets by DAY/WEEK/MONTH in Java, same pattern
+#     used elsewhere in this codebase for the old CompanyExpense
+#     analytics).
+#   - ExpenseController.java: adds GET /categories (Manager+), and
+#     GET /analytics/by-staff + GET /analytics/timeseries (Director/
+#     Admin only, same access level as the existing /summary and
+#     /search endpoints).
 #
 # FRONTEND (patches):
-#   - App.jsx: new "managerPlus" route guard, /financials now points
-#     at the new ExpensesPage and allows Manager role in, not just
-#     Director/Admin.
-#   - Sidebar.jsx: renamed "COMPANY COSTS" to "EXPENSES", now visible
-#     to Managers too.
-#   - DirectorDashboardPanel.jsx: shows the new total + category
-#     breakdown instead of committed/paid/outstanding.
+#   - expenseService.js: adds getCategories(), getByStaff(),
+#     getTimeSeries().
+#   - ExpensesPage.jsx / .module.css: the ANALYSIS panel gains a BY
+#     STAFF bar breakdown and a SPENDING OVER TIME chart with a DAY/
+#     WEEK/MONTH toggle, both loaded alongside the existing summary
+#     whenever a Director opens the panel. A shared <datalist> of
+#     every category ever logged now backs the "OTHER" category field
+#     and the edit-modal category field, so typing repeats what's
+#     already been used instead of starting from nothing.
+#   - AuditPage.jsx: adds friendly labels for the four expense action
+#     codes.
 #
-# WHAT IS DELIBERATELY LEFT ALONE:
-# The old CompanyExpensesPage.jsx file and the old CompanyExpense
-# backend model/service/controller are NOT deleted by this script --
-# they just stop being linked from the app (no route points at them
-# anymore). Nothing in the old company_expenses table is touched or
-# lost. Safe to delete that old code by hand later once you are happy
-# with the new page, but it is not required.
-#
-# AFTER RUNNING THIS + DEPLOY:
-# Go to Expenses in the sidebar (now visible to Managers too). Tap a
-# preset, type an amount, save -- that is the whole flow. Director/
-# Admin/Root also get an ANALYSIS toggle at the top of the page.
-#
-# Safe to re-run: every patch is checked before writing; new files are
-# skipped if they already exist; if a patch target is not found it
-# prints MISSING and leaves that file alone.
+# Safe to re-run: every patch is checked before writing; if a patch
+# target is not found it prints MISSING and leaves that file alone
+# (most likely meaning this phase, or a later one, is already applied).
 
 import os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# (path, content) -- brand new files
-NEW_FILES = [
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java\npackage com.gesolutions.erp.modules.finance.controller;\n\nimport com.gesolutions.erp.modules.finance.model.Expense;\nimport com.gesolutions.erp.modules.finance.model.ExpensePreset;\nimport com.gesolutions.erp.modules.finance.service.ExpenseService;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.PageRequest;\nimport org.springframework.http.ResponseEntity;\nimport org.springframework.security.access.prepost.PreAuthorize;\nimport org.springframework.web.bind.annotation.*;\n\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport java.time.LocalDateTime;\nimport java.time.LocalTime;\nimport java.util.List;\nimport java.util.Map;\nimport java.util.UUID;\n\n/**\n * GE SOLUTIONS - EXPENSES MODULE (EXPENSES REBUILD)\n *\n * Any Manager+ (Manager, Director, Admin/Root) can log an expense, create a\n * preset, view recent entries, and edit within the 24-hour window. Only\n * Director/Admin can delete an entry, run the detailed search/filter, or\n * pull the totals-by-category summary used by the Analysis view.\n */\n@RestController\n@RequestMapping("/api/v1/finance/expenses")\n@RequiredArgsConstructor\n@PreAuthorize("hasAnyRole(\'ROLE_MANAGER\', \'ROLE_ADMIN\', \'ROLE_DIRECTOR\')")\npublic class ExpenseController {\n\n    private final ExpenseService expenseService;\n\n    // -- PRESETS (Manager+) ------------------------------------------\n\n    @GetMapping("/presets")\n    public ResponseEntity<List<ExpensePreset>> getPresets() {\n        return ResponseEntity.ok(expenseService.getPresets());\n    }\n\n    @PostMapping("/presets")\n    public ResponseEntity<ExpensePreset> createPreset(@RequestBody Map<String, Object> body) {\n        String name = (String) body.get("name");\n        return ResponseEntity.ok(expenseService.createPreset(name));\n    }\n\n    // -- LOGGING (Manager+) -------------------------------------------\n\n    @PostMapping\n    public ResponseEntity<Expense> createExpense(@RequestBody Map<String, Object> body) {\n        String category = (String) body.get("category");\n        BigDecimal amount = body.get("amount") != null ? new BigDecimal(body.get("amount").toString()) : null;\n        String note = (String) body.get("note");\n        return ResponseEntity.ok(expenseService.createExpense(category, amount, note));\n    }\n\n    @GetMapping("/recent")\n    public ResponseEntity<List<Expense>> getRecent(@RequestParam(defaultValue = "24") int hours) {\n        return ResponseEntity.ok(expenseService.getRecent(hours));\n    }\n\n    @PutMapping("/{id}")\n    public ResponseEntity<Expense> editExpense(@PathVariable UUID id, @RequestBody Map<String, Object> body) {\n        String category = (String) body.get("category");\n        BigDecimal amount = body.get("amount") != null ? new BigDecimal(body.get("amount").toString()) : null;\n        String note = (String) body.get("note");\n        return ResponseEntity.ok(expenseService.editExpense(id, category, amount, note));\n    }\n\n    // -- DELETE (DIRECTOR/ADMIN ONLY) ----------------------------------\n\n    @DeleteMapping("/{id}")\n    @PreAuthorize("hasAnyRole(\'ROLE_ADMIN\', \'ROLE_DIRECTOR\')")\n    public ResponseEntity<Void> deleteExpense(@PathVariable UUID id) {\n        expenseService.deleteExpense(id);\n        return ResponseEntity.noContent().build();\n    }\n\n    // -- ANALYSIS: SEARCH (DIRECTOR/ADMIN ONLY) ------------------------\n\n    @GetMapping("/search")\n    @PreAuthorize("hasAnyRole(\'ROLE_ADMIN\', \'ROLE_DIRECTOR\')")\n    public ResponseEntity<Page<Expense>> search(\n            @RequestParam(required = false) String from,\n            @RequestParam(required = false) String to,\n            @RequestParam(required = false) String category,\n            @RequestParam(required = false) String recordedBy,\n            @RequestParam(required = false) BigDecimal minAmount,\n            @RequestParam(required = false) BigDecimal maxAmount,\n            @RequestParam(defaultValue = "0") int page,\n            @RequestParam(defaultValue = "50") int size) {\n\n        LocalDateTime fromDt = (from != null && !from.isBlank()) ? LocalDate.parse(from).atStartOfDay() : null;\n        LocalDateTime toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : null;\n\n        return ResponseEntity.ok(expenseService.search(\n            fromDt, toDt, category, recordedBy, minAmount, maxAmount, PageRequest.of(page, size)\n        ));\n    }\n\n    // -- ANALYSIS: SUMMARY (DIRECTOR/ADMIN ONLY) -----------------------\n\n    @GetMapping("/summary")\n    @PreAuthorize("hasAnyRole(\'ROLE_ADMIN\', \'ROLE_DIRECTOR\')")\n    public ResponseEntity<Map<String, Object>> getSummary(\n            @RequestParam(defaultValue = "MONTH") String period,\n            @RequestParam(required = false) String from,\n            @RequestParam(required = false) String to) {\n\n        LocalDateTime fromDt;\n        LocalDateTime toDt = LocalDateTime.now();\n\n        if ("CUSTOM".equalsIgnoreCase(period) && from != null && !from.isBlank()) {\n            fromDt = LocalDate.parse(from).atStartOfDay();\n            toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : toDt;\n        } else {\n            switch (period.toUpperCase()) {\n                case "TODAY": fromDt = LocalDate.now().atStartOfDay(); break;\n                case "WEEK":  fromDt = LocalDate.now().minusDays(7).atStartOfDay(); break;\n                case "YEAR":  fromDt = LocalDate.now().minusYears(1).atStartOfDay(); break;\n                case "MONTH":\n                default:      fromDt = LocalDate.now().minusDays(30).atStartOfDay(); break;\n            }\n        }\n\n        return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));\n    }\n}\n'),
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/model/Expense.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/model/Expense.java\npackage com.gesolutions.erp.modules.finance.model;\n\nimport jakarta.persistence.*;\nimport lombok.*;\nimport java.math.BigDecimal;\nimport java.time.LocalDateTime;\nimport java.util.UUID;\n\n/**\n * GE SOLUTIONS - EXPENSE (EXPENSES REBUILD)\n *\n * Replaces the old CompanyExpense "committed vs paid" model. An Expense is\n * a flat, permanent fact: this amount of cash left the office, for this\n * category, logged by this person, at this moment. No debt tracking, no\n * partial payments -- if money hasn\'t left yet, it isn\'t logged yet.\n *\n * Category is free text (usually one of the ExpensePreset names, but\n * "Other" one-off categories are allowed too).\n *\n * Editable for 24 hours after creation by any Manager+ user (not just the\n * person who logged it) to fix mistakes -- every edit is written to the\n * audit log and also tracked here via editedAt/editedBy so the UI can show\n * an "edited" badge without needing to read the audit log.\n */\n@Entity\n@Table(name = "expenses", indexes = {\n    @Index(name = "idx_expenses_created_at", columnList = "created_at"),\n    @Index(name = "idx_expenses_category", columnList = "category")\n})\n@Getter\n@Setter\n@NoArgsConstructor\n@AllArgsConstructor\n@Builder\npublic class Expense {\n\n    @Id\n    @GeneratedValue(strategy = GenerationType.UUID)\n    private UUID id;\n\n    @Column(name = "category", nullable = false, length = 150)\n    private String category;\n\n    @Column(name = "amount", nullable = false, precision = 15, scale = 2)\n    private BigDecimal amount;\n\n    @Column(name = "note", columnDefinition = "TEXT")\n    private String note;\n\n    @Column(name = "recorded_by", length = 100)\n    private String recordedBy;\n\n    @Builder.Default\n    @Column(name = "created_at", nullable = false, updatable = false)\n    private LocalDateTime createdAt = LocalDateTime.now();\n\n    @Column(name = "edited_at")\n    private LocalDateTime editedAt;\n\n    @Column(name = "edited_by", length = 100)\n    private String editedBy;\n\n    /**\n     * Editable for 24 hours after creation. Checked server-side on every\n     * edit attempt -- this is not just a UI hint.\n     */\n    @Transient\n    public boolean isEditable() {\n        return createdAt != null && createdAt.plusHours(24).isAfter(LocalDateTime.now());\n    }\n}\n'),
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/model/ExpensePreset.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/model/ExpensePreset.java\npackage com.gesolutions.erp.modules.finance.model;\n\nimport jakarta.persistence.*;\nimport lombok.*;\nimport java.time.LocalDateTime;\nimport java.util.UUID;\n\n/**\n * GE SOLUTIONS - EXPENSE PRESET (EXPENSES REBUILD)\n *\n * A quick-tap category button on the Expenses page (e.g. "Office",\n * "Fieldwork", "Land Office"). Any Manager+ user can create a new preset\n * instantly -- no approval step. This is the ONLY place a new category\n * name gets typed; every future expense against that category is then a\n * single tap, no typing.\n */\n@Entity\n@Table(name = "expense_presets")\n@Getter\n@Setter\n@NoArgsConstructor\n@AllArgsConstructor\n@Builder\npublic class ExpensePreset {\n\n    @Id\n    @GeneratedValue(strategy = GenerationType.UUID)\n    private UUID id;\n\n    @Column(name = "name", nullable = false, unique = true, length = 100)\n    private String name;\n\n    @Column(name = "created_by", length = 100)\n    private String createdBy;\n\n    @Builder.Default\n    @Column(name = "created_at", nullable = false, updatable = false)\n    private LocalDateTime createdAt = LocalDateTime.now();\n}\n'),
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpensePresetRepository.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpensePresetRepository.java\npackage com.gesolutions.erp.modules.finance.repository;\n\nimport com.gesolutions.erp.modules.finance.model.ExpensePreset;\nimport org.springframework.data.jpa.repository.JpaRepository;\nimport org.springframework.stereotype.Repository;\n\nimport java.util.List;\nimport java.util.Optional;\nimport java.util.UUID;\n\n@Repository\npublic interface ExpensePresetRepository extends JpaRepository<ExpensePreset, UUID> {\n\n    List<ExpensePreset> findAllByOrderByNameAsc();\n\n    Optional<ExpensePreset> findByNameIgnoreCase(String name);\n\n    boolean existsByNameIgnoreCase(String name);\n}\n'),
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java\npackage com.gesolutions.erp.modules.finance.repository;\n\nimport com.gesolutions.erp.modules.finance.model.Expense;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.Pageable;\nimport org.springframework.data.jpa.repository.JpaRepository;\nimport org.springframework.data.jpa.repository.Query;\nimport org.springframework.data.repository.query.Param;\nimport org.springframework.stereotype.Repository;\n\nimport java.math.BigDecimal;\nimport java.time.LocalDateTime;\nimport java.util.List;\nimport java.util.UUID;\n\n@Repository\npublic interface ExpenseRepository extends JpaRepository<Expense, UUID> {\n\n    List<Expense> findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime since);\n\n    @Query("SELECT e FROM Expense e WHERE " +\n           "(:from IS NULL OR e.createdAt >= :from) AND " +\n           "(:to IS NULL OR e.createdAt <= :to) AND " +\n           "(:category IS NULL OR e.category = :category) AND " +\n           "(:recordedBy IS NULL OR LOWER(e.recordedBy) LIKE LOWER(CONCAT(\'%\', :recordedBy, \'%\'))) AND " +\n           "(:minAmount IS NULL OR e.amount >= :minAmount) AND " +\n           "(:maxAmount IS NULL OR e.amount <= :maxAmount) " +\n           "ORDER BY e.createdAt DESC")\n    Page<Expense> search(\n        @Param("from") LocalDateTime from,\n        @Param("to") LocalDateTime to,\n        @Param("category") String category,\n        @Param("recordedBy") String recordedBy,\n        @Param("minAmount") BigDecimal minAmount,\n        @Param("maxAmount") BigDecimal maxAmount,\n        Pageable pageable\n    );\n\n    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.createdAt >= :from AND e.createdAt <= :to")\n    BigDecimal sumBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);\n\n    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e")\n    BigDecimal sumAll();\n\n    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e " +\n           "WHERE e.createdAt >= :from AND e.createdAt <= :to " +\n           "GROUP BY e.category ORDER BY SUM(e.amount) DESC")\n    List<Object[]> sumByCategoryBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);\n\n    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")\n    List<Object[]> sumByCategoryAll();\n}\n'),
-    ("erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java", '// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java\npackage com.gesolutions.erp.modules.finance.service;\n\nimport com.gesolutions.erp.common.audit.AuditService;\nimport com.gesolutions.erp.common.exception.BusinessException;\nimport com.gesolutions.erp.modules.finance.model.Expense;\nimport com.gesolutions.erp.modules.finance.model.ExpensePreset;\nimport com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;\nimport com.gesolutions.erp.modules.finance.repository.ExpenseRepository;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.Pageable;\nimport org.springframework.security.core.context.SecurityContextHolder;\nimport org.springframework.stereotype.Service;\nimport org.springframework.transaction.annotation.Transactional;\n\nimport java.math.BigDecimal;\nimport java.time.LocalDateTime;\nimport java.util.LinkedHashMap;\nimport java.util.List;\nimport java.util.Map;\nimport java.util.UUID;\n\n/**\n * GE SOLUTIONS - EXPENSES ENGINE (EXPENSES REBUILD)\n *\n * Every expense is a flat, permanent cash-out record. No committed/paid\n * split, no debt tracking -- if it hasn\'t left the office yet, it doesn\'t\n * get logged yet. Editable for 24 hours after creation by any Manager+\n * user to fix mistakes; every create/edit/delete is written to the audit\n * log. Presets can be created instantly by any Manager+ user.\n */\n@Service\n@RequiredArgsConstructor\npublic class ExpenseService {\n\n    private static final int EDIT_WINDOW_HOURS = 24;\n\n    private final ExpenseRepository expenseRepository;\n    private final ExpensePresetRepository presetRepository;\n    private final AuditService auditService;\n\n    private String getCurrentOperator() {\n        if (SecurityContextHolder.getContext().getAuthentication() != null) {\n            return SecurityContextHolder.getContext().getAuthentication().getName();\n        }\n        return "SYSTEM";\n    }\n\n    // -- PRESETS ------------------------------------------------------\n\n    @Transactional(readOnly = true)\n    public List<ExpensePreset> getPresets() {\n        return presetRepository.findAllByOrderByNameAsc();\n    }\n\n    @Transactional\n    public ExpensePreset createPreset(String name) {\n        if (name == null || name.isBlank()) {\n            throw new BusinessException("PRESET_NAME_REQUIRED: Enter a name for this preset.");\n        }\n        String trimmed = name.trim();\n        if (presetRepository.existsByNameIgnoreCase(trimmed)) {\n            throw new BusinessException("PRESET_EXISTS: A preset with this name already exists.");\n        }\n        ExpensePreset preset = ExpensePreset.builder()\n                .name(trimmed)\n                .createdBy(getCurrentOperator())\n                .build();\n        ExpensePreset saved = presetRepository.save(preset);\n\n        auditService.logAction("EXPENSE_PRESET_CREATED",\n            "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);\n\n        return saved;\n    }\n\n    // -- LOGGING ------------------------------------------------------\n\n    @Transactional\n    public Expense createExpense(String category, BigDecimal amount, String note) {\n        if (category == null || category.isBlank()) {\n            throw new BusinessException("CATEGORY_REQUIRED: Pick a category for this expense.");\n        }\n        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {\n            throw new BusinessException("AMOUNT_REQUIRED: Enter an amount greater than zero.");\n        }\n\n        Expense expense = Expense.builder()\n                .category(category.trim())\n                .amount(amount)\n                .note(note)\n                .recordedBy(getCurrentOperator())\n                .build();\n\n        Expense saved = expenseRepository.save(expense);\n\n        auditService.logAction("EXPENSE_LOGGED",\n            "Operator [" + getCurrentOperator() + "] logged expense: " + category\n            + " -- UGX " + amount);\n\n        return saved;\n    }\n\n    @Transactional(readOnly = true)\n    public List<Expense> getRecent(int hours) {\n        LocalDateTime since = LocalDateTime.now().minusHours(hours);\n        return expenseRepository.findByCreatedAtAfterOrderByCreatedAtDesc(since);\n    }\n\n    // -- EDITING (24-HOUR WINDOW, ANY MANAGER+) ----------------------\n\n    @Transactional\n    public Expense editExpense(UUID id, String category, BigDecimal amount, String note) {\n        Expense expense = expenseRepository.findById(id)\n                .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));\n\n        if (!expense.isEditable()) {\n            throw new BusinessException("EDIT_WINDOW_CLOSED: This expense is more than "\n                + EDIT_WINDOW_HOURS + " hours old and can no longer be edited. Ask a Director to delete it if it\'s wrong.");\n        }\n        if (category == null || category.isBlank()) {\n            throw new BusinessException("CATEGORY_REQUIRED: Pick a category for this expense.");\n        }\n        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {\n            throw new BusinessException("AMOUNT_REQUIRED: Enter an amount greater than zero.");\n        }\n\n        String oldCategory = expense.getCategory();\n        BigDecimal oldAmount = expense.getAmount();\n\n        expense.setCategory(category.trim());\n        expense.setAmount(amount);\n        expense.setNote(note);\n        expense.setEditedAt(LocalDateTime.now());\n        expense.setEditedBy(getCurrentOperator());\n\n        Expense saved = expenseRepository.save(expense);\n\n        auditService.logAction("EXPENSE_EDITED",\n            "Operator [" + getCurrentOperator() + "] edited expense (originally logged by "\n            + saved.getRecordedBy() + "): " + oldCategory + " UGX " + oldAmount\n            + " -> " + category + " UGX " + amount);\n\n        return saved;\n    }\n\n    // -- DELETE (DIRECTOR/ADMIN ONLY, ENFORCED AT CONTROLLER LEVEL) --\n\n    @Transactional\n    public void deleteExpense(UUID id) {\n        Expense expense = expenseRepository.findById(id)\n                .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));\n        expenseRepository.delete(expense);\n\n        auditService.logAction("EXPENSE_DELETED",\n            "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()\n            + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");\n    }\n\n    // -- DIRECTOR ANALYSIS: SEARCH ------------------------------------\n\n    @Transactional(readOnly = true)\n    public Page<Expense> search(LocalDateTime from, LocalDateTime to, String category,\n                                 String recordedBy, BigDecimal minAmount, BigDecimal maxAmount,\n                                 Pageable pageable) {\n        return expenseRepository.search(from, to, category, recordedBy, minAmount, maxAmount, pageable);\n    }\n\n    // -- DIRECTOR ANALYSIS: SUMMARY (TOTALS + CATEGORY BREAKDOWN) ----\n\n    @Transactional(readOnly = true)\n    public Map<String, Object> getSummary(LocalDateTime from, LocalDateTime to) {\n        BigDecimal total = expenseRepository.sumBetween(from, to);\n        List<Object[]> rows = expenseRepository.sumByCategoryBetween(from, to);\n\n        Map<String, BigDecimal> byCategory = new LinkedHashMap<>();\n        for (Object[] row : rows) {\n            byCategory.put((String) row[0], (BigDecimal) row[1]);\n        }\n\n        Map<String, Object> result = new LinkedHashMap<>();\n        result.put("total", total);\n        result.put("byCategory", byCategory);\n        return result;\n    }\n\n    // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -\n\n    @Transactional(readOnly = true)\n    public BigDecimal getAllTimeTotal() {\n        return expenseRepository.sumAll();\n    }\n\n    @Transactional(readOnly = true)\n    public Map<String, BigDecimal> getAllTimeByCategory() {\n        Map<String, BigDecimal> byCategory = new LinkedHashMap<>();\n        for (Object[] row : expenseRepository.sumByCategoryAll()) {\n            byCategory.put((String) row[0], (BigDecimal) row[1]);\n        }\n        return byCategory;\n    }\n}\n'),
-    ("erp-frontend/src/pages/Financials/ExpensesPage.jsx", '// PATH: erp-frontend/src/pages/Financials/ExpensesPage.jsx\nimport React, { useState, useEffect, useCallback, useMemo } from \'react\';\nimport {\n    FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,\n    FiBarChart2, FiX, FiSearch, FiClock\n} from \'react-icons/fi\';\nimport { useAuth } from \'../../hooks/useAuth\';\nimport expenseService from \'../../services/expenseService\';\nimport HardwarePanel from \'../../components/ui/HardwarePanel\';\nimport HardwareModal from \'../../components/common/HardwareModal\';\nimport HardwareButton from \'../../components/common/HardwareButton\';\nimport styles from \'./ExpensesPage.module.css\';\nimport modalStyles from \'../../components/common/HardwareModal.module.css\';\n\nconst fmt = (n) => Number(n || 0).toLocaleString();\nconst EDIT_WINDOW_HOURS = 24;\n\nconst isStillEditable = (createdAt) => {\n    if (!createdAt) return false;\n    const ageMs = Date.now() - new Date(createdAt).getTime();\n    return ageMs < EDIT_WINDOW_HOURS * 60 * 60 * 1000;\n};\n\nconst hoursLeft = (createdAt) => {\n    const ageMs = Date.now() - new Date(createdAt).getTime();\n    const remaining = EDIT_WINDOW_HOURS * 60 * 60 * 1000 - ageMs;\n    return Math.max(0, Math.ceil(remaining / (60 * 60 * 1000)));\n};\n\nconst ExpensesPage = () => {\n    const { user } = useAuth();\n    const isDirector = user?.isRoot || user?.role === \'ROLE_ADMIN\' || user?.role === \'ROLE_DIRECTOR\';\n\n    const [presets, setPresets] = useState([]);\n    const [recent, setRecent] = useState([]);\n    const [loading, setLoading] = useState(true);\n    const [message, setMessage] = useState(null);\n\n    const flash = (text, type = \'info\') => {\n        setMessage({ text, type });\n        setTimeout(() => setMessage(null), 4000);\n    };\n\n    const loadAll = useCallback(async () => {\n        setLoading(true);\n        try {\n            const [presetData, recentData] = await Promise.all([\n                expenseService.getPresets(),\n                expenseService.getRecent(EDIT_WINDOW_HOURS),\n            ]);\n            setPresets(presetData || []);\n            setRecent(recentData || []);\n        } catch {\n            flash(\'Could not load expenses. Check your connection.\', \'error\');\n        } finally {\n            setLoading(false);\n        }\n    }, []);\n\n    useEffect(() => { loadAll(); }, [loadAll]);\n\n    // -- LOG MODAL (tap a preset, or OTHER) --------------------------\n    const [logModal, setLogModal] = useState({ open: false, presetName: \'\', isOther: false });\n    const [logCategory, setLogCategory] = useState(\'\');\n    const [logAmount, setLogAmount] = useState(\'\');\n    const [logNote, setLogNote] = useState(\'\');\n    const [logging, setLogging] = useState(false);\n\n    const openLogModal = (presetName) => {\n        setLogModal({ open: true, presetName, isOther: false });\n        setLogCategory(presetName);\n        setLogAmount(\'\');\n        setLogNote(\'\');\n    };\n    const openOtherModal = () => {\n        setLogModal({ open: true, presetName: \'\', isOther: true });\n        setLogCategory(\'\');\n        setLogAmount(\'\');\n        setLogNote(\'\');\n    };\n    const closeLogModal = () => setLogModal({ open: false, presetName: \'\', isOther: false });\n\n    const submitLog = async () => {\n        if (logModal.isOther && !logCategory.trim()) { flash(\'What is this expense for?\', \'error\'); return; }\n        if (!logAmount || Number(logAmount) <= 0) { flash(\'Enter an amount.\', \'error\'); return; }\n        setLogging(true);\n        try {\n            await expenseService.create({\n                category: (logModal.isOther ? logCategory : logModal.presetName).trim(),\n                amount: Number(logAmount),\n                note: logNote,\n            });\n            closeLogModal();\n            await loadAll();\n            flash(\'Expense logged.\', \'success\');\n        } catch (err) {\n            flash(err.response?.data?.message || \'Could not log this expense.\', \'error\');\n        } finally {\n            setLogging(false);\n        }\n    };\n\n    // -- NEW PRESET MODAL ------------------------------------------\n    const [presetModal, setPresetModal] = useState(false);\n    const [newPresetName, setNewPresetName] = useState(\'\');\n    const [savingPreset, setSavingPreset] = useState(false);\n\n    const submitPreset = async () => {\n        if (!newPresetName.trim()) { flash(\'Enter a name for this preset.\', \'error\'); return; }\n        setSavingPreset(true);\n        try {\n            await expenseService.createPreset(newPresetName.trim());\n            setPresetModal(false);\n            setNewPresetName(\'\');\n            await loadAll();\n            flash(\'Preset added.\', \'success\');\n        } catch (err) {\n            flash(err.response?.data?.message || \'Could not create this preset.\', \'error\');\n        } finally {\n            setSavingPreset(false);\n        }\n    };\n\n    // -- EDIT MODAL (within 24h only) --------------------------------\n    const [editModal, setEditModal] = useState({ open: false, expense: null });\n    const [editCategory, setEditCategory] = useState(\'\');\n    const [editAmount, setEditAmount] = useState(\'\');\n    const [editNote, setEditNote] = useState(\'\');\n    const [saving, setSaving] = useState(false);\n\n    const openEdit = (expense) => {\n        setEditModal({ open: true, expense });\n        setEditCategory(expense.category);\n        setEditAmount(String(expense.amount));\n        setEditNote(expense.note || \'\');\n    };\n\n    const submitEdit = async () => {\n        if (!editAmount || Number(editAmount) <= 0) { flash(\'Enter an amount.\', \'error\'); return; }\n        setSaving(true);\n        try {\n            await expenseService.update(editModal.expense.id, {\n                category: editCategory.trim(),\n                amount: Number(editAmount),\n                note: editNote,\n            });\n            setEditModal({ open: false, expense: null });\n            await loadAll();\n            flash(\'Expense updated.\', \'success\');\n        } catch (err) {\n            flash(err.response?.data?.message || \'Could not save this edit.\', \'error\');\n        } finally {\n            setSaving(false);\n        }\n    };\n\n    const handleDelete = async (expense) => {\n        if (!window.confirm(`Delete this ${expense.category} expense of UGX ${fmt(expense.amount)}? This cannot be undone.`)) return;\n        try {\n            await expenseService.remove(expense.id);\n            await loadAll();\n            flash(\'Entry deleted.\', \'warn\');\n        } catch {\n            flash(\'Could not delete this entry.\', \'error\');\n        }\n    };\n\n    // -- DIRECTOR ANALYSIS --------------------------------------------\n    const [analysisOpen, setAnalysisOpen] = useState(false);\n    const [period, setPeriod] = useState(\'MONTH\');\n    const [summary, setSummary] = useState({ total: 0, byCategory: {} });\n    const [summaryLoading, setSummaryLoading] = useState(false);\n\n    const [filters, setFilters] = useState({ from: \'\', to: \'\', category: \'\', recordedBy: \'\', minAmount: \'\', maxAmount: \'\' });\n    const [searchResults, setSearchResults] = useState(null);\n    const [searching, setSearching] = useState(false);\n\n    const loadSummary = useCallback(async (p) => {\n        setSummaryLoading(true);\n        try {\n            const data = await expenseService.getSummary(p);\n            setSummary(data || { total: 0, byCategory: {} });\n        } catch {\n            flash(\'Could not load the analysis summary.\', \'error\');\n        } finally {\n            setSummaryLoading(false);\n        }\n    }, []);\n\n    useEffect(() => {\n        if (isDirector && analysisOpen) loadSummary(period);\n    }, [isDirector, analysisOpen, period, loadSummary]);\n\n    const runSearch = async () => {\n        setSearching(true);\n        try {\n            const cleanFilters = Object.fromEntries(\n                Object.entries(filters).filter(([, v]) => v !== \'\' && v !== null)\n            );\n            const data = await expenseService.search(cleanFilters, 0, 100);\n            setSearchResults(data.content || []);\n        } catch {\n            flash(\'Search failed.\', \'error\');\n        } finally {\n            setSearching(false);\n        }\n    };\n\n    const clearSearch = () => {\n        setFilters({ from: \'\', to: \'\', category: \'\', recordedBy: \'\', minAmount: \'\', maxAmount: \'\' });\n        setSearchResults(null);\n    };\n\n    const maxCategoryAmount = useMemo(() => {\n        const vals = Object.values(summary.byCategory || {});\n        return vals.length ? Math.max(...vals.map(Number)) : 0;\n    }, [summary]);\n\n    return (\n        <div className={styles.container}>\n            <header className={styles.pageHeader}>\n                <div className={styles.headerLeft}>\n                    <h1 className={styles.title}>Expenses</h1>\n                    <p className={styles.subtitle}>Log any cash that leaves the office</p>\n                </div>\n                <div className={styles.headerActions}>\n                    <button className={styles.refreshBtn} onClick={loadAll} aria-label="Refresh">\n                        <FiRefreshCw size={13} /> REFRESH\n                    </button>\n                    {isDirector && (\n                        <button\n                            className={analysisOpen ? styles.analysisBtnActive : styles.analysisBtn}\n                            onClick={() => setAnalysisOpen(o => !o)}\n                        >\n                            <FiBarChart2 size={14} /> ANALYSIS\n                        </button>\n                    )}\n                </div>\n            </header>\n\n            {message && (\n                <div className={`${styles.flashBanner} ${styles[\'flash_\' + message.type]}`}>\n                    {message.text}\n                </div>\n            )}\n\n            {/* PRESET GRID -- ONE TAP LOGGING */}\n            <HardwarePanel title="LOG AN EXPENSE" icon={FiTrendingDown}>\n                <div className={styles.presetGrid}>\n                    {presets.map(p => (\n                        <button key={p.id} className={styles.presetTile} onClick={() => openLogModal(p.name)}>\n                            {p.name.toUpperCase()}\n                        </button>\n                    ))}\n                    <button className={styles.presetTileOther} onClick={openOtherModal}>\n                        OTHER\n                    </button>\n                    <button className={styles.presetTileNew} onClick={() => setPresetModal(true)}>\n                        <FiPlus size={16} /> NEW PRESET\n                    </button>\n                </div>\n            </HardwarePanel>\n\n            {/* RECENT ENTRIES -- EDITABLE WITHIN 24H */}\n            <div className={styles.panelSpacer}>\n                <HardwarePanel title="RECENT ENTRIES (LAST 24H)" icon={FiClock}>\n                    <div className={styles.tableWrap}>\n                        <table className={styles.table}>\n                            <thead>\n                                <tr>\n                                    <th>TIME</th>\n                                    <th>CATEGORY</th>\n                                    <th>AMOUNT</th>\n                                    <th>LOGGED BY</th>\n                                    <th>NOTE</th>\n                                    <th></th>\n                                </tr>\n                            </thead>\n                            <tbody>\n                                {loading ? (\n                                    <tr><td colSpan="6" className={styles.emptyCell}>LOADING EXPENSES...</td></tr>\n                                ) : recent.length === 0 ? (\n                                    <tr><td colSpan="6" className={styles.emptyCell}>NO EXPENSES LOGGED IN THE LAST 24 HOURS</td></tr>\n                                ) : recent.map(e => {\n                                    const editable = isStillEditable(e.createdAt);\n                                    return (\n                                        <tr key={e.id}>\n                                            <td className={styles.dateCell}>\n                                                {new Date(e.createdAt).toLocaleString()}\n                                            </td>\n                                            <td>\n                                                <span className={styles.categoryTag}>{e.category}</span>\n                                                {e.editedAt && <span className={styles.editedBadge}>EDITED</span>}\n                                            </td>\n                                            <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>\n                                            <td className={styles.metaCell}>{e.recordedBy}</td>\n                                            <td className={styles.notesCell} title={e.note}>{e.note || \'---\'}</td>\n                                            <td>\n                                                <div className={styles.rowActions}>\n                                                    {editable ? (\n                                                        <button className={styles.editIconBtn} onClick={() => openEdit(e)} title={`Editable for ${hoursLeft(e.createdAt)}h more`}>\n                                                            <FiEdit2 size={13} />\n                                                        </button>\n                                                    ) : (\n                                                        <span className={styles.lockedTag}>LOCKED</span>\n                                                    )}\n                                                    {isDirector && (\n                                                        <button className={styles.deleteIconBtn} onClick={() => handleDelete(e)} title="Delete entry">\n                                                            <FiTrash2 size={13} />\n                                                        </button>\n                                                    )}\n                                                </div>\n                                            </td>\n                                        </tr>\n                                    );\n                                })}\n                            </tbody>\n                        </table>\n                    </div>\n                </HardwarePanel>\n            </div>\n\n            {/* DIRECTOR ANALYSIS */}\n            {isDirector && analysisOpen && (\n                <div className={styles.panelSpacer}>\n                    <HardwarePanel title="ANALYSIS" icon={FiBarChart2}>\n                        <div className={styles.periodRow}>\n                            {[\'TODAY\', \'WEEK\', \'MONTH\', \'YEAR\'].map(p => (\n                                <button\n                                    key={p}\n                                    className={period === p ? styles.periodBtnActive : styles.periodBtn}\n                                    onClick={() => setPeriod(p)}\n                                >\n                                    {p}\n                                </button>\n                            ))}\n                        </div>\n\n                        <div className={styles.totalBox}>\n                            <label>TOTAL SPENT ({period})</label>\n                            <strong>{summaryLoading ? \'...\' : `UGX ${fmt(summary.total)}`}</strong>\n                        </div>\n\n                        <div className={styles.categoryBars}>\n                            {Object.entries(summary.byCategory || {}).map(([cat, amt]) => (\n                                <div key={cat} className={styles.barRow}>\n                                    <span className={styles.barLabel}>{cat}</span>\n                                    <div className={styles.barTrack}>\n                                        <div\n                                            className={styles.barFill}\n                                            style={{ width: maxCategoryAmount ? `${(Number(amt) / maxCategoryAmount) * 100}%` : \'0%\' }}\n                                        />\n                                    </div>\n                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>\n                                </div>\n                            ))}\n                            {!summaryLoading && Object.keys(summary.byCategory || {}).length === 0 && (\n                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>\n                            )}\n                        </div>\n\n                        <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>\n                        <div className={styles.filterRow}>\n                            <input type="date" className={styles.filterInput} value={filters.from}\n                                onChange={e => setFilters({ ...filters, from: e.target.value })} title="From date" />\n                            <input type="date" className={styles.filterInput} value={filters.to}\n                                onChange={e => setFilters({ ...filters, to: e.target.value })} title="To date" />\n                            <select className={styles.filterInput} value={filters.category}\n                                onChange={e => setFilters({ ...filters, category: e.target.value })}>\n                                <option value="">ALL CATEGORIES</option>\n                                {presets.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}\n                            </select>\n                            <input type="text" className={styles.filterInput} placeholder="Logged by..."\n                                value={filters.recordedBy} onChange={e => setFilters({ ...filters, recordedBy: e.target.value })} />\n                            <input type="number" className={styles.filterInput} placeholder="Min UGX"\n                                value={filters.minAmount} onChange={e => setFilters({ ...filters, minAmount: e.target.value })} />\n                            <input type="number" className={styles.filterInput} placeholder="Max UGX"\n                                value={filters.maxAmount} onChange={e => setFilters({ ...filters, maxAmount: e.target.value })} />\n                            <button className={styles.searchBtn} onClick={runSearch} disabled={searching}>\n                                <FiSearch size={13} /> {searching ? \'SEARCHING...\' : \'SEARCH\'}\n                            </button>\n                            {searchResults && (\n                                <button className={styles.clearBtn} onClick={clearSearch}>\n                                    <FiX size={13} /> CLEAR\n                                </button>\n                            )}\n                        </div>\n\n                        {searchResults && (\n                            <div className={styles.tableWrap}>\n                                <table className={styles.table}>\n                                    <thead>\n                                        <tr>\n                                            <th>DATE</th>\n                                            <th>CATEGORY</th>\n                                            <th>AMOUNT</th>\n                                            <th>LOGGED BY</th>\n                                            <th>NOTE</th>\n                                        </tr>\n                                    </thead>\n                                    <tbody>\n                                        {searchResults.length === 0 ? (\n                                            <tr><td colSpan="5" className={styles.emptyCell}>NO RESULTS</td></tr>\n                                        ) : searchResults.map(e => (\n                                            <tr key={e.id}>\n                                                <td className={styles.dateCell}>{new Date(e.createdAt).toLocaleDateString()}</td>\n                                                <td><span className={styles.categoryTag}>{e.category}</span></td>\n                                                <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>\n                                                <td className={styles.metaCell}>{e.recordedBy}</td>\n                                                <td className={styles.notesCell} title={e.note}>{e.note || \'---\'}</td>\n                                            </tr>\n                                        ))}\n                                    </tbody>\n                                </table>\n                            </div>\n                        )}\n                    </HardwarePanel>\n                </div>\n            )}\n\n            {/* LOG EXPENSE MODAL */}\n            <HardwareModal isOpen={logModal.open} onClose={closeLogModal}\n                title={logModal.isOther ? \'LOG EXPENSE -- OTHER\' : `LOG EXPENSE -- ${logModal.presetName.toUpperCase()}`}>\n                {logModal.isOther && (\n                    <div className={modalStyles.modalField}>\n                        <label className={modalStyles.modalLabel}>WHAT IS THIS EXPENSE FOR?</label>\n                        <input\n                            type="text"\n                            className={modalStyles.modalInput}\n                            placeholder="e.g. Courier fee"\n                            value={logCategory}\n                            onChange={e => setLogCategory(e.target.value)}\n                        />\n                    </div>\n                )}\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>\n                    <input\n                        type="number"\n                        inputMode="decimal"\n                        className={styles.amountInput}\n                        placeholder="0"\n                        autoFocus\n                        value={logAmount}\n                        onChange={e => setLogAmount(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>NOTE (OPTIONAL)</label>\n                    <input\n                        type="text"\n                        className={modalStyles.modalInput}\n                        placeholder="Any extra detail..."\n                        value={logNote}\n                        onChange={e => setLogNote(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalFooter}>\n                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeLogModal}>\n                        CANCEL\n                    </button>\n                    <HardwareButton onClick={submitLog} loading={logging} icon={FiPlus}>\n                        SAVE EXPENSE\n                    </HardwareButton>\n                </div>\n            </HardwareModal>\n\n            {/* NEW PRESET MODAL */}\n            <HardwareModal isOpen={presetModal} onClose={() => setPresetModal(false)} title="NEW PRESET">\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>PRESET NAME</label>\n                    <input\n                        type="text"\n                        className={modalStyles.modalInput}\n                        placeholder="e.g. Generator Fuel"\n                        autoFocus\n                        value={newPresetName}\n                        onChange={e => setNewPresetName(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalFooter}>\n                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setPresetModal(false)}>\n                        CANCEL\n                    </button>\n                    <HardwareButton onClick={submitPreset} loading={savingPreset} icon={FiPlus}>\n                        ADD PRESET\n                    </HardwareButton>\n                </div>\n            </HardwareModal>\n\n            {/* EDIT MODAL */}\n            <HardwareModal isOpen={editModal.open} onClose={() => setEditModal({ open: false, expense: null })}\n                title="EDIT EXPENSE">\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>CATEGORY</label>\n                    <input\n                        type="text"\n                        className={modalStyles.modalInput}\n                        value={editCategory}\n                        onChange={e => setEditCategory(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>\n                    <input\n                        type="number"\n                        inputMode="decimal"\n                        className={styles.amountInput}\n                        value={editAmount}\n                        onChange={e => setEditAmount(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalField}>\n                    <label className={modalStyles.modalLabel}>NOTE (OPTIONAL)</label>\n                    <input\n                        type="text"\n                        className={modalStyles.modalInput}\n                        value={editNote}\n                        onChange={e => setEditNote(e.target.value)}\n                    />\n                </div>\n                <div className={modalStyles.modalFooter}>\n                    <button type="button" className={modalStyles.modalBtnSecondary}\n                        onClick={() => setEditModal({ open: false, expense: null })}>\n                        CANCEL\n                    </button>\n                    <HardwareButton onClick={submitEdit} loading={saving} icon={FiEdit2}>\n                        SAVE CHANGES\n                    </HardwareButton>\n                </div>\n            </HardwareModal>\n        </div>\n    );\n};\n\nexport default ExpensesPage;\n'),
-    ("erp-frontend/src/pages/Financials/ExpensesPage.module.css", "/* PATH: erp-frontend/src/pages/Financials/ExpensesPage.module.css */\n.container {\n    --orange:        #EE8C3A;\n    --orange-border: rgba(238, 140, 58, 0.28);\n    --navy:          #1a2e30;\n    --red:           #ef4444;\n    --green:         #10b981;\n    --amber:         #f59e0b;\n\n    --radius:    10px;\n    --radius-sm: 6px;\n\n    --fs-h1:  clamp(18px, 2.5vw, 24px);\n    --fs-sub: clamp(8px,  0.85vw, 10px);\n\n    max-width: 1400px;\n    width: 100%;\n    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(24px, 3vw, 36px);\n    font-family: 'DM Sans', sans-serif;\n    color: #fff;\n    display: flex;\n    flex-direction: column;\n    box-sizing: border-box;\n}\n\n.pageHeader {\n    display: flex;\n    justify-content: space-between;\n    align-items: center;\n    flex-wrap: wrap;\n    gap: clamp(10px, 1.4vw, 16px);\n    margin-bottom: clamp(14px, 2vw, 24px);\n    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);\n    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);\n    background: rgba(255, 255, 255, 0.62);\n    border-radius: 0 12px 12px 0;\n    backdrop-filter: blur(15px);\n    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);\n}\n.headerLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }\n.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; margin: 0; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1; }\n.subtitle { color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }\n\n.headerActions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }\n.refreshBtn, .analysisBtn, .analysisBtnActive {\n    display: flex; align-items: center; gap: 6px;\n    height: clamp(34px, 4vw, 40px);\n    padding: 0 clamp(12px, 1.5vw, 16px);\n    border-radius: var(--radius-sm);\n    font-family: 'DM Sans', sans-serif;\n    font-weight: 900;\n    font-size: clamp(9px, 0.9vw, 11px);\n    text-transform: uppercase;\n    letter-spacing: 1px;\n    cursor: pointer;\n    transition: all 0.2s;\n}\n.refreshBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }\n.refreshBtn:hover { background: var(--orange); color: #fff; border-color: var(--orange); }\n.analysisBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }\n.analysisBtn:hover { background: rgba(26,46,48,0.16); }\n.analysisBtnActive { background: var(--navy); border: 1.5px solid var(--navy); color: #fff; box-shadow: 0 3px 10px rgba(26,46,48,0.3); }\n\n.flashBanner {\n    padding: 10px 16px;\n    border-radius: var(--radius-sm);\n    font-weight: 800;\n    font-size: 12px;\n    margin-bottom: 14px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n}\n.flash_success { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }\n.flash_error   { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }\n.flash_warn    { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }\n.flash_info    { background: rgba(255,255,255,0.1); color: #fff;    border: 1px solid rgba(255,255,255,0.2); }\n\n.panelSpacer { margin-top: clamp(14px, 2vw, 20px); }\n\n/* -- PRESET GRID --------------------------------------------------- */\n.presetGrid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));\n    gap: clamp(10px, 1.4vw, 14px);\n}\n.presetTile, .presetTileOther, .presetTileNew {\n    height: clamp(64px, 8vw, 84px);\n    border-radius: var(--radius);\n    font-family: 'DM Sans', sans-serif;\n    font-weight: 900;\n    font-size: clamp(11px, 1.1vw, 13px);\n    letter-spacing: 0.5px;\n    cursor: pointer;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    gap: 6px;\n    text-align: center;\n    padding: 8px;\n    transition: transform 0.15s, box-shadow 0.15s;\n}\n.presetTile {\n    background: linear-gradient(160deg, var(--orange) 0%, #d97a28 100%);\n    color: #fff;\n    border: none;\n    box-shadow: 0 4px 12px rgba(238,140,58,0.35);\n}\n.presetTile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(238,140,58,0.5); }\n.presetTileOther {\n    background: rgba(26,46,48,0.85);\n    color: #fff;\n    border: 1.5px dashed rgba(255,255,255,0.3);\n}\n.presetTileOther:hover { background: rgba(26,46,48,1); }\n.presetTileNew {\n    background: transparent;\n    color: var(--orange);\n    border: 1.5px dashed var(--orange-border);\n}\n.presetTileNew:hover { background: rgba(238,140,58,0.08); border-color: var(--orange); }\n\n/* -- AMOUNT INPUT (triggers native numeric keypad on mobile) ------ */\n.amountInput {\n    width: 100%;\n    height: 56px;\n    font-size: 28px;\n    font-weight: 900;\n    text-align: center;\n    border-radius: var(--radius-sm);\n    border: 1.5px solid rgba(255,255,255,0.15);\n    background: rgba(0,0,0,0.25);\n    color: #fff;\n    font-family: 'DM Sans', sans-serif;\n    box-sizing: border-box;\n}\n.amountInput:focus { outline: none; border-color: var(--orange); }\n\n/* -- TABLE (recent entries + search results) ----------------------- */\n.tableWrap { overflow-x: auto; margin-top: 10px; }\n.table { width: 100%; border-collapse: collapse; font-size: 12px; }\n.table thead th {\n    text-align: left;\n    padding: 8px 10px;\n    font-size: 10px;\n    font-weight: 900;\n    letter-spacing: 0.8px;\n    color: var(--orange);\n    text-transform: uppercase;\n    border-bottom: 1.5px solid rgba(255,255,255,0.12);\n    white-space: nowrap;\n}\n.table tbody td {\n    padding: 9px 10px;\n    border-bottom: 1px solid rgba(255,255,255,0.06);\n    vertical-align: middle;\n}\n.dateCell { white-space: nowrap; color: rgba(255,255,255,0.6); font-size: 11px; }\n.moneyCell { font-weight: 900; white-space: nowrap; }\n.metaCell { color: rgba(255,255,255,0.7); white-space: nowrap; }\n.notesCell { color: rgba(255,255,255,0.55); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.emptyCell { text-align: center; padding: 24px; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }\n\n.categoryTag {\n    display: inline-block;\n    background: rgba(238,140,58,0.15);\n    color: var(--orange);\n    border: 1px solid rgba(238,140,58,0.3);\n    padding: 3px 8px;\n    border-radius: 4px;\n    font-size: 10px;\n    font-weight: 800;\n    letter-spacing: 0.4px;\n    text-transform: uppercase;\n}\n.editedBadge {\n    display: inline-block;\n    margin-left: 6px;\n    background: rgba(245,158,11,0.15);\n    color: var(--amber);\n    border: 1px solid rgba(245,158,11,0.3);\n    padding: 2px 6px;\n    border-radius: 4px;\n    font-size: 9px;\n    font-weight: 900;\n    letter-spacing: 0.4px;\n}\n.lockedTag {\n    color: rgba(255,255,255,0.35);\n    font-size: 9px;\n    font-weight: 800;\n    letter-spacing: 0.5px;\n    text-transform: uppercase;\n}\n.rowActions { display: flex; align-items: center; gap: 6px; }\n.editIconBtn, .deleteIconBtn {\n    width: 26px; height: 26px;\n    border-radius: 5px;\n    border: none;\n    display: flex; align-items: center; justify-content: center;\n    cursor: pointer;\n    transition: background 0.15s;\n}\n.editIconBtn { background: rgba(59,130,246,0.15); color: #3b82f6; }\n.editIconBtn:hover { background: rgba(59,130,246,0.3); }\n.deleteIconBtn { background: rgba(239,68,68,0.15); color: var(--red); }\n.deleteIconBtn:hover { background: rgba(239,68,68,0.3); }\n\n/* -- DIRECTOR ANALYSIS ---------------------------------------------- */\n.periodRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }\n.periodBtn, .periodBtnActive {\n    padding: 7px 16px;\n    border-radius: 999px;\n    font-size: 10px;\n    font-weight: 900;\n    letter-spacing: 0.6px;\n    cursor: pointer;\n    transition: all 0.15s;\n}\n.periodBtn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }\n.periodBtn:hover { background: rgba(255,255,255,0.12); }\n.periodBtnActive { background: var(--orange); border: 1px solid var(--orange); color: #fff; }\n\n.totalBox {\n    background: rgba(0,0,0,0.2);\n    border-radius: var(--radius-sm);\n    padding: 14px 18px;\n    margin-bottom: 16px;\n    display: flex;\n    flex-direction: column;\n    gap: 4px;\n}\n.totalBox label { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: rgba(255,255,255,0.5); text-transform: uppercase; }\n.totalBox strong { font-size: 24px; font-weight: 900; color: #fff; }\n\n.categoryBars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }\n.barRow { display: grid; grid-template-columns: 110px 1fr 110px; align-items: center; gap: 10px; }\n.barLabel { font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.barTrack { height: 14px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }\n.barFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }\n.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }\n\n.searchDivider {\n    font-size: 10px;\n    font-weight: 900;\n    letter-spacing: 1px;\n    color: var(--orange);\n    text-transform: uppercase;\n    border-top: 1px solid rgba(255,255,255,0.1);\n    padding-top: 14px;\n    margin-bottom: 10px;\n}\n.filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }\n.filterInput {\n    height: 36px;\n    padding: 0 10px;\n    border-radius: var(--radius-sm);\n    border: 1.5px solid rgba(255,255,255,0.15);\n    background: rgba(0,0,0,0.2);\n    color: #fff;\n    font-family: 'DM Sans', sans-serif;\n    font-size: 12px;\n    min-width: 120px;\n}\n.filterInput:focus { outline: none; border-color: var(--orange); }\n.searchBtn, .clearBtn {\n    display: flex; align-items: center; gap: 6px;\n    height: 36px;\n    padding: 0 14px;\n    border-radius: var(--radius-sm);\n    font-weight: 900;\n    font-size: 10px;\n    letter-spacing: 0.6px;\n    cursor: pointer;\n    border: none;\n}\n.searchBtn { background: var(--orange); color: #fff; }\n.searchBtn:hover { background: #d97a28; }\n.searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }\n.clearBtn { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }\n.clearBtn:hover { background: rgba(255,255,255,0.18); }\n"),
-    ("erp-frontend/src/services/expenseService.js", "// PATH: erp-frontend/src/services/expenseService.js\nimport api from '../api/axios';\n\n/**\n * GE SOLUTIONS - EXPENSES SERVICE (EXPENSES REBUILD)\n * Talks to /finance/expenses. Logging/editing/presets are Manager+.\n * Delete, search, and summary are Director/Admin only (server-enforced).\n */\nconst expenseService = {\n    getPresets: async () => {\n        const response = await api.get('/finance/expenses/presets');\n        return response.data;\n    },\n\n    createPreset: async (name) => {\n        const response = await api.post('/finance/expenses/presets', { name });\n        return response.data;\n    },\n\n    create: async ({ category, amount, note }) => {\n        const response = await api.post('/finance/expenses', { category, amount, note });\n        return response.data;\n    },\n\n    getRecent: async (hours = 24) => {\n        const response = await api.get('/finance/expenses/recent', { params: { hours } });\n        return response.data;\n    },\n\n    update: async (id, { category, amount, note }) => {\n        const response = await api.put(`/finance/expenses/${id}`, { category, amount, note });\n        return response.data;\n    },\n\n    remove: async (id) => {\n        await api.delete(`/finance/expenses/${id}`);\n    },\n\n    search: async (filters = {}, page = 0, size = 50) => {\n        const response = await api.get('/finance/expenses/search', {\n            params: { ...filters, page, size }\n        });\n        return response.data;\n    },\n\n    getSummary: async (period = 'MONTH', from, to) => {\n        const response = await api.get('/finance/expenses/summary', {\n            params: { period, from, to }\n        });\n        return response.data;\n    },\n};\n\nexport default expenseService;\n"),
-]
-
 # (file, old, new) patches applied with str.replace, in order
 PATCHES = [
+    # ---------------------------------------------------------------
+    # BACKEND: repository -- category list, by-staff totals, raw rows
+    # for the time-series bucketer
+    # ---------------------------------------------------------------
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-        'import com.gesolutions.erp.modules.auth.model.Role;\nimport com.gesolutions.erp.modules.auth.model.User;\nimport com.gesolutions.erp.modules.auth.repository.UserRepository;\nimport com.gesolutions.erp.modules.land.service.StageTemplateService;',
-        'import com.gesolutions.erp.modules.auth.model.Role;\nimport com.gesolutions.erp.modules.auth.model.User;\nimport com.gesolutions.erp.modules.auth.repository.UserRepository;\nimport com.gesolutions.erp.modules.finance.model.ExpensePreset;\nimport com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;\nimport com.gesolutions.erp.modules.land.service.StageTemplateService;',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java",
+        '''    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByCategoryAll();
+}
+''',
+        '''    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM Expense e GROUP BY e.category ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByCategoryAll();
+
+    /** Powers the category autocomplete on the "OTHER" log field and the edit modal. */
+    @Query("SELECT DISTINCT e.category FROM Expense e ORDER BY e.category ASC")
+    List<String> findDistinctCategories();
+
+    @Query("SELECT e.recordedBy, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+           "WHERE e.createdAt >= :from AND e.createdAt <= :to " +
+           "GROUP BY e.recordedBy ORDER BY SUM(e.amount) DESC")
+    List<Object[]> sumByStaffBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /** Raw rows for the spending-over-time graph -- bucketed in Java, see ExpenseService.getTimeSeries(). */
+    List<Expense> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
+}
+''',
+    ),
+
+    # ---------------------------------------------------------------
+    # BACKEND: service -- category suggestions, by-staff, time series
+    # ---------------------------------------------------------------
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
+        '''import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;''',
+        '''import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-        '    private final UserRepository userRepository;\n    private final PasswordEncoder passwordEncoder;\n    private final DataSource dataSource;\n    private final StageTemplateService stageTemplateService;',
-        '    private final UserRepository userRepository;\n    private final PasswordEncoder passwordEncoder;\n    private final DataSource dataSource;\n    private final StageTemplateService stageTemplateService;\n    private final ExpensePresetRepository expensePresetRepository;',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
+        '''        auditService.logAction("EXPENSE_PRESET_CREATED",
+            "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
+
+        return saved;
+    }
+
+    // -- LOGGING ------------------------------------------------------''',
+        '''        auditService.logAction("EXPENSE_PRESET_CREATED",
+            "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
+
+        return saved;
+    }
+
+    /** Every distinct category ever logged -- feeds the "type it yourself" autocomplete. */
+    @Transactional(readOnly = true)
+    public List<String> getCategorySuggestions() {
+        return expenseRepository.findDistinctCategories();
+    }
+
+    // -- LOGGING ------------------------------------------------------''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-        '            // Phone numbers are no longer required to be unique -- joint owners or\n            // family members can share one phone. NIN is now the real identity check.\n            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",\n        };',
-        '            // Phone numbers are no longer required to be unique -- joint owners or\n            // family members can share one phone. NIN is now the real identity check.\n            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",\n\n            // EXPENSES REBUILD -- flat cash-out log, replaces the old\n            // committed/paid CompanyExpense model for new entries. The old\n            // company_expenses table is left untouched (deprecated, not\n            // deleted) so nothing already recorded there is lost.\n            "CREATE TABLE IF NOT EXISTS expense_presets (" +\n                "id UUID PRIMARY KEY, " +\n                "name VARCHAR(100) NOT NULL UNIQUE, " +\n                "created_by VARCHAR(100), " +\n                "created_at TIMESTAMP NOT NULL DEFAULT now())",\n            "CREATE TABLE IF NOT EXISTS expenses (" +\n                "id UUID PRIMARY KEY, " +\n                "category VARCHAR(150) NOT NULL, " +\n                "amount NUMERIC(15,2) NOT NULL, " +\n                "note TEXT, " +\n                "recorded_by VARCHAR(100), " +\n                "created_at TIMESTAMP NOT NULL DEFAULT now(), " +\n                "edited_at TIMESTAMP, " +\n                "edited_by VARCHAR(100))",\n            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",\n            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",\n        };',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/service/ExpenseService.java",
+        '''        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", total);
+        result.put("byCategory", byCategory);
+        return result;
+    }
+
+    // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -''',
+        '''        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", total);
+        result.put("byCategory", byCategory);
+        return result;
+    }
+
+    // -- DIRECTOR ANALYSIS: BY STAFF -----------------------------------
+
+    @Transactional(readOnly = true)
+    public Map<String, BigDecimal> getByStaff(LocalDateTime from, LocalDateTime to) {
+        Map<String, BigDecimal> byStaff = new LinkedHashMap<>();
+        for (Object[] row : expenseRepository.sumByStaffBetween(from, to)) {
+            String who = row[0] != null ? (String) row[0] : "UNKNOWN";
+            byStaff.put(who, (BigDecimal) row[1]);
+        }
+        return byStaff;
+    }
+
+    // -- DIRECTOR ANALYSIS: SPENDING OVER TIME (DAY / WEEK / MONTH) ---
+
+    /**
+     * Buckets are computed in Java (not SQL) so the same logic works the
+     * same way regardless of the underlying database -- same approach
+     * used by the old CompanyExpense analytics before the Expenses
+     * rebuild. Empty buckets are simply absent from the result; the
+     * frontend only needs the points that exist.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTimeSeries(LocalDateTime from, LocalDateTime to, String bucket) {
+        List<Expense> rows = expenseRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(from, to);
+        String normalizedBucket = (bucket == null || bucket.isBlank()) ? "DAY" : bucket.toUpperCase();
+
+        Map<String, BigDecimal> totals = new TreeMap<>();
+        DateTimeFormatter dayFmt = DateTimeFormatter.ISO_LOCAL_DATE;
+        WeekFields wf = WeekFields.ISO;
+
+        for (Expense e : rows) {
+            if (e.getCreatedAt() == null) continue;
+            var date = e.getCreatedAt().toLocalDate();
+            String key;
+            switch (normalizedBucket) {
+                case "MONTH":
+                    key = date.getYear() + "-" + String.format("%02d", date.getMonthValue());
+                    break;
+                case "WEEK":
+                    int week = date.get(wf.weekOfWeekBasedYear());
+                    key = date.getYear() + "-W" + String.format("%02d", week);
+                    break;
+                case "DAY":
+                default:
+                    key = date.format(dayFmt);
+                    break;
+            }
+            totals.merge(key, e.getAmount(), BigDecimal::add);
+        }
+
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("bucket", entry.getKey());
+            point.put("total", entry.getValue());
+            series.add(point);
+        }
+        return series;
+    }
+
+    // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -''',
+    ),
+
+    # ---------------------------------------------------------------
+    # BACKEND: controller -- /categories (Manager+), /analytics/by-staff
+    # and /analytics/timeseries (Director/Admin only, same as /summary)
+    # ---------------------------------------------------------------
+    (
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java",
+        '''    @PostMapping("/presets")
+    public ResponseEntity<ExpensePreset> createPreset(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        return ResponseEntity.ok(expenseService.createPreset(name));
+    }
+
+    // -- LOGGING (Manager+) -------------------------------------------''',
+        '''    @PostMapping("/presets")
+    public ResponseEntity<ExpensePreset> createPreset(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        return ResponseEntity.ok(expenseService.createPreset(name));
+    }
+
+    // -- CATEGORY AUTOCOMPLETE (Manager+) ------------------------------
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> getCategorySuggestions() {
+        return ResponseEntity.ok(expenseService.getCategorySuggestions());
+    }
+
+    // -- LOGGING (Manager+) -------------------------------------------''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-        '        // PHASE 4: Seed the default stage template checklist if empty\n        stageTemplateService.seedDefaultStagesIfEmpty();\n\n        System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");\n    }',
-        '        // PHASE 4: Seed the default stage template checklist if empty\n        stageTemplateService.seedDefaultStagesIfEmpty();\n\n        // EXPENSES REBUILD: Seed the default expense presets if empty\n        seedDefaultExpensePresets();\n\n        System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");\n    }\n\n    // NOTE: Deliberately NOT @Transactional -- same raw-JDBC-safety reasoning\n    // as seedRootUser() below. Only seeds if the table is completely empty,\n    // so it never overwrites presets a Manager has already created.\n    public void seedDefaultExpensePresets() {\n        if (expensePresetRepository.count() > 0) {\n            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");\n            return;\n        }\n        String[] defaults = { "Office", "Fieldwork", "Land Office" };\n        for (String name : defaults) {\n            expensePresetRepository.save(ExpensePreset.builder()\n                    .name(name)\n                    .createdBy("SYSTEM")\n                    .build());\n        }\n        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");\n    }',
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/controller/ExpenseController.java",
+        '''        return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));
+    }
+}
+''',
+        '''        return ResponseEntity.ok(expenseService.getSummary(fromDt, toDt));
+    }
+
+    // -- ANALYSIS: BY STAFF (DIRECTOR/ADMIN ONLY) -----------------------
+
+    @GetMapping("/analytics/by-staff")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Map<String, BigDecimal>> byStaff(
+            @RequestParam(defaultValue = "MONTH") String period,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        LocalDateTime[] range = resolveRange(period, from, to);
+        return ResponseEntity.ok(expenseService.getByStaff(range[0], range[1]));
+    }
+
+    // -- ANALYSIS: SPENDING OVER TIME (DIRECTOR/ADMIN ONLY) -------------
+
+    @GetMapping("/analytics/timeseries")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<List<Map<String, Object>>> timeseries(
+            @RequestParam(defaultValue = "MONTH") String period,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "DAY") String bucket) {
+        LocalDateTime[] range = resolveRange(period, from, to);
+        return ResponseEntity.ok(expenseService.getTimeSeries(range[0], range[1], bucket));
+    }
+
+    /** Same TODAY/WEEK/MONTH/YEAR/CUSTOM resolution already used by getSummary(), shared here. */
+    private LocalDateTime[] resolveRange(String period, String from, String to) {
+        LocalDateTime fromDt;
+        LocalDateTime toDt = LocalDateTime.now();
+
+        if ("CUSTOM".equalsIgnoreCase(period) && from != null && !from.isBlank()) {
+            fromDt = LocalDate.parse(from).atStartOfDay();
+            toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : toDt;
+        } else {
+            switch (period.toUpperCase()) {
+                case "TODAY": fromDt = LocalDate.now().atStartOfDay(); break;
+                case "WEEK":  fromDt = LocalDate.now().minusDays(7).atStartOfDay(); break;
+                case "YEAR":  fromDt = LocalDate.now().minusYears(1).atStartOfDay(); break;
+                case "MONTH":
+                default:      fromDt = LocalDate.now().minusDays(30).atStartOfDay(); break;
+            }
+        }
+        return new LocalDateTime[]{fromDt, toDt};
+    }
+}
+''',
+    ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: service -- categories, by-staff, timeseries calls
+    # ---------------------------------------------------------------
+    (
+        "erp-frontend/src/services/expenseService.js",
+        '''    getSummary: async (period = 'MONTH', from, to) => {
+        const response = await api.get('/finance/expenses/summary', {
+            params: { period, from, to }
+        });
+        return response.data;
+    },
+};''',
+        '''    getSummary: async (period = 'MONTH', from, to) => {
+        const response = await api.get('/finance/expenses/summary', {
+            params: { period, from, to }
+        });
+        return response.data;
+    },
+
+    getCategories: async () => {
+        const response = await api.get('/finance/expenses/categories');
+        return response.data;
+    },
+
+    getByStaff: async (period = 'MONTH', from, to) => {
+        const response = await api.get('/finance/expenses/analytics/by-staff', {
+            params: { period, from, to }
+        });
+        return response.data;
+    },
+
+    getTimeSeries: async (period = 'MONTH', from, to, bucket = 'DAY') => {
+        const response = await api.get('/finance/expenses/analytics/timeseries', {
+            params: { period, from, to, bucket }
+        });
+        return response.data;
+    },
+};''',
+    ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: ExpensesPage.jsx -- category state + fetch, By Staff
+    # + Spending Over Time panels, shared category datalist
+    # ---------------------------------------------------------------
+    (
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''    const [presets, setPresets] = useState([]);
+    const [recent, setRecent] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [message, setMessage] = useState(null);''',
+        '''    const [presets, setPresets] = useState([]);
+    const [recent, setRecent] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [message, setMessage] = useState(null);''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/admin/controller/SystemAdminController.java",
-        '    private static final String[] TABLES_TO_WIPE = {\n        "audit_logs",\n        "notifications",\n        "payment_records",\n        "payment_schedules",\n        "follow_up_logs",\n        "project_documents",\n        "project_stages",\n        "land_titles",\n        "land_projects",\n        "clients",\n        "company_expenses",\n        "stage_templates",\n        "users"\n    };',
-        '    private static final String[] TABLES_TO_WIPE = {\n        "audit_logs",\n        "notifications",\n        "payment_records",\n        "payment_schedules",\n        "follow_up_logs",\n        "project_documents",\n        "project_stages",\n        "land_titles",\n        "land_projects",\n        "clients",\n        "company_expenses",\n        "expenses",\n        "expense_presets",\n        "stage_templates",\n        "users"\n    };',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''    const loadAll = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [presetData, recentData] = await Promise.all([
+                expenseService.getPresets(),
+                expenseService.getRecent(EDIT_WINDOW_HOURS),
+            ]);
+            setPresets(presetData || []);
+            setRecent(recentData || []);
+        } catch {
+            flash('Could not load expenses. Check your connection.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, []);''',
+        '''    const loadAll = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [presetData, recentData, categoryData] = await Promise.all([
+                expenseService.getPresets(),
+                expenseService.getRecent(EDIT_WINDOW_HOURS),
+                expenseService.getCategories(),
+            ]);
+            setPresets(presetData || []);
+            setRecent(recentData || []);
+            setCategories(categoryData || []);
+        } catch {
+            flash('Could not load expenses. Check your connection.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, []);''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/admin/controller/SystemAdminController.java",
-        '        // Reseed the default stage template checklist\n        stageTemplateService.seedDefaultStagesIfEmpty();\n        System.out.println(">>> [WIPE] OK: default stage template reseeded");\n\n        // Purge every uploaded file from Cloudinary storage too',
-        '        // Reseed the default stage template checklist\n        stageTemplateService.seedDefaultStagesIfEmpty();\n        System.out.println(">>> [WIPE] OK: default stage template reseeded");\n\n        // Reseed the default expense presets (Office, Fieldwork, Land Office)\n        dataInitializer.seedDefaultExpensePresets();\n        System.out.println(">>> [WIPE] OK: default expense presets reseeded");\n\n        // Purge every uploaded file from Cloudinary storage too',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''    // -- DIRECTOR ANALYSIS --------------------------------------------
+    const [analysisOpen, setAnalysisOpen] = useState(false);
+    const [period, setPeriod] = useState('MONTH');
+    const [summary, setSummary] = useState({ total: 0, byCategory: {} });
+    const [summaryLoading, setSummaryLoading] = useState(false);
+
+    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
+    const [searchResults, setSearchResults] = useState(null);
+    const [searching, setSearching] = useState(false);
+
+    const loadSummary = useCallback(async (p) => {
+        setSummaryLoading(true);
+        try {
+            const data = await expenseService.getSummary(p);
+            setSummary(data || { total: 0, byCategory: {} });
+        } catch {
+            flash('Could not load the analysis summary.', 'error');
+        } finally {
+            setSummaryLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isDirector && analysisOpen) loadSummary(period);
+    }, [isDirector, analysisOpen, period, loadSummary]);''',
+        '''    // -- DIRECTOR ANALYSIS --------------------------------------------
+    const [analysisOpen, setAnalysisOpen] = useState(false);
+    const [period, setPeriod] = useState('MONTH');
+    const [summary, setSummary] = useState({ total: 0, byCategory: {} });
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [byStaff, setByStaff] = useState({});
+    const [staffLoading, setStaffLoading] = useState(false);
+    const [series, setSeries] = useState([]);
+    const [bucket, setBucket] = useState('DAY');
+    const [seriesLoading, setSeriesLoading] = useState(false);
+
+    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
+    const [searchResults, setSearchResults] = useState(null);
+    const [searching, setSearching] = useState(false);
+
+    const loadSummary = useCallback(async (p) => {
+        setSummaryLoading(true);
+        try {
+            const data = await expenseService.getSummary(p);
+            setSummary(data || { total: 0, byCategory: {} });
+        } catch {
+            flash('Could not load the analysis summary.', 'error');
+        } finally {
+            setSummaryLoading(false);
+        }
+    }, []);
+
+    const loadByStaff = useCallback(async (p) => {
+        setStaffLoading(true);
+        try {
+            const data = await expenseService.getByStaff(p);
+            setByStaff(data || {});
+        } catch {
+            flash('Could not load the staff breakdown.', 'error');
+        } finally {
+            setStaffLoading(false);
+        }
+    }, []);
+
+    const loadSeries = useCallback(async (p, b) => {
+        setSeriesLoading(true);
+        try {
+            const data = await expenseService.getTimeSeries(p, undefined, undefined, b);
+            setSeries(data || []);
+        } catch {
+            flash('Could not load the spending trend.', 'error');
+        } finally {
+            setSeriesLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isDirector && analysisOpen) {
+            loadSummary(period);
+            loadByStaff(period);
+            loadSeries(period, bucket);
+        }
+    }, [isDirector, analysisOpen, period, bucket, loadSummary, loadByStaff, loadSeries]);''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/DirectorDashboardDTO.java",
-        '    private BigDecimal companyExpensesCommitted;\n    private BigDecimal companyExpensesPaid;\n    private BigDecimal companyExpensesOutstanding;',
-        '    private BigDecimal companyExpensesTotal;\n    private Map<String, BigDecimal> companyExpensesByCategory;',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''    const maxCategoryAmount = useMemo(() => {
+        const vals = Object.values(summary.byCategory || {});
+        return vals.length ? Math.max(...vals.map(Number)) : 0;
+    }, [summary]);''',
+        '''    const maxCategoryAmount = useMemo(() => {
+        const vals = Object.values(summary.byCategory || {});
+        return vals.length ? Math.max(...vals.map(Number)) : 0;
+    }, [summary]);
+
+    const maxStaffAmount = useMemo(() => {
+        const vals = Object.values(byStaff || {});
+        return vals.length ? Math.max(...vals.map(Number)) : 0;
+    }, [byStaff]);
+
+    const maxSeriesAmount = useMemo(() => {
+        return series.length ? Math.max(...series.map(pt => Number(pt.total))) : 0;
+    }, [series]);''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
-        'import com.gesolutions.erp.modules.finance.repository.CompanyExpenseRepository;',
-        'import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''            {message && (
+                <div className={`${styles.flashBanner} ${styles['flash_' + message.type]}`}>
+                    {message.text}
+                </div>
+            )}
+
+            {/* PRESET GRID -- ONE TAP LOGGING */}''',
+        '''            {message && (
+                <div className={`${styles.flashBanner} ${styles['flash_' + message.type]}`}>
+                    {message.text}
+                </div>
+            )}
+
+            {/* Shared autocomplete source for every "type it yourself" category field */}
+            <datalist id="expense-categories">
+                {categories.map(c => <option key={c} value={c} />)}
+            </datalist>
+
+            {/* PRESET GRID -- ONE TAP LOGGING */}''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
-        '    private final CompanyExpenseRepository companyExpenseRepository;',
-        '    private final ExpenseRepository expenseRepository;',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''                        <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>''',
+        '''                        <div className={styles.sectionLabel}>BY STAFF</div>
+                        <div className={styles.categoryBars}>
+                            {Object.entries(byStaff || {}).map(([who, amt]) => (
+                                <div key={who} className={styles.barRow}>
+                                    <span className={styles.barLabel}>{who}</span>
+                                    <div className={styles.barTrack}>
+                                        <div
+                                            className={styles.barFill}
+                                            style={{ width: maxStaffAmount ? `${(Number(amt) / maxStaffAmount) * 100}%` : '0%' }}
+                                        />
+                                    </div>
+                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>
+                                </div>
+                            ))}
+                            {!staffLoading && Object.keys(byStaff || {}).length === 0 && (
+                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                            )}
+                        </div>
+
+                        <div className={styles.sectionLabel}>SPENDING OVER TIME</div>
+                        <div className={styles.bucketRow}>
+                            {['DAY', 'WEEK', 'MONTH'].map(b => (
+                                <button
+                                    key={b}
+                                    className={bucket === b ? styles.bucketBtnActive : styles.bucketBtn}
+                                    onClick={() => setBucket(b)}
+                                >
+                                    {b}
+                                </button>
+                            ))}
+                        </div>
+                        {seriesLoading ? (
+                            <div className={styles.emptyCell}>LOADING TREND...</div>
+                        ) : series.length === 0 ? (
+                            <div className={styles.emptyCell}>NO ACTIVITY IN THIS WINDOW</div>
+                        ) : (
+                            <div className={styles.tsChart}>
+                                {series.map(point => (
+                                    <div key={point.bucket} className={styles.tsBarWrap} title={`${point.bucket}: UGX ${fmt(point.total)}`}>
+                                        <div className={styles.tsBarTrack}>
+                                            <div
+                                                className={styles.tsBarFill}
+                                                style={{ height: maxSeriesAmount ? `${Math.max(2, (Number(point.total) / maxSeriesAmount) * 100)}%` : '2%' }}
+                                            />
+                                        </div>
+                                        <span className={styles.tsBarLabel}>{point.bucket.slice(-5)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>''',
     ),
     (
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
-        '        // Company financials -- live snapshot, not time-windowed\n        BigDecimal companyCommitted = companyExpenseRepository.sumTotalCommitted();\n        BigDecimal companyPaid = companyExpenseRepository.sumTotalPaid();\n        BigDecimal companyOutstanding = companyCommitted.subtract(companyPaid).max(BigDecimal.ZERO);\n\n        DirectorDashboardDTO dto = DirectorDashboardDTO.builder()\n                .period(normalizedPeriod)\n                .periodLabel(periodLabel)\n                .revenueCollected(revenueCollected)\n                .transactionCount(transactionCount)\n                .staffActivity(staffActivity)\n                .pipelineStageCounts(pipelineStageCounts)\n                .companyExpensesCommitted(companyCommitted)\n                .companyExpensesPaid(companyPaid)\n                .companyExpensesOutstanding(companyOutstanding)\n                .build();',
-        '        // Company financials -- live snapshot, not time-windowed\n        BigDecimal companyExpensesTotal = expenseRepository.sumAll();\n        Map<String, BigDecimal> companyExpensesByCategory = new LinkedHashMap<>();\n        for (Object[] row : expenseRepository.sumByCategoryAll()) {\n            companyExpensesByCategory.put((String) row[0], (BigDecimal) row[1]);\n        }\n\n        DirectorDashboardDTO dto = DirectorDashboardDTO.builder()\n                .period(normalizedPeriod)\n                .periodLabel(periodLabel)\n                .revenueCollected(revenueCollected)\n                .transactionCount(transactionCount)\n                .staffActivity(staffActivity)\n                .pipelineStageCounts(pipelineStageCounts)\n                .companyExpensesTotal(companyExpensesTotal)\n                .companyExpensesByCategory(companyExpensesByCategory)\n                .build();',
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''                        <input
+                            type="text"
+                            className={modalStyles.modalInput}
+                            placeholder="e.g. Courier fee"
+                            value={logCategory}
+                            onChange={e => setLogCategory(e.target.value)}
+                        />''',
+        '''                        <input
+                            type="text"
+                            list="expense-categories"
+                            className={modalStyles.modalInput}
+                            placeholder="e.g. Courier fee"
+                            value={logCategory}
+                            onChange={e => setLogCategory(e.target.value)}
+                        />''',
     ),
     (
-        "erp-frontend/src/App.jsx",
-        "import CompanyExpensesPage from './pages/Financials/CompanyExpensesPage';",
-        "import ExpensesPage    from './pages/Financials/ExpensesPage';",
+        "erp-frontend/src/pages/Financials/ExpensesPage.jsx",
+        '''                    <input
+                        type="text"
+                        className={modalStyles.modalInput}
+                        value={editCategory}
+                        onChange={e => setEditCategory(e.target.value)}
+                    />''',
+        '''                    <input
+                        type="text"
+                        list="expense-categories"
+                        className={modalStyles.modalInput}
+                        value={editCategory}
+                        onChange={e => setEditCategory(e.target.value)}
+                    />''',
     ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: CSS -- section labels, bucket toggle, time-series bars
+    # ---------------------------------------------------------------
     (
-        "erp-frontend/src/App.jsx",
-        'const ProtectedRoute = ({ children, adminOnly = false, isSettings = false }) => {\n    const { user, token } = useAuth();\n    if (!token || !user) return <Navigate to="/login" replace />;\n    if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;\n    if (adminOnly && !(user.isRoot || user.role === \'ROLE_ADMIN\' || user.role === \'ROLE_DIRECTOR\')) return <Navigate to="/dashboard" replace />;\n    return children;\n};',
-        'const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSettings = false }) => {\n    const { user, token } = useAuth();\n    if (!token || !user) return <Navigate to="/login" replace />;\n    if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;\n    if (adminOnly && !(user.isRoot || user.role === \'ROLE_ADMIN\' || user.role === \'ROLE_DIRECTOR\')) return <Navigate to="/dashboard" replace />;\n    if (managerPlus && !(user.isRoot || user.role === \'ROLE_ADMIN\' || user.role === \'ROLE_DIRECTOR\' || user.role === \'ROLE_MANAGER\')) return <Navigate to="/dashboard" replace />;\n    return children;\n};',
+        "erp-frontend/src/pages/Financials/ExpensesPage.module.css",
+        '''.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
+
+.searchDivider {''',
+        '''.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
+
+.sectionLabel {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--orange);
+    text-transform: uppercase;
+    margin: 18px 0 10px;
+}
+
+.bucketRow { display: flex; gap: 6px; margin-bottom: 12px; }
+.bucketBtn, .bucketBtnActive {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.6px;
+    cursor: pointer;
+}
+.bucketBtn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+.bucketBtn:hover { background: rgba(255,255,255,0.12); }
+.bucketBtnActive { background: var(--orange); border: 1px solid var(--orange); color: #fff; }
+
+.tsChart { display: flex; gap: 6px; overflow-x: auto; padding: 4px 4px 0; align-items: flex-end; min-height: 140px; }
+.tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; }
+.tsBarTrack { height: 110px; width: 100%; display: flex; align-items: flex-end; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+.tsBarFill { width: 100%; background: linear-gradient(180deg, var(--orange) 0%, #d97a28 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
+.tsBarLabel { font-size: 8px; color: rgba(255,255,255,0.45); white-space: nowrap; }
+
+.searchDivider {''',
     ),
+
+    # ---------------------------------------------------------------
+    # FRONTEND: Audit page -- friendly labels for the Expenses actions
+    # ---------------------------------------------------------------
     (
-        "erp-frontend/src/App.jsx",
-        '{ path: "financials", element: <ProtectedRoute adminOnly><Shell><CompanyExpensesPage /></Shell></ProtectedRoute> },',
-        '{ path: "financials", element: <ProtectedRoute managerPlus><Shell><ExpensesPage /></Shell></ProtectedRoute> },',
-    ),
-    (
-        "erp-frontend/src/components/layout/Sidebar.jsx",
-        '    const isLocked           = user?.mustChangePassword;\n    const hasHighLevelAccess = user?.isRoot || user?.role === \'ROLE_ADMIN\' || user?.role === \'ROLE_DIRECTOR\';\n\n    const navItems = [\n        { path: \'/dashboard\',     label: \'DASHBOARD\', icon: <FiGrid       aria-hidden="true" />, access: true },\n        { path: \'/land/new\',      label: \'NEW PLOT\',  icon: <FiPlusSquare aria-hidden="true" />, access: true },\n        { path: \'/land/projects\', label: \'LEDGER\',    icon: <FiLayers     aria-hidden="true" />, access: true },\n        { path: \'/recovery\',      label: \'RECOVERY\',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },\n        { path: \'/payments\',      label: \'PAYMENTS\',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },\n        { path: \'/financials\',    label: \'COMPANY COSTS\', icon: <FiTrendingDown aria-hidden="true" />, access: hasHighLevelAccess },',
-        '    const isLocked           = user?.mustChangePassword;\n    const hasHighLevelAccess = user?.isRoot || user?.role === \'ROLE_ADMIN\' || user?.role === \'ROLE_DIRECTOR\';\n    const hasManagerAccess   = hasHighLevelAccess || user?.role === \'ROLE_MANAGER\';\n\n    const navItems = [\n        { path: \'/dashboard\',     label: \'DASHBOARD\', icon: <FiGrid       aria-hidden="true" />, access: true },\n        { path: \'/land/new\',      label: \'NEW PLOT\',  icon: <FiPlusSquare aria-hidden="true" />, access: true },\n        { path: \'/land/projects\', label: \'LEDGER\',    icon: <FiLayers     aria-hidden="true" />, access: true },\n        { path: \'/recovery\',      label: \'RECOVERY\',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },\n        { path: \'/payments\',      label: \'PAYMENTS\',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },\n        { path: \'/financials\',    label: \'EXPENSES\', icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess },',
-    ),
-    (
-        "erp-frontend/src/pages/Dashboard/DirectorDashboardPanel.jsx",
-        '            {snapshot && (\n                <div className={styles.hwPanel} style={{ marginBottom: 12 }}>\n                    <div className={styles.panelHeader}>\n                        <FiClock aria-hidden="true" /> COMPANY FINANCIALS SNAPSHOT\n                    </div>\n                    <div className={styles.panelInner}>\n                        <div className={styles.moneyRow}>\n                            <div className={styles.moneyBox}>\n                                <label>COMPANY COSTS COMMITTED</label>\n                                <strong>UGX {fmt(snapshot.companyExpensesCommitted)}</strong>\n                            </div>\n                            <div className={styles.moneyBox}>\n                                <label>COMPANY COSTS PAID</label>\n                                <strong className={styles.valueEmerald}>UGX {fmt(snapshot.companyExpensesPaid)}</strong>\n                            </div>\n                        </div>\n                        <div className={`${styles.moneyBox} ${styles.moneyBoxArrears}`}>\n                            <label>COMPANY COSTS OUTSTANDING</label>\n                            <strong className={styles.valueRuby}>UGX {fmt(snapshot.companyExpensesOutstanding)}</strong>\n                        </div>\n                    </div>\n                </div>\n            )}',
-        '            {snapshot && (\n                <div className={styles.hwPanel} style={{ marginBottom: 12 }}>\n                    <div className={styles.panelHeader}>\n                        <FiClock aria-hidden="true" /> COMPANY EXPENSES SNAPSHOT\n                    </div>\n                    <div className={styles.panelInner}>\n                        <div className={`${styles.moneyBox} ${styles.moneyBoxArrears}`}>\n                            <label>TOTAL SPENT (ALL TIME)</label>\n                            <strong className={styles.valueRuby}>UGX {fmt(snapshot.companyExpensesTotal)}</strong>\n                        </div>\n                        {snapshot.companyExpensesByCategory && Object.keys(snapshot.companyExpensesByCategory).length > 0 && (\n                            <div className={styles.moneyRow} style={{ flexWrap: \'wrap\', marginTop: 10 }}>\n                                {Object.entries(snapshot.companyExpensesByCategory).map(([cat, amt]) => (\n                                    <div className={styles.moneyBox} key={cat}>\n                                        <label>{cat.toUpperCase()}</label>\n                                        <strong>UGX {fmt(amt)}</strong>\n                                    </div>\n                                ))}\n                            </div>\n                        )}\n                    </div>\n                </div>\n            )}',
+        "erp-frontend/src/pages/Audit/AuditPage.jsx",
+        '''        if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
+        return action;
+    };''',
+        '''        if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
+        if (action === 'EXPENSE_LOGGED')            return 'EXPENSE LOGGED';
+        if (action === 'EXPENSE_EDITED')            return 'EXPENSE CORRECTED';
+        if (action === 'EXPENSE_DELETED')           return 'EXPENSE DELETED';
+        if (action === 'EXPENSE_PRESET_CREATED')    return 'PRESET ADDED';
+        return action;
+    };''',
     ),
 ]
 
@@ -189,14 +684,6 @@ def write_file(path, content):
 
 
 def main():
-    for rel_path, content in NEW_FILES:
-        full_path = os.path.join(ROOT, rel_path)
-        if os.path.exists(full_path):
-            print("SKIP (already exists): " + rel_path)
-            continue
-        write_file(full_path, content)
-        print("OK: created " + rel_path)
-
     for rel_path, old, new in PATCHES:
         full_path = os.path.join(ROOT, rel_path)
         if not os.path.exists(full_path):
@@ -207,7 +694,7 @@ def main():
             print("SKIP (already patched): " + rel_path)
             continue
         if old not in content:
-            print("MISSING (patch target not found -- are the previous fix.py runs applied?): " + rel_path)
+            print("MISSING (patch target not found -- is the Expenses rebuild fix.py applied?): " + rel_path)
             continue
         content = content.replace(old, new, 1)
         write_file(full_path, content)
@@ -215,11 +702,16 @@ def main():
 
     print("")
     print("Done. Next steps:")
-    print("1. git add -A && git commit -m \'Rebuild Expenses page\' && git push")
+    print("1. git add -A && git commit -m 'Expenses analytics + autocomplete + audit labels' && git push")
     print("2. Watch Render Events tab for the green tick.")
-    print("3. Expenses is now in the sidebar for Managers too -- tap a preset,")
-    print("   type an amount, save. Director/Admin also get an ANALYSIS toggle")
-    print("   at the top of the page.")
+    print("3. Open Expenses as Director/Admin, tap ANALYSIS -- you should now see")
+    print("   BY STAFF and SPENDING OVER TIME (with a DAY/WEEK/MONTH toggle) below")
+    print("   the existing category breakdown.")
+    print("4. Tap OTHER on the log form, or edit an existing entry, and start typing")
+    print("   a category you've used before -- it should now autocomplete.")
+    print("5. Check the Audit Log after logging/editing/deleting an expense or")
+    print("   creating a preset -- the action should show a readable label, not")
+    print("   a raw code like EXPENSE_LOGGED.")
 
 
 if __name__ == "__main__":

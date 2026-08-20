@@ -33,6 +33,7 @@ const ExpensesPage = () => {
 
     const [presets, setPresets] = useState([]);
     const [recent, setRecent] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState(null);
 
@@ -44,12 +45,14 @@ const ExpensesPage = () => {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [presetData, recentData] = await Promise.all([
+            const [presetData, recentData, categoryData] = await Promise.all([
                 expenseService.getPresets(),
                 expenseService.getRecent(EDIT_WINDOW_HOURS),
+                expenseService.getCategories(),
             ]);
             setPresets(presetData || []);
             setRecent(recentData || []);
+            setCategories(categoryData || []);
         } catch {
             flash('Could not load expenses. Check your connection.', 'error');
         } finally {
@@ -170,6 +173,11 @@ const ExpensesPage = () => {
     const [period, setPeriod] = useState('MONTH');
     const [summary, setSummary] = useState({ total: 0, byCategory: {} });
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [byStaff, setByStaff] = useState({});
+    const [staffLoading, setStaffLoading] = useState(false);
+    const [series, setSeries] = useState([]);
+    const [bucket, setBucket] = useState('DAY');
+    const [seriesLoading, setSeriesLoading] = useState(false);
 
     const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
     const [searchResults, setSearchResults] = useState(null);
@@ -187,9 +195,37 @@ const ExpensesPage = () => {
         }
     }, []);
 
+    const loadByStaff = useCallback(async (p) => {
+        setStaffLoading(true);
+        try {
+            const data = await expenseService.getByStaff(p);
+            setByStaff(data || {});
+        } catch {
+            flash('Could not load the staff breakdown.', 'error');
+        } finally {
+            setStaffLoading(false);
+        }
+    }, []);
+
+    const loadSeries = useCallback(async (p, b) => {
+        setSeriesLoading(true);
+        try {
+            const data = await expenseService.getTimeSeries(p, undefined, undefined, b);
+            setSeries(data || []);
+        } catch {
+            flash('Could not load the spending trend.', 'error');
+        } finally {
+            setSeriesLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
-        if (isDirector && analysisOpen) loadSummary(period);
-    }, [isDirector, analysisOpen, period, loadSummary]);
+        if (isDirector && analysisOpen) {
+            loadSummary(period);
+            loadByStaff(period);
+            loadSeries(period, bucket);
+        }
+    }, [isDirector, analysisOpen, period, bucket, loadSummary, loadByStaff, loadSeries]);
 
     const runSearch = async () => {
         setSearching(true);
@@ -215,6 +251,15 @@ const ExpensesPage = () => {
         const vals = Object.values(summary.byCategory || {});
         return vals.length ? Math.max(...vals.map(Number)) : 0;
     }, [summary]);
+
+    const maxStaffAmount = useMemo(() => {
+        const vals = Object.values(byStaff || {});
+        return vals.length ? Math.max(...vals.map(Number)) : 0;
+    }, [byStaff]);
+
+    const maxSeriesAmount = useMemo(() => {
+        return series.length ? Math.max(...series.map(pt => Number(pt.total))) : 0;
+    }, [series]);
 
     return (
         <div className={styles.container}>
@@ -243,6 +288,11 @@ const ExpensesPage = () => {
                     {message.text}
                 </div>
             )}
+
+            {/* Shared autocomplete source for every "type it yourself" category field */}
+            <datalist id="expense-categories">
+                {categories.map(c => <option key={c} value={c} />)}
+            </datalist>
 
             {/* PRESET GRID -- ONE TAP LOGGING */}
             <HardwarePanel title="LOG AN EXPENSE" icon={FiTrendingDown}>
@@ -359,6 +409,57 @@ const ExpensesPage = () => {
                             )}
                         </div>
 
+                        <div className={styles.sectionLabel}>BY STAFF</div>
+                        <div className={styles.categoryBars}>
+                            {Object.entries(byStaff || {}).map(([who, amt]) => (
+                                <div key={who} className={styles.barRow}>
+                                    <span className={styles.barLabel}>{who}</span>
+                                    <div className={styles.barTrack}>
+                                        <div
+                                            className={styles.barFill}
+                                            style={{ width: maxStaffAmount ? `${(Number(amt) / maxStaffAmount) * 100}%` : '0%' }}
+                                        />
+                                    </div>
+                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>
+                                </div>
+                            ))}
+                            {!staffLoading && Object.keys(byStaff || {}).length === 0 && (
+                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                            )}
+                        </div>
+
+                        <div className={styles.sectionLabel}>SPENDING OVER TIME</div>
+                        <div className={styles.bucketRow}>
+                            {['DAY', 'WEEK', 'MONTH'].map(b => (
+                                <button
+                                    key={b}
+                                    className={bucket === b ? styles.bucketBtnActive : styles.bucketBtn}
+                                    onClick={() => setBucket(b)}
+                                >
+                                    {b}
+                                </button>
+                            ))}
+                        </div>
+                        {seriesLoading ? (
+                            <div className={styles.emptyCell}>LOADING TREND...</div>
+                        ) : series.length === 0 ? (
+                            <div className={styles.emptyCell}>NO ACTIVITY IN THIS WINDOW</div>
+                        ) : (
+                            <div className={styles.tsChart}>
+                                {series.map(point => (
+                                    <div key={point.bucket} className={styles.tsBarWrap} title={`${point.bucket}: UGX ${fmt(point.total)}`}>
+                                        <div className={styles.tsBarTrack}>
+                                            <div
+                                                className={styles.tsBarFill}
+                                                style={{ height: maxSeriesAmount ? `${Math.max(2, (Number(point.total) / maxSeriesAmount) * 100)}%` : '2%' }}
+                                            />
+                                        </div>
+                                        <span className={styles.tsBarLabel}>{point.bucket.slice(-5)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>
                         <div className={styles.filterRow}>
                             <input type="date" className={styles.filterInput} value={filters.from}
@@ -426,6 +527,7 @@ const ExpensesPage = () => {
                         <label className={modalStyles.modalLabel}>WHAT IS THIS EXPENSE FOR?</label>
                         <input
                             type="text"
+                            list="expense-categories"
                             className={modalStyles.modalInput}
                             placeholder="e.g. Courier fee"
                             value={logCategory}
@@ -495,6 +597,7 @@ const ExpensesPage = () => {
                     <label className={modalStyles.modalLabel}>CATEGORY</label>
                     <input
                         type="text"
+                        list="expense-categories"
                         className={modalStyles.modalInput}
                         value={editCategory}
                         onChange={e => setEditCategory(e.target.value)}

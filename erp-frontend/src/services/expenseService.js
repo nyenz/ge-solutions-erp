@@ -49,6 +49,25 @@ const expenseService = {
         });
         return response.data;
     },
+
+    getCategories: async () => {
+        const response = await api.get('/finance/expenses/categories');
+        return response.data;
+    },
+
+    getByStaff: async (period = 'MONTH', from, to) => {
+        const response = await api.get('/finance/expenses/analytics/by-staff', {
+            params: { period, from, to }
+        });
+        return response.data;
+    },
+
+    getTimeSeries: async (period = 'MONTH', from, to, bucket = 'DAY') => {
+        const response = await api.get('/finance/expenses/analytics/timeseries', {
+            params: { period, from, to, bucket }
+        });
+        return response.data;
+    },
 };
 
 export default expenseService;

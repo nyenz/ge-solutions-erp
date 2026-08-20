@@ -16,9 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -73,6 +77,12 @@ public class ExpenseService {
             "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
 
         return saved;
+    }
+
+    /** Every distinct category ever logged -- feeds the "type it yourself" autocomplete. */
+    @Transactional(readOnly = true)
+    public List<String> getCategorySuggestions() {
+        return expenseRepository.findDistinctCategories();
     }
 
     // -- LOGGING ------------------------------------------------------
@@ -183,6 +193,66 @@ public class ExpenseService {
         result.put("total", total);
         result.put("byCategory", byCategory);
         return result;
+    }
+
+    // -- DIRECTOR ANALYSIS: BY STAFF -----------------------------------
+
+    @Transactional(readOnly = true)
+    public Map<String, BigDecimal> getByStaff(LocalDateTime from, LocalDateTime to) {
+        Map<String, BigDecimal> byStaff = new LinkedHashMap<>();
+        for (Object[] row : expenseRepository.sumByStaffBetween(from, to)) {
+            String who = row[0] != null ? (String) row[0] : "UNKNOWN";
+            byStaff.put(who, (BigDecimal) row[1]);
+        }
+        return byStaff;
+    }
+
+    // -- DIRECTOR ANALYSIS: SPENDING OVER TIME (DAY / WEEK / MONTH) ---
+
+    /**
+     * Buckets are computed in Java (not SQL) so the same logic works the
+     * same way regardless of the underlying database -- same approach
+     * used by the old CompanyExpense analytics before the Expenses
+     * rebuild. Empty buckets are simply absent from the result; the
+     * frontend only needs the points that exist.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTimeSeries(LocalDateTime from, LocalDateTime to, String bucket) {
+        List<Expense> rows = expenseRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(from, to);
+        String normalizedBucket = (bucket == null || bucket.isBlank()) ? "DAY" : bucket.toUpperCase();
+
+        Map<String, BigDecimal> totals = new TreeMap<>();
+        DateTimeFormatter dayFmt = DateTimeFormatter.ISO_LOCAL_DATE;
+        WeekFields wf = WeekFields.ISO;
+
+        for (Expense e : rows) {
+            if (e.getCreatedAt() == null) continue;
+            var date = e.getCreatedAt().toLocalDate();
+            String key;
+            switch (normalizedBucket) {
+                case "MONTH":
+                    key = date.getYear() + "-" + String.format("%02d", date.getMonthValue());
+                    break;
+                case "WEEK":
+                    int week = date.get(wf.weekOfWeekBasedYear());
+                    key = date.getYear() + "-W" + String.format("%02d", week);
+                    break;
+                case "DAY":
+                default:
+                    key = date.format(dayFmt);
+                    break;
+            }
+            totals.merge(key, e.getAmount(), BigDecimal::add);
+        }
+
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("bucket", entry.getKey());
+            point.put("total", entry.getValue());
+            series.add(point);
+        }
+        return series;
     }
 
     // -- LIVE, NOT TIME-WINDOWED (used by the main Director Dashboard) -
