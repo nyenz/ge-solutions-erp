@@ -646,3 +646,13 @@
 }
 .coOwnerWarningDismiss:hover { color: #fff; }
 .coOwnerWarningDismiss:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* -- STAGE 12: per-owner "you last reached" line on each plot sub-card -- */
+.ownerContactLine {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: clamp(6px, 0.8vw, 9px);
+}
+.ownerContactLine strong { color: rgba(255, 255, 255, 0.85); }

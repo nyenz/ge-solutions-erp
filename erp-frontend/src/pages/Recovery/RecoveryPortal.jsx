@@ -46,6 +46,11 @@ const RecoveryPortal = () => {
     // contacted about this plot recently" (design brief 3.4 #2) -- never
     // blocks the call log, which has already been saved by the time this shows.
     const [coOwnerWarning, setCoOwnerWarning] = useState(null);
+    // STAGE 12 FIX: lets a co-owner link (design brief 3.3, "navigable")
+    // jump to that person's own card even if it is filtered out or
+    // collapsed right now -- clears filters, expands their card, then
+    // scrolls to it once it is present in the loaded mission list.
+    const [scrollTargetId, setScrollTargetId] = useState(null);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -59,6 +64,18 @@ const RecoveryPortal = () => {
     }, [viewMode]);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // STAGE 12 FIX: once the mission list contains the co-owner we just
+    // navigated to, scroll their card into view. Runs again whenever
+    // missions reloads (e.g. after switching to ALL TARGETS) until found.
+    useEffect(() => {
+        if (!scrollTargetId) return;
+        const el = document.getElementById('recovery-card-' + scrollTargetId);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setScrollTargetId(null);
+        }
+    }, [missions, scrollTargetId]);
 
     const filteredMissions = useMemo(() => {
         let list = missions;
@@ -103,6 +120,20 @@ const RecoveryPortal = () => {
         const lastNote = plot.ownerLastContactNote ? plot.ownerLastContactNote : '';
         setCallModal({ open: true, mission: plot, ownerId, ownerName });
         setLogContent(lastNote);
+    };
+
+    // STAGE 12 FIX: co-owner link handler (design brief 3.3). Switches to
+    // ALL TARGETS so a locked/cooling-down co-owner is not hidden by the
+    // DUE FOR CALL filter, clears search/status filters that could hide
+    // their card, expands their card, and queues the scroll-to for the
+    // effect above.
+    const handleGoToCoOwner = (e, coOwnerId) => {
+        e.stopPropagation();
+        setSearchTerm('');
+        setStatusFilter('ALL');
+        setViewMode('FORECAST');
+        setExpandedId(coOwnerId);
+        setScrollTargetId(coOwnerId);
     };
 
     return (
@@ -221,6 +252,7 @@ const RecoveryPortal = () => {
                         return (
                             <div
                                 key={m.clientId}
+                                id={'recovery-card-' + m.clientId}
                                 className={`${styles.missionCard} ${m.hasReceivablePlots ? styles.cardReceivable : ''}`}
                             >
                                 {/* CARD HEADER */}
@@ -307,6 +339,52 @@ const RecoveryPortal = () => {
                                                     <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
                                                     <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
+
+                                                {/* STAGE 12 FIX: SOLO/JOINT badge + navigable co-owner links
+                                                    (design brief 3.3). The backend has supplied
+                                                    p.ownershipType / p.coOwners since Stage 10, and the CSS
+                                                    for this row has existed since Stage 10 too -- this was
+                                                    the missing piece that actually renders it. */}
+                                                <div className={styles.ownershipRow}>
+                                                    <span className={p.ownershipType === 'JOINT' ? styles.jointBadge : styles.soloBadge}>
+                                                        {p.ownershipType}
+                                                    </span>
+                                                    {p.ownershipType === 'JOINT' && p.coOwners && p.coOwners.length > 0 && (
+                                                        <>
+                                                            <span className={styles.jointOwnersLabel}>WITH:</span>
+                                                            {p.coOwners.map((co, i) => (
+                                                                <React.Fragment key={co.clientId}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.coOwnerLink}
+                                                                        onClick={e => handleGoToCoOwner(e, co.clientId)}
+                                                                    >
+                                                                        {co.fullName}
+                                                                    </button>
+                                                                    {i < p.coOwners.length - 1 && (
+                                                                        <span className={styles.jointOwnersLabel}>,</span>
+                                                                    )}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {/* STAGE 12 FIX: THIS owner's own reach status for this
+                                                    project, separate from the general note below -- on a
+                                                    JOINT plot the general note can belong to a co-owner's
+                                                    call and must never be mistaken for this owner having
+                                                    been personally reached (design brief 3.3). */}
+                                                <div className={styles.ownerContactLine}>
+                                                    YOU last reached: <strong>{p.ownerLastContactDate || 'NEVER'}</strong>
+                                                </div>
+                                                {p.ownerLastContactNote && (
+                                                    <div className={styles.interactionNote}>
+                                                        <span className={styles.interactionNoteLabel}>YOUR LAST NOTE WITH THIS OWNER</span>
+                                                        <p className={styles.interactionNoteText}>{p.ownerLastContactNote}</p>
+                                                    </div>
+                                                )}
+
                                                 {p.isReceivable && p.surveyDate && (
                                                     <div className={styles.surveyDateRow}>
                                                         SURVEYED: <strong>{p.surveyDate}</strong>
@@ -316,7 +394,13 @@ const RecoveryPortal = () => {
                                                 {/* Last interaction note — notebook style */}
                                                 {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
                                                     <div className={styles.interactionNote}>
-                                                        <span className={styles.interactionNoteLabel}>LAST CONTACT NOTE</span>
+                                                        {/* STAGE 12 FIX: on a JOINT plot this note can belong
+                                                            to a co-owner's call, not this card-owner's --
+                                                            relabeled so it is never confused with the
+                                                            YOUR LAST NOTE WITH THIS OWNER block above. */}
+                                                        <span className={styles.interactionNoteLabel}>
+                                                            {p.ownershipType === 'JOINT' ? 'MOST RECENT NOTE (ANY OWNER)' : 'LAST CONTACT NOTE'}
+                                                        </span>
                                                         <p className={styles.interactionNoteText}>{p.lastInteractionNote}</p>
                                                     </div>
                                                 )}
