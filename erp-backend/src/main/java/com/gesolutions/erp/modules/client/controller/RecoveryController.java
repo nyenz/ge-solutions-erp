@@ -150,6 +150,33 @@ public class RecoveryController {
                 String lastPaymentStr = plot.getLastPaymentDate() != null
                         ? plot.getLastPaymentDate().toLocalDate().toString() : "NEVER";
 
+                // STAGE 10: SOLO vs JOINT label + navigable co-owners + this
+                // owner's OWN contact history on this project (design brief 3.3).
+                // The balance is still computed exactly once above, from the
+                // project (plotBalance / totalDemand) -- it is only ever
+                // referenced here, never duplicated or re-totaled per owner, so
+                // this cannot cause a joint debt to be double-counted in
+                // company-wide reporting just because it appears on more than
+                // one person's card.
+                Set<Client> plotOwners = plot.getProprietors();
+                String ownershipType = (plotOwners != null && plotOwners.size() > 1) ? "JOINT" : "SOLO";
+                List<RecoveryTaskDTO.CoOwnerRef> coOwners = new ArrayList<>();
+                if (plotOwners != null) {
+                    for (Client co : plotOwners) {
+                        if (co == null || co.getId() == null || co.getId().equals(client.getId())) continue;
+                        coOwners.add(RecoveryTaskDTO.CoOwnerRef.builder()
+                                .clientId(co.getId())
+                                .fullName(co.getFullName())
+                                .build());
+                    }
+                }
+
+                List<FollowUpLog> ownerLogs = followUpRepository
+                        .findByProjectIdAndOwnerIdOrderByTimestampDesc(plot.getId(), client.getId());
+                String ownerLastContactDate = ownerLogs.isEmpty()
+                        ? "NEVER" : ownerLogs.get(0).getTimestamp().toLocalDate().toString();
+                String ownerLastContactNote = ownerLogs.isEmpty() ? null : ownerLogs.get(0).getNotes();
+
                 RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()
                         .projectId(plot.getId())
                         .plotNumber(plot.getLandTitle().getPlotNumber())
@@ -158,7 +185,11 @@ public class RecoveryController {
                         .lastInteractionNote(lastNote)
                         .paymentHealthBadge(badge)
                         .lastPaymentDate(lastPaymentStr)
-                        .surveyDate(plot.getLandTitle().getSurveyDate());
+                        .surveyDate(plot.getLandTitle().getSurveyDate())
+                        .ownershipType(ownershipType)
+                        .coOwners(coOwners)
+                        .ownerLastContactDate(ownerLastContactDate)
+                        .ownerLastContactNote(ownerLastContactNote);
 
                 if (plot.isReceivable()) {
                     hasReceivable = true;

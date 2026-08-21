@@ -28,6 +28,16 @@ public class FollowUpLog {
     private UUID projectId;
 
     /**
+     * STAGE 10 FIX: WHICH PERSON THIS CONTACT BELONGS TO.
+     * Null for general project notes not tied to a specific call (e.g.
+     * logNewNote). Set whenever this entry comes from logFollowUp, so a
+     * joint project's contact history can be shown per owner instead of
+     * one shared/anonymous note field (design brief 3.3).
+     */
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
+    /**
      * THE INTELLIGENCE: Detailed record of the interaction or status.
      */
     @Column(nullable = false, columnDefinition = "TEXT")

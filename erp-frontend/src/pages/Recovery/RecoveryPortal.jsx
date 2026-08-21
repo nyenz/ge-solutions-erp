@@ -37,7 +37,9 @@ const RecoveryPortal = () => {
     const [expandedId,   setExpandedId]   = useState(null);
     const [searchTerm,   setSearchTerm]   = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null });
+    // STAGE 10 FIX: the call log has to say WHICH owner was reached, not
+    // just which plot -- carry the card's own clientId/ownerName through.
+    const [callModal,    setCallModal]    = useState({ open: false, mission: null, ownerId: null, ownerName: '' });
     const [logContent,   setLogContent]   = useState('');
     const [committing,   setCommitting]   = useState(false);
 
@@ -74,24 +76,25 @@ const RecoveryPortal = () => {
     const totalStorageFees = missions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0);
 
     const handleLogCall = async () => {
-        if (!callModal.mission) return;
+        if (!callModal.mission || !callModal.ownerId) return;
         setCommitting(true);
         try {
-            await recoveryService.logRecoveryCall(callModal.mission.projectId, logContent);
-            setCallModal({ open: false, mission: null });
+            await recoveryService.logRecoveryCall(callModal.mission.projectId, callModal.ownerId, logContent);
+            setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' });
             setLogContent('');
             loadData();
         } catch { /* silent */ }
         finally { setCommitting(false); }
     };
 
-    const openCallModal = (e, plot) => {
+    // STAGE 10 FIX: caller now passes ownerId/ownerName from the card that
+    // triggered this modal, so a joint call is attributed to the actual
+    // person on that card -- never silently defaulted to a co-owner -- and
+    // pre-fills with THAT owner's own last note, not a shared one.
+    const openCallModal = (e, plot, ownerId, ownerName) => {
         e.stopPropagation();
-        // PRE-FILL textarea with the last interaction note so user can edit/append
-        const lastNote = plot.lastInteractionNote && plot.lastInteractionNote !== 'NO PRIOR CONTACT'
-            ? plot.lastInteractionNote
-            : '';
-        setCallModal({ open: true, mission: plot });
+        const lastNote = plot.ownerLastContactNote ? plot.ownerLastContactNote : '';
+        setCallModal({ open: true, mission: plot, ownerId, ownerName });
         setLogContent(lastNote);
     };
 
@@ -238,7 +241,7 @@ const RecoveryPortal = () => {
                                             <button
                                                 className={styles.logCallBtnSmall}
                                                 disabled={m.isLocked}
-                                                onClick={e => openCallModal(e, m.plots[0])}
+                                                onClick={e => openCallModal(e, m.plots[0], m.clientId, m.ownerName)}
                                                 aria-label={m.isLocked ? 'Call locked' : `Log call for ${m.ownerName}`}
                                             >
                                                 <FiPhoneCall aria-hidden="true" />
@@ -346,8 +349,8 @@ const RecoveryPortal = () => {
             {/* LOG CALL MODAL — textarea pre-filled with last note */}
             <HardwareModal
                 isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
-                title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber}` : 'LOG CALL'}
+                onClose={() => { setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' }); setLogContent(''); }}
+                title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber} (${callModal.ownerName || 'owner'})` : 'LOG CALL'}
             >
                 <div className={modalStyles.modalField}>
                     <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
@@ -363,7 +366,7 @@ const RecoveryPortal = () => {
                     <button
                         type="button"
                         className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null }); setLogContent(''); }}
+                        onClick={() => { setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' }); setLogContent(''); }}
                     >
                         CANCEL
                     </button>

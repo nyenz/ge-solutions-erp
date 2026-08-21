@@ -32,9 +32,9 @@ const recoveryService = {
         return response.data;
     },
 
-    logRecoveryCall: async (projectId, text) => {
+    logRecoveryCall: async (projectId, ownerId, text) => {
         await api.post(`/land/projects/${projectId}/follow-up`, null, {
-            params: { content: text }
+            params: { ownerId, content: text }
         });
         return true;
     },

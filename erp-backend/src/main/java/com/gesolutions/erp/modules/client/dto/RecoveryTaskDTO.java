@@ -55,5 +55,20 @@ public class RecoveryTaskDTO {
         private String lastPaymentDate;
         private String lastInteractionNote;
         private LocalDate surveyDate;
+
+        // STAGE 10: joint-owner visibility (design brief 3.3)
+        private String ownershipType; // "SOLO" or "JOINT"
+        private List<CoOwnerRef> coOwners; // other owners on this project, empty for SOLO
+        private String ownerLastContactDate; // THIS card-owner's own last-reached date, or "NEVER"
+        private String ownerLastContactNote; // THIS card-owner's own note from that contact, or null
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CoOwnerRef {
+        private UUID clientId;
+        private String fullName;
     }
 }

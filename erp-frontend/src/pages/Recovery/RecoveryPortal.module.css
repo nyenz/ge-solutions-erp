@@ -594,3 +594,36 @@
         text-align: left;
     }
 }
+
+/* ── STAGE 10: SOLO / JOINT ownership row on each plot sub-card ── */
+.ownershipRow {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: clamp(6px, 0.8vw, 9px);
+    margin-bottom: clamp(6px, 0.8vw, 9px);
+}
+.soloBadge, .jointBadge {
+    font-family: 'Space Mono', monospace; font-size: clamp(7px, 0.75vw, 9px);
+    font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+    padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);
+    border-radius: 4px; white-space: nowrap;
+}
+.soloBadge {
+    background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.55);
+}
+.jointBadge {
+    background: rgba(238, 140, 58, 0.15); border: 1px solid rgba(238, 140, 58, 0.5);
+    color: var(--orange);
+}
+.jointOwnersLabel {
+    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 700; color: rgba(255, 255, 255, 0.4);
+}
+.coOwnerLink {
+    background: none; border: none; padding: 0;
+    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px);
+    font-weight: 800; color: var(--orange); text-decoration: underline;
+    cursor: pointer;
+}
+.coOwnerLink:hover { color: #f0a050; }
+.coOwnerLink:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }

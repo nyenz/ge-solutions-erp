@@ -21,6 +21,13 @@ public interface FollowUpRepository extends JpaRepository<FollowUpLog, UUID> {
      * Vital for the 'Digital Filing Cabinet' timeline.
      */
     List<FollowUpLog> findByProjectIdOrderByTimestampDesc(UUID projectId);
+
+    /**
+     * STAGE 10 FIX: per-owner contact history for a joint project -- lets
+     * Recovery show each owner's own last-reached note instead of one
+     * shared note field for the whole project (design brief 3.3).
+     */
+    List<FollowUpLog> findByProjectIdAndOwnerIdOrderByTimestampDesc(UUID projectId, UUID ownerId);
     
     /**
      * Recovery Search: Find logs by specific author (Admin/Manager).

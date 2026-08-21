@@ -42,10 +42,16 @@ public class LandController {
     }
 
     // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
+    // STAGE 10 FIX: ownerId is now required so a joint-project call is
+    // attributed to the specific person staff actually reached, instead of
+    // silently defaulting to whichever co-owner sorts first alphabetically
+    // (design brief 3.3/3.4).
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/follow-up")
-    public ResponseEntity<Void> logContact(@PathVariable UUID id, @RequestParam String content) {
-        landService.logFollowUp(id, content);
+    public ResponseEntity<Void> logContact(@PathVariable UUID id,
+                                            @RequestParam UUID ownerId,
+                                            @RequestParam String content) {
+        landService.logFollowUp(id, ownerId, content);
         return ResponseEntity.ok().build();
     }
 

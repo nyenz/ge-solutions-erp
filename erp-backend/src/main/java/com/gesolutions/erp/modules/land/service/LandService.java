@@ -451,60 +451,46 @@ public class LandService {
 
     // ─── FOLLOW-UP / NOTES ────────────────────────────────────────────────────
 
+    // STAGE 10 FIX: NIN_JOINT_OWNER_CONTACT_MISATTRIBUTION (design brief 3.3/3.4)
+    // Previously this always logged the contact against whichever proprietor's
+    // fullName sorted first alphabetically ("primary owner"), regardless of
+    // which co-owner staff actually reached -- silently resetting the WRONG
+    // person's 14-day cooldown clock while the person really contacted never
+    // got their own record updated. It also auto-copied the note onto every
+    // OTHER outstanding plot the resolved primary owner held, fabricating
+    // contact history on unrelated projects. Both behaviors are removed.
+    // The caller must now name the specific owner being logged (this is the
+    // "merge log-a-call and add-a-note into one action" from open question
+    // 3.4 #1 -- project + specific owner + timestamp + note, in one record).
     @Transactional(rollbackFor = Exception.class)
-    public void logFollowUp(UUID projectId, String content) {
+    public void logFollowUp(UUID projectId, UUID ownerId, String content) {
         LandProject project = projectRepository.findById(projectId).orElseThrow();
 
-        // PATCH 2: Only increment call counter for the PRIMARY owner (alphabetically first),
-        // not all joint owners, to avoid accidental counter inflation.
-        Client primaryOwner = null;
-        if (project.getProprietors() != null && !project.getProprietors().isEmpty()) {
-            primaryOwner = project.getProprietors().stream()
-                    .filter(o -> o != null && o.getId() != null)
-                    .min(java.util.Comparator.comparing(Client::getFullName))
-                    .orElse(null);
-            if (primaryOwner != null) {
-                try { clientService.logManagerContact(primaryOwner.getId()); } catch (Exception e) {}
-            }
+        boolean ownerIsProprietor = project.getProprietors() != null &&
+                project.getProprietors().stream()
+                        .anyMatch(o -> o != null && o.getId() != null && o.getId().equals(ownerId));
+        if (!ownerIsProprietor) {
+            throw new BusinessException(
+                    "OWNER_NOT_ON_PROJECT: The selected owner is not a proprietor of this project.");
         }
 
-        // Save note to this plot
+        // Update ONLY the specific owner who was actually reached. Cooldown
+        // state lives on Client (per person), so this cannot touch any
+        // co-owner who was not part of this call.
+        clientService.logManagerContact(ownerId);
+
         String operator = getCurrentOperator();
         FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
+                .ownerId(ownerId)
                 .notes(content)
                 .recordedBy(operator)
                 .build();
         followUpRepository.save(entry);
 
-        // PATCH 3: If the primary owner also owns other outstanding plots,
-        // automatically copy this follow-up note to those plots as well.
-        if (primaryOwner != null) {
-            final Client finalPrimary = primaryOwner;
-            List<LandProject> allProjects = projectRepository.findAll();
-            for (LandProject otherPlot : allProjects) {
-                if (otherPlot.getId().equals(projectId)) continue;
-                boolean ownedByPrimary = otherPlot.getProprietors() != null &&
-                    otherPlot.getProprietors().stream()
-                        .anyMatch(o -> o != null && o.getId() != null &&
-                                  o.getId().equals(finalPrimary.getId()));
-                if (!ownedByPrimary) continue;
-                // Only sync to plots with outstanding balance (active cases)
-                java.math.BigDecimal bal = otherPlot.isReceivable()
-                        ? otherPlot.receivableTotalOwed() : otherPlot.activeTotalOwed();
-                if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
-                FollowUpLog syncEntry = FollowUpLog.builder()
-                        .projectId(otherPlot.getId())
-                        .notes("[SYNCED FROM " + project.getLandTitle().getPlotNumber() + "] " + content)
-                        .recordedBy(operator)
-                        .build();
-                followUpRepository.save(syncEntry);
-            }
-        }
-
         auditService.logAction("RECOVERY_SYNC",
             "Operator [" + operator + "] logged call for plot: "
-            + project.getLandTitle().getPlotNumber());
+            + project.getLandTitle().getPlotNumber() + " (owner reached: " + ownerId + ")");
     }
 
     @Transactional
