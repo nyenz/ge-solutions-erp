@@ -363,12 +363,21 @@ public class LandService {
                 if (incoming.getNationalId() == null || incoming.getNationalId().isBlank()) {
                     throw new BusinessException("NIN_REQUIRED: Owner \"" + incoming.getFullName() + "\" is missing a National ID (NIN).");
                 }
-                String normalizedNin = incoming.getNationalId().trim().toUpperCase();
-                Client person = clientRepository.findByNationalId(normalizedNin)
-                        .orElseGet(() -> clientService.findOrCreateClientByNin(
-                                incoming.getFullName(), normalizedNin, incoming.getPhone(), incoming.getEmail()));
-                person.setFullName(incoming.getFullName().toUpperCase());
-                person.setNationalId(normalizedNin);
+                // STAGE 8 FIX: this used to look the client up directly by NIN and,
+                // when found, unconditionally overwrite its stored fullName with
+                // whatever was typed on this form -- bypassing the NIN_NAME_MISMATCH
+                // guard entirely, because that guard only ran inside
+                // findOrCreateClientByNin(), which this code only called on the
+                // NOT-FOUND branch (orElseGet). Reusing an existing NIN with a
+                // different typed name silently renamed that person's identity
+                // record everywhere they appear. Routing every owner through
+                // findOrCreateClientByNin() unconditionally -- same as atomicIntake
+                // does on Intake -- restores the mismatch check on Edit, and, like
+                // Intake, leaves fullName untouched for a matching existing person
+                // (full name is identity-level, not a per-project field; it only
+                // changes via the explicit mismatch-confirmation flow).
+                Client person = clientService.findOrCreateClientByNin(
+                        incoming.getFullName(), incoming.getNationalId(), incoming.getPhone(), incoming.getEmail());
                 person.setEmail(incoming.getEmail() != null
                         ? incoming.getEmail().toLowerCase() : null);
                 person.setHomeAddress(incoming.getAddress());

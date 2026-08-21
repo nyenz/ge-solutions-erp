@@ -184,7 +184,7 @@ def main():
     print("already exists (IntakePage.jsx isLegacyMode toggle, Section 17.6).")
     print("This was a mistake in the last addendum, corrected there now.")
     print("=" * 70)
-    print("Next: git add -A && git commit -m 'Stage 7: styled select + removed dead Notification module' && git push")
+    print("Next: git add -A && git commit -m 'Stage 8' && git push")
     print("")
     print("Note: after this deploys, the erp-backend/.../modules/notify/ folder")
     print("will be empty (all 3 files inside it deleted). That's expected --")
