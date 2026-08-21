@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 
 /**
- * NYENZ ERP - SYSTEM FORENSICS TERMINAL
+ * GOLDEN SEED ERP - SYSTEM FORENSICS TERMINAL
  * 
  * Physically manages the interrogation of the Audit Ledger.
  * SECURITY UPDATE: Access extended to ROLE_ADMIN (Tier 2) for operational oversight.

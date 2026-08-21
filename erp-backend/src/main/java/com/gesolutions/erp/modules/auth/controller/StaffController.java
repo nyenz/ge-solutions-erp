@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * NYENZ ERP - STAFF MASTERY CONTROLLER
+ * GOLDEN SEED ERP - STAFF MASTERY CONTROLLER
  * 
  * Physically manages the operator registry and hierarchy.
  * SECURITY PROTOCOL: Strictly restricted to the ROOT FOUNDER.

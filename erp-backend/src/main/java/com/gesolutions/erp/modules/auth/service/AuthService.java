@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * NYENZ ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)
+ * GOLDEN SEED ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)
  * 
  * Manages the Secure Identity Handshake.
  */

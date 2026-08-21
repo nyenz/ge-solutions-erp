@@ -2,7 +2,7 @@
 package com.gesolutions.erp.modules.auth.model;
 
 /**
- * NYENZ ERP - INDUSTRIAL ROLE DICTIONARY
+ * GOLDEN SEED ERP - INDUSTRIAL ROLE DICTIONARY
  *
  * PHASE 3A: Enum expanded to prepare for the 4-tier hierarchy (Section 17.7
  * of LLM_CONTEXT_GUIDE.md). This is additive only -- ROLE_DIRECTOR and

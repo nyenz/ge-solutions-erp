@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * NYENZ ERP - MASTER SECURITY CONFIG (V3.0 - CLOUD STABLE)
+ * GOLDEN SEED ERP - MASTER SECURITY CONFIG (V3.0 - CLOUD STABLE)
  *
  * The CORS filter runs at the HIGHEST possible priority, before any
  * JWT checking. This means the browser's "preflight" OPTIONS request

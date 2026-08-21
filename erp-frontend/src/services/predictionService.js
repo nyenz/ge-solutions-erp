@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/services/predictionService.js
 
 /**
- * NYENZ PREDICTION ENGINE
+ * GOLDEN SEED PREDICTION ENGINE
  * Learns from user input to provide intelligent auto-complete suggestions.
  */
 

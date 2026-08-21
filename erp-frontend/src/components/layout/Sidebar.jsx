@@ -88,8 +88,8 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                         })}
                     </div>
                 </nav>
-                <footer className={styles.sidebarFooter} aria-label="NYENZ branding">
-                    <div className={styles.branding} aria-hidden="true">NYENZ</div>
+                <footer className={styles.sidebarFooter} aria-label="Golden Seed branding">
+                    <div className={styles.branding} aria-hidden="true">GOLDEN SEED</div>
                     {!isCollapsed && <div className={styles.version} aria-hidden="true">V.2.0.1-PROD</div>}
                 </footer>
             </aside>

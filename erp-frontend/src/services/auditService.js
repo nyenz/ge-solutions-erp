@@ -6,7 +6,7 @@
 import api from '../api/axios';
 
 /**
- * NYENZ INDUSTRIAL AUDIT SERVICE
+ * GOLDEN SEED INDUSTRIAL AUDIT SERVICE
  * Physically manages the acquisition of forensic footprints.
  */
 const auditService = {

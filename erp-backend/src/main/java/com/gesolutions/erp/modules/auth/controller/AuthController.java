@@ -14,7 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 /**
- * NYENZ ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)
+ * GOLDEN SEED ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)
  *
  * Publicly accessible (no token required) to allow login, reset, and health checks.
  */

@@ -7,7 +7,7 @@ import lombok.*;
 import java.util.UUID;
 
 /**
- * NYENZ ERP - SYSTEM OPERATOR IDENTITY
+ * GOLDEN SEED ERP - SYSTEM OPERATOR IDENTITY
  * 
  * Physically manages the operator credentials and hierarchical access.
  * Optimized with explicit Column naming to prevent Boolean-renaming bugs.

@@ -8,7 +8,7 @@
 import api from '../api/axios';
 
 /**
- * NYENZ ERP - AUTHENTICATION PIPELINE (V2.1 - CLOUD FIXED)
+ * GOLDEN SEED ERP - AUTHENTICATION PIPELINE (V2.1 - CLOUD FIXED)
  */
 const authService = {
 

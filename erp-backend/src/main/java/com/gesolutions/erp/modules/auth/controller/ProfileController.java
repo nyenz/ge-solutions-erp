@@ -13,7 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * NYENZ ERP - PROFILE & SECURITY PANEL
+ * GOLDEN SEED ERP - PROFILE & SECURITY PANEL
  * 
  * Physically manages individual operator security settings.
  * Primary purpose: Handling the 'mustChangePassword' protocol.

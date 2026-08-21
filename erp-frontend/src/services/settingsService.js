@@ -2,7 +2,7 @@
 import api from '../api/axios';
 
 /**
- * NYENZ ERP - SECURITY & GOVERNANCE SERVICE (V5)
+ * GOLDEN SEED ERP - SECURITY & GOVERNANCE SERVICE (V5)
  * 
  * Physically manages operator lifecycles and security keys.
  * UPDATED: Transparent error handling to reveal root causes of failures.

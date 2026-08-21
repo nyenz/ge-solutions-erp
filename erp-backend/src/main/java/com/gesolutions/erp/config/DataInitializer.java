@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        System.out.println(">>> NYENZ SYSTEM: Verifying Master Identity Registry...");
+        System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
 
         // Run schema migrations via raw JDBC -- never touches JPA/Hibernate session
         runSchemaMigrations();
@@ -51,7 +51,7 @@ public class DataInitializer implements CommandLineRunner {
         // EXPENSES REBUILD: Seed the default expense presets if empty
         seedDefaultExpensePresets();
 
-        System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");
+        System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 
     // NOTE: Deliberately NOT @Transactional -- same raw-JDBC-safety reasoning

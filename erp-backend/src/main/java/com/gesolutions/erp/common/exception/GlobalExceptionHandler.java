@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * NYENZ ERP - MASTER DIAGNOSTIC INTERCEPTOR (V1.3 - LOUD REPORTING)
+ * GOLDEN SEED ERP - MASTER DIAGNOSTIC INTERCEPTOR (V1.3 - LOUD REPORTING)
  * 
  * Physically prints hardware and logic faults to the cloud terminal 
  * so we can diagnose failures via the Render Logs window.

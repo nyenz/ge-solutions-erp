@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * NYENZ ERP - OPERATOR REGISTRY ACCESS
+ * GOLDEN SEED ERP - OPERATOR REGISTRY ACCESS
  * 
  * Physically manages database queries for User Identities.
  * Updated to support Email Verification for Root Recovery.

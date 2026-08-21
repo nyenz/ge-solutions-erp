@@ -8,7 +8,7 @@
 import api from '../api/axios';
 
 /**
- * NYENZ INDUSTRIAL REPORTING SERVICE
+ * GOLDEN SEED INDUSTRIAL REPORTING SERVICE
  * Manages the conversion of binary streams into physical CSV downloads.
  * Synchronized with the 8-Pillar Intelligence Protocol.
  */
@@ -54,7 +54,7 @@ const reportService = {
         }
     },
 
-    /* --- THE 8 PILLARS OF NYENZ INTELLIGENCE --- */
+    /* --- THE 8 PILLARS OF GOLDEN SEED INTELLIGENCE --- */
 
     // Financial Pillars (Restricted to Root)
     downloadDebtLedger:  () => reportService._triggerDownload('/debt-ledger',      'DEBT_LEDGER'),

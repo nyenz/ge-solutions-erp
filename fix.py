@@ -1,92 +1,78 @@
 # PATH: fix.py
-# STAGE 4 -- CLEANUP AND PROCESS (bug-fix roadmap)
+# STAGE 5 -- NAMING CONSISTENCY CLEANUP (bug-fix roadmap continuation)
 # Run from project root: python fix.py   (or: py fix.py)
-# Assumes Stages 1, 2, and 3 have already been run, committed, and pushed.
+# Assumes Stages 1-4 have already been run, committed, and pushed.
 #
-# IMPORTANT DISCOVERY WHILE BUILDING THIS STAGE -- read before running:
+# WHAT THIS STAGE IS -- read before running:
 #
-# FIX 1 (dead weekly-payment-schedule code) turned up different than the
-# roadmap assumed. The roadmap's own safety rule is: search for live
-# references first, and if any are found, do NOT delete, just report what
-# still uses it. Doing that search for real against your actual code:
+# David asked for a full-codebase read-through and a consistency cleanup pass
+# (wording, naming, flow). The codebase was cloned fresh and every module was
+# checked against the two things already flagged as known issues in
+# LLM_CONTEXT_GUIDE.md Section 12 plus a fresh terminology sweep:
 #
-#   - PaymentSchedule.java / PaymentScheduleRepository.java ARE actively
-#     used by PaymentEngineService.java (it builds and saves
-#     PaymentSchedule rows). So per the roadmap's own rule, these two stay.
-#   - ReceivableSchedulerService.java is referenced by
-#     ReceivableSchedulerTest.java, which alone is enough to block deletion
-#     under the same rule -- but there's a bigger reason not printed by a
-#     plain grep-for-callers search: this class runs TWO @Scheduled cron
-#     jobs (applyMonthlyStorageFees at midnight, autoFlagStaleAsReceivable
-#     at 6am). Those are your live UGX 50,000/30-day storage fee billing
-#     and the 365-day auto-receivable flag from Section 9 -- Spring fires
-#     them on schedule, so nothing in the codebase needs to "call" them for
-#     them to be live. A caller-based dead-code search will never catch a
-#     scheduled job. This file was NOT put in this script's delete list
-#     under any code path -- it is simply not a candidate here.
+# CHECKED AND ALREADY CONSISTENT (no patch needed, listed so nothing gets
+# re-litigated in a future session):
+#   - Payment type naming (STANDARD / INITIAL_DEPOSIT / RECEIVABLE_PARTIAL /
+#     STORAGE_FEE) -- identical everywhere in both frontend and backend.
+#   - Role naming (ROLE_ADMIN / ROLE_MANAGER / ROLE_DIRECTOR / ROLE_SECRETARY)
+#     -- identical everywhere, matches Section 17.7's 4-tier table.
+#   - "Receivable" vs "Receivables" (work-not-done vs done-but-unpaid, Section
+#     17.2) -- used correctly and distinctly wherever both appear together
+#     (RecoveryPortal, ReportHub, Dashboard).
+#   - The Section 11 "language simplification" list (Master Hardware
+#     Override, Nuclear Purge, Intel, Vault, Recovery Sync, Asset Intake,
+#     Forensic Stream) -- Stage 4 already finished this; nothing left.
 #
-#   So: nothing gets deleted this stage. All three files are printed as
-#   MISSING with the specific reason, exactly as the roadmap's own
-#   reporting rule asks for when a live reference is found. Worth knowing
-#   for a future session: PaymentEngineService itself (the class that
-#   keeps PaymentSchedule/PaymentScheduleRepository alive) has no caller
-#   anywhere in the codebase -- so this whole 3-file cluster IS dead
-#   together, just not deletable one file at a time the way Stage 4
-#   assumed. That's a separate, slightly bigger cleanup than what was
-#   scoped here, so it's flagged below rather than done unilaterally.
+# FIX 1 -- APP NAME INCONSISTENCY (Section 12's "NYENZ ERP vs Golden Seed"
+# known issue). Every user-visible surface already said "Golden Seed"
+# correctly (Header, LoginPage, print dossier). The leftover "NYENZ" was in
+# two places a real user (or a screen reader) actually sees:
+#   - Sidebar.jsx footer: aria-label + visible branding text still read
+#     "NYENZ" while the header logo two inches above it reads "GOLDEN SEED".
+#   - ReportController.java: every downloaded report CSV was literally named
+#     NYENZ_<report>_<date>.csv -- a client-facing filename that didn't match
+#     the app's own branding.
+# Every remaining "NYENZ" was in code comments / doc-block headers (not
+# visible to any user) -- patched too for internal consistency, since David
+# asked for the whole codebase to read consistently, not just the UI.
 #
-# FIX 2 (Phase 3 status claim) -- already correct in LLM_CONTEXT_GUIDE.md
-# (Stage 3 of this roadmap already corrected Section 17.10's wording for
-# Phase 3, and Phases 5/6/7 besides). Nothing to patch.
+# FIX 2 -- BACKLOG/RECEIVABLE DB COLUMN NAMES (David's exact example: he
+# wants "receivable" used for everything that used to say "backlog"). The
+# Java side is already fully done (c858569 renamed every field, label, and
+# variable). The ONLY thing still called "backlog" anywhere in the app is 4
+# raw Postgres column names behind @Column(name=...) on LandProject.java:
+# is_backlog, backlog_start_date, backlog_start_override,
+# backlog_months_billed. These are invisible to every user and even to the
+# Java code (the fields themselves are already isReceivable, etc).
 #
-# FIX 3 (language simplification list) -- checked every .jsx file for all
-# six old strings. Five have no trace anywhere (already renamed in earlier
-# work). "Nuclear Purge" survives only as a CSS comment above the button
-# that already reads "DELETE" -- not user-visible, left alone. The one
-# real leftover: RootTerminal.jsx's "NEW PLOT" quick-action button still
-# carries aria-label="Go to asset intake" even though its visible text
-# already says "NEW PLOT" -- fixed below to keep the accessible name and
-# the visible label consistent (screen reader users were hearing the old
-# terminology even though sighted users never saw it).
+# THIS SCRIPT DOES NOT RENAME THOSE COLUMNS. Reason, checked against your
+# actual config: application.properties has
+# spring.jpa.hibernate.ddl-auto=update. Hibernate runs its own schema sync
+# from the @Column names BEFORE DataInitializer's CommandLineRunner (which is
+# where a RENAME COLUMN migration would have to live) ever executes. So the
+# instant the Java @Column annotation changed to "is_receivable", Hibernate
+# would silently ADD a new empty is_receivable column at boot -- then the
+# RENAME migration would fail (target name already taken) and get silently
+# skipped by the existing try/catch-and-continue pattern in
+# runSchemaMigrations(). Net result on your real production data: a
+# fresh, empty is_receivable column the app now reads from, while every real
+# historical value sits stranded in the old is_backlog column, invisible.
+# That is a silent real-money data loss risk on a live financial table, not
+# a cosmetic issue, so it does not belong in an automatic cleanup script.
+# Instead: a code comment is added at the site explaining exactly why the
+# name is intentionally still "backlog" at the DB level, so nobody
+# accidentally "fixes" this later without seeing the reasoning. If you want
+# this actually renamed, it needs a one-time manual migration run by hand
+# against the live DB (not via ddl-auto), separately from a code deploy --
+# flag it to a future session explicitly if you want that scheduled.
 #
-# Safe to re-run: every patch is checked before writing; if a patch
-# target is not found it prints MISSING and leaves that file alone
-# (most likely meaning this stage is already applied).
+# Safe to re-run: every patch is checked before writing; if a patch target
+# is not found it prints MISSING and leaves that file alone (most likely
+# meaning this stage is already applied).
 
 import os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-
-# ---------------------------------------------------------------------
-# FIX 1: dead weekly-payment-schedule code -- dynamic reference check.
-# Actually walks the codebase at run time (not hardcoded) so this stays
-# correct even if the code has moved on since this script was written.
-# ---------------------------------------------------------------------
-DELETE_CANDIDATES = [
-    (
-        "PaymentSchedule",
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/PaymentSchedule.java",
-    ),
-    (
-        "PaymentScheduleRepository",
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/PaymentScheduleRepository.java",
-    ),
-    (
-        "ReceivableSchedulerService",
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java",
-    ),
-]
-
-
-def find_java_files(root):
-    out = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        if ".git" in dirpath.split(os.sep):
-            continue
-        for fn in filenames:
-            if fn.endswith(".java"):
-                out.append(os.path.join(dirpath, fn))
-    return out
 
 
 def read_file(path):
@@ -102,148 +88,239 @@ def write_file(path, content):
         f.write(content)
 
 
-def check_and_delete_dead_code():
-    applied = 0
-    missing = []
-    all_java = find_java_files(ROOT)
-
-    for class_name, rel_def_path in DELETE_CANDIDATES:
-        def_full_path = os.path.join(ROOT, rel_def_path)
-        if not os.path.exists(def_full_path):
-            print("[STAGE 4] delete " + rel_def_path + " ... OK (already removed)")
-            applied += 1
-            continue
-
-        refs = []
-        for full_path in all_java:
-            if os.path.abspath(full_path) == os.path.abspath(def_full_path):
-                continue
-            content = read_file(full_path)
-            if class_name in content:
-                rel = os.path.relpath(full_path, ROOT).replace(os.sep, "/")
-                refs.append(rel)
-
-        if refs:
-            print("[STAGE 4] delete " + rel_def_path + " ... MISSING (still referenced by: "
-                  + ", ".join(refs) + " -- NOT deleted)")
-            missing.append(rel_def_path + " (still referenced by: " + ", ".join(refs) + ")")
-        else:
-            os.remove(def_full_path)
-            print("[STAGE 4] delete " + rel_def_path + " ... OK (deleted, no references found)")
-            applied += 1
-
-    return applied, missing
-
-
-# ---------------------------------------------------------------------
-# FIX 3: language simplification -- the one real leftover found.
-# ---------------------------------------------------------------------
+# Each tuple: (label, relative_path, old_str, new_str)
 PATCHES = [
+    # --- FIX 1: user-visible branding (the two real leftovers) ---
     (
-        "erp-frontend/src/pages/Dashboard/RootTerminal.jsx",
-        '''<button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to asset intake"><FiFilePlus  aria-hidden="true" /> NEW PLOT</button>''',
-        '''<button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to new plot"><FiFilePlus  aria-hidden="true" /> NEW PLOT</button>''',
+        "Sidebar footer aria-label",
+        "erp-frontend/src/components/layout/Sidebar.jsx",
+        'aria-label="NYENZ branding"',
+        'aria-label="Golden Seed branding"',
+    ),
+    (
+        "Sidebar footer visible text",
+        "erp-frontend/src/components/layout/Sidebar.jsx",
+        '<div className={styles.branding} aria-hidden="true">NYENZ</div>',
+        '<div className={styles.branding} aria-hidden="true">GOLDEN SEED</div>',
+    ),
+    (
+        "Report CSV download filename",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/ReportController.java",
+        'String fileName = "NYENZ_" + reportName + "_" + LocalDateTime.now().format(fileStamp) + ".csv";',
+        'String fileName = "GOLDEN_SEED_" + reportName + "_" + LocalDateTime.now().format(fileStamp) + ".csv";',
     ),
 
-    # -------------------------------------------------------------
-    # Section 3 process note (verbatim, per the roadmap instructions)
-    # -------------------------------------------------------------
+    # --- FIX 1: internal-only doc-comment headers / boot log lines ---
     (
-        "LLM_CONTEXT_GUIDE.md",
-        '''**RULE (August 2026, PERMANENT): Testing happens ONLY after ALL planned phases in the current rebuild are code-complete and deployed -- never after each individual phase in isolation. Do not propose or ask David to test a single phase on its own; keep shipping phases back-to-back until the full plan is code-complete, then run one comprehensive end-to-end test pass covering everything at once. This makes permanent the deferred-testing approach David adopted during the ERP Revamp.**
+        "SystemAdminController header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/admin/controller/SystemAdminController.java",
+        " * NYENZ ERP - SYSTEM RESET CONTROLLER",
+        " * GOLDEN SEED ERP - SYSTEM RESET CONTROLLER",
+    ),
+    (
+        "Role.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/model/Role.java",
+        " * NYENZ ERP - INDUSTRIAL ROLE DICTIONARY",
+        " * GOLDEN SEED ERP - INDUSTRIAL ROLE DICTIONARY",
+    ),
+    (
+        "User.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/model/User.java",
+        " * NYENZ ERP - SYSTEM OPERATOR IDENTITY",
+        " * GOLDEN SEED ERP - SYSTEM OPERATOR IDENTITY",
+    ),
+    (
+        "UserRepository.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/repository/UserRepository.java",
+        " * NYENZ ERP - OPERATOR REGISTRY ACCESS",
+        " * GOLDEN SEED ERP - OPERATOR REGISTRY ACCESS",
+    ),
+    (
+        "AuthService.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/AuthService.java",
+        " * NYENZ ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)",
+        " * GOLDEN SEED ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)",
+    ),
+    (
+        "StaffManagementService.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/StaffManagementService.java",
+        " * NYENZ ERP - STAFF MANAGEMENT ENGINE (V5)",
+        " * GOLDEN SEED ERP - STAFF MANAGEMENT ENGINE (V5)",
+    ),
+    (
+        "StaffController.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/controller/StaffController.java",
+        " * NYENZ ERP - STAFF MASTERY CONTROLLER",
+        " * GOLDEN SEED ERP - STAFF MASTERY CONTROLLER",
+    ),
+    (
+        "ProfileController.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/controller/ProfileController.java",
+        " * NYENZ ERP - PROFILE & SECURITY PANEL",
+        " * GOLDEN SEED ERP - PROFILE & SECURITY PANEL",
+    ),
+    (
+        "AuthController.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/auth/controller/AuthController.java",
+        " * NYENZ ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)",
+        " * GOLDEN SEED ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)",
+    ),
+    (
+        "ReportController.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/ReportController.java",
+        " * NYENZ ERP - INTELLIGENCE COMMAND HUB (V16)",
+        " * GOLDEN SEED ERP - INTELLIGENCE COMMAND HUB (V16)",
+    ),
+    (
+        "DataInitializer.java boot log line 1",
+        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
+        'System.out.println(">>> NYENZ SYSTEM: Verifying Master Identity Registry...");',
+        'System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");',
+    ),
+    (
+        "DataInitializer.java boot log line 2",
+        "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
+        'System.out.println(">>> NYENZ SYSTEM: Identity Protocol Active. Registry Locked.");',
+        'System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");',
+    ),
+    (
+        "SecurityConfig.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/config/SecurityConfig.java",
+        " * NYENZ ERP - MASTER SECURITY CONFIG (V3.0 - CLOUD STABLE)",
+        " * GOLDEN SEED ERP - MASTER SECURITY CONFIG (V3.0 - CLOUD STABLE)",
+    ),
+    (
+        "WebConfig.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/config/WebConfig.java",
+        " * NYENZ ERP - DIGITAL VAULT BRIDGE (V1.2 - CROSS-PLATFORM)",
+        " * GOLDEN SEED ERP - DIGITAL VAULT BRIDGE (V1.2 - CROSS-PLATFORM)",
+    ),
+    (
+        "GlobalExceptionHandler.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/common/exception/GlobalExceptionHandler.java",
+        " * NYENZ ERP - MASTER DIAGNOSTIC INTERCEPTOR (V1.3 - LOUD REPORTING)",
+        " * GOLDEN SEED ERP - MASTER DIAGNOSTIC INTERCEPTOR (V1.3 - LOUD REPORTING)",
+    ),
+    (
+        "AuditController.java header comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/common/audit/AuditController.java",
+        " * NYENZ ERP - SYSTEM FORENSICS TERMINAL",
+        " * GOLDEN SEED ERP - SYSTEM FORENSICS TERMINAL",
+    ),
+    (
+        "auditService.js header comment",
+        "erp-frontend/src/services/auditService.js",
+        " * NYENZ INDUSTRIAL AUDIT SERVICE",
+        " * GOLDEN SEED INDUSTRIAL AUDIT SERVICE",
+    ),
+    (
+        "reportService.js header comment",
+        "erp-frontend/src/services/reportService.js",
+        " * NYENZ INDUSTRIAL REPORTING SERVICE",
+        " * GOLDEN SEED INDUSTRIAL REPORTING SERVICE",
+    ),
+    (
+        "reportService.js pillars comment",
+        "erp-frontend/src/services/reportService.js",
+        "/* --- THE 8 PILLARS OF NYENZ INTELLIGENCE --- */",
+        "/* --- THE 8 PILLARS OF GOLDEN SEED INTELLIGENCE --- */",
+    ),
+    (
+        "predictionService.js header comment",
+        "erp-frontend/src/services/predictionService.js",
+        " * NYENZ PREDICTION ENGINE",
+        " * GOLDEN SEED PREDICTION ENGINE",
+    ),
+    (
+        "authService.js header comment",
+        "erp-frontend/src/services/authService.js",
+        " * NYENZ ERP - AUTHENTICATION PIPELINE (V2.1 - CLOUD FIXED)",
+        " * GOLDEN SEED ERP - AUTHENTICATION PIPELINE (V2.1 - CLOUD FIXED)",
+    ),
+    (
+        "settingsService.js header comment",
+        "erp-frontend/src/services/settingsService.js",
+        " * NYENZ ERP - SECURITY & GOVERNANCE SERVICE (V5)",
+        " * GOLDEN SEED ERP - SECURITY & GOVERNANCE SERVICE (V5)",
+    ),
+    (
+        "FolderPage.module.css header comment",
+        "erp-frontend/src/pages/DigitalFolder/FolderPage.module.css",
+        "   NYENZ ERP \u2014 TERMINAL X  |  FolderPage.module.css  |  V15.7",
+        "   GOLDEN SEED ERP \u2014 TERMINAL X  |  FolderPage.module.css  |  V15.7",
+    ),
 
-### Why patches fail:''',
-        '''**RULE (August 2026, PERMANENT): Testing happens ONLY after ALL planned phases in the current rebuild are code-complete and deployed -- never after each individual phase in isolation. Do not propose or ask David to test a single phase on its own; keep shipping phases back-to-back until the full plan is code-complete, then run one comprehensive end-to-end test pass covering everything at once. This makes permanent the deferred-testing approach David adopted during the ERP Revamp.**
-**RULE (August 2026, PERMANENT): Going forward, BUG FIXES (as opposed to new revamp phases) are tested immediately after each stage, not deferred to the end. Only the ERP REVAMP phases (Section 17) follow the deferred, test-everything-at-the-end rule. Bug-fix stages in the roadmap follow normal one-stage-then-test discipline.**
+    # --- FIX 2: explain-don't-touch comment on the backlog/receivable columns ---
+    (
+        "LandProject.java backlog column risk-note comment",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java",
+        "    // Boolean (object not primitive) so existing DB rows with NULL don't crash\n"
+        "    @Builder.Default\n"
+        '    @Column(name = "is_backlog")\n'
+        "    private Boolean isReceivable = false;",
 
-### Why patches fail:''',
+        "    // Boolean (object not primitive) so existing DB rows with NULL don't crash\n"
+        "    //\n"
+        "    // NOTE (Stage 5 cleanup pass): the 4 raw column names below (is_backlog,\n"
+        "    // backlog_start_date, backlog_start_override, backlog_months_billed) are\n"
+        "    // the only place in the whole app still saying \"backlog\" instead of\n"
+        "    // \"receivable\" -- the Java fields themselves were already renamed in\n"
+        "    // c858569. Left as-is on purpose: ddl-auto=update makes Hibernate sync\n"
+        "    // its schema from these @Column names BEFORE DataInitializer's raw-JDBC\n"
+        "    // migrations ever run, so renaming the annotation would make Hibernate\n"
+        "    // silently create a new empty column at boot and strand all the real\n"
+        "    // historical data in the old column name. Do not rename these without a\n"
+        "    // manual, out-of-band migration run directly against the live DB first.\n"
+        "    @Builder.Default\n"
+        '    @Column(name = "is_backlog")\n'
+        "    private Boolean isReceivable = false;",
     ),
 ]
 
 
 def apply_patches():
-    applied = 0
+    ok = 0
     missing = []
-
-    for rel_path, old, new in PATCHES:
+    for label, rel_path, old, new in PATCHES:
         full_path = os.path.join(ROOT, rel_path)
-        desc = rel_path
         if not os.path.exists(full_path):
-            print("[STAGE 4] " + desc + " ... MISSING (file not found)")
-            missing.append(desc + " (file not found)")
+            print("[STAGE 5] " + label + " ... MISSING (file not found: " + rel_path + ")")
+            missing.append(label)
             continue
+
         content = read_file(full_path)
-        if new in content:
-            print("[STAGE 4] " + desc + " ... OK (already patched)")
-            applied += 1
-            continue
         if old not in content:
-            print("[STAGE 4] " + desc + " ... MISSING (patch target not found)")
-            missing.append(desc + " (patch target not found)")
+            if new in content:
+                print("[STAGE 5] " + label + " ... OK (already applied)")
+                ok += 1
+            else:
+                print("[STAGE 5] " + label + " ... MISSING (patch target not found in " + rel_path + ")")
+                missing.append(label)
             continue
+
         content = content.replace(old, new, 1)
         write_file(full_path, content)
-        print("[STAGE 4] " + desc + " ... OK")
-        applied += 1
+        print("[STAGE 5] " + label + " ... OK")
+        ok += 1
 
-    return applied, missing
+    return ok, missing
 
 
 def main():
-    print("--- FIX 1: dead weekly-payment-schedule code (live reference check) ---")
-    dead_code_applied, dead_code_missing = check_and_delete_dead_code()
-
-    print("")
-    print("--- FIX 2: Phase 3 status claim ---")
-    print("[STAGE 4] LLM_CONTEXT_GUIDE.md Section 17.10 Phase 3 wording ... OK (already correct, "
-          "fixed in Stage 3)")
-
-    print("")
-    print("--- FIX 3: language simplification + Section 3 process note ---")
-    patch_applied, patch_missing = apply_patches()
-
-    applied = dead_code_applied + 1 + patch_applied  # +1 for the already-correct Fix 2 check
-    missing = dead_code_missing + patch_missing
-    total = len(DELETE_CANDIDATES) + 1 + len(PATCHES)
-
-    print("")
-    print("============================================")
-    print("STAGE 4 COMPLETE: " + str(applied) + " of " + str(total) + " items resolved")
-    print("FILES DELETED: none this run (see MISSING list below for why)")
-    print("LABEL STRINGS REPLACED: 1 (RootTerminal.jsx aria-label)")
-    print("DOC CORRECTIONS: 1 (Section 3 bug-fix testing-cadence note appended)")
-    print("============================================")
-
+    print("=" * 70)
+    print("STAGE 5 -- NAMING CONSISTENCY CLEANUP")
+    print("=" * 70)
+    ok, missing = apply_patches()
+    print("-" * 70)
+    print("Applied/confirmed: " + str(ok) + " / " + str(len(PATCHES)))
     if missing:
-        print("")
-        print("MISSING / NOT DELETED (expected this run -- see header comment for why):")
+        print("MISSING (" + str(len(missing)) + "):")
         for m in missing:
             print("  - " + m)
-
-    print("")
-    print("FLAGGED FOR A FUTURE SESSION (not done here -- bigger than this stage's scope):")
-    print("  - PaymentSchedule.java, PaymentScheduleRepository.java, and PaymentEngineService.java")
-    print("    together form a dead cluster: PaymentEngineService is the only thing that uses the")
-    print("    other two, and NOTHING calls PaymentEngineService anywhere in the codebase. If")
-    print("    confirmed genuinely unused, a future fix.py could delete all three together. NOT")
-    print("    done automatically here because Stage 4's own scope was the three roadmap-named")
-    print("    files, and PaymentEngineService was never one of them -- expanding to delete it too")
-    print("    is a decision for a dedicated pass, not a side effect of this cleanup stage.")
-    print("  - ReceivableSchedulerService.java must NEVER be deleted by a future cleanup pass on")
-    print("    the strength of a caller search alone -- it runs two live @Scheduled cron jobs")
-    print("    (storage fee billing, auto-receivable flagging) that Spring invokes on a timer,")
-    print("    not via any code reference that a dead-code grep would find.")
-    print("  - payment_schedules DB table: still fully orphaned (same as before), can be dropped")
-    print("    manually once you're confident nothing needs it. Not touched by this script.")
-
-    print("")
-    print("Next steps:")
-    print("1. git add -A && git commit -m 'Stage 4: label cleanup, doc/process notes' && git push")
-    print("2. Watch Render Events tab for the green tick.")
-    print("3. Spot-check the NEW PLOT button on the Root/Director dashboard with a screen reader")
-    print("   or the accessibility inspector -- confirm it now announces 'Go to new plot'.")
-    print("4. Confirm the app still builds and runs (nothing was deleted this run, so this should")
-    print("   be a formality).")
+    else:
+        print("Nothing missing.")
+    print("=" * 70)
+    print("Next: git add -A && git commit -m 'Stage 5: naming consistency cleanup' && git push")
 
 
 if __name__ == "__main__":

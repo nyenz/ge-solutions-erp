@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * NYENZ ERP - SYSTEM RESET CONTROLLER
+ * GOLDEN SEED ERP - SYSTEM RESET CONTROLLER
  *
  * Physically wipes every business record in the database and restores the
  * app to a fresh, empty state. SECURITY PROTOCOL: Root Founder only -- this

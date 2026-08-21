@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * NYENZ ERP - INTELLIGENCE COMMAND HUB (V16)
+ * GOLDEN SEED ERP - INTELLIGENCE COMMAND HUB (V16)
  * 
  * Physically manages the secure export of the 8 Pillars of Analytics.
  * SECURITY UPDATE: Financial Pillars unlocked for ROLE_ADMIN (Tier 2).
@@ -131,7 +131,7 @@ public class ReportController {
      * INDUSTRIAL HELPER: Formats the byte stream with CSV headers.
      */
     private ResponseEntity<byte[]> streamCsv(byte[] data, String reportName) {
-        String fileName = "NYENZ_" + reportName + "_" + LocalDateTime.now().format(fileStamp) + ".csv";
+        String fileName = "GOLDEN_SEED_" + reportName + "_" + LocalDateTime.now().format(fileStamp) + ".csv";
         
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)

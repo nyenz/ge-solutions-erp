@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * NYENZ ERP - DIGITAL VAULT BRIDGE (V1.2 - CROSS-PLATFORM)
+ * GOLDEN SEED ERP - DIGITAL VAULT BRIDGE (V1.2 - CROSS-PLATFORM)
  * 
  * Physically maps the server's hard drive storage (ge_uploads) to a 
  * web-accessible URL (/api/v1/vault/**).

@@ -16,7 +16,7 @@ import java.util.Random;
 import java.util.UUID;
 
 /**
- * NYENZ ERP - STAFF MANAGEMENT ENGINE (V5)
+ * GOLDEN SEED ERP - STAFF MANAGEMENT ENGINE (V5)
  * 
  * Physically manages the operator lifecycle.
  * Added: Dynamic Role Switching (Promotion/Demotion).

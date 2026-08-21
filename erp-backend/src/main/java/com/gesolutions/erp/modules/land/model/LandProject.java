@@ -50,6 +50,17 @@ public class LandProject {
     private String planType;
 
     // Boolean (object not primitive) so existing DB rows with NULL don't crash
+    //
+    // NOTE (Stage 5 cleanup pass): the 4 raw column names below (is_backlog,
+    // backlog_start_date, backlog_start_override, backlog_months_billed) are
+    // the only place in the whole app still saying "backlog" instead of
+    // "receivable" -- the Java fields themselves were already renamed in
+    // c858569. Left as-is on purpose: ddl-auto=update makes Hibernate sync
+    // its schema from these @Column names BEFORE DataInitializer's raw-JDBC
+    // migrations ever run, so renaming the annotation would make Hibernate
+    // silently create a new empty column at boot and strand all the real
+    // historical data in the old column name. Do not rename these without a
+    // manual, out-of-band migration run directly against the live DB first.
     @Builder.Default
     @Column(name = "is_backlog")
     private Boolean isReceivable = false;
