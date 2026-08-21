@@ -462,8 +462,17 @@ public class LandService {
     // The caller must now name the specific owner being logged (this is the
     // "merge log-a-call and add-a-note into one action" from open question
     // 3.4 #1 -- project + specific owner + timestamp + note, in one record).
+    // STAGE 11 FIX: SOFT_DUPLICATE_CONTACT_WARNING (design brief 3.4, open
+    // question #2 -- explicitly left undecided by Stage 10). Decision:
+    //   - SOFT, never blocks: 3.3 already agreed staff must be able to call
+    //     different joint owners independently, so a second co-owner call
+    //     inside the window is normal and is never prevented.
+    //   - 3-day look-back, not the full 14-day cooldown: this flags "we just
+    //     called about this plot yesterday", not ordinary independent contact.
+    //   - Surfaced on the existing endpoint's response, same pattern Stage 10
+    //     used for merging log-a-call/add-a-note into one action.
     @Transactional(rollbackFor = Exception.class)
-    public void logFollowUp(UUID projectId, UUID ownerId, String content) {
+    public java.util.Map<String, Object> logFollowUp(UUID projectId, UUID ownerId, String content) {
         LandProject project = projectRepository.findById(projectId).orElseThrow();
 
         boolean ownerIsProprietor = project.getProprietors() != null &&
@@ -472,6 +481,26 @@ public class LandService {
         if (!ownerIsProprietor) {
             throw new BusinessException(
                     "OWNER_NOT_ON_PROJECT: The selected owner is not a proprietor of this project.");
+        }
+
+        // STAGE 11: advisory-only read -- does not touch any co-owner's state.
+        String coOwnerWarning = null;
+        LocalDateTime recentWindowStart = LocalDateTime.now().minusDays(3);
+        java.util.List<FollowUpLog> recentProjectLogs =
+                followUpRepository.findByProjectIdOrderByTimestampDesc(projectId);
+        for (FollowUpLog log : recentProjectLogs) {
+            if (log.getOwnerId() != null
+                    && !log.getOwnerId().equals(ownerId)
+                    && log.getTimestamp() != null
+                    && log.getTimestamp().isAfter(recentWindowStart)) {
+                Client coOwner = project.getProprietors().stream()
+                        .filter(o -> o != null && log.getOwnerId().equals(o.getId()))
+                        .findFirst().orElse(null);
+                String coOwnerName = coOwner != null ? coOwner.getFullName() : "another owner";
+                coOwnerWarning = coOwnerName + " was already contacted about this plot on "
+                        + log.getTimestamp().toLocalDate() + ".";
+                break;
+            }
         }
 
         // Update ONLY the specific owner who was actually reached. Cooldown
@@ -491,6 +520,11 @@ public class LandService {
         auditService.logAction("RECOVERY_SYNC",
             "Operator [" + operator + "] logged call for plot: "
             + project.getLandTitle().getPlotNumber() + " (owner reached: " + ownerId + ")");
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("ownerId", ownerId);
+        result.put("coOwnerWarning", coOwnerWarning);
+        return result;
     }
 
     @Transactional

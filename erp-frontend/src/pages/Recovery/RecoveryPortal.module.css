@@ -627,3 +627,22 @@
 }
 .coOwnerLink:hover { color: #f0a050; }
 .coOwnerLink:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* ── STAGE 11: soft co-owner-recently-contacted notice banner ── */
+.coOwnerWarningBanner {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: clamp(8px, 1vw, 12px);
+    background: rgba(238, 140, 58, 0.12); border: 1px solid rgba(238, 140, 58, 0.4);
+    border-radius: 8px;
+    padding: clamp(8px, 1vw, 12px) clamp(12px, 1.4vw, 16px);
+    margin-bottom: clamp(10px, 1.2vw, 14px);
+    font-family: 'DM Sans', sans-serif; font-size: clamp(11px, 1vw, 13px);
+    font-weight: 700; color: rgba(255, 255, 255, 0.85);
+}
+.coOwnerWarningDismiss {
+    background: none; border: none; cursor: pointer;
+    font-size: 16px; line-height: 1; color: rgba(255, 255, 255, 0.6);
+    padding: 0 2px; flex-shrink: 0;
+}
+.coOwnerWarningDismiss:hover { color: #fff; }
+.coOwnerWarningDismiss:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }

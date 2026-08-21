@@ -46,13 +46,15 @@ public class LandController {
     // attributed to the specific person staff actually reached, instead of
     // silently defaulting to whichever co-owner sorts first alphabetically
     // (design brief 3.3/3.4).
+    // STAGE 11 FIX: response now carries an optional soft coOwnerWarning
+    // (design brief 3.4 #2) instead of an empty body -- never blocks the
+    // save, frontend decides whether/how to surface it.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/follow-up")
-    public ResponseEntity<Void> logContact(@PathVariable UUID id,
+    public ResponseEntity<java.util.Map<String, Object>> logContact(@PathVariable UUID id,
                                             @RequestParam UUID ownerId,
                                             @RequestParam String content) {
-        landService.logFollowUp(id, ownerId, content);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(landService.logFollowUp(id, ownerId, content));
     }
 
     // STAGE 2 FIX: intake is a data-entry endpoint per the role table

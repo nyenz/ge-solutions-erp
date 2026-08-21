@@ -32,11 +32,13 @@ const recoveryService = {
         return response.data;
     },
 
+    // STAGE 11 FIX: return the response body (may include a soft
+    // coOwnerWarning, design brief 3.4 #2) instead of discarding it.
     logRecoveryCall: async (projectId, ownerId, text) => {
-        await api.post(`/land/projects/${projectId}/follow-up`, null, {
+        const response = await api.post(`/land/projects/${projectId}/follow-up`, null, {
             params: { ownerId, content: text }
         });
-        return true;
+        return response.data;
     },
 
     recordPayment: async (projectId, amount, notes) => {

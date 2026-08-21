@@ -61,24 +61,35 @@ public class DashboardController {
                 .filter(p -> p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo))
                 .count();
 
-        // Stale count = plots with outstanding balance whose primary owner is eligible to call
-        // This matches the buildPlotTasks() logic in RecoveryController exactly.
-        // Stale count = unique owners (Client IDs) who are due for a call today
+        // STAGE 11 FIX: DASHBOARD_STALE_COUNT_PRIMARY_OWNER_BUG.
+        // This used to pick only the alphabetically-first proprietor per plot
+        // ("primary") and test THEIR cooldown/count -- the exact bug Stage 9/10
+        // already removed from Recovery itself, just never ported here, so this
+        // KPI could silently disagree with GET /api/v1/recovery/count. Decision
+        // (3.4): both must report the same definition of "stale" -- unique
+        // Client IDs, deduped across every plot they co-own, each independently
+        // eligible under their own cooldown/monthly-count state -- matching
+        // RecoveryController.buildOwnerTasks's eligibility rule exactly.
         long staleCalls = allPlots.stream()
                 .filter(p -> {
                     java.math.BigDecimal bal = p.isReceivable()
                             ? p.receivableTotalOwed() : p.activeTotalOwed();
-                    if (bal.compareTo(java.math.BigDecimal.ZERO) <= 0) return false;
-                    if (p.getProprietors() == null || p.getProprietors().isEmpty()) return false;
-                    com.gesolutions.erp.modules.client.model.Client primary = p.getProprietors()
-                            .stream().sorted(java.util.Comparator.comparing(
-                                com.gesolutions.erp.modules.client.model.Client::getFullName))
-                            .findFirst().orElse(null);
-                    if (primary == null) return false;
-                    if (primary.shouldResetMonthlyCounter()) primary.setMonthlyContactCount(0);
-                    if (primary.getMonthlyContactCount() >= 2) return false;
-                    if (primary.getLastContactedAt() == null) return true;
-                    java.time.LocalDate eligible = primary.getLastContactedAt().toLocalDate().plusDays(14);
+                    return bal.compareTo(java.math.BigDecimal.ZERO) > 0;
+                })
+                .flatMap(p -> p.getProprietors() == null
+                        ? java.util.stream.Stream.<com.gesolutions.erp.modules.client.model.Client>empty()
+                        : p.getProprietors().stream())
+                .filter(owner -> owner != null && owner.getId() != null)
+                .collect(Collectors.toMap(
+                        com.gesolutions.erp.modules.client.model.Client::getId,
+                        owner -> owner,
+                        (keepFirst, ignored) -> keepFirst))
+                .values().stream()
+                .filter(owner -> {
+                    if (owner.shouldResetMonthlyCounter()) owner.setMonthlyContactCount(0);
+                    if (owner.getMonthlyContactCount() >= 2) return false;
+                    if (owner.getLastContactedAt() == null) return true;
+                    java.time.LocalDate eligible = owner.getLastContactedAt().toLocalDate().plusDays(14);
                     return !java.time.LocalDate.now().isBefore(eligible);
                 })
                 .count();

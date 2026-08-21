@@ -42,6 +42,10 @@ const RecoveryPortal = () => {
     const [callModal,    setCallModal]    = useState({ open: false, mission: null, ownerId: null, ownerName: '' });
     const [logContent,   setLogContent]   = useState('');
     const [committing,   setCommitting]   = useState(false);
+    // STAGE 11 FIX: soft, dismissible notice for "a co-owner was already
+    // contacted about this plot recently" (design brief 3.4 #2) -- never
+    // blocks the call log, which has already been saved by the time this shows.
+    const [coOwnerWarning, setCoOwnerWarning] = useState(null);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -79,9 +83,12 @@ const RecoveryPortal = () => {
         if (!callModal.mission || !callModal.ownerId) return;
         setCommitting(true);
         try {
-            await recoveryService.logRecoveryCall(callModal.mission.projectId, callModal.ownerId, logContent);
+            const result = await recoveryService.logRecoveryCall(callModal.mission.projectId, callModal.ownerId, logContent);
             setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' });
             setLogContent('');
+            // STAGE 11 FIX: purely informational -- the call was already
+            // logged successfully by this point regardless of this value.
+            setCoOwnerWarning(result && result.coOwnerWarning ? result.coOwnerWarning : null);
             loadData();
         } catch { /* silent */ }
         finally { setCommitting(false); }
@@ -140,6 +147,23 @@ const RecoveryPortal = () => {
                     <strong>UGX {fmt(totalStorageFees)}</strong>
                 </div>
             </div>
+
+            {/* STAGE 11: soft, dismissible co-owner-recently-contacted notice
+                (design brief 3.4 #2) -- purely informational, call is already
+                logged by the time this can appear. */}
+            {coOwnerWarning && (
+                <div className={styles.coOwnerWarningBanner} role="status">
+                    <span>{coOwnerWarning}</span>
+                    <button
+                        type="button"
+                        className={styles.coOwnerWarningDismiss}
+                        onClick={() => setCoOwnerWarning(null)}
+                        aria-label="Dismiss notice"
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
 
             {/* FILTER BAR */}
             <div className={styles.filterBar}>
