@@ -75,13 +75,20 @@ public class RecoveryController {
             Set<Client> proprietors = plot.getProprietors();
             if (proprietors == null || proprietors.isEmpty()) continue;
 
-            Client primary = proprietors.stream()
-                    .sorted(Comparator.comparing(Client::getFullName))
-                    .findFirst().orElse(null);
-
-            if (primary != null) {
-                clientPlotsMap.computeIfAbsent(primary.getId(), k -> new ArrayList<>()).add(plot);
-                clientRegistry.put(primary.getId(), primary);
+            // STAGE 9 FIX: NIN_JOINT_OWNER_VISIBILITY
+            // Previously only the alphabetically-first co-owner ("primary") got
+            // this project attached to their Recovery card, so every other joint
+            // owner's exposure on this project was invisible to Recovery entirely.
+            // Attach the project to EVERY proprietor instead -- each co-owner gets
+            // their own card entry for it, on top of whatever solo/other-joint
+            // projects they carry. Per-person state (lastContactedAt /
+            // monthlyContactCount cooldown clock) is unaffected by this change: it
+            // already lives on Client, so it's naturally shared/consistent across
+            // every project that person co-owns.
+            for (Client proprietor : proprietors) {
+                if (proprietor == null) continue;
+                clientPlotsMap.computeIfAbsent(proprietor.getId(), k -> new ArrayList<>()).add(plot);
+                clientRegistry.put(proprietor.getId(), proprietor);
             }
         }
 

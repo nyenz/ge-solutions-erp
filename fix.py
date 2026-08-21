@@ -1,63 +1,44 @@
-# PATH: fix_stage8_nin_edit_bypass.py
-# STAGE 8 -- close the real NIN_NAME_MISMATCH gap on the Edit path
-# Run from project root: py fix_stage8_nin_edit_bypass.py
+# PATH: fix_stage9_joint_owner_visibility.py
+# STAGE 9 -- Recovery drops every joint owner except the alphabetically-first one
+# Run from project root: py fix_stage9_joint_owner_visibility.py
 #
 # CONTEXT / WHAT WAS ACTUALLY VERIFIED
 # -------------------------------------------------------------------------
-# The brief that kicked this session off ("Issue #1") claimed the mismatch
-# popup from Intake was never wired into the Edit screen at all. That claim
-# does NOT hold up against the code as of commit 27223e7 ("Stage 3: NIN
-# name-mismatch guard, soft-delete/restore"):
+# RecoveryController.buildOwnerTasks() builds one Recovery card per PERSON,
+# pulling in every project that person owes on. For a project with multiple
+# owners (proprietors), the code picked exactly one "primary" owner --
+# whoever's fullName sorts first alphabetically -- and attached that
+# project's balance only to that person's card:
 #
-#   - erp-frontend/src/pages/DigitalFolder/FolderPage.jsx already has its own
-#     ninMismatch state, its own handleNinBlurCheck() (calls
-#     clientService.lookupNin on blur, same as Intake), its own
-#     handleNinMismatchConfirm/Reject, its own <NinMismatchModal /> render,
-#     and its own save-time guard inside handleCommit():
-#         if (ninMismatch) { toast(...); return; }
-#     This mirrors IntakePage.jsx almost line for line. The frontend is NOT
-#     the gap.
+#     Client primary = proprietors.stream()
+#             .sorted(Comparator.comparing(Client::getFullName))
+#             .findFirst().orElse(null);
 #
-# The REAL gap is one layer down, on the backend, and it is a genuine bug:
+#     if (primary != null) {
+#         clientPlotsMap.computeIfAbsent(primary.getId(), k -> new ArrayList<>()).add(plot);
+#         clientRegistry.put(primary.getId(), primary);
+#     }
 #
-#   - LandService.atomicIntake() (Intake / create) routes every owner
-#     through ClientService.findOrCreateClientByNin(), which is the ONE
-#     place NIN_NAME_MISMATCH is actually thrown, and which never renames an
-#     existing matching Client -- it just returns the record as-is.
-#
-#   - LandService.updateProjectFull() (Edit / the "full-update" endpoint)
-#     instead did:
-#         clientRepository.findByNationalId(normalizedNin)
-#             .orElseGet(() -> clientService.findOrCreateClientByNin(...))
-#     i.e. it only calls the mismatch-checking method on the NOT-FOUND
-#     branch (a brand-new NIN). For an EXISTING NIN -- the exact scenario
-#     the brief is worried about -- it skips the check entirely and then
-#     unconditionally runs:
-#         person.setFullName(incoming.getFullName().toUpperCase());
-#     silently renaming that person's identity record, which is shared
-#     across every project they're on.
-#
-# The frontend's blocking modal is a real, working safety net for the normal
-# click-path through the UI -- but it's advisory only, driven by a separate
-# GET lookupNin call. It does nothing to stop a request that reaches
-# PUT /land/projects/{id}/full-update by any other route (a race between two
-# staff editing the same NIN at once, a retried/replayed request after the
-# blur check already fired once, a future frontend regression, a direct API
-# call). Intake has a hard backend backstop for this; Edit did not.
+# Every OTHER co-owner on that project got no card entry for it at all,
+# unless they separately happened to be the sole/primary owner of some other
+# project. Staff working the Recovery queue would never see that project, or
+# its balance, listed under a co-owner who didn't win the alphabetical draw.
+# If that co-owner also had their own solo projects, their on-screen "total
+# demand" understated their real exposure too.
 #
 # THE FIX
 # -------------------------------------------------------------------------
-# Route updateProjectFull() through the exact same
-# ClientService.findOrCreateClientByNin() call Intake uses, unconditionally,
-# for every owner -- so the NIN_NAME_MISMATCH guard is enforced identically
-# on both paths, and an existing person's fullName is never rewritten by
-# this method (matching Intake behavior: full name is identity-level, only
-# ever changed by whatever explicit process the business decides, not by a
-# routine per-project edit). Per-project fields (email/phone/home address)
-# remain editable exactly as before.
+# Attach each project to EVERY proprietor instead of picking one "primary".
+# Each co-owner now gets their own Recovery card entry for it, in addition
+# to whatever solo or other-joint projects they already carry, and their
+# totalDemand correctly sums across all of them.
 #
-# No frontend change needed. NinMismatchModal.jsx, IntakePage.jsx, and
-# FolderPage.jsx are unchanged and already correct.
+# No DTO or schema changes needed -- RecoveryTaskDTO already models one
+# card = one person with a list of plots. Per-person cooldown state
+# (lastContactedAt / monthlyContactCount) is untouched by this change: it
+# already lives on Client (not per-project, not per-ownership-pairing), so
+# it is naturally shared and consistent across every project a person
+# co-owns -- confirmed directly in Client.java, unaffected here.
 #
 # Safe to re-run: the patch is checked before writing; if the target is not
 # found it prints MISSING and leaves the file alone (most likely meaning
@@ -84,24 +65,24 @@ def write_file(path, content):
 def patch(label, rel_path, old, new):
     full_path = os.path.join(ROOT, rel_path)
     if not os.path.exists(full_path):
-        print("[STAGE 8] " + label + " ... MISSING (file not found: " + rel_path + ")")
+        print("[STAGE 9] " + label + " ... MISSING (file not found: " + rel_path + ")")
         return False
     content = read_file(full_path)
     if old not in content:
         if new in content:
-            print("[STAGE 8] " + label + " ... OK (already applied)")
+            print("[STAGE 9] " + label + " ... OK (already applied)")
             return True
-        print("[STAGE 8] " + label + " ... MISSING (patch target not found in " + rel_path + ")")
+        print("[STAGE 9] " + label + " ... MISSING (patch target not found in " + rel_path + ")")
         return False
     content = content.replace(old, new, 1)
     write_file(full_path, content)
-    print("[STAGE 8] " + label + " ... OK")
+    print("[STAGE 9] " + label + " ... OK")
     return True
 
 
 def main():
     print("=" * 70)
-    print("STAGE 8 -- NIN_NAME_MISMATCH guard was bypassed on Edit (backend only)")
+    print("STAGE 9 -- joint-owner visibility gap in Recovery (backend only)")
     print("=" * 70)
 
     ok = 0
@@ -109,65 +90,41 @@ def main():
 
     total += 1
     ok += patch(
-        "LandService.updateProjectFull: route owners through findOrCreateClientByNin "
-        "unconditionally, instead of only on the not-found branch",
-        "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+        "RecoveryController.buildOwnerTasks: attach each project to every "
+        "proprietor, instead of only the alphabetically-first 'primary' owner",
+        "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
 
-        "        if (request.getOwners() != null) {\n"
-        "            Set<Client> updatedRegistry = new HashSet<>();\n"
-        "            for (LandEntryRequest.OwnerRequest incoming : request.getOwners()) {\n"
-        "                if (incoming.getNationalId() == null || incoming.getNationalId().isBlank()) {\n"
-        "                    throw new BusinessException(\"NIN_REQUIRED: Owner \\\"\" + incoming.getFullName() + \"\\\" is missing a National ID (NIN).\");\n"
-        "                }\n"
-        "                String normalizedNin = incoming.getNationalId().trim().toUpperCase();\n"
-        "                Client person = clientRepository.findByNationalId(normalizedNin)\n"
-        "                        .orElseGet(() -> clientService.findOrCreateClientByNin(\n"
-        "                                incoming.getFullName(), normalizedNin, incoming.getPhone(), incoming.getEmail()));\n"
-        "                person.setFullName(incoming.getFullName().toUpperCase());\n"
-        "                person.setNationalId(normalizedNin);\n"
-        "                person.setEmail(incoming.getEmail() != null\n"
-        "                        ? incoming.getEmail().toLowerCase() : null);\n"
-        "                person.setHomeAddress(incoming.getAddress());\n"
-        "                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {\n"
-        "                    person.setPhoneNumber(incoming.getPhone());\n"
-        "                }\n"
-        "                clientRepository.save(person);\n"
-        "                updatedRegistry.add(person);\n"
+        "            Set<Client> proprietors = plot.getProprietors();\n"
+        "            if (proprietors == null || proprietors.isEmpty()) continue;\n"
+        "\n"
+        "            Client primary = proprietors.stream()\n"
+        "                    .sorted(Comparator.comparing(Client::getFullName))\n"
+        "                    .findFirst().orElse(null);\n"
+        "\n"
+        "            if (primary != null) {\n"
+        "                clientPlotsMap.computeIfAbsent(primary.getId(), k -> new ArrayList<>()).add(plot);\n"
+        "                clientRegistry.put(primary.getId(), primary);\n"
         "            }\n"
-        "            project.setProprietors(updatedRegistry);\n"
         "        }",
 
-        "        if (request.getOwners() != null) {\n"
-        "            Set<Client> updatedRegistry = new HashSet<>();\n"
-        "            for (LandEntryRequest.OwnerRequest incoming : request.getOwners()) {\n"
-        "                if (incoming.getNationalId() == null || incoming.getNationalId().isBlank()) {\n"
-        "                    throw new BusinessException(\"NIN_REQUIRED: Owner \\\"\" + incoming.getFullName() + \"\\\" is missing a National ID (NIN).\");\n"
-        "                }\n"
-        "                // STAGE 8 FIX: this used to look the client up directly by NIN and,\n"
-        "                // when found, unconditionally overwrite its stored fullName with\n"
-        "                // whatever was typed on this form -- bypassing the NIN_NAME_MISMATCH\n"
-        "                // guard entirely, because that guard only ran inside\n"
-        "                // findOrCreateClientByNin(), which this code only called on the\n"
-        "                // NOT-FOUND branch (orElseGet). Reusing an existing NIN with a\n"
-        "                // different typed name silently renamed that person's identity\n"
-        "                // record everywhere they appear. Routing every owner through\n"
-        "                // findOrCreateClientByNin() unconditionally -- same as atomicIntake\n"
-        "                // does on Intake -- restores the mismatch check on Edit, and, like\n"
-        "                // Intake, leaves fullName untouched for a matching existing person\n"
-        "                // (full name is identity-level, not a per-project field; it only\n"
-        "                // changes via the explicit mismatch-confirmation flow).\n"
-        "                Client person = clientService.findOrCreateClientByNin(\n"
-        "                        incoming.getFullName(), incoming.getNationalId(), incoming.getPhone(), incoming.getEmail());\n"
-        "                person.setEmail(incoming.getEmail() != null\n"
-        "                        ? incoming.getEmail().toLowerCase() : null);\n"
-        "                person.setHomeAddress(incoming.getAddress());\n"
-        "                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {\n"
-        "                    person.setPhoneNumber(incoming.getPhone());\n"
-        "                }\n"
-        "                clientRepository.save(person);\n"
-        "                updatedRegistry.add(person);\n"
+        "            Set<Client> proprietors = plot.getProprietors();\n"
+        "            if (proprietors == null || proprietors.isEmpty()) continue;\n"
+        "\n"
+        "            // STAGE 9 FIX: NIN_JOINT_OWNER_VISIBILITY\n"
+        "            // Previously only the alphabetically-first co-owner (\"primary\") got\n"
+        "            // this project attached to their Recovery card, so every other joint\n"
+        "            // owner's exposure on this project was invisible to Recovery entirely.\n"
+        "            // Attach the project to EVERY proprietor instead -- each co-owner gets\n"
+        "            // their own card entry for it, on top of whatever solo/other-joint\n"
+        "            // projects they carry. Per-person state (lastContactedAt /\n"
+        "            // monthlyContactCount cooldown clock) is unaffected by this change: it\n"
+        "            // already lives on Client, so it's naturally shared/consistent across\n"
+        "            // every project that person co-owns.\n"
+        "            for (Client proprietor : proprietors) {\n"
+        "                if (proprietor == null) continue;\n"
+        "                clientPlotsMap.computeIfAbsent(proprietor.getId(), k -> new ArrayList<>()).add(plot);\n"
+        "                clientRegistry.put(proprietor.getId(), proprietor);\n"
         "            }\n"
-        "            project.setProprietors(updatedRegistry);\n"
         "        }",
     )
 
