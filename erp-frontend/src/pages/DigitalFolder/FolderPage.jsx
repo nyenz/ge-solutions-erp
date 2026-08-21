@@ -364,7 +364,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 // ═══════════════════════════════════════════════════════════════
-// RECEIVABLE FEE ADMIN CONTROLS
+// RECEIVABLES FEE ADMIN CONTROLS
 // ═══════════════════════════════════════════════════════════════
 const ReceivableFeeControls = ({ project, projectId, onRefresh, toast }) => {
     const [feeInput,    setFeeInput]    = React.useState('');
@@ -1048,14 +1048,14 @@ const FolderPage = () => {
     };
 
     const handleMoveToReceivable = async () => {
-        const ok = await confirm('MOVE TO RECEIVABLE',
+        const ok = await confirm('MOVE TO RECEIVABLES',
             'This will freeze the current balance as original debt and start monthly storage fees of UGX 50,000. Continue?', 'warn');
         if (!ok) return;
         try {
             await recoveryService.moveToReceivable(id);
             await loadFolderData();
-            toast('Plot moved to receivable. Storage fees are now active.', 'warn');
-        } catch (err) { toast('RECEIVABLE FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
+            toast('Plot moved to receivables. Storage fees are now active.', 'warn');
+        } catch (err) { toast('RECEIVABLES FAILED: ' + (err.response?.data?.message || err.message), 'error'); }
     };
 
     const handleExitReceivable = () => {
@@ -1246,7 +1246,7 @@ const FolderPage = () => {
                             COLLECTION: {(binder.collectionPercentage||0).toFixed(1)}%
                         </span>
                         {isReceivable
-                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>RECEIVABLE</span>
+                            ? <span className={styles.metaTag} style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>RECEIVABLES</span>
                             : project.landTitle?.isReleased
                             ? <span className={styles.metaTag} style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399', borderColor: 'rgba(16,185,129,0.4)' }}>RELEASED</span>
                             : amountPaid >= totalCost
@@ -1271,12 +1271,12 @@ const FolderPage = () => {
                             )}
                             {isAdmin && !isReceivable && (
                                 <button className={styles.ctrlBtnReceivable} onClick={handleMoveToReceivable}>
-                                    <FiAlertOctagon aria-hidden="true" /> RECEIVABLE
+                                    <FiAlertOctagon aria-hidden="true" /> RECEIVABLES
                                 </button>
                             )}
                             {isAdmin && isReceivable && (
                                 <button className={styles.ctrlBtnReceivable} onClick={handleExitReceivable}>
-                                    <FiAlertOctagon aria-hidden="true" /> EXIT RECEIVABLE
+                                    <FiAlertOctagon aria-hidden="true" /> EXIT RECEIVABLES
                                 </button>
                             )}
                             <button className={styles.unlockMasterBtn} onClick={handleUnlock}>
@@ -1407,7 +1407,7 @@ const FolderPage = () => {
                     FINANCIALS TAB — Central hub:
                     1. Balance Summary
                     2. Record Payment (admin)
-                    3. Receivable Controls (admin, if receivable)
+                    3. Receivables Controls (admin, if receivable)
                     4. Payment History
                     5. Notes & Call Log
                     ════════════════════════════════════════════════════ */}
@@ -1489,10 +1489,10 @@ const FolderPage = () => {
                             </div>
                         </section>
 
-                        {/* ── 2. RECEIVABLE MANAGEMENT (admin only, shown when receivable) ── */}
+                        {/* ── 2. RECEIVABLES MANAGEMENT (admin only, shown when receivable) ── */}
                         {isAdmin && isReceivable && (
-                            <section className={styles.hwPanel} aria-label="Receivable Controls" id="receivable-controls">
-                                <DrawerHeader label="RECEIVABLE MANAGEMENT" isOpen={drawers.receivable} onClick={() => toggleDrawer('receivable')} icon={FiAlertOctagon} />
+                            <section className={styles.hwPanel} aria-label="Receivables Controls" id="receivable-controls">
+                                <DrawerHeader label="RECEIVABLES MANAGEMENT" isOpen={drawers.receivable} onClick={() => toggleDrawer('receivable')} icon={FiAlertOctagon} />
                                 <div className={`${styles.panelBody} ${drawers.receivable ? styles.bodyOpen : styles.bodyClosed}`}>
                                 <div className={styles.panelInner}>
                                     {isEditing ? (
@@ -1550,7 +1550,7 @@ const FolderPage = () => {
                                                         }} />
                                                 </div>
                                                 <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>RECEIVABLE START DATE OVERRIDE</label></div>
+                                                    <div className={styles.inputLabelRow}><label>RECEIVABLES START DATE OVERRIDE</label></div>
                                                     <input type="date" className={styles.hwInput}
                                                         defaultValue={project.receivableStartDate ? project.receivableStartDate.substring(0,10) : ''}
                                                         onBlur={async e => {
@@ -1587,7 +1587,7 @@ const FolderPage = () => {
                                                 </span>
                                             </div>
                                             <div className={styles.specItem}>
-                                                <span className={styles.specLabel}>RECEIVABLE START DATE</span>
+                                                <span className={styles.specLabel}>RECEIVABLES START DATE</span>
                                                 <span className={styles.specValue}>
                                                     {project.receivableStartDate ? new Date(project.receivableStartDate).toLocaleDateString() : 'UNKNOWN'}
                                                 </span>
@@ -1621,7 +1621,7 @@ const FolderPage = () => {
                                                             style={{color: pay.paymentType === 'RECEIVABLE_PARTIAL' ? '#fca5a5' : pay.paymentType === 'INITIAL_DEPOSIT' ? '#67e8f9' : '#86efac'}}>
                                                             {pay.paymentType === 'STANDARD' ? 'Title Payment'
                                                             : pay.paymentType === 'INITIAL_DEPOSIT' ? 'Initial Deposit'
-                                                            : pay.paymentType === 'RECEIVABLE_PARTIAL' ? 'Receivable Payment'
+                                                            : pay.paymentType === 'RECEIVABLE_PARTIAL' ? 'Receivables Payment'
                                                             : pay.paymentType}
                                                         </span>
                                                         <span className={styles.payBy}>by {pay.recordedBy}</span>
@@ -1842,8 +1842,8 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
 
-            {/* EXIT RECEIVABLE MODAL — choose fee handling */}
-            <HardwareModal isOpen={exitReceivableModal} onClose={() => setExitReceivableModal(false)} title="EXIT RECEIVABLE">
+            {/* EXIT RECEIVABLES MODAL — choose fee handling */}
+            <HardwareModal isOpen={exitReceivableModal} onClose={() => setExitReceivableModal(false)} title="EXIT RECEIVABLES">
                 <div className={modalStyles.modalInfoBoxDanger} style={{marginBottom:16}}>
                     <strong>How should the accumulated storage fees be handled?</strong>
                     <br /><br />
@@ -1865,7 +1865,7 @@ const FolderPage = () => {
                         style={{width:'100%',padding:'10px 0',background:'#ef4444',border:'none',borderRadius:7,
                                 fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:11,
                                 textTransform:'uppercase',letterSpacing:1.5,color:'#fff',cursor:'pointer'}}>
-                        CAPITALIZE FEES — Exit Receivable
+                        CAPITALIZE FEES — Exit Receivables
                     </button>
                 </div>
 
@@ -1884,7 +1884,7 @@ const FolderPage = () => {
                         style={{width:'100%',padding:'10px 0',background:'#10b981',border:'none',borderRadius:7,
                                 fontFamily:"'DM Sans',sans-serif",fontWeight:900,fontSize:11,
                                 textTransform:'uppercase',letterSpacing:1.5,color:'#1a2e30',cursor:'pointer'}}>
-                        WAIVE FEES — Exit Receivable
+                        WAIVE FEES — Exit Receivables
                     </button>
                 </div>
 
@@ -1902,7 +1902,7 @@ const FolderPage = () => {
                     {isReceivable ? (
                         <>
                             <div className={styles.payBreakdownTitle}>
-                                <FiAlertOctagon size={11} /> RECEIVABLE — AMOUNT OWED BREAKDOWN
+                                <FiAlertOctagon size={11} /> RECEIVABLES — AMOUNT OWED BREAKDOWN
                             </div>
                             <div className={styles.payBreakdownGrid}>
                                 <div className={styles.pbItem}>

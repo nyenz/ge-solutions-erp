@@ -23,16 +23,50 @@ confirmation and should be cleared out at the next opportunity.
 
 ---
 
-## CURRENT STATUS: NONE IN PROGRESS
+## CURRENT STATUS: STAGES 5, 6, 7 -- awaiting confirmation (run in this order)
 
-Per `git log`, Phases 5, 6, and 7 (and this bug-fix roadmap's Stages 1-3) are all merged and
-pushed. This addendum previously still described Phase 7 as "APPLIED (fix.py generated this
-session, not yet run/pushed by David)" -- that was stale (the addendum's own rule says it
-must only ever reflect work in progress, never leave something duplicated here once it's
-confirmed and moved into the master guide). Phases 5/6/7 have been corrected in
-LLM_CONTEXT_GUIDE.md Section 17.10 directly; this section is cleared per that rule.
+David asked for a full read of the repo and a code-cleanup pass for naming/wording
+consistency, plus a check of the app's end-to-end flow. Three fix.py scripts came out of
+this session, meant to be run in order.
 
-**Open item carried forward from the old Phase 7 entry, still unresolved:** no dedicated
-simplified single-lump-sum intake path was found for Phase 6 (Legacy Receivables Entry Mode)
--- only the pre-existing `isLegacy` flag from before the revamp. If a real Legacy Receivables
-intake flow was intended and not just the flag, flag this to David directly.
+### Stage 5 -- app-name branding cleanup (NYENZ vs Golden Seed)
+Fixed the Sidebar footer branding text/aria-label and every downloaded report CSV filename
+(both said "NYENZ", rest of the app says "Golden Seed"). Normalized ~17 internal-only
+"NYENZ ERP" code comments and 2 boot-log lines too. Added a code comment explaining why the
+4 backlog_* DB columns were deliberately not renamed (see "still open" below).
+
+### Stage 6 -- RECEIVABLE -> RECEIVABLES wording
+David got 3 outside candidate scripts and asked for a comparison against a real clone.
+Two were rejected (one was mostly a no-op with one label regression; the other conflated
+the "Recovery Hub" call-tracking feature with the "Receivables" payment-status concept and
+re-attempted the same unsafe DB rename Stage 5 already declined). The third correctly
+spotted a real gap: per Section 17.2, RECEIVABLE (singular) and RECEIVABLES (plural) are two
+different statuses, and since the new singular status isn't built anywhere yet, every
+"RECEIVABLE" on screen today is really the old backlog concept and should read RECEIVABLES.
+That script's coverage was incomplete though -- Stage 6 is the full 34-patch sweep across
+RecoveryPortal, LedgerPage, IntakePage, FolderPage, PaymentsPage, ReportHub, and
+ManagerTerminal. Tested clean against a clone: 34/34 applied, zero singular "RECEIVABLE"
+left anywhere user-facing afterward.
+
+### Stage 7 -- the 3 "still open" items, actually resolved (not deferred this time)
+David pushed back on leaving these as open decisions instead of just fixing them. Checked
+each properly:
+- **Raw `<select>` on ExpensesPage** -- confirmed only 1 exists anywhere in the app (not 5 as
+  first estimated). Did NOT swap it for the shared HardwareSelect component -- checked its
+  CSS and it renders a solid white box with a stacked label, which would visibly clash with
+  ExpensesPage's flat, unlabeled, dark filter row. Instead: a scoped CSS-only patch
+  (`appearance: none` + a custom SVG arrow) that hides the native browser chrome and matches
+  the existing dark style, with zero JS/logic change.
+- **Notification model "needs a feature decision"** -- checked every .java file in the
+  backend for any reference to it outside its own folder. Zero. No controller, no scheduled
+  job, nothing autowires it. It isn't a half-built feature waiting on a decision, it's 3
+  files (model/repository/service) that do nothing and are called from nowhere -- deleted.
+  Confirmed nothing else in the backend imports those classes before removing them.
+- **"No dedicated Legacy Receivables intake flow"** -- this was a mistake in the last
+  version of this addendum. Re-checked IntakePage.jsx directly: the isLegacyMode toggle
+  (STANDARD PROJECT vs LEGACY RECEIVABLES) already IS that flow -- there's a code comment on
+  it citing Section 17.6 by name. Nothing to build. No patch, just correcting the record.
+
+**Nothing left open from this session.** All three fix.py scripts (Stage 5, 6, 7) have been
+test-run against a clean clone with zero MISSING patches. Once David confirms he's happy
+with all three, they get folded into the master guide and this whole addendum clears out.

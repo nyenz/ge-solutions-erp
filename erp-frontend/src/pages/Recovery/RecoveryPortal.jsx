@@ -64,7 +64,7 @@ const RecoveryPortal = () => {
                 m.plots.some(p => p.plotNumber.toLowerCase().includes(t))
             );
         }
-        if (statusFilter === 'RECEIVABLE') list = list.filter(m => m.hasReceivablePlots);
+        if (statusFilter === 'RECEIVABLES') list = list.filter(m => m.hasReceivablePlots);
         if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasReceivablePlots);
         return list;
     }, [missions, searchTerm, statusFilter]);
@@ -129,7 +129,7 @@ const RecoveryPortal = () => {
                     <strong>UGX {fmt(totalActiveOwed)}</strong>
                 </div>
                 <div className={styles.finHUDCard}>
-                    <label>RECEIVABLE TOTAL OWED</label>
+                    <label>RECEIVABLES TOTAL OWED</label>
                     <strong>UGX {fmt(totalReceivableOwed)}</strong>
                 </div>
                 <div className={styles.finHUDCard}>
@@ -152,7 +152,7 @@ const RecoveryPortal = () => {
                     />
                 </div>
                 <div className={styles.filterPills} role="group" aria-label="Filter missions">
-                    {['ALL', 'ACTIVE', 'RECEIVABLE'].map(f => (
+                    {['ALL', 'ACTIVE', 'RECEIVABLES'].map(f => (
                         <button
                             key={f}
                             className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`}
@@ -217,7 +217,7 @@ const RecoveryPortal = () => {
                                                 {m.plots.map(p => p.plotNumber).join(' / ')}
                                             </span>
                                             {m.hasReceivablePlots && (
-                                                <span className={styles.receivablePill}>RECEIVABLE</span>
+                                                <span className={styles.receivablePill}>RECEIVABLES</span>
                                             )}
                                         </div>
                                         <div className={styles.balanceLine}>

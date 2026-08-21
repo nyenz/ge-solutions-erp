@@ -75,7 +75,7 @@ const REPORT_SCHEMA = {
     risk:      { columns: 'OWNER_NAME, SCORE_PERCENT, LAST_CALL_DATE', desc: 'Ranks all registered clients by their reliability score — a measure of payment consistency and responsiveness to calls.' },
     legal:     { columns: 'PLOT, OWNER, PHONE, NIN_STATUS, ADDRESS_STATUS, READINESS', desc: 'Checks whether every registered owner has a valid National ID and home address on file — the two fields required before issuing a legal demand notice.' },
     audit:     { columns: 'TIMESTAMP, OPERATOR, ACTION_CODE, HARDWARE_DETAILS', desc: 'The complete forensic footprint of every action taken inside the system — edits, deletions, logins, payment recordings, and stage changes.' },
-    receivable:   { columns: 'PLOT_ID, BOX, DISTRICT, TENURE, PRIMARY_OWNER, PHONE, RECEIVABLE_START, TITLE_COST_UGX, STORAGE_FEES_UGX, MONTHS_IN_RECEIVABLE, TOTAL_PAID, TOTAL_OWED', desc: 'A detailed breakdown of every plot currently in the receivable system, including accumulated storage fees and months elapsed since the receivable start date.' },
+    receivable:   { columns: 'PLOT_ID, BOX, DISTRICT, TENURE, PRIMARY_OWNER, PHONE, RECEIVABLES_START, TITLE_COST_UGX, STORAGE_FEES_UGX, MONTHS_IN_RECEIVABLES, TOTAL_PAID, TOTAL_OWED', desc: 'A detailed breakdown of every plot currently in the receivables system, including accumulated storage fees and months elapsed since the receivables start date.' },
     completed: { columns: 'PLOT_ID, BOX, DISTRICT, TENURE, PRIMARY_OWNER, PHONE, TOTAL_COST, AMOUNT_PAID, STATUS', desc: 'Lists all titles that have been fully paid or officially released to the client. Use this to track closed cases and measure overall throughput.' },
     reconcile: { columns: 'OPERATOR_ID, TOTAL_CASH_COLLECTED_UGX, NUMBER_OF_TRANSACTIONS, FIRST_PAYMENT_DATE, LAST_PAYMENT_DATE', desc: 'Anti-theft report: groups all payments by the staff member who recorded them. Compare these totals against physical cash in the office to detect discrepancies.' },
     monthly:   { columns: 'YEAR_MONTH, TOTAL_COLLECTED_UGX, TRANSACTION_COUNT', desc: 'Shows total cash collected each calendar month for the past 24 months. Use this to spot seasonal patterns and track collection performance over time.' },
@@ -126,7 +126,7 @@ const ReportHub = () => {
         { id: 'audit', title: 'Master System Audit',   icon: FiShield,   action: reportService.downloadAuditTrail  },
     ];
     const PRIORITY2_GROUP = [
-        { id: 'receivable',   title: 'Receivable Breakdown',            icon: FiLock,        action: reportService.downloadReceivableBreakdown         },
+        { id: 'receivable',   title: 'Receivables Breakdown',            icon: FiLock,        action: reportService.downloadReceivableBreakdown         },
         { id: 'completed', title: 'Completed Titles',             icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
         { id: 'reconcile', title: 'Operator Cash Reconciliation', icon: FiShield,      action: reportService.downloadOperatorReconciliation   },
         { id: 'monthly',   title: 'Monthly Collection',           icon: FiBarChart2,   action: reportService.downloadMonthlyCollection        },

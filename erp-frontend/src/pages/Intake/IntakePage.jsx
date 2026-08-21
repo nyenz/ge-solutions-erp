@@ -621,7 +621,7 @@ const IntakePage = () => {
                                 className={isLegacyMode ? styles.toggleLegacy : styles.toggleStandard}
                                 style={isLegacyMode ? { borderColor: '#06b6d4', color: '#06b6d4', background: 'rgba(6,182,212,0.12)' } : {}}
                                 onClick={() => setIsLegacyMode(true)}>
-                                ⚠ LEGACY RECEIVABLE
+                                ⚠ LEGACY RECEIVABLES
                             </button>
                         </div>
                         {isLegacyMode && (
@@ -762,20 +762,20 @@ const IntakePage = () => {
                                 </div>
                             </div>
 
-                            {/* RECEIVABLE STATUS — single clean toggle */}
+                            {/* RECEIVABLES STATUS — single clean toggle */}
                             <div className={styles.modeRow}>
-                                <label>RECEIVABLE STATUS</label>
+                                <label>RECEIVABLES STATUS</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     <button type="button"
                                         className={!isReceivable ? styles.toggleLegacy : styles.toggleStandard}
                                         onClick={() => setIsReceivable(false)}>
-                                        ✓ STANDARD — NOT RECEIVABLE
+                                        ✓ STANDARD — NOT RECEIVABLES
                                     </button>
                                     <button type="button"
                                         className={isReceivable ? styles.toggleLegacy : styles.toggleStandard}
                                         style={isReceivable ? { borderColor:'#ef4444', color:'#ef4444', background:'rgba(239,68,68,0.12)' } : {}}
                                         onClick={() => setIsReceivable(true)}>
-                                        ⚠ ENTER AS RECEIVABLE
+                                        ⚠ ENTER AS RECEIVABLES
                                     </button>
                                 </div>
                                 {isReceivable && (
@@ -785,11 +785,11 @@ const IntakePage = () => {
                                 )}
                             </div>
 
-                            {/* RECEIVABLE FEE CONFIG -- only visible when entering as receivable */}
+                            {/* RECEIVABLES FEE CONFIG -- only visible when entering as receivables */}
                             {isReceivable && (
                                 <div className={styles.receivableFeeConfig}>
                                     <div className={styles.receivableFeeConfigTitle}>
-                                        RECEIVABLE FEE CONFIGURATION
+                                        RECEIVABLES FEE CONFIGURATION
                                     </div>
                                     <div className={styles.grid2} style={{marginBottom: 12}}>
                                         <div className={styles.inputWrap}>

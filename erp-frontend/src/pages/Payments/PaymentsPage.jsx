@@ -15,7 +15,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const TYPE_LABELS = {
     STANDARD:        'Title Payment',
     INITIAL_DEPOSIT: 'Initial Deposit',
-    RECEIVABLE_PARTIAL: 'Receivable Payment',
+    RECEIVABLE_PARTIAL: 'Receivables Payment',
 };
 
 const TYPE_COLORS = {
@@ -119,7 +119,7 @@ const PaymentsPage = () => {
                     <span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>
                 </div>
                 <div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>
-                    <label style={{ color: '#ef4444' }}>RECEIVABLE PAYMENTS</label>
+                    <label style={{ color: '#ef4444' }}>RECEIVABLES PAYMENTS</label>
                     <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
                     <span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>
                 </div>

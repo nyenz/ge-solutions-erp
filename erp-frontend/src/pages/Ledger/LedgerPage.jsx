@@ -101,7 +101,7 @@ const LedgerPage = () => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
         if (activeFilter === 'PAID')     filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
-        if (activeFilter === 'RECEIVABLE')  filtered = filtered.filter(p => p.isReceivable);
+        if (activeFilter === 'RECEIVABLES')  filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isReceivable);
         if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isReceivable ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);
         if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);
@@ -139,7 +139,7 @@ const LedgerPage = () => {
     const FILTERS = [
         { key: 'ALL',      label: 'ALL ARCHIVES'  },
         { key: 'PAID',     label: 'PAID TITLES'   },
-        { key: 'RECEIVABLE',  label: 'RECEIVABLE'        },
+        { key: 'RECEIVABLES',  label: 'RECEIVABLES'        },
         { key: 'ACTIVE',   label: 'ACTIVE TITLES'  },
         { key: 'DEBTORS',  label: 'UNPAID'         },
         { key: 'CRITICAL', label: 'CRITICAL'       },
@@ -317,7 +317,7 @@ const LedgerPage = () => {
                                         </td>
                                         <td>
                                             <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLE</span>}
+                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
                                                 {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
                                                 {!isReceivable && !proj.landTitle?.isReleased && proj.amountPaid >= proj.totalCost && <span className={styles.tagPaid}>FULLY PAID</span>}
                                                 {!isReceivable && proj.amountPaid < proj.totalCost && <span className={styles.tagStandard}>ACTIVE</span>}
