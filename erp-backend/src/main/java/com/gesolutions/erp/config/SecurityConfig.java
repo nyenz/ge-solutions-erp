@@ -47,7 +47,6 @@ public class SecurityConfig {
                         // We must allow it without a token, or the login itself never happens.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/vault/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
