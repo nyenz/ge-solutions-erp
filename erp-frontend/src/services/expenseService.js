@@ -17,8 +17,8 @@ const expenseService = {
         return response.data;
     },
 
-    create: async ({ category, amount, note }) => {
-        const response = await api.post('/finance/expenses', { category, amount, note });
+    create: async ({ category, amount, note, spentBy }) => {
+        const response = await api.post('/finance/expenses', { category, amount, note, spentBy });
         return response.data;
     },
 
@@ -27,8 +27,8 @@ const expenseService = {
         return response.data;
     },
 
-    update: async (id, { category, amount, note }) => {
-        const response = await api.put(`/finance/expenses/${id}`, { category, amount, note });
+    update: async (id, { category, amount, note, spentBy }) => {
+        const response = await api.put(`/finance/expenses/${id}`, { category, amount, note, spentBy });
         return response.data;
     },
 

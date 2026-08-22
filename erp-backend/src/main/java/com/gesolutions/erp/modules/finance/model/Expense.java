@@ -51,6 +51,16 @@ public class Expense {
     @Column(name = "recorded_by", length = 100)
     private String recordedBy;
 
+    /**
+     * Who the cash actually left the office with -- NOT necessarily the same
+     * person as recordedBy. A secretary can log a fuel expense that was
+     * actually spent by a field agent. Optional: if blank, the UI and every
+     * analysis query fall back to recordedBy so old rows and same-person
+     * entries behave exactly as before.
+     */
+    @Column(name = "spent_by", length = 100)
+    private String spentBy;
+
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

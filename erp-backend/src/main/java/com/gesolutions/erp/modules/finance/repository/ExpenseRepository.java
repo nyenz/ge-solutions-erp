@@ -24,6 +24,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
            "(:to IS NULL OR e.createdAt <= :to) AND " +
            "(:category IS NULL OR e.category = :category) AND " +
            "(:recordedBy IS NULL OR LOWER(e.recordedBy) LIKE LOWER(CONCAT('%', :recordedBy, '%'))) AND " +
+           "(:spentBy IS NULL OR LOWER(COALESCE(e.spentBy, e.recordedBy)) LIKE LOWER(CONCAT('%', :spentBy, '%'))) AND " +
            "(:minAmount IS NULL OR e.amount >= :minAmount) AND " +
            "(:maxAmount IS NULL OR e.amount <= :maxAmount) " +
            "ORDER BY e.createdAt DESC")
@@ -32,6 +33,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
         @Param("to") LocalDateTime to,
         @Param("category") String category,
         @Param("recordedBy") String recordedBy,
+        @Param("spentBy") String spentBy,
         @Param("minAmount") BigDecimal minAmount,
         @Param("maxAmount") BigDecimal maxAmount,
         Pageable pageable
@@ -55,9 +57,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     @Query("SELECT DISTINCT e.category FROM Expense e ORDER BY e.category ASC")
     List<String> findDistinctCategories();
 
-    @Query("SELECT e.recordedBy, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+    /**
+     * Groups by who actually spent the cash (spentBy), falling back to
+     * recordedBy when spentBy was never set -- this is what "BY STAFF"
+     * on the Analysis panel is meant to answer, not "who typed this in".
+     */
+    @Query("SELECT COALESCE(e.spentBy, e.recordedBy), COALESCE(SUM(e.amount), 0) FROM Expense e " +
            "WHERE e.createdAt >= :from AND e.createdAt <= :to " +
-           "GROUP BY e.recordedBy ORDER BY SUM(e.amount) DESC")
+           "GROUP BY COALESCE(e.spentBy, e.recordedBy) ORDER BY SUM(e.amount) DESC")
     List<Object[]> sumByStaffBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     /** Raw rows for the spending-over-time graph -- bucketed in Java, see ExpenseService.getTimeSeries(). */

@@ -88,7 +88,7 @@ public class ExpenseService {
     // -- LOGGING ------------------------------------------------------
 
     @Transactional
-    public Expense createExpense(String category, BigDecimal amount, String note) {
+    public Expense createExpense(String category, BigDecimal amount, String note, String spentBy) {
         if (category == null || category.isBlank()) {
             throw new BusinessException("CATEGORY_REQUIRED: Pick a category for this expense.");
         }
@@ -96,18 +96,22 @@ public class ExpenseService {
             throw new BusinessException("AMOUNT_REQUIRED: Enter an amount greater than zero.");
         }
 
+        String cleanSpentBy = (spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null;
+
         Expense expense = Expense.builder()
                 .category(category.trim())
                 .amount(amount)
                 .note(note)
                 .recordedBy(getCurrentOperator())
+                .spentBy(cleanSpentBy)
                 .build();
 
         Expense saved = expenseRepository.save(expense);
 
         auditService.logAction("EXPENSE_LOGGED",
             "Operator [" + getCurrentOperator() + "] logged expense: " + category
-            + " -- UGX " + amount);
+            + " -- UGX " + amount
+            + (cleanSpentBy != null ? " (spent by " + cleanSpentBy + ")" : ""));
 
         return saved;
     }
@@ -121,7 +125,7 @@ public class ExpenseService {
     // -- EDITING (24-HOUR WINDOW, ANY MANAGER+) ----------------------
 
     @Transactional
-    public Expense editExpense(UUID id, String category, BigDecimal amount, String note) {
+    public Expense editExpense(UUID id, String category, BigDecimal amount, String note, String spentBy) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));
 
@@ -142,6 +146,7 @@ public class ExpenseService {
         expense.setCategory(category.trim());
         expense.setAmount(amount);
         expense.setNote(note);
+        expense.setSpentBy((spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null);
         expense.setEditedAt(LocalDateTime.now());
         expense.setEditedBy(getCurrentOperator());
 
@@ -172,9 +177,9 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public Page<Expense> search(LocalDateTime from, LocalDateTime to, String category,
-                                 String recordedBy, BigDecimal minAmount, BigDecimal maxAmount,
+                                 String recordedBy, String spentBy, BigDecimal minAmount, BigDecimal maxAmount,
                                  Pageable pageable) {
-        return expenseRepository.search(from, to, category, recordedBy, minAmount, maxAmount, pageable);
+        return expenseRepository.search(from, to, category, recordedBy, spentBy, minAmount, maxAmount, pageable);
     }
 
     // -- DIRECTOR ANALYSIS: SUMMARY (TOTALS + CATEGORY BREAKDOWN) ----

@@ -1,8 +1,8 @@
 // PATH: erp-frontend/src/pages/Financials/ExpensesPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,
-    FiBarChart2, FiX, FiSearch, FiClock
+    FiBarChart2, FiX, FiSearch, FiClock, FiChevronDown
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import expenseService from '../../services/expenseService';
@@ -67,6 +67,7 @@ const ExpensesPage = () => {
     const [logCategory, setLogCategory] = useState('');
     const [logAmount, setLogAmount] = useState('');
     const [logNote, setLogNote] = useState('');
+    const [logSpentBy, setLogSpentBy] = useState('');
     const [logging, setLogging] = useState(false);
 
     const openLogModal = (presetName) => {
@@ -74,12 +75,14 @@ const ExpensesPage = () => {
         setLogCategory(presetName);
         setLogAmount('');
         setLogNote('');
+        setLogSpentBy('');
     };
     const openOtherModal = () => {
         setLogModal({ open: true, presetName: '', isOther: true });
         setLogCategory('');
         setLogAmount('');
         setLogNote('');
+        setLogSpentBy('');
     };
     const closeLogModal = () => setLogModal({ open: false, presetName: '', isOther: false });
 
@@ -92,6 +95,7 @@ const ExpensesPage = () => {
                 category: (logModal.isOther ? logCategory : logModal.presetName).trim(),
                 amount: Number(logAmount),
                 note: logNote,
+                spentBy: logSpentBy,
             });
             closeLogModal();
             await loadAll();
@@ -129,6 +133,7 @@ const ExpensesPage = () => {
     const [editCategory, setEditCategory] = useState('');
     const [editAmount, setEditAmount] = useState('');
     const [editNote, setEditNote] = useState('');
+    const [editSpentBy, setEditSpentBy] = useState('');
     const [saving, setSaving] = useState(false);
 
     const openEdit = (expense) => {
@@ -136,6 +141,7 @@ const ExpensesPage = () => {
         setEditCategory(expense.category);
         setEditAmount(String(expense.amount));
         setEditNote(expense.note || '');
+        setEditSpentBy(expense.spentBy || '');
     };
 
     const submitEdit = async () => {
@@ -146,6 +152,7 @@ const ExpensesPage = () => {
                 category: editCategory.trim(),
                 amount: Number(editAmount),
                 note: editNote,
+                spentBy: editSpentBy,
             });
             setEditModal({ open: false, expense: null });
             await loadAll();
@@ -179,9 +186,21 @@ const ExpensesPage = () => {
     const [bucket, setBucket] = useState('DAY');
     const [seriesLoading, setSeriesLoading] = useState(false);
 
-    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
+    const [filters, setFilters] = useState({ from: '', to: '', category: '', recordedBy: '', spentBy: '', minAmount: '', maxAmount: '' });
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
+
+    const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+    const categoryDropdownRef = useRef(null);
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
+                setCategoryDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const loadSummary = useCallback(async (p) => {
         setSummaryLoading(true);
@@ -243,7 +262,7 @@ const ExpensesPage = () => {
     };
 
     const clearSearch = () => {
-        setFilters({ from: '', to: '', category: '', recordedBy: '', minAmount: '', maxAmount: '' });
+        setFilters({ from: '', to: '', category: '', recordedBy: '', spentBy: '', minAmount: '', maxAmount: '' });
         setSearchResults(null);
     };
 
@@ -343,7 +362,12 @@ const ExpensesPage = () => {
                                                 {e.editedAt && <span className={styles.editedBadge}>EDITED</span>}
                                             </td>
                                             <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>
-                                            <td className={styles.metaCell}>{e.recordedBy}</td>
+                                            <td className={styles.metaCell}>
+                                                {e.recordedBy}
+                                                {e.spentBy && e.spentBy !== e.recordedBy && (
+                                                    <span className={styles.spentByTag}>SPENT: {e.spentBy}</span>
+                                                )}
+                                            </td>
                                             <td className={styles.notesCell} title={e.note}>{e.note || '---'}</td>
                                             <td>
                                                 <div className={styles.rowActions}>
@@ -409,7 +433,7 @@ const ExpensesPage = () => {
                             )}
                         </div>
 
-                        <div className={styles.sectionLabel}>BY STAFF</div>
+                        <div className={styles.sectionLabel}>BY STAFF (WHO SPENT IT)</div>
                         <div className={styles.categoryBars}>
                             {Object.entries(byStaff || {}).map(([who, amt]) => (
                                 <div key={who} className={styles.barRow}>
@@ -466,13 +490,39 @@ const ExpensesPage = () => {
                                 onChange={e => setFilters({ ...filters, from: e.target.value })} title="From date" />
                             <input type="date" className={styles.filterInput} value={filters.to}
                                 onChange={e => setFilters({ ...filters, to: e.target.value })} title="To date" />
-                            <select className={styles.filterInput} value={filters.category}
-                                onChange={e => setFilters({ ...filters, category: e.target.value })}>
-                                <option value="">ALL CATEGORIES</option>
-                                {presets.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                            </select>
+                            <div className={styles.categoryDropdown} ref={categoryDropdownRef}>
+                                <button
+                                    type="button"
+                                    className={styles.categoryDropdownBtn}
+                                    onClick={() => setCategoryDropdownOpen(o => !o)}
+                                >
+                                    <span>{filters.category || 'ALL CATEGORIES'}</span>
+                                    <FiChevronDown className={categoryDropdownOpen ? styles.categoryDropdownIconOpen : ''} />
+                                </button>
+                                {categoryDropdownOpen && (
+                                    <div className={styles.categoryDropdownList}>
+                                        <div
+                                            className={`${styles.categoryDropdownOption} ${!filters.category ? styles.categoryDropdownOptionActive : ''}`}
+                                            onClick={() => { setFilters({ ...filters, category: '' }); setCategoryDropdownOpen(false); }}
+                                        >
+                                            ALL CATEGORIES
+                                        </div>
+                                        {presets.map(p => (
+                                            <div
+                                                key={p.id}
+                                                className={`${styles.categoryDropdownOption} ${filters.category === p.name ? styles.categoryDropdownOptionActive : ''}`}
+                                                onClick={() => { setFilters({ ...filters, category: p.name }); setCategoryDropdownOpen(false); }}
+                                            >
+                                                {p.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                             <input type="text" className={styles.filterInput} placeholder="Logged by..."
                                 value={filters.recordedBy} onChange={e => setFilters({ ...filters, recordedBy: e.target.value })} />
+                            <input type="text" className={styles.filterInput} placeholder="Spent by..."
+                                value={filters.spentBy} onChange={e => setFilters({ ...filters, spentBy: e.target.value })} />
                             <input type="number" className={styles.filterInput} placeholder="Min UGX"
                                 value={filters.minAmount} onChange={e => setFilters({ ...filters, minAmount: e.target.value })} />
                             <input type="number" className={styles.filterInput} placeholder="Max UGX"
@@ -496,18 +546,20 @@ const ExpensesPage = () => {
                                             <th>CATEGORY</th>
                                             <th>AMOUNT</th>
                                             <th>LOGGED BY</th>
+                                            <th>SPENT BY</th>
                                             <th>NOTE</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {searchResults.length === 0 ? (
-                                            <tr><td colSpan="5" className={styles.emptyCell}>NO RESULTS</td></tr>
+                                            <tr><td colSpan="6" className={styles.emptyCell}>NO RESULTS</td></tr>
                                         ) : searchResults.map(e => (
                                             <tr key={e.id}>
                                                 <td className={styles.dateCell}>{new Date(e.createdAt).toLocaleDateString()}</td>
                                                 <td><span className={styles.categoryTag}>{e.category}</span></td>
                                                 <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>
                                                 <td className={styles.metaCell}>{e.recordedBy}</td>
+                                                <td className={styles.metaCell}>{e.spentBy || e.recordedBy}</td>
                                                 <td className={styles.notesCell} title={e.note}>{e.note || '---'}</td>
                                             </tr>
                                         ))}
@@ -555,6 +607,16 @@ const ExpensesPage = () => {
                         placeholder="Any extra detail..."
                         value={logNote}
                         onChange={e => setLogNote(e.target.value)}
+                    />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>WHO ACTUALLY SPENT THIS (IF NOT YOU)</label>
+                    <input
+                        type="text"
+                        className={modalStyles.modalInput}
+                        placeholder="Defaults to you"
+                        value={logSpentBy}
+                        onChange={e => setLogSpentBy(e.target.value)}
                     />
                 </div>
                 <div className={modalStyles.modalFooter}>
@@ -620,6 +682,16 @@ const ExpensesPage = () => {
                         className={modalStyles.modalInput}
                         value={editNote}
                         onChange={e => setEditNote(e.target.value)}
+                    />
+                </div>
+                <div className={modalStyles.modalField}>
+                    <label className={modalStyles.modalLabel}>WHO ACTUALLY SPENT THIS (IF NOT THE LOGGER)</label>
+                    <input
+                        type="text"
+                        className={modalStyles.modalInput}
+                        placeholder="Defaults to whoever logged it"
+                        value={editSpentBy}
+                        onChange={e => setEditSpentBy(e.target.value)}
                     />
                 </div>
                 <div className={modalStyles.modalFooter}>

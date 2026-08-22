@@ -1,4 +1,9 @@
 /* PATH: erp-frontend/src/pages/Financials/ExpensesPage.module.css */
+/* Table/header/filter-button styling intentionally mirrors LedgerPage.module.css
+   (the confirmed master reference) -- same tokens, same table treatment, same
+   filter-button spec. Spacing here stays compact for this page's denser layout;
+   only the visual language (colors, weights, borders, radii) is copied. */
+
 .container {
     --orange:        #EE8C3A;
     --orange-border: rgba(238, 140, 58, 0.28);
@@ -12,6 +17,9 @@
 
     --fs-h1:  clamp(18px, 2.5vw, 24px);
     --fs-sub: clamp(8px,  0.85vw, 10px);
+    --fs-th:  clamp(8px,  0.85vw, 10px);
+    --fs-td:  clamp(10px, 1.05vw, 12px);
+    --fs-tag: clamp(7px,  0.75vw, 9px);
 
     max-width: 1400px;
     width: 100%;
@@ -135,30 +143,51 @@
 }
 .amountInput:focus { outline: none; border-color: var(--orange); }
 
-/* -- TABLE (recent entries + search results) ----------------------- */
-.tableWrap { overflow-x: auto; margin-top: 10px; }
-.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+/* -- TABLE (recent entries + search results) -----------------------
+   Matches LedgerPage's table exactly: dark header bar, orange uppercase
+   labels, 3px orange bottom border, orange left-border on row hover. --- */
+.tableWrap { overflow-x: auto; margin-top: 10px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.15); }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--fs-td); min-width: 640px; }
 .table thead th {
+    background: #162a2c;
     text-align: left;
-    padding: 8px 10px;
-    font-size: 10px;
+    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.5vw, 16px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--fs-th);
     font-weight: 900;
-    letter-spacing: 0.8px;
+    letter-spacing: 2px;
     color: var(--orange);
     text-transform: uppercase;
-    border-bottom: 1.5px solid rgba(255,255,255,0.12);
+    border-bottom: 3px solid var(--orange);
     white-space: nowrap;
 }
+.table tbody tr {
+    border-left: 3px solid transparent;
+    transition: background 0.18s, border-left-color 0.18s;
+}
+.table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-left-color: var(--orange);
+}
 .table tbody td {
-    padding: 9px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.5vw, 16px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
     vertical-align: middle;
 }
 .dateCell { white-space: nowrap; color: rgba(255,255,255,0.6); font-size: 11px; }
 .moneyCell { font-weight: 900; white-space: nowrap; }
 .metaCell { color: rgba(255,255,255,0.7); white-space: nowrap; }
 .notesCell { color: rgba(255,255,255,0.55); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.emptyCell { text-align: center; padding: 24px; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+.emptyCell {
+    text-align: center;
+    padding: clamp(20px, 4vw, 40px) 16px;
+    font-family: 'Space Mono', monospace;
+    color: rgba(255,255,255,0.3);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
 
 .categoryTag {
     display: inline-block;
@@ -184,6 +213,18 @@
     font-weight: 900;
     letter-spacing: 0.4px;
 }
+/* Shown next to LOGGED BY when spentBy differs from recordedBy --
+   this is the "who actually spent the cash" fix. */
+.spentByTag {
+    display: block;
+    margin-top: 3px;
+    color: rgba(255,255,255,0.4);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: normal;
+}
 .lockedTag {
     color: rgba(255,255,255,0.35);
     font-size: 9px;
@@ -205,20 +246,37 @@
 .deleteIconBtn { background: rgba(239,68,68,0.15); color: var(--red); }
 .deleteIconBtn:hover { background: rgba(239,68,68,0.3); }
 
-/* -- DIRECTOR ANALYSIS ---------------------------------------------- */
-.periodRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.periodBtn, .periodBtnActive {
-    padding: 7px 16px;
-    border-radius: 999px;
-    font-size: 10px;
+/* -- DIRECTOR ANALYSIS ----------------------------------------------
+   Period / bucket toggles now use the app's CONFIRMED STANDARD filter-
+   button spec (rectangular, radius-sm, exact dark/hover/active colors)
+   instead of the old ad-hoc orange pill. ---------------------------- */
+.periodRow { display: flex; gap: clamp(6px, 1vw, 10px); flex-wrap: wrap; margin-bottom: 14px; }
+.periodBtn, .periodBtnActive,
+.bucketBtn, .bucketBtnActive {
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
     font-weight: 900;
-    letter-spacing: 0.6px;
+    font-size: clamp(9px, 0.95vw, 11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.2s ease;
 }
-.periodBtn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
-.periodBtn:hover { background: rgba(255,255,255,0.12); }
-.periodBtnActive { background: var(--orange); border: 1px solid var(--orange); color: #fff; }
+.periodBtn:hover, .bucketBtn:hover {
+    background: rgba(238, 140, 58, 0.12);
+    color: #EE8C3A;
+    border-color: #EE8C3A;
+}
+.periodBtnActive, .bucketBtnActive {
+    background: #EE8C3A !important;
+    color: #1a2e30 !important;
+    border-color: #EE8C3A !important;
+    box-shadow: 0 0 14px rgba(238, 140, 58, 0.4);
+}
 
 .totalBox {
     background: rgba(0,0,0,0.2);
@@ -248,18 +306,7 @@
     margin: 18px 0 10px;
 }
 
-.bucketRow { display: flex; gap: 6px; margin-bottom: 12px; }
-.bucketBtn, .bucketBtnActive {
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 0.6px;
-    cursor: pointer;
-}
-.bucketBtn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
-.bucketBtn:hover { background: rgba(255,255,255,0.12); }
-.bucketBtnActive { background: var(--orange); border: 1px solid var(--orange); color: #fff; }
+.bucketRow { display: flex; gap: clamp(6px, 1vw, 10px); flex-wrap: wrap; margin-bottom: 12px; }
 
 .tsChart { display: flex; gap: 6px; overflow-x: auto; padding: 4px 4px 0; align-items: flex-end; min-height: 140px; }
 .tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; }
@@ -290,34 +337,77 @@
     min-width: 120px;
 }
 .filterInput:focus { outline: none; border-color: var(--orange); }
-select.filterInput {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    padding-right: 28px;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
+
+/* -- CATEGORY DROPDOWN (filter row) ----------------------------------
+   Same visual language as the Intake page's themed dropdown (white
+   panel, orange border/accents, orange-filled hover, left-border-marked
+   selected row) but sized to sit flush in this compact filter row --
+   height/font intentionally match .filterInput, not Intake's spacing. */
+.categoryDropdown {
+    position: relative;
+    flex: 1 1 160px;
+    min-width: 120px;
 }
-select.filterInput option {
-    background: #1a2e30;
+.categoryDropdownBtn {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.2);
     color: #fff;
-}
-select.filterInput {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    padding-right: 28px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
     cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    text-transform: uppercase;
+    transition: border-color 0.2s;
 }
-select.filterInput option {
-    background: #1a2e30;
-    color: #fff;
+.categoryDropdownBtn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+.categoryDropdownBtn:hover { border-color: var(--orange); }
+.categoryDropdownBtn svg { color: var(--orange); flex-shrink: 0; transition: transform 0.2s; }
+.categoryDropdownIconOpen { transform: rotate(180deg); }
+
+.categoryDropdownList {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 2px solid var(--orange);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.25);
+    overflow: hidden;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 300;
+    scrollbar-width: none;
+}
+.categoryDropdownList::-webkit-scrollbar { display: none; }
+.categoryDropdownOption {
+    padding: 9px 12px;
+    color: var(--navy);
+    font-size: 12px;
+    font-weight: 700;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.15s, color 0.15s;
+}
+.categoryDropdownOption:last-child { border-bottom: none; }
+.categoryDropdownOption:hover { background: var(--orange); color: #fff; }
+.categoryDropdownOptionActive { background: #f1f5f9; border-left: 4px solid var(--orange); }
+
 .searchBtn, .clearBtn {
     display: flex; align-items: center; gap: 6px;
     height: 36px;
@@ -334,3 +424,15 @@ select.filterInput option {
 .searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .clearBtn { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
 .clearBtn:hover { background: rgba(255,255,255,0.18); }
+
+/* -- RESPONSIVE ------------------------------------------------------ */
+@media (max-width: 768px) {
+    .table { min-width: 560px; }
+    .barRow { grid-template-columns: 80px 1fr 80px; }
+}
+@media (max-width: 480px) {
+    .presetGrid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+    .table thead th { padding: 8px; font-size: 8px; }
+    .table tbody td { padding: 7px 8px; }
+    .categoryDropdown { flex: 1 1 100%; }
+}

@@ -62,7 +62,8 @@ public class ExpenseController {
         String category = (String) body.get("category");
         BigDecimal amount = body.get("amount") != null ? new BigDecimal(body.get("amount").toString()) : null;
         String note = (String) body.get("note");
-        return ResponseEntity.ok(expenseService.createExpense(category, amount, note));
+        String spentBy = (String) body.get("spentBy");
+        return ResponseEntity.ok(expenseService.createExpense(category, amount, note, spentBy));
     }
 
     @GetMapping("/recent")
@@ -75,7 +76,8 @@ public class ExpenseController {
         String category = (String) body.get("category");
         BigDecimal amount = body.get("amount") != null ? new BigDecimal(body.get("amount").toString()) : null;
         String note = (String) body.get("note");
-        return ResponseEntity.ok(expenseService.editExpense(id, category, amount, note));
+        String spentBy = (String) body.get("spentBy");
+        return ResponseEntity.ok(expenseService.editExpense(id, category, amount, note, spentBy));
     }
 
     // -- DELETE (DIRECTOR/ADMIN ONLY) ----------------------------------
@@ -96,6 +98,7 @@ public class ExpenseController {
             @RequestParam(required = false) String to,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String recordedBy,
+            @RequestParam(required = false) String spentBy,
             @RequestParam(required = false) BigDecimal minAmount,
             @RequestParam(required = false) BigDecimal maxAmount,
             @RequestParam(defaultValue = "0") int page,
@@ -105,7 +108,7 @@ public class ExpenseController {
         LocalDateTime toDt = (to != null && !to.isBlank()) ? LocalDate.parse(to).atTime(LocalTime.MAX) : null;
 
         return ResponseEntity.ok(expenseService.search(
-            fromDt, toDt, category, recordedBy, minAmount, maxAmount, PageRequest.of(page, size)
+            fromDt, toDt, category, recordedBy, spentBy, minAmount, maxAmount, PageRequest.of(page, size)
         ));
     }
 
