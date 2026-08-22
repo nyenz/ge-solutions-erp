@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Simple in-memory rate limiter for the login endpoint.
- * Blocks an IP for 15 minutes after 10 failed attempts.
+ * Blocks an IP for 10 minutes after 10 failed attempts.
  */
 @Component
 public class LoginRateLimiter {

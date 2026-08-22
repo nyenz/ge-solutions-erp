@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: August 2026 (fix.py workflow rules updated -- Section 3)
+# Last updated: August 2026 (Section 10 bug-fix roadmap added, Sections 11/12/16 cleaned up)
 
 ---
 
@@ -294,6 +294,19 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - LandCascadeDeleteTest + LandService.nuclearDelete() fix: verifies deleting a plot cascades to payments and notes (silent data leak patched) -- DONE
 - Playwright login.spec.js: verifies successful login and redirect to /dashboard or /settings -- DONE
 
+### Bug-Fix Roadmap (Stages 1-11) -- all applied, committed, and pushed
+- Stage 1: payment endpoint fix, password reset, promote/demote, overpayment handling -- DONE
+- Stage 2: Secretary role wiring, Director payment access -- DONE
+- Stage 3: NIN name-mismatch guard on Intake (blocking confirm dialog, not a dismissible warning), soft-delete/restore for projects (Root can restore from Settings > Recently Deleted Plots) -- DONE
+- Stage 4: label cleanup, doc/process notes -- DONE
+- Stage 5: app-name branding cleanup -- Sidebar footer + every downloaded report CSV filename said "NYENZ", rest of the app said "Golden Seed"; normalized ~17 internal code comments and 2 boot-log lines too; the 4 `backlog_*` DB columns were deliberately left unrenamed (flagged as an unsafe DB rename, same call made again and declined in Stage 6) -- DONE
+- Stage 6: RECEIVABLE -> RECEIVABLES wording sweep (34 patches across RecoveryPortal, LedgerPage, IntakePage, FolderPage, PaymentsPage, ReportHub, ManagerTerminal -- every on-screen "RECEIVABLE" was the old backlog concept per 17.2 and needed to read RECEIVABLES since the new singular status isn't built anywhere yet) -- DONE
+- Stage 7: three previously-"open" items actually resolved instead of left as decisions -- ExpensesPage's one raw `<select>` got a scoped CSS-only patch (not swapped to HardwareSelect, which would visually clash); the unused Notification model (model/repository/service, zero references anywhere in the backend) was deleted; confirmed IntakePage's isLegacyMode toggle already IS the Legacy Receivables intake flow from 17.6, so nothing needed building there -- DONE
+- Stage 8: NIN name-mismatch guard extended to the Edit screen (FolderPage) -- previously only ran on Intake, so reusing an existing NIN with a different typed name on Edit silently renamed that person's identity record everywhere they appear -- DONE
+- Stage 9: Recovery joint-owner visibility -- every proprietor on a project now gets their own Recovery card entry; previously only the alphabetically-first "primary" owner did, so a co-owner's debt exposure on that project was invisible to Recovery entirely -- DONE
+- Stage 10: per-owner call attribution in Recovery -- log-a-call and add-a-note merged into one action capturing project + specific owner + note in one record; backend + CSS shipped for a SOLO/JOINT badge and that owner's own last-contact date/note per plot (see Stage 12 in the addendum -- the JSX to actually render this badge/link row was still missing after this stage) -- DONE
+- Stage 11: Director Dashboard's "stale call" KPI fixed to use the same per-owner eligibility rule as Recovery (it still used the old alphabetical-primary logic and could silently disagree with the Recovery page's own count); soft "co-owner recently contacted" notice added, 3-day look-back, never blocks the call -- DONE
+
 ---
 
 ## 11. WHAT STILL NEEDS TO BE DONE
@@ -310,18 +323,13 @@ Check the Phase Tracker before assuming a rule below still applies as-is.**
 - Phone uniqueness frontend validation (NOTE: may become moot once NIN is the real identity check in Phase 2)
 - Release button should warn if no documents uploaded
 
-### Language simplification (can do alongside any priority)
-- 'Master Hardware Override' -> 'Edit'
-- 'Nuclear Purge' -> 'Delete'
-- 'Intel' -> 'Notes'
-- 'Vault' -> 'Documents'
-- 'Recovery Sync' -> 'Call Logged'
-- 'Asset Intake' -> 'New Plot'
-- 'Forensic Stream' -> 'Recent Activity'
+### Language simplification
+Checked (Aug 2026): none of the previously-flagged old terms ('Master Hardware Override',
+'Nuclear Purge', 'Intel', 'Vault', 'Recovery Sync', 'Asset Intake', 'Forensic Stream') exist
+anywhere in the current frontend. Nothing left to rename here.
 
 ### Future (not started)
 - Multi-company: clone repo per client company
-- Notification model (exists in code but never used)
 
 ### UI Test Coverage (in progress)
 - Playwright UI test for Intake Flow (/land/new -> /land/projects) -- IN PROGRESS
@@ -341,10 +349,7 @@ top priority.
 ## 12. KNOWN ISSUES (not blocking)
 
 - WebConfig.java has old local file serving reference -- harmless (Cloudinary is used)
-- Notification model exists but never used
-- Release button does not check for uploaded documents first
 - payment_schedules table still exists in DB -- no longer used (harmless)
-- App name inconsistency: 'NYENZ ERP' vs 'Golden Seed' in different places
 
 ---
 
@@ -401,16 +406,12 @@ top priority.
 
 ## 16. SESSION MANAGEMENT RULES (HOW EVERY SESSION ENDS)
 
-At the end of every session the AI must:
-1. Ask David: "Are you happy with X, Y, Z? Should I mark them as done?"
-2. Wait for David to confirm -- do not assume anything is done without confirmation
-3. Once confirmed: move confirmed items INTO Section 10 (COMPLETED), remove from Section 11 (TO DO)
-4. If something new came up, add it to Section 11
-5. Both sections must reflect: what the addendum says was worked on + what David explicitly confirmed + what the code actually shows
+Full rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that file for the actual
+step-by-step process. Short version: work stays in the addendum until David confirms it,
+then it moves into Section 10 above (or Section 17's Phase Tracker for revamp phases) and
+is removed from the addendum entirely. The addendum should only ever contain work in
+progress, never a permanent record.
 
-**RULE:** Once something is marked done and moved to Section 10, it is NEVER put back in Section 11.
-**RULE:** Section 11 only contains things not yet done.
-**RULE:** The addendum is the running log. The master guide Sections 10 and 11 are the clean summary.
 **RULE:** The master guide (LLM_CONTEXT_GUIDE.md) is NEVER edited for incremental changes each session. All new rules, discoveries, and session notes go into LLM_CONTEXT_ADDENDUM.md only. The ONLY parts of the master guide that ever get updated are Sections 10 and 11.
 **EXCEPTION (August 2026):** Section 17 below is a deliberate, one-time full-architecture addition requested directly by David to represent the revamp's permanent target design. It is NOT a violation of the above rule -- it is guide-level reference content, not a session note. Within Section 17 itself, only the Phase Tracker subsection updates as phases complete; the rest of Section 17 (decisions, role table, module list) is meant to stay stable once phases start shipping, the same way Section 9's business rules stay stable.
 **EXCEPTION (August 2026, second instance):** The fix.py workflow rules in Section 3 (one-complete-fix.py-per-phase, and testing deferred until all phases are done) were also explicitly requested by David as permanent process rules, not one-session notes. They were written directly into Section 3 rather than the addendum for the same reason as the Section 17 exception above: they are standing process rules meant to govern every future session, not a fact about the current state of the code.

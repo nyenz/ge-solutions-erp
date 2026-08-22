@@ -1,4 +1,4 @@
-// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LocalStorageServiceImpl.java
+// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/CloudinaryStorageServiceImpl.java
 package com.gesolutions.erp.modules.land.service;
 
 import com.cloudinary.Cloudinary;
@@ -13,12 +13,12 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
-public class LocalStorageServiceImpl implements FileStorageService {
+public class CloudinaryStorageServiceImpl implements FileStorageService {
 
     private final String cloudName;
     private final Cloudinary cloudinary;
 
-    public LocalStorageServiceImpl(
+    public CloudinaryStorageServiceImpl(
             @Value("${cloudinary.cloud-name}") String cloudName,
             @Value("${cloudinary.api-key}") String apiKey,
             @Value("${cloudinary.api-secret}") String apiSecret) {
