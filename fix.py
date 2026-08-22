@@ -97,4 +97,4 @@ print("")
 if all(results):
     print("All Stage 14 patches applied cleanly.")
 else:
-    print("Some patches were MISSING -- review output above before committing.")
+    print("Some patches were MISSING -- review output above before committing.").
