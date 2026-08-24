@@ -18,7 +18,6 @@ const matchesSearch = (proj, term) => {
     const fields = [
         proj.landTitle?.plotNumber,
         proj.landTitle?.projectIndex,
-        proj.landTitle?.physicalBoxNumber,
         proj.landTitle?.district,
         proj.landTitle?.county,
         proj.landTitle?.blockRoad,
@@ -217,7 +216,7 @@ const LedgerPage = () => {
                                     aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiUser aria-hidden="true" /> PRIMARY OWNER {renderSortIcon('owner')}
                                 </th>
-                                <th>BOX</th>
+
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
@@ -293,9 +292,7 @@ const LedgerPage = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td>
-                                            <span className={styles.boxTag}>{proj.landTitle?.physicalBoxNumber || '---'}</span>
-                                        </td>
+
                                         <td className={styles.moneyCell}>
                                             <div className={styles.moneyRow}>
                                                 <span className={styles.debtLabel}>DEBT:</span>

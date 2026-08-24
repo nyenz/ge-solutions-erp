@@ -20,10 +20,14 @@ public class LandEntryRequest {
     private String blockRoad;
     private String district;
     private String county;
+    private String subCounty;
+    private String parish;
+    private String village;
+    private String area;
+    private String titleId;
     private String volume;
     private String folio;
     private String instrumentNo;
-    private String physicalBoxNumber;
     private LocalDate surveyDate;
     private LocalDate projectStartDate;
     private LocalDate titleIssueDate;

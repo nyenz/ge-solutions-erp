@@ -180,7 +180,6 @@ public class RecoveryController {
                 RecoveryTaskDTO.PlotSummary.PlotSummaryBuilder summaryBuilder = RecoveryTaskDTO.PlotSummary.builder()
                         .projectId(plot.getId())
                         .plotNumber(plot.getLandTitle().getPlotNumber())
-                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())
                         .isReceivable(plot.isReceivable())
                         .lastInteractionNote(lastNote)
                         .paymentHealthBadge(badge)

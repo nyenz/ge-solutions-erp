@@ -37,7 +37,6 @@ public class RecoveryTaskDTO {
     public static class PlotSummary {
         private UUID projectId;
         private String plotNumber;
-        private String physicalBoxNumber;
         private boolean isReceivable;
 
         private BigDecimal totalCost;

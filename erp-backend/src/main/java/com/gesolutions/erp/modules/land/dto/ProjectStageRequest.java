@@ -24,4 +24,5 @@ public class ProjectStageRequest {
     private BigDecimal cost;
     private String notes;
     private boolean isCustom;
+    private boolean isCompleted;
 }

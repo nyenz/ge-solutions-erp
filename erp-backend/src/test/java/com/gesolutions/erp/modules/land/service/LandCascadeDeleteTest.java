@@ -110,7 +110,6 @@ public class LandCascadeDeleteTest {
                 .volume("V99")
                 .folio("F99")
                 .instrumentNo("INS-CASCADE-001")
-                .physicalBoxNumber("BOX-CASCADE")
                 .owners(owners)
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))

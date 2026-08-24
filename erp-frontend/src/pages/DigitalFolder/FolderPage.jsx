@@ -847,7 +847,6 @@ const FolderPage = () => {
                     volume:            data.project?.landTitle?.volume            || '',
                     folio:             data.project?.landTitle?.folio             || '',
                     instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
-                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',
                     surveyDate:        data.project?.landTitle?.surveyDate         || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
@@ -1186,7 +1185,6 @@ const FolderPage = () => {
                     <span><strong>PLOT ID:</strong> {project.landTitle.plotNumber}</span>
                     <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>
                     {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}
-                    <span><strong>BOX:</strong> {project.landTitle.physicalBoxNumber}</span>
                     <span><strong>STATUS:</strong> {project.status}</span>
                     <span><strong>STAGE:</strong> {STAGE_LABELS[(project.currentStageIndex || 1) - 1] || project.currentStageIndex}</span>
                 </div>
@@ -1339,7 +1337,6 @@ const FolderPage = () => {
                                     <div className={styles.inputGrid3}>
                                         <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
                                         <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
-                                        <SmartInput label="BOX LOCATION" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />
                                     </div>
                                     <div className={styles.inputGrid3}>
                                         <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />
@@ -1365,7 +1362,6 @@ const FolderPage = () => {
                                     {[
                                         ['PLOT ID',      project.landTitle.plotNumber],
                                         ['TENURE',       project.landTitle.tenure],
-                                        ['BOX',          project.landTitle.physicalBoxNumber],
                                         ['DISTRICT',     project.landTitle.district],
                                         ['COUNTY',       project.landTitle.county],
                                         ['BLOCK / ROAD', project.landTitle.blockRoad],

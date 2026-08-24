@@ -170,7 +170,7 @@ public class StageTemplateService {
                     .cost(cost)
                     .notes(req.getNotes())
                     .isCustom(req.isCustom())
-                    .isCompleted(false)
+                    .isCompleted(req.isCompleted())
                     .displayOrder(startOrder + (i++))
                     .build();
             created.add(projectStageRepository.save(stage));

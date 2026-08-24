@@ -242,14 +242,12 @@ public class LandService {
 
     @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
-        // PHASE B (Section 18.10): LandProject is now built FIRST --
-        // projectIndex, owners, location, and stage all exist
-        // independently of a title. A LandTitle is only built and
-        // attached SECOND, and only if title fields were actually
-        // submitted. Using a non-blank plotNumber as that signal for
-        // now -- a real "attach title later, on the final stage
-        // checkbox" trigger is Phase D's job, not this phase's.
-        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
+        // is only built if the legacy preset is used or the final
+        // processing stage ("Registration and Title Issuance") is checked.
+        boolean hasFinalStage = request.getSelectedStages() != null && request.getSelectedStages().stream()
+                .anyMatch(s -> s.isCompleted() && "Registration and Title Issuance".equalsIgnoreCase(s.getStageName()));
+        boolean hasTitleFields = request.isLegacy() || hasFinalStage;
         String projectIndex = projectIndexService.generateNextIndex();
 
         BigDecimal initialPayment = request.getInitialPayment() != null
@@ -262,10 +260,13 @@ public class LandService {
 
         LandTitle title = null;
         if (hasTitleFields) {
+            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("PLOT_NUMBER_REQUIRED: Plot number is required when using Legacy preset or completing the final stage.");
+            }
             title = LandTitle.builder()
-                    .tenure(request.getTenure())
+                    .titleId(request.getTitleId())
+                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
-                    .physicalBoxNumber(request.getPhysicalBoxNumber())
                     .district(request.getDistrict())
                     .blockRoad(request.getBlockRoad())
                     .county(request.getCounty())
@@ -288,6 +289,10 @@ public class LandService {
                 .projectIndex(projectIndex)
                 .district(request.getDistrict())
                 .county(request.getCounty())
+                .subCounty(request.getSubCounty())
+                .parish(request.getParish())
+                .village(request.getVillage())
+                .area(request.getArea())
                 .totalCost(totalCost)
                 .amountPaid(initialPayment)
                 .isLegacy(request.isLegacy())

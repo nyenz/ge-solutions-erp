@@ -1,248 +1,747 @@
-# PATH: fix.py
-# PHASE C (Section 18.10 / 18.4): Client.nationalId becomes a true mandatory,
-# unique-checked field, both at the DB column level and the service-validation
-# level -- replacing the soft/optional column that the old guide incorrectly
-# claimed was already enforced.
-#
-# Scope: Client.java, DataInitializer.java, ClientService.java. Nothing else.
-# No intake UI changes (that's Phase D) and no changes to LandService.java --
-# its two NIN_REQUIRED blank checks (atomicIntake, updateProjectFull) already
-# route every owner through ClientService.findOrCreateClientByNin(), which
-# already correctly implements the Section 17.3 duplicate-NIN behavior
-# (block on same-NIN-different-name via NIN_NAME_MISMATCH, reuse-with-edit-
-# allowed on same-NIN-same-name) -- that logic did not need fixing, it was
-# only ever running against a column that could not actually back it up.
-#
-# WHAT WAS ACTUALLY BROKEN: DataInitializer already had an
-# "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)"
-# line under a PHASE 2 comment, and Client.java's javadoc already claimed
-# "Unique at the DB level (see DataInitializer)". Both were aspirational, not
-# real. Every migration statement in runSchemaMigrations() runs inside a
-# blanket try/catch that logs ANY failure as "Skipped (already exists)" --
-# so if that ADD CONSTRAINT ever failed for a real reason (duplicate NIN
-# values already sitting in the table from before this was enforced, or
-# blank-string NINs colliding with each other), it would fail silently on
-# every single boot, forever, while the code and comments kept insisting the
-# constraint existed. The Java entity did not even declare nullable=false,
-# so nothing was mandatory at the column level either -- only the service
-# layer (ClientService.findOrCreateClientByNin, LandService's two blank
-# checks) was ever actually stopping a blank NIN, and only for the intake/
-# edit code paths that route through it.
-#
-# THE FIX: DataInitializer now cleans the data BEFORE constraining it, so the
-# constraint-creation step actually succeeds this time instead of silently
-# failing again -- same "backfill guarded by IS NULL, safe to run every boot,
-# no-op once already applied" pattern already used for the Phase A district/
-# county backfill and the Phase B projectIndex backfill just above it in this
-# same file:
-#   1. Blank-string NINs ('') are normalized to real NULL first.
-#   2. Any existing rows that already share a duplicate NIN (from back when
-#      nothing stopped that) get every row after the first one disambiguated
-#      with a "-DUPE-<id>" suffix, so the unique constraint has something
-#      valid to apply to instead of failing on real collisions.
-#   3. Legacy rows with NULL national_id (pre-Phase-2 clients "blank until
-#      next edited," per the old Client.java comment) get backfilled with a
-#      unique LEGACY-<id> placeholder, because a real NOT NULL constraint
-#      cannot coexist with actual NULLs in the table.
-#   4. Only THEN does "ALTER COLUMN national_id SET NOT NULL" run, followed
-#      by the pre-existing ADD CONSTRAINT UNIQUE line (untouched) -- both of
-#      which will now actually succeed and stay applied on every future boot.
-# Client.java's @Column gets nullable = false, unique = true added, matching
-# the exact precedent already used for LandProject/LandTitle.projectIndex
-# (Hibernate's ddl-auto=update will attempt the same thing at startup before
-# DataInitializer's CommandLineRunner runs; when the table isn't clean yet
-# that attempt no-ops same as always, and DataInitializer's explicit
-# raw-JDBC steps below are what actually land it).
-#
-# ClientService.findOrCreateClientByNin() itself is unchanged -- it already
-# does the right thing. Only its javadoc is updated to note the constraint
-# now genuinely exists underneath it, and the unused, dead
-# findOrCreateClient(fullName, phone, email) legacy method (no callers
-# anywhere in the codebase -- confirmed by search) gets a deprecation comment
-# warning that calling it would now violate the NOT NULL constraint, since it
-# never sets nationalId. It is not deleted (nothing calls it, no reason to
-# risk touching more than necessary) and not rewired to require a NIN --
-# that would just be turning it into a second copy of findOrCreateClientByNin,
-# out of scope for this phase.
-
+#!/usr/bin/env python3
 import os
-
-def read_file(path):
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        return f.read()
+import subprocess
 
 def write_file(path, content):
-    os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path) else None
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(content)
+    print(f"OK: {path}")
 
-def patch(path, old, new, label):
-    content = read_file(path)
-    if old not in content:
-        print("MISSING: " + label + " (" + path + ")")
+def patch_file(path, old, new):
+    if not os.path.exists(path):
+        print(f"MISSING: {path}")
         return
-    if content.count(old) > 1:
-        print("MISSING: " + label + " -- old_str not unique in " + path)
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        content = f.read()
+    if old not in content:
+        print(f"MISSING in {path}: {old[:50]}...")
         return
     content = content.replace(old, new)
-    write_file(path, content)
-    print("OK: " + label + " (" + path + ")")
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(content)
+    print(f"OK: {path}")
 
-CLIENT_MODEL = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/model/Client.java"
-DATA_INIT = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
-CLIENT_SERVICE = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/service/ClientService.java"
-
-# ─── 1. Client.java -- nationalId becomes a true mandatory, unique column ──
-
-patch(
-    CLIENT_MODEL,
-    "    /**\n"
-    "     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR (Phase 2)\n"
-    "     * Mandatory for every project owner going forward. Unique at the DB level\n"
-    "     * (see DataInitializer). Legacy client rows created before Phase 2 may\n"
-    "     * have this blank until next edited.\n"
-    "     */\n"
-    "    @Column(name = \"national_id\", length = 100)\n"
-    "    private String nationalId;",
-
-    "    /**\n"
-    "     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR\n"
-    "     * PHASE C (Section 18.4/18.10): a true mandatory, unique-checked column,\n"
-    "     * not a soft convention -- nullable = false, unique = true, matching the\n"
-    "     * same pattern already used for LandProject/LandTitle.projectIndex.\n"
-    "     * DataInitializer backfills any pre-existing NULL, blank, or duplicate\n"
-    "     * values with unique placeholders before applying these constraints, so\n"
-    "     * old legacy rows never block the migration on boot. Also enforced at\n"
-    "     * the service level in ClientService.findOrCreateClientByNin().\n"
-    "     */\n"
-    "    @Column(name = \"national_id\", length = 100, nullable = false, unique = true)\n"
-    "    private String nationalId;",
-
-    "Client.nationalId -- nullable=false, unique=true + updated javadoc"
+# 1. LandTitle.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java",
+    "@Table(name = \"land_titles\", indexes = {\n    @Index(name = \"idx_plot_registry\", columnList = \"plot_number\"),\n    @Index(name = \"idx_physical_archive\", columnList = \"physical_box_number\")\n})",
+    "@Table(name = \"land_titles\", indexes = {\n    @Index(name = \"idx_plot_registry\", columnList = \"plot_number\"),\n    @Index(name = \"idx_title_id\", columnList = \"title_id\")\n})"
 )
 
-# ─── 2. DataInitializer.java -- clean the data, then actually constrain it ──
-
-patch(
-    DATA_INIT,
-    "            // PHASE 2 - NIN-BASED IDENTITY\n"
-    "            // Unique constraint on national_id. Postgres allows multiple NULLs under\n"
-    "            // a UNIQUE constraint, so old clients with no NIN yet are not affected.\n"
-    "            \"ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)\",\n"
-    "            // Phone numbers are no longer required to be unique -- joint owners or\n"
-    "            // family members can share one phone. NIN is now the real identity check.\n"
-    "            \"ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key\",\n",
-
-    "            // PHASE 2 - NIN-BASED IDENTITY\n"
-    "            // Phone numbers are no longer required to be unique -- joint owners or\n"
-    "            // family members can share one phone. NIN is now the real identity check.\n"
-    "            \"ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key\",\n"
-    "\n"
-    "            // PHASE C - FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.4)\n"
-    "            // national_id becomes a TRUE mandatory, unique column. The old\n"
-    "            // \"ADD CONSTRAINT UNIQUE\" line above this comment (removed) had been\n"
-    "            // silently failing on every boot since Phase 2 -- the blanket\n"
-    "            // try/catch below logs any failure as \"already exists\" whether that\n"
-    "            // was true or not, and there was nothing upstream cleaning duplicate\n"
-    "            // or blank values first. These four steps run in order, each one\n"
-    "            // guarded so it is a no-op once already applied -- same repeatable,\n"
-    "            // safe-on-every-boot pattern as the district/county and projectIndex\n"
-    "            // backfills above.\n"
-    "            //\n"
-    "            // Step 1: blank-string NINs are not the same as a real NULL -- fold\n"
-    "            // them in first so step 3 catches them too.\n"
-    "            \"UPDATE clients SET national_id = NULL WHERE national_id = ''\",\n"
-    "            //\n"
-    "            // Step 2: disambiguate any rows that already share a duplicate NIN\n"
-    "            // (possible from before this was ever enforced) -- keep the oldest\n"
-    "            // row's value untouched, suffix every later duplicate with its own\n"
-    "            // id so the unique constraint below has something valid to apply to.\n"
-    "            // Naturally idempotent: once every value is distinct, ROW_NUMBER()\n"
-    "            // never produces rn > 1 for the same national_id again.\n"
-    "            \"UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text \" +\n"
-    "                \"FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn \" +\n"
-    "                \"FROM clients WHERE national_id IS NOT NULL) ranked \" +\n"
-    "                \"WHERE c.id = ranked.id AND ranked.rn > 1\",\n"
-    "            //\n"
-    "            // Step 3: legacy rows created before Phase 2 may still have a blank\n"
-    "            // national_id (per the old Client.java comment, \"blank until next\n"
-    "            // edited\") -- a real NOT NULL constraint cannot coexist with actual\n"
-    "            // NULLs, so give each one a unique placeholder. Naturally idempotent:\n"
-    "            // once set, national_id is no longer NULL so the WHERE clause skips it.\n"
-    "            \"UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL\",\n"
-    "            //\n"
-    "            // Step 4: now safe to apply both constraints for real. SET NOT NULL is\n"
-    "            // itself idempotent in Postgres (no error re-running it once already\n"
-    "            // set). The UNIQUE constraint still goes through the blanket try/catch\n"
-    "            // below like every other migration line, so on every boot after the\n"
-    "            // first successful one it logs \"already exists\" and skips -- same as\n"
-    "            // it always has, except now that log line is finally true.\n"
-    "            \"ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL\",\n"
-    "            \"ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)\",\n",
-
-    "DataInitializer -- clean NIN data before constraining it (NOT NULL + real UNIQUE)"
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java",
+    "    /**\n     * PHYSICAL ARCHIVE LOGISTICS\n     * Mandatory link to the physical location in the office.\n     */\n    @Column(name = \"physical_box_number\", nullable = false, length = 100)\n    private String physicalBoxNumber;",
+    "    @Column(name = \"title_id\", length = 100)\n    private String titleId;"
 )
 
-# ─── 3. ClientService.java -- javadoc + deprecation note only, logic unchanged ──
-
-patch(
-    CLIENT_SERVICE,
-    "    /**\n"
-    "     * INTAKE: FIND OR CREATE\n"
-    "     * Standard industrial deduplication based on Phone Number.\n"
-    "     */\n"
-    "    @Transactional\n"
-    "    public Client findOrCreateClient(String fullName, String phone, String email) {",
-
-    "    /**\n"
-    "     * INTAKE: FIND OR CREATE (LEGACY, PHONE-BASED)\n"
-    "     * Standard industrial deduplication based on Phone Number.\n"
-    "     * DEPRECATED since PHASE C (Section 18.4/18.10): national_id is now\n"
-    "     * NOT NULL at the DB level, and this method never sets it, so calling\n"
-    "     * it would now fail with a DB integrity violation. Confirmed unused --\n"
-    "     * no call sites anywhere in the codebase. Left in place rather than\n"
-    "     * deleted since nothing calls it and this phase is scoped to the NIN\n"
-    "     * constraint itself; use findOrCreateClientByNin() for anything new.\n"
-    "     */\n"
-    "    @Transactional\n"
-    "    public Client findOrCreateClient(String fullName, String phone, String email) {",
-
-    "ClientService.findOrCreateClient -- deprecation warning comment (dead code, unchanged behavior)"
+# 2. LandEntryRequest.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/LandEntryRequest.java",
+    "    private String district;\n    private String county;\n    private String volume;\n    private String folio;\n    private String instrumentNo;\n    private String physicalBoxNumber;",
+    "    private String district;\n    private String county;\n    private String subCounty;\n    private String parish;\n    private String village;\n    private String area;\n    private String titleId;\n    private String volume;\n    private String folio;\n    private String instrumentNo;"
 )
 
-patch(
-    CLIENT_SERVICE,
-    "    /**\n"
-    "     * PHASE 2: NIN-BASED IDENTITY LOOKUP\n"
-    "     * Finds an existing person by their National ID (NIN), or creates a new one.\n"
-    "     * Per business rule (Section 17.3): if a person's NIN changes, they are\n"
-    "     * treated as a brand new person record -- this method never merges by\n"
-    "     * name or phone, only ever by NIN.\n"
-    "     */",
-
-    "    /**\n"
-    "     * NIN-BASED IDENTITY LOOKUP\n"
-    "     * Finds an existing person by their National ID (NIN), or creates a new one.\n"
-    "     * Per business rule (Section 17.3): if a person's NIN changes, they are\n"
-    "     * treated as a brand new person record -- this method never merges by\n"
-    "     * name or phone, only ever by NIN.\n"
-    "     * PHASE C (Section 18.4/18.10): the blank-NIN check and the\n"
-    "     * NIN_NAME_MISMATCH guard below were already correct -- they did not\n"
-    "     * rely on the column being optional. What changed is that\n"
-    "     * Client.nationalId is now a genuinely enforced NOT NULL + UNIQUE\n"
-    "     * column underneath this method (see DataInitializer), instead of the\n"
-    "     * soft convention it used to be.\n"
-    "     */",
-
-    "ClientService.findOrCreateClientByNin -- javadoc updated to note the constraint is now real"
+# 3. ProjectStageRequest.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/ProjectStageRequest.java",
+    "    private String stageTemplateId;\n    private String stageName;\n    private BigDecimal cost;\n    private String notes;\n    private boolean isCustom;",
+    "    private String stageTemplateId;\n    private String stageName;\n    private BigDecimal cost;\n    private String notes;\n    private boolean isCustom;\n    private boolean isCompleted;"
 )
 
-# ─── Commit and push ──────────────────────────────────────────────────────
+# 4. StageTemplateService.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java",
+    "            ProjectStage stage = ProjectStage.builder()\n                    .projectId(projectId)\n                    .stageName(name)\n                    .cost(cost)\n                    .notes(req.getNotes())\n                    .isCustom(req.isCustom())\n                    .isCompleted(false)\n                    .displayOrder(startOrder + (i++))\n                    .build();",
+    "            ProjectStage stage = ProjectStage.builder()\n                    .projectId(projectId)\n                    .stageName(name)\n                    .cost(cost)\n                    .notes(req.getNotes())\n                    .isCustom(req.isCustom())\n                    .isCompleted(req.isCompleted())\n                    .displayOrder(startOrder + (i++))\n                    .build();"
+)
 
-import subprocess
+# 5. LandService.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "        // PHASE B (Section 18.10): LandProject is now built FIRST --\n        // projectIndex, owners, location, and stage all exist\n        // independently of a title. A LandTitle is only built and\n        // attached SECOND, and only if title fields were actually\n        // submitted. Using a non-blank plotNumber as that signal for\n        // now -- a real \"attach title later, on the final stage\n        // checkbox\" trigger is Phase D's job, not this phase's.\n        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();",
+    "        // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle\n        // is only built if the legacy preset is used or the final\n        // processing stage (\"Registration and Title Issuance\") is checked.\n        boolean hasFinalStage = request.getSelectedStages() != null && request.getSelectedStages().stream()\n                .anyMatch(s -> s.isCompleted() && \"Registration and Title Issuance\".equalsIgnoreCase(s.getStageName()));\n        boolean hasTitleFields = request.isLegacy() || hasFinalStage;"
+)
+
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "            title = LandTitle.builder()\n                    .tenure(request.getTenure())\n                    .plotNumber(request.getPlotNumber())\n                    .physicalBoxNumber(request.getPhysicalBoxNumber())\n                    .district(request.getDistrict())",
+    "            title = LandTitle.builder()\n                    .titleId(request.getTitleId())\n                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : \"FREEHOLD\")\n                    .plotNumber(request.getPlotNumber())\n                    .district(request.getDistrict())"
+)
+
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "        LandProject.LandProjectBuilder builder = LandProject.builder()\n                .landTitle(title)\n                .projectIndex(projectIndex)\n                .district(request.getDistrict())\n                .county(request.getCounty())\n                .totalCost(totalCost)",
+    "        LandProject.LandProjectBuilder builder = LandProject.builder()\n                .landTitle(title)\n                .projectIndex(projectIndex)\n                .district(request.getDistrict())\n                .county(request.getCounty())\n                .subCounty(request.getSubCounty())\n                .parish(request.getParish())\n                .village(request.getVillage())\n                .area(request.getArea())\n                .totalCost(totalCost)"
+)
+
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "        LandTitle title = null;\n        if (hasTitleFields) {",
+    "        LandTitle title = null;\n        if (hasTitleFields) {\n            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {\n                throw new com.gesolutions.erp.common.exception.BusinessException(\"PLOT_NUMBER_REQUIRED: Plot number is required when using Legacy preset or completing the final stage.\");\n            }"
+)
+
+# 6. RecoveryTaskDTO.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/client/dto/RecoveryTaskDTO.java",
+    "        private UUID projectId;\n        private String plotNumber;\n        private String physicalBoxNumber;\n        private boolean isReceivable;",
+    "        private UUID projectId;\n        private String plotNumber;\n        private boolean isReceivable;"
+)
+
+# 7. RecoveryController.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
+    "                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())\n                        .isReceivable(plot.isReceivable())",
+    "                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .isReceivable(plot.isReceivable())"
+)
+
+# 8. ProjectResponse.java
+patch_file(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/ProjectResponse.java",
+    "    private UUID projectId;\n    private String plotNumber;\n    private String physicalBoxNumber;\n\n    // ENUM TYPE: Resolved the \"cannot be resolved\" error",
+    "    private UUID projectId;\n    private String plotNumber;\n\n    // ENUM TYPE: Resolved the \"cannot be resolved\" error"
+)
+
+# 9-11. Test Files
+patch_file(
+    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerTest.java",
+    "                .plotNumber(\"SCHED-TEST-\" + UUID.randomUUID().toString().substring(0, 6))\n                .physicalBoxNumber(\"BOX-SCHED-01\")\n                .district(\"Kampala\")",
+    "                .plotNumber(\"SCHED-TEST-\" + UUID.randomUUID().toString().substring(0, 6))\n                .district(\"Kampala\")"
+)
+
+patch_file(
+    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandCascadeDeleteTest.java",
+    "                .folio(\"F99\")\n                .instrumentNo(\"INS-CASCADE-001\")\n                .physicalBoxNumber(\"BOX-CASCADE\")\n                .owners(owners)",
+    "                .folio(\"F99\")\n                .instrumentNo(\"INS-CASCADE-001\")\n                .owners(owners)"
+)
+
+patch_file(
+    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandServiceTest.java",
+    "                .folio(\"F1\")\n                .instrumentNo(\"INS-001\")\n                .physicalBoxNumber(\"BOX-01\")\n                .owners(owners)",
+    "                .folio(\"F1\")\n                .instrumentNo(\"INS-001\")\n                .owners(owners)"
+)
+
+# 12. LedgerPage.jsx
+patch_file(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    "        proj.landTitle?.plotNumber,\n        proj.landTitle?.projectIndex,\n        proj.landTitle?.physicalBoxNumber,\n        proj.landTitle?.district,",
+    "        proj.landTitle?.plotNumber,\n        proj.landTitle?.projectIndex,\n        proj.landTitle?.district,"
+)
+
+patch_file(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    "                                <th>BOX</th>",
+    ""
+)
+
+patch_file(
+    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+    "                                        <td>\n                                            <span className={styles.boxTag}>{proj.landTitle?.physicalBoxNumber || '---'}</span>\n                                        </td>",
+    ""
+)
+
+# 13. RecoveryPortal.jsx
+patch_file(
+    "erp-frontend/src/pages/Recovery/RecoveryPortal.jsx",
+    "                                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>\n                                                </div>",
+    "                                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                </div>"
+)
+
+# 14. FolderPage.jsx
+patch_file(
+    "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
+    "                    folio:             data.project?.landTitle?.folio             || '',\n                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',\n                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',\n                    surveyDate:        data.project?.landTitle?.surveyDate         || '',",
+    "                    folio:             data.project?.landTitle?.folio             || '',\n                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',\n                    surveyDate:        data.project?.landTitle?.surveyDate         || '',"
+)
+
+patch_file(
+    "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
+    "                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>\n                    {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}\n                    <span><strong>BOX:</strong> {project.landTitle.physicalBoxNumber}</span>\n                    <span><strong>STATUS:</strong> {project.status}</span>",
+    "                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>\n                    {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}\n                    <span><strong>STATUS:</strong> {project.status}</span>"
+)
+
+patch_file(
+    "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
+    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />\n                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />\n                                        <SmartInput label=\"BOX LOCATION\" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />\n                                    </div>",
+    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />\n                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />\n                                    </div>"
+)
+
+patch_file(
+    "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
+    "                                        ['PLOT ID',      project.landTitle.plotNumber],\n                                        ['TENURE',       project.landTitle.tenure],\n                                        ['BOX',          project.landTitle.physicalBoxNumber],\n                                        ['DISTRICT',     project.landTitle.district],",
+    "                                        ['PLOT ID',      project.landTitle.plotNumber],\n                                        ['TENURE',       project.landTitle.tenure],\n                                        ['DISTRICT',     project.landTitle.district],"
+)
+
+# IntakePage.module.css (Full rewrite)
+css_lines = [
+    "/* IntakePage.module.css - Phase D Revamp matching Ledger's reference design */",
+    ":root {",
+    "    --orange:        #EE8C3A;",
+    "    --orange-dim:    rgba(238, 140, 58, 0.18);",
+    "    --orange-border: rgba(238, 140, 58, 0.28);",
+    "    --navy:          #1a2e30;",
+    "    --navy-mid:      #213E40;",
+    "    --red:           #ef4444;",
+    "    --green:         #10b981;",
+    "    --cyan:          #06b6d4;",
+    "    --bg:            #f8fafc;",
+    "    --card-bg:       #ffffff;",
+    "    --border:        #e2e8f0;",
+    "",
+    "    --gap-xl:    clamp(14px, 2vw, 22px);",
+    "    --gap-lg:    clamp(10px, 1.5vw, 18px);",
+    "    --gap-md:    clamp(7px,  1.1vw, 13px);",
+    "    --radius:    10px;",
+    "    --radius-sm: 6px;",
+    "",
+    "    --fs-h1:     clamp(18px, 2.5vw, 24px);",
+    "    --fs-sub:    clamp(9px,  0.9vw, 11px);",
+    "    --fs-label:  clamp(8px,  0.85vw, 10px);",
+    "    --fs-value:  clamp(11px, 1.1vw, 13px);",
+    "    --fs-tag:    clamp(7px,  0.75vw, 9px);",
+    "    --fs-input:  clamp(11px, 1.1vw, 13px);",
+    "    --fs-meta:   clamp(8px,  0.85vw, 10px);",
+    "    --fs-btn:    clamp(9px,  0.9vw, 11px);",
+    "}",
+    "",
+    ".container {",
+    "    max-width: 1200px;",
+    "    width: 100%;",
+    "    margin: 0 auto;",
+    "    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px);",
+    "    font-family: 'DM Sans', sans-serif;",
+    "    color: var(--navy);",
+    "    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;",
+    "    display: flex;",
+    "    flex-direction: column;",
+    "    gap: var(--gap-xl);",
+    "    box-sizing: border-box;",
+    "}",
+    "",
+    "@keyframes warmBoot {",
+    "    from { opacity: 0; transform: translateY(10px); }",
+    "    to   { opacity: 1; transform: translateY(0); }",
+    "}",
+    "",
+    ".header {",
+    "    display: flex;",
+    "    justify-content: space-between;",
+    "    align-items: center;",
+    "    border-bottom: 2px solid var(--orange);",
+    "    padding-bottom: var(--gap-md);",
+    "}",
+    "",
+    ".title {",
+    "    font-family: 'Cinzel', serif;",
+    "    color: var(--navy);",
+    "    font-size: var(--fs-h1);",
+    "    font-weight: 700;",
+    "    text-transform: uppercase;",
+    "    letter-spacing: 2px;",
+    "    margin: 0;",
+    "}",
+    "",
+    ".subtitle {",
+    "    font-family: 'DM Sans', sans-serif;",
+    "    color: #64748b;",
+    "    font-size: var(--fs-sub);",
+    "    font-weight: 800;",
+    "    text-transform: uppercase;",
+    "    margin: 4px 0 0 0;",
+    "    letter-spacing: 1px;",
+    "}",
+    "",
+    ".actions { display: flex; gap: var(--gap-md); }",
+    "",
+    ".btn {",
+    "    font-family: 'Space Mono', monospace;",
+    "    font-size: var(--fs-btn);",
+    "    font-weight: 700;",
+    "    text-transform: uppercase;",
+    "    letter-spacing: 1px;",
+    "    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);",
+    "    border-radius: var(--radius-sm);",
+    "    border: 1px solid var(--border);",
+    "    background: var(--card-bg);",
+    "    color: var(--navy);",
+    "    cursor: pointer;",
+    "    transition: all 0.2s;",
+    "    display: flex;",
+    "    align-items: center;",
+    "    gap: 6px;",
+    "}",
+    ".btn:hover { border-color: var(--orange); color: var(--orange); }",
+    ".btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }",
+    ".btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }",
+    ".btn:disabled { opacity: 0.5; cursor: not-allowed; }",
+    "",
+    ".section {",
+    "    background: var(--card-bg);",
+    "    border: 1px solid var(--border);",
+    "    border-radius: var(--radius);",
+    "    padding: var(--gap-lg);",
+    "    display: flex;",
+    "    flex-direction: column;",
+    "    gap: var(--gap-lg);",
+    "}",
+    "",
+    ".sectionTitle {",
+    "    font-family: 'Cinzel', serif;",
+    "    font-size: clamp(14px, 1.8vw, 18px);",
+    "    font-weight: 700;",
+    "    color: var(--navy);",
+    "    margin: 0;",
+    "    padding-bottom: var(--gap-md);",
+    "    border-bottom: 1px solid var(--border);",
+    "    display: flex;",
+    "    align-items: center;",
+    "    gap: 8px;",
+    "}",
+    "",
+    ".grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-lg); }",
+    ".grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--gap-lg); }",
+    ".grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--gap-lg); }",
+    "",
+    ".field { display: flex; flex-direction: column; gap: 4px; }",
+    ".label { font-size: var(--fs-label); font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }",
+    ".required::after { content: '*'; color: var(--red); margin-left: 2px; }",
+    "",
+    ".input, .select, .textarea {",
+    "    font-family: 'DM Sans', sans-serif;",
+    "    font-size: var(--fs-input);",
+    "    font-weight: 600;",
+    "    padding: clamp(8px, 1vw, 12px);",
+    "    border: 1px solid var(--border);",
+    "    border-radius: var(--radius-sm);",
+    "    background: var(--bg);",
+    "    color: var(--navy);",
+    "    width: 100%;",
+    "    box-sizing: border-box;",
+    "    transition: border-color 0.2s, box-shadow 0.2s;",
+    "}",
+    ".input:focus, .select:focus, .textarea:focus {",
+    "    outline: none;",
+    "    border-color: var(--orange);",
+    "    box-shadow: 0 0 0 3px var(--orange-dim);",
+    "}",
+    ".input.error, .select.error { border-color: var(--red); }",
+    ".textarea { min-height: 80px; resize: vertical; }",
+    "",
+    ".ownerRow {",
+    "    display: grid;",
+    "    grid-template-columns: 2fr 1fr 1fr 1.5fr auto;",
+    "    gap: var(--gap-md);",
+    "    align-items: end;",
+    "    padding: var(--gap-md);",
+    "    background: var(--bg);",
+    "    border: 1px solid var(--border);",
+    "    border-radius: var(--radius-sm);",
+    "}",
+    "",
+    ".stageList { display: flex; flex-direction: column; gap: var(--gap-md); }",
+    ".stageItem {",
+    "    display: flex;",
+    "    align-items: center;",
+    "    gap: var(--gap-md);",
+    "    padding: var(--gap-md);",
+    "    background: var(--bg);",
+    "    border: 1px solid var(--border);",
+    "    border-radius: var(--radius-sm);",
+    "    cursor: pointer;",
+    "    transition: all 0.2s;",
+    "}",
+    ".stageItem:hover { border-color: var(--orange); }",
+    ".stageItem.checked { border-color: var(--green); background: rgba(16, 185, 129, 0.05); }",
+    ".checkbox { width: 20px; height: 20px; accent-color: var(--orange); cursor: pointer; }",
+    ".stageName { font-weight: 700; color: var(--navy); font-size: var(--fs-value); }",
+    "",
+    ".financialsSummary {",
+    "    background: var(--bg);",
+    "    padding: var(--gap-lg);",
+    "    border-radius: var(--radius-sm);",
+    "    display: flex;",
+    "    flex-direction: column;",
+    "    gap: var(--gap-md);",
+    "}",
+    ".finRow { display: flex; justify-content: space-between; font-weight: 700; color: var(--navy); font-size: var(--fs-value); }",
+    ".finRow.total { color: var(--orange); font-size: clamp(14px, 1.5vw, 18px); border-top: 1px solid var(--border); padding-top: var(--gap-md); }",
+    "",
+    ".dropzone {",
+    "    border: 2px dashed var(--orange-border);",
+    "    border-radius: var(--radius);",
+    "    padding: var(--gap-xl);",
+    "    text-align: center;",
+    "    color: #64748b;",
+    "    cursor: pointer;",
+    "    transition: all 0.2s;",
+    "}",
+    ".dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }",
+    "",
+    ".fileList { display: flex; flex-direction: column; gap: var(--gap-md); }",
+    ".fileItem { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: var(--gap-md); border-radius: var(--radius-sm); }",
+    "",
+    ".legacyBtn {",
+    "    background: var(--navy);",
+    "    color: #fff;",
+    "    border: 1px solid var(--navy);",
+    "    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);",
+    "    font-size: var(--fs-btn);",
+    "    font-weight: 700;",
+    "    text-transform: uppercase;",
+    "    border-radius: var(--radius-sm);",
+    "    cursor: pointer;",
+    "}",
+    ".legacyBtn:hover { background: var(--navy-mid); }",
+    "",
+    ".toast {",
+    "    position: fixed;",
+    "    bottom: 20px;",
+    "    right: 20px;",
+    "    background: var(--navy);",
+    "    color: #fff;",
+    "    padding: 12px 20px;",
+    "    border-radius: var(--radius-sm);",
+    "    box-shadow: 0 4px 6px rgba(0,0,0,0.1);",
+    "    z-index: 9999;",
+    "    animation: slideIn 0.3s ease-out;",
+    "}",
+    ".toast.error { background: var(--red); }",
+    ".toast.success { background: var(--green); }",
+    "@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }",
+    "",
+    "@media (max-width: 768px) {",
+    "    .ownerRow { grid-template-columns: 1fr; }",
+    "    .header { flex-direction: column; align-items: flex-start; gap: var(--gap-lg); }",
+    "}"
+]
+write_file("erp-frontend/src/pages/Intake/IntakePage.module.css", "\n".join(css_lines))
+
+# IntakePage.jsx (Full rewrite)
+jsx_lines = [
+    "// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx",
+    "import React, { useState, useEffect, useCallback } from 'react';",
+    "import { useNavigate } from 'react-router-dom';",
+    "import { FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud, FiPlus, FiTrash2, FiSave } from 'react-icons/fi';",
+    "import landService from '../../services/landService';",
+    "import stageTemplateService from '../../services/stageTemplateService';",
+    "import styles from './IntakePage.module.css';",
+    "",
+    "const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });",
+    "",
+    "export default function IntakePage() {",
+    "    const navigate = useNavigate();",
+    "    const [saving, setSaving] = useState(false);",
+    "    const [projectId, setProjectId] = useState(null);",
+    "    const [projectIndex, setProjectIndex] = useState('');",
+    "    const [owners, setOwners] = useState([EMPTY_OWNER()]);",
+    "",
+    "    const [district, setDistrict] = useState('');",
+    "    const [county, setCounty] = useState('');",
+    "    const [subCounty, setSubCounty] = useState('');",
+    "    const [parish, setParish] = useState('');",
+    "    const [village, setVillage] = useState('');",
+    "    const [area, setArea] = useState('');",
+    "",
+    "    const [templates, setTemplates] = useState([]);",
+    "    const [checkedStages, setCheckedStages] = useState({});",
+    "    const [isLegacy, setIsLegacy] = useState(false);",
+    "",
+    "    const [titleId, setTitleId] = useState('');",
+    "    const [tenure, setTenure] = useState('FREEHOLD');",
+    "    const [plotNumber, setPlotNumber] = useState('');",
+    "    const [blockRoad, setBlockRoad] = useState('');",
+    "    const [titleArea, setTitleArea] = useState('');",
+    "",
+    "    const [totalCost, setTotalCost] = useState(0);",
+    "    const [initialPayment, setInitialPayment] = useState(0);",
+    "",
+    "    const [fileQueue, setFileQueue] = useState([]);",
+    "    const [notes, setNotes] = useState('');",
+    "",
+    "    const [toasts, setToasts] = useState([]);",
+    "    const toast = useCallback((msg, type='info') => {",
+    "        const id = Date.now();",
+    "        setToasts(p => [...p, {id, msg, type}]);",
+    "        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);",
+    "    }, []);",
+    "",
+    "    useEffect(() => {",
+    "        stageTemplateService.getTemplate().then(t => setTemplates(t)).catch(() => {});",
+    "    }, []);",
+    "",
+    "    useEffect(() => {",
+    "        if (area) setTitleArea(area);",
+    "    }, [area]);",
+    "",
+    "    const finalStageChecked = Object.keys(checkedStages).some(id => {",
+    "        const t = templates.find(x => x.id === id);",
+    "        return t && t.stageName === 'Registration and Title Issuance' && checkedStages[id];",
+    "    });",
+    "",
+    "    const isSection5Unlocked = isLegacy || finalStageChecked;",
+    "",
+    "    const handleLegacyPreset = () => {",
+    "        setIsLegacy(true);",
+    "        const allChecked = {};",
+    "        templates.forEach(t => { allChecked[t.id] = true; });",
+    "        setCheckedStages(allChecked);",
+    "    };",
+    "",
+    "    const updateOwner = (idx, field, val) => {",
+    "        setOwners(p => p.map((o, i) => i === idx ? {...o, [field]: val} : o));",
+    "    };",
+    "",
+    "    const handleFileUpload = (e) => {",
+    "        const files = Array.from(e.target.files);",
+    "        setFileQueue(p => [...p, ...files]);",
+    "    };",
+    "",
+    "    const handleSubmit = async () => {",
+    "        if (!district.trim() || !county.trim()) {",
+    "            toast('District and County are required.', 'error'); return;",
+    "        }",
+    "        for (let o of owners) {",
+    "            if (!o.nationalId.trim()) {",
+    "                toast('NIN is required for all owners.', 'error'); return;",
+    "            }",
+    "        }",
+    "        if (isSection5Unlocked) {",
+    "            if (!plotNumber.trim()) { toast('Plot Number is required when Legacy or Final Stage is checked.', 'error'); return; }",
+    "            if (!titleArea.trim()) { toast('Area is required for Title details.', 'error'); return; }",
+    "        }",
+    "",
+    "        setSaving(true);",
+    "        try {",
+    "            const payload = {",
+    "                district: district.trim().toUpperCase(),",
+    "                county: county.trim().toUpperCase(),",
+    "                subCounty: subCounty.trim().toUpperCase(),",
+    "                parish: parish.trim().toUpperCase(),",
+    "                village: village.trim().toUpperCase(),",
+    "                area: area.trim(),",
+    "                totalCost: Number(totalCost) || 0,",
+    "                initialPayment: Number(initialPayment) || 0,",
+    "                isLegacy: isLegacy,",
+    "                owners: owners.map(o => ({",
+    "                    fullName: o.fullName.trim().toUpperCase(),",
+    "                    phone: o.phone.trim(),",
+    "                    email: o.email.trim().toLowerCase(),",
+    "                    nationalId: o.nationalId.trim().toUpperCase(),",
+    "                    address: o.address.trim(),",
+    "                })),",
+    "                selectedStages: Object.entries(checkedStages).filter(([_, v]) => v).map(([id]) => {",
+    "                    const t = templates.find(x => x.id === id);",
+    "                    return {",
+    "                        stageTemplateId: id,",
+    "                        stageName: t ? t.stageName : '',",
+    "                        isCustom: false,",
+    "                        isCompleted: true",
+    "                    };",
+    "                }),",
+    "                notes: notes.trim() ? [{ content: notes.trim() }] : [],",
+    "            };",
+    "",
+    "            if (isSection5Unlocked) {",
+    "                payload.plotNumber = plotNumber.trim().toUpperCase();",
+    "                payload.tenure = tenure;",
+    "                payload.blockRoad = blockRoad.trim().toUpperCase();",
+    "                payload.titleId = titleId.trim().toUpperCase();",
+    "            }",
+    "",
+    "            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);",
+    "            toast('Project registered successfully!', 'success');",
+    "            setTimeout(() => navigate('/land/projects'), 1500);",
+    "        } catch (err) {",
+    "            toast(err.response?.data?.message || 'Save failed', 'error');",
+    "        } finally {",
+    "            setSaving(false);",
+    "        }",
+    "    };",
+    "",
+    "    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));",
+    "",
+    "    return (",
+    "        <div className={styles.container}>",
+    "            <header className={styles.header}>",
+    "                <div>",
+    "                    <h1 className={styles.title}>New Land Project</h1>",
+    "                    <p className={styles.subtitle}>Intake Form</p>",
+    "                </div>",
+    "                <div className={styles.actions}>",
+    "                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>",
+    "                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>",
+    "                        <FiSave /> {saving ? 'Saving...' : 'Save Project'}",
+    "                    </button>",
+    "                </div>",
+    "            </header>",
+    "",
+    "            <section className={styles.section}>",
+    "                <h2 className={styles.sectionTitle}><FiFileText /> 1. Project Index</h2>",
+    "                <div className={styles.field}>",
+    "                    <label className={styles.label}>Project Index</label>",
+    "                    <input className={styles.input} value={projectIndex || 'Auto-generated on save'} disabled />",
+    "                </div>",
+    "            </section>",
+    "",
+    "            <section className={styles.section}>",
+    "                <h2 className={styles.sectionTitle}><FiUsers /> 2. Owners</h2>",
+    "                {owners.map((o, idx) => (",
+    "                    <div key={idx} className={styles.ownerRow}>",
+    "                        <div className={styles.field}>",
+    "                            <label className={`${styles.label} ${styles.required}`}>Full Name</label>",
+    "                            <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={`${styles.label} ${styles.required}`}>NIN</label>",
+    "                            <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={styles.label}>Phone</label>",
+    "                            <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={styles.label}>Email</label>",
+    "                            <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />",
+    "                        </div>",
+    "                        <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>",
+    "                            <FiTrash2 />",
+    "                        </button>",
+    "                    </div>",
+    "                ))}",
+    "                <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>",
+    "                    <FiPlus /> Add joint owner",
+    "                </button>",
+    "            </section>",
+    "",
+    "            <section className={styles.section}>",
+    "                <h2 className={styles.sectionTitle}><FiMap /> 3. Location</h2>",
+    "                <div className={styles.grid3}>",
+    "                    <div className={styles.field}>",
+    "                        <label className={`${styles.label} ${styles.required}`}>District</label>",
+    "                        <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={`${styles.label} ${styles.required}`}>County</label>",
+    "                        <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Sub-county</label>",
+    "                        <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Parish</label>",
+    "                        <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Village</label>",
+    "                        <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Area (Optional)</label>",
+    "                        <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />",
+    "                    </div>",
+    "                </div>",
+    "            </section>",
+    "",
+    "            <section className={styles.section}>",
+    "                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>",
+    "                    <h2 className={styles.sectionTitle} style={{borderBottom: 'none', paddingBottom: 0}}><FiCheckSquare /> 4. Stage Checklist</h2>",
+    "                    <button className={styles.legacyBtn} onClick={handleLegacyPreset}>Legacy Preset</button>",
+    "                </div>",
+    "                <div className={styles.stageList}>",
+    "                    {templates.map(t => (",
+    "                        <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''}`}>",
+    "                            <input type=\"checkbox\" className={styles.checkbox} checked={!!checkedStages[t.id]} ",
+    "                                onChange={e => setCheckedStages(p => ({...p, [t.id]: e.target.checked}))} />",
+    "                            <span className={styles.stageName}>{t.stageName}</span>",
+    "                        </label>",
+    "                    ))}",
+    "                </div>",
+    "            </section>",
+    "",
+    "            {isSection5Unlocked && (",
+    "                <section className={styles.section} style={{border: '2px solid var(--orange)'}}>",
+    "                    <h2 className={styles.sectionTitle}><FiFileText /> 5. Title & Plot Details</h2>",
+    "                    <div className={styles.grid3}>",
+    "                        <div className={styles.field}>",
+    "                            <label className={styles.label}>Title ID</label>",
+    "                            <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={`${styles.label} ${styles.required}`}>Tenure</label>",
+    "                            <select className={styles.select} value={tenure} onChange={e => setTenure(e.target.value)}>",
+    "                                <option value=\"FREEHOLD\">FREEHOLD</option>",
+    "                                <option value=\"MAILO\">MAILO</option>",
+    "                                <option value=\"LEASEHOLD\">LEASEHOLD</option>",
+    "                                <option value=\"CUSTOMARY\">CUSTOMARY</option>",
+    "                            </select>",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={`${styles.label} ${styles.required}`}>Plot Number</label>",
+    "                            <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={styles.label}>Block</label>",
+    "                            <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />",
+    "                        </div>",
+    "                        <div className={styles.field}>",
+    "                            <label className={`${styles.label} ${styles.required}`}>Area</label>",
+    "                            <input className={styles.input} value={titleArea} onChange={e => setTitleArea(e.target.value)} />",
+    "                        </div>",
+    "                    </div>",
+    "                </section>",
+    "            )}",
+    "",
+    "            <section className={styles.section}>",
+    "                <h2 className={styles.sectionTitle}><FiDollarSign /> 6. Financials</h2>",
+    "                <div className={styles.grid2}>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Total Cost</label>",
+    "                        <input type=\"number\" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />",
+    "                    </div>",
+    "                    <div className={styles.field}>",
+    "                        <label className={styles.label}>Initial Payment</label>",
+    "                        <input type=\"number\" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />",
+    "                    </div>",
+    "                </div>",
+    "                <div className={styles.financialsSummary}>",
+    "                    <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>",
+    "                    <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>",
+    "                    <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>",
+    "                </div>",
+    "            </section>",
+    "",
+    "            <section className={styles.section}>",
+    "                <h2 className={styles.sectionTitle}><FiUploadCloud /> 7. Documents & Notes</h2>",
+    "                <label className={styles.dropzone}>",
+    "                    <FiUploadCloud size={24} />",
+    "                    <p>Click to upload documents</p>",
+    "                    <input type=\"file\" multiple style={{display: 'none'}} onChange={handleFileUpload} />",
+    "                </label>",
+    "                <div className={styles.fileList}>",
+    "                    {fileQueue.map((f, i) => (",
+    "                        <div key={i} className={styles.fileItem}>",
+    "                            <span>{f.name}</span>",
+    "                            <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>",
+    "                        </div>",
+    "                    ))}",
+    "                </div>",
+    "                <div className={styles.field}>",
+    "                    <label className={styles.label}>Shared Project Notes</label>",
+    "                    <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} />",
+    "                </div>",
+    "            </section>",
+    "",
+    "            {toasts.map(t => (",
+    "                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>",
+    "            ))}",
+    "        </div>",
+    "    );",
+    "}"
+]
+write_file("erp-frontend/src/pages/Intake/IntakePage.jsx", "\n".join(jsx_lines))
+
+# Git commit and push
 subprocess.run(['git', 'add', '-A'])
-subprocess.run(['git', 'commit', '-m',
-    'Phase C (Section 18.10): Client.nationalId becomes a true mandatory, '
-    'unique-checked column (NOT NULL + UNIQUE), with a data-cleanup backfill '
-    'so the constraint actually applies instead of silently failing'])
+subprocess.run(['git', 'commit', '-m', 'Phase D: Intake rebuild + physicalBoxNumber drop'])
 subprocess.run(['git', 'push'])

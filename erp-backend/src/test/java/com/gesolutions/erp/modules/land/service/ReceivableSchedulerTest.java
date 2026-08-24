@@ -60,7 +60,6 @@ public class ReceivableSchedulerTest {
         LandTitle title = LandTitle.builder()
                 .tenure("FREEHOLD")
                 .plotNumber("SCHED-TEST-" + UUID.randomUUID().toString().substring(0, 6))
-                .physicalBoxNumber("BOX-SCHED-01")
                 .district("Kampala")
                 .county("Central")
                 .build();

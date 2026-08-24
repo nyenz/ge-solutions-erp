@@ -15,7 +15,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "land_titles", indexes = {
     @Index(name = "idx_plot_registry", columnList = "plot_number"),
-    @Index(name = "idx_physical_archive", columnList = "physical_box_number")
+    @Index(name = "idx_title_id", columnList = "title_id")
 })
 @Getter 
 @Setter 
@@ -63,12 +63,8 @@ public class LandTitle {
     @Column(name = "instrument_no", length = 100)
     private String instrumentNo;
 
-    /**
-     * PHYSICAL ARCHIVE LOGISTICS
-     * Mandatory link to the physical location in the office.
-     */
-    @Column(name = "physical_box_number", nullable = false, length = 100)
-    private String physicalBoxNumber;
+    @Column(name = "title_id", length = 100)
+    private String titleId;
 
     /**
      * PROJECT INDEX

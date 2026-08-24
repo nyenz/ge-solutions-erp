@@ -337,7 +337,6 @@ const RecoveryPortal = () => {
                                             <div key={p.projectId} className={styles.plotSubCard}>
                                                 <div className={styles.plotSubCardHeader}>
                                                     <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
-                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>
                                                 </div>
 
                                                 {/* STAGE 12 FIX: SOLO/JOINT badge + navigable co-owner links

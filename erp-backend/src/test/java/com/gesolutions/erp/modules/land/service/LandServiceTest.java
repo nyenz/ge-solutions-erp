@@ -69,7 +69,6 @@ public class LandServiceTest {
                 .volume("V1")
                 .folio("F1")
                 .instrumentNo("INS-001")
-                .physicalBoxNumber("BOX-01")
                 .owners(owners)
                 .totalCost(new BigDecimal("5000000"))
                 .initialPayment(new BigDecimal("1000000"))
