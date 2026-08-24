@@ -100,7 +100,7 @@ public class DashboardController {
                 .count();
 
         long uniqueBoxes = allPlots.stream()
-                .map(p -> p.getLandTitle().getPhysicalBoxNumber())
+                .map(p -> p.getLandTitle() != null ? p.getLandTitle().getPlotNumber() : null).filter(pb -> pb != null)
                 .distinct().count();
 
         long receivableCount = projectRepository.countReceivablePlots();
