@@ -1,5 +1,10 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: August 2026 (Section 10 bug-fix roadmap added, Sections 11/12/16 cleaned up)
+# Last updated: August 2026 (Cleanup pass: Section 7 now leads with "Ledger is the reference
+# design" as a checkable law, duplicate wording removed; fix.py now commits/pushes itself
+# automatically, Section 3/13 deploy steps de-duplicated; Section 16 gained a no-duplication
+# rule, a supersession-not-deletion rule, and its missing Section 18 exception. Section 18
+# added: Folder-to-Title redesign, with 17.4/17.6 marked superseded. Section 10 bug-fix
+# roadmap added, Sections 11/12/16 cleaned up.)
 
 ---
 
@@ -37,6 +42,7 @@
 **RULE (August 2026, PERMANENT -- supersedes the earlier "one phase per fix.py, split into small parts" rule): Each phase of a large multi-phase rebuild (like the ERP Revamp in Section 17) ships as ONE complete fix.py covering that entire phase from start to finish. Never split a single phase into sub-parts (no more 4A/4B/4C-style patches). If a phase touches many files, that is fine -- it still goes in one fix.py. Only split across multiple fix.py files if David explicitly asks for it for a specific reason.**
 **RULE (August 2026, PERMANENT): Testing happens ONLY after ALL planned phases in the current rebuild are code-complete and deployed -- never after each individual phase in isolation. Do not propose or ask David to test a single phase on its own; keep shipping phases back-to-back until the full plan is code-complete, then run one comprehensive end-to-end test pass covering everything at once. This makes permanent the deferred-testing approach David adopted during the ERP Revamp.**
 **RULE (August 2026, PERMANENT): Going forward, BUG FIXES (as opposed to new revamp phases) are tested immediately after each stage, not deferred to the end. Only the ERP REVAMP phases (Section 17) follow the deferred, test-everything-at-the-end rule. Bug-fix stages in the roadmap follow normal one-stage-then-test discipline.**
+**RULE (August 2026, PERMANENT): Every fix.py must commit and push itself as its final step -- call `subprocess.run(['git','add','-A'])`, then `subprocess.run(['git','commit','-m','<descriptive message>'])`, then `subprocess.run(['git','push'])`, using a commit message specific to that fix. David should never need to type a git command by hand.**
 
 ### Why patches fail:
 - If fix.py says 'patch target not found', the text doesn't match exactly OR the change was already applied.
@@ -45,10 +51,9 @@
 ### How David uses fix.py:
 1. Open fix.py in VS Code, Ctrl+A, Delete, paste new content, Ctrl+S
 2. Run `py fix.py` in Git Bash
-3. Check output for OK/MISSING
-4. `git add -A && git commit -m 'message' && git push`
-5. Watch Render Events tab for green tick (5-10 min free tier)
-6. Test at golden-seed.onrender.com. If red: click deploy logs, read error, fix, repeat
+3. Check output for OK/MISSING -- the script commits and pushes automatically as its last step
+   (see the PERMANENT rule above), so there is no git command to type by hand
+4. See Section 13 for the full deploy-and-test flow, including replacing the addendum file first
 
 ---
 
@@ -122,6 +127,13 @@ ge solns/
 
 ## 7. UI DESIGN STANDARDS
 
+### LAW: LEDGER PAGE IS THE REFERENCE DESIGN
+Ledger is the closest existing page to the target design language for the whole app. Every
+other list, table, filter bar, search box, dropdown, or empty state should default to Ledger's
+existing pattern unless a subsection below says otherwise for that specific element. The
+subsections below ARE that breakdown -- each names the exact spacing, color, font, and behavior
+Ledger already uses, so "match Ledger" is a checkable rule, not something to eyeball.
+
 ### UI UNIFORMITY RULE
 Every element of the same type must look and behave identically across all pages regardless of where it appears. Only deviate when explicitly instructed. Covers all element types: buttons, headings, inputs, dropdowns, tables, lists, badges, modals, pagination, empty states, icons, scrollbars. For every element the following must be identical everywhere: font (family, size, weight, letter-spacing, text-transform), color, padding, margin, spacing/gap, border, shadow, hover/active/selected/focus/error states, and responsive behavior.
 
@@ -159,7 +171,7 @@ Every element must be explicitly styled -- no browser defaults anywhere. Covers:
 - Layout: single horizontal row, flex-direction:ROW, flex-wrap:nowrap, overflow-x:auto, scrollbar hidden
 - NO icons inside filter buttons -- text only
 
-### Table Design Standard (Ledger is the master reference)
+### Table Design Standard
 - Table wraps in: `background: rgba(0,0,0,0.15)`
 - Header row: `background: #162a2c`
 - Header text: DM Sans 900, `color: var(--orange)`, uppercase, letter-spacing 2px
@@ -209,7 +221,6 @@ Every element must be explicitly styled -- no browser defaults anywhere. Covers:
 
 ### Empty State Rules
 - Searching in tables MUST return dynamic text: `NO RECORDS MATCH 'term'`
-- Use Ledger logic as the absolute source of truth
 
 ### FolderPage Header
 - Uses `.terminalHeader` -- its own unique design, do NOT change to pageHeader
@@ -356,12 +367,13 @@ top priority.
 ## 13. DEPLOYMENT PROCESS
 
 1. Create fix.py AND updated LLM_CONTEXT_ADDENDUM.md -> present_files both -> David downloads both
-2. David replaces local fix.py -> `py fix.py` -> check output for OK/MISSING
-3. David replaces local LLM_CONTEXT_ADDENDUM.md
-4. `git add -A && git commit -m 'message' && git push`
-5. Render -> Events tab -> wait for green tick (5-10 min free tier)
-6. Test at golden-seed.onrender.com
-7. If red: click 'deploy logs' -> read error -> fix -> repeat
+2. David replaces local fix.py AND local LLM_CONTEXT_ADDENDUM.md
+3. `py fix.py` -> check output for OK/MISSING -- this also commits and pushes automatically
+   (picking up both the code changes and the addendum replace), per the PERMANENT rule in
+   Section 3. No manual git command needed.
+4. Render -> Events tab -> wait for green tick (5-10 min free tier)
+5. Test at golden-seed.onrender.com
+6. If red: click 'deploy logs' -> read error -> fix -> repeat
 
 ---
 
@@ -406,15 +418,18 @@ top priority.
 
 ## 16. SESSION MANAGEMENT RULES (HOW EVERY SESSION ENDS)
 
-Full rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that file for the actual
-step-by-step process. Short version: work stays in the addendum until David confirms it,
-then it moves into Section 10 above (or Section 17's Phase Tracker for revamp phases) and
-is removed from the addendum entirely. The addendum should only ever contain work in
-progress, never a permanent record.
+Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that file directly for
+the process. Short version: work stays in the addendum until David confirms it, then moves into
+Section 10 above (or Section 17/18's Phase Trackers for revamp/redesign phases) and is removed
+from the addendum entirely.
 
 **RULE:** The master guide (LLM_CONTEXT_GUIDE.md) is NEVER edited for incremental changes each session. All new rules, discoveries, and session notes go into LLM_CONTEXT_ADDENDUM.md only. The ONLY parts of the master guide that ever get updated are Sections 10 and 11.
 **EXCEPTION (August 2026):** Section 17 below is a deliberate, one-time full-architecture addition requested directly by David to represent the revamp's permanent target design. It is NOT a violation of the above rule -- it is guide-level reference content, not a session note. Within Section 17 itself, only the Phase Tracker subsection updates as phases complete; the rest of Section 17 (decisions, role table, module list) is meant to stay stable once phases start shipping, the same way Section 9's business rules stay stable.
 **EXCEPTION (August 2026, second instance):** The fix.py workflow rules in Section 3 (one-complete-fix.py-per-phase, and testing deferred until all phases are done) were also explicitly requested by David as permanent process rules, not one-session notes. They were written directly into Section 3 rather than the addendum for the same reason as the Section 17 exception above: they are standing process rules meant to govern every future session, not a fact about the current state of the code.
+**EXCEPTION (August 2026, third instance):** Section 18 was added the same way as Section 17 -- a deliberate, one-time full-architecture addition for the Folder-to-Title redesign, not a session note. The same rule applies: only its Phase Tracker (18.10) updates going forward; the rest of Section 18 stays stable once Phase A starts shipping.
+
+**RULE (August 2026, PERMANENT):** No fact, design standard, or process step should exist in more than one place in this guide. If something needs to be referenced elsewhere, point to it by section number instead of restating it. Found duplication is a documentation bug -- fix it immediately, the same way a code bug would be fixed.
+**RULE (August 2026, PERMANENT):** When a later section changes a decision made in an earlier one (the way Section 18 overrides parts of Section 17), never delete or silently rewrite the earlier text. Leave it in place and add a short "SUPERSEDED by Section X.Y" note directly under it, pointing to the new authority. This keeps history intact and stops two sections from silently disagreeing.
 
 ---
 
@@ -458,6 +473,10 @@ role hierarchy, and a company-wide financials module separate from project costs
 - Format: 001A, 002A ... 999A, then rolls to 001B, 002B ... 999B, then 001C, etc.
 - Never repeats, never grows past 4 characters. Tied to the project/title itself, not the owner.
 - Must be searchable in the Ledger.
+- **SUPERSEDED by Section 18.3** -- the index is no longer tied to `LandTitle` creation. It is
+  assigned at `LandProject` creation, before any title exists, and is permanent and universal
+  across a record's whole life (folder, legacy, or titled). See Section 18 before touching any
+  `ProjectIndexService` code.
 
 ### 17.5 PROCESSING STAGES
 - Real stage list (confirmed by employer): Field Work, Deed Plan, LC Inspection,
@@ -475,6 +494,12 @@ role hierarchy, and a company-wide financials module separate from project costs
   Staff enter ONE lump total cost (the real number from the ledger). No "estimated" flag needed
   -- it's a real figure. Behaves exactly like normal project payment tracking once entered.
   Same duplicate-NIN check as regular projects applies.
+- **SUPERSEDED by Section 18.6** -- "legacy" is no longer a structurally separate entry path or
+  mode. It is a preset control on the single intake form: it auto-checks every processing stage
+  and immediately unlocks the title fields, producing the exact same record shape as a
+  folder-first project that has simply completed all its stages. `isLegacy` still exists as a
+  flag but its meaning narrows to "this record used the preset," not "this record took a
+  different code path." See Section 18 before touching intake or `atomicIntake()`.
 
 ### 17.7 ROLES (4-tier hierarchy, replacing current ROLE_ADMIN/ROLE_MANAGER)
 | Role | Company Financials | Edits Costs | Changes Stages | Edits Template | Data Entry |
@@ -573,3 +598,197 @@ only exists once the other phases are built.
 Per the Section 3 permanent testing rule, Phases 1-4 above are all shipped but NOT yet
 individually tested -- David will run one full end-to-end test pass covering Phases 1
 through 7 together once Phase 7 is code-complete, not before.
+
+---
+
+## 18. FOLDER-TO-TITLE REDESIGN (RECOVERY MODULE ARCHITECTURE)
+
+**This section is the permanent, authoritative reference for this redesign, same status as
+Section 17. Do not re-litigate these decisions in future sessions -- they are locked in. Only
+the Phase Tracker at 18.10 should change as work progresses. Where this section conflicts with
+anything in Section 17, THIS SECTION WINS -- see the supersession notes left in 17.4 and 17.6.**
+
+### 18.1 WHY THIS EXISTS
+Today a `LandProject` cannot exist without a `LandTitle` (hard-required `@OneToOne`,
+`nullable = false`). That's backwards -- in real life a client's project (owners, location,
+payment history, processing stage) exists for months or years before a title is produced. This
+redesign makes every project record exist from day one, growing additively as it moves through
+processing, until a title exists. It is never rebuilt, converted, or replaced -- one continuous
+record from creation to title issuance and beyond.
+
+### 18.2 SINGLE-IDENTITY MODEL
+One database record for the life of a project. Never transformed or swapped into a different
+record when a title is produced. Fields are only ever ADDED to, never hidden, moved, or removed.
+Status (Folder / Titled) is DERIVED from whether title fields are filled -- it is presentation
+only, not a separate stored state machine staff toggle by hand.
+
+### 18.3 PROJECT INDEX (overrides 17.4)
+Assigned at `LandProject` creation, before any title exists. Permanent and universal across a
+record's whole life -- folder, legacy, or already-titled. This is the client-facing search
+handle ("this is my project index") and never changes or gets replaced by a plot number.
+
+### 18.4 IDENTITY / LOCATION (extends 17.3)
+- NIN is the true identity primary key, required per owner (including joint owners) before
+  anything else can be entered. `Client.nationalId` moves from soft/optional to a true
+  mandatory, unique-checked constraint -- the old guide claimed this was already enforced; it
+  was not, and this redesign is where it actually becomes one.
+- Location hierarchy -- District -> County -> Sub-county -> Parish -> Village, plus an optional
+  Area field -- is PERMANENT, not folder-only. It lives on `LandProject` (moved up from
+  `LandTitle`, which only had District/County) and stays visible for the record's entire life,
+  title or no title.
+
+### 18.5 PROCESSING STAGES -- UNLOCK TRIGGER (extends 17.5)
+No new stage model needed. Checking the existing final template stage ("Registration and Title
+Issuance") is what reveals the title/plot fields for data entry. No separate "convert" button,
+modal, or wizard step. Stage checklist has no per-stage notes field -- notes are unified (18.8).
+
+### 18.6 LEGACY AS PRESET (overrides 17.6)
+Legacy is not a structurally separate entry mode or code path. It is a preset control on the
+single intake form: it auto-checks every stage and jumps straight into the unlocked title
+fields. Under the hood it produces the exact same record shape as a folder-first project that
+has simply completed all its stages. `isLegacy` still exists as a flag but only marks that the
+preset was used.
+
+### 18.7 FINANCIALS
+Live from day one regardless of title status -- total cost, initial payment, amount owed all
+exist and are editable before a title exists. No change needed to where these fields live
+(`LandProject`) -- they are already correct under this model.
+
+### 18.8 NOTES
+One notes field for the whole project, at the end of the page. Not one per stage. Any existing
+per-`ProjectStage` notes field is deprecated in favor of this single project-level field.
+
+### 18.9 TARGET DATA MODEL
+
+**`LandProject`**
+- `landTitle` relationship: `@OneToOne` changes from `nullable = false` to `nullable = true`.
+  This is the core structural blocker and must land before anything else in this section.
+- Gains `subCounty`, `parish`, `village`, `area` (new fields). `district`/`county` move up from
+  `LandTitle` (migrate existing data, don't just duplicate the columns).
+- Financials fields unchanged -- already correctly placed here.
+
+**`LandTitle`**
+- Stays optional-linked from `LandProject`. Only created/attached when the final stage is
+  checked, or immediately if the legacy preset is used.
+- Fields: `titleId` (new), `tenure` (unchanged, defaults to Freehold), `plotNumber` (unchanged),
+  `blockRoad`/"Block" (unchanged), `physicalBoxNumber` (unchanged, still required).
+- `area` lives ONLY on `LandProject` (18.4), not duplicated here -- it simply becomes
+  read/write-unlocked once title fields appear, pre-filled if already entered at folder stage.
+
+**`Client`**
+- `nationalId` becomes a true mandatory, unique-checked column (see 18.4).
+
+**`StageTemplate` / `ProjectStage`**
+- No schema change. Legacy preset behavior (all applicable stages created pre-marked
+  `isCompleted = true`) is service-layer only.
+
+**`ProjectDocument`**
+- Unaffected. Notes move to one `LandProject`-level field per 18.8.
+
+### 18.9.1 SERVICE LAYER AUDIT (LandService.java)
+Making `landTitle` nullable will NPE the following methods, which currently call
+`project.getLandTitle().getPlotNumber()` (or similar) directly for audit logging with no null
+check: `recordPayment`, `moveToReceivable`, `exitReceivable`, `updateProjectFull`,
+`nuclearDelete`, `restoreProject`, `manualRealityOverride`, `authorizeRelease`,
+`setStoragePaused`, `setStorageFeeOverride`, `setAccumulatedFees`, `setNegotiationDeadline`,
+`setReceivableStartOverride`, `logUnlockAction`, `logFollowUp`. Every one needs a null-safe
+fallback to `projectIndex` for logging when `landTitle` is null -- do all ~14 in the same pass,
+not incrementally, or a deploy will break the moment a titleless project hits any of these.
+
+`atomicIntake()` needs a bigger rewrite: today it builds `LandTitle` first (plot number,
+physical box number required), then wraps it in `LandProject`. Under this redesign that
+inverts -- `LandProject` (owners, location, stage) is what's created at intake; `LandTitle` is
+only built and attached later, either immediately (legacy preset) or when the final stage is
+checked.
+
+### 18.9.2 DTOs
+- `LandEntryRequest`: add `subCounty`, `parish`, `village`, `titleId`. `plotNumber`/`tenure`/
+  `blockRoad` stop being required at submit time -- only validated as required if the legacy
+  preset is used or the final stage is checked in the same submission. `isLegacy` narrows to
+  "apply the legacy preset" per 18.6.
+- `ProjectResponse`: add derived `status` (`"Folder"` if no `LandTitle` attached, `"Titled"` if
+  one is -- legacy-originated projects are `"Titled"` immediately). Add `subCounty`, `parish`,
+  `village`, `titleId` to the payload for Ledger/Folder display.
+
+### 18.9.3 INTAKE PAGE -- TARGET LAYOUT
+One form, no separate legacy route:
+1. **Project index** -- auto-generated on save, permanent, shown at top.
+2. **Owners** -- NIN required per owner; name, phone, email; "+ Add joint owner."
+3. **Location** -- District -> County -> Sub-county -> Parish -> Village, optional Area.
+   Permanent, stays visible regardless of title status.
+4. **Stage checklist** -- checkboxes only, no per-stage notes. Final stage checkbox reveals
+   section 5. Legacy preset control on this section auto-checks all stages and reveals section 5
+   immediately.
+5. **Title & Plot Details** -- hidden until unlocked. Title ID, Tenure (default Freehold), Plot
+   Number, Block, Area (mandatory here, pre-filled from section 3 if already entered).
+6. **Financials** -- Total cost, initial payment, amount owed. Live from first save.
+7. **Documents & Notes** -- attachments, single shared notes field.
+
+### 18.9.4 FOLDER PAGE
+Same additive principle: owners, location, and stage checklist always shown. Title/plot fields
+appear as an added block once they exist, never replacing anything above. Status tag
+(Folder/Titled) shown next to the project index in the page header.
+
+### 18.9.5 LEDGER PAGE
+- Add a status tag column (Folder / Titled) next to project index in every row.
+- Add a "Ready for Titling" filtered view: records with all prior stages complete and only the
+  final stage outstanding, or final stage just checked but title fields still empty. Supports
+  bulk-select -> bulk-mark-titled, after which staff fill in each record's unique Title
+  ID/Plot Number/Area individually. Solves the ~200-at-once batch-return-from-land-board case
+  without a manual ledger search per record.
+- Any new UI added here (status tag, queue view) follows the Section 7 design standards --
+  Ledger's own patterns -- exactly, per the LAW at the top of Section 7.
+
+### 18.10 PHASE TRACKER (this is the only part of Section 18 that updates as work progresses)
+
+**PHASE A: Make LandTitle optional + move location fields up**
+- What: `LandProject.landTitle` -> `nullable = true`. Add `subCounty`/`parish`/`village`/`area`
+  to `LandProject`. Migration to move existing `district`/`county` data from `LandTitle` rows up
+  to their parent `LandProject` rows.
+- Must land before any other phase in this section -- everything else assumes it's done.
+- Status: NOT STARTED.
+
+**PHASE B: LandService.java null-safety audit**
+- What: fix the ~14 call sites in 18.9.1 to fall back to `projectIndex` for logging when
+  `landTitle` is null. Rewrite `atomicIntake()` to build `LandProject` first, `LandTitle` only
+  when triggered.
+- Depends on: Phase A.
+- Status: NOT STARTED.
+
+**PHASE C: NIN becomes a true mandatory/unique constraint on Client**
+- What: DB constraint + service-level validation, replacing the current soft/optional column.
+- Depends on: nothing above, but ship before Phase D so intake doesn't need two passes on owner
+  validation.
+- Status: NOT STARTED.
+
+**PHASE D: Intake page rebuild**
+- What: the 7-section layout in 18.9.3 -- new fields wired to updated `LandEntryRequest`,
+  final-stage-checkbox unlock behavior, legacy preset control, unified notes field, area
+  carry-forward logic.
+- Depends on: Phase A, B, C.
+- Status: NOT STARTED.
+
+**PHASE E: Folder page additive display + status tag**
+- What: per 18.9.4 -- title/plot fields as an added block once present, status tag in header.
+- Depends on: Phase A, D.
+- Status: NOT STARTED.
+
+**PHASE F: Ledger status tag column + Ready for Titling queue**
+- What: per 18.9.5 -- status tag column, filtered queue view, bulk-mark-titled action.
+- Depends on: Phase A, E.
+- Status: NOT STARTED.
+
+### 18.11 RECOMMENDED BUILD ORDER
+Phase A (schema) -> Phase B (service null-safety) -> Phase C (NIN constraint) -> Phase D
+(intake rebuild) -> Phase E (folder page) -> Phase F (ledger + queue).
+
+Reasoning: A is the schema change everything else assumes. B must follow immediately -- the app
+will NPE in production the moment any titleless project hits a payment, release, or audit-log
+action otherwise. C is independent and cheap, best done early so D doesn't touch owner
+validation twice. D, E, F all consume the new schema and are ordered by where data enters
+(intake) before where it's displayed (folder, then ledger).
+
+**Testing mode: TBD -- confirm with David before starting Phase A** whether this redesign runs
+as its own standalone rebuild (deferred testing, one full pass after Phase F per the Section 3
+rule) or gets folded into the bug-fix roadmap (tested per-stage, per the other Section 3 rule).
+Do not assume either without an explicit answer.
