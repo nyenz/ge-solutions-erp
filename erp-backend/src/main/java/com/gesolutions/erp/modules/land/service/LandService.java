@@ -384,13 +384,27 @@ public class LandService {
                 .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
         LandTitle title = project.getLandTitle();
 
-        // PHASE B (Section 18.9.1): landTitle can now be null (a
-        // titleless "folder" stage project). Skip the title-field
-        // setters entirely when there is no title yet -- everything
-        // else on this project (owners, cost, legacy flag) still
-        // updates normally below. Real create-a-title-on-edit logic
-        // is Phase D/E's job, not this phase's.
-        if (title != null) {
+        // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields
+        // are provided but no title exists yet. Otherwise update existing title.
+        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        if (title == null && hasTitleFields) {
+            title = LandTitle.builder()
+                    .titleId(request.getTitleId())
+                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
+                    .plotNumber(request.getPlotNumber())
+                    .blockRoad(request.getBlockRoad())
+                    .district(request.getDistrict())
+                    .county(request.getCounty())
+                    .volume(request.getVolume())
+                    .folio(request.getFolio())
+                    .instrumentNo(request.getInstrumentNo())
+                    .surveyDate(request.getSurveyDate())
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : java.time.LocalDate.now())
+                    .titleIssueDate(request.getTitleIssueDate())
+                    .build();
+            project.setLandTitle(title);
+        } else if (title != null) {
+            title.setTitleId(request.getTitleId());
             title.setPlotNumber(request.getPlotNumber());
             title.setTenure(request.getTenure());
             title.setBlockRoad(request.getBlockRoad());
@@ -399,9 +413,16 @@ public class LandService {
             title.setVolume(request.getVolume());
             title.setFolio(request.getFolio());
             title.setInstrumentNo(request.getInstrumentNo());
-            title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());
             title.setSurveyDate(request.getSurveyDate());
         }
+
+        // Save location fields on LandProject (Phase A/E)
+        project.setDistrict(request.getDistrict());
+        project.setCounty(request.getCounty());
+        project.setSubCounty(request.getSubCounty());
+        project.setParish(request.getParish());
+        project.setVillage(request.getVillage());
+        project.setArea(request.getArea());
 
         if (request.getOwners() != null) {
             Set<Client> updatedRegistry = new HashSet<>();

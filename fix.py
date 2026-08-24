@@ -2,12 +2,6 @@
 import os
 import subprocess
 
-def write_file(path, content):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content)
-    print(f"OK: {path}")
-
 def patch_file(path, old, new):
     if not os.path.exists(path):
         print(f"MISSING: {path}")
@@ -22,726 +16,260 @@ def patch_file(path, old, new):
         f.write(content)
     print(f"OK: {path}")
 
-# 1. LandTitle.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java",
-    "@Table(name = \"land_titles\", indexes = {\n    @Index(name = \"idx_plot_registry\", columnList = \"plot_number\"),\n    @Index(name = \"idx_physical_archive\", columnList = \"physical_box_number\")\n})",
-    "@Table(name = \"land_titles\", indexes = {\n    @Index(name = \"idx_plot_registry\", columnList = \"plot_number\"),\n    @Index(name = \"idx_title_id\", columnList = \"title_id\")\n})"
-)
-
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java",
-    "    /**\n     * PHYSICAL ARCHIVE LOGISTICS\n     * Mandatory link to the physical location in the office.\n     */\n    @Column(name = \"physical_box_number\", nullable = false, length = 100)\n    private String physicalBoxNumber;",
-    "    @Column(name = \"title_id\", length = 100)\n    private String titleId;"
-)
-
-# 2. LandEntryRequest.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/LandEntryRequest.java",
-    "    private String district;\n    private String county;\n    private String volume;\n    private String folio;\n    private String instrumentNo;\n    private String physicalBoxNumber;",
-    "    private String district;\n    private String county;\n    private String subCounty;\n    private String parish;\n    private String village;\n    private String area;\n    private String titleId;\n    private String volume;\n    private String folio;\n    private String instrumentNo;"
-)
-
-# 3. ProjectStageRequest.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/ProjectStageRequest.java",
-    "    private String stageTemplateId;\n    private String stageName;\n    private BigDecimal cost;\n    private String notes;\n    private boolean isCustom;",
-    "    private String stageTemplateId;\n    private String stageName;\n    private BigDecimal cost;\n    private String notes;\n    private boolean isCustom;\n    private boolean isCompleted;"
-)
-
-# 4. StageTemplateService.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java",
-    "            ProjectStage stage = ProjectStage.builder()\n                    .projectId(projectId)\n                    .stageName(name)\n                    .cost(cost)\n                    .notes(req.getNotes())\n                    .isCustom(req.isCustom())\n                    .isCompleted(false)\n                    .displayOrder(startOrder + (i++))\n                    .build();",
-    "            ProjectStage stage = ProjectStage.builder()\n                    .projectId(projectId)\n                    .stageName(name)\n                    .cost(cost)\n                    .notes(req.getNotes())\n                    .isCustom(req.isCustom())\n                    .isCompleted(req.isCompleted())\n                    .displayOrder(startOrder + (i++))\n                    .build();"
-)
-
-# 5. LandService.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "        // PHASE B (Section 18.10): LandProject is now built FIRST --\n        // projectIndex, owners, location, and stage all exist\n        // independently of a title. A LandTitle is only built and\n        // attached SECOND, and only if title fields were actually\n        // submitted. Using a non-blank plotNumber as that signal for\n        // now -- a real \"attach title later, on the final stage\n        // checkbox\" trigger is Phase D's job, not this phase's.\n        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();",
-    "        // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle\n        // is only built if the legacy preset is used or the final\n        // processing stage (\"Registration and Title Issuance\") is checked.\n        boolean hasFinalStage = request.getSelectedStages() != null && request.getSelectedStages().stream()\n                .anyMatch(s -> s.isCompleted() && \"Registration and Title Issuance\".equalsIgnoreCase(s.getStageName()));\n        boolean hasTitleFields = request.isLegacy() || hasFinalStage;"
-)
-
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "            title = LandTitle.builder()\n                    .tenure(request.getTenure())\n                    .plotNumber(request.getPlotNumber())\n                    .physicalBoxNumber(request.getPhysicalBoxNumber())\n                    .district(request.getDistrict())",
-    "            title = LandTitle.builder()\n                    .titleId(request.getTitleId())\n                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : \"FREEHOLD\")\n                    .plotNumber(request.getPlotNumber())\n                    .district(request.getDistrict())"
-)
-
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "        LandProject.LandProjectBuilder builder = LandProject.builder()\n                .landTitle(title)\n                .projectIndex(projectIndex)\n                .district(request.getDistrict())\n                .county(request.getCounty())\n                .totalCost(totalCost)",
-    "        LandProject.LandProjectBuilder builder = LandProject.builder()\n                .landTitle(title)\n                .projectIndex(projectIndex)\n                .district(request.getDistrict())\n                .county(request.getCounty())\n                .subCounty(request.getSubCounty())\n                .parish(request.getParish())\n                .village(request.getVillage())\n                .area(request.getArea())\n                .totalCost(totalCost)"
-)
-
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "        LandTitle title = null;\n        if (hasTitleFields) {",
-    "        LandTitle title = null;\n        if (hasTitleFields) {\n            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {\n                throw new com.gesolutions.erp.common.exception.BusinessException(\"PLOT_NUMBER_REQUIRED: Plot number is required when using Legacy preset or completing the final stage.\");\n            }"
-)
-
-# 6. RecoveryTaskDTO.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/client/dto/RecoveryTaskDTO.java",
-    "        private UUID projectId;\n        private String plotNumber;\n        private String physicalBoxNumber;\n        private boolean isReceivable;",
-    "        private UUID projectId;\n        private String plotNumber;\n        private boolean isReceivable;"
-)
-
-# 7. RecoveryController.java
-patch_file(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
-    "                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .physicalBoxNumber(plot.getLandTitle().getPhysicalBoxNumber())\n                        .isReceivable(plot.isReceivable())",
-    "                        .projectId(plot.getId())\n                        .plotNumber(plot.getLandTitle().getPlotNumber())\n                        .isReceivable(plot.isReceivable())"
-)
-
-# 8. ProjectResponse.java
+# 1. ProjectResponse.java
 patch_file(
     "erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/ProjectResponse.java",
-    "    private UUID projectId;\n    private String plotNumber;\n    private String physicalBoxNumber;\n\n    // ENUM TYPE: Resolved the \"cannot be resolved\" error",
-    "    private UUID projectId;\n    private String plotNumber;\n\n    // ENUM TYPE: Resolved the \"cannot be resolved\" error"
+    "    private UUID projectId;\n    private String plotNumber;\n    private String physicalBoxNumber;",
+    "    private UUID projectId;\n    private String plotNumber;\n    private String titleStatus;\n    private String subCounty;\n    private String parish;\n    private String village;\n    private String titleId;"
 )
 
-# 9-11. Test Files
+# 2. LandService.java (updateProjectFull)
 patch_file(
-    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerTest.java",
-    "                .plotNumber(\"SCHED-TEST-\" + UUID.randomUUID().toString().substring(0, 6))\n                .physicalBoxNumber(\"BOX-SCHED-01\")\n                .district(\"Kampala\")",
-    "                .plotNumber(\"SCHED-TEST-\" + UUID.randomUUID().toString().substring(0, 6))\n                .district(\"Kampala\")"
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    """        // PHASE B (Section 18.9.1): landTitle can now be null (a
+        // titleless "folder" stage project). Skip the title-field
+        // setters entirely when there is no title yet -- everything
+        // else on this project (owners, cost, legacy flag) still
+        // updates normally below. Real create-a-title-on-edit logic
+        // is Phase D/E's job, not this phase's.
+        if (title != null) {
+            title.setPlotNumber(request.getPlotNumber());
+            title.setTenure(request.getTenure());
+            title.setBlockRoad(request.getBlockRoad());
+            title.setDistrict(request.getDistrict());
+            title.setCounty(request.getCounty());
+            title.setVolume(request.getVolume());
+            title.setFolio(request.getFolio());
+            title.setInstrumentNo(request.getInstrumentNo());
+            title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());
+            title.setSurveyDate(request.getSurveyDate());
+        }""",
+    """        // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields
+        // are provided but no title exists yet. Otherwise update existing title.
+        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        if (title == null && hasTitleFields) {
+            title = LandTitle.builder()
+                    .titleId(request.getTitleId())
+                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
+                    .plotNumber(request.getPlotNumber())
+                    .blockRoad(request.getBlockRoad())
+                    .district(request.getDistrict())
+                    .county(request.getCounty())
+                    .volume(request.getVolume())
+                    .folio(request.getFolio())
+                    .instrumentNo(request.getInstrumentNo())
+                    .surveyDate(request.getSurveyDate())
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : java.time.LocalDate.now())
+                    .titleIssueDate(request.getTitleIssueDate())
+                    .build();
+            project.setLandTitle(title);
+        } else if (title != null) {
+            title.setTitleId(request.getTitleId());
+            title.setPlotNumber(request.getPlotNumber());
+            title.setTenure(request.getTenure());
+            title.setBlockRoad(request.getBlockRoad());
+            title.setDistrict(request.getDistrict());
+            title.setCounty(request.getCounty());
+            title.setVolume(request.getVolume());
+            title.setFolio(request.getFolio());
+            title.setInstrumentNo(request.getInstrumentNo());
+            title.setSurveyDate(request.getSurveyDate());
+        }
+
+        // Save location fields on LandProject (Phase A/E)
+        project.setDistrict(request.getDistrict());
+        project.setCounty(request.getCounty());
+        project.setSubCounty(request.getSubCounty());
+        project.setParish(request.getParish());
+        project.setVillage(request.getVillage());
+        project.setArea(request.getArea());"""
 )
 
-patch_file(
-    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandCascadeDeleteTest.java",
-    "                .folio(\"F99\")\n                .instrumentNo(\"INS-CASCADE-001\")\n                .physicalBoxNumber(\"BOX-CASCADE\")\n                .owners(owners)",
-    "                .folio(\"F99\")\n                .instrumentNo(\"INS-CASCADE-001\")\n                .owners(owners)"
-)
-
-patch_file(
-    "erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandServiceTest.java",
-    "                .folio(\"F1\")\n                .instrumentNo(\"INS-001\")\n                .physicalBoxNumber(\"BOX-01\")\n                .owners(owners)",
-    "                .folio(\"F1\")\n                .instrumentNo(\"INS-001\")\n                .owners(owners)"
-)
-
-# 12. LedgerPage.jsx
-patch_file(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    "        proj.landTitle?.plotNumber,\n        proj.landTitle?.projectIndex,\n        proj.landTitle?.physicalBoxNumber,\n        proj.landTitle?.district,",
-    "        proj.landTitle?.plotNumber,\n        proj.landTitle?.projectIndex,\n        proj.landTitle?.district,"
-)
-
-patch_file(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    "                                <th>BOX</th>",
-    ""
-)
-
-patch_file(
-    "erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-    "                                        <td>\n                                            <span className={styles.boxTag}>{proj.landTitle?.physicalBoxNumber || '---'}</span>\n                                        </td>",
-    ""
-)
-
-# 13. RecoveryPortal.jsx
-patch_file(
-    "erp-frontend/src/pages/Recovery/RecoveryPortal.jsx",
-    "                                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                    <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber || '---'}</span>\n                                                </div>",
-    "                                                <div className={styles.plotSubCardHeader}>\n                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>\n                                                </div>"
-)
-
-# 14. FolderPage.jsx
+# 3. FolderPage.jsx - Header
 patch_file(
     "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
-    "                    folio:             data.project?.landTitle?.folio             || '',\n                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',\n                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',\n                    surveyDate:        data.project?.landTitle?.surveyDate         || '',",
-    "                    folio:             data.project?.landTitle?.folio             || '',\n                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',\n                    surveyDate:        data.project?.landTitle?.surveyDate         || '',"
+    """<header className={styles.terminalHeader}>
+<div className={styles.idPlate}>
+<h1>{project.landTitle.plotNumber}</h1>
+<div className={styles.metaLine}>
+{project.landTitle?.projectIndex && (
+<span className={`${styles.metaTag} ${styles.tagBlue}`}>
+PROJECT #{project.landTitle.projectIndex}
+</span>
+)}""",
+    """<header className={styles.terminalHeader}>
+<div className={styles.idPlate}>
+<h1>{project.landTitle?.plotNumber || project.projectIndex || 'UNREGISTERED PLOT'}</h1>
+<div className={styles.metaLine}>
+{(project.projectIndex || project.landTitle?.projectIndex) && (
+<span className={`${styles.metaTag} ${styles.tagBlue}`}>
+PROJECT #{project.projectIndex || project.landTitle?.projectIndex}
+</span>
+)}
+<span className={styles.metaTag} style={{ background: project.landTitle ? 'rgba(139,92,246,0.2)' : 'rgba(238,140,58,0.2)', color: project.landTitle ? '#a78bfa' : '#EE8C3A', borderColor: project.landTitle ? 'rgba(139,92,246,0.4)' : 'rgba(238,140,58,0.4)' }}>
+{project.landTitle ? 'TITLED' : 'FOLDER'}
+</span>"""
 )
 
+# 4. FolderPage.jsx - Buffer initialization
 patch_file(
     "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
-    "                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>\n                    {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}\n                    <span><strong>BOX:</strong> {project.landTitle.physicalBoxNumber}</span>\n                    <span><strong>STATUS:</strong> {project.status}</span>",
-    "                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>\n                    {project.landTitle.district && <span><strong>DISTRICT:</strong> {project.landTitle.district}</span>}\n                    <span><strong>STATUS:</strong> {project.status}</span>"
+    """                    plotNumber:        data.project?.landTitle?.plotNumber        || '',
+                    tenure:            data.project?.landTitle?.tenure            || 'MAILO',
+                    blockRoad:         data.project?.landTitle?.blockRoad         || '',
+                    district:          data.project?.landTitle?.district          || '',
+                    county:            data.project?.landTitle?.county            || '',
+                    volume:            data.project?.landTitle?.volume            || '',
+                    folio:             data.project?.landTitle?.folio             || '',
+                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
+                    surveyDate:        data.project?.landTitle?.surveyDate         || '',""",
+    """                    plotNumber:        data.project?.landTitle?.plotNumber        || '',
+                    tenure:            data.project?.landTitle?.tenure            || 'MAILO',
+                    blockRoad:         data.project?.landTitle?.blockRoad         || '',
+                    district:          data.project?.district                     || '',
+                    county:            data.project?.county                       || '',
+                    subCounty:         data.project?.subCounty                    || '',
+                    parish:            data.project?.parish                       || '',
+                    village:           data.project?.village                      || '',
+                    area:              data.project?.area                         || '',
+                    volume:            data.project?.landTitle?.volume            || '',
+                    folio:             data.project?.landTitle?.folio             || '',
+                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
+                    surveyDate:        data.project?.landTitle?.surveyDate         || '',
+                    titleId:           data.project?.landTitle?.titleId           || '',"""
 )
 
+# 5. FolderPage.jsx - OVERVIEW tab body
 patch_file(
     "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
-    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />\n                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />\n                                        <SmartInput label=\"BOX LOCATION\" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />\n                                    </div>",
-    "                                        <SmartInput ref={firstInputRef} label=\"PLOT ID\" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />\n                                        <SmartSelect label=\"TENURE\" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />\n                                    </div>"
+    """                            {isEditing ? (
+                                <>
+                                    <div className={styles.inputGrid3}>
+                                        <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
+                                        <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
+                                    </div>
+                                    <div className={styles.inputGrid3}>
+                                        <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({...buffer, county: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
+                                    </div>
+                                    <div className={styles.inputGrid3}>
+                                        <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
+                                        <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
+                                    </div>
+                                    <div className={styles.inputGrid3}>
+                                        <div className={styles.hwInputWrap}>
+                                            <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
+                                            <input type="date" className={styles.hwInput}
+                                                value={buffer.surveyDate || ''}
+                                                onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className={styles.readOnlyGrid}>
+                                    {[
+                                        ['PLOT ID',      project.landTitle.plotNumber],
+                                        ['TENURE',       project.landTitle.tenure],
+                                        ['DISTRICT',     project.landTitle.district],
+                                        ['COUNTY',       project.landTitle.county],
+                                        ['BLOCK / ROAD', project.landTitle.blockRoad],
+                                        ['VOLUME',       project.landTitle.volume],
+                                        ['FOLIO',        project.landTitle.folio],
+                                        ['INSTRUMENT',   project.landTitle.instrumentNo],
+                                        ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
+                                    ].map(([l,v],i) => (
+                                        <div key={i} className={styles.specItem}>
+                                            <span className={styles.specLabel}>{l}</span>
+                                            <span className={styles.specValue}>{v || '---'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}""",
+    """                            {isEditing ? (
+                                <>
+                                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 }}>LOCATION (Always visible)</div>
+                                    <div className={styles.inputGrid3}>
+                                        <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({...buffer, county: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps onChange={e => touchedSetBuffer({...buffer, subCounty: e.target.value.toUpperCase()})} />
+                                    </div>
+                                    <div className={styles.inputGrid3}>
+                                        <SmartInput label="PARISH" value={buffer.parish} showCaps onChange={e => touchedSetBuffer({...buffer, parish: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="VILLAGE" value={buffer.village} showCaps onChange={e => touchedSetBuffer({...buffer, village: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="AREA" value={buffer.area} onChange={e => touchedSetBuffer({...buffer, area: e.target.value})} />
+                                    </div>
+                                    {project.landTitle && (
+                                        <>
+                                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16, borderTop: '1px solid rgba(139,92,246,0.3)', paddingTop: 12 }}>TITLE & PLOT DETAILS</div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
+                                                <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
+                                                <SmartInput label="TITLE ID" value={buffer.titleId} showCaps onChange={e => touchedSetBuffer({...buffer, titleId: e.target.value.toUpperCase()})} />
+                                            </div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
+                                                <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
+                                                <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
+                                            </div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
+                                                    <input type="date" className={styles.hwInput}
+                                                        value={buffer.surveyDate || ''}
+                                                        onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 }}>LOCATION</div>
+                                    <div className={styles.readOnlyGrid}>
+                                        {[
+                                            ['DISTRICT',     project.district],
+                                            ['COUNTY',       project.county],
+                                            ['SUB-COUNTY',   project.subCounty],
+                                            ['PARISH',       project.parish],
+                                            ['VILLAGE',      project.village],
+                                            ['AREA',         project.area],
+                                        ].map(([l,v],i) => (
+                                            <div key={i} className={styles.specItem}>
+                                                <span className={styles.specLabel}>{l}</span>
+                                                <span className={styles.specValue}>{v || '---'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {project.landTitle && (
+                                        <>
+                                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16, borderTop: '1px solid rgba(139,92,246,0.3)', paddingTop: 12 }}>TITLE & PLOT DETAILS</div>
+                                            <div className={styles.readOnlyGrid}>
+                                                {[
+                                                    ['PLOT ID',      project.landTitle.plotNumber],
+                                                    ['TENURE',       project.landTitle.tenure],
+                                                    ['TITLE ID',     project.landTitle.titleId],
+                                                    ['BLOCK / ROAD', project.landTitle.blockRoad],
+                                                    ['VOLUME',       project.landTitle.volume],
+                                                    ['FOLIO',        project.landTitle.folio],
+                                                    ['INSTRUMENT',   project.landTitle.instrumentNo],
+                                                    ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
+                                                ].map(([l,v],i) => (
+                                                    <div key={i} className={styles.specItem}>
+                                                        <span className={styles.specLabel}>{l}</span>
+                                                        <span className={styles.specValue}>{v || '---'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            )}"""
 )
-
-patch_file(
-    "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx",
-    "                                        ['PLOT ID',      project.landTitle.plotNumber],\n                                        ['TENURE',       project.landTitle.tenure],\n                                        ['BOX',          project.landTitle.physicalBoxNumber],\n                                        ['DISTRICT',     project.landTitle.district],",
-    "                                        ['PLOT ID',      project.landTitle.plotNumber],\n                                        ['TENURE',       project.landTitle.tenure],\n                                        ['DISTRICT',     project.landTitle.district],"
-)
-
-# IntakePage.module.css (Full rewrite)
-css_lines = [
-    "/* IntakePage.module.css - Phase D Revamp matching Ledger's reference design */",
-    ":root {",
-    "    --orange:        #EE8C3A;",
-    "    --orange-dim:    rgba(238, 140, 58, 0.18);",
-    "    --orange-border: rgba(238, 140, 58, 0.28);",
-    "    --navy:          #1a2e30;",
-    "    --navy-mid:      #213E40;",
-    "    --red:           #ef4444;",
-    "    --green:         #10b981;",
-    "    --cyan:          #06b6d4;",
-    "    --bg:            #f8fafc;",
-    "    --card-bg:       #ffffff;",
-    "    --border:        #e2e8f0;",
-    "",
-    "    --gap-xl:    clamp(14px, 2vw, 22px);",
-    "    --gap-lg:    clamp(10px, 1.5vw, 18px);",
-    "    --gap-md:    clamp(7px,  1.1vw, 13px);",
-    "    --radius:    10px;",
-    "    --radius-sm: 6px;",
-    "",
-    "    --fs-h1:     clamp(18px, 2.5vw, 24px);",
-    "    --fs-sub:    clamp(9px,  0.9vw, 11px);",
-    "    --fs-label:  clamp(8px,  0.85vw, 10px);",
-    "    --fs-value:  clamp(11px, 1.1vw, 13px);",
-    "    --fs-tag:    clamp(7px,  0.75vw, 9px);",
-    "    --fs-input:  clamp(11px, 1.1vw, 13px);",
-    "    --fs-meta:   clamp(8px,  0.85vw, 10px);",
-    "    --fs-btn:    clamp(9px,  0.9vw, 11px);",
-    "}",
-    "",
-    ".container {",
-    "    max-width: 1200px;",
-    "    width: 100%;",
-    "    margin: 0 auto;",
-    "    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px);",
-    "    font-family: 'DM Sans', sans-serif;",
-    "    color: var(--navy);",
-    "    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;",
-    "    display: flex;",
-    "    flex-direction: column;",
-    "    gap: var(--gap-xl);",
-    "    box-sizing: border-box;",
-    "}",
-    "",
-    "@keyframes warmBoot {",
-    "    from { opacity: 0; transform: translateY(10px); }",
-    "    to   { opacity: 1; transform: translateY(0); }",
-    "}",
-    "",
-    ".header {",
-    "    display: flex;",
-    "    justify-content: space-between;",
-    "    align-items: center;",
-    "    border-bottom: 2px solid var(--orange);",
-    "    padding-bottom: var(--gap-md);",
-    "}",
-    "",
-    ".title {",
-    "    font-family: 'Cinzel', serif;",
-    "    color: var(--navy);",
-    "    font-size: var(--fs-h1);",
-    "    font-weight: 700;",
-    "    text-transform: uppercase;",
-    "    letter-spacing: 2px;",
-    "    margin: 0;",
-    "}",
-    "",
-    ".subtitle {",
-    "    font-family: 'DM Sans', sans-serif;",
-    "    color: #64748b;",
-    "    font-size: var(--fs-sub);",
-    "    font-weight: 800;",
-    "    text-transform: uppercase;",
-    "    margin: 4px 0 0 0;",
-    "    letter-spacing: 1px;",
-    "}",
-    "",
-    ".actions { display: flex; gap: var(--gap-md); }",
-    "",
-    ".btn {",
-    "    font-family: 'Space Mono', monospace;",
-    "    font-size: var(--fs-btn);",
-    "    font-weight: 700;",
-    "    text-transform: uppercase;",
-    "    letter-spacing: 1px;",
-    "    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);",
-    "    border-radius: var(--radius-sm);",
-    "    border: 1px solid var(--border);",
-    "    background: var(--card-bg);",
-    "    color: var(--navy);",
-    "    cursor: pointer;",
-    "    transition: all 0.2s;",
-    "    display: flex;",
-    "    align-items: center;",
-    "    gap: 6px;",
-    "}",
-    ".btn:hover { border-color: var(--orange); color: var(--orange); }",
-    ".btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }",
-    ".btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }",
-    ".btn:disabled { opacity: 0.5; cursor: not-allowed; }",
-    "",
-    ".section {",
-    "    background: var(--card-bg);",
-    "    border: 1px solid var(--border);",
-    "    border-radius: var(--radius);",
-    "    padding: var(--gap-lg);",
-    "    display: flex;",
-    "    flex-direction: column;",
-    "    gap: var(--gap-lg);",
-    "}",
-    "",
-    ".sectionTitle {",
-    "    font-family: 'Cinzel', serif;",
-    "    font-size: clamp(14px, 1.8vw, 18px);",
-    "    font-weight: 700;",
-    "    color: var(--navy);",
-    "    margin: 0;",
-    "    padding-bottom: var(--gap-md);",
-    "    border-bottom: 1px solid var(--border);",
-    "    display: flex;",
-    "    align-items: center;",
-    "    gap: 8px;",
-    "}",
-    "",
-    ".grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-lg); }",
-    ".grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--gap-lg); }",
-    ".grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--gap-lg); }",
-    "",
-    ".field { display: flex; flex-direction: column; gap: 4px; }",
-    ".label { font-size: var(--fs-label); font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }",
-    ".required::after { content: '*'; color: var(--red); margin-left: 2px; }",
-    "",
-    ".input, .select, .textarea {",
-    "    font-family: 'DM Sans', sans-serif;",
-    "    font-size: var(--fs-input);",
-    "    font-weight: 600;",
-    "    padding: clamp(8px, 1vw, 12px);",
-    "    border: 1px solid var(--border);",
-    "    border-radius: var(--radius-sm);",
-    "    background: var(--bg);",
-    "    color: var(--navy);",
-    "    width: 100%;",
-    "    box-sizing: border-box;",
-    "    transition: border-color 0.2s, box-shadow 0.2s;",
-    "}",
-    ".input:focus, .select:focus, .textarea:focus {",
-    "    outline: none;",
-    "    border-color: var(--orange);",
-    "    box-shadow: 0 0 0 3px var(--orange-dim);",
-    "}",
-    ".input.error, .select.error { border-color: var(--red); }",
-    ".textarea { min-height: 80px; resize: vertical; }",
-    "",
-    ".ownerRow {",
-    "    display: grid;",
-    "    grid-template-columns: 2fr 1fr 1fr 1.5fr auto;",
-    "    gap: var(--gap-md);",
-    "    align-items: end;",
-    "    padding: var(--gap-md);",
-    "    background: var(--bg);",
-    "    border: 1px solid var(--border);",
-    "    border-radius: var(--radius-sm);",
-    "}",
-    "",
-    ".stageList { display: flex; flex-direction: column; gap: var(--gap-md); }",
-    ".stageItem {",
-    "    display: flex;",
-    "    align-items: center;",
-    "    gap: var(--gap-md);",
-    "    padding: var(--gap-md);",
-    "    background: var(--bg);",
-    "    border: 1px solid var(--border);",
-    "    border-radius: var(--radius-sm);",
-    "    cursor: pointer;",
-    "    transition: all 0.2s;",
-    "}",
-    ".stageItem:hover { border-color: var(--orange); }",
-    ".stageItem.checked { border-color: var(--green); background: rgba(16, 185, 129, 0.05); }",
-    ".checkbox { width: 20px; height: 20px; accent-color: var(--orange); cursor: pointer; }",
-    ".stageName { font-weight: 700; color: var(--navy); font-size: var(--fs-value); }",
-    "",
-    ".financialsSummary {",
-    "    background: var(--bg);",
-    "    padding: var(--gap-lg);",
-    "    border-radius: var(--radius-sm);",
-    "    display: flex;",
-    "    flex-direction: column;",
-    "    gap: var(--gap-md);",
-    "}",
-    ".finRow { display: flex; justify-content: space-between; font-weight: 700; color: var(--navy); font-size: var(--fs-value); }",
-    ".finRow.total { color: var(--orange); font-size: clamp(14px, 1.5vw, 18px); border-top: 1px solid var(--border); padding-top: var(--gap-md); }",
-    "",
-    ".dropzone {",
-    "    border: 2px dashed var(--orange-border);",
-    "    border-radius: var(--radius);",
-    "    padding: var(--gap-xl);",
-    "    text-align: center;",
-    "    color: #64748b;",
-    "    cursor: pointer;",
-    "    transition: all 0.2s;",
-    "}",
-    ".dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }",
-    "",
-    ".fileList { display: flex; flex-direction: column; gap: var(--gap-md); }",
-    ".fileItem { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: var(--gap-md); border-radius: var(--radius-sm); }",
-    "",
-    ".legacyBtn {",
-    "    background: var(--navy);",
-    "    color: #fff;",
-    "    border: 1px solid var(--navy);",
-    "    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);",
-    "    font-size: var(--fs-btn);",
-    "    font-weight: 700;",
-    "    text-transform: uppercase;",
-    "    border-radius: var(--radius-sm);",
-    "    cursor: pointer;",
-    "}",
-    ".legacyBtn:hover { background: var(--navy-mid); }",
-    "",
-    ".toast {",
-    "    position: fixed;",
-    "    bottom: 20px;",
-    "    right: 20px;",
-    "    background: var(--navy);",
-    "    color: #fff;",
-    "    padding: 12px 20px;",
-    "    border-radius: var(--radius-sm);",
-    "    box-shadow: 0 4px 6px rgba(0,0,0,0.1);",
-    "    z-index: 9999;",
-    "    animation: slideIn 0.3s ease-out;",
-    "}",
-    ".toast.error { background: var(--red); }",
-    ".toast.success { background: var(--green); }",
-    "@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }",
-    "",
-    "@media (max-width: 768px) {",
-    "    .ownerRow { grid-template-columns: 1fr; }",
-    "    .header { flex-direction: column; align-items: flex-start; gap: var(--gap-lg); }",
-    "}"
-]
-write_file("erp-frontend/src/pages/Intake/IntakePage.module.css", "\n".join(css_lines))
-
-# IntakePage.jsx (Full rewrite)
-jsx_lines = [
-    "// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx",
-    "import React, { useState, useEffect, useCallback } from 'react';",
-    "import { useNavigate } from 'react-router-dom';",
-    "import { FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud, FiPlus, FiTrash2, FiSave } from 'react-icons/fi';",
-    "import landService from '../../services/landService';",
-    "import stageTemplateService from '../../services/stageTemplateService';",
-    "import styles from './IntakePage.module.css';",
-    "",
-    "const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });",
-    "",
-    "export default function IntakePage() {",
-    "    const navigate = useNavigate();",
-    "    const [saving, setSaving] = useState(false);",
-    "    const [projectId, setProjectId] = useState(null);",
-    "    const [projectIndex, setProjectIndex] = useState('');",
-    "    const [owners, setOwners] = useState([EMPTY_OWNER()]);",
-    "",
-    "    const [district, setDistrict] = useState('');",
-    "    const [county, setCounty] = useState('');",
-    "    const [subCounty, setSubCounty] = useState('');",
-    "    const [parish, setParish] = useState('');",
-    "    const [village, setVillage] = useState('');",
-    "    const [area, setArea] = useState('');",
-    "",
-    "    const [templates, setTemplates] = useState([]);",
-    "    const [checkedStages, setCheckedStages] = useState({});",
-    "    const [isLegacy, setIsLegacy] = useState(false);",
-    "",
-    "    const [titleId, setTitleId] = useState('');",
-    "    const [tenure, setTenure] = useState('FREEHOLD');",
-    "    const [plotNumber, setPlotNumber] = useState('');",
-    "    const [blockRoad, setBlockRoad] = useState('');",
-    "    const [titleArea, setTitleArea] = useState('');",
-    "",
-    "    const [totalCost, setTotalCost] = useState(0);",
-    "    const [initialPayment, setInitialPayment] = useState(0);",
-    "",
-    "    const [fileQueue, setFileQueue] = useState([]);",
-    "    const [notes, setNotes] = useState('');",
-    "",
-    "    const [toasts, setToasts] = useState([]);",
-    "    const toast = useCallback((msg, type='info') => {",
-    "        const id = Date.now();",
-    "        setToasts(p => [...p, {id, msg, type}]);",
-    "        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);",
-    "    }, []);",
-    "",
-    "    useEffect(() => {",
-    "        stageTemplateService.getTemplate().then(t => setTemplates(t)).catch(() => {});",
-    "    }, []);",
-    "",
-    "    useEffect(() => {",
-    "        if (area) setTitleArea(area);",
-    "    }, [area]);",
-    "",
-    "    const finalStageChecked = Object.keys(checkedStages).some(id => {",
-    "        const t = templates.find(x => x.id === id);",
-    "        return t && t.stageName === 'Registration and Title Issuance' && checkedStages[id];",
-    "    });",
-    "",
-    "    const isSection5Unlocked = isLegacy || finalStageChecked;",
-    "",
-    "    const handleLegacyPreset = () => {",
-    "        setIsLegacy(true);",
-    "        const allChecked = {};",
-    "        templates.forEach(t => { allChecked[t.id] = true; });",
-    "        setCheckedStages(allChecked);",
-    "    };",
-    "",
-    "    const updateOwner = (idx, field, val) => {",
-    "        setOwners(p => p.map((o, i) => i === idx ? {...o, [field]: val} : o));",
-    "    };",
-    "",
-    "    const handleFileUpload = (e) => {",
-    "        const files = Array.from(e.target.files);",
-    "        setFileQueue(p => [...p, ...files]);",
-    "    };",
-    "",
-    "    const handleSubmit = async () => {",
-    "        if (!district.trim() || !county.trim()) {",
-    "            toast('District and County are required.', 'error'); return;",
-    "        }",
-    "        for (let o of owners) {",
-    "            if (!o.nationalId.trim()) {",
-    "                toast('NIN is required for all owners.', 'error'); return;",
-    "            }",
-    "        }",
-    "        if (isSection5Unlocked) {",
-    "            if (!plotNumber.trim()) { toast('Plot Number is required when Legacy or Final Stage is checked.', 'error'); return; }",
-    "            if (!titleArea.trim()) { toast('Area is required for Title details.', 'error'); return; }",
-    "        }",
-    "",
-    "        setSaving(true);",
-    "        try {",
-    "            const payload = {",
-    "                district: district.trim().toUpperCase(),",
-    "                county: county.trim().toUpperCase(),",
-    "                subCounty: subCounty.trim().toUpperCase(),",
-    "                parish: parish.trim().toUpperCase(),",
-    "                village: village.trim().toUpperCase(),",
-    "                area: area.trim(),",
-    "                totalCost: Number(totalCost) || 0,",
-    "                initialPayment: Number(initialPayment) || 0,",
-    "                isLegacy: isLegacy,",
-    "                owners: owners.map(o => ({",
-    "                    fullName: o.fullName.trim().toUpperCase(),",
-    "                    phone: o.phone.trim(),",
-    "                    email: o.email.trim().toLowerCase(),",
-    "                    nationalId: o.nationalId.trim().toUpperCase(),",
-    "                    address: o.address.trim(),",
-    "                })),",
-    "                selectedStages: Object.entries(checkedStages).filter(([_, v]) => v).map(([id]) => {",
-    "                    const t = templates.find(x => x.id === id);",
-    "                    return {",
-    "                        stageTemplateId: id,",
-    "                        stageName: t ? t.stageName : '',",
-    "                        isCustom: false,",
-    "                        isCompleted: true",
-    "                    };",
-    "                }),",
-    "                notes: notes.trim() ? [{ content: notes.trim() }] : [],",
-    "            };",
-    "",
-    "            if (isSection5Unlocked) {",
-    "                payload.plotNumber = plotNumber.trim().toUpperCase();",
-    "                payload.tenure = tenure;",
-    "                payload.blockRoad = blockRoad.trim().toUpperCase();",
-    "                payload.titleId = titleId.trim().toUpperCase();",
-    "            }",
-    "",
-    "            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);",
-    "            toast('Project registered successfully!', 'success');",
-    "            setTimeout(() => navigate('/land/projects'), 1500);",
-    "        } catch (err) {",
-    "            toast(err.response?.data?.message || 'Save failed', 'error');",
-    "        } finally {",
-    "            setSaving(false);",
-    "        }",
-    "    };",
-    "",
-    "    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));",
-    "",
-    "    return (",
-    "        <div className={styles.container}>",
-    "            <header className={styles.header}>",
-    "                <div>",
-    "                    <h1 className={styles.title}>New Land Project</h1>",
-    "                    <p className={styles.subtitle}>Intake Form</p>",
-    "                </div>",
-    "                <div className={styles.actions}>",
-    "                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>",
-    "                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>",
-    "                        <FiSave /> {saving ? 'Saving...' : 'Save Project'}",
-    "                    </button>",
-    "                </div>",
-    "            </header>",
-    "",
-    "            <section className={styles.section}>",
-    "                <h2 className={styles.sectionTitle}><FiFileText /> 1. Project Index</h2>",
-    "                <div className={styles.field}>",
-    "                    <label className={styles.label}>Project Index</label>",
-    "                    <input className={styles.input} value={projectIndex || 'Auto-generated on save'} disabled />",
-    "                </div>",
-    "            </section>",
-    "",
-    "            <section className={styles.section}>",
-    "                <h2 className={styles.sectionTitle}><FiUsers /> 2. Owners</h2>",
-    "                {owners.map((o, idx) => (",
-    "                    <div key={idx} className={styles.ownerRow}>",
-    "                        <div className={styles.field}>",
-    "                            <label className={`${styles.label} ${styles.required}`}>Full Name</label>",
-    "                            <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={`${styles.label} ${styles.required}`}>NIN</label>",
-    "                            <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={styles.label}>Phone</label>",
-    "                            <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={styles.label}>Email</label>",
-    "                            <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />",
-    "                        </div>",
-    "                        <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>",
-    "                            <FiTrash2 />",
-    "                        </button>",
-    "                    </div>",
-    "                ))}",
-    "                <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>",
-    "                    <FiPlus /> Add joint owner",
-    "                </button>",
-    "            </section>",
-    "",
-    "            <section className={styles.section}>",
-    "                <h2 className={styles.sectionTitle}><FiMap /> 3. Location</h2>",
-    "                <div className={styles.grid3}>",
-    "                    <div className={styles.field}>",
-    "                        <label className={`${styles.label} ${styles.required}`}>District</label>",
-    "                        <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={`${styles.label} ${styles.required}`}>County</label>",
-    "                        <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Sub-county</label>",
-    "                        <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Parish</label>",
-    "                        <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Village</label>",
-    "                        <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Area (Optional)</label>",
-    "                        <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />",
-    "                    </div>",
-    "                </div>",
-    "            </section>",
-    "",
-    "            <section className={styles.section}>",
-    "                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>",
-    "                    <h2 className={styles.sectionTitle} style={{borderBottom: 'none', paddingBottom: 0}}><FiCheckSquare /> 4. Stage Checklist</h2>",
-    "                    <button className={styles.legacyBtn} onClick={handleLegacyPreset}>Legacy Preset</button>",
-    "                </div>",
-    "                <div className={styles.stageList}>",
-    "                    {templates.map(t => (",
-    "                        <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''}`}>",
-    "                            <input type=\"checkbox\" className={styles.checkbox} checked={!!checkedStages[t.id]} ",
-    "                                onChange={e => setCheckedStages(p => ({...p, [t.id]: e.target.checked}))} />",
-    "                            <span className={styles.stageName}>{t.stageName}</span>",
-    "                        </label>",
-    "                    ))}",
-    "                </div>",
-    "            </section>",
-    "",
-    "            {isSection5Unlocked && (",
-    "                <section className={styles.section} style={{border: '2px solid var(--orange)'}}>",
-    "                    <h2 className={styles.sectionTitle}><FiFileText /> 5. Title & Plot Details</h2>",
-    "                    <div className={styles.grid3}>",
-    "                        <div className={styles.field}>",
-    "                            <label className={styles.label}>Title ID</label>",
-    "                            <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={`${styles.label} ${styles.required}`}>Tenure</label>",
-    "                            <select className={styles.select} value={tenure} onChange={e => setTenure(e.target.value)}>",
-    "                                <option value=\"FREEHOLD\">FREEHOLD</option>",
-    "                                <option value=\"MAILO\">MAILO</option>",
-    "                                <option value=\"LEASEHOLD\">LEASEHOLD</option>",
-    "                                <option value=\"CUSTOMARY\">CUSTOMARY</option>",
-    "                            </select>",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={`${styles.label} ${styles.required}`}>Plot Number</label>",
-    "                            <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={styles.label}>Block</label>",
-    "                            <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />",
-    "                        </div>",
-    "                        <div className={styles.field}>",
-    "                            <label className={`${styles.label} ${styles.required}`}>Area</label>",
-    "                            <input className={styles.input} value={titleArea} onChange={e => setTitleArea(e.target.value)} />",
-    "                        </div>",
-    "                    </div>",
-    "                </section>",
-    "            )}",
-    "",
-    "            <section className={styles.section}>",
-    "                <h2 className={styles.sectionTitle}><FiDollarSign /> 6. Financials</h2>",
-    "                <div className={styles.grid2}>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Total Cost</label>",
-    "                        <input type=\"number\" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />",
-    "                    </div>",
-    "                    <div className={styles.field}>",
-    "                        <label className={styles.label}>Initial Payment</label>",
-    "                        <input type=\"number\" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />",
-    "                    </div>",
-    "                </div>",
-    "                <div className={styles.financialsSummary}>",
-    "                    <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>",
-    "                    <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>",
-    "                    <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>",
-    "                </div>",
-    "            </section>",
-    "",
-    "            <section className={styles.section}>",
-    "                <h2 className={styles.sectionTitle}><FiUploadCloud /> 7. Documents & Notes</h2>",
-    "                <label className={styles.dropzone}>",
-    "                    <FiUploadCloud size={24} />",
-    "                    <p>Click to upload documents</p>",
-    "                    <input type=\"file\" multiple style={{display: 'none'}} onChange={handleFileUpload} />",
-    "                </label>",
-    "                <div className={styles.fileList}>",
-    "                    {fileQueue.map((f, i) => (",
-    "                        <div key={i} className={styles.fileItem}>",
-    "                            <span>{f.name}</span>",
-    "                            <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>",
-    "                        </div>",
-    "                    ))}",
-    "                </div>",
-    "                <div className={styles.field}>",
-    "                    <label className={styles.label}>Shared Project Notes</label>",
-    "                    <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} />",
-    "                </div>",
-    "            </section>",
-    "",
-    "            {toasts.map(t => (",
-    "                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>",
-    "            ))}",
-    "        </div>",
-    "    );",
-    "}"
-]
-write_file("erp-frontend/src/pages/Intake/IntakePage.jsx", "\n".join(jsx_lines))
 
 # Git commit and push
 subprocess.run(['git', 'add', '-A'])
-subprocess.run(['git', 'commit', '-m', 'Phase D: Intake rebuild + physicalBoxNumber drop'])
+subprocess.run(['git', 'commit', '-m', 'Phase E: Folder page additive display + status tag + ProjectResponse update'])
 subprocess.run(['git', 'push'])

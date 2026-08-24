@@ -842,12 +842,17 @@ const FolderPage = () => {
                     plotNumber:        data.project?.landTitle?.plotNumber        || '',
                     tenure:            data.project?.landTitle?.tenure            || 'MAILO',
                     blockRoad:         data.project?.landTitle?.blockRoad         || '',
-                    district:          data.project?.landTitle?.district          || '',
-                    county:            data.project?.landTitle?.county            || '',
+                    district:          data.project?.district                     || '',
+                    county:            data.project?.county                       || '',
+                    subCounty:         data.project?.subCounty                    || '',
+                    parish:            data.project?.parish                       || '',
+                    village:           data.project?.village                      || '',
+                    area:              data.project?.area                         || '',
                     volume:            data.project?.landTitle?.volume            || '',
                     folio:             data.project?.landTitle?.folio             || '',
                     instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
                     surveyDate:        data.project?.landTitle?.surveyDate         || '',
+                    titleId:           data.project?.landTitle?.titleId           || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
                     isLegacy:          data.project?.isLegacy                     || false,
@@ -1334,48 +1339,83 @@ const FolderPage = () => {
                         <div className={styles.panelInner}>
                             {isEditing ? (
                                 <>
-                                    <div className={styles.inputGrid3}>
-                                        <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
-                                        <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
-                                    </div>
+                                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 }}>LOCATION (Always visible)</div>
                                     <div className={styles.inputGrid3}>
                                         <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({...buffer, district: e.target.value.toUpperCase()})} />
                                         <SmartInput label="COUNTY" value={buffer.county} showCaps suggestions={sg('county')} onChange={e => touchedSetBuffer({...buffer, county: e.target.value.toUpperCase()})} />
-                                        <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="SUB-COUNTY" value={buffer.subCounty} showCaps onChange={e => touchedSetBuffer({...buffer, subCounty: e.target.value.toUpperCase()})} />
                                     </div>
                                     <div className={styles.inputGrid3}>
-                                        <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
-                                        <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
-                                        <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
+                                        <SmartInput label="PARISH" value={buffer.parish} showCaps onChange={e => touchedSetBuffer({...buffer, parish: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="VILLAGE" value={buffer.village} showCaps onChange={e => touchedSetBuffer({...buffer, village: e.target.value.toUpperCase()})} />
+                                        <SmartInput label="AREA" value={buffer.area} onChange={e => touchedSetBuffer({...buffer, area: e.target.value})} />
                                     </div>
-                                    <div className={styles.inputGrid3}>
-                                        <div className={styles.hwInputWrap}>
-                                            <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
-                                            <input type="date" className={styles.hwInput}
-                                                value={buffer.surveyDate || ''}
-                                                onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
-                                        </div>
-                                    </div>
+                                    {project.landTitle && (
+                                        <>
+                                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16, borderTop: '1px solid rgba(139,92,246,0.3)', paddingTop: 12 }}>TITLE & PLOT DETAILS</div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({...buffer, plotNumber: e.target.value.toUpperCase()})} />
+                                                <SmartSelect label="TENURE" options={['MAILO','FREEHOLD','LEASEHOLD','CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({...buffer, tenure: v})} />
+                                                <SmartInput label="TITLE ID" value={buffer.titleId} showCaps onChange={e => touchedSetBuffer({...buffer, titleId: e.target.value.toUpperCase()})} />
+                                            </div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
+                                                <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
+                                                <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
+                                            </div>
+                                            <div className={styles.inputGrid3}>
+                                                <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
+                                                <div className={styles.hwInputWrap}>
+                                                    <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
+                                                    <input type="date" className={styles.hwInput}
+                                                        value={buffer.surveyDate || ''}
+                                                        onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             ) : (
-                                <div className={styles.readOnlyGrid}>
-                                    {[
-                                        ['PLOT ID',      project.landTitle.plotNumber],
-                                        ['TENURE',       project.landTitle.tenure],
-                                        ['DISTRICT',     project.landTitle.district],
-                                        ['COUNTY',       project.landTitle.county],
-                                        ['BLOCK / ROAD', project.landTitle.blockRoad],
-                                        ['VOLUME',       project.landTitle.volume],
-                                        ['FOLIO',        project.landTitle.folio],
-                                        ['INSTRUMENT',   project.landTitle.instrumentNo],
-                                        ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
-                                    ].map(([l,v],i) => (
-                                        <div key={i} className={styles.specItem}>
-                                            <span className={styles.specLabel}>{l}</span>
-                                            <span className={styles.specValue}>{v || '---'}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <>
+                                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 }}>LOCATION</div>
+                                    <div className={styles.readOnlyGrid}>
+                                        {[
+                                            ['DISTRICT',     project.district],
+                                            ['COUNTY',       project.county],
+                                            ['SUB-COUNTY',   project.subCounty],
+                                            ['PARISH',       project.parish],
+                                            ['VILLAGE',      project.village],
+                                            ['AREA',         project.area],
+                                        ].map(([l,v],i) => (
+                                            <div key={i} className={styles.specItem}>
+                                                <span className={styles.specLabel}>{l}</span>
+                                                <span className={styles.specValue}>{v || '---'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {project.landTitle && (
+                                        <>
+                                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16, borderTop: '1px solid rgba(139,92,246,0.3)', paddingTop: 12 }}>TITLE & PLOT DETAILS</div>
+                                            <div className={styles.readOnlyGrid}>
+                                                {[
+                                                    ['PLOT ID',      project.landTitle.plotNumber],
+                                                    ['TENURE',       project.landTitle.tenure],
+                                                    ['TITLE ID',     project.landTitle.titleId],
+                                                    ['BLOCK / ROAD', project.landTitle.blockRoad],
+                                                    ['VOLUME',       project.landTitle.volume],
+                                                    ['FOLIO',        project.landTitle.folio],
+                                                    ['INSTRUMENT',   project.landTitle.instrumentNo],
+                                                    ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
+                                                ].map(([l,v],i) => (
+                                                    <div key={i} className={styles.specItem}>
+                                                        <span className={styles.specLabel}>{l}</span>
+                                                        <span className={styles.specValue}>{v || '---'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
                             )}
                         </div>
                         </div>

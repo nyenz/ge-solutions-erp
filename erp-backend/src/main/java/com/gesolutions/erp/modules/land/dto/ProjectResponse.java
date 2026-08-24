@@ -19,7 +19,11 @@ public class ProjectResponse {
 
     private UUID projectId;
     private String plotNumber;
-    private String physicalBoxNumber;
+    private String titleStatus;
+    private String subCounty;
+    private String parish;
+    private String village;
+    private String titleId;
     
     // ENUM TYPE: Resolved the "cannot be resolved" error
     private TenureType tenure;
