@@ -89,7 +89,7 @@ public class ReportService {
                 LandTitle lt = p.getLandTitle();
                 csv.append(plotLabel(p)).append(CSV_DIVIDER)
                    .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
-                   .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
+                   .append(p.getDistrict() != null ? p.getDistrict() : "").append(CSV_DIVIDER)
                    .append(p.getCurrentStageIndex()).append(CSV_DIVIDER)
                    .append(p.isLegacy()).append(NEW_LINE);
             });
@@ -257,7 +257,7 @@ public class ReportService {
 
             LandTitle lt = p.getLandTitle();
             csv.append(plotLabel(p)).append(CSV_DIVIDER)
-               .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
+               .append(p.getDistrict() != null ? p.getDistrict() : "").append(CSV_DIVIDER)
                .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
                .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
                .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
@@ -290,7 +290,7 @@ public class ReportService {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
             LandTitle lt = p.getLandTitle();
             csv.append(plotLabel(p)).append(CSV_DIVIDER)
-               .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
+               .append(p.getDistrict() != null ? p.getDistrict() : "").append(CSV_DIVIDER)
                .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
                .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
                .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)

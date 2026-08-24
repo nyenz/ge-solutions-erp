@@ -17,9 +17,9 @@ const matchesSearch = (proj, term) => {
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
         proj.landTitle?.plotNumber,
-        proj.landTitle?.projectIndex,
-        proj.landTitle?.district,
-        proj.landTitle?.county,
+        proj.projectIndex,
+        proj.district,
+        proj.county,
         proj.landTitle?.blockRoad,
         proj.landTitle?.tenure,
         ...(proj.proprietors || []).flatMap(p => [

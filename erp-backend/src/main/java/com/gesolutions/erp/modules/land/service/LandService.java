@@ -268,18 +268,11 @@ public class LandService {
                     .titleId(request.getTitleId())
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
-                    .district(request.getDistrict())
                     .blockRoad(request.getBlockRoad())
-                    .county(request.getCounty())
                     .volume(request.getVolume())
                     .folio(request.getFolio())
                     .instrumentNo(request.getInstrumentNo())
                     .surveyDate(request.getSurveyDate())
-                    // Kept in sync on the deprecated LandTitle column too,
-                    // for backward compatibility with anything still
-                    // reading projectIndex off LandTitle instead of
-                    // LandProject.
-                    .projectIndex(projectIndex)
                     .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
@@ -394,8 +387,6 @@ public class LandService {
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
                     .blockRoad(request.getBlockRoad())
-                    .district(request.getDistrict())
-                    .county(request.getCounty())
                     .volume(request.getVolume())
                     .folio(request.getFolio())
                     .instrumentNo(request.getInstrumentNo())
@@ -409,8 +400,6 @@ public class LandService {
             title.setPlotNumber(request.getPlotNumber());
             title.setTenure(request.getTenure());
             title.setBlockRoad(request.getBlockRoad());
-            title.setDistrict(request.getDistrict());
-            title.setCounty(request.getCounty());
             title.setVolume(request.getVolume());
             title.setFolio(request.getFolio());
             title.setInstrumentNo(request.getInstrumentNo());
@@ -806,7 +795,6 @@ public class LandService {
                 LandTitle title = LandTitle.builder()
                         .tenure("FREEHOLD")
                         .projectStartDate(java.time.LocalDate.now())
-                        .projectIndex(project.getProjectIndex())
                         .build();
                 project.setLandTitle(title);
                 projectRepository.save(project);
