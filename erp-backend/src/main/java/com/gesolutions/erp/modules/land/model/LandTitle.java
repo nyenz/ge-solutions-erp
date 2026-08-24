@@ -31,7 +31,7 @@ public class LandTitle {
     @Column(nullable = false, length = 50)
     private String tenure; // e.g. MAILO, FREEHOLD
 
-    @Column(name = "plot_number", unique = true, nullable = false, length = 100)
+    @Column(name = "plot_number", unique = true, length = 100)
     private String plotNumber;
 
     @Column(name = "block_road", length = 100)

@@ -71,6 +71,10 @@ public class LandProject {
     @Column(length = 100)
     private String area;
 
+    @Transient
+    @Builder.Default
+    private java.util.List<ProjectStage> stages = new java.util.ArrayList<>();
+
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

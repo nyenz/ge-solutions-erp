@@ -200,6 +200,12 @@ public class DataInitializer implements CommandLineRunner {
             "UPDATE land_projects lp SET project_index = lt.project_index " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
+
+            // PHASE F -- FOLDER-TO-TITLE REDESIGN (Section 18.10)
+            // Make plot_number nullable so bulk title-produced action can
+            // attach an empty LandTitle record to unlock fields before
+            // the unique plot numbers are known.
+            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
         };
 
         try (Connection conn = dataSource.getConnection();

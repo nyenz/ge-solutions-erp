@@ -70,6 +70,11 @@ const landService = {
         return response.data;
     },
 
+    bulkMarkTitleProduced: async (projectIds) => {
+        const response = await api.post('/land/projects/bulk-mark-title-produced', projectIds);
+        return response.data;
+    },
+
     createAtomicEntry: async (data, scans) => {
         const formData = new FormData();
         const payload = { ...data };

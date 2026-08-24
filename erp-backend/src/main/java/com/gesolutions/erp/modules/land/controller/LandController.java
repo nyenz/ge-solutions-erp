@@ -160,6 +160,12 @@ public class LandController {
         return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/bulk-mark-title-produced")
+    public ResponseEntity<Integer> bulkMarkTitleProduced(@RequestBody List<UUID> projectIds) {
+        return ResponseEntity.ok(landService.bulkMarkTitleProduced(projectIds));
+    }
+
     @PatchMapping("/projects/{id}/release")
     public ResponseEntity<Void> authorizeRelease(
             @PathVariable UUID id,

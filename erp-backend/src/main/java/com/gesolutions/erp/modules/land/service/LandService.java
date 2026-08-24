@@ -38,6 +38,7 @@ public class LandService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
     private final StageTemplateService stageTemplateService;
+    private final ProjectStageRepository projectStageRepository;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -789,6 +790,40 @@ public class LandService {
 
     @Transactional(readOnly = true)
     public Page<LandProject> getGlobalLedger(Pageable pageable) {
-        return projectRepository.findAll(pageable);
+        Page<LandProject> page = projectRepository.findAll(pageable);
+        page.getContent().forEach(p -> p.setStages(projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(p.getId())));
+        return page;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public int bulkMarkTitleProduced(java.util.List<java.util.UUID> projectIds) {
+        if (projectIds == null || projectIds.isEmpty()) return 0;
+        int count = 0;
+        for (java.util.UUID id : projectIds) {
+            LandProject project = projectRepository.findById(id).orElse(null);
+            if (project != null && project.getLandTitle() == null) {
+                LandTitle title = LandTitle.builder()
+                        .tenure("FREEHOLD")
+                        .projectStartDate(java.time.LocalDate.now())
+                        .projectIndex(project.getProjectIndex())
+                        .build();
+                project.setLandTitle(title);
+                projectRepository.save(project);
+
+                java.util.List<ProjectStage> stages = projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
+                for (ProjectStage stage : stages) {
+                    if (stage.getStageName() != null && stage.getStageName().toLowerCase().contains("registration")) {
+                        stage.setCompleted(true);
+                        stage.setCompletedAt(java.time.LocalDateTime.now());
+                        projectStageRepository.save(stage);
+                    }
+                }
+                count++;
+            }
+        }
+        auditService.logAction("BULK_TITLE_PRODUCED", 
+            "Operator [" + getCurrentOperator() + "] marked " + count + " projects as title-produced.");
+        return count;
     }
 }

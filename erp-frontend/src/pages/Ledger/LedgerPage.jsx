@@ -77,6 +77,8 @@ const LedgerPage = () => {
     const [searchTerm,   setSearchTerm]   = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkProcessing, setBulkProcessing] = useState(false);
     const [sortConfig,   setSortConfig]   = useState({ key: 'plotNumber', direction: 'asc' });
 
     // guard vars used by UnsavedChangesModal below
@@ -104,6 +106,20 @@ const LedgerPage = () => {
         if (activeFilter === 'ACTIVE')   filtered = filtered.filter(p => !p.isReceivable);
         if (activeFilter === 'DEBTORS')  filtered = filtered.filter(p => p.isReceivable ? (Number(p.totalCost||0) + Number(p.storageFeesAccumulated||0) - Number(p.amountPaid||0)) > 0 : p.amountPaid < p.totalCost);
         if (activeFilter === 'CRITICAL') filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && (p.amountPaid / p.totalCost) < 0.25);
+    if (activeFilter === 'READY_FOR_TITLING') {
+        filtered = filtered.filter(p => {
+            if (p.landTitle) return false;
+            const stages = p.stages || [];
+            if (stages.length === 0) return false;
+            const finalStage = stages.find(s => (s.stageName || '').toLowerCase().includes('registration'));
+            if (!finalStage) return false;
+            const priorStages = stages.filter(s => s.id !== finalStage.id);
+            const allPriorComplete = priorStages.every(s => s.isCompleted);
+            const finalOutstanding = !finalStage.isCompleted;
+            const finalCheckedButEmpty = finalStage.isCompleted && !p.landTitle;
+            return (allPriorComplete && finalOutstanding) || finalCheckedButEmpty;
+        });
+    }
 
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -118,6 +134,49 @@ const LedgerPage = () => {
 
         return filtered;
     }, [projects, searchTerm, activeFilter, sortConfig]);
+
+    const isReadyForTitling = (p) => {
+        if (p.landTitle) return false;
+        const stages = p.stages || [];
+        if (stages.length === 0) return false;
+        const finalStage = stages.find(s => (s.stageName || '').toLowerCase().includes('registration'));
+        if (!finalStage) return false;
+        const priorStages = stages.filter(s => s.id !== finalStage.id);
+        const allPriorComplete = priorStages.every(s => s.isCompleted);
+        const finalOutstanding = !finalStage.isCompleted;
+        const finalCheckedButEmpty = finalStage.isCompleted && !p.landTitle;
+        return (allPriorComplete && finalOutstanding) || finalCheckedButEmpty;
+    };
+
+    const handleBulkMark = async () => {
+        setBulkProcessing(true);
+        try {
+            await landService.bulkMarkTitleProduced([...selectedIds]);
+            await fetchLedger();
+            setSelectedIds(new Set());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setBulkProcessing(false);
+        }
+    };
+
+    const toggleSelect = (id, e) => {
+        e.stopPropagation();
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        const readyIds = new Set(processedData.map(p => p.id));
+        const allSelected = processedData.length > 0 && processedData.every(p => selectedIds.has(p.id));
+        if (allSelected) setSelectedIds(new Set());
+        else setSelectedIds(readyIds);
+    };
 
     const handleSort = (key) => {
         setSortConfig(prev => ({
@@ -191,6 +250,17 @@ const LedgerPage = () => {
                     </div>
                 </div>
 
+                {activeFilter === 'READY_FOR_TITLING' && selectedIds.size > 0 && (
+                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '10px', fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            {selectedIds.size} RECORD{selectedIds.size > 1 ? 'S' : ''} SELECTED
+                        </span>
+                        <button className={styles.bulkActionBtn} onClick={handleBulkMark} disabled={bulkProcessing}>
+                            {bulkProcessing ? 'PROCESSING...' : 'MARK AS TITLE-PRODUCED'}
+                        </button>
+                    </div>
+                )}
+
                 {/* BADGE LEGEND */}
                 <div className={styles.badgeLegend}>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
@@ -208,6 +278,16 @@ const LedgerPage = () => {
                     <table className={styles.ledgerTable} aria-label="Land records ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
+                                {activeFilter === 'READY_FOR_TITLING' && (
+                                    <th style={{width: '30px'}}>
+                                        <input 
+                                            type="checkbox" 
+                                            onChange={toggleSelectAll} 
+                                            checked={processedData.length > 0 && processedData.every(p => selectedIds.has(p.id))} 
+                                            onClick={e => e.stopPropagation()} 
+                                        />
+                                    </th>
+                                )}
                                 <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiMapPin aria-hidden="true" /> PLOT ID {renderSortIcon('plotNumber')}
@@ -226,18 +306,18 @@ const LedgerPage = () => {
                         </thead>
                         <tbody>
                             {loading && (
-                                <tr><td colSpan="5" className={styles.loadingCell}>
+                                <tr><td colSpan={activeFilter === 'READY_FOR_TITLING' ? 6 : 5} className={styles.loadingCell}>
                                     <FiClock aria-hidden="true" /> SYNCING ARCHIVE...
                                 </td></tr>
                             )}
                             {!loading && loadError && (
-                                <tr><td colSpan="5" className={styles.errorCell}>
+                                <tr><td colSpan={activeFilter === 'READY_FOR_TITLING' ? 6 : 5} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT �{' '}
                                     <button className={styles.retryBtn} onClick={fetchLedger}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan="5" className={styles.emptyCell}>
+                                <tr><td colSpan={activeFilter === 'READY_FOR_TITLING' ? 6 : 5} className={styles.emptyCell}>
                                     <FiLayers aria-hidden="true" />
                                     {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
                                 </td></tr>
