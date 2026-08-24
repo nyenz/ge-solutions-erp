@@ -1,9 +1,6 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java
 package com.gesolutions.erp.config;
 
-import com.gesolutions.erp.modules.auth.model.Role;
-import com.gesolutions.erp.modules.auth.model.User;
-import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
 import com.gesolutions.erp.modules.land.service.StageTemplateService;
@@ -12,18 +9,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
-    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DataSource dataSource;
     private final StageTemplateService stageTemplateService;

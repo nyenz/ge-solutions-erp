@@ -1,9 +1,7 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java
 package com.gesolutions.erp.modules.auth.service;
 
-import com.gesolutions.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 

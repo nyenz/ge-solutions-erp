@@ -7,9 +7,6 @@ import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
-import com.gesolutions.erp.modules.land.service.LandService;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,8 +28,6 @@ public class RecoveryController {
 
     private final LandProjectRepository projectRepository;
     private final FollowUpRepository followUpRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final LandService landService;
 
     @GetMapping("/count")
     public ResponseEntity<Map<String, Long>> getStaleCount() {

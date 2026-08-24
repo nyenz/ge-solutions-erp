@@ -11,7 +11,6 @@ import com.gesolutions.erp.modules.land.dto.DirectorDashboardDTO;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 public class DashboardController {
 
     private final LandProjectRepository projectRepository;
-    private final ClientRepository clientRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;

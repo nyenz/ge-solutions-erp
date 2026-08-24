@@ -3,7 +3,6 @@ package com.gesolutions.erp.modules.land.repository;
 
 import com.gesolutions.erp.modules.land.model.ProjectDocument;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +14,6 @@ import java.util.UUID;
  * This repository keeps the database lightweight by storing paths to files 
  * on the physical server disk rather than storing the actual binaries.
  */
-@Repository
 public interface ProjectDocumentRepository extends JpaRepository<ProjectDocument, UUID> {
 
     /**

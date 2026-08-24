@@ -3,7 +3,6 @@ package com.gesolutions.erp.modules.land.service;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.LandTitle;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
-import com.gesolutions.erp.modules.land.repository.LandTitleRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,14 +32,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 })
 public class ReceivableSchedulerTest {
 
-    @Autowired
     private ReceivableSchedulerService receivableSchedulerService;
 
     @Autowired
     private LandProjectRepository landProjectRepository;
 
     @Autowired
-    private LandTitleRepository landTitleRepository;
 
     private UUID savedProjectId;
 

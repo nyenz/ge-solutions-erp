@@ -1,7 +1,6 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java
 package com.gesolutions.erp.modules.client.controller;
 
-import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
