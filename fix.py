@@ -5,83 +5,73 @@ import subprocess
 ROOT = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT)
 
-def read(path):
+def remove_regex(path, pattern, label):
     p = os.path.join(ROOT, path)
     if not os.path.exists(p):
         print("MISSING FILE: " + path)
-        return None
+        return 0
     with open(p, "r", encoding="utf-8", errors="replace") as f:
-        return f.read()
-
-def write(path, content):
-    with open(os.path.join(ROOT, path), "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
-
-def remove_line(path, exact_line):
-    """Remove a line whose content (no newline) equals exact_line."""
-    content = read(path)
-    if content is None:
-        return
-    needle = exact_line + "\n"
-    if needle not in content:
-        print("MISSING ANCHOR in " + path + ": " + exact_line.strip()[:60])
-        return
-    write(path, content.replace(needle, "", 1))
-    print("OK: " + path + " removed: " + exact_line.strip()[:60])
+        content = f.read()
+    new_content, n = re.subn(pattern, "", content)
+    if n == 0:
+        print("MISSING ANCHOR in " + path + ": " + label)
+        return 0
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(new_content)
+    print("OK: " + path + " (" + label + ", " + str(n) + ")")
+    return n
 
 def remove_import(path, fqn):
-    remove_line(path, "import " + fqn + ";")
+    return remove_regex(path, r"^import " + re.escape(fqn) + r";\n", "unused import " + fqn)
 
-def remove_import_if_unused(path, fqn):
-    """Remove the import only if its simple name appears nowhere else in the file."""
-    content = read(path)
-    if content is None:
-        return
-    line = "import " + fqn + ";\n"
-    if line not in content:
-        return
-    simple = fqn.split(".")[-1]
-    rest = content.replace(line, "", 1)
-    if re.search(r"\b" + re.escape(simple) + r"\b", rest):
-        print("KEPT import (still referenced) in " + path + ": " + fqn)
-        return
-    write(path, rest)
-    print("OK: " + path + " removed now-unused import " + fqn)
+def remove_field_then_import(path, field_pattern, import_fqn, label):
+    if remove_regex(path, field_pattern, label) > 0 and import_fqn:
+        remove_import(path, import_fqn)
 
-# --- 1. Unused imports (IDE-verified, compile-safe by definition) ---
-remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.model.Role")
-remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.model.User")
-remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "org.springframework.transaction.annotation.Transactional")
-remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "java.util.UUID")
+def remove_repository_annotation(path):
+    remove_regex(path, r"^@Repository\n", "@Repository annotation")
+    remove_import(path, "org.springframework.stereotype.Repository")
+
+# --- Unused imports (IDE-verified) ---
+DI = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
+remove_import(DI, "com.gesolutions.erp.modules.auth.model.Role")
+remove_import(DI, "com.gesolutions.erp.modules.auth.model.User")
+remove_import(DI, "org.springframework.transaction.annotation.Transactional")
+remove_import(DI, "java.util.UUID")
+remove_field_then_import(DI,
+    r"^    private final UserRepository userRepository;\n",
+    "com.gesolutions.erp.modules.auth.repository.UserRepository",
+    "unused field userRepository")
+
 remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java", "com.gesolutions.erp.common.exception.BusinessException")
 remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java", "org.springframework.mail.SimpleMailMessage")
+remove_field_then_import("erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java",
+    r"^    private final JavaMailSender mailSender;\n",
+    "org.springframework.mail.javamail.JavaMailSender",
+    "unused field mailSender")
+
 remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java", "com.gesolutions.erp.modules.client.model.Client")
-remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java", "com.gesolutions.erp.modules.land.model.PaymentRecord")
+
+RC = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java"
+remove_import(RC, "com.gesolutions.erp.modules.land.model.PaymentRecord")
+remove_field_then_import(RC,
+    r"^    private final PaymentRecordRepository paymentRecordRepository;\n",
+    "com.gesolutions.erp.modules.land.repository.PaymentRecordRepository",
+    "unused field paymentRecordRepository")
+remove_field_then_import(RC,
+    r"^    private final LandService landService;\n",
+    "com.gesolutions.erp.modules.land.service.LandService",
+    "unused field landService")
+
+remove_field_then_import("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
+    r"^    private final ClientRepository clientRepository;\n",
+    "com.gesolutions.erp.modules.client.repository.ClientRepository",
+    "unused field clientRepository")
+
 remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java", "java.math.RoundingMode")
 remove_import("erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandCascadeDeleteTest.java", "org.springframework.transaction.annotation.Transactional")
 
-# --- 2. Dead injected fields (IDE-verified unused; exact lines read from repo) ---
-remove_line("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-            "    private final UserRepository userRepository;")
-remove_line("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
-            "    private final PaymentRecordRepository paymentRecordRepository;")
-remove_line("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java",
-            "    private final LandService landService;")
-remove_line("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java",
-            "    private final ClientRepository clientRepository;")
-remove_line("erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerTest.java",
-            "    @Autowired")
-remove_line("erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerTest.java",
-            "    private LandTitleRepository landTitleRepository;")
-
-# Imports that become unused once those fields are gone (checked, not assumed).
-remove_import_if_unused("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.repository.UserRepository")
-remove_import_if_unused("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java", "com.gesolutions.erp.modules.land.repository.PaymentRecordRepository")
-remove_import_if_unused("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java", "com.gesolutions.erp.modules.land.service.LandService")
-remove_import_if_unused("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/DashboardController.java", "com.gesolutions.erp.modules.client.repository.ClientRepository")
-remove_import_if_unused("erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerTest.java", "com.gesolutions.erp.modules.land.repository.LandTitleRepository")
-
-# --- 3. Unnecessary @Repository on plain Spring Data interfaces ---
+# --- Unnecessary @Repository on plain Spring Data interfaces ---
 for repo in [
     "erp-backend/src/main/java/com/gesolutions/erp/common/audit/AuditLogRepository.java",
     "erp-backend/src/main/java/com/gesolutions/erp/modules/client/repository/ClientRepository.java",
@@ -94,14 +84,13 @@ for repo in [
     "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/ProjectStageRepository.java",
     "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/StageTemplateRepository.java",
 ]:
-    remove_line(repo, "@Repository")
-    remove_import_if_unused(repo, "org.springframework.stereotype.Repository")
+    remove_repository_annotation(repo)
 
 # PERMANENT Section 3 rule: commit and push automatically as the last step.
 subprocess.run(["git", "add", "-A"], check=True)
-r = subprocess.run(["git", "commit", "-m", "Cosmetic: full warning sweep -- unused imports, dead fields, unnecessary @Repository"])
+r = subprocess.run(["git", "commit", "-m", "Cosmetic: warning sweep -- unused imports, dead fields, unnecessary @Repository"])
 if r.returncode == 0:
     subprocess.run(["git", "push"], check=True)
-    print("DONE: committed and pushed.")
+    print("DONE: committed and pushed. Reload the VS Code window to refresh diagnostics.")
 else:
     print("NOTHING TO COMMIT: no changes were needed.")
