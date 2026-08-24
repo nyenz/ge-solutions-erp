@@ -37,9 +37,18 @@ public class LandTitle {
     @Column(name = "block_road", length = 100)
     private String blockRoad;
 
+    // DEPRECATED (Phase A, Section 18.10): district/county now live on
+    // LandProject and are the source of truth going forward. These
+    // columns are kept here on purpose -- not deleted -- because
+    // LandService.java and ReportService.java still read/write them
+    // directly. Repointing those call sites to LandProject is scoped to
+    // Phase B (Section 18.9.1), not this phase. Do not remove these
+    // fields until Phase B has migrated every call site.
+    @Deprecated
     @Column(length = 100)
     private String district;
 
+    @Deprecated
     @Column(length = 100)
     private String county;
 

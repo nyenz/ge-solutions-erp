@@ -23,9 +23,40 @@ public class LandProject {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // PHASE A (Section 18.10): landTitle is now optional. A LandProject
+    // exists from intake onward and only gains a LandTitle once the final
+    // processing stage is checked (or immediately, if the legacy preset is
+    // used). See Section 18.9 in LLM_CONTEXT_GUIDE.md for the full target
+    // model.
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JoinColumn(name = "title_id", nullable = false)
+    @JoinColumn(name = "title_id", nullable = true)
     private LandTitle landTitle;
+
+    /**
+     * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays
+     * visible for the whole life of the record, title or no title.
+     * district/county are moved up from LandTitle (existing data migrated
+     * by DataInitializer below); subCounty, parish, village, and area are
+     * new. Area is left as free text since it is recorded in mixed units
+     * (acres, decimals, etc) and is optional per Section 18.9.3.
+     */
+    @Column(length = 100)
+    private String district;
+
+    @Column(length = 100)
+    private String county;
+
+    @Column(name = "sub_county", length = 100)
+    private String subCounty;
+
+    @Column(length = 100)
+    private String parish;
+
+    @Column(length = 100)
+    private String village;
+
+    @Column(length = 100)
+    private String area;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)

@@ -1,5 +1,8 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: August 2026 (Cleanup pass: Section 7 now leads with "Ledger is the reference
+# Last updated: August 2026 (18.9/18.10 corrected: LandTitle's district/county stay in place,
+# deprecated not deleted, in Phase A -- a real code audit found LandService.java,
+# ReportService.java, and 3 test files depend on them directly; Phase B now explicitly owns
+# repointing those call sites. Cleanup pass: Section 7 now leads with "Ledger is the reference
 # design" as a checkable law, duplicate wording removed; fix.py now commits/pushes itself
 # automatically, Section 3/13 deploy steps de-duplicated; Section 16 gained a no-duplication
 # rule, a supersession-not-deletion rule, and its missing Section 18 exception. Section 18
@@ -674,6 +677,16 @@ per-`ProjectStage` notes field is deprecated in favor of this single project-lev
   `blockRoad`/"Block" (unchanged), `physicalBoxNumber` (unchanged, still required).
 - `area` lives ONLY on `LandProject` (18.4), not duplicated here -- it simply becomes
   read/write-unlocked once title fields appear, pre-filled if already entered at folder stage.
+- `district`/`county` (existing fields) stay on `LandTitle` in Phase A -- deprecated, not
+  deleted. `LandProject` becomes the real source of truth once Phase A adds `district`/`county`
+  there and migrates existing data up, but the old `LandTitle` fields and their getters/setters
+  are NOT removed in Phase A. A real code audit found `LandService.java` (`atomicIntake()` and
+  other setters), `ReportService.java` (three CSV-export call sites), and three test files all
+  read or write `LandTitle.district`/`.county` directly -- deleting the fields in Phase A would
+  break the build before Phase B lands. Same deprecate-don't-delete call the project already
+  made once for the `backlog_*` columns (Section 10, Stages 5-6). Phase B is what repoints these
+  call sites (see 18.9.1) -- removing the now-dead `LandTitle` fields entirely is optional
+  cleanup after that, not a requirement of any specific phase.
 
 **`Client`**
 - `nationalId` becomes a true mandatory, unique-checked column (see 18.4).
@@ -745,13 +758,19 @@ appear as an added block once they exist, never replacing anything above. Status
 - What: `LandProject.landTitle` -> `nullable = true`. Add `subCounty`/`parish`/`village`/`area`
   to `LandProject`. Migration to move existing `district`/`county` data from `LandTitle` rows up
   to their parent `LandProject` rows.
+- Scope boundary: `LandTitle`'s existing `district`/`county` Java fields and getters/setters
+  stay in place untouched (deprecated, not deleted -- see 18.9) so `LandService.java`,
+  `ReportService.java`, and existing tests keep compiling without any changes to them. Phase A
+  touches ONLY `LandProject.java`, `LandTitle.java`'s relationship annotation, and the migration.
 - Must land before any other phase in this section -- everything else assumes it's done.
 - Status: NOT STARTED.
 
 **PHASE B: LandService.java null-safety audit**
 - What: fix the ~14 call sites in 18.9.1 to fall back to `projectIndex` for logging when
   `landTitle` is null. Rewrite `atomicIntake()` to build `LandProject` first, `LandTitle` only
-  when triggered.
+  when triggered. Also repoints every `district`/`county` read or write in `LandService.java`
+  and `ReportService.java` (plus the three test files that build `LandTitle` objects with
+  `.district()`/`.county()`) from `LandTitle` to `LandProject`, per the Phase A scope boundary.
 - Depends on: Phase A.
 - Status: NOT STARTED.
 

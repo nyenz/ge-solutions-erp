@@ -124,6 +124,27 @@ public class DataInitializer implements CommandLineRunner {
             // STAGE 3 -- SOFT DELETE
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
+
+            // PHASE A -- FOLDER-TO-TITLE REDESIGN (Section 18.10)
+            // landTitle becomes optional on LandProject (see model change),
+            // and location fields move up so they are permanent even for
+            // titleless folder-stage projects.
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            // Backfill: copy existing district/county from land_titles up to
+            // their parent land_projects row via the title_id FK. The
+            // "lp.district IS NULL" guard makes this safe to run on every
+            // boot -- once a row has been backfilled its district is no
+            // longer NULL, so this becomes a no-op for it from then on.
+            // land_titles.district/county are left in place (deprecated,
+            // not dropped) so this UPDATE is repeatable and non-destructive.
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
         };
 
         try (Connection conn = dataSource.getConnection();
