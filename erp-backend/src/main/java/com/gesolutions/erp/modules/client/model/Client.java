@@ -45,12 +45,16 @@ public class Client {
     private String phoneNumber;
 
     /**
-     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR (Phase 2)
-     * Mandatory for every project owner going forward. Unique at the DB level
-     * (see DataInitializer). Legacy client rows created before Phase 2 may
-     * have this blank until next edited.
+     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR
+     * PHASE C (Section 18.4/18.10): a true mandatory, unique-checked column,
+     * not a soft convention -- nullable = false, unique = true, matching the
+     * same pattern already used for LandProject/LandTitle.projectIndex.
+     * DataInitializer backfills any pre-existing NULL, blank, or duplicate
+     * values with unique placeholders before applying these constraints, so
+     * old legacy rows never block the migration on boot. Also enforced at
+     * the service level in ClientService.findOrCreateClientByNin().
      */
-    @Column(name = "national_id", length = 100)
+    @Column(name = "national_id", length = 100, nullable = false, unique = true)
     private String nationalId;
 
     @Column(name = "home_address", columnDefinition = "TEXT")

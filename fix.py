@@ -1,21 +1,69 @@
 # PATH: fix.py
-# PHASE B (Section 18.10 / 18.9.1): Null-safe the ~15 LandService.java call
-# sites that read project.getLandTitle().getPlotNumber()/etc without a null
-# check, rewrite atomicIntake() to build LandProject first and LandTitle only
-# when title fields were submitted, and migrate projectIndex up from
-# LandTitle to LandProject (deprecated in place on LandTitle, not deleted --
-# same pattern as Phase A's district/county move) since Section 18.3 requires
-# it on LandProject and the null-safe fallback needs it there to mean anything.
+# PHASE C (Section 18.10 / 18.4): Client.nationalId becomes a true mandatory,
+# unique-checked field, both at the DB column level and the service-validation
+# level -- replacing the soft/optional column that the old guide incorrectly
+# claimed was already enforced.
 #
-# Scope: LandProject.java, LandTitle.java, LandService.java,
-# DataInitializer.java. No intake UI or DTO changes -- that's Phase D.
+# Scope: Client.java, DataInitializer.java, ClientService.java. Nothing else.
+# No intake UI changes (that's Phase D) and no changes to LandService.java --
+# its two NIN_REQUIRED blank checks (atomicIntake, updateProjectFull) already
+# route every owner through ClientService.findOrCreateClientByNin(), which
+# already correctly implements the Section 17.3 duplicate-NIN behavior
+# (block on same-NIN-different-name via NIN_NAME_MISMATCH, reuse-with-edit-
+# allowed on same-NIN-same-name) -- that logic did not need fixing, it was
+# only ever running against a column that could not actually back it up.
 #
-# Known gap, deliberately left alone: logNewNote() (line ~539) has the same
-# unguarded project.getLandTitle().getPlotNumber() call as the 15 methods
-# fixed here, but it was not in Section 18.9.1's list, so it is untouched.
-# Flagging it for whoever picks up Phase C/D -- once titleless projects can
-# actually be created (this phase makes that possible), adding a note to one
-# will NPE the same way the fixed methods used to.
+# WHAT WAS ACTUALLY BROKEN: DataInitializer already had an
+# "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)"
+# line under a PHASE 2 comment, and Client.java's javadoc already claimed
+# "Unique at the DB level (see DataInitializer)". Both were aspirational, not
+# real. Every migration statement in runSchemaMigrations() runs inside a
+# blanket try/catch that logs ANY failure as "Skipped (already exists)" --
+# so if that ADD CONSTRAINT ever failed for a real reason (duplicate NIN
+# values already sitting in the table from before this was enforced, or
+# blank-string NINs colliding with each other), it would fail silently on
+# every single boot, forever, while the code and comments kept insisting the
+# constraint existed. The Java entity did not even declare nullable=false,
+# so nothing was mandatory at the column level either -- only the service
+# layer (ClientService.findOrCreateClientByNin, LandService's two blank
+# checks) was ever actually stopping a blank NIN, and only for the intake/
+# edit code paths that route through it.
+#
+# THE FIX: DataInitializer now cleans the data BEFORE constraining it, so the
+# constraint-creation step actually succeeds this time instead of silently
+# failing again -- same "backfill guarded by IS NULL, safe to run every boot,
+# no-op once already applied" pattern already used for the Phase A district/
+# county backfill and the Phase B projectIndex backfill just above it in this
+# same file:
+#   1. Blank-string NINs ('') are normalized to real NULL first.
+#   2. Any existing rows that already share a duplicate NIN (from back when
+#      nothing stopped that) get every row after the first one disambiguated
+#      with a "-DUPE-<id>" suffix, so the unique constraint has something
+#      valid to apply to instead of failing on real collisions.
+#   3. Legacy rows with NULL national_id (pre-Phase-2 clients "blank until
+#      next edited," per the old Client.java comment) get backfilled with a
+#      unique LEGACY-<id> placeholder, because a real NOT NULL constraint
+#      cannot coexist with actual NULLs in the table.
+#   4. Only THEN does "ALTER COLUMN national_id SET NOT NULL" run, followed
+#      by the pre-existing ADD CONSTRAINT UNIQUE line (untouched) -- both of
+#      which will now actually succeed and stay applied on every future boot.
+# Client.java's @Column gets nullable = false, unique = true added, matching
+# the exact precedent already used for LandProject/LandTitle.projectIndex
+# (Hibernate's ddl-auto=update will attempt the same thing at startup before
+# DataInitializer's CommandLineRunner runs; when the table isn't clean yet
+# that attempt no-ops same as always, and DataInitializer's explicit
+# raw-JDBC steps below are what actually land it).
+#
+# ClientService.findOrCreateClientByNin() itself is unchanged -- it already
+# does the right thing. Only its javadoc is updated to note the constraint
+# now genuinely exists underneath it, and the unused, dead
+# findOrCreateClient(fullName, phone, email) legacy method (no callers
+# anywhere in the codebase -- confirmed by search) gets a deprecation comment
+# warning that calling it would now violate the NOT NULL constraint, since it
+# never sets nationalId. It is not deleted (nothing calls it, no reason to
+# risk touching more than necessary) and not rewired to require a NIN --
+# that would just be turning it into a second copy of findOrCreateClientByNin,
+# out of scope for this phase.
 
 import os
 
@@ -40,645 +88,161 @@ def patch(path, old, new, label):
     write_file(path, content)
     print("OK: " + label + " (" + path + ")")
 
-LAND_PROJECT = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java"
-LAND_TITLE = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java"
-LAND_SERVICE = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
+CLIENT_MODEL = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/model/Client.java"
 DATA_INIT = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
+CLIENT_SERVICE = "erp-backend/src/main/java/com/gesolutions/erp/modules/client/service/ClientService.java"
 
-# =============================================================================
-# 1. LandProject.java -- add projectIndex (moved up from LandTitle)
-# =============================================================================
+# ─── 1. Client.java -- nationalId becomes a true mandatory, unique column ──
 
-old_lp_field = "\n".join([
-    "    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)",
-    "    @JoinColumn(name = \"title_id\", nullable = true)",
-    "    private LandTitle landTitle;",
-    "",
-    "    /**",
-    "     * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays",
-])
+patch(
+    CLIENT_MODEL,
+    "    /**\n"
+    "     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR (Phase 2)\n"
+    "     * Mandatory for every project owner going forward. Unique at the DB level\n"
+    "     * (see DataInitializer). Legacy client rows created before Phase 2 may\n"
+    "     * have this blank until next edited.\n"
+    "     */\n"
+    "    @Column(name = \"national_id\", length = 100)\n"
+    "    private String nationalId;",
 
-new_lp_field = "\n".join([
-    "    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)",
-    "    @JoinColumn(name = \"title_id\", nullable = true)",
-    "    private LandTitle landTitle;",
-    "",
-    "    /**",
-    "     * PROJECT INDEX (Section 18.3): short, never-repeating, searchable",
-    "     * code shown to clients and staff (e.g. \"001A\"). Assigned at",
-    "     * LandProject creation, before any title exists -- permanent and",
-    "     * universal across a record's whole life, folder or titled. Moved up",
-    "     * from LandTitle in Phase B (existing data migrated by",
-    "     * DataInitializer below) because the null-safe audit-log fallback",
-    "     * needs a project index that exists even when landTitle does not.",
-    "     * LandTitle.projectIndex is deprecated, not deleted.",
+    "    /**\n"
+    "     * NATIONAL ID (NIN) -- THE REAL IDENTITY ANCHOR\n"
+    "     * PHASE C (Section 18.4/18.10): a true mandatory, unique-checked column,\n"
+    "     * not a soft convention -- nullable = false, unique = true, matching the\n"
+    "     * same pattern already used for LandProject/LandTitle.projectIndex.\n"
+    "     * DataInitializer backfills any pre-existing NULL, blank, or duplicate\n"
+    "     * values with unique placeholders before applying these constraints, so\n"
+    "     * old legacy rows never block the migration on boot. Also enforced at\n"
+    "     * the service level in ClientService.findOrCreateClientByNin().\n"
+    "     */\n"
+    "    @Column(name = \"national_id\", length = 100, nullable = false, unique = true)\n"
+    "    private String nationalId;",
+
+    "Client.nationalId -- nullable=false, unique=true + updated javadoc"
+)
+
+# ─── 2. DataInitializer.java -- clean the data, then actually constrain it ──
+
+patch(
+    DATA_INIT,
+    "            // PHASE 2 - NIN-BASED IDENTITY\n"
+    "            // Unique constraint on national_id. Postgres allows multiple NULLs under\n"
+    "            // a UNIQUE constraint, so old clients with no NIN yet are not affected.\n"
+    "            \"ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)\",\n"
+    "            // Phone numbers are no longer required to be unique -- joint owners or\n"
+    "            // family members can share one phone. NIN is now the real identity check.\n"
+    "            \"ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key\",\n",
+
+    "            // PHASE 2 - NIN-BASED IDENTITY\n"
+    "            // Phone numbers are no longer required to be unique -- joint owners or\n"
+    "            // family members can share one phone. NIN is now the real identity check.\n"
+    "            \"ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key\",\n"
+    "\n"
+    "            // PHASE C - FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.4)\n"
+    "            // national_id becomes a TRUE mandatory, unique column. The old\n"
+    "            // \"ADD CONSTRAINT UNIQUE\" line above this comment (removed) had been\n"
+    "            // silently failing on every boot since Phase 2 -- the blanket\n"
+    "            // try/catch below logs any failure as \"already exists\" whether that\n"
+    "            // was true or not, and there was nothing upstream cleaning duplicate\n"
+    "            // or blank values first. These four steps run in order, each one\n"
+    "            // guarded so it is a no-op once already applied -- same repeatable,\n"
+    "            // safe-on-every-boot pattern as the district/county and projectIndex\n"
+    "            // backfills above.\n"
+    "            //\n"
+    "            // Step 1: blank-string NINs are not the same as a real NULL -- fold\n"
+    "            // them in first so step 3 catches them too.\n"
+    "            \"UPDATE clients SET national_id = NULL WHERE national_id = ''\",\n"
+    "            //\n"
+    "            // Step 2: disambiguate any rows that already share a duplicate NIN\n"
+    "            // (possible from before this was ever enforced) -- keep the oldest\n"
+    "            // row's value untouched, suffix every later duplicate with its own\n"
+    "            // id so the unique constraint below has something valid to apply to.\n"
+    "            // Naturally idempotent: once every value is distinct, ROW_NUMBER()\n"
+    "            // never produces rn > 1 for the same national_id again.\n"
+    "            \"UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text \" +\n"
+    "                \"FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn \" +\n"
+    "                \"FROM clients WHERE national_id IS NOT NULL) ranked \" +\n"
+    "                \"WHERE c.id = ranked.id AND ranked.rn > 1\",\n"
+    "            //\n"
+    "            // Step 3: legacy rows created before Phase 2 may still have a blank\n"
+    "            // national_id (per the old Client.java comment, \"blank until next\n"
+    "            // edited\") -- a real NOT NULL constraint cannot coexist with actual\n"
+    "            // NULLs, so give each one a unique placeholder. Naturally idempotent:\n"
+    "            // once set, national_id is no longer NULL so the WHERE clause skips it.\n"
+    "            \"UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL\",\n"
+    "            //\n"
+    "            // Step 4: now safe to apply both constraints for real. SET NOT NULL is\n"
+    "            // itself idempotent in Postgres (no error re-running it once already\n"
+    "            // set). The UNIQUE constraint still goes through the blanket try/catch\n"
+    "            // below like every other migration line, so on every boot after the\n"
+    "            // first successful one it logs \"already exists\" and skips -- same as\n"
+    "            // it always has, except now that log line is finally true.\n"
+    "            \"ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL\",\n"
+    "            \"ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)\",\n",
+
+    "DataInitializer -- clean NIN data before constraining it (NOT NULL + real UNIQUE)"
+)
+
+# ─── 3. ClientService.java -- javadoc + deprecation note only, logic unchanged ──
+
+patch(
+    CLIENT_SERVICE,
+    "    /**\n"
+    "     * INTAKE: FIND OR CREATE\n"
+    "     * Standard industrial deduplication based on Phone Number.\n"
+    "     */\n"
+    "    @Transactional\n"
+    "    public Client findOrCreateClient(String fullName, String phone, String email) {",
+
+    "    /**\n"
+    "     * INTAKE: FIND OR CREATE (LEGACY, PHONE-BASED)\n"
+    "     * Standard industrial deduplication based on Phone Number.\n"
+    "     * DEPRECATED since PHASE C (Section 18.4/18.10): national_id is now\n"
+    "     * NOT NULL at the DB level, and this method never sets it, so calling\n"
+    "     * it would now fail with a DB integrity violation. Confirmed unused --\n"
+    "     * no call sites anywhere in the codebase. Left in place rather than\n"
+    "     * deleted since nothing calls it and this phase is scoped to the NIN\n"
+    "     * constraint itself; use findOrCreateClientByNin() for anything new.\n"
+    "     */\n"
+    "    @Transactional\n"
+    "    public Client findOrCreateClient(String fullName, String phone, String email) {",
+
+    "ClientService.findOrCreateClient -- deprecation warning comment (dead code, unchanged behavior)"
+)
+
+patch(
+    CLIENT_SERVICE,
+    "    /**\n"
+    "     * PHASE 2: NIN-BASED IDENTITY LOOKUP\n"
+    "     * Finds an existing person by their National ID (NIN), or creates a new one.\n"
+    "     * Per business rule (Section 17.3): if a person's NIN changes, they are\n"
+    "     * treated as a brand new person record -- this method never merges by\n"
+    "     * name or phone, only ever by NIN.\n"
     "     */",
-    "    @Column(name = \"project_index\", unique = true, length = 10)",
-    "    private String projectIndex;",
-    "",
-    "    /**",
-    "     * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays",
-])
 
-patch(LAND_PROJECT, old_lp_field, new_lp_field,
-      "LandProject: add projectIndex field")
+    "    /**\n"
+    "     * NIN-BASED IDENTITY LOOKUP\n"
+    "     * Finds an existing person by their National ID (NIN), or creates a new one.\n"
+    "     * Per business rule (Section 17.3): if a person's NIN changes, they are\n"
+    "     * treated as a brand new person record -- this method never merges by\n"
+    "     * name or phone, only ever by NIN.\n"
+    "     * PHASE C (Section 18.4/18.10): the blank-NIN check and the\n"
+    "     * NIN_NAME_MISMATCH guard below were already correct -- they did not\n"
+    "     * rely on the column being optional. What changed is that\n"
+    "     * Client.nationalId is now a genuinely enforced NOT NULL + UNIQUE\n"
+    "     * column underneath this method (see DataInitializer), instead of the\n"
+    "     * soft convention it used to be.\n"
+    "     */",
 
-# =============================================================================
-# 2. LandTitle.java -- deprecate projectIndex in place, do NOT delete
-# =============================================================================
+    "ClientService.findOrCreateClientByNin -- javadoc updated to note the constraint is now real"
+)
 
-old_title_index = "\n".join([
-    "    @Column(name = \"project_index\", unique = true, length = 10)",
-    "    private String projectIndex;",
-])
+# ─── Commit and push ──────────────────────────────────────────────────────
 
-new_title_index = "\n".join([
-    "    // DEPRECATED (Phase B, Section 18.10/18.3): projectIndex now lives",
-    "    // on LandProject and is assigned there at creation, before any title",
-    "    // exists -- see LandProject.java. Kept here on purpose -- not",
-    "    // deleted -- since atomicIntake() still writes the same value to",
-    "    // both places for backward compatibility with anything still reading",
-    "    // it off LandTitle. Safe to drop once nothing reads it from here.",
-    "    @Deprecated",
-    "    @Column(name = \"project_index\", unique = true, length = 10)",
-    "    private String projectIndex;",
-])
-
-patch(LAND_TITLE, old_title_index, new_title_index,
-      "LandTitle: mark projectIndex deprecated (not removed)")
-
-# =============================================================================
-# 3. DataInitializer.java -- migrate projectIndex to land_projects
-# =============================================================================
-
-old_init_tail = "\n".join([
-    "            \"UPDATE land_projects lp SET district = lt.district, county = lt.county \" +",
-    "                \"FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL \" +",
-    "                \"AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)\",",
-    "        };",
-])
-
-new_init_tail = "\n".join([
-    "            \"UPDATE land_projects lp SET district = lt.district, county = lt.county \" +",
-    "                \"FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL \" +",
-    "                \"AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)\",",
-    "",
-    "            // PHASE B -- FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.3)",
-    "            // projectIndex moves up to LandProject: Section 18.3 requires it",
-    "            // be assigned at LandProject creation, before any title exists,",
-    "            // and Phase B's null-safe audit-log fallback needs it to exist",
-    "            // even when landTitle does not. land_titles.project_index is",
-    "            // left in place (deprecated, not dropped).",
-    "            \"ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)\",",
-    "            \"ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index)\",",
-    "            // Backfill: copy each project's existing projectIndex up from",
-    "            // its LandTitle via the title_id FK. Same \"IS NULL\" guard as",
-    "            // the district/county backfill above -- safe on every boot,",
-    "            // no-op once already copied.",
-    "            \"UPDATE land_projects lp SET project_index = lt.project_index \" +",
-    "                \"FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL \" +",
-    "                \"AND lt.project_index IS NOT NULL\",",
-    "        };",
-])
-
-patch(DATA_INIT, old_init_tail, new_init_tail,
-      "DataInitializer: migrate projectIndex to land_projects")
-
-# =============================================================================
-# 4. LandService.java -- add plotLabel() helper, use it everywhere, rewrite
-#    atomicIntake(), guard authorizeRelease(), guard updateProjectFull()
-# =============================================================================
-
-# --- 4a. Add the null-safe plotLabel() helper next to getCurrentOperator() ---
-
-old_operator = "\n".join([
-    "    private String getCurrentOperator() {",
-    "        if (SecurityContextHolder.getContext().getAuthentication() != null) {",
-    "            return SecurityContextHolder.getContext().getAuthentication().getName();",
-    "        }",
-    "        return \"SYSTEM\";",
-    "    }",
-])
-
-new_operator = "\n".join([
-    "    private String getCurrentOperator() {",
-    "        if (SecurityContextHolder.getContext().getAuthentication() != null) {",
-    "            return SecurityContextHolder.getContext().getAuthentication().getName();",
-    "        }",
-    "        return \"SYSTEM\";",
-    "    }",
-    "",
-    "    // PHASE B (Section 18.9.1): landTitle can now be null. Every audit-log",
-    "    // call site that used to read project.getLandTitle().getPlotNumber()",
-    "    // directly goes through this instead -- falls back to projectIndex",
-    "    // (now on LandProject itself, see Phase B migration) when there is no",
-    "    // title yet, instead of NPE-ing.",
-    "    private String plotLabel(LandProject project) {",
-    "        if (project.getLandTitle() != null && project.getLandTitle().getPlotNumber() != null) {",
-    "            return project.getLandTitle().getPlotNumber();",
-    "        }",
-    "        return \"project #\" + project.getProjectIndex();",
-    "    }",
-])
-
-patch(LAND_SERVICE, old_operator, new_operator,
-      "LandService: add plotLabel() null-safe helper")
-
-# --- 4b. logUnlockAction ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"EDIT_MODE_OPENED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] opened edit mode for plot: \"",
-        "            + project.getLandTitle().getPlotNumber());",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"EDIT_MODE_OPENED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] opened edit mode for plot: \"",
-        "            + plotLabel(project));",
-    ]),
-    "LandService.logUnlockAction: null-safe log")
-
-# --- 4c. recordPayment: RECEIVABLE_EXIT branch ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "            auditService.logAction(\"RECEIVABLE_EXIT\",",
-        "                \"Operator [\" + operator + \"] \u2014 Plot \" + project.getLandTitle().getPlotNumber()",
-        "                + \" EXITED RECEIVABLE after full payment clearance.\");",
-    ]),
-    "\n".join([
-        "            auditService.logAction(\"RECEIVABLE_EXIT\",",
-        "                \"Operator [\" + operator + \"] \u2014 Plot \" + plotLabel(project)",
-        "                + \" EXITED RECEIVABLE after full payment clearance.\");",
-    ]),
-    "LandService.recordPayment: null-safe RECEIVABLE_EXIT log")
-
-# --- 4d. recordPayment: PAYMENT_RECORDED ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"PAYMENT_RECORDED\",",
-        "            \"Operator [\" + operator + \"] recorded UGX \" + amount",
-        "            + \" for plot: \" + project.getLandTitle().getPlotNumber()",
-        "            + \" | Type: \" + paymentType",
-        "            + \" | Amount owed after: UGX \" + balanceAfter);",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"PAYMENT_RECORDED\",",
-        "            \"Operator [\" + operator + \"] recorded UGX \" + amount",
-        "            + \" for plot: \" + plotLabel(project)",
-        "            + \" | Type: \" + paymentType",
-        "            + \" | Amount owed after: UGX \" + balanceAfter);",
-    ]),
-    "LandService.recordPayment: null-safe PAYMENT_RECORDED log")
-
-# --- 4e. moveToReceivable ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_TRIGGER\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] manually moved plot \"",
-        "            + project.getLandTitle().getPlotNumber()",
-        "            + \" to RECEIVABLE. Original debt frozen at: UGX \" + outstanding);",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_TRIGGER\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] manually moved plot \"",
-        "            + plotLabel(project)",
-        "            + \" to RECEIVABLE. Original debt frozen at: UGX \" + outstanding);",
-    ]),
-    "LandService.moveToReceivable: null-safe log")
-
-# --- 4f. exitReceivable ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_EXIT\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] removed plot \"",
-        "            + project.getLandTitle().getPlotNumber()",
-        "            + \" from RECEIVABLE. \" + feeAction",
-        "            + \". Title total value: UGX \" + project.getTotalCost() + \".\");",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_EXIT\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] removed plot \"",
-        "            + plotLabel(project)",
-        "            + \" from RECEIVABLE. \" + feeAction",
-        "            + \". Title total value: UGX \" + project.getTotalCost() + \".\");",
-    ]),
-    "LandService.exitReceivable: null-safe log")
-
-# --- 4g. atomicIntake: build LandProject first, LandTitle only if submitted ---
-
-old_intake = "\n".join([
-    "    @Transactional(rollbackFor = Exception.class)",
-    "    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {",
-    "        LandTitle title = LandTitle.builder()",
-    "                .tenure(request.getTenure())",
-    "                .plotNumber(request.getPlotNumber())",
-    "                .physicalBoxNumber(request.getPhysicalBoxNumber())",
-    "                .district(request.getDistrict())",
-    "                .blockRoad(request.getBlockRoad())",
-    "                .county(request.getCounty())",
-    "                .volume(request.getVolume())",
-    "                .folio(request.getFolio())",
-    "                .instrumentNo(request.getInstrumentNo())",
-    "                .surveyDate(request.getSurveyDate())",
-    "                .projectIndex(projectIndexService.generateNextIndex())",
-    "                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())",
-    "                .titleIssueDate(request.getTitleIssueDate())",
-    "                .build();",
-    "",
-    "        BigDecimal initialPayment = request.getInitialPayment() != null",
-    "                ? request.getInitialPayment() : BigDecimal.ZERO;",
-    "        BigDecimal totalCost = request.getTotalCost() != null",
-    "                ? request.getTotalCost() : BigDecimal.ZERO;",
-    "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
-    "",
-    "        boolean startAsReceivable = request.isStartAsReceivable();",
-    "",
-    "        LandProject.LandProjectBuilder builder = LandProject.builder()",
-    "                .landTitle(title)",
-    "                .totalCost(totalCost)",
-    "                .amountPaid(initialPayment)",
-    "                .isLegacy(request.isLegacy())",
-    "                .currentStageIndex(startAsReceivable ? 5 : 1)",
-    "                .status(startAsReceivable ? \"RECEIVABLE\" : \"ACTIVE\");",
-])
-
-new_intake = "\n".join([
-    "    @Transactional(rollbackFor = Exception.class)",
-    "    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {",
-    "        // PHASE B (Section 18.10): LandProject is now built FIRST --",
-    "        // projectIndex, owners, location, and stage all exist",
-    "        // independently of a title. A LandTitle is only built and",
-    "        // attached SECOND, and only if title fields were actually",
-    "        // submitted. Using a non-blank plotNumber as that signal for",
-    "        // now -- a real \"attach title later, on the final stage",
-    "        // checkbox\" trigger is Phase D's job, not this phase's.",
-    "        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();",
-    "        String projectIndex = projectIndexService.generateNextIndex();",
-    "",
-    "        BigDecimal initialPayment = request.getInitialPayment() != null",
-    "                ? request.getInitialPayment() : BigDecimal.ZERO;",
-    "        BigDecimal totalCost = request.getTotalCost() != null",
-    "                ? request.getTotalCost() : BigDecimal.ZERO;",
-    "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
-    "",
-    "        boolean startAsReceivable = request.isStartAsReceivable();",
-    "",
-    "        LandTitle title = null;",
-    "        if (hasTitleFields) {",
-    "            title = LandTitle.builder()",
-    "                    .tenure(request.getTenure())",
-    "                    .plotNumber(request.getPlotNumber())",
-    "                    .physicalBoxNumber(request.getPhysicalBoxNumber())",
-    "                    .district(request.getDistrict())",
-    "                    .blockRoad(request.getBlockRoad())",
-    "                    .county(request.getCounty())",
-    "                    .volume(request.getVolume())",
-    "                    .folio(request.getFolio())",
-    "                    .instrumentNo(request.getInstrumentNo())",
-    "                    .surveyDate(request.getSurveyDate())",
-    "                    // Kept in sync on the deprecated LandTitle column too,",
-    "                    // for backward compatibility with anything still",
-    "                    // reading projectIndex off LandTitle instead of",
-    "                    // LandProject.",
-    "                    .projectIndex(projectIndex)",
-    "                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())",
-    "                    .titleIssueDate(request.getTitleIssueDate())",
-    "                    .build();",
-    "        }",
-    "",
-    "        LandProject.LandProjectBuilder builder = LandProject.builder()",
-    "                .landTitle(title)",
-    "                .projectIndex(projectIndex)",
-    "                .district(request.getDistrict())",
-    "                .county(request.getCounty())",
-    "                .totalCost(totalCost)",
-    "                .amountPaid(initialPayment)",
-    "                .isLegacy(request.isLegacy())",
-    "                .currentStageIndex(startAsReceivable ? 5 : 1)",
-    "                .status(startAsReceivable ? \"RECEIVABLE\" : \"ACTIVE\");",
-])
-
-patch(LAND_SERVICE, old_intake, new_intake,
-      "LandService.atomicIntake: build LandProject first, LandTitle only if submitted")
-
-# --- 4h. atomicIntake: null-safe final audit logs (still refer to "title") ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        String receivableNote = startAsReceivable ? \" [ENTERED AS RECEIVABLE]\" : \"\";",
-        "        auditService.logAction(\"INTAKE\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] ingested binder: \"",
-        "            + title.getPlotNumber() + receivableNote);",
-        "",
-        "        if (startAsReceivable) {",
-        "            auditService.logAction(\"RECEIVABLE_TRIGGER\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] flagged plot \"",
-        "                + title.getPlotNumber() + \" as RECEIVABLE at intake. Debt: UGX \" + outstanding);",
-        "        }",
-    ]),
-    "\n".join([
-        "        String plotOrIndex = title != null ? title.getPlotNumber() : \"project #\" + projectIndex;",
-        "        String receivableNote = startAsReceivable ? \" [ENTERED AS RECEIVABLE]\" : \"\";",
-        "        auditService.logAction(\"INTAKE\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] ingested binder: \"",
-        "            + plotOrIndex + receivableNote);",
-        "",
-        "        if (startAsReceivable) {",
-        "            auditService.logAction(\"RECEIVABLE_TRIGGER\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] flagged plot \"",
-        "                + plotOrIndex + \" as RECEIVABLE at intake. Debt: UGX \" + outstanding);",
-        "        }",
-    ]),
-    "LandService.atomicIntake: null-safe final audit logs")
-
-# --- 4i. updateProjectFull: skip title-field setters when landTitle is null ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        LandTitle title = project.getLandTitle();",
-        "",
-        "        title.setPlotNumber(request.getPlotNumber());",
-        "        title.setTenure(request.getTenure());",
-        "        title.setBlockRoad(request.getBlockRoad());",
-        "        title.setDistrict(request.getDistrict());",
-        "        title.setCounty(request.getCounty());",
-        "        title.setVolume(request.getVolume());",
-        "        title.setFolio(request.getFolio());",
-        "        title.setInstrumentNo(request.getInstrumentNo());",
-        "        title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());",
-        "        title.setSurveyDate(request.getSurveyDate());",
-    ]),
-    "\n".join([
-        "        LandTitle title = project.getLandTitle();",
-        "",
-        "        // PHASE B (Section 18.9.1): landTitle can now be null (a",
-        "        // titleless \"folder\" stage project). Skip the title-field",
-        "        // setters entirely when there is no title yet -- everything",
-        "        // else on this project (owners, cost, legacy flag) still",
-        "        // updates normally below. Real create-a-title-on-edit logic",
-        "        // is Phase D/E's job, not this phase's.",
-        "        if (title != null) {",
-        "            title.setPlotNumber(request.getPlotNumber());",
-        "            title.setTenure(request.getTenure());",
-        "            title.setBlockRoad(request.getBlockRoad());",
-        "            title.setDistrict(request.getDistrict());",
-        "            title.setCounty(request.getCounty());",
-        "            title.setVolume(request.getVolume());",
-        "            title.setFolio(request.getFolio());",
-        "            title.setInstrumentNo(request.getInstrumentNo());",
-        "            title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());",
-        "            title.setSurveyDate(request.getSurveyDate());",
-        "        }",
-    ]),
-    "LandService.updateProjectFull: skip title setters when landTitle is null")
-
-# --- 4j. updateProjectFull: null-safe final log ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        LandProject saved = projectRepository.save(project);",
-        "        auditService.logAction(\"RECORD_UPDATED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] modified Binder: \"",
-        "            + title.getPlotNumber());",
-        "        return saved;",
-        "    }",
-    ]),
-    "\n".join([
-        "        LandProject saved = projectRepository.save(project);",
-        "        auditService.logAction(\"RECORD_UPDATED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] modified Binder: \"",
-        "            + plotLabel(project));",
-        "        return saved;",
-        "    }",
-    ]),
-    "LandService.updateProjectFull: null-safe final log")
-
-# --- 4k. nuclearDelete ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "    public void nuclearDelete(UUID id) {",
-        "        LandProject project = projectRepository.findById(id).orElseThrow();",
-        "        String plotNo = project.getLandTitle().getPlotNumber();",
-        "",
-        "        project.setDeleted(true);",
-        "        project.setDeletedAt(LocalDateTime.now());",
-        "        projectRepository.save(project);",
-        "",
-        "        auditService.logAction(\"RECORD_DELETED\",",
-        "            \"Root user [\" + getCurrentOperator() + \"] deleted plot: \" + plotNo);",
-        "    }",
-    ]),
-    "\n".join([
-        "    public void nuclearDelete(UUID id) {",
-        "        LandProject project = projectRepository.findById(id).orElseThrow();",
-        "        String plotNo = plotLabel(project);",
-        "",
-        "        project.setDeleted(true);",
-        "        project.setDeletedAt(LocalDateTime.now());",
-        "        projectRepository.save(project);",
-        "",
-        "        auditService.logAction(\"RECORD_DELETED\",",
-        "            \"Root user [\" + getCurrentOperator() + \"] deleted plot: \" + plotNo);",
-        "    }",
-    ]),
-    "LandService.nuclearDelete: null-safe log")
-
-# --- 4l. restoreProject ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "    public void restoreProject(UUID id) {",
-        "        LandProject project = projectRepository.findById(id).orElseThrow();",
-        "        String plotNo = project.getLandTitle().getPlotNumber();",
-        "",
-        "        project.setDeleted(false);",
-        "        project.setDeletedAt(null);",
-        "        projectRepository.save(project);",
-        "",
-        "        auditService.logAction(\"RECORD_RESTORED\",",
-        "            \"Root user [\" + getCurrentOperator() + \"] restored plot: \" + plotNo);",
-        "    }",
-    ]),
-    "\n".join([
-        "    public void restoreProject(UUID id) {",
-        "        LandProject project = projectRepository.findById(id).orElseThrow();",
-        "        String plotNo = plotLabel(project);",
-        "",
-        "        project.setDeleted(false);",
-        "        project.setDeletedAt(null);",
-        "        projectRepository.save(project);",
-        "",
-        "        auditService.logAction(\"RECORD_RESTORED\",",
-        "            \"Root user [\" + getCurrentOperator() + \"] restored plot: \" + plotNo);",
-        "    }",
-    ]),
-    "LandService.restoreProject: null-safe log")
-
-# --- 4m. manualRealityOverride ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"STAGE_OVERRIDE\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] shifted plot \"",
-        "            + project.getLandTitle().getPlotNumber()",
-        "            + \" from stage \" + oldStage + \" to stage \" + targetStage);",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"STAGE_OVERRIDE\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] shifted plot \"",
-        "            + plotLabel(project)",
-        "            + \" from stage \" + oldStage + \" to stage \" + targetStage);",
-    ]),
-    "LandService.manualRealityOverride: null-safe log")
-
-# --- 4n. authorizeRelease: guard + null-safe (title guaranteed non-null past guard) ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {",
-        "            throw new BusinessException(\"RELEASE DENIED: Arrears Detected.\");",
-        "        }",
-        "        project.getLandTitle().setReleased(true);",
-    ]),
-    "\n".join([
-        "        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {",
-        "            throw new BusinessException(\"RELEASE DENIED: Arrears Detected.\");",
-        "        }",
-        "        // PHASE B (Section 18.9.1): landTitle can now be null.",
-        "        // Releasing implies a title exists to hand over -- silently",
-        "        // succeeding when there is nothing to release would be",
-        "        // misleading to staff, so this fails loudly instead of NPE-ing.",
-        "        if (project.getLandTitle() == null) {",
-        "            throw new BusinessException(\"RELEASE DENIED: This project has no title to release yet.\");",
-        "        }",
-        "        project.getLandTitle().setReleased(true);",
-    ]),
-    "LandService.authorizeRelease: guard against null landTitle")
-
-# --- 4o. setStoragePaused ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_FEE_\" + action,",
-        "            \"Operator [\" + getCurrentOperator() + \"] \" + action.toLowerCase() + \" monthly storage fees for plot: \"",
-        "            + project.getLandTitle().getPlotNumber()",
-        "            + \" (monthly rate: UGX \" + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : \"50000 (default)\") + \")\");",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_FEE_\" + action,",
-        "            \"Operator [\" + getCurrentOperator() + \"] \" + action.toLowerCase() + \" monthly storage fees for plot: \"",
-        "            + plotLabel(project)",
-        "            + \" (monthly rate: UGX \" + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : \"50000 (default)\") + \")\");",
-    ]),
-    "LandService.setStoragePaused: null-safe log")
-
-# --- 4p. setStorageFeeOverride ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_RATE_CHANGED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] changed monthly storage fee to UGX \" + rate",
-        "            + \" for plot: \" + project.getLandTitle().getPlotNumber()",
-        "            + \" (previously UGX \" + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : \"50000 (default)\") + \")\");",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_RATE_CHANGED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] changed monthly storage fee to UGX \" + rate",
-        "            + \" for plot: \" + plotLabel(project)",
-        "            + \" (previously UGX \" + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : \"50000 (default)\") + \")\");",
-    ]),
-    "LandService.setStorageFeeOverride: null-safe log")
-
-# --- 4q. setAccumulatedFees ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_FEES_ADJUSTED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] manually adjusted accumulated storage fees from UGX \" + old",
-        "            + \" to UGX \" + amount + \" for plot: \" + project.getLandTitle().getPlotNumber());",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"STORAGE_FEES_ADJUSTED\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] manually adjusted accumulated storage fees from UGX \" + old",
-        "            + \" to UGX \" + amount + \" for plot: \" + plotLabel(project));",
-    ]),
-    "LandService.setAccumulatedFees: null-safe log")
-
-# --- 4r. setNegotiationDeadline: CLEARED branch ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "            auditService.logAction(\"NEGOTIATION_DEADLINE_CLEARED\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] cleared negotiation deadline for plot: \"",
-        "                + project.getLandTitle().getPlotNumber() + \" -- storage fees resumed.\");",
-    ]),
-    "\n".join([
-        "            auditService.logAction(\"NEGOTIATION_DEADLINE_CLEARED\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] cleared negotiation deadline for plot: \"",
-        "                + plotLabel(project) + \" -- storage fees resumed.\");",
-    ]),
-    "LandService.setNegotiationDeadline: null-safe CLEARED log")
-
-# --- 4s. setNegotiationDeadline: SET branch ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "            auditService.logAction(\"NEGOTIATION_DEADLINE_SET\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] set negotiation deadline to \" + deadlineStr",
-        "                + \" for plot: \" + project.getLandTitle().getPlotNumber()",
-        "                + \" -- storage fees paused until then.\");",
-    ]),
-    "\n".join([
-        "            auditService.logAction(\"NEGOTIATION_DEADLINE_SET\",",
-        "                \"Operator [\" + getCurrentOperator() + \"] set negotiation deadline to \" + deadlineStr",
-        "                + \" for plot: \" + plotLabel(project)",
-        "                + \" -- storage fees paused until then.\");",
-    ]),
-    "LandService.setNegotiationDeadline: null-safe SET log")
-
-# --- 4t. setReceivableStartOverride ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_START_OVERRIDDEN\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] set receivable start date to \" + startDateStr",
-        "            + \" for plot: \" + project.getLandTitle().getPlotNumber());",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"RECEIVABLE_START_OVERRIDDEN\",",
-        "            \"Operator [\" + getCurrentOperator() + \"] set receivable start date to \" + startDateStr",
-        "            + \" for plot: \" + plotLabel(project));",
-    ]),
-    "LandService.setReceivableStartOverride: null-safe log")
-
-# --- 4u. logFollowUp ---
-
-patch(LAND_SERVICE,
-    "\n".join([
-        "        auditService.logAction(\"RECOVERY_SYNC\",",
-        "            \"Operator [\" + operator + \"] logged call for plot: \"",
-        "            + project.getLandTitle().getPlotNumber() + \" (owner reached: \" + ownerId + \")\");",
-    ]),
-    "\n".join([
-        "        auditService.logAction(\"RECOVERY_SYNC\",",
-        "            \"Operator [\" + operator + \"] logged call for plot: \"",
-        "            + plotLabel(project) + \" (owner reached: \" + ownerId + \")\");",
-    ]),
-    "LandService.logFollowUp: null-safe log")
-
-# ---------------------------------------------------------------------------
-# Commit and push (PERMANENT rule, Section 3)
-# ---------------------------------------------------------------------------
 import subprocess
 subprocess.run(['git', 'add', '-A'])
 subprocess.run(['git', 'commit', '-m',
-    'Phase B (Section 18.10): null-safe LandService audit logging for optional '
-    'landTitle, rewrite atomicIntake to build LandProject first, migrate '
-    'projectIndex up from LandTitle to LandProject'])
+    'Phase C (Section 18.10): Client.nationalId becomes a true mandatory, '
+    'unique-checked column (NOT NULL + UNIQUE), with a data-cleanup backfill '
+    'so the constraint actually applies instead of silently failing'])
 subprocess.run(['git', 'push'])

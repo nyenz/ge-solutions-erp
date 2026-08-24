@@ -79,8 +79,14 @@ public class ClientService {
     }
 
     /**
-     * INTAKE: FIND OR CREATE
+     * INTAKE: FIND OR CREATE (LEGACY, PHONE-BASED)
      * Standard industrial deduplication based on Phone Number.
+     * DEPRECATED since PHASE C (Section 18.4/18.10): national_id is now
+     * NOT NULL at the DB level, and this method never sets it, so calling
+     * it would now fail with a DB integrity violation. Confirmed unused --
+     * no call sites anywhere in the codebase. Left in place rather than
+     * deleted since nothing calls it and this phase is scoped to the NIN
+     * constraint itself; use findOrCreateClientByNin() for anything new.
      */
     @Transactional
     public Client findOrCreateClient(String fullName, String phone, String email) {
@@ -101,11 +107,17 @@ public class ClientService {
     }
 
     /**
-     * PHASE 2: NIN-BASED IDENTITY LOOKUP
+     * NIN-BASED IDENTITY LOOKUP
      * Finds an existing person by their National ID (NIN), or creates a new one.
      * Per business rule (Section 17.3): if a person's NIN changes, they are
      * treated as a brand new person record -- this method never merges by
      * name or phone, only ever by NIN.
+     * PHASE C (Section 18.4/18.10): the blank-NIN check and the
+     * NIN_NAME_MISMATCH guard below were already correct -- they did not
+     * rely on the column being optional. What changed is that
+     * Client.nationalId is now a genuinely enforced NOT NULL + UNIQUE
+     * column underneath this method (see DataInitializer), instead of the
+     * soft convention it used to be.
      */
     @Transactional
     public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email) {

@@ -93,12 +93,51 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
 
             // PHASE 2 - NIN-BASED IDENTITY
-            // Unique constraint on national_id. Postgres allows multiple NULLs under
-            // a UNIQUE constraint, so old clients with no NIN yet are not affected.
-            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",
             // Phone numbers are no longer required to be unique -- joint owners or
             // family members can share one phone. NIN is now the real identity check.
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+
+            // PHASE C - FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.4)
+            // national_id becomes a TRUE mandatory, unique column. The old
+            // "ADD CONSTRAINT UNIQUE" line above this comment (removed) had been
+            // silently failing on every boot since Phase 2 -- the blanket
+            // try/catch below logs any failure as "already exists" whether that
+            // was true or not, and there was nothing upstream cleaning duplicate
+            // or blank values first. These four steps run in order, each one
+            // guarded so it is a no-op once already applied -- same repeatable,
+            // safe-on-every-boot pattern as the district/county and projectIndex
+            // backfills above.
+            //
+            // Step 1: blank-string NINs are not the same as a real NULL -- fold
+            // them in first so step 3 catches them too.
+            "UPDATE clients SET national_id = NULL WHERE national_id = ''",
+            //
+            // Step 2: disambiguate any rows that already share a duplicate NIN
+            // (possible from before this was ever enforced) -- keep the oldest
+            // row's value untouched, suffix every later duplicate with its own
+            // id so the unique constraint below has something valid to apply to.
+            // Naturally idempotent: once every value is distinct, ROW_NUMBER()
+            // never produces rn > 1 for the same national_id again.
+            "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
+                "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
+                "FROM clients WHERE national_id IS NOT NULL) ranked " +
+                "WHERE c.id = ranked.id AND ranked.rn > 1",
+            //
+            // Step 3: legacy rows created before Phase 2 may still have a blank
+            // national_id (per the old Client.java comment, "blank until next
+            // edited") -- a real NOT NULL constraint cannot coexist with actual
+            // NULLs, so give each one a unique placeholder. Naturally idempotent:
+            // once set, national_id is no longer NULL so the WHERE clause skips it.
+            "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
+            //
+            // Step 4: now safe to apply both constraints for real. SET NOT NULL is
+            // itself idempotent in Postgres (no error re-running it once already
+            // set). The UNIQUE constraint still goes through the blanket try/catch
+            // below like every other migration line, so on every boot after the
+            // first successful one it logs "already exists" and skips -- same as
+            // it always has, except now that log line is finally true.
+            "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
+            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",
 
             // EXPENSES REBUILD -- flat cash-out log, replaces the old
             // committed/paid CompanyExpense model for new entries. The old
