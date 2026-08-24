@@ -76,6 +76,13 @@ public class LandTitle {
      * Format: 001A, 002A ... 999A, 001B, 002B ... 999B, 001C ...
      * Generated automatically at intake by ProjectIndexService.
      */
+    // DEPRECATED (Phase B, Section 18.10/18.3): projectIndex now lives
+    // on LandProject and is assigned there at creation, before any title
+    // exists -- see LandProject.java. Kept here on purpose -- not
+    // deleted -- since atomicIntake() still writes the same value to
+    // both places for backward compatibility with anything still reading
+    // it off LandTitle. Safe to drop once nothing reads it from here.
+    @Deprecated
     @Column(name = "project_index", unique = true, length = 10)
     private String projectIndex;
 

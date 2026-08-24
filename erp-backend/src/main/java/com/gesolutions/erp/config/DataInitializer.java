@@ -145,6 +145,22 @@ public class DataInitializer implements CommandLineRunner {
             "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
                 "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
+
+            // PHASE B -- FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.3)
+            // projectIndex moves up to LandProject: Section 18.3 requires it
+            // be assigned at LandProject creation, before any title exists,
+            // and Phase B's null-safe audit-log fallback needs it to exist
+            // even when landTitle does not. land_titles.project_index is
+            // left in place (deprecated, not dropped).
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index)",
+            // Backfill: copy each project's existing projectIndex up from
+            // its LandTitle via the title_id FK. Same "IS NULL" guard as
+            // the district/county backfill above -- safe on every boot,
+            // no-op once already copied.
+            "UPDATE land_projects lp SET project_index = lt.project_index " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
+                "AND lt.project_index IS NOT NULL",
         };
 
         try (Connection conn = dataSource.getConnection();

@@ -33,6 +33,19 @@ public class LandProject {
     private LandTitle landTitle;
 
     /**
+     * PROJECT INDEX (Section 18.3): short, never-repeating, searchable
+     * code shown to clients and staff (e.g. "001A"). Assigned at
+     * LandProject creation, before any title exists -- permanent and
+     * universal across a record's whole life, folder or titled. Moved up
+     * from LandTitle in Phase B (existing data migrated by
+     * DataInitializer below) because the null-safe audit-log fallback
+     * needs a project index that exists even when landTitle does not.
+     * LandTitle.projectIndex is deprecated, not deleted.
+     */
+    @Column(name = "project_index", unique = true, length = 10)
+    private String projectIndex;
+
+    /**
      * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays
      * visible for the whole life of the record, title or no title.
      * district/county are moved up from LandTitle (existing data migrated

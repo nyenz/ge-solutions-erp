@@ -46,6 +46,18 @@ public class LandService {
         return "SYSTEM";
     }
 
+    // PHASE B (Section 18.9.1): landTitle can now be null. Every audit-log
+    // call site that used to read project.getLandTitle().getPlotNumber()
+    // directly goes through this instead -- falls back to projectIndex
+    // (now on LandProject itself, see Phase B migration) when there is no
+    // title yet, instead of NPE-ing.
+    private String plotLabel(LandProject project) {
+        if (project.getLandTitle() != null && project.getLandTitle().getPlotNumber() != null) {
+            return project.getLandTitle().getPlotNumber();
+        }
+        return "project #" + project.getProjectIndex();
+    }
+
     // ─── UNLOCK LOG ───────────────────────────────────────────────────────────
 
     @Transactional
@@ -54,7 +66,7 @@ public class LandService {
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         auditService.logAction("EDIT_MODE_OPENED",
             "Operator [" + getCurrentOperator() + "] opened edit mode for plot: "
-            + project.getLandTitle().getPlotNumber());
+            + plotLabel(project));
     }
 
     // ─── DEEP DETAIL ──────────────────────────────────────────────────────────
@@ -142,7 +154,7 @@ public class LandService {
             project.setStatus("ACTIVE");
             projectRepository.save(project);
             auditService.logAction("RECEIVABLE_EXIT",
-                "Operator [" + operator + "] — Plot " + project.getLandTitle().getPlotNumber()
+                "Operator [" + operator + "] — Plot " + plotLabel(project)
                 + " EXITED RECEIVABLE after full payment clearance.");
         } else {
             projectRepository.save(project);
@@ -150,7 +162,7 @@ public class LandService {
 
         auditService.logAction("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
-            + " for plot: " + project.getLandTitle().getPlotNumber()
+            + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
             + " | Amount owed after: UGX " + balanceAfter);
     }
@@ -181,7 +193,7 @@ public class LandService {
 
         auditService.logAction("RECEIVABLE_TRIGGER",
             "Operator [" + getCurrentOperator() + "] manually moved plot "
-            + project.getLandTitle().getPlotNumber()
+            + plotLabel(project)
             + " to RECEIVABLE. Original debt frozen at: UGX " + outstanding);
     }
 
@@ -221,7 +233,7 @@ public class LandService {
         String feeAction = capitalizeFees ? "Storage fees ADDED TO TOTAL VALUE (UGX " + storageFees + ")" : "Storage fees WAIVED";
         auditService.logAction("RECEIVABLE_EXIT",
             "Operator [" + getCurrentOperator() + "] removed plot "
-            + project.getLandTitle().getPlotNumber()
+            + plotLabel(project)
             + " from RECEIVABLE. " + feeAction
             + ". Title total value: UGX " + project.getTotalCost() + ".");
     }
@@ -230,21 +242,15 @@ public class LandService {
 
     @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
-        LandTitle title = LandTitle.builder()
-                .tenure(request.getTenure())
-                .plotNumber(request.getPlotNumber())
-                .physicalBoxNumber(request.getPhysicalBoxNumber())
-                .district(request.getDistrict())
-                .blockRoad(request.getBlockRoad())
-                .county(request.getCounty())
-                .volume(request.getVolume())
-                .folio(request.getFolio())
-                .instrumentNo(request.getInstrumentNo())
-                .surveyDate(request.getSurveyDate())
-                .projectIndex(projectIndexService.generateNextIndex())
-                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
-                .titleIssueDate(request.getTitleIssueDate())
-                .build();
+        // PHASE B (Section 18.10): LandProject is now built FIRST --
+        // projectIndex, owners, location, and stage all exist
+        // independently of a title. A LandTitle is only built and
+        // attached SECOND, and only if title fields were actually
+        // submitted. Using a non-blank plotNumber as that signal for
+        // now -- a real "attach title later, on the final stage
+        // checkbox" trigger is Phase D's job, not this phase's.
+        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        String projectIndex = projectIndexService.generateNextIndex();
 
         BigDecimal initialPayment = request.getInitialPayment() != null
                 ? request.getInitialPayment() : BigDecimal.ZERO;
@@ -254,8 +260,34 @@ public class LandService {
 
         boolean startAsReceivable = request.isStartAsReceivable();
 
+        LandTitle title = null;
+        if (hasTitleFields) {
+            title = LandTitle.builder()
+                    .tenure(request.getTenure())
+                    .plotNumber(request.getPlotNumber())
+                    .physicalBoxNumber(request.getPhysicalBoxNumber())
+                    .district(request.getDistrict())
+                    .blockRoad(request.getBlockRoad())
+                    .county(request.getCounty())
+                    .volume(request.getVolume())
+                    .folio(request.getFolio())
+                    .instrumentNo(request.getInstrumentNo())
+                    .surveyDate(request.getSurveyDate())
+                    // Kept in sync on the deprecated LandTitle column too,
+                    // for backward compatibility with anything still
+                    // reading projectIndex off LandTitle instead of
+                    // LandProject.
+                    .projectIndex(projectIndex)
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                    .titleIssueDate(request.getTitleIssueDate())
+                    .build();
+        }
+
         LandProject.LandProjectBuilder builder = LandProject.builder()
                 .landTitle(title)
+                .projectIndex(projectIndex)
+                .district(request.getDistrict())
+                .county(request.getCounty())
                 .totalCost(totalCost)
                 .amountPaid(initialPayment)
                 .isLegacy(request.isLegacy())
@@ -324,15 +356,16 @@ public class LandService {
             }
         }
 
+        String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
         String receivableNote = startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "";
         auditService.logAction("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
-            + title.getPlotNumber() + receivableNote);
+            + plotOrIndex + receivableNote);
 
         if (startAsReceivable) {
             auditService.logAction("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
-                + title.getPlotNumber() + " as RECEIVABLE at intake. Debt: UGX " + outstanding);
+                + plotOrIndex + " as RECEIVABLE at intake. Debt: UGX " + outstanding);
         }
 
         return saved;
@@ -346,16 +379,24 @@ public class LandService {
                 .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
         LandTitle title = project.getLandTitle();
 
-        title.setPlotNumber(request.getPlotNumber());
-        title.setTenure(request.getTenure());
-        title.setBlockRoad(request.getBlockRoad());
-        title.setDistrict(request.getDistrict());
-        title.setCounty(request.getCounty());
-        title.setVolume(request.getVolume());
-        title.setFolio(request.getFolio());
-        title.setInstrumentNo(request.getInstrumentNo());
-        title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());
-        title.setSurveyDate(request.getSurveyDate());
+        // PHASE B (Section 18.9.1): landTitle can now be null (a
+        // titleless "folder" stage project). Skip the title-field
+        // setters entirely when there is no title yet -- everything
+        // else on this project (owners, cost, legacy flag) still
+        // updates normally below. Real create-a-title-on-edit logic
+        // is Phase D/E's job, not this phase's.
+        if (title != null) {
+            title.setPlotNumber(request.getPlotNumber());
+            title.setTenure(request.getTenure());
+            title.setBlockRoad(request.getBlockRoad());
+            title.setDistrict(request.getDistrict());
+            title.setCounty(request.getCounty());
+            title.setVolume(request.getVolume());
+            title.setFolio(request.getFolio());
+            title.setInstrumentNo(request.getInstrumentNo());
+            title.setPhysicalBoxNumber(request.getPhysicalBoxNumber());
+            title.setSurveyDate(request.getSurveyDate());
+        }
 
         if (request.getOwners() != null) {
             Set<Client> updatedRegistry = new HashSet<>();
@@ -405,7 +446,7 @@ public class LandService {
         LandProject saved = projectRepository.save(project);
         auditService.logAction("RECORD_UPDATED",
             "Operator [" + getCurrentOperator() + "] modified Binder: "
-            + title.getPlotNumber());
+            + plotLabel(project));
         return saved;
     }
 
@@ -419,7 +460,7 @@ public class LandService {
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
     public void nuclearDelete(UUID id) {
         LandProject project = projectRepository.findById(id).orElseThrow();
-        String plotNo = project.getLandTitle().getPlotNumber();
+        String plotNo = plotLabel(project);
 
         project.setDeleted(true);
         project.setDeletedAt(LocalDateTime.now());
@@ -433,7 +474,7 @@ public class LandService {
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
     public void restoreProject(UUID id) {
         LandProject project = projectRepository.findById(id).orElseThrow();
-        String plotNo = project.getLandTitle().getPlotNumber();
+        String plotNo = plotLabel(project);
 
         project.setDeleted(false);
         project.setDeletedAt(null);
@@ -519,7 +560,7 @@ public class LandService {
 
         auditService.logAction("RECOVERY_SYNC",
             "Operator [" + operator + "] logged call for plot: "
-            + project.getLandTitle().getPlotNumber() + " (owner reached: " + ownerId + ")");
+            + plotLabel(project) + " (owner reached: " + ownerId + ")");
 
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("ownerId", ownerId);
@@ -597,7 +638,7 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("STAGE_OVERRIDE",
             "Operator [" + getCurrentOperator() + "] shifted plot "
-            + project.getLandTitle().getPlotNumber()
+            + plotLabel(project)
             + " from stage " + oldStage + " to stage " + targetStage);
     }
 
@@ -606,6 +647,13 @@ public class LandService {
         LandProject project = projectRepository.findById(id).orElseThrow();
         if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
             throw new BusinessException("RELEASE DENIED: Arrears Detected.");
+        }
+        // PHASE B (Section 18.9.1): landTitle can now be null.
+        // Releasing implies a title exists to hand over -- silently
+        // succeeding when there is nothing to release would be
+        // misleading to staff, so this fails loudly instead of NPE-ing.
+        if (project.getLandTitle() == null) {
+            throw new BusinessException("RELEASE DENIED: This project has no title to release yet.");
         }
         project.getLandTitle().setReleased(true);
         project.setStatus("RELEASED");
@@ -627,7 +675,7 @@ public class LandService {
         String action = paused ? "PAUSED" : "RESUMED";
         auditService.logAction("STORAGE_FEE_" + action,
             "Operator [" + getCurrentOperator() + "] " + action.toLowerCase() + " monthly storage fees for plot: "
-            + project.getLandTitle().getPlotNumber()
+            + plotLabel(project)
             + " (monthly rate: UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
     }
 
@@ -640,7 +688,7 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("STORAGE_RATE_CHANGED",
             "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
-            + " for plot: " + project.getLandTitle().getPlotNumber()
+            + " for plot: " + plotLabel(project)
             + " (previously UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
     }
 
@@ -654,7 +702,7 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("STORAGE_FEES_ADJUSTED",
             "Operator [" + getCurrentOperator() + "] manually adjusted accumulated storage fees from UGX " + old
-            + " to UGX " + amount + " for plot: " + project.getLandTitle().getPlotNumber());
+            + " to UGX " + amount + " for plot: " + plotLabel(project));
     }
 
     @Transactional
@@ -668,7 +716,7 @@ public class LandService {
             project.setStoragePaused(false);
             auditService.logAction("NEGOTIATION_DEADLINE_CLEARED",
                 "Operator [" + getCurrentOperator() + "] cleared negotiation deadline for plot: "
-                + project.getLandTitle().getPlotNumber() + " -- storage fees resumed.");
+                + plotLabel(project) + " -- storage fees resumed.");
         } else {
             java.time.LocalDateTime deadline = java.time.LocalDate.parse(deadlineStr)
                     .atTime(23, 59, 59);
@@ -677,7 +725,7 @@ public class LandService {
             project.setStoragePaused(true);
             auditService.logAction("NEGOTIATION_DEADLINE_SET",
                 "Operator [" + getCurrentOperator() + "] set negotiation deadline to " + deadlineStr
-                + " for plot: " + project.getLandTitle().getPlotNumber()
+                + " for plot: " + plotLabel(project)
                 + " -- storage fees paused until then.");
         }
         projectRepository.save(project);
@@ -695,7 +743,7 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("RECEIVABLE_START_OVERRIDDEN",
             "Operator [" + getCurrentOperator() + "] set receivable start date to " + startDateStr
-            + " for plot: " + project.getLandTitle().getPlotNumber());
+            + " for plot: " + plotLabel(project));
     }
 
     @Transactional(readOnly = true)
