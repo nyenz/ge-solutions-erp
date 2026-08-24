@@ -853,6 +853,7 @@ const FolderPage = () => {
                     instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
                     surveyDate:        data.project?.landTitle?.surveyDate         || '',
                     titleId:           data.project?.landTitle?.titleId           || '',
+                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
                     isLegacy:          data.project?.isLegacy                     || false,
@@ -1224,13 +1225,16 @@ const FolderPage = () => {
             {/* TERMINAL HEADER */}
             <header className={styles.terminalHeader}>
                 <div className={styles.idPlate}>
-                    <h1>{project.landTitle.plotNumber}</h1>
+                    <h1>{project.landTitle?.plotNumber || project.projectIndex || 'UNTITLED'}</h1>
                     <div className={styles.metaLine}>
-                        {project.landTitle?.projectIndex && (
+                        {project.projectIndex && (
                             <span className={`${styles.metaTag} ${styles.tagBlue}`}>
-                                PROJECT #{project.landTitle.projectIndex}
+                                PROJECT #{project.projectIndex}
                             </span>
                         )}
+                        <span className={`${styles.metaTag} ${project.landTitle ? styles.tagGreen : styles.tagOrange}`}>
+                            {project.landTitle ? 'TITLED' : 'FOLDER'}
+                        </span>
                         {project.landTitle?.projectStartDate && (
                             <span className={`${styles.metaTag} ${styles.tagGreen}`}>
                                 STARTED: {new Date(project.landTitle.projectStartDate).toLocaleDateString()}
@@ -1371,6 +1375,7 @@ const FolderPage = () => {
                                                         value={buffer.surveyDate || ''}
                                                         onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
                                                 </div>
+                                                <SmartInput label="BOX NUMBER" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />
                                             </div>
                                         </>
                                     )}
@@ -1406,6 +1411,7 @@ const FolderPage = () => {
                                                     ['FOLIO',        project.landTitle.folio],
                                                     ['INSTRUMENT',   project.landTitle.instrumentNo],
                                                     ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
+                                                    ['BOX NUMBER',   project.landTitle.physicalBoxNumber || '---'],
                                                 ].map(([l,v],i) => (
                                                     <div key={i} className={styles.specItem}>
                                                         <span className={styles.specLabel}>{l}</span>

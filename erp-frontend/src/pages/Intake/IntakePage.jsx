@@ -30,7 +30,6 @@ export default function IntakePage() {
     const [tenure, setTenure] = useState('FREEHOLD');
     const [plotNumber, setPlotNumber] = useState('');
     const [blockRoad, setBlockRoad] = useState('');
-    const [titleArea, setTitleArea] = useState('');
 
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
@@ -48,10 +47,6 @@ export default function IntakePage() {
     useEffect(() => {
         stageTemplateService.getTemplate().then(t => setTemplates(t)).catch(() => {});
     }, []);
-
-    useEffect(() => {
-        if (area) setTitleArea(area);
-    }, [area]);
 
     const finalStageChecked = Object.keys(checkedStages).some(id => {
         const t = templates.find(x => x.id === id);
@@ -87,7 +82,7 @@ export default function IntakePage() {
         }
         if (isSection5Unlocked) {
             if (!plotNumber.trim()) { toast('Plot Number is required when Legacy or Final Stage is checked.', 'error'); return; }
-            if (!titleArea.trim()) { toast('Area is required for Title details.', 'error'); return; }
+            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return; }
         }
 
         setSaving(true);
@@ -266,7 +261,7 @@ export default function IntakePage() {
                         </div>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>Area</label>
-                            <input className={styles.input} value={titleArea} onChange={e => setTitleArea(e.target.value)} />
+                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
                         </div>
                     </div>
                 </section>

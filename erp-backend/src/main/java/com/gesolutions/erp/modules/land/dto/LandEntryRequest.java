@@ -28,6 +28,7 @@ public class LandEntryRequest {
     private String volume;
     private String folio;
     private String instrumentNo;
+    private String physicalBoxNumber;
     private LocalDate surveyDate;
     private LocalDate projectStartDate;
     private LocalDate titleIssueDate;

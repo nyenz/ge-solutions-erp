@@ -201,6 +201,7 @@ const LedgerPage = () => {
         { key: 'ACTIVE',   label: 'ACTIVE TITLES'  },
         { key: 'DEBTORS',  label: 'UNPAID'         },
         { key: 'CRITICAL', label: 'CRITICAL'       },
+        { key: 'READY_FOR_TITLING', label: 'READY FOR TITLING' },
     ];
 
     return (
@@ -336,7 +337,7 @@ const LedgerPage = () => {
                                         onClick={() => navigate(`/folder/${proj.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
-                                        aria-label={`Record: ${proj.landTitle?.plotNumber}`}
+                                        aria-label={`Record: ${proj.landTitle?.plotNumber || proj.projectIndex}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}
                                     >
                                         <td className={styles.plotCell}>
@@ -344,15 +345,18 @@ const LedgerPage = () => {
                                                 <PaymentDot proj={proj} />
                                                 <div>
                                                     <strong>{proj.landTitle?.plotNumber || '---'}</strong>
-                                                    {proj.landTitle?.projectIndex && (
-                                                        <span className={styles.districtTag}> #{proj.landTitle.projectIndex}</span>
+                                                    {proj.projectIndex && (
+                                                        <span className={styles.districtTag}> #{proj.projectIndex}</span>
                                                     )}
+                                                    <span className={proj.landTitle ? styles.statusTagTitled : styles.statusTagFolder}>
+                                                        {proj.landTitle ? 'TITLED' : 'FOLDER'}
+                                                    </span>
                                                     <div>
                                                         {proj.landTitle?.tenure && (
                                                             <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>
                                                         )}
-                                                        {proj.landTitle?.district && (
-                                                            <span className={styles.districtTag}>{proj.landTitle.district}</span>
+                                                        {proj.district && (
+                                                            <span className={styles.districtTag}>{proj.district}</span>
                                                         )}
                                                     </div>
                                                 </div>

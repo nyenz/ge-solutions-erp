@@ -15,7 +15,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "land_titles", indexes = {
     @Index(name = "idx_plot_registry", columnList = "plot_number"),
-    @Index(name = "idx_title_id", columnList = "title_id")
+    @Index(name = "idx_title_id", columnList = "title_id"),
+    @Index(name = "idx_physical_archive", columnList = "physical_box_number")
 })
 @Getter 
 @Setter 
@@ -36,6 +37,17 @@ public class LandTitle {
 
     @Column(name = "block_road", length = 100)
     private String blockRoad;
+
+    /**
+     * PHYSICAL ARCHIVE LOGISTICS
+     * Which physical box in the office holds this title's paperwork.
+     * Restored after being accidentally deleted in Phase D -- previously
+     * mandatory, now OPTIONAL, since a folder-only project has no title
+     * yet and therefore nothing physical to file. Set once the physical
+     * document actually arrives, same bucket as volume/folio/instrumentNo.
+     */
+    @Column(name = "physical_box_number", length = 100)
+    private String physicalBoxNumber;
 
     // DEPRECATED (Phase A, Section 18.10): district/county now live on
     // LandProject and are the source of truth going forward. These
