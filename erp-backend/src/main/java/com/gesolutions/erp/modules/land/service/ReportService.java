@@ -37,6 +37,17 @@ public class ReportService {
     private static final String CSV_DIVIDER = ",";
     private static final String NEW_LINE = "\n";
 
+    // HOTFIX (Phase D deviation follow-up): physicalBoxNumber was fully
+    // dropped, and titleless folder-stage projects (Phase A) can now hit
+    // these CSV exports. Null-safe plot label with projectIndex fallback,
+    // same pattern as Phase B's audit-log fallback.
+    private String plotLabel(LandProject p) {
+        if (p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null) {
+            return p.getLandTitle().getPlotNumber();
+        }
+        return p.getProjectIndex() != null ? p.getProjectIndex() : "---";
+    }
+
     /**
      * PILLAR 1: MASTER DEBT LEDGER
      */
@@ -44,19 +55,18 @@ public class ReportService {
     public byte[] generateMasterDebtLedger() {
         List<LandProject> data = projectRepository.findAll();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,PRIMARY_OWNER,PHONE,TOTAL_VAL,PAID_VAL,ARREARS,BOX_LOC,STATUS").append(NEW_LINE);
+        csv.append("PLOT_ID,PRIMARY_OWNER,PHONE,TOTAL_VAL,PAID_VAL,ARREARS,STATUS").append(NEW_LINE);
 
         for (LandProject p : data) {
             BigDecimal balance = p.getTotalCost().subtract(p.getAmountPaid());
             if (balance.compareTo(BigDecimal.ZERO) > 0) {
                 Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-                csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
+                csv.append(plotLabel(p)).append(CSV_DIVIDER)
                    .append(owner.getFullName()).append(CSV_DIVIDER)
                    .append(owner.getPhoneNumber()).append(CSV_DIVIDER)
                    .append(p.getTotalCost()).append(CSV_DIVIDER)
                    .append(p.getAmountPaid()).append(CSV_DIVIDER)
                    .append(balance).append(CSV_DIVIDER)
-                   .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
                    .append(p.getStatus()).append(NEW_LINE);
             }
         }
@@ -74,12 +84,12 @@ public class ReportService {
         csv.append("BOX_LOCATION,PLOT_ID,TENURE,DISTRICT,STAGE_INDEX,IS_LEGACY").append(NEW_LINE);
 
         data.stream()
-            .sorted((a, b) -> a.getLandTitle().getPhysicalBoxNumber().compareTo(b.getLandTitle().getPhysicalBoxNumber()))
+            .sorted((a, b) -> plotLabel(a).compareTo(plotLabel(b)))
             .forEach(p -> {
-                csv.append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
-                   .append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-                   .append(p.getLandTitle().getTenure()).append(CSV_DIVIDER)
-                   .append(p.getLandTitle().getDistrict()).append(CSV_DIVIDER)
+                LandTitle lt = p.getLandTitle();
+                csv.append(plotLabel(p)).append(CSV_DIVIDER)
+                   .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
+                   .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
                    .append(p.getCurrentStageIndex()).append(CSV_DIVIDER)
                    .append(p.isLegacy()).append(NEW_LINE);
             });
@@ -137,7 +147,7 @@ public class ReportService {
                 boolean hasAddr = c.getHomeAddress() != null && !c.getHomeAddress().isBlank();
                 String ready = (hasNin && hasAddr) ? "READY_FOR_LEGAL" : "INCOMPLETE";
                 
-                csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
+                csv.append(plotLabel(p)).append(CSV_DIVIDER)
                    .append(c.getFullName()).append(CSV_DIVIDER)
                    .append(c.getPhoneNumber()).append(CSV_DIVIDER)
                    .append(hasNin ? "VALID" : "MISSING").append(CSV_DIVIDER)
@@ -231,7 +241,7 @@ public class ReportService {
     public byte[] generateReceivableBreakdown() {
         List<LandProject> data = projectRepository.findAllReceivablePlots();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,RECEIVABLE_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
+        csv.append("PLOT_ID,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,RECEIVABLE_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
 
         for (LandProject p : data) {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
@@ -245,10 +255,10 @@ public class ReportService {
             String receivableStart = p.getReceivableStartDate() != null
                 ? p.getReceivableStartDate().toLocalDate().toString() : "UNKNOWN";
 
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getDistrict() != null ? p.getLandTitle().getDistrict() : "").append(CSV_DIVIDER)
-               .append(p.getLandTitle().getTenure() != null ? p.getLandTitle().getTenure() : "").append(CSV_DIVIDER)
+            LandTitle lt = p.getLandTitle();
+            csv.append(plotLabel(p)).append(CSV_DIVIDER)
+               .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
+               .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
                .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
                .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
                .append(receivableStart).append(CSV_DIVIDER)
@@ -270,18 +280,18 @@ public class ReportService {
     public byte[] generateCompletedTitles() {
         List<LandProject> data = projectRepository.findAll();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,BOX,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,TOTAL_COST,AMOUNT_PAID,STATUS").append(NEW_LINE);
+        csv.append("PLOT_ID,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,TOTAL_COST,AMOUNT_PAID,STATUS").append(NEW_LINE);
 
         for (LandProject p : data) {
-            boolean released = p.getLandTitle().isReleased();
+            boolean released = p.getLandTitle() != null && p.getLandTitle().isReleased();
             boolean fullyPaid = p.getAmountPaid().compareTo(p.getTotalCost()) >= 0;
             if (!released && !fullyPaid) continue;
 
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
-            csv.append(p.getLandTitle().getPlotNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getPhysicalBoxNumber()).append(CSV_DIVIDER)
-               .append(p.getLandTitle().getDistrict() != null ? p.getLandTitle().getDistrict() : "").append(CSV_DIVIDER)
-               .append(p.getLandTitle().getTenure() != null ? p.getLandTitle().getTenure() : "").append(CSV_DIVIDER)
+            LandTitle lt = p.getLandTitle();
+            csv.append(plotLabel(p)).append(CSV_DIVIDER)
+               .append(p.getDistrict() != null ? p.getDistrict() : (lt != null && lt.getDistrict() != null ? lt.getDistrict() : "")).append(CSV_DIVIDER)
+               .append(lt != null && lt.getTenure() != null ? lt.getTenure() : "").append(CSV_DIVIDER)
                .append(owner.getFullName() != null ? owner.getFullName() : "").append(CSV_DIVIDER)
                .append(owner.getPhoneNumber() != null ? owner.getPhoneNumber() : "").append(CSV_DIVIDER)
                .append(p.getTotalCost()).append(CSV_DIVIDER)
