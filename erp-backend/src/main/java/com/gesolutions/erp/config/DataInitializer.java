@@ -86,7 +86,7 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
-            "ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
 
             // PHASE 1.5 - DATE TRACKING SYSTEM
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
@@ -132,12 +132,11 @@ public class DataInitializer implements CommandLineRunner {
             //
             // Step 4: now safe to apply both constraints for real. SET NOT NULL is
             // itself idempotent in Postgres (no error re-running it once already
-            // set). The UNIQUE constraint still goes through the blanket try/catch
-            // below like every other migration line, so on every boot after the
-            // first successful one it logs "already exists" and skips -- same as
-            // it always has, except now that log line is finally true.
+            // set). The UNIQUE constraint is wrapped in a DO block guarded by a
+            // pg_constraint lookup, so once it exists every later boot silently
+            // no-ops and logs OK instead of a red "already exists" skip.
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
-            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
 
             // EXPENSES REBUILD -- flat cash-out log, replaces the old
             // committed/paid CompanyExpense model for new entries. The old
@@ -192,7 +191,7 @@ public class DataInitializer implements CommandLineRunner {
             // even when landTitle does not. land_titles.project_index is
             // left in place (deprecated, not dropped).
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
-            "ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
             // Backfill: copy each project's existing projectIndex up from
             // its LandTitle via the title_id FK. Same "IS NULL" guard as
             // the district/county backfill above -- safe on every boot,
