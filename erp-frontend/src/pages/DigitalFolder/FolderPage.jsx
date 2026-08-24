@@ -1939,7 +1939,7 @@ const FolderPage = () => {
             </HardwareModal>
 
             {/* PAYMENT MODAL */}
-            <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT — ${project.landTitle.plotNumber}`}>
+            <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={`RECORD PAYMENT - ${project.landTitle?.plotNumber || project.projectIndex || 'FOLDER'}`}>
                 <div className={styles.payBreakdownBox}>
                     {isReceivable ? (
                         <>
