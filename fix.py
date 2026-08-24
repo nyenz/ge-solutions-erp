@@ -1,54 +1,68 @@
 import os
+import re
 import subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT)
 
-def patch(path, old, new):
+def remove_regex(path, pattern, label):
     p = os.path.join(ROOT, path)
     if not os.path.exists(p):
         print("MISSING FILE: " + path)
         return
     with open(p, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
-    if old not in content:
-        print("MISSING ANCHOR in " + path + ": " + old[:60].replace("\n", " | "))
+    new_content, n = re.subn(pattern, "", content)
+    if n == 0:
+        print("MISSING ANCHOR in " + path + ": " + label)
         return
-    content = content.replace(old, new)
     with open(p, "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
-    print("OK: " + path)
+        f.write(new_content)
+    print("OK: " + path + " (" + label + ", " + str(n) + ")")
 
-DI = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
+def remove_import(path, fqn):
+    remove_regex(path, r"^import " + re.escape(fqn) + r";\n", "unused import " + fqn)
 
-# 1. Phase 1 constraint: guard with pg_constraint so re-runs log OK, not red.
-patch(DI,
-    '            "ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index)",',
-    '            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = \'uq_land_titles_project_index\') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",')
+def remove_repository_annotation(path):
+    remove_regex(path, r"^@Repository\n", "@Repository annotation")
+    remove_import(path, "org.springframework.stereotype.Repository")
 
-# 2. Phase C constraint: same guard.
-patch(DI,
-    '            "ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id)",',
-    '            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = \'uq_clients_national_id\') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",')
+# --- Bucket 3: unused imports (verified by IDE diagnostics) ---
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.model.Role")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.model.User")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "org.springframework.transaction.annotation.Transactional")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "java.util.UUID")
+# userRepository is dead (seedRootUser uses raw JDBC); remove field + its import.
+remove_regex("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
+             r"^    private final UserRepository userRepository;\n", "unused field userRepository")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", "com.gesolutions.erp.modules.auth.repository.UserRepository")
 
-# 3. Phase B constraint: same guard.
-patch(DI,
-    '            "ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index)",',
-    '            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = \'uq_land_projects_project_index\') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",')
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java", "com.gesolutions.erp.common.exception.BusinessException")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/auth/service/MailService.java", "org.springframework.mail.SimpleMailMessage")
 
-# 4. Refresh the stale Phase C comment that described the old red-line behavior.
-patch(DI,
-    '            // set). The UNIQUE constraint still goes through the blanket try/catch\n'
-    '            // below like every other migration line, so on every boot after the\n'
-    '            // first successful one it logs "already exists" and skips -- same as\n'
-    '            // it always has, except now that log line is finally true.',
-    '            // set). The UNIQUE constraint is wrapped in a DO block guarded by a\n'
-    '            // pg_constraint lookup, so once it exists every later boot silently\n'
-    '            // no-ops and logs OK instead of a red "already exists" skip.')
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/ClientController.java", "com.gesolutions.erp.modules.client.model.Client")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/client/controller/RecoveryController.java", "com.gesolutions.erp.modules.land.model.PaymentRecord")
+remove_import("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java", "java.math.RoundingMode")
+remove_import("erp-backend/src/test/java/com/gesolutions/erp/modules/land/service/LandCascadeDeleteTest.java", "org.springframework.transaction.annotation.Transactional")
+
+# --- Bucket 4: unnecessary @Repository on plain Spring Data interfaces ---
+for repo in [
+    "erp-backend/src/main/java/com/gesolutions/erp/common/audit/AuditLogRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/client/repository/ClientRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpensePresetRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/finance/repository/ExpenseRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/FollowUpRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/LandProjectRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/PaymentRecordRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/ProjectDocumentRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/ProjectStageRepository.java",
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/repository/StageTemplateRepository.java",
+]:
+    remove_repository_annotation(repo)
 
 # PERMANENT Section 3 rule: commit and push automatically as the last step.
 subprocess.run(["git", "add", "-A"], check=True)
-r = subprocess.run(["git", "commit", "-m", "Cosmetic: pg_constraint-guarded DO blocks silence red already-exists boot lines"])
+r = subprocess.run(["git", "commit", "-m", "Cosmetic: remove unused imports and unnecessary @Repository annotations"])
 if r.returncode == 0:
     subprocess.run(["git", "push"], check=True)
     print("DONE: committed and pushed.")
