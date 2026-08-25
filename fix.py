@@ -1350,7 +1350,7 @@ if FAILED:
     sys.exit(1)
 
 # =====================================================================
-# Auto-commit all changes
+# Auto-commit + push all changes
 # =====================================================================
 if WROTE or PATCHED:
     try:
@@ -1369,11 +1369,11 @@ if WROTE or PATCHED:
 
         subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed all changes")
-        # Uncomment the next two lines to also push automatically:
-        # subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
-        # print("  Git: Pushed to remote")
+
+        subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
+        print("  Git: Pushed to remote")
     except subprocess.CalledProcessError as e:
-        print(f"\n  Git: Commit failed (exit code {e.returncode})")
+        print(f"\n  Git: failed (exit code {e.returncode})")
         if e.output:
             print(f"    {e.output.decode('utf-8', errors='replace').strip()}")
     except FileNotFoundError:
