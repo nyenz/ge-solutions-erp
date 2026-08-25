@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-fix.py — Ledger-consistency pass for the New Project page.
-Updates 4 frontend files, then auto-commits + pushes.
+fix.py — Refined Ledger consistency pass.
+- Corner brackets only on expanded body (animated)
+- Orange separator fades in/out with expand
+- Curved corner brackets
+- Smaller fields + tighter spacing
+- Red delete icons on hover
+- File upload fixed
 Run: py fix.py
 """
 import sys
@@ -21,7 +26,7 @@ def write(rel: str, content: str):
         FAILED.append((rel, str(e)))
 
 # =====================================================================
-# 1) CollapsibleSection.jsx — inject CornerDecor like HardwarePanel
+# 1) CollapsibleSection.jsx — CornerDecor only in body, animated separator
 # =====================================================================
 write("erp-frontend/src/components/ui/CollapsibleSection.jsx", r"""// PATH: erp-frontend/src/components/ui/CollapsibleSection.jsx
 import React, { useState } from 'react';
@@ -29,11 +34,6 @@ import { FiChevronDown } from 'react-icons/fi';
 import CornerDecor from './CornerDecor';
 import styles from './CollapsibleSection.module.css';
 
-/**
- * Generic expand/contract card - dark hardware panel treatment.
- * Injects CornerDecor brackets/pins exactly like HardwarePanel does,
- * so every section matches the Ledger table shell.
- */
 const CollapsibleSection = ({
     icon,
     title,
@@ -56,10 +56,9 @@ const CollapsibleSection = ({
 
     return (
         <section className={`${styles.section} ${accent ? styles.accent : ''} ${className}`}>
-            <CornerDecor />
             <button
                 type="button"
-                className={styles.header}
+                className={`${styles.header} ${open ? styles.headerOpen : ''}`}
                 onClick={toggle}
                 aria-expanded={open}
             >
@@ -75,7 +74,12 @@ const CollapsibleSection = ({
                     />
                 </span>
             </button>
-            {open && <div className={styles.body}>{children}</div>}
+            {open && (
+                <div className={styles.body}>
+                    <CornerDecor />
+                    {children}
+                </div>
+            )}
         </section>
     );
 };
@@ -84,60 +88,64 @@ export default CollapsibleSection;
 """)
 
 # =====================================================================
-# 2) CollapsibleSection.module.css — Ledger table-head band + separator
+# 2) CollapsibleSection.module.css — animated separator, tighter spacing
 # =====================================================================
 write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
-/* Dark hardware panel - mirrors HardwarePanel.dark shell and the
-   Ledger table head (#162a2c band + 3px orange separator). */
 .section {
     --orange: #EE8C3A;
     --orange-dim: rgba(238, 140, 58, 0.18);
-    position: relative; /* anchor for CornerDecor brackets/pins */
+    position: relative;
     background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
     border: 1px solid rgba(238, 140, 58, 0.2);
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: visible;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .section:hover {
     border-color: var(--orange);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 .section.accent { border: 2px solid var(--orange); }
 
-/* Header band - same shade + orange separator as the Ledger table head */
+/* Header - no border decoration when closed */
 .header {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: clamp(7px, 1.1vw, 13px);
-    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
+    gap: clamp(6px, 1vw, 12px);
+    padding: clamp(10px, 1.4vw, 16px) clamp(11px, 1.6vw, 18px);
     background: #162a2c;
     border: none;
-    border-bottom: 3px solid var(--orange);
-    box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
+    border-bottom: 3px solid transparent; /* hidden when closed */
     cursor: pointer;
     text-align: left;
     font: inherit;
     color: inherit;
+    transition: border-bottom-color 0.25s ease;
 }
 .header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+
+/* Animated orange separator - only visible when open */
+.headerOpen {
+    border-bottom-color: var(--orange);
+    box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
+}
 
 .headerLeft {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
     color: var(--orange);
-    font-size: clamp(14px, 1.6vw, 18px);
-    filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
+    font-size: clamp(13px, 1.5vw, 17px);
+    filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.4));
 }
 
 .title {
     font-family: 'Cinzel', serif;
-    font-size: clamp(12px, 1.5vw, 15px);
+    font-size: clamp(11px, 1.4vw, 14px);
     font-weight: 700;
     color: var(--orange);
     letter-spacing: 2px;
@@ -148,30 +156,32 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.header:hover .title { color: #fff; } /* same as Ledger sortable hover */
+.header:hover .title { color: #fff; }
 
 .headerRight {
     display: flex;
     align-items: center;
-    gap: clamp(8px, 1.2vw, 14px);
+    gap: clamp(6px, 1vw, 12px);
     flex-shrink: 0;
 }
 
 .chevron {
     color: rgba(255, 255, 255, 0.4);
-    font-size: 16px;
+    font-size: 15px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
 }
 .chevronOpen { transform: rotate(180deg); color: var(--orange); }
 
+/* Body - relative for CornerDecor positioning */
 .body {
-    padding: 0 clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
-    padding-top: clamp(14px, 1.8vw, 20px);
+    position: relative;
+    padding: 0 clamp(12px, 1.6vw, 18px) clamp(12px, 1.6vw, 18px);
+    padding-top: clamp(12px, 1.6vw, 18px);
     display: flex;
     flex-direction: column;
-    gap: clamp(10px, 1.5vw, 18px);
-    animation: expand 0.18s ease-out;
+    gap: clamp(8px, 1.3vw, 16px);
+    animation: expand 0.2s ease-out;
 }
 
 @keyframes expand {
@@ -180,19 +190,74 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
 }
 
 @media (max-width: 768px) {
-    .header { padding: 12px 14px; }
-    .body { padding: 12px 14px 14px; }
+    .header { padding: 10px 12px; }
+    .body { padding: 10px 12px 12px; }
 }
 """)
 
 # =====================================================================
-# 3) IntakePage.module.css — full Ledger consistency pass
+# 3) CornerDecor.module.css — curved brackets
+# =====================================================================
+write("erp-frontend/src/components/ui/CornerDecor.module.css", r"""/* PATH: erp-frontend/src/components/ui/CornerDecor.module.css */
+/* CURVED CORNER BRACKETS - softer, more refined */
+.cornerAccent {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--orange);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.cornerAccent::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+/* CURVED - larger border-radius for softer corners */
+.topLeft { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
+.topLeft::after { top: -2px; left: -2px; }
+
+.topRight { top: 8px; right: 8px; border-left: none; border-bottom: none; border-radius: 0 6px 0 0; }
+.topRight::after { top: -2px; right: -2px; }
+
+.bottomLeft { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+.bottomLeft::after { bottom: -2px; left: -2px; }
+
+.bottomRight { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+.bottomRight::after { bottom: -2px; right: -2px; }
+
+/* Border pins */
+.pins {
+    position: absolute;
+    display: flex;
+    gap: 7px;
+    pointer-events: none;
+}
+
+.pins.top { top: -3px; left: 50%; transform: translateX(-50%); }
+.pins.bottom { bottom: -3px; left: 50%; transform: translateX(-50%); }
+
+.pin {
+    width: 3px;
+    height: 5px;
+    background: var(--orange);
+    box-shadow: 0 0 5px rgba(238, 140, 58, 0.4);
+    border-radius: 1px;
+}
+""")
+
+# =====================================================================
+# 4) IntakePage.module.css — smaller fields, tighter spacing, red deletes
 # =====================================================================
 write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Ledger-consistency pass - dull labels (50% white, 900, 2px tracking),
-   Ledger hover language (white 4% + orange left border), filter-style
-   segmented buttons, pageBtn-style secondary buttons, 3px orange focus
-   ring, 1400px container, rgba(0,0,0,0.15) inner wells. */
+   Refined: smaller fields, tighter spacing, red delete icons,
+   curved corner brackets, animated separator. */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -202,10 +267,10 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     --red:           #ef4444;
     --green:         #10b981;
 
-    --gap-xl:    clamp(14px, 2vw, 22px);
-    --gap-lg:    clamp(10px, 1.5vw, 18px);
-    --gap-md:    clamp(7px,  1.1vw, 13px);
-    --radius:    12px;
+    --gap-xl:    clamp(12px, 1.8vw, 20px);
+    --gap-lg:    clamp(8px,  1.3vw, 16px);
+    --gap-md:    clamp(6px,  1vw,   12px);
+    --radius:    10px;
     --radius-sm: 6px;
 
     --fs-h1:     clamp(18px, 2.5vw, 24px);
@@ -214,13 +279,13 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     --fs-value:  clamp(11px, 1.1vw, 13px);
     --fs-td:     clamp(10px, 1.05vw, 12px);
     --fs-tag:    clamp(7px,  0.75vw, 9px);
-    --fs-input:  clamp(11px, 1.1vw, 13px);
+    --fs-input:  clamp(10px, 1vw,   12px); /* smaller input font */
     --fs-meta:   clamp(8px,  0.85vw, 10px);
     --fs-btn:    clamp(9px,  0.9vw, 11px);
 }
 
 .container {
-    max-width: 1400px; /* same as Ledger */
+    max-width: 1400px;
     width: 100%;
     margin: 0 auto;
     padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
@@ -238,7 +303,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* -- PAGE HEADER - identical glass treatment to the Ledger page -- */
+/* -- PAGE HEADER -- */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -285,14 +350,14 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     align-items: start;
 }
 
-/* -- BUTTONS - pageBtn language: transparent, white border, white hover -- */
+/* -- BUTTONS -- */
 .btn {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-btn);
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    padding: clamp(7px, 1vw, 10px) clamp(12px, 1.6vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: var(--radius-sm);
     border: 1.5px solid rgba(255, 255, 255, 0.1);
     background: transparent;
@@ -301,7 +366,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     transition: background 0.2s, border-color 0.2s, color 0.2s;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
@@ -309,12 +374,22 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
 .btn:disabled { opacity: 0.18; cursor: not-allowed; }
 
-/* filterBtn language for toolbar buttons */
+/* RED DELETE ICONS */
+.btn.deleteBtn {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgba(239, 68, 68, 0.7);
+}
+.btn.deleteBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--red);
+    color: var(--red);
+}
+
 .legacyBtn {
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
     font-size: clamp(9px, 0.95vw, 11px);
@@ -325,18 +400,17 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     white-space: nowrap;
 }
 .legacyBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 
-/* -- FIELDS -- */
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); }
-.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap-lg); }
+/* -- FIELDS (smaller) -- */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--gap-lg); }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--gap-lg); }
 
-.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
-/* DULL LABELS - Ledger muted metrics: 50% white, 900, 2px tracking */
 .label {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-label);
@@ -355,12 +429,12 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     margin: 0;
 }
 
-/* Inputs - white hardware inputs, Ledger 3px focus ring */
+/* SMALLER INPUTS - reduced padding and height */
 .input, .textarea {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-input);
     font-weight: 600;
-    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.4vw, 15px);
+    padding: clamp(6px, 0.9vw, 10px) clamp(8px, 1.2vw, 14px);
     border: 2px solid rgba(238, 140, 58, 0.3);
     border-radius: var(--radius-sm);
     background: #ffffff;
@@ -368,7 +442,10 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     width: 100%;
     box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
+    height: clamp(36px, 4.5vw, 42px); /* explicit smaller height */
+    line-height: 1.2;
 }
+.textarea { height: auto; min-height: 90px; resize: vertical; }
 .input:hover, .textarea:hover { border-color: var(--orange); }
 .input:focus, .textarea:focus {
     outline: none;
@@ -383,18 +460,17 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     color: var(--orange);
 }
 .input.indexValue:disabled { color: var(--orange); opacity: 1; }
-.textarea { min-height: 110px; resize: vertical; }
 
-/* -- TYPE TOGGLE - filterBtn / activeFilter language -- */
+/* -- TYPE TOGGLE -- */
 .typeGroup { display: flex; gap: clamp(6px, 1vw, 12px); flex-wrap: wrap; }
 .typeBtn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
     font-weight: 900;
@@ -416,13 +492,13 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 }
 .typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
 
-/* -- INNER WELLS - Ledger table-shell shade -- */
+/* -- INNER WELLS (tighter) -- */
 .ownerRow {
     display: grid;
     grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
     gap: var(--gap-md);
     align-items: end;
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-left: 3px solid transparent;
@@ -440,8 +516,8 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     text-transform: uppercase;
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 4px 0 0 0;
+    gap: 5px;
+    margin: 2px 0 0 0;
 }
 
 .inlineAddRow {
@@ -454,15 +530,15 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     border-radius: var(--radius-sm);
     padding: var(--gap-md);
 }
-.inlineAddRow .input { width: auto; flex: 1 1 200px; }
+.inlineAddRow .input { width: auto; flex: 1 1 180px; }
 
-/* -- STAGES - Ledger row hover language -- */
+/* -- STAGES -- */
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
     display: flex;
     align-items: center;
     gap: var(--gap-md);
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-left: 3px solid transparent;
@@ -473,7 +549,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .stageItem:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--orange); }
 .stageItem.checked { border-left-color: var(--orange); background: rgba(238, 140, 58, 0.07); }
 .stageItem.stageLocked { cursor: not-allowed; background: rgba(0, 0, 0, 0.25); }
-.checkbox { width: 18px; height: 18px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
+.checkbox { width: 16px; height: 16px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
 .stageName { font-weight: 700; color: #fff; font-size: var(--fs-td); letter-spacing: 0.5px; }
 .lockedTag {
     margin-left: auto;
@@ -491,12 +567,12 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .presetChip {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: var(--orange-dim);
     color: var(--orange);
     border: 1px solid var(--orange-border);
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 3px 9px;
     font-size: var(--fs-meta);
     font-weight: 700;
 }
@@ -522,7 +598,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .dropzone {
     border: 2px dashed rgba(238, 140, 58, 0.4);
     border-radius: var(--radius);
-    padding: var(--gap-xl);
+    padding: var(--gap-lg);
     text-align: center;
     color: rgba(255, 255, 255, 0.45);
     cursor: pointer;
@@ -530,7 +606,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 .dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
 
@@ -543,7 +619,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     color: #fff;
     font-size: var(--fs-td);
     font-weight: 600;
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     border-radius: var(--radius-sm);
     transition: background 0.18s, border-left-color 0.18s;
 }
@@ -579,130 +655,585 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 """)
 
 # =====================================================================
-# 4) HardwareSelect.module.css — dull labels + fixed dropdown sizing
+# 5) IntakePage.jsx — add deleteBtn class, fix file input click
 # =====================================================================
-write("erp-frontend/src/components/common/HardwareSelect.module.css", r""".fieldWrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-    position: relative;
-    margin-bottom: 15px;
-}
+write("erp-frontend/src/pages/Intake/IntakePage.jsx", r"""// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
+    FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
+    FiLock, FiEdit3, FiBookmark, FiX
+} from 'react-icons/fi';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import HardwareSelect from '../../components/common/HardwareSelect';
+import landService from '../../services/landService';
+import stageTemplateService from '../../services/stageTemplateService';
+import styles from './IntakePage.module.css';
 
-.openWrapper {
-    z-index: 9999 !important;
-    overflow: visible !important;
-    position: relative !important;
-}
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
-/* Dull label - same metrics as every other label on dark panels */
-.label {
-    color: rgba(255, 255, 255, 0.5) !important;
-    font-size: clamp(8px, 0.85vw, 10px);
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
-.requiredMark { color: #ef4444; margin-left: 4px; }
+const PROJECT_TYPES = [
+    { value: 'NEW_FOLDER',   label: 'New Folder',   icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
+    { value: 'NEW_TITLE',    label: 'New Title',    icon: <FiFilePlus aria-hidden="true" />,   hint: 'Title captured now' },
+    { value: 'LEGACY_TITLE', label: 'Legacy Title', icon: <FiArchive aria-hidden="true" />,    hint: 'Existing title, receivable' },
+];
 
-.placeholder { color: rgba(26, 46, 48, 0.45); }
+const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
-.selectBox {
-    background: #ffffff;
-    border-radius: var(--input-radius, 8px);
-    border: 2px solid rgba(238, 140, 58, 0.3);
-    padding: 0 clamp(10px, 1.4vw, 18px);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    height: var(--input-height, 44px);
-    position: relative;
-    z-index: 1;
-}
-.selectBox:hover, .active {
-    border-color: var(--orange);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18);
-}
+const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
+const loadPresets = () => {
+    try {
+        const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+};
+const savePresets = (presets) => {
+    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch {}
+};
 
-.currentValue {
-    color: var(--navy);
-    font-weight: 700;
-    font-size: var(--input-font, 14px);
-}
+export default function IntakePage() {
+    const navigate = useNavigate();
+    const fileInputRef = useRef(null);
+    const [saving, setSaving] = useState(false);
+    const [nextIndex, setNextIndex] = useState('');
+    const [projectType, setProjectType] = useState('NEW_FOLDER');
+    const [projectStartDate, setProjectStartDate] = useState(todayISO);
+    const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
-.icon {
-    color: var(--orange);
-    transition: 0.3s;
-    flex-shrink: 0;
-}
-.active .icon { transform: rotate(180deg); }
+    const [district, setDistrict] = useState('');
+    const [county, setCounty] = useState('');
+    const [subCounty, setSubCounty] = useState('');
+    const [parish, setParish] = useState('');
+    const [village, setVillage] = useState('');
+    const [area, setArea] = useState('');
 
-/* ABSOLUTE (not fixed) so the panel sizes to its field, not the viewport */
-.dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 100%;
-    width: max-content;
-    background: #ffffff;
-    border: 2px solid var(--orange);
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
-    overflow: hidden;
-    animation: slideIn 0.2s ease-out;
-    z-index: 99999 !important;
-}
+    const [templates, setTemplates] = useState([]);
+    const [checkedStages, setCheckedStages] = useState({});
+    const [addingStage, setAddingStage] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [newStageCost, setNewStageCost] = useState('');
+    const [presets, setPresets] = useState(loadPresets);
+    const [presetName, setPresetName] = useState('');
+    const [showSavePreset, setShowSavePreset] = useState(false);
 
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+    const [titleId, setTitleId] = useState('');
+    const [tenure, setTenure] = useState('FREEHOLD');
+    const [plotNumber, setPlotNumber] = useState('');
+    const [blockRoad, setBlockRoad] = useState('');
+    const [titleIssueDate, setTitleIssueDate] = useState('');
 
-.option {
-    padding: 14px 20px;
-    color: var(--navy);
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    transition: 0.2s;
-}
-.option:last-child { border-bottom: none; }
-.option:hover {
-    background: var(--orange);
-    color: white;
-}
-.selected {
-    background: var(--orange);
-    color: white;
-}
+    const [totalCost, setTotalCost] = useState(0);
+    const [initialPayment, setInitialPayment] = useState(0);
+    const [initialStorageFee, setInitialStorageFee] = useState(0);
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState(0);
 
-.compactWrapper { margin-bottom: 0; width: auto; }
-.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
+    const [fileQueue, setFileQueue] = useState([]);
+    const [notes, setNotes] = useState('');
 
-@media (max-width: 480px) {
-    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
-    .option { padding: 12px 14px; font-size: 13px; }
-}
+    const [toasts, setToasts] = useState([]);
+    const toast = useCallback((msg, type = 'info') => {
+        const id = Date.now();
+        setToasts(p => [...p, { id, msg, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    }, []);
 
-.dropdown {
-    max-height: 250px;
-    overflow-y: auto;
-}
-.dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
-.dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-@media (max-width: 480px) {
-    .dropdown { max-height: 200px; }
-    .option { padding: 10px 14px; font-size: 12px; }
-}
-.dropdown {
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
+    const fetchTemplates = useCallback(() => {
+        stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
+    }, []);
+    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+    useEffect(() => {
+        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+    }, []);
+
+    const sortedTemplates = useMemo(
+        () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
+        [templates]
+    );
+    const firstStageId = sortedTemplates[0]?.id;
+    const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
+
+    useEffect(() => {
+        if (!sortedTemplates.length) return;
+        setCheckedStages(prev => {
+            const next = { ...prev };
+            if (firstStageId && next[firstStageId] === undefined) next[firstStageId] = true;
+            if (lastStageId && next[lastStageId] === undefined) next[lastStageId] = true;
+            return next;
+        });
+    }, [sortedTemplates.length, firstStageId, lastStageId]);
+
+    const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
+    const isLegacy = projectType === 'LEGACY_TITLE';
+    const titleAtIntake = projectType === 'NEW_TITLE';
+    const isTitleSectionVisible = isLegacy || titleAtIntake || finalStageChecked;
+
+    const handleProjectTypeChange = (value) => {
+        setProjectType(value);
+        if (value === 'LEGACY_TITLE') {
+            const allChecked = {};
+            sortedTemplates.forEach(t => { allChecked[t.id] = true; });
+            setCheckedStages(allChecked);
+        }
+    };
+
+    const toggleStage = (id) => {
+        if (id === firstStageId || id === lastStageId) return;
+        setCheckedStages(p => ({ ...p, [id]: !p[id] }));
+    };
+
+    const handleAddStage = async () => {
+        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
+        try {
+            const last = sortedTemplates[sortedTemplates.length - 1];
+            const lastOrder = last?.displayOrder ?? sortedTemplates.length;
+            if (last) {
+                await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
+            }
+            const created = await stageTemplateService.addTemplateStage(
+                newStageName.trim(),
+                newStageCost ? Number(newStageCost) : 0,
+                last ? lastOrder : undefined,
+            );
+            setNewStageName('');
+            setNewStageCost('');
+            setAddingStage(false);
+            fetchTemplates();
+            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
+            toast('Stage added to checklist.', 'success');
+        } catch (err) {
+            toast(err.response?.data?.message || 'Could not add stage.', 'error');
+        }
+    };
+
+    const handleSavePreset = () => {
+        if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
+        const stageNames = sortedTemplates.filter(t => checkedStages[t.id]).map(t => t.stageName);
+        const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
+        setPresets(next);
+        savePresets(next);
+        setPresetName('');
+        setShowSavePreset(false);
+        toast('Stage preset saved.', 'success');
+    };
+
+    const applyPreset = (name) => {
+        if (!name) return;
+        const preset = presets.find(p => p.name === name);
+        if (!preset) return;
+        const next = {};
+        sortedTemplates.forEach(t => {
+            next[t.id] = t.id === firstStageId || t.id === lastStageId || preset.stageNames.includes(t.stageName);
+        });
+        setCheckedStages(next);
+    };
+
+    const deletePreset = (name) => {
+        const next = presets.filter(p => p.name !== name);
+        setPresets(next);
+        savePresets(next);
+    };
+
+    const updateOwner = (idx, field, val) => {
+        setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
+    };
+
+    const handleFileUpload = (e) => {
+        const files = Array.from(e.target.files);
+        setFileQueue(p => [...p, ...files]);
+        e.target.value = ''; // reset so same file can be re-added
+    };
+
+    const triggerFileInput = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!district.trim() || !county.trim()) {
+            toast('District and County are required.', 'error'); return;
+        }
+        for (let o of owners) {
+            if (!o.nationalId.trim()) {
+                toast('NIN is required for all owners.', 'error'); return;
+            }
+        }
+        if (isTitleSectionVisible) {
+            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return; }
+            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return; }
+        }
+
+        setSaving(true);
+        try {
+            const payload = {
+                district: district.trim().toUpperCase(),
+                county: county.trim().toUpperCase(),
+                subCounty: subCounty.trim().toUpperCase(),
+                parish: parish.trim().toUpperCase(),
+                village: village.trim().toUpperCase(),
+                area: area.trim(),
+                totalCost: Number(totalCost) || 0,
+                initialPayment: Number(initialPayment) || 0,
+                isLegacy: isLegacy,
+                titleAtIntake: titleAtIntake,
+                projectStartDate: projectStartDate || todayISO(),
+                owners: owners.map(o => ({
+                    fullName: o.fullName.trim().toUpperCase(),
+                    phone: o.phone.trim(),
+                    email: o.email.trim().toLowerCase(),
+                    nationalId: o.nationalId.trim().toUpperCase(),
+                    address: o.address.trim(),
+                })),
+                selectedStages: Object.entries(checkedStages).filter(([, v]) => v).map(([id]) => {
+                    const t = templates.find(x => x.id === id);
+                    return {
+                        stageTemplateId: id,
+                        stageName: t ? t.stageName : '',
+                        isCustom: false,
+                        isCompleted: true
+                    };
+                }),
+                notes: notes.trim() ? [{ content: notes.trim() }] : [],
+            };
+
+            if (isTitleSectionVisible) {
+                payload.plotNumber = plotNumber.trim().toUpperCase();
+                payload.tenure = tenure;
+                payload.blockRoad = blockRoad.trim().toUpperCase();
+                payload.titleId = titleId.trim().toUpperCase();
+                payload.titleIssueDate = titleIssueDate || null;
+            }
+
+            if (isLegacy) {
+                payload.isStartAsReceivable = true;
+                payload.initialStorageFee = Number(initialStorageFee) || 0;
+                payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
+            }
+
+            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
+            toast('Project registered successfully!', 'success');
+            setTimeout(() => navigate('/land/projects'), 1500);
+        } catch (err) {
+            toast(err.response?.data?.message || 'Save failed', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+
+    let n = 0;
+    const nIndex = ++n;
+    const nOwners = ++n;
+    const nTitle = isTitleSectionVisible ? ++n : null;
+    const nLocation = ++n;
+    const nStages = ++n;
+    const nFinancials = ++n;
+    const nDocuments = ++n;
+    const nNotes = ++n;
+
+    return (
+        <div className={styles.container}>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>New Project</h1>
+                    <p className={styles.subtitle}>Intake Form</p>
+                </div>
+                <div className={styles.actions}>
+                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
+                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> {saving ? 'Saving...' : 'Save'}
+                    </button>
+                </div>
+            </header>
+
+            <div className={styles.sections}>
+
+                <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Index</label>
+                            <input className={`${styles.input} ${styles.indexValue}`} value={nextIndex} placeholder="--" disabled />
+                            <p className={styles.hint}>Next available index, assigned on save</p>
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Date Started</label>
+                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)} />
+                            <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
+                        </div>
+                    </div>
+                    <div className={styles.field}>
+                        <label className={`${styles.label} ${styles.required}`}>Type</label>
+                        <div className={styles.typeGroup}>
+                            {PROJECT_TYPES.map(pt => (
+                                <button
+                                    key={pt.value}
+                                    type="button"
+                                    className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
+                                    onClick={() => handleProjectTypeChange(pt.value)}
+                                >
+                                    {pt.icon}
+                                    <span>{pt.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
+                    {owners.map((o, idx) => (
+                        <div key={idx} className={styles.ownerRow}>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>NIN</label>
+                                <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Full Name</label>
+                                <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Phone</label>
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Email</label>
+                                <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
+                            </div>
+                            <button
+                                type="button"
+                                className={`${styles.btn} ${styles.deleteBtn}`}
+                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}
+                                disabled={owners.length === 1}
+                                aria-label="Remove owner"
+                            >
+                                <FiTrash2 />
+                            </button>
+                        </div>
+                    ))}
+                    <button type="button" className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                        <FiPlus /> Add joint owner
+                    </button>
+                </CollapsibleSection>
+
+                {isTitleSectionVisible && (
+                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
+                        <div className={styles.grid3}>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title ID</label>
+                                <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
+                            </div>
+                            <HardwareSelect
+                                label="Tenure"
+                                required
+                                options={TENURE_OPTIONS}
+                                value={tenure}
+                                onChange={setTenure}
+                            />
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
+                                <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Block</label>
+                                <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title Date</label>
+                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => setTitleIssueDate(e.target.value)} />
+                                <p className={styles.hint}>Leave blank if not yet received.</p>
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+                )}
+
+                <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
+                    <div className={styles.grid3}>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>District</label>
+                            <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>County</label>
+                            <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Sub-county</label>
+                            <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Parish</label>
+                            <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Village</label>
+                            <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
+                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection
+                    icon={<FiCheckSquare />}
+                    title={`${nStages}. Stages`}
+                    right={
+                        <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {presets.length > 0 && (
+                                <HardwareSelect
+                                    compact
+                                    placeholder="Apply preset..."
+                                    value=""
+                                    options={presets.map(p => p.name)}
+                                    onChange={applyPreset}
+                                />
+                            )}
+                            <button type="button" className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
+                                <FiBookmark /> Save Preset
+                            </button>
+                            <button type="button" className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
+                                <FiPlus /> Add Stage
+                            </button>
+                        </div>
+                    }
+                >
+                    {showSavePreset && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
+                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                            <button type="button" className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
+                        </div>
+                    )}
+                    {addingStage && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                            <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
+                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                            <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
+                        </div>
+                    )}
+                    <div className={styles.stageList}>
+                        {sortedTemplates.map(t => {
+                            const locked = t.id === firstStageId || t.id === lastStageId;
+                            return (
+                                <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
+                                    <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
+                                        disabled={locked}
+                                        onChange={() => toggleStage(t.id)} />
+                                    <span className={styles.stageName}>{t.stageName}</span>
+                                    {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
+                                </label>
+                            );
+                        })}
+                    </div>
+                    {presets.length > 0 && (
+                        <div className={styles.presetList}>
+                            {presets.map(p => (
+                                <span key={p.name} className={styles.presetChip}>
+                                    {p.name}
+                                    <button
+                                        type="button"
+                                        className={styles.presetChipRemove}
+                                        onClick={() => deletePreset(p.name)}
+                                        aria-label={`Delete preset ${p.name}`}
+                                    >
+                                        <FiX size={12} />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Total Cost</label>
+                            <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Initial Payment</label>
+                            <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                        </div>
+                    </div>
+                    {isLegacy && (
+                        <>
+                            <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
+                            <div className={styles.grid2}>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Initial Storage Fee</label>
+                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Monthly Storage Fee</label>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    <div className={styles.financialsSummary}>
+                        <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
+                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
+                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
+                    </div>
+                </CollapsibleSection>
+
+                <div className={styles.splitRow}>
+                    <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
+                        <div
+                            className={styles.dropzone}
+                            onClick={triggerFileInput}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}
+                        >
+                            <FiUploadCloud size={24} />
+                            <p>Click to upload</p>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileUpload}
+                            style={{ display: 'none' }}
+                        />
+                        <div className={styles.fileList}>
+                            {fileQueue.map((f, i) => (
+                                <div key={i} className={styles.fileItem}>
+                                    <span>{f.name}</span>
+                                    <button
+                                        type="button"
+                                        className={`${styles.btn} ${styles.deleteBtn}`}
+                                        onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}
+                                        aria-label="Remove file"
+                                    >
+                                        <FiTrash2 />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </CollapsibleSection>
+
+                    <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
+                        <div className={styles.field}>
+                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes..." />
+                        </div>
+                    </CollapsibleSection>
+                </div>
+
+            </div>
+
+            {toasts.map(t => (
+                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>
+            ))}
+        </div>
+    );
 }
 """)
 
@@ -724,17 +1255,16 @@ if WROTE:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
 
-        commit_msg = """style: unify New Project page with Ledger reference design
+        commit_msg = """style: refine intake page — animated separator, smaller fields, red deletes
 
-- Section headers: #162a2c band + 3px orange separator (Ledger table head)
-- CornerDecor brackets + pins on every section (same as HardwarePanel)
-- Duller labels: 50% white, 900 weight, 2px letter-spacing (Ledger metrics)
-- Ledger hover language: white 4% + orange left border on rows/items
-- Type toggle now uses filterBtn/activeFilter styling (solid orange active)
-- Secondary buttons use pageBtn styling; focus = 3px orange ring
-- HardwareSelect dropdown absolute-positioned (fixes viewport-wide panel),
-  selected row solid orange like the reference
-- Container width 1400px to match Ledger"""
+- Corner brackets only render on expanded body (not collapsed header)
+- Orange separator line animates in/out with section expand/collapse
+- Corner brackets now curved (6px radius) instead of sharp
+- Reduced field sizes: smaller font, padding, explicit 42px height
+- Tighter spacing: reduced gap values throughout
+- Delete buttons (owners, files) turn red on hover
+- File upload fixed: uses ref + onClick instead of label wrapping
+- Removed border decorations from header section"""
 
         subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed all changes")

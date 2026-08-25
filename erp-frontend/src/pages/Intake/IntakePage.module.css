@@ -1,8 +1,6 @@
 /* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Ledger-consistency pass - dull labels (50% white, 900, 2px tracking),
-   Ledger hover language (white 4% + orange left border), filter-style
-   segmented buttons, pageBtn-style secondary buttons, 3px orange focus
-   ring, 1400px container, rgba(0,0,0,0.15) inner wells. */
+   Refined: smaller fields, tighter spacing, red delete icons,
+   curved corner brackets, animated separator. */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -12,10 +10,10 @@
     --red:           #ef4444;
     --green:         #10b981;
 
-    --gap-xl:    clamp(14px, 2vw, 22px);
-    --gap-lg:    clamp(10px, 1.5vw, 18px);
-    --gap-md:    clamp(7px,  1.1vw, 13px);
-    --radius:    12px;
+    --gap-xl:    clamp(12px, 1.8vw, 20px);
+    --gap-lg:    clamp(8px,  1.3vw, 16px);
+    --gap-md:    clamp(6px,  1vw,   12px);
+    --radius:    10px;
     --radius-sm: 6px;
 
     --fs-h1:     clamp(18px, 2.5vw, 24px);
@@ -24,13 +22,13 @@
     --fs-value:  clamp(11px, 1.1vw, 13px);
     --fs-td:     clamp(10px, 1.05vw, 12px);
     --fs-tag:    clamp(7px,  0.75vw, 9px);
-    --fs-input:  clamp(11px, 1.1vw, 13px);
+    --fs-input:  clamp(10px, 1vw,   12px); /* smaller input font */
     --fs-meta:   clamp(8px,  0.85vw, 10px);
     --fs-btn:    clamp(9px,  0.9vw, 11px);
 }
 
 .container {
-    max-width: 1400px; /* same as Ledger */
+    max-width: 1400px;
     width: 100%;
     margin: 0 auto;
     padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
@@ -48,7 +46,7 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* -- PAGE HEADER - identical glass treatment to the Ledger page -- */
+/* -- PAGE HEADER -- */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -95,14 +93,14 @@
     align-items: start;
 }
 
-/* -- BUTTONS - pageBtn language: transparent, white border, white hover -- */
+/* -- BUTTONS -- */
 .btn {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-btn);
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    padding: clamp(7px, 1vw, 10px) clamp(12px, 1.6vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: var(--radius-sm);
     border: 1.5px solid rgba(255, 255, 255, 0.1);
     background: transparent;
@@ -111,7 +109,7 @@
     transition: background 0.2s, border-color 0.2s, color 0.2s;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
@@ -119,12 +117,22 @@
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
 .btn:disabled { opacity: 0.18; cursor: not-allowed; }
 
-/* filterBtn language for toolbar buttons */
+/* RED DELETE ICONS */
+.btn.deleteBtn {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgba(239, 68, 68, 0.7);
+}
+.btn.deleteBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--red);
+    color: var(--red);
+}
+
 .legacyBtn {
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
     font-size: clamp(9px, 0.95vw, 11px);
@@ -135,18 +143,17 @@
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     white-space: nowrap;
 }
 .legacyBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 
-/* -- FIELDS -- */
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); }
-.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap-lg); }
+/* -- FIELDS (smaller) -- */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--gap-lg); }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--gap-lg); }
 
-.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
-/* DULL LABELS - Ledger muted metrics: 50% white, 900, 2px tracking */
 .label {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-label);
@@ -165,12 +172,12 @@
     margin: 0;
 }
 
-/* Inputs - white hardware inputs, Ledger 3px focus ring */
+/* SMALLER INPUTS - reduced padding and height */
 .input, .textarea {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-input);
     font-weight: 600;
-    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.4vw, 15px);
+    padding: clamp(6px, 0.9vw, 10px) clamp(8px, 1.2vw, 14px);
     border: 2px solid rgba(238, 140, 58, 0.3);
     border-radius: var(--radius-sm);
     background: #ffffff;
@@ -178,7 +185,10 @@
     width: 100%;
     box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
+    height: clamp(36px, 4.5vw, 42px); /* explicit smaller height */
+    line-height: 1.2;
 }
+.textarea { height: auto; min-height: 90px; resize: vertical; }
 .input:hover, .textarea:hover { border-color: var(--orange); }
 .input:focus, .textarea:focus {
     outline: none;
@@ -193,18 +203,17 @@
     color: var(--orange);
 }
 .input.indexValue:disabled { color: var(--orange); opacity: 1; }
-.textarea { min-height: 110px; resize: vertical; }
 
-/* -- TYPE TOGGLE - filterBtn / activeFilter language -- */
+/* -- TYPE TOGGLE -- */
 .typeGroup { display: flex; gap: clamp(6px, 1vw, 12px); flex-wrap: wrap; }
 .typeBtn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
     font-weight: 900;
@@ -226,13 +235,13 @@
 }
 .typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
 
-/* -- INNER WELLS - Ledger table-shell shade -- */
+/* -- INNER WELLS (tighter) -- */
 .ownerRow {
     display: grid;
     grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
     gap: var(--gap-md);
     align-items: end;
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-left: 3px solid transparent;
@@ -250,8 +259,8 @@
     text-transform: uppercase;
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 4px 0 0 0;
+    gap: 5px;
+    margin: 2px 0 0 0;
 }
 
 .inlineAddRow {
@@ -264,15 +273,15 @@
     border-radius: var(--radius-sm);
     padding: var(--gap-md);
 }
-.inlineAddRow .input { width: auto; flex: 1 1 200px; }
+.inlineAddRow .input { width: auto; flex: 1 1 180px; }
 
-/* -- STAGES - Ledger row hover language -- */
+/* -- STAGES -- */
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
     display: flex;
     align-items: center;
     gap: var(--gap-md);
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-left: 3px solid transparent;
@@ -283,7 +292,7 @@
 .stageItem:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--orange); }
 .stageItem.checked { border-left-color: var(--orange); background: rgba(238, 140, 58, 0.07); }
 .stageItem.stageLocked { cursor: not-allowed; background: rgba(0, 0, 0, 0.25); }
-.checkbox { width: 18px; height: 18px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
+.checkbox { width: 16px; height: 16px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
 .stageName { font-weight: 700; color: #fff; font-size: var(--fs-td); letter-spacing: 0.5px; }
 .lockedTag {
     margin-left: auto;
@@ -301,12 +310,12 @@
 .presetChip {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: var(--orange-dim);
     color: var(--orange);
     border: 1px solid var(--orange-border);
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 3px 9px;
     font-size: var(--fs-meta);
     font-weight: 700;
 }
@@ -332,7 +341,7 @@
 .dropzone {
     border: 2px dashed rgba(238, 140, 58, 0.4);
     border-radius: var(--radius);
-    padding: var(--gap-xl);
+    padding: var(--gap-lg);
     text-align: center;
     color: rgba(255, 255, 255, 0.45);
     cursor: pointer;
@@ -340,7 +349,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 .dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
 
@@ -353,7 +362,7 @@
     color: #fff;
     font-size: var(--fs-td);
     font-weight: 600;
-    padding: var(--gap-md);
+    padding: clamp(6px, 1vw, 10px);
     border-radius: var(--radius-sm);
     transition: background 0.18s, border-left-color 0.18s;
 }

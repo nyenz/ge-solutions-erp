@@ -4,11 +4,6 @@ import { FiChevronDown } from 'react-icons/fi';
 import CornerDecor from './CornerDecor';
 import styles from './CollapsibleSection.module.css';
 
-/**
- * Generic expand/contract card - dark hardware panel treatment.
- * Injects CornerDecor brackets/pins exactly like HardwarePanel does,
- * so every section matches the Ledger table shell.
- */
 const CollapsibleSection = ({
     icon,
     title,
@@ -31,10 +26,9 @@ const CollapsibleSection = ({
 
     return (
         <section className={`${styles.section} ${accent ? styles.accent : ''} ${className}`}>
-            <CornerDecor />
             <button
                 type="button"
-                className={styles.header}
+                className={`${styles.header} ${open ? styles.headerOpen : ''}`}
                 onClick={toggle}
                 aria-expanded={open}
             >
@@ -50,7 +44,12 @@ const CollapsibleSection = ({
                     />
                 </span>
             </button>
-            {open && <div className={styles.body}>{children}</div>}
+            {open && (
+                <div className={styles.body}>
+                    <CornerDecor />
+                    {children}
+                </div>
+            )}
         </section>
     );
 };

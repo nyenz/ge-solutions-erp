@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
@@ -36,6 +36,7 @@ const savePresets = (presets) => {
 
 export default function IntakePage() {
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);
     const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('NEW_FOLDER');
@@ -183,6 +184,13 @@ export default function IntakePage() {
     const handleFileUpload = (e) => {
         const files = Array.from(e.target.files);
         setFileQueue(p => [...p, ...files]);
+        e.target.value = ''; // reset so same file can be re-added
+    };
+
+    const triggerFileInput = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
     };
 
     const handleSubmit = async () => {
@@ -336,12 +344,18 @@ export default function IntakePage() {
                                 <label className={styles.label}>Email</label>
                                 <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
                             </div>
-                            <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>
+                            <button
+                                type="button"
+                                className={`${styles.btn} ${styles.deleteBtn}`}
+                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}
+                                disabled={owners.length === 1}
+                                aria-label="Remove owner"
+                            >
                                 <FiTrash2 />
                             </button>
                         </div>
                     ))}
-                    <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                    <button type="button" className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
                         <FiPlus /> Add joint owner
                     </button>
                 </CollapsibleSection>
@@ -420,10 +434,10 @@ export default function IntakePage() {
                                     onChange={applyPreset}
                                 />
                             )}
-                            <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
+                            <button type="button" className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
                                 <FiBookmark /> Save Preset
                             </button>
-                            <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
+                            <button type="button" className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
                                 <FiPlus /> Add Stage
                             </button>
                         </div>
@@ -432,16 +446,16 @@ export default function IntakePage() {
                     {showSavePreset && (
                         <div className={styles.inlineAddRow}>
                             <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
-                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
-                            <button className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
+                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                            <button type="button" className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
                         </div>
                     )}
                     {addingStage && (
                         <div className={styles.inlineAddRow}>
                             <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
                             <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
-                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                            <button className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
+                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                            <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
                         </div>
                     )}
                     <div className={styles.stageList}>
@@ -463,7 +477,14 @@ export default function IntakePage() {
                             {presets.map(p => (
                                 <span key={p.name} className={styles.presetChip}>
                                     {p.name}
-                                    <button className={styles.presetChipRemove} onClick={() => deletePreset(p.name)} aria-label={`Delete preset ${p.name}`}><FiX size={12} /></button>
+                                    <button
+                                        type="button"
+                                        className={styles.presetChipRemove}
+                                        onClick={() => deletePreset(p.name)}
+                                        aria-label={`Delete preset ${p.name}`}
+                                    >
+                                        <FiX size={12} />
+                                    </button>
                                 </span>
                             ))}
                         </div>
@@ -506,16 +527,35 @@ export default function IntakePage() {
 
                 <div className={styles.splitRow}>
                     <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
-                        <label className={styles.dropzone}>
+                        <div
+                            className={styles.dropzone}
+                            onClick={triggerFileInput}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}
+                        >
                             <FiUploadCloud size={24} />
                             <p>Click to upload</p>
-                            <input type="file" multiple style={{ display: 'none' }} onChange={handleFileUpload} />
-                        </label>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileUpload}
+                            style={{ display: 'none' }}
+                        />
                         <div className={styles.fileList}>
                             {fileQueue.map((f, i) => (
                                 <div key={i} className={styles.fileItem}>
                                     <span>{f.name}</span>
-                                    <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>
+                                    <button
+                                        type="button"
+                                        className={`${styles.btn} ${styles.deleteBtn}`}
+                                        onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}
+                                        aria-label="Remove file"
+                                    >
+                                        <FiTrash2 />
+                                    </button>
                                 </div>
                             ))}
                         </div>
