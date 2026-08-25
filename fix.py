@@ -1,651 +1,1369 @@
-# PATH: fix.py
-# FEATURE: New Project (Intake) page -- visual pass to match the Ledger
-# page's theme and cut down on wordy UI:
-#
-#   1. New reusable erp-frontend/src/components/ui/CollapsibleSection.jsx
-#      (+ .module.css) -- a click-to-toggle card with a chevron, same
-#      card/border/Cinzel-title language already used across the app.
-#      Every "New Project" section now uses it, so staff can collapse
-#      sections they're not editing.
-#
-#   2. IntakePage.jsx / IntakePage.module.css:
-#      - Page header replaced with the same glass "pageHeader" treatment
-#        the Ledger page uses (orange left border, frosted background),
-#        instead of the plain bottom-border header.
-#      - All 8 sections (Entry Mode, Owners, Title & Plot, Location,
-#        Stages, Financials, Documents, Notes) now render inside
-#        CollapsibleSection instead of a static <section>.
-#      - "Project Index & Type" section renamed to "Entry Mode".
-#      - Project Index field no longer shows the sentence "Auto-generated
-#        on save" as its value -- it's just an empty/disabled field with
-#        a plain "-" placeholder until a real index exists.
-#      - "Project Type" label shortened to "Type"; its per-option hint
-#        text shortened ("No title yet -- opens a working folder" ->
-#        "No title yet", etc).
-#      - "Stage Checklist" -> "Stages", "Title & Plot Details" -> "Title
-#        & Plot", "Legacy Storage Fees" -> "Storage Fees", "Save as
-#        Preset" -> "Save Preset", dropzone copy "Click to upload
-#        documents" -> "Click to upload", Notes section drops the
-#        redundant "Shared Project Notes" field label.
-#      - No behavioral/logic changes: same validation, same payload,
-#        same stage-locking rules -- this is a layout/copy pass only.
-#
-# Verified with `npx vite build` locally -- no console/build errors.
+#!/usr/bin/env python3
+"""
+fix.py — Dark-theme intake form revamp.
+Writes/patches all 10 target files. Run: py fix.py
+"""
+import sys
+from pathlib import Path
 
-import base64
+ROOT = Path(__file__).parent.resolve()
+WROTE, PATCHED, FAILED = [], [], []
+
+def write(rel: str, content: str):
+    p = ROOT / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        p.write_text(content, encoding="utf-8")
+        WROTE.append(rel)
+    except Exception as e:
+        FAILED.append((rel, str(e)))
+
+def patch_append(rel: str, marker: str, insert: str):
+    p = ROOT / rel
+    try:
+        original = p.read_text(encoding="utf-8")
+    except Exception as e:
+        FAILED.append((rel, f"read failed: {e}")); return
+    if marker not in original:
+        FAILED.append((rel, f"marker not found")); return
+    if insert.strip() in original:
+        PATCHED.append(f"{rel} (already applied)"); return
+    try:
+        p.write_text(original.replace(marker, marker + "\n" + insert, 1), encoding="utf-8")
+        PATCHED.append(rel)
+    except Exception as e:
+        FAILED.append((rel, f"write failed: {e}"))
+
+# =====================================================================
+# 1) CollapsibleSection.module.css — FULL WRITE (dark hardware panel)
+# =====================================================================
+write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
+/* Dark "hardware panel" treatment - same language as HardwarePanel.dark,
+   the Ledger table shell and the reference New Plot design. */
+.section {
+    --orange: #EE8C3A;
+    --orange-dim: rgba(238, 140, 58, 0.18);
+    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+    border: 1px solid rgba(238, 140, 58, 0.2);
+    border-radius: 12px;
+    overflow: visible;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.section:hover { border-color: var(--orange); }
+.section.accent { border: 2px solid var(--orange); }
+
+.header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(7px, 1.1vw, 13px);
+    padding: clamp(12px, 1.6vw, 18px) clamp(14px, 1.8vw, 20px);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+.header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: var(--orange);
+    font-size: clamp(15px, 1.8vw, 19px);
+    filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
+}
+
+.title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 1.6vw, 16px);
+    font-weight: 700;
+    color: var(--orange);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.header:hover .title { color: #f59a4a; }
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 14px);
+    flex-shrink: 0;
+}
+
+.chevron {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 16px;
+    transition: transform 0.2s ease, color 0.2s ease;
+    flex-shrink: 0;
+}
+.chevronOpen { transform: rotate(180deg); color: var(--orange); }
+
+.body {
+    padding: 0 clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.5vw, 18px);
+    border-top: 1px solid rgba(238, 140, 58, 0.25);
+    padding-top: clamp(14px, 1.8vw, 20px);
+    animation: expand 0.18s ease-out;
+}
+
+@keyframes expand {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .header { padding: 12px 14px; }
+    .body { padding: 12px 14px 14px; }
+}
+""")
+
+# =====================================================================
+# 2) HardwareSelect.jsx — FULL WRITE (adds required/placeholder/compact)
+# =====================================================================
+write("erp-frontend/src/components/common/HardwareSelect.jsx", r"""// PATH: erp-frontend/src/components/common/HardwareSelect.jsx
+import React, { useState, useRef, useEffect } from 'react';
+import { FiChevronDown } from 'react-icons/fi';
+import styles from './HardwareSelect.module.css';
+
+const HardwareSelect = ({ label, options, value, onChange, required = false, placeholder = '', compact = false }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className={`${styles.fieldWrapper} ${isOpen ? styles.openWrapper : ''} ${compact ? styles.compactWrapper : ''}`} ref={containerRef}>
+            {label && (
+                <label className={styles.label}>
+                    {label}
+                    {required && <span className={styles.requiredMark}>*</span>}
+                </label>
+            )}
+            <div className={`${styles.selectBox} ${compact ? styles.compactBox : ''} ${isOpen ? styles.active : ''}`} onClick={() => setIsOpen(!isOpen)}>
+                <span className={`${styles.currentValue} ${!value ? styles.placeholder : ''}`}>{value || placeholder}</span>
+                <FiChevronDown className={styles.icon} />
+
+                {isOpen && (
+                    <div className={styles.dropdown}>
+                        {options.map(opt => (
+                            <div
+                                key={opt}
+                                className={`${styles.option} ${value === opt ? styles.selected : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange(opt);
+                                    setIsOpen(false);
+                                }}
+                            >
+                                {opt}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default HardwareSelect;
+""")
+
+# =====================================================================
+# 3) HardwareSelect.module.css — FULL WRITE (label 11px + new rules)
+# =====================================================================
+write("erp-frontend/src/components/common/HardwareSelect.module.css", r""".fieldWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.openWrapper {
+    z-index: 9999 !important;
+    overflow: visible !important;
+    position: relative !important;
+}
+
+.label {
+    color: #FFFFFF !important;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+.requiredMark { color: #ef4444; margin-left: 4px; }
+
+.placeholder { color: rgba(26, 46, 48, 0.45); }
+
+.selectBox {
+    background: #ffffff;
+    border-radius: var(--input-radius, 8px);
+    border: 2px solid rgba(238, 140, 58, 0.3);
+    padding: 0 clamp(10px, 1.4vw, 18px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.3s ease;
+    height: var(--input-height, 44px);
+    position: relative;
+    z-index: 1;
+}
+.selectBox:hover, .active {
+    border-color: var(--orange);
+    box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
+}
+
+.currentValue {
+    color: var(--navy);
+    font-weight: 700;
+    font-size: var(--input-font, 14px);
+}
+
+.icon {
+    color: var(--orange);
+    transition: 0.3s;
+    flex-shrink: 0;
+}
+.active .icon { transform: rotate(180deg); }
+
+.dropdown {
+    position: fixed;
+    background: #ffffff;
+    border: 2px solid var(--orange);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: slideIn 0.2s ease-out;
+    z-index: 99999 !important;
+    min-width: 100%;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.option {
+    padding: 14px 20px;
+    color: var(--navy);
+    font-weight: 600;
+    font-size: 14px;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.option:last-child { border-bottom: none; }
+.option:hover {
+    background: var(--orange);
+    color: white;
+}
+.selected {
+    background: #f1f5f9;
+    border-left: 5px solid var(--orange);
+}
+
+.compactWrapper { margin-bottom: 0; width: auto; }
+.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
+
+@media (max-width: 480px) {
+    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
+    .option { padding: 12px 14px; font-size: 13px; }
+}
+
+.dropdown {
+    max-height: 250px;
+    overflow-y: auto;
+}
+.dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
+.dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
+@media (max-width: 480px) {
+    .dropdown { max-height: 200px; }
+    .option { padding: 10px 14px; font-size: 12px; }
+}
+.dropdown {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+""")
+
+# =====================================================================
+# 4) IntakePage.module.css — FULL WRITE (dark hardware revamp)
+# =====================================================================
+write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
+   Dark hardware revamp - same tokens as HardwarePanel/HardwareInput/
+   HardwareSelect and the Ledger reference. */
+:root {
+    --orange:        #EE8C3A;
+    --orange-dim:    rgba(238, 140, 58, 0.18);
+    --orange-border: rgba(238, 140, 58, 0.28);
+    --navy:          #213E40;
+    --navy-deep:     #1a2e30;
+    --red:           #ef4444;
+    --green:         #10b981;
+
+    --gap-xl:    clamp(14px, 2vw, 22px);
+    --gap-lg:    clamp(10px, 1.5vw, 18px);
+    --gap-md:    clamp(7px,  1.1vw, 13px);
+    --radius:    12px;
+    --radius-sm: 8px;
+
+    --fs-h1:     clamp(18px, 2.5vw, 24px);
+    --fs-sub:    clamp(9px,  0.9vw, 11px);
+    --fs-label:  clamp(9px,  0.95vw, 11px);
+    --fs-value:  clamp(11px, 1.1vw, 13px);
+    --fs-tag:    clamp(7px,  0.75vw, 9px);
+    --fs-input:  clamp(11px, 1.1vw, 13px);
+    --fs-meta:   clamp(8px,  0.85vw, 10px);
+    --fs-btn:    clamp(9px,  0.9vw, 11px);
+}
+
+.container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px);
+    font-family: 'Inter', sans-serif;
+    color: #F4F2EF;
+    animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-xl);
+    box-sizing: border-box;
+}
+
+@keyframes warmBoot {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.4vw, 16px);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
+    background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 12px 12px 0;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+    flex-shrink: 0;
+}
+.headerLeft { display: flex; flex-direction: column; gap: clamp(3px, 0.4vw, 5px); min-width: 0; flex: 1; }
+
+.title {
+    font-family: 'Cinzel', serif;
+    color: var(--navy-deep);
+    font-size: var(--fs-h1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    line-height: 1.1;
+    margin: 0;
+}
+.subtitle {
+    font-family: 'Inter', sans-serif;
+    color: #64748b;
+    font-size: var(--fs-sub);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+.actions { display: flex; gap: var(--gap-md); flex-shrink: 0; }
+.sections { display: flex; flex-direction: column; gap: var(--gap-lg); }
+
+.splitRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-lg);
+    align-items: start;
+}
+
+.btn {
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn:hover { border-color: var(--orange); color: var(--orange); }
+.btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }
+.btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.legacyBtn {
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border: 1px solid rgba(238, 140, 58, 0.35);
+    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.legacyBtn:hover { border-color: var(--orange); color: var(--orange); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap-lg); }
+
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.label {
+    font-family: 'Inter', sans-serif;
+    font-size: var(--fs-label);
+    font-weight: 800;
+    color: #FFFFFF;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+.required::after { content: '*'; color: var(--red); margin-left: 4px; }
+
+.hint {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 0.3px;
+    margin: 0;
+}
+
+.input, .textarea {
+    font-family: 'Inter', sans-serif;
+    font-size: var(--fs-input);
+    font-weight: 600;
+    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.4vw, 15px);
+    border: 2px solid rgba(238, 140, 58, 0.3);
+    border-radius: var(--radius-sm);
+    background: #ffffff;
+    color: var(--navy);
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.input:hover, .textarea:hover,
+.input:focus, .textarea:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 15px rgba(238, 140, 58, 0.2);
+}
+.input:disabled { color: rgba(33, 62, 64, 0.5); cursor: not-allowed; }
+.input.indexValue {
+    font-family: 'Space Mono', monospace;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--orange);
+}
+.input.indexValue:disabled { color: var(--orange); opacity: 1; }
+.textarea { min-height: 110px; resize: vertical; }
+
+.typeGroup { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
+.typeBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: clamp(10px, 1.2vw, 14px) clamp(16px, 2vw, 22px);
+    border-radius: var(--radius-sm);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.typeBtn:hover { border-color: var(--orange-border); color: var(--orange); }
+.typeBtnActive {
+    border-color: var(--orange);
+    background: var(--orange-dim);
+    color: var(--orange);
+    box-shadow: 0 0 14px rgba(238, 140, 58, 0.25);
+}
+.typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.45); margin: 2px 0 0 0; }
+
+.ownerRow {
+    display: grid;
+    grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
+    gap: var(--gap-md);
+    align-items: end;
+    padding: var(--gap-md);
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+}
+
+.subheading {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(12px, 1.4vw, 14px);
+    font-weight: 700;
+    color: var(--orange);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0 0;
+}
+
+.inlineAddRow {
+    display: flex;
+    gap: var(--gap-md);
+    align-items: center;
+    flex-wrap: wrap;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--orange-border);
+    border-radius: var(--radius-sm);
+    padding: var(--gap-md);
+}
+.inlineAddRow .input { width: auto; flex: 1 1 200px; }
+
+.stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
+.stageItem {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-md);
+    padding: var(--gap-md);
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.stageItem:hover { border-color: var(--orange); }
+.stageItem.checked { border-color: var(--orange); background: var(--orange-dim); }
+.stageItem.stageLocked { cursor: not-allowed; border-color: rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.25); }
+.checkbox { width: 18px; height: 18px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
+.stageName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.3px; }
+.lockedTag {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-tag);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.5px;
+}
+
+.presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
+.presetChip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--orange-dim);
+    color: var(--orange);
+    border: 1px solid var(--orange-border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: var(--fs-meta);
+    font-weight: 700;
+}
+.presetChipRemove {
+    background: none; border: none; color: inherit; cursor: pointer;
+    display: flex; align-items: center; padding: 0;
+}
+
+.financialsSummary {
+    background: rgba(0, 0, 0, 0.2);
+    padding: var(--gap-lg);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+}
+.finRow { display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: var(--fs-value); }
+.finRow.total { color: var(--orange); font-size: clamp(14px, 1.5vw, 18px); border-top: 1px solid rgba(238, 140, 58, 0.25); padding-top: var(--gap-md); }
+
+.dropzone {
+    border: 2px dashed rgba(238, 140, 58, 0.4);
+    border-radius: var(--radius);
+    padding: var(--gap-xl);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
+
+.fileList { display: flex; flex-direction: column; gap: var(--gap-md); }
+.fileItem {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: var(--fs-value);
+    font-weight: 600;
+    padding: var(--gap-md);
+    border-radius: var(--radius-sm);
+}
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--navy-deep);
+    color: #fff;
+    border: 1px solid var(--orange-border);
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    animation: slideIn 0.3s ease-out;
+}
+.toast.error { background: var(--red); border-color: var(--red); }
+.toast.success { background: var(--green); border-color: var(--green); }
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+@media (max-width: 900px) {
+    .splitRow { grid-template-columns: 1fr; }
+    .ownerRow { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .pageHeader { flex-direction: column; align-items: flex-start; gap: var(--gap-lg); border-radius: 0; }
+    .actions { width: 100%; }
+    .actions .btn { flex: 1; justify-content: center; }
+}
+""")
+
+# =====================================================================
+# 5) IntakePage.jsx — FULL WRITE (with index preview, dates, split row)
+# =====================================================================
+write("erp-frontend/src/pages/Intake/IntakePage.jsx", r"""// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
+    FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
+    FiLock, FiEdit3, FiBookmark, FiX
+} from 'react-icons/fi';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import HardwareSelect from '../../components/common/HardwareSelect';
+import landService from '../../services/landService';
+import stageTemplateService from '../../services/stageTemplateService';
+import styles from './IntakePage.module.css';
+
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
+
+const PROJECT_TYPES = [
+    { value: 'NEW_FOLDER',   label: 'New Folder',   icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
+    { value: 'NEW_TITLE',    label: 'New Title',    icon: <FiFilePlus aria-hidden="true" />,   hint: 'Title captured now' },
+    { value: 'LEGACY_TITLE', label: 'Legacy Title', icon: <FiArchive aria-hidden="true" />,    hint: 'Existing title, receivable' },
+];
+
+const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
+const loadPresets = () => {
+    try {
+        const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+};
+const savePresets = (presets) => {
+    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch {}
+};
+
+export default function IntakePage() {
+    const navigate = useNavigate();
+    const [saving, setSaving] = useState(false);
+    const [nextIndex, setNextIndex] = useState('');
+    const [projectType, setProjectType] = useState('NEW_FOLDER');
+    const [projectStartDate, setProjectStartDate] = useState(todayISO);
+    const [owners, setOwners] = useState([EMPTY_OWNER()]);
+
+    const [district, setDistrict] = useState('');
+    const [county, setCounty] = useState('');
+    const [subCounty, setSubCounty] = useState('');
+    const [parish, setParish] = useState('');
+    const [village, setVillage] = useState('');
+    const [area, setArea] = useState('');
+
+    const [templates, setTemplates] = useState([]);
+    const [checkedStages, setCheckedStages] = useState({});
+    const [addingStage, setAddingStage] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [newStageCost, setNewStageCost] = useState('');
+    const [presets, setPresets] = useState(loadPresets);
+    const [presetName, setPresetName] = useState('');
+    const [showSavePreset, setShowSavePreset] = useState(false);
+
+    const [titleId, setTitleId] = useState('');
+    const [tenure, setTenure] = useState('FREEHOLD');
+    const [plotNumber, setPlotNumber] = useState('');
+    const [blockRoad, setBlockRoad] = useState('');
+    const [titleIssueDate, setTitleIssueDate] = useState('');
+
+    const [totalCost, setTotalCost] = useState(0);
+    const [initialPayment, setInitialPayment] = useState(0);
+    const [initialStorageFee, setInitialStorageFee] = useState(0);
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState(0);
+
+    const [fileQueue, setFileQueue] = useState([]);
+    const [notes, setNotes] = useState('');
+
+    const [toasts, setToasts] = useState([]);
+    const toast = useCallback((msg, type = 'info') => {
+        const id = Date.now();
+        setToasts(p => [...p, { id, msg, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    }, []);
+
+    const fetchTemplates = useCallback(() => {
+        stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
+    }, []);
+    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+    useEffect(() => {
+        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+    }, []);
+
+    const sortedTemplates = useMemo(
+        () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
+        [templates]
+    );
+    const firstStageId = sortedTemplates[0]?.id;
+    const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
+
+    useEffect(() => {
+        if (!sortedTemplates.length) return;
+        setCheckedStages(prev => {
+            const next = { ...prev };
+            if (firstStageId && next[firstStageId] === undefined) next[firstStageId] = true;
+            if (lastStageId && next[lastStageId] === undefined) next[lastStageId] = true;
+            return next;
+        });
+    }, [sortedTemplates.length, firstStageId, lastStageId]);
+
+    const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
+    const isLegacy = projectType === 'LEGACY_TITLE';
+    const titleAtIntake = projectType === 'NEW_TITLE';
+    const isTitleSectionVisible = isLegacy || titleAtIntake || finalStageChecked;
+
+    const handleProjectTypeChange = (value) => {
+        setProjectType(value);
+        if (value === 'LEGACY_TITLE') {
+            const allChecked = {};
+            sortedTemplates.forEach(t => { allChecked[t.id] = true; });
+            setCheckedStages(allChecked);
+        }
+    };
+
+    const toggleStage = (id) => {
+        if (id === firstStageId || id === lastStageId) return;
+        setCheckedStages(p => ({ ...p, [id]: !p[id] }));
+    };
+
+    const handleAddStage = async () => {
+        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
+        try {
+            const last = sortedTemplates[sortedTemplates.length - 1];
+            const lastOrder = last?.displayOrder ?? sortedTemplates.length;
+            if (last) {
+                await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
+            }
+            const created = await stageTemplateService.addTemplateStage(
+                newStageName.trim(),
+                newStageCost ? Number(newStageCost) : 0,
+                last ? lastOrder : undefined,
+            );
+            setNewStageName('');
+            setNewStageCost('');
+            setAddingStage(false);
+            fetchTemplates();
+            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
+            toast('Stage added to checklist.', 'success');
+        } catch (err) {
+            toast(err.response?.data?.message || 'Could not add stage.', 'error');
+        }
+    };
+
+    const handleSavePreset = () => {
+        if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
+        const stageNames = sortedTemplates.filter(t => checkedStages[t.id]).map(t => t.stageName);
+        const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
+        setPresets(next);
+        savePresets(next);
+        setPresetName('');
+        setShowSavePreset(false);
+        toast('Stage preset saved.', 'success');
+    };
+
+    const applyPreset = (name) => {
+        if (!name) return;
+        const preset = presets.find(p => p.name === name);
+        if (!preset) return;
+        const next = {};
+        sortedTemplates.forEach(t => {
+            next[t.id] = t.id === firstStageId || t.id === lastStageId || preset.stageNames.includes(t.stageName);
+        });
+        setCheckedStages(next);
+    };
+
+    const deletePreset = (name) => {
+        const next = presets.filter(p => p.name !== name);
+        setPresets(next);
+        savePresets(next);
+    };
+
+    const updateOwner = (idx, field, val) => {
+        setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
+    };
+
+    const handleFileUpload = (e) => {
+        const files = Array.from(e.target.files);
+        setFileQueue(p => [...p, ...files]);
+    };
+
+    const handleSubmit = async () => {
+        if (!district.trim() || !county.trim()) {
+            toast('District and County are required.', 'error'); return;
+        }
+        for (let o of owners) {
+            if (!o.nationalId.trim()) {
+                toast('NIN is required for all owners.', 'error'); return;
+            }
+        }
+        if (isTitleSectionVisible) {
+            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return; }
+            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return; }
+        }
+
+        setSaving(true);
+        try {
+            const payload = {
+                district: district.trim().toUpperCase(),
+                county: county.trim().toUpperCase(),
+                subCounty: subCounty.trim().toUpperCase(),
+                parish: parish.trim().toUpperCase(),
+                village: village.trim().toUpperCase(),
+                area: area.trim(),
+                totalCost: Number(totalCost) || 0,
+                initialPayment: Number(initialPayment) || 0,
+                isLegacy: isLegacy,
+                titleAtIntake: titleAtIntake,
+                projectStartDate: projectStartDate || todayISO(),
+                owners: owners.map(o => ({
+                    fullName: o.fullName.trim().toUpperCase(),
+                    phone: o.phone.trim(),
+                    email: o.email.trim().toLowerCase(),
+                    nationalId: o.nationalId.trim().toUpperCase(),
+                    address: o.address.trim(),
+                })),
+                selectedStages: Object.entries(checkedStages).filter(([, v]) => v).map(([id]) => {
+                    const t = templates.find(x => x.id === id);
+                    return {
+                        stageTemplateId: id,
+                        stageName: t ? t.stageName : '',
+                        isCustom: false,
+                        isCompleted: true
+                    };
+                }),
+                notes: notes.trim() ? [{ content: notes.trim() }] : [],
+            };
+
+            if (isTitleSectionVisible) {
+                payload.plotNumber = plotNumber.trim().toUpperCase();
+                payload.tenure = tenure;
+                payload.blockRoad = blockRoad.trim().toUpperCase();
+                payload.titleId = titleId.trim().toUpperCase();
+                payload.titleIssueDate = titleIssueDate || null;
+            }
+
+            if (isLegacy) {
+                payload.isStartAsReceivable = true;
+                payload.initialStorageFee = Number(initialStorageFee) || 0;
+                payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
+            }
+
+            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
+            toast('Project registered successfully!', 'success');
+            setTimeout(() => navigate('/land/projects'), 1500);
+        } catch (err) {
+            toast(err.response?.data?.message || 'Save failed', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+
+    let n = 0;
+    const nIndex = ++n;
+    const nOwners = ++n;
+    const nTitle = isTitleSectionVisible ? ++n : null;
+    const nLocation = ++n;
+    const nStages = ++n;
+    const nFinancials = ++n;
+    const nDocuments = ++n;
+    const nNotes = ++n;
+
+    return (
+        <div className={styles.container}>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>New Project</h1>
+                    <p className={styles.subtitle}>Intake Form</p>
+                </div>
+                <div className={styles.actions}>
+                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
+                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> {saving ? 'Saving...' : 'Save'}
+                    </button>
+                </div>
+            </header>
+
+            <div className={styles.sections}>
+
+                <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Index</label>
+                            <input className={`${styles.input} ${styles.indexValue}`} value={nextIndex} placeholder="--" disabled />
+                            <p className={styles.hint}>Next available index, assigned on save</p>
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Date Started</label>
+                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)} />
+                            <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
+                        </div>
+                    </div>
+                    <div className={styles.field}>
+                        <label className={`${styles.label} ${styles.required}`}>Type</label>
+                        <div className={styles.typeGroup}>
+                            {PROJECT_TYPES.map(pt => (
+                                <button
+                                    key={pt.value}
+                                    type="button"
+                                    className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
+                                    onClick={() => handleProjectTypeChange(pt.value)}
+                                >
+                                    {pt.icon}
+                                    <span>{pt.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
+                    {owners.map((o, idx) => (
+                        <div key={idx} className={styles.ownerRow}>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>NIN</label>
+                                <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Full Name</label>
+                                <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Phone</label>
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Email</label>
+                                <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
+                            </div>
+                            <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>
+                                <FiTrash2 />
+                            </button>
+                        </div>
+                    ))}
+                    <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                        <FiPlus /> Add joint owner
+                    </button>
+                </CollapsibleSection>
+
+                {isTitleSectionVisible && (
+                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
+                        <div className={styles.grid3}>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title ID</label>
+                                <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
+                            </div>
+                            <HardwareSelect
+                                label="Tenure"
+                                required
+                                options={TENURE_OPTIONS}
+                                value={tenure}
+                                onChange={setTenure}
+                            />
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
+                                <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Block</label>
+                                <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title Date</label>
+                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => setTitleIssueDate(e.target.value)} />
+                                <p className={styles.hint}>Leave blank if not yet received.</p>
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+                )}
+
+                <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
+                    <div className={styles.grid3}>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>District</label>
+                            <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>County</label>
+                            <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Sub-county</label>
+                            <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Parish</label>
+                            <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Village</label>
+                            <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
+                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection
+                    icon={<FiCheckSquare />}
+                    title={`${nStages}. Stages`}
+                    right={
+                        <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {presets.length > 0 && (
+                                <HardwareSelect
+                                    compact
+                                    placeholder="Apply preset..."
+                                    value=""
+                                    options={presets.map(p => p.name)}
+                                    onChange={applyPreset}
+                                />
+                            )}
+                            <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
+                                <FiBookmark /> Save Preset
+                            </button>
+                            <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
+                                <FiPlus /> Add Stage
+                            </button>
+                        </div>
+                    }
+                >
+                    {showSavePreset && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
+                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                            <button className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
+                        </div>
+                    )}
+                    {addingStage && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                            <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
+                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                            <button className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
+                        </div>
+                    )}
+                    <div className={styles.stageList}>
+                        {sortedTemplates.map(t => {
+                            const locked = t.id === firstStageId || t.id === lastStageId;
+                            return (
+                                <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
+                                    <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
+                                        disabled={locked}
+                                        onChange={() => toggleStage(t.id)} />
+                                    <span className={styles.stageName}>{t.stageName}</span>
+                                    {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
+                                </label>
+                            );
+                        })}
+                    </div>
+                    {presets.length > 0 && (
+                        <div className={styles.presetList}>
+                            {presets.map(p => (
+                                <span key={p.name} className={styles.presetChip}>
+                                    {p.name}
+                                    <button className={styles.presetChipRemove} onClick={() => deletePreset(p.name)} aria-label={`Delete preset ${p.name}`}><FiX size={12} /></button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Total Cost</label>
+                            <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Initial Payment</label>
+                            <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                        </div>
+                    </div>
+                    {isLegacy && (
+                        <>
+                            <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
+                            <div className={styles.grid2}>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Initial Storage Fee</label>
+                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Monthly Storage Fee</label>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    <div className={styles.financialsSummary}>
+                        <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
+                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
+                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
+                    </div>
+                </CollapsibleSection>
+
+                <div className={styles.splitRow}>
+                    <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
+                        <label className={styles.dropzone}>
+                            <FiUploadCloud size={24} />
+                            <p>Click to upload</p>
+                            <input type="file" multiple style={{ display: 'none' }} onChange={handleFileUpload} />
+                        </label>
+                        <div className={styles.fileList}>
+                            {fileQueue.map((f, i) => (
+                                <div key={i} className={styles.fileItem}>
+                                    <span>{f.name}</span>
+                                    <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </CollapsibleSection>
+
+                    <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
+                        <div className={styles.field}>
+                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes..." />
+                        </div>
+                    </CollapsibleSection>
+                </div>
+
+            </div>
+
+            {toasts.map(t => (
+                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>
+            ))}
+        </div>
+    );
+}
+""")
+
+# =====================================================================
+# 6) landService.js — PATCH: add getNextIndex method
+# =====================================================================
+patch_append(
+    "erp-frontend/src/services/landService.js",
+    "export default landService;",
+    """    // INTAKE: preview the next project index (001A format) before saving
+    getNextIndex: async () => {
+        const response = await api.get('/land/next-index');
+        return response.data;
+    },
+
+"""
+)
+
+# =====================================================================
+# 7) ProjectIndexService.java — PATCH: add previewNextIndex
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ProjectIndexService.java",
+    "    // A -> B -> C ... Z -> AA -> AB",
+    """    /**
+     * Non-mutating preview of the index the next intake will receive.
+     * Same math as generateNextIndex() but never writes the counter.
+     */
+    public synchronized String previewNextIndex() {
+        try (Connection conn = dataSource.getConnection()) {
+            int currentNumber;
+            String currentLetter;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT current_number, current_letter FROM project_index_counter WHERE id = 1");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    currentNumber = rs.getInt("current_number");
+                    currentLetter = rs.getString("current_letter");
+                } else {
+                    currentNumber = 0;
+                    currentLetter = "A";
+                }
+            }
+            currentNumber = currentNumber + 1;
+            if (currentNumber > 999) {
+                currentNumber = 1;
+                currentLetter = nextLetter(currentLetter);
+            }
+            return String.format("%03d", currentNumber) + currentLetter;
+        } catch (Exception e) {
+            throw new RuntimeException("PROJECT_INDEX_FAULT: Could not preview project index", e);
+        }
+    }
+
+"""
+)
+
+# =====================================================================
+# 8) LandService.java — PATCH (a) previewNextIndex method
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "    @Transactional(rollbackFor = Exception.class)",
+    """    public String previewNextIndex() {
+        return projectIndexService.previewNextIndex();
+    }
+
+"""
+)
+
+# =====================================================================
+# 8) LandService.java — PATCH (b) .projectStartDate in builder chain
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
+    "            .projectIndex(projectIndex)",
+    """            .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())"""
+)
+
+# =====================================================================
+# 9) LandController.java — PATCH: /next-index endpoint
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
+    "    @PostMapping(\"/projects/{id}/unlock-log\")",
+    """    // INTAKE: preview next project index
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/next-index")
+    public ResponseEntity<String> previewNextIndex() {
+        return ResponseEntity.ok(landService.previewNextIndex());
+    }
+
+"""
+)
+
+# =====================================================================
+# 10) LandProject.java — PATCH: projectStartDate field
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java",
+    "    private String projectIndex;",
+    """
+    /**
+     * PROJECT START DATE — set at intake, exists even before any title does.
+     * Maps to LandEntryRequest.projectStartDate from the frontend.
+     */
+    @Column(name = "project_start_date")
+    private LocalDate projectStartDate;"""
+)
+
+# =====================================================================
+# Report
+# =====================================================================
+print(f"\n=== fix.py completed ===")
+print(f"  Wrote:   {len(WROTE)} file(s)")
+for f in WROTE: print(f"    + {f}")
+print(f"  Patched: {len(PATCHED)} file(s)")
+for f in PATCHED: print(f"    ~ {f}")
+if FAILED:
+    print(f"  FAILED:  {len(FAILED)} file(s)")
+    for f, e in FAILED: print(f"    ! {f} -> {e}")
+    sys.exit(1)
+print()
+
+# =====================================================================
+# Auto-commit all changes
+# =====================================================================
 import subprocess
 
-def read(path):
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        return f.read()
+if WROTE or PATCHED:
+    try:
+        subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
+        
+        commit_msg = """feat: Dark theme intake form revamp
 
-def write(path, content):
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content)
-
-def patch(path, old, new, label):
-    content = read(path)
-    count = content.count(old)
-    if count == 1:
-        content = content.replace(old, new)
-        write(path, content)
-        print('OK: ' + label)
-    elif count == 0:
-        print('MISSING (not found): ' + label)
-    else:
-        print('MISSING (found ' + str(count) + ' times, expected 1): ' + label)
-
-def write_full(path, b64_content, label):
-    data = base64.b64decode(''.join(b64_content))
-    with open(path, 'wb') as f:
-        f.write(data)
-    print('OK: ' + label)
-
-COLLAPSIBLE_SECTION_JSX_B64 = (
-    'Ly8gUEFUSDogZXJwLWZyb250ZW5kL3NyYy9jb21wb25lbnRzL3VpL0NvbGxhcHNpYmxlU2VjdGlvbi5qc3gKaW1wb3J0IFJlYWN0'
-    'LCB7IHVzZVN0YXRlIH0gZnJvbSAncmVhY3QnOwppbXBvcnQgeyBGaUNoZXZyb25Eb3duIH0gZnJvbSAncmVhY3QtaWNvbnMvZmkn'
-    'OwppbXBvcnQgc3R5bGVzIGZyb20gJy4vQ29sbGFwc2libGVTZWN0aW9uLm1vZHVsZS5jc3MnOwoKLyoqCiAqIEdlbmVyaWMgZXhw'
-    'YW5kL2NvbnRyYWN0IGNhcmQgdXNlZCB0byBicmVhayBsb25nIGZvcm1zIGFuZCBwYWdlcyBpbnRvCiAqIHNjYW5uYWJsZSBjaHVu'
-    'a3MuIENsaWNrIHRoZSBoZWFkZXIgKG9yIHByZXNzIEVudGVyL1NwYWNlIG9uIGl0KSB0bwogKiB0b2dnbGUuIFVuY29udHJvbGxl'
-    'ZCBieSBkZWZhdWx0IChkZWZhdWx0T3BlbikgYnV0IGNhbiBiZSBkcml2ZW4KICogZXh0ZXJuYWxseSB2aWEgYG9wZW5gICsgYG9u'
-    'VG9nZ2xlYCB3aGVuIGEgcGFyZW50IG5lZWRzIHRvIGtub3cgc3RhdGUuCiAqLwpjb25zdCBDb2xsYXBzaWJsZVNlY3Rpb24gPSAo'
-    'ewogICAgaWNvbiwKICAgIHRpdGxlLAogICAgcmlnaHQsCiAgICBkZWZhdWx0T3BlbiA9IHRydWUsCiAgICBvcGVuOiBjb250cm9s'
-    'bGVkT3BlbiwKICAgIG9uVG9nZ2xlLAogICAgYWNjZW50ID0gZmFsc2UsCiAgICBjbGFzc05hbWUgPSAnJywKICAgIGNoaWxkcmVu'
-    'LAp9KSA9PiB7CiAgICBjb25zdCBbaW50ZXJuYWxPcGVuLCBzZXRJbnRlcm5hbE9wZW5dID0gdXNlU3RhdGUoZGVmYXVsdE9wZW4p'
-    'OwogICAgY29uc3QgaXNDb250cm9sbGVkID0gY29udHJvbGxlZE9wZW4gIT09IHVuZGVmaW5lZDsKICAgIGNvbnN0IG9wZW4gPSBp'
-    'c0NvbnRyb2xsZWQgPyBjb250cm9sbGVkT3BlbiA6IGludGVybmFsT3BlbjsKCiAgICBjb25zdCB0b2dnbGUgPSAoKSA9PiB7CiAg'
-    'ICAgICAgaWYgKGlzQ29udHJvbGxlZCkgb25Ub2dnbGU/Lighb3Blbik7CiAgICAgICAgZWxzZSBzZXRJbnRlcm5hbE9wZW4obyA9'
-    'PiAhbyk7CiAgICB9OwoKICAgIHJldHVybiAoCiAgICAgICAgPHNlY3Rpb24gY2xhc3NOYW1lPXtgJHtzdHlsZXMuc2VjdGlvbn0g'
-    'JHthY2NlbnQgPyBzdHlsZXMuYWNjZW50IDogJyd9ICR7Y2xhc3NOYW1lfWB9PgogICAgICAgICAgICA8YnV0dG9uCiAgICAgICAg'
-    'ICAgICAgICB0eXBlPSJidXR0b24iCiAgICAgICAgICAgICAgICBjbGFzc05hbWU9e3N0eWxlcy5oZWFkZXJ9CiAgICAgICAgICAg'
-    'ICAgICBvbkNsaWNrPXt0b2dnbGV9CiAgICAgICAgICAgICAgICBhcmlhLWV4cGFuZGVkPXtvcGVufQogICAgICAgICAgICA+CiAg'
-    'ICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9e3N0eWxlcy5oZWFkZXJMZWZ0fT4KICAgICAgICAgICAgICAgICAgICB7aWNv'
-    'bn0KICAgICAgICAgICAgICAgICAgICA8aDIgY2xhc3NOYW1lPXtzdHlsZXMudGl0bGV9Pnt0aXRsZX08L2gyPgogICAgICAgICAg'
-    'ICAgICAgPC9zcGFuPgogICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtzdHlsZXMuaGVhZGVyUmlnaHR9PgogICAgICAg'
-    'ICAgICAgICAgICAgIHtyaWdodCAmJiA8c3BhbiBvbkNsaWNrPXtlID0+IGUuc3RvcFByb3BhZ2F0aW9uKCl9PntyaWdodH08L3Nw'
-    'YW4+fQogICAgICAgICAgICAgICAgICAgIDxGaUNoZXZyb25Eb3duCiAgICAgICAgICAgICAgICAgICAgICAgIGFyaWEtaGlkZGVu'
-    'PSJ0cnVlIgogICAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9e2Ake3N0eWxlcy5jaGV2cm9ufSAke29wZW4gPyBzdHls'
-    'ZXMuY2hldnJvbk9wZW4gOiAnJ31gfQogICAgICAgICAgICAgICAgICAgIC8+CiAgICAgICAgICAgICAgICA8L3NwYW4+CiAgICAg'
-    'ICAgICAgIDwvYnV0dG9uPgogICAgICAgICAgICB7b3BlbiAmJiA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmJvZHl9PntjaGlsZHJl'
-    'bn08L2Rpdj59CiAgICAgICAgPC9zZWN0aW9uPgogICAgKTsKfTsKCmV4cG9ydCBkZWZhdWx0IENvbGxhcHNpYmxlU2VjdGlvbjsK'
-)
-
-COLLAPSIBLE_SECTION_CSS_B64 = (
-    'LyogUEFUSDogZXJwLWZyb250ZW5kL3NyYy9jb21wb25lbnRzL3VpL0NvbGxhcHNpYmxlU2VjdGlvbi5tb2R1bGUuY3NzICovCi5z'
-    'ZWN0aW9uIHsKICAgIC0tb3JhbmdlOiAjRUU4QzNBOwogICAgLS1vcmFuZ2UtZGltOiByZ2JhKDIzOCwgMTQwLCA1OCwgMC4xOCk7'
-    'CiAgICAtLW9yYW5nZS1ib3JkZXI6IHJnYmEoMjM4LCAxNDAsIDU4LCAwLjI4KTsKICAgIC0tbmF2eTogIzFhMmUzMDsKICAgIC0t'
-    'Ym9yZGVyOiAjZTJlOGYwOwogICAgLS1jYXJkLWJnOiAjZmZmZmZmOwoKICAgIGJhY2tncm91bmQ6IHZhcigtLWNhcmQtYmcpOwog'
-    'ICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tYm9yZGVyKTsKICAgIGJvcmRlci1yYWRpdXM6IDEwcHg7CiAgICBvdmVyZmxvdzog'
-    'aGlkZGVuOwogICAgdHJhbnNpdGlvbjogYm9yZGVyLWNvbG9yIDAuMnMgZWFzZTsKfQoKLnNlY3Rpb24uYWNjZW50IHsKICAgIGJv'
-    'cmRlcjogMnB4IHNvbGlkIHZhcigtLW9yYW5nZSk7Cn0KCi5oZWFkZXIgewogICAgd2lkdGg6IDEwMCU7CiAgICBkaXNwbGF5OiBm'
-    'bGV4OwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGp1c3RpZnktY29udGVudDogc3BhY2UtYmV0d2VlbjsKICAgIGdhcDog'
-    'Y2xhbXAoN3B4LCAxLjF2dywgMTNweCk7CiAgICBwYWRkaW5nOiBjbGFtcCgxMnB4LCAxLjZ2dywgMThweCkgY2xhbXAoMTRweCwg'
-    'MS44dncsIDIwcHgpOwogICAgYmFja2dyb3VuZDogdHJhbnNwYXJlbnQ7CiAgICBib3JkZXI6IG5vbmU7CiAgICBjdXJzb3I6IHBv'
-    'aW50ZXI7CiAgICB0ZXh0LWFsaWduOiBsZWZ0OwogICAgZm9udDogaW5oZXJpdDsKICAgIGNvbG9yOiBpbmhlcml0Owp9Ci5oZWFk'
-    'ZXI6aG92ZXIgLnRpdGxlIHsgY29sb3I6IHZhcigtLW9yYW5nZSk7IH0KLmhlYWRlcjpmb2N1cy12aXNpYmxlIHsgb3V0bGluZTog'
-    'MnB4IHNvbGlkIHZhcigtLW9yYW5nZSk7IG91dGxpbmUtb2Zmc2V0OiAtMnB4OyB9CgouaGVhZGVyTGVmdCB7CiAgICBkaXNwbGF5'
-    'OiBmbGV4OwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGdhcDogOHB4OwogICAgbWluLXdpZHRoOiAwOwogICAgY29sb3I6'
-    'IHZhcigtLW9yYW5nZSk7CiAgICBmb250LXNpemU6IDE4cHg7Cn0KCi50aXRsZSB7CiAgICBmb250LWZhbWlseTogJ0NpbnplbCcs'
-    'IHNlcmlmOwogICAgZm9udC1zaXplOiBjbGFtcCgxM3B4LCAxLjZ2dywgMTZweCk7CiAgICBmb250LXdlaWdodDogNzAwOwogICAg'
-    'Y29sb3I6IHZhcigtLW5hdnkpOwogICAgbWFyZ2luOiAwOwogICAgdHJhbnNpdGlvbjogY29sb3IgMC4xNXMgZWFzZTsKICAgIHdo'
-    'aXRlLXNwYWNlOiBub3dyYXA7CiAgICBvdmVyZmxvdzogaGlkZGVuOwogICAgdGV4dC1vdmVyZmxvdzogZWxsaXBzaXM7Cn0KCi5o'
-    'ZWFkZXJSaWdodCB7CiAgICBkaXNwbGF5OiBmbGV4OwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGdhcDogY2xhbXAoOHB4'
-    'LCAxLjJ2dywgMTRweCk7CiAgICBmbGV4LXNocmluazogMDsKfQoKLmNoZXZyb24gewogICAgY29sb3I6ICM5NGEzYjg7CiAgICBm'
-    'b250LXNpemU6IDE2cHg7CiAgICB0cmFuc2l0aW9uOiB0cmFuc2Zvcm0gMC4ycyBlYXNlLCBjb2xvciAwLjJzIGVhc2U7CiAgICBm'
-    'bGV4LXNocmluazogMDsKfQouY2hldnJvbk9wZW4geyB0cmFuc2Zvcm06IHJvdGF0ZSgxODBkZWcpOyBjb2xvcjogdmFyKC0tb3Jh'
-    'bmdlKTsgfQoKLmJvZHkgewogICAgcGFkZGluZzogMCBjbGFtcCgxNHB4LCAxLjh2dywgMjBweCkgY2xhbXAoMTRweCwgMS44dncs'
-    'IDIwcHgpOwogICAgZGlzcGxheTogZmxleDsKICAgIGZsZXgtZGlyZWN0aW9uOiBjb2x1bW47CiAgICBnYXA6IGNsYW1wKDEwcHgs'
-    'IDEuNXZ3LCAxOHB4KTsKICAgIGJvcmRlci10b3A6IDFweCBzb2xpZCB2YXIoLS1ib3JkZXIpOwogICAgcGFkZGluZy10b3A6IGNs'
-    'YW1wKDE0cHgsIDEuOHZ3LCAyMHB4KTsKICAgIGFuaW1hdGlvbjogZXhwYW5kIDAuMThzIGVhc2Utb3V0IGJvdGg7Cn0KCkBrZXlm'
-    'cmFtZXMgZXhwYW5kIHsKICAgIGZyb20geyBvcGFjaXR5OiAwOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVkoLTRweCk7IH0KICAgIHRv'
-    'ICAgeyBvcGFjaXR5OiAxOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVkoMCk7IH0KfQoKQG1lZGlhIChtYXgtd2lkdGg6IDc2OHB4KSB7'
-    'CiAgICAuaGVhZGVyIHsgcGFkZGluZzogMTJweCAxNHB4OyB9CiAgICAuYm9keSB7IHBhZGRpbmc6IDEycHggMTRweCAxNHB4OyB9'
-    'Cn0K'
-)
-
-INTAKE_JSX_B64 = (
-    'Ly8gUEFUSDogZXJwLWZyb250ZW5kL3NyYy9wYWdlcy9JbnRha2UvSW50YWtlUGFnZS5qc3gKaW1wb3J0IFJlYWN0LCB7IHVzZVN0'
-    'YXRlLCB1c2VFZmZlY3QsIHVzZUNhbGxiYWNrLCB1c2VNZW1vIH0gZnJvbSAncmVhY3QnOwppbXBvcnQgeyB1c2VOYXZpZ2F0ZSB9'
-    'IGZyb20gJ3JlYWN0LXJvdXRlci1kb20nOwppbXBvcnQgewogICAgRmlVc2VycywgRmlNYXAsIEZpQ2hlY2tTcXVhcmUsIEZpRmls'
-    'ZVRleHQsIEZpRG9sbGFyU2lnbiwgRmlVcGxvYWRDbG91ZCwKICAgIEZpUGx1cywgRmlUcmFzaDIsIEZpU2F2ZSwgRmlIYXNoLCBG'
-    'aUZvbGRlclBsdXMsIEZpRmlsZVBsdXMsIEZpQXJjaGl2ZSwKICAgIEZpTG9jaywgRmlFZGl0MywgRmlCb29rbWFyaywgRmlYCn0g'
-    'ZnJvbSAncmVhY3QtaWNvbnMvZmknOwppbXBvcnQgQ29sbGFwc2libGVTZWN0aW9uIGZyb20gJy4uLy4uL2NvbXBvbmVudHMvdWkv'
-    'Q29sbGFwc2libGVTZWN0aW9uJzsKaW1wb3J0IGxhbmRTZXJ2aWNlIGZyb20gJy4uLy4uL3NlcnZpY2VzL2xhbmRTZXJ2aWNlJzsK'
-    'aW1wb3J0IHN0YWdlVGVtcGxhdGVTZXJ2aWNlIGZyb20gJy4uLy4uL3NlcnZpY2VzL3N0YWdlVGVtcGxhdGVTZXJ2aWNlJzsKaW1w'
-    'b3J0IHN0eWxlcyBmcm9tICcuL0ludGFrZVBhZ2UubW9kdWxlLmNzcyc7Cgpjb25zdCBFTVBUWV9PV05FUiA9ICgpID0+ICh7IGZ1'
-    'bGxOYW1lOiAnJywgcGhvbmU6ICcnLCBlbWFpbDogJycsIG5hdGlvbmFsSWQ6ICcnLCBhZGRyZXNzOiAnJyB9KTsKCmNvbnN0IFBS'
-    'T0pFQ1RfVFlQRVMgPSBbCiAgICB7IHZhbHVlOiAnTkVXX0ZPTERFUicsICAgIGxhYmVsOiAnTmV3IEZvbGRlcicsICAgIGljb246'
-    'IDxGaUZvbGRlclBsdXMgYXJpYS1oaWRkZW49InRydWUiIC8+LCBoaW50OiAnTm8gdGl0bGUgeWV0JyB9LAogICAgeyB2YWx1ZTog'
-    'J05FV19USVRMRScsICAgICBsYWJlbDogJ05ldyBUaXRsZScsICAgICBpY29uOiA8RmlGaWxlUGx1cyAgIGFyaWEtaGlkZGVuPSJ0'
-    'cnVlIiAvPiwgIGhpbnQ6ICdUaXRsZSBjYXB0dXJlZCBub3cnIH0sCiAgICB7IHZhbHVlOiAnTEVHQUNZX1RJVExFJywgIGxhYmVs'
-    'OiAnTGVnYWN5IFRpdGxlJywgIGljb246IDxGaUFyY2hpdmUgICAgYXJpYS1oaWRkZW49InRydWUiIC8+LCAgaGludDogJ0V4aXN0'
-    'aW5nIHRpdGxlLCByZWNlaXZhYmxlJyB9LApdOwoKY29uc3QgUFJFU0VUX1NUT1JBR0VfS0VZID0gJ2dlU29sdXRpb25zLmludGFr'
-    'ZS5zdGFnZVByZXNldHMnOwoKY29uc3QgbG9hZFByZXNldHMgPSAoKSA9PiB7CiAgICB0cnkgewogICAgICAgIGNvbnN0IHJhdyA9'
-    'IGxvY2FsU3RvcmFnZS5nZXRJdGVtKFBSRVNFVF9TVE9SQUdFX0tFWSk7CiAgICAgICAgcmV0dXJuIHJhdyA/IEpTT04ucGFyc2Uo'
-    'cmF3KSA6IFtdOwogICAgfSBjYXRjaCB7CiAgICAgICAgcmV0dXJuIFtdOwogICAgfQp9OwoKY29uc3Qgc2F2ZVByZXNldHMgPSAo'
-    'cHJlc2V0cykgPT4gewogICAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oUFJFU0VUX1NUT1JBR0VfS0VZLCBKU09OLnN0cmlu'
-    'Z2lmeShwcmVzZXRzKSk7IH0gY2F0Y2ggeyAvKiBuby1vcCAqLyB9Cn07CgpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBJbnRha2VQ'
-    'YWdlKCkgewogICAgY29uc3QgbmF2aWdhdGUgPSB1c2VOYXZpZ2F0ZSgpOwogICAgY29uc3QgW3NhdmluZywgc2V0U2F2aW5nXSA9'
-    'IHVzZVN0YXRlKGZhbHNlKTsKICAgIGNvbnN0IFtwcm9qZWN0SW5kZXhdID0gdXNlU3RhdGUoJycpOwogICAgY29uc3QgW3Byb2pl'
-    'Y3RUeXBlLCBzZXRQcm9qZWN0VHlwZV0gPSB1c2VTdGF0ZSgnTkVXX0ZPTERFUicpOwoKICAgIGNvbnN0IFtvd25lcnMsIHNldE93'
-    'bmVyc10gPSB1c2VTdGF0ZShbRU1QVFlfT1dORVIoKV0pOwoKICAgIGNvbnN0IFtkaXN0cmljdCwgc2V0RGlzdHJpY3RdID0gdXNl'
-    'U3RhdGUoJycpOwogICAgY29uc3QgW2NvdW50eSwgc2V0Q291bnR5XSA9IHVzZVN0YXRlKCcnKTsKICAgIGNvbnN0IFtzdWJDb3Vu'
-    'dHksIHNldFN1YkNvdW50eV0gPSB1c2VTdGF0ZSgnJyk7CiAgICBjb25zdCBbcGFyaXNoLCBzZXRQYXJpc2hdID0gdXNlU3RhdGUo'
-    'JycpOwogICAgY29uc3QgW3ZpbGxhZ2UsIHNldFZpbGxhZ2VdID0gdXNlU3RhdGUoJycpOwogICAgY29uc3QgW2FyZWEsIHNldEFy'
-    'ZWFdID0gdXNlU3RhdGUoJycpOwoKICAgIGNvbnN0IFt0ZW1wbGF0ZXMsIHNldFRlbXBsYXRlc10gPSB1c2VTdGF0ZShbXSk7CiAg'
-    'ICBjb25zdCBbY2hlY2tlZFN0YWdlcywgc2V0Q2hlY2tlZFN0YWdlc10gPSB1c2VTdGF0ZSh7fSk7CiAgICBjb25zdCBbYWRkaW5n'
-    'U3RhZ2UsIHNldEFkZGluZ1N0YWdlXSA9IHVzZVN0YXRlKGZhbHNlKTsKICAgIGNvbnN0IFtuZXdTdGFnZU5hbWUsIHNldE5ld1N0'
-    'YWdlTmFtZV0gPSB1c2VTdGF0ZSgnJyk7CiAgICBjb25zdCBbbmV3U3RhZ2VDb3N0LCBzZXROZXdTdGFnZUNvc3RdID0gdXNlU3Rh'
-    'dGUoJycpOwoKICAgIGNvbnN0IFtwcmVzZXRzLCBzZXRQcmVzZXRzXSA9IHVzZVN0YXRlKGxvYWRQcmVzZXRzKTsKICAgIGNvbnN0'
-    'IFtwcmVzZXROYW1lLCBzZXRQcmVzZXROYW1lXSA9IHVzZVN0YXRlKCcnKTsKICAgIGNvbnN0IFtzaG93U2F2ZVByZXNldCwgc2V0'
-    'U2hvd1NhdmVQcmVzZXRdID0gdXNlU3RhdGUoZmFsc2UpOwoKICAgIGNvbnN0IFt0aXRsZUlkLCBzZXRUaXRsZUlkXSA9IHVzZVN0'
-    'YXRlKCcnKTsKICAgIGNvbnN0IFt0ZW51cmUsIHNldFRlbnVyZV0gPSB1c2VTdGF0ZSgnRlJFRUhPTEQnKTsKICAgIGNvbnN0IFtw'
-    'bG90TnVtYmVyLCBzZXRQbG90TnVtYmVyXSA9IHVzZVN0YXRlKCcnKTsKICAgIGNvbnN0IFtibG9ja1JvYWQsIHNldEJsb2NrUm9h'
-    'ZF0gPSB1c2VTdGF0ZSgnJyk7CgogICAgY29uc3QgW3RvdGFsQ29zdCwgc2V0VG90YWxDb3N0XSA9IHVzZVN0YXRlKDApOwogICAg'
-    'Y29uc3QgW2luaXRpYWxQYXltZW50LCBzZXRJbml0aWFsUGF5bWVudF0gPSB1c2VTdGF0ZSgwKTsKICAgIGNvbnN0IFtpbml0aWFs'
-    'U3RvcmFnZUZlZSwgc2V0SW5pdGlhbFN0b3JhZ2VGZWVdID0gdXNlU3RhdGUoMCk7CiAgICBjb25zdCBbbW9udGhseVN0b3JhZ2VG'
-    'ZWUsIHNldE1vbnRobHlTdG9yYWdlRmVlXSA9IHVzZVN0YXRlKDApOwoKICAgIGNvbnN0IFtmaWxlUXVldWUsIHNldEZpbGVRdWV1'
-    'ZV0gPSB1c2VTdGF0ZShbXSk7CiAgICBjb25zdCBbbm90ZXMsIHNldE5vdGVzXSA9IHVzZVN0YXRlKCcnKTsKCiAgICBjb25zdCBb'
-    'dG9hc3RzLCBzZXRUb2FzdHNdID0gdXNlU3RhdGUoW10pOwogICAgY29uc3QgdG9hc3QgPSB1c2VDYWxsYmFjaygobXNnLCB0eXBl'
-    'PSdpbmZvJykgPT4gewogICAgICAgIGNvbnN0IGlkID0gRGF0ZS5ub3coKTsKICAgICAgICBzZXRUb2FzdHMocCA9PiBbLi4ucCwg'
-    'e2lkLCBtc2csIHR5cGV9XSk7CiAgICAgICAgc2V0VGltZW91dCgoKSA9PiBzZXRUb2FzdHMocCA9PiBwLmZpbHRlcih0ID0+IHQu'
-    'aWQgIT09IGlkKSksIDQwMDApOwogICAgfSwgW10pOwoKICAgIGNvbnN0IGZldGNoVGVtcGxhdGVzID0gdXNlQ2FsbGJhY2soKCkg'
-    'PT4gewogICAgICAgIHN0YWdlVGVtcGxhdGVTZXJ2aWNlLmdldFRlbXBsYXRlKCkudGhlbih0ID0+IHNldFRlbXBsYXRlcyh0IHx8'
-    'IFtdKSkuY2F0Y2goKCkgPT4ge30pOwogICAgfSwgW10pOwoKICAgIHVzZUVmZmVjdCgoKSA9PiB7IGZldGNoVGVtcGxhdGVzKCk7'
-    'IH0sIFtmZXRjaFRlbXBsYXRlc10pOwoKICAgIGNvbnN0IHNvcnRlZFRlbXBsYXRlcyA9IHVzZU1lbW8oCiAgICAgICAgKCkgPT4g'
-    'Wy4uLnRlbXBsYXRlc10uc29ydCgoYSwgYikgPT4gKGEuZGlzcGxheU9yZGVyID8/IDApIC0gKGIuZGlzcGxheU9yZGVyID8/IDAp'
-    'KSwKICAgICAgICBbdGVtcGxhdGVzXQogICAgKTsKICAgIGNvbnN0IGZpcnN0U3RhZ2VJZCA9IHNvcnRlZFRlbXBsYXRlc1swXT8u'
-    'aWQ7CiAgICBjb25zdCBsYXN0U3RhZ2VJZCA9IHNvcnRlZFRlbXBsYXRlc1tzb3J0ZWRUZW1wbGF0ZXMubGVuZ3RoIC0gMV0/Lmlk'
-    'OwoKICAgIC8vIEZpcnN0IGFuZCBsYXN0IHN0YWdlIGFyZSBhbHdheXMgcGFydCBvZiB0aGUgY2hlY2tsaXN0IGFuZCBjYW4ndCBi'
-    'ZQogICAgLy8gdW5jaGVja2VkIC0tIGV2ZXJ5IHByb2plY3Qgc3RhcnRzIHdpdGggdGhlIGZpcnN0IHN0YWdlIGFuZCBjYW4ndCBi'
-    'ZQogICAgLy8gY29uc2lkZXJlZCBkb25lIHVudGlsIHRoZSBsYXN0IG9uZS4gTmV3L290aGVyIHN0YWdlcyBkZWZhdWx0IHRvCiAg'
-    'ICAvLyB1bmNoZWNrZWQgdW5sZXNzIGEgcHJlc2V0IG9yIHRoZSBMZWdhY3kgdHlwZSB0dXJucyB0aGVtIGFsbCBvbi4KICAgIHVz'
-    'ZUVmZmVjdCgoKSA9PiB7CiAgICAgICAgaWYgKCFzb3J0ZWRUZW1wbGF0ZXMubGVuZ3RoKSByZXR1cm47CiAgICAgICAgc2V0Q2hl'
-    'Y2tlZFN0YWdlcyhwcmV2ID0+IHsKICAgICAgICAgICAgY29uc3QgbmV4dCA9IHsgLi4ucHJldiB9OwogICAgICAgICAgICBpZiAo'
-    'Zmlyc3RTdGFnZUlkICYmIG5leHRbZmlyc3RTdGFnZUlkXSA9PT0gdW5kZWZpbmVkKSBuZXh0W2ZpcnN0U3RhZ2VJZF0gPSB0cnVl'
-    'OwogICAgICAgICAgICBpZiAobGFzdFN0YWdlSWQgJiYgbmV4dFtsYXN0U3RhZ2VJZF0gPT09IHVuZGVmaW5lZCkgbmV4dFtsYXN0'
-    'U3RhZ2VJZF0gPSB0cnVlOwogICAgICAgICAgICByZXR1cm4gbmV4dDsKICAgICAgICB9KTsKICAgIH0sIFtzb3J0ZWRUZW1wbGF0'
-    'ZXMubGVuZ3RoLCBmaXJzdFN0YWdlSWQsIGxhc3RTdGFnZUlkXSk7CgogICAgY29uc3QgZmluYWxTdGFnZUNoZWNrZWQgPSBsYXN0'
-    'U3RhZ2VJZCA/ICEhY2hlY2tlZFN0YWdlc1tsYXN0U3RhZ2VJZF0gOiBmYWxzZTsKICAgIGNvbnN0IGlzTGVnYWN5ID0gcHJvamVj'
-    'dFR5cGUgPT09ICdMRUdBQ1lfVElUTEUnOwogICAgY29uc3QgdGl0bGVBdEludGFrZSA9IHByb2plY3RUeXBlID09PSAnTkVXX1RJ'
-    'VExFJzsKICAgIGNvbnN0IGlzVGl0bGVTZWN0aW9uVmlzaWJsZSA9IGlzTGVnYWN5IHx8IHRpdGxlQXRJbnRha2UgfHwgZmluYWxT'
-    'dGFnZUNoZWNrZWQ7CgogICAgY29uc3QgaGFuZGxlUHJvamVjdFR5cGVDaGFuZ2UgPSAodmFsdWUpID0+IHsKICAgICAgICBzZXRQ'
-    'cm9qZWN0VHlwZSh2YWx1ZSk7CiAgICAgICAgaWYgKHZhbHVlID09PSAnTEVHQUNZX1RJVExFJykgewogICAgICAgICAgICAvLyBM'
-    'ZWdhY3kgb25ib2FyZGluZzogdGhlIHJlY29yZCBpcyBhbHJlYWR5IGZ1bGx5IHByb2Nlc3NlZCwgc28KICAgICAgICAgICAgLy8g'
-    'ZXZlcnkgc3RhZ2UgaW4gdGhlIGNoZWNrbGlzdCBpcyBjb21wbGV0ZSBmcm9tIGRheSBvbmUuCiAgICAgICAgICAgIGNvbnN0IGFs'
-    'bENoZWNrZWQgPSB7fTsKICAgICAgICAgICAgc29ydGVkVGVtcGxhdGVzLmZvckVhY2godCA9PiB7IGFsbENoZWNrZWRbdC5pZF0g'
-    'PSB0cnVlOyB9KTsKICAgICAgICAgICAgc2V0Q2hlY2tlZFN0YWdlcyhhbGxDaGVja2VkKTsKICAgICAgICB9CiAgICB9OwoKICAg'
-    'IGNvbnN0IHRvZ2dsZVN0YWdlID0gKGlkKSA9PiB7CiAgICAgICAgaWYgKGlkID09PSBmaXJzdFN0YWdlSWQgfHwgaWQgPT09IGxh'
-    'c3RTdGFnZUlkKSByZXR1cm47IC8vIGxvY2tlZAogICAgICAgIHNldENoZWNrZWRTdGFnZXMocCA9PiAoeyAuLi5wLCBbaWRdOiAh'
-    'cFtpZF0gfSkpOwogICAgfTsKCiAgICBjb25zdCBoYW5kbGVBZGRTdGFnZSA9IGFzeW5jICgpID0+IHsKICAgICAgICBpZiAoIW5l'
-    'd1N0YWdlTmFtZS50cmltKCkpIHsgdG9hc3QoJ0VudGVyIGEgc3RhZ2UgbmFtZSBmaXJzdC4nLCAnZXJyb3InKTsgcmV0dXJuOyB9'
-    'CiAgICAgICAgdHJ5IHsKICAgICAgICAgICAgY29uc3QgbGFzdCA9IHNvcnRlZFRlbXBsYXRlc1tzb3J0ZWRUZW1wbGF0ZXMubGVu'
-    'Z3RoIC0gMV07CiAgICAgICAgICAgIC8vIEluc2VydCB0aGUgbmV3IHN0YWdlIGp1c3QgYmVmb3JlIHRoZSBsYXN0IChsb2NrZWQp'
-    'IHN0YWdlLAogICAgICAgICAgICAvLyBwdXNoaW5nIHRoZSBsYXN0IHN0YWdlJ3MgcG9zaXRpb24gZG93biBieSBvbmUgc28gaXQg'
-    'c3RheXMgbGFzdC4KICAgICAgICAgICAgY29uc3QgbGFzdE9yZGVyID0gbGFzdD8uZGlzcGxheU9yZGVyID8/IHNvcnRlZFRlbXBs'
-    'YXRlcy5sZW5ndGg7CiAgICAgICAgICAgIGlmIChsYXN0KSB7CiAgICAgICAgICAgICAgICBhd2FpdCBzdGFnZVRlbXBsYXRlU2Vy'
-    'dmljZS51cGRhdGVUZW1wbGF0ZVN0YWdlKAogICAgICAgICAgICAgICAgICAgIGxhc3QuaWQsIGxhc3Quc3RhZ2VOYW1lLCBsYXN0'
-    'LmRlZmF1bHRDb3N0LCBsYXN0T3JkZXIgKyAxCiAgICAgICAgICAgICAgICApOwogICAgICAgICAgICB9CiAgICAgICAgICAgIGNv'
-    'bnN0IGNyZWF0ZWQgPSBhd2FpdCBzdGFnZVRlbXBsYXRlU2VydmljZS5hZGRUZW1wbGF0ZVN0YWdlKAogICAgICAgICAgICAgICAg'
-    'bmV3U3RhZ2VOYW1lLnRyaW0oKSwKICAgICAgICAgICAgICAgIG5ld1N0YWdlQ29zdCA/IE51bWJlcihuZXdTdGFnZUNvc3QpIDog'
-    'MCwKICAgICAgICAgICAgICAgIGxhc3QgPyBsYXN0T3JkZXIgOiB1bmRlZmluZWQsCiAgICAgICAgICAgICk7CiAgICAgICAgICAg'
-    'IHNldE5ld1N0YWdlTmFtZSgnJyk7CiAgICAgICAgICAgIHNldE5ld1N0YWdlQ29zdCgnJyk7CiAgICAgICAgICAgIHNldEFkZGlu'
-    'Z1N0YWdlKGZhbHNlKTsKICAgICAgICAgICAgZmV0Y2hUZW1wbGF0ZXMoKTsKICAgICAgICAgICAgaWYgKGNyZWF0ZWQ/LmlkKSBz'
-    'ZXRDaGVja2VkU3RhZ2VzKHAgPT4gKHsgLi4ucCwgW2NyZWF0ZWQuaWRdOiB0cnVlIH0pKTsKICAgICAgICAgICAgdG9hc3QoJ1N0'
-    'YWdlIGFkZGVkIHRvIGNoZWNrbGlzdC4nLCAnc3VjY2VzcycpOwogICAgICAgIH0gY2F0Y2ggKGVycikgewogICAgICAgICAgICB0'
-    'b2FzdChlcnIucmVzcG9uc2U/LmRhdGE/Lm1lc3NhZ2UgfHwgJ0NvdWxkIG5vdCBhZGQgc3RhZ2UuJywgJ2Vycm9yJyk7CiAgICAg'
-    'ICAgfQogICAgfTsKCiAgICBjb25zdCBoYW5kbGVTYXZlUHJlc2V0ID0gKCkgPT4gewogICAgICAgIGlmICghcHJlc2V0TmFtZS50'
-    'cmltKCkpIHsgdG9hc3QoJ05hbWUgdGhlIHByZXNldCBmaXJzdC4nLCAnZXJyb3InKTsgcmV0dXJuOyB9CiAgICAgICAgY29uc3Qg'
-    'c3RhZ2VOYW1lcyA9IHNvcnRlZFRlbXBsYXRlcwogICAgICAgICAgICAuZmlsdGVyKHQgPT4gY2hlY2tlZFN0YWdlc1t0LmlkXSkK'
-    'ICAgICAgICAgICAgLm1hcCh0ID0+IHQuc3RhZ2VOYW1lKTsKICAgICAgICBjb25zdCBuZXh0ID0gWy4uLnByZXNldHMuZmlsdGVy'
-    'KHAgPT4gcC5uYW1lICE9PSBwcmVzZXROYW1lLnRyaW0oKSksIHsgbmFtZTogcHJlc2V0TmFtZS50cmltKCksIHN0YWdlTmFtZXMg'
-    'fV07CiAgICAgICAgc2V0UHJlc2V0cyhuZXh0KTsKICAgICAgICBzYXZlUHJlc2V0cyhuZXh0KTsKICAgICAgICBzZXRQcmVzZXRO'
-    'YW1lKCcnKTsKICAgICAgICBzZXRTaG93U2F2ZVByZXNldChmYWxzZSk7CiAgICAgICAgdG9hc3QoJ1N0YWdlIHByZXNldCBzYXZl'
-    'ZC4nLCAnc3VjY2VzcycpOwogICAgfTsKCiAgICBjb25zdCBhcHBseVByZXNldCA9IChuYW1lKSA9PiB7CiAgICAgICAgaWYgKCFu'
-    'YW1lKSByZXR1cm47CiAgICAgICAgY29uc3QgcHJlc2V0ID0gcHJlc2V0cy5maW5kKHAgPT4gcC5uYW1lID09PSBuYW1lKTsKICAg'
-    'ICAgICBpZiAoIXByZXNldCkgcmV0dXJuOwogICAgICAgIGNvbnN0IG5leHQgPSB7fTsKICAgICAgICBzb3J0ZWRUZW1wbGF0ZXMu'
-    'Zm9yRWFjaCh0ID0+IHsKICAgICAgICAgICAgbmV4dFt0LmlkXSA9IHQuaWQgPT09IGZpcnN0U3RhZ2VJZCB8fCB0LmlkID09PSBs'
-    'YXN0U3RhZ2VJZCB8fCBwcmVzZXQuc3RhZ2VOYW1lcy5pbmNsdWRlcyh0LnN0YWdlTmFtZSk7CiAgICAgICAgfSk7CiAgICAgICAg'
-    'c2V0Q2hlY2tlZFN0YWdlcyhuZXh0KTsKICAgIH07CgogICAgY29uc3QgZGVsZXRlUHJlc2V0ID0gKG5hbWUpID0+IHsKICAgICAg'
-    'ICBjb25zdCBuZXh0ID0gcHJlc2V0cy5maWx0ZXIocCA9PiBwLm5hbWUgIT09IG5hbWUpOwogICAgICAgIHNldFByZXNldHMobmV4'
-    'dCk7CiAgICAgICAgc2F2ZVByZXNldHMobmV4dCk7CiAgICB9OwoKICAgIGNvbnN0IHVwZGF0ZU93bmVyID0gKGlkeCwgZmllbGQs'
-    'IHZhbCkgPT4gewogICAgICAgIHNldE93bmVycyhwID0+IHAubWFwKChvLCBpKSA9PiBpID09PSBpZHggPyB7Li4ubywgW2ZpZWxk'
-    'XTogdmFsfSA6IG8pKTsKICAgIH07CgogICAgY29uc3QgaGFuZGxlRmlsZVVwbG9hZCA9IChlKSA9PiB7CiAgICAgICAgY29uc3Qg'
-    'ZmlsZXMgPSBBcnJheS5mcm9tKGUudGFyZ2V0LmZpbGVzKTsKICAgICAgICBzZXRGaWxlUXVldWUocCA9PiBbLi4ucCwgLi4uZmls'
-    'ZXNdKTsKICAgIH07CgogICAgY29uc3QgaGFuZGxlU3VibWl0ID0gYXN5bmMgKCkgPT4gewogICAgICAgIGlmICghZGlzdHJpY3Qu'
-    'dHJpbSgpIHx8ICFjb3VudHkudHJpbSgpKSB7CiAgICAgICAgICAgIHRvYXN0KCdEaXN0cmljdCBhbmQgQ291bnR5IGFyZSByZXF1'
-    'aXJlZC4nLCAnZXJyb3InKTsgcmV0dXJuOwogICAgICAgIH0KICAgICAgICBmb3IgKGxldCBvIG9mIG93bmVycykgewogICAgICAg'
-    'ICAgICBpZiAoIW8ubmF0aW9uYWxJZC50cmltKCkpIHsKICAgICAgICAgICAgICAgIHRvYXN0KCdOSU4gaXMgcmVxdWlyZWQgZm9y'
-    'IGFsbCBvd25lcnMuJywgJ2Vycm9yJyk7IHJldHVybjsKICAgICAgICAgICAgfQogICAgICAgIH0KICAgICAgICBpZiAoaXNUaXRs'
-    'ZVNlY3Rpb25WaXNpYmxlKSB7CiAgICAgICAgICAgIGlmICghcGxvdE51bWJlci50cmltKCkpIHsgdG9hc3QoJ1Bsb3QgTnVtYmVy'
-    'IGlzIHJlcXVpcmVkIGZvciBhIHRpdGxlIHJlY29yZC4nLCAnZXJyb3InKTsgcmV0dXJuOyB9CiAgICAgICAgICAgIGlmICghYXJl'
-    'YS50cmltKCkpIHsgdG9hc3QoJ0FyZWEgaXMgcmVxdWlyZWQgZm9yIFRpdGxlIGRldGFpbHMuJywgJ2Vycm9yJyk7IHJldHVybjsg'
-    'fQogICAgICAgIH0KCiAgICAgICAgc2V0U2F2aW5nKHRydWUpOwogICAgICAgIHRyeSB7CiAgICAgICAgICAgIGNvbnN0IHBheWxv'
-    'YWQgPSB7CiAgICAgICAgICAgICAgICBkaXN0cmljdDogZGlzdHJpY3QudHJpbSgpLnRvVXBwZXJDYXNlKCksCiAgICAgICAgICAg'
-    'ICAgICBjb3VudHk6IGNvdW50eS50cmltKCkudG9VcHBlckNhc2UoKSwKICAgICAgICAgICAgICAgIHN1YkNvdW50eTogc3ViQ291'
-    'bnR5LnRyaW0oKS50b1VwcGVyQ2FzZSgpLAogICAgICAgICAgICAgICAgcGFyaXNoOiBwYXJpc2gudHJpbSgpLnRvVXBwZXJDYXNl'
-    'KCksCiAgICAgICAgICAgICAgICB2aWxsYWdlOiB2aWxsYWdlLnRyaW0oKS50b1VwcGVyQ2FzZSgpLAogICAgICAgICAgICAgICAg'
-    'YXJlYTogYXJlYS50cmltKCksCiAgICAgICAgICAgICAgICB0b3RhbENvc3Q6IE51bWJlcih0b3RhbENvc3QpIHx8IDAsCiAgICAg'
-    'ICAgICAgICAgICBpbml0aWFsUGF5bWVudDogTnVtYmVyKGluaXRpYWxQYXltZW50KSB8fCAwLAogICAgICAgICAgICAgICAgaXNM'
-    'ZWdhY3k6IGlzTGVnYWN5LAogICAgICAgICAgICAgICAgdGl0bGVBdEludGFrZTogdGl0bGVBdEludGFrZSwKICAgICAgICAgICAg'
-    'ICAgIG93bmVyczogb3duZXJzLm1hcChvID0+ICh7CiAgICAgICAgICAgICAgICAgICAgZnVsbE5hbWU6IG8uZnVsbE5hbWUudHJp'
-    'bSgpLnRvVXBwZXJDYXNlKCksCiAgICAgICAgICAgICAgICAgICAgcGhvbmU6IG8ucGhvbmUudHJpbSgpLAogICAgICAgICAgICAg'
-    'ICAgICAgIGVtYWlsOiBvLmVtYWlsLnRyaW0oKS50b0xvd2VyQ2FzZSgpLAogICAgICAgICAgICAgICAgICAgIG5hdGlvbmFsSWQ6'
-    'IG8ubmF0aW9uYWxJZC50cmltKCkudG9VcHBlckNhc2UoKSwKICAgICAgICAgICAgICAgICAgICBhZGRyZXNzOiBvLmFkZHJlc3Mu'
-    'dHJpbSgpLAogICAgICAgICAgICAgICAgfSkpLAogICAgICAgICAgICAgICAgc2VsZWN0ZWRTdGFnZXM6IE9iamVjdC5lbnRyaWVz'
-    'KGNoZWNrZWRTdGFnZXMpLmZpbHRlcigoWywgdl0pID0+IHYpLm1hcCgoW2lkXSkgPT4gewogICAgICAgICAgICAgICAgICAgIGNv'
-    'bnN0IHQgPSB0ZW1wbGF0ZXMuZmluZCh4ID0+IHguaWQgPT09IGlkKTsKICAgICAgICAgICAgICAgICAgICByZXR1cm4gewogICAg'
-    'ICAgICAgICAgICAgICAgICAgICBzdGFnZVRlbXBsYXRlSWQ6IGlkLAogICAgICAgICAgICAgICAgICAgICAgICBzdGFnZU5hbWU6'
-    'IHQgPyB0LnN0YWdlTmFtZSA6ICcnLAogICAgICAgICAgICAgICAgICAgICAgICBpc0N1c3RvbTogZmFsc2UsCiAgICAgICAgICAg'
-    'ICAgICAgICAgICAgIGlzQ29tcGxldGVkOiB0cnVlCiAgICAgICAgICAgICAgICAgICAgfTsKICAgICAgICAgICAgICAgIH0pLAog'
-    'ICAgICAgICAgICAgICAgbm90ZXM6IG5vdGVzLnRyaW0oKSA/IFt7IGNvbnRlbnQ6IG5vdGVzLnRyaW0oKSB9XSA6IFtdLAogICAg'
-    'ICAgICAgICB9OwoKICAgICAgICAgICAgaWYgKGlzVGl0bGVTZWN0aW9uVmlzaWJsZSkgewogICAgICAgICAgICAgICAgcGF5bG9h'
-    'ZC5wbG90TnVtYmVyID0gcGxvdE51bWJlci50cmltKCkudG9VcHBlckNhc2UoKTsKICAgICAgICAgICAgICAgIHBheWxvYWQudGVu'
-    'dXJlID0gdGVudXJlOwogICAgICAgICAgICAgICAgcGF5bG9hZC5ibG9ja1JvYWQgPSBibG9ja1JvYWQudHJpbSgpLnRvVXBwZXJD'
-    'YXNlKCk7CiAgICAgICAgICAgICAgICBwYXlsb2FkLnRpdGxlSWQgPSB0aXRsZUlkLnRyaW0oKS50b1VwcGVyQ2FzZSgpOwogICAg'
-    'ICAgICAgICB9CgogICAgICAgICAgICBpZiAoaXNMZWdhY3kpIHsKICAgICAgICAgICAgICAgIHBheWxvYWQuaXNTdGFydEFzUmVj'
-    'ZWl2YWJsZSA9IHRydWU7CiAgICAgICAgICAgICAgICBwYXlsb2FkLmluaXRpYWxTdG9yYWdlRmVlID0gTnVtYmVyKGluaXRpYWxT'
-    'dG9yYWdlRmVlKSB8fCAwOwogICAgICAgICAgICAgICAgcGF5bG9hZC5tb250aGx5U3RvcmFnZUZlZSA9IE51bWJlcihtb250aGx5'
-    'U3RvcmFnZUZlZSkgfHwgMDsKICAgICAgICAgICAgfQoKICAgICAgICAgICAgYXdhaXQgbGFuZFNlcnZpY2UuY3JlYXRlQXRvbWlj'
-    'RW50cnkocGF5bG9hZCwgZmlsZVF1ZXVlLmxlbmd0aCA/IGZpbGVRdWV1ZSA6IG51bGwpOwogICAgICAgICAgICB0b2FzdCgnUHJv'
-    'amVjdCByZWdpc3RlcmVkIHN1Y2Nlc3NmdWxseSEnLCAnc3VjY2VzcycpOwogICAgICAgICAgICBzZXRUaW1lb3V0KCgpID0+IG5h'
-    'dmlnYXRlKCcvbGFuZC9wcm9qZWN0cycpLCAxNTAwKTsKICAgICAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgICAgICAgdG9hc3Qo'
-    'ZXJyLnJlc3BvbnNlPy5kYXRhPy5tZXNzYWdlIHx8ICdTYXZlIGZhaWxlZCcsICdlcnJvcicpOwogICAgICAgIH0gZmluYWxseSB7'
-    'CiAgICAgICAgICAgIHNldFNhdmluZyhmYWxzZSk7CiAgICAgICAgfQogICAgfTsKCiAgICBjb25zdCBhbW91bnRPd2VkID0gTWF0'
-    'aC5tYXgoMCwgKE51bWJlcih0b3RhbENvc3QpIHx8IDApIC0gKE51bWJlcihpbml0aWFsUGF5bWVudCkgfHwgMCkpOwoKICAgIC8v'
-    'IFNlY3Rpb24gbnVtYmVycyBzaGlmdCBkZXBlbmRpbmcgb24gd2hldGhlciBUaXRsZSBEZXRhaWxzIGlzIHNob3dpbmcuCiAgICBs'
-    'ZXQgbiA9IDA7CiAgICBjb25zdCBuSW5kZXggPSArK247CiAgICBjb25zdCBuT3duZXJzID0gKytuOwogICAgY29uc3QgblRpdGxl'
-    'ID0gaXNUaXRsZVNlY3Rpb25WaXNpYmxlID8gKytuIDogbnVsbDsKICAgIGNvbnN0IG5Mb2NhdGlvbiA9ICsrbjsKICAgIGNvbnN0'
-    'IG5TdGFnZXMgPSArK247CiAgICBjb25zdCBuRmluYW5jaWFscyA9ICsrbjsKICAgIGNvbnN0IG5Eb2N1bWVudHMgPSArK247CiAg'
-    'ICBjb25zdCBuTm90ZXMgPSArK247CgogICAgcmV0dXJuICgKICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmNvbnRhaW5l'
-    'cn0+CiAgICAgICAgICAgIDxoZWFkZXIgY2xhc3NOYW1lPXtzdHlsZXMucGFnZUhlYWRlcn0+CiAgICAgICAgICAgICAgICA8ZGl2'
-    'IGNsYXNzTmFtZT17c3R5bGVzLmhlYWRlckxlZnR9PgogICAgICAgICAgICAgICAgICAgIDxoMSBjbGFzc05hbWU9e3N0eWxlcy50'
-    'aXRsZX0+TmV3IFByb2plY3Q8L2gxPgogICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT17c3R5bGVzLnN1YnRpdGxlfT5J'
-    'bnRha2UgRm9ybTwvcD4KICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxl'
-    'cy5hY3Rpb25zfT4KICAgICAgICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT17c3R5bGVzLmJ0bn0gb25DbGljaz17KCkg'
-    'PT4gbmF2aWdhdGUoLTEpfT5DYW5jZWw8L2J1dHRvbj4KICAgICAgICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT17YCR7'
-    'c3R5bGVzLmJ0bn0gJHtzdHlsZXMucHJpbWFyeX1gfSBkaXNhYmxlZD17c2F2aW5nfSBvbkNsaWNrPXtoYW5kbGVTdWJtaXR9Pgog'
-    'ICAgICAgICAgICAgICAgICAgICAgICA8RmlTYXZlIC8+IHtzYXZpbmcgPyAnU2F2aW5nLi4uJyA6ICdTYXZlJ30KICAgICAgICAg'
-    'ICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICA8L2hlYWRlcj4KCiAgICAgICAg'
-    'ICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuc2VjdGlvbnN9PgoKICAgICAgICAgICAgPENvbGxhcHNpYmxlU2VjdGlvbiBpY29u'
-    'PXs8RmlIYXNoIC8+fSB0aXRsZT17YCR7bkluZGV4fS4gRW50cnkgTW9kZWB9PgogICAgICAgICAgICAgICAgPGRpdiBjbGFzc05h'
-    'bWU9e3N0eWxlcy5ncmlkMn0+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAg'
-    'ICAgICAgICAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9e3N0eWxlcy5sYWJlbH0+SW5kZXg8L2xhYmVsPgogICAgICAgICAg'
-    'ICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtwcm9qZWN0SW5kZXh9IHBsYWNlaG9s'
-    'ZGVyPSLigJQiIGRpc2FibGVkIC8+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICA8L2Rpdj4KICAg'
-    'ICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAgICAgICAgICAgIDxsYWJlbCBjbGFz'
-    'c05hbWU9e2Ake3N0eWxlcy5sYWJlbH0gJHtzdHlsZXMucmVxdWlyZWR9YH0+VHlwZTwvbGFiZWw+CiAgICAgICAgICAgICAgICAg'
-    'ICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy50eXBlR3JvdXB9PgogICAgICAgICAgICAgICAgICAgICAgICB7UFJPSkVDVF9UWVBF'
-    'Uy5tYXAocHQgPT4gKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGJ1dHRvbgogICAgICAgICAgICAgICAgICAgICAgICAg'
-    'ICAgICAgIGtleT17cHQudmFsdWV9CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdHlwZT0iYnV0dG9uIgogICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT17YCR7c3R5bGVzLnR5cGVCdG59ICR7cHJvamVjdFR5cGUgPT09IHB0'
-    'LnZhbHVlID8gc3R5bGVzLnR5cGVCdG5BY3RpdmUgOiAnJ31gfQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2xp'
-    'Y2s9eygpID0+IGhhbmRsZVByb2plY3RUeXBlQ2hhbmdlKHB0LnZhbHVlKX0KICAgICAgICAgICAgICAgICAgICAgICAgICAgID4K'
-    'ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB7cHQuaWNvbn0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8'
-    'c3Bhbj57cHQubGFiZWx9PC9zcGFuPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9idXR0b24+CiAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICkpfQogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT17'
-    'c3R5bGVzLnR5cGVIaW50fT57UFJPSkVDVF9UWVBFUy5maW5kKHB0ID0+IHB0LnZhbHVlID09PSBwcm9qZWN0VHlwZSk/LmhpbnR9'
-    'PC9wPgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgIDwvQ29sbGFwc2libGVTZWN0aW9uPgoKICAgICAgICAgICAg'
-    'PENvbGxhcHNpYmxlU2VjdGlvbiBpY29uPXs8RmlVc2VycyAvPn0gdGl0bGU9e2Ake25Pd25lcnN9LiBPd25lcnNgfT4KICAgICAg'
-    'ICAgICAgICAgIHtvd25lcnMubWFwKChvLCBpZHgpID0+ICgKICAgICAgICAgICAgICAgICAgICA8ZGl2IGtleT17aWR4fSBjbGFz'
-    'c05hbWU9e3N0eWxlcy5vd25lclJvd30+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmll'
-    'bGR9PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17YCR7c3R5bGVzLmxhYmVsfSAke3N0eWxl'
-    'cy5yZXF1aXJlZH1gfT5OSU48L2xhYmVsPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGlucHV0IGNsYXNzTmFtZT17c3R5'
-    'bGVzLmlucHV0fSB2YWx1ZT17by5uYXRpb25hbElkfSBvbkNoYW5nZT17ZSA9PiB1cGRhdGVPd25lcihpZHgsICduYXRpb25hbElk'
-    'JywgZS50YXJnZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICAg'
-    'ICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NO'
-    'YW1lPXtgJHtzdHlsZXMubGFiZWx9ICR7c3R5bGVzLnJlcXVpcmVkfWB9PkZ1bGwgTmFtZTwvbGFiZWw+CiAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtvLmZ1bGxOYW1lfSBvbkNoYW5nZT17'
-    'ZSA9PiB1cGRhdGVPd25lcihpZHgsICdmdWxsTmFtZScsIGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICAg'
-    'ICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17c3R5bGVzLmxhYmVsfT5QaG9uZTwvbGFiZWw+CiAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtvLnBob25lfSBvbkNoYW5nZT17'
-    'ZSA9PiB1cGRhdGVPd25lcihpZHgsICdwaG9uZScsIGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICAgICAg'
-    'PC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17c3R5bGVzLmxhYmVsfT5FbWFpbDwvbGFiZWw+CiAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtvLmVtYWlsfSBvbkNoYW5nZT17ZSA9'
-    'PiB1cGRhdGVPd25lcihpZHgsICdlbWFpbCcsIGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICAgICAgPC9k'
-    'aXY+CiAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPXtzdHlsZXMuYnRufSBvbkNsaWNrPXsoKSA9PiBz'
-    'ZXRPd25lcnMocCA9PiBwLmZpbHRlcigoXywgaSkgPT4gaSAhPT0gaWR4KSl9IGRpc2FibGVkPXtvd25lcnMubGVuZ3RoID09PSAx'
-    'fT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxGaVRyYXNoMiAvPgogICAgICAgICAgICAgICAgICAgICAgICA8L2J1dHRv'
-    'bj4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICkpfQogICAgICAgICAgICAgICAgPGJ1dHRvbiBj'
-    'bGFzc05hbWU9e3N0eWxlcy5idG59IG9uQ2xpY2s9eygpID0+IHNldE93bmVycyhwID0+IFsuLi5wLCBFTVBUWV9PV05FUigpXSl9'
-    'PgogICAgICAgICAgICAgICAgICAgIDxGaVBsdXMgLz4gQWRkIGpvaW50IG93bmVyCiAgICAgICAgICAgICAgICA8L2J1dHRvbj4K'
-    'ICAgICAgICAgICAgPC9Db2xsYXBzaWJsZVNlY3Rpb24+CgogICAgICAgICAgICB7aXNUaXRsZVNlY3Rpb25WaXNpYmxlICYmICgK'
-    'ICAgICAgICAgICAgICAgIDxDb2xsYXBzaWJsZVNlY3Rpb24gaWNvbj17PEZpRmlsZVRleHQgLz59IHRpdGxlPXtgJHtuVGl0bGV9'
-    'LiBUaXRsZSAmIFBsb3RgfSBhY2NlbnQ+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5ncmlkM30+'
-    'CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAgICAgICAgICAg'
-    'ICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17c3R5bGVzLmxhYmVsfT5UaXRsZSBJRDwvbGFiZWw+CiAgICAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXt0aXRsZUlkfSBvbkNoYW5nZT17ZSA9PiBz'
-    'ZXRUaXRsZUlkKGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAg'
-    'ICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGxhYmVs'
-    'IGNsYXNzTmFtZT17YCR7c3R5bGVzLmxhYmVsfSAke3N0eWxlcy5yZXF1aXJlZH1gfT5UZW51cmU8L2xhYmVsPgogICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgPHNlbGVjdCBjbGFzc05hbWU9e3N0eWxlcy5zZWxlY3R9IHZhbHVlPXt0ZW51cmV9IG9uQ2hhbmdl'
-    'PXtlID0+IHNldFRlbnVyZShlLnRhcmdldC52YWx1ZSl9PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxvcHRpb24g'
-    'dmFsdWU9IkZSRUVIT0xEIj5GUkVFSE9MRDwvb3B0aW9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxvcHRpb24g'
-    'dmFsdWU9Ik1BSUxPIj5NQUlMTzwvb3B0aW9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9'
-    'IkxFQVNFSE9MRCI+TEVBU0VIT0xEPC9vcHRpb24+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1'
-    'ZT0iQ1VTVE9NQVJZIj5DVVNUT01BUlk8L29wdGlvbj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvc2VsZWN0PgogICAg'
-    'ICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5m'
-    'aWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPXtgJHtzdHlsZXMubGFiZWx9ICR7c3R5'
-    'bGVzLnJlcXVpcmVkfWB9PlBsb3QgTnVtYmVyPC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dCBjbGFz'
-    'c05hbWU9e3N0eWxlcy5pbnB1dH0gdmFsdWU9e3Bsb3ROdW1iZXJ9IG9uQ2hhbmdlPXtlID0+IHNldFBsb3ROdW1iZXIoZS50YXJn'
-    'ZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBj'
-    'bGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPXtzdHls'
-    'ZXMubGFiZWx9PkJsb2NrPC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dCBjbGFzc05hbWU9e3N0eWxl'
-    'cy5pbnB1dH0gdmFsdWU9e2Jsb2NrUm9hZH0gb25DaGFuZ2U9e2UgPT4gc2V0QmxvY2tSb2FkKGUudGFyZ2V0LnZhbHVlKX0gLz4K'
-    'ICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICA8'
-    'L0NvbGxhcHNpYmxlU2VjdGlvbj4KICAgICAgICAgICAgKX0KCiAgICAgICAgICAgIDxDb2xsYXBzaWJsZVNlY3Rpb24gaWNvbj17'
-    'PEZpTWFwIC8+fSB0aXRsZT17YCR7bkxvY2F0aW9ufS4gTG9jYXRpb25gfT4KICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1l'
-    'PXtzdHlsZXMuZ3JpZDN9PgogICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAg'
-    'ICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPXtgJHtzdHlsZXMubGFiZWx9ICR7c3R5bGVzLnJlcXVpcmVkfWB9PkRp'
-    'c3RyaWN0PC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAgPGlucHV0IGNsYXNzTmFtZT17c3R5bGVzLmlucHV0fSB2YWx1'
-    'ZT17ZGlzdHJpY3R9IG9uQ2hhbmdlPXtlID0+IHNldERpc3RyaWN0KGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAg'
-    'ICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmZpZWxkfT4KICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17YCR7c3R5bGVzLmxhYmVsfSAke3N0eWxlcy5yZXF1aXJlZH1gfT5Db3VudHk8'
-    'L2xhYmVsPgogICAgICAgICAgICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtjb3Vu'
-    'dHl9IG9uQ2hhbmdlPXtlID0+IHNldENvdW50eShlLnRhcmdldC52YWx1ZSl9IC8+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+'
-    'CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAg'
-    'IDxsYWJlbCBjbGFzc05hbWU9e3N0eWxlcy5sYWJlbH0+U3ViLWNvdW50eTwvbGFiZWw+CiAgICAgICAgICAgICAgICAgICAgICAg'
-    'IDxpbnB1dCBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gdmFsdWU9e3N1YkNvdW50eX0gb25DaGFuZ2U9e2UgPT4gc2V0U3ViQ291'
-    'bnR5KGUudGFyZ2V0LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8ZGl2'
-    'IGNsYXNzTmFtZT17c3R5bGVzLmZpZWxkfT4KICAgICAgICAgICAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT17c3R5bGVz'
-    'LmxhYmVsfT5QYXJpc2g8L2xhYmVsPgogICAgICAgICAgICAgICAgICAgICAgICA8aW5wdXQgY2xhc3NOYW1lPXtzdHlsZXMuaW5w'
-    'dXR9IHZhbHVlPXtwYXJpc2h9IG9uQ2hhbmdlPXtlID0+IHNldFBhcmlzaChlLnRhcmdldC52YWx1ZSl9IC8+CiAgICAgICAgICAg'
-    'ICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAg'
-    'ICAgICAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9e3N0eWxlcy5sYWJlbH0+VmlsbGFnZTwvbGFiZWw+CiAgICAgICAgICAg'
-    'ICAgICAgICAgICAgIDxpbnB1dCBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gdmFsdWU9e3ZpbGxhZ2V9IG9uQ2hhbmdlPXtlID0+'
-    'IHNldFZpbGxhZ2UoZS50YXJnZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAg'
-    'ICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmllbGR9PgogICAgICAgICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1l'
-    'PXtgJHtzdHlsZXMubGFiZWx9ICR7aXNUaXRsZVNlY3Rpb25WaXNpYmxlID8gc3R5bGVzLnJlcXVpcmVkIDogJyd9YH0+QXJlYXsh'
-    'aXNUaXRsZVNlY3Rpb25WaXNpYmxlID8gJyAoT3B0aW9uYWwpJyA6ICcnfTwvbGFiZWw+CiAgICAgICAgICAgICAgICAgICAgICAg'
-    'IDxpbnB1dCBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gdmFsdWU9e2FyZWF9IG9uQ2hhbmdlPXtlID0+IHNldEFyZWEoZS50YXJn'
-    'ZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAg'
-    'IDwvQ29sbGFwc2libGVTZWN0aW9uPgoKICAgICAgICAgICAgPENvbGxhcHNpYmxlU2VjdGlvbgogICAgICAgICAgICAgICAgaWNv'
-    'bj17PEZpQ2hlY2tTcXVhcmUgLz59CiAgICAgICAgICAgICAgICB0aXRsZT17YCR7blN0YWdlc30uIFN0YWdlc2B9CiAgICAgICAg'
-    'ICAgICAgICByaWdodD17CiAgICAgICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17e2Rpc3BsYXk6ICdmbGV4JywgZ2FwOiAndmFy'
-    'KC0tZ2FwLW1kKScsIGZsZXhXcmFwOiAnd3JhcCcsIGFsaWduSXRlbXM6ICdjZW50ZXInfX0+CiAgICAgICAgICAgICAgICAgICAg'
-    'ICAgIHtwcmVzZXRzLmxlbmd0aCA+IDAgJiYgKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNlbGVjdCBjbGFzc05hbWU9'
-    'e3N0eWxlcy5zZWxlY3R9IHN0eWxlPXt7d2lkdGg6ICdhdXRvJ319IGRlZmF1bHRWYWx1ZT0iIgogICAgICAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IHsgYXBwbHlQcmVzZXQoZS50YXJnZXQudmFsdWUpOyBlLnRhcmdldC52YWx1ZSA9'
-    'ICcnOyB9fT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPSIiIGRpc2FibGVkPkFwcGx5IHBy'
-    'ZXNldC4uLjwvb3B0aW9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtwcmVzZXRzLm1hcChwID0+IDxvcHRpb24g'
-    'a2V5PXtwLm5hbWV9IHZhbHVlPXtwLm5hbWV9PntwLm5hbWV9PC9vcHRpb24+KX0KICAgICAgICAgICAgICAgICAgICAgICAgICAg'
-    'IDwvc2VsZWN0PgogICAgICAgICAgICAgICAgICAgICAgICApfQogICAgICAgICAgICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNz'
-    'TmFtZT17c3R5bGVzLmxlZ2FjeUJ0bn0gb25DbGljaz17KCkgPT4gc2V0U2hvd1NhdmVQcmVzZXQocyA9PiAhcyl9PgogICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgICAgPEZpQm9va21hcmsgLz4gU2F2ZSBQcmVzZXQKICAgICAgICAgICAgICAgICAgICAgICAgPC9i'
-    'dXR0b24+CiAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPXtzdHlsZXMubGVnYWN5QnRufSBvbkNsaWNr'
-    'PXsoKSA9PiBzZXRBZGRpbmdTdGFnZShzID0+ICFzKX0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8RmlQbHVzIC8+IEFk'
-    'ZCBTdGFnZQogICAgICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAg'
-    'ICAgICAgICAgIH0KICAgICAgICAgICAgPgogICAgICAgICAgICAgICAge3Nob3dTYXZlUHJlc2V0ICYmICgKICAgICAgICAgICAg'
-    'ICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmlubGluZUFkZFJvd30+CiAgICAgICAgICAgICAgICAgICAgICAgIDxpbnB1'
-    'dCBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gcGxhY2Vob2xkZXI9IlByZXNldCBuYW1lIiB2YWx1ZT17cHJlc2V0TmFtZX0gb25D'
-    'aGFuZ2U9e2UgPT4gc2V0UHJlc2V0TmFtZShlLnRhcmdldC52YWx1ZSl9IC8+CiAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0'
-    'b24gY2xhc3NOYW1lPXtgJHtzdHlsZXMuYnRufSAke3N0eWxlcy5wcmltYXJ5fWB9IG9uQ2xpY2s9e2hhbmRsZVNhdmVQcmVzZXR9'
-    'PlNhdmU8L2J1dHRvbj4KICAgICAgICAgICAgICAgICAgICAgICAgPGJ1dHRvbiBjbGFzc05hbWU9e3N0eWxlcy5idG59IG9uQ2xp'
-    'Y2s9eygpID0+IHsgc2V0U2hvd1NhdmVQcmVzZXQoZmFsc2UpOyBzZXRQcmVzZXROYW1lKCcnKTsgfX0+PEZpWCAvPjwvYnV0dG9u'
-    'PgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgKX0KCiAgICAgICAgICAgICAgICB7YWRkaW5nU3Rh'
-    'Z2UgJiYgKAogICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuaW5saW5lQWRkUm93fT4KICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgPGlucHV0IGNsYXNzTmFtZT17c3R5bGVzLmlucHV0fSBwbGFjZWhvbGRlcj0iTmV3IHN0YWdlIG5hbWUi'
-    'IHZhbHVlPXtuZXdTdGFnZU5hbWV9IG9uQ2hhbmdlPXtlID0+IHNldE5ld1N0YWdlTmFtZShlLnRhcmdldC52YWx1ZSl9IC8+CiAg'
-    'ICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dCBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gdHlwZT0ibnVtYmVyIiBwbGFjZWhv'
-    'bGRlcj0iRGVmYXVsdCBjb3N0IiB2YWx1ZT17bmV3U3RhZ2VDb3N0fSBvbkNoYW5nZT17ZSA9PiBzZXROZXdTdGFnZUNvc3QoZS50'
-    'YXJnZXQudmFsdWUpfSBzdHlsZT17e21heFdpZHRoOiAxNjB9fSAvPgogICAgICAgICAgICAgICAgICAgICAgICA8YnV0dG9uIGNs'
-    'YXNzTmFtZT17YCR7c3R5bGVzLmJ0bn0gJHtzdHlsZXMucHJpbWFyeX1gfSBvbkNsaWNrPXtoYW5kbGVBZGRTdGFnZX0+QWRkPC9i'
-    'dXR0b24+CiAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPXtzdHlsZXMuYnRufSBvbkNsaWNrPXsoKSA9'
-    'PiB7IHNldEFkZGluZ1N0YWdlKGZhbHNlKTsgc2V0TmV3U3RhZ2VOYW1lKCcnKTsgc2V0TmV3U3RhZ2VDb3N0KCcnKTsgfX0+PEZp'
-    'WCAvPjwvYnV0dG9uPgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgKX0KCiAgICAgICAgICAgICAg'
-    'ICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLnN0YWdlTGlzdH0+CiAgICAgICAgICAgICAgICAgICAge3NvcnRlZFRlbXBsYXRlcy5t'
-    'YXAodCA9PiB7CiAgICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IGxvY2tlZCA9IHQuaWQgPT09IGZpcnN0U3RhZ2VJZCB8fCB0'
-    'LmlkID09PSBsYXN0U3RhZ2VJZDsKICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuICgKICAgICAgICAgICAgICAgICAgICAg'
-    'ICAgICAgIDxsYWJlbCBrZXk9e3QuaWR9IGNsYXNzTmFtZT17YCR7c3R5bGVzLnN0YWdlSXRlbX0gJHtjaGVja2VkU3RhZ2VzW3Qu'
-    'aWRdID8gc3R5bGVzLmNoZWNrZWQgOiAnJ30gJHtsb2NrZWQgPyBzdHlsZXMuc3RhZ2VMb2NrZWQgOiAnJ31gfT4KICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgICAgICA8aW5wdXQgdHlwZT0iY2hlY2tib3giIGNsYXNzTmFtZT17c3R5bGVzLmNoZWNrYm94fSBj'
-    'aGVja2VkPXshIWNoZWNrZWRTdGFnZXNbdC5pZF19CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRpc2FibGVk'
-    'PXtsb2NrZWR9CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoKSA9PiB0b2dnbGVTdGFnZSh0'
-    'LmlkKX0gLz4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9e3N0eWxlcy5zdGFnZU5hbWV9'
-    'Pnt0LnN0YWdlTmFtZX08L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge2xvY2tlZCAmJiA8c3BhbiBjbGFz'
-    'c05hbWU9e3N0eWxlcy5sb2NrZWRUYWd9PjxGaUxvY2sgc2l6ZT17MTF9IC8+IFJlcXVpcmVkPC9zcGFuPn0KICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgIDwvbGFiZWw+CiAgICAgICAgICAgICAgICAgICAgICAgICk7CiAgICAgICAgICAgICAgICAgICAgfSl9'
-    'CiAgICAgICAgICAgICAgICA8L2Rpdj4KCiAgICAgICAgICAgICAgICB7cHJlc2V0cy5sZW5ndGggPiAwICYmICgKICAgICAgICAg'
-    'ICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLnByZXNldExpc3R9PgogICAgICAgICAgICAgICAgICAgICAgICB7cHJl'
-    'c2V0cy5tYXAocCA9PiAoCiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3BhbiBrZXk9e3AubmFtZX0gY2xhc3NOYW1lPXtz'
-    'dHlsZXMucHJlc2V0Q2hpcH0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAge3AubmFtZX0KICAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT17c3R5bGVzLnByZXNldENoaXBSZW1vdmV9IG9uQ2xpY2s9eygpID0+'
-    'IGRlbGV0ZVByZXNldChwLm5hbWUpfSBhcmlhLWxhYmVsPXtgRGVsZXRlIHByZXNldCAke3AubmFtZX1gfT48RmlYIHNpemU9ezEy'
-    'fSAvPjwvYnV0dG9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9zcGFuPgogICAgICAgICAgICAgICAgICAgICAgICAp'
-    'KX0KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICl9CiAgICAgICAgICAgIDwvQ29sbGFwc2libGVT'
-    'ZWN0aW9uPgoKICAgICAgICAgICAgPENvbGxhcHNpYmxlU2VjdGlvbiBpY29uPXs8RmlEb2xsYXJTaWduIC8+fSB0aXRsZT17YCR7'
-    'bkZpbmFuY2lhbHN9LiBGaW5hbmNpYWxzYH0+CiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmdyaWQyfT4K'
-    'ICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmZpZWxkfT4KICAgICAgICAgICAgICAgICAgICAgICAg'
-    'PGxhYmVsIGNsYXNzTmFtZT17c3R5bGVzLmxhYmVsfT5Ub3RhbCBDb3N0PC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAg'
-    'PGlucHV0IHR5cGU9Im51bWJlciIgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXt0b3RhbENvc3R9IG9uQ2hhbmdlPXtl'
-    'ID0+IHNldFRvdGFsQ29zdChlLnRhcmdldC52YWx1ZSl9IC8+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAg'
-    'ICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAgIDxsYWJlbCBjbGFz'
-    'c05hbWU9e3N0eWxlcy5sYWJlbH0+SW5pdGlhbCBQYXltZW50PC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAgPGlucHV0'
-    'IHR5cGU9Im51bWJlciIgY2xhc3NOYW1lPXtzdHlsZXMuaW5wdXR9IHZhbHVlPXtpbml0aWFsUGF5bWVudH0gb25DaGFuZ2U9e2Ug'
-    'PT4gc2V0SW5pdGlhbFBheW1lbnQoZS50YXJnZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAg'
-    'ICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICAgICAge2lzTGVnYWN5ICYmICgKICAgICAgICAgICAgICAgICAgICA8PgogICAg'
-    'ICAgICAgICAgICAgICAgICAgICA8aDMgY2xhc3NOYW1lPXtzdHlsZXMuc3ViaGVhZGluZ30+PEZpQXJjaGl2ZSBzaXplPXsxM30g'
-    'Lz4gU3RvcmFnZSBGZWVzPC9oMz4KICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5ncmlkMn0+'
-    'CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmZpZWxkfT4KICAgICAgICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPXtzdHlsZXMubGFiZWx9PkluaXRpYWwgU3RvcmFnZSBGZWU8L2xhYmVs'
-    'PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dCB0eXBlPSJudW1iZXIiIGNsYXNzTmFtZT17c3R5bGVzLmlu'
-    'cHV0fSB2YWx1ZT17aW5pdGlhbFN0b3JhZ2VGZWV9IG9uQ2hhbmdlPXtlID0+IHNldEluaXRpYWxTdG9yYWdlRmVlKGUudGFyZ2V0'
-    'LnZhbHVlKX0gLz4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgICAgICAgICAgICAg'
-    'PGRpdiBjbGFzc05hbWU9e3N0eWxlcy5maWVsZH0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPGxhYmVsIGNsYXNz'
-    'TmFtZT17c3R5bGVzLmxhYmVsfT5Nb250aGx5IFN0b3JhZ2UgRmVlPC9sYWJlbD4KICAgICAgICAgICAgICAgICAgICAgICAgICAg'
-    'ICAgICA8aW5wdXQgdHlwZT0ibnVtYmVyIiBjbGFzc05hbWU9e3N0eWxlcy5pbnB1dH0gdmFsdWU9e21vbnRobHlTdG9yYWdlRmVl'
-    'fSBvbkNoYW5nZT17ZSA9PiBzZXRNb250aGx5U3RvcmFnZUZlZShlLnRhcmdldC52YWx1ZSl9IHBsYWNlaG9sZGVyPSJTeXN0ZW0g'
-    'ZGVmYXVsdCIgLz4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgICAgICAgICA8L2Rp'
-    'dj4KICAgICAgICAgICAgICAgICAgICA8Lz4KICAgICAgICAgICAgICAgICl9CgogICAgICAgICAgICAgICAgPGRpdiBjbGFzc05h'
-    'bWU9e3N0eWxlcy5maW5hbmNpYWxzU3VtbWFyeX0+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9e3N0eWxlcy5m'
-    'aW5Sb3d9PjxzcGFuPlRvdGFsIENvc3Q8L3NwYW4+PHNwYW4+e051bWJlcih0b3RhbENvc3QpIHx8IDB9PC9zcGFuPjwvZGl2Pgog'
-    'ICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmluUm93fT48c3Bhbj5Jbml0aWFsIFBheW1lbnQ8L3Nw'
-    'YW4+PHNwYW4+e051bWJlcihpbml0aWFsUGF5bWVudCkgfHwgMH08L3NwYW4+PC9kaXY+CiAgICAgICAgICAgICAgICAgICAge2lz'
-    'TGVnYWN5ICYmIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmluUm93fT48c3Bhbj5Jbml0aWFsIFN0b3JhZ2UgRmVlPC9zcGFuPjxz'
-    'cGFuPntOdW1iZXIoaW5pdGlhbFN0b3JhZ2VGZWUpIHx8IDB9PC9zcGFuPjwvZGl2Pn0KICAgICAgICAgICAgICAgICAgICA8ZGl2'
-    'IGNsYXNzTmFtZT17YCR7c3R5bGVzLmZpblJvd30gJHtzdHlsZXMudG90YWx9YH0+PHNwYW4+QW1vdW50IE93ZWQ8L3NwYW4+PHNw'
-    'YW4+e2Ftb3VudE93ZWR9PC9zcGFuPjwvZGl2PgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgIDwvQ29sbGFwc2li'
-    'bGVTZWN0aW9uPgoKICAgICAgICAgICAgPENvbGxhcHNpYmxlU2VjdGlvbiBpY29uPXs8RmlVcGxvYWRDbG91ZCAvPn0gdGl0bGU9'
-    'e2Ake25Eb2N1bWVudHN9LiBEb2N1bWVudHNgfT4KICAgICAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9e3N0eWxlcy5kcm9w'
-    'em9uZX0+CiAgICAgICAgICAgICAgICAgICAgPEZpVXBsb2FkQ2xvdWQgc2l6ZT17MjR9IC8+CiAgICAgICAgICAgICAgICAgICAg'
-    'PHA+Q2xpY2sgdG8gdXBsb2FkPC9wPgogICAgICAgICAgICAgICAgICAgIDxpbnB1dCB0eXBlPSJmaWxlIiBtdWx0aXBsZSBzdHls'
-    'ZT17e2Rpc3BsYXk6ICdub25lJ319IG9uQ2hhbmdlPXtoYW5kbGVGaWxlVXBsb2FkfSAvPgogICAgICAgICAgICAgICAgPC9sYWJl'
-    'bD4KICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzdHlsZXMuZmlsZUxpc3R9PgogICAgICAgICAgICAgICAgICAgIHtm'
-    'aWxlUXVldWUubWFwKChmLCBpKSA9PiAoCiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYga2V5PXtpfSBjbGFzc05hbWU9e3N0'
-    'eWxlcy5maWxlSXRlbX0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj57Zi5uYW1lfTwvc3Bhbj4KICAgICAgICAg'
-    'ICAgICAgICAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPXtzdHlsZXMuYnRufSBvbkNsaWNrPXsoKSA9PiBzZXRGaWxlUXVl'
-    'dWUocCA9PiBwLmZpbHRlcigoXywgaWR4KSA9PiBpZHggIT09IGkpKX0+PEZpVHJhc2gyIC8+PC9idXR0b24+CiAgICAgICAgICAg'
-    'ICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgICAgICkpfQogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAg'
-    'ICAgIDwvQ29sbGFwc2libGVTZWN0aW9uPgoKICAgICAgICAgICAgPENvbGxhcHNpYmxlU2VjdGlvbiBpY29uPXs8RmlFZGl0MyAv'
-    'Pn0gdGl0bGU9e2Ake25Ob3Rlc30uIE5vdGVzYH0+CiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17c3R5bGVzLmZpZWxk'
-    'fT4KICAgICAgICAgICAgICAgICAgICA8dGV4dGFyZWEgY2xhc3NOYW1lPXtzdHlsZXMudGV4dGFyZWF9IHZhbHVlPXtub3Rlc30g'
-    'b25DaGFuZ2U9e2UgPT4gc2V0Tm90ZXMoZS50YXJnZXQudmFsdWUpfSAvPgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAg'
-    'ICAgIDwvQ29sbGFwc2libGVTZWN0aW9uPgoKICAgICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICB7dG9hc3RzLm1hcCh0ID0+'
-    'ICgKICAgICAgICAgICAgICAgIDxkaXYga2V5PXt0LmlkfSBjbGFzc05hbWU9e2Ake3N0eWxlcy50b2FzdH0gJHtzdHlsZXNbdC50'
-    'eXBlXSB8fCAnJ31gfT57dC5tc2d9PC9kaXY+CiAgICAgICAgICAgICkpfQogICAgICAgIDwvZGl2PgogICAgKTsKfQo='
-)
-
-INTAKE_CSS_B64 = (
-    'LyogSW50YWtlUGFnZS5tb2R1bGUuY3NzIC0gUGhhc2UgRCBSZXZhbXAgbWF0Y2hpbmcgTGVkZ2VyJ3MgcmVmZXJlbmNlIGRlc2ln'
-    'biAqLwo6cm9vdCB7CiAgICAtLW9yYW5nZTogICAgICAgICNFRThDM0E7CiAgICAtLW9yYW5nZS1kaW06ICAgIHJnYmEoMjM4LCAx'
-    'NDAsIDU4LCAwLjE4KTsKICAgIC0tb3JhbmdlLWJvcmRlcjogcmdiYSgyMzgsIDE0MCwgNTgsIDAuMjgpOwogICAgLS1uYXZ5OiAg'
-    'ICAgICAgICAjMWEyZTMwOwogICAgLS1uYXZ5LW1pZDogICAgICAjMjEzRTQwOwogICAgLS1yZWQ6ICAgICAgICAgICAjZWY0NDQ0'
-    'OwogICAgLS1ncmVlbjogICAgICAgICAjMTBiOTgxOwogICAgLS1jeWFuOiAgICAgICAgICAjMDZiNmQ0OwogICAgLS1iZzogICAg'
-    'ICAgICAgICAjZjhmYWZjOwogICAgLS1jYXJkLWJnOiAgICAgICAjZmZmZmZmOwogICAgLS1ib3JkZXI6ICAgICAgICAjZTJlOGYw'
-    'OwoKICAgIC0tZ2FwLXhsOiAgICBjbGFtcCgxNHB4LCAydncsIDIycHgpOwogICAgLS1nYXAtbGc6ICAgIGNsYW1wKDEwcHgsIDEu'
-    'NXZ3LCAxOHB4KTsKICAgIC0tZ2FwLW1kOiAgICBjbGFtcCg3cHgsICAxLjF2dywgMTNweCk7CiAgICAtLXJhZGl1czogICAgMTBw'
-    'eDsKICAgIC0tcmFkaXVzLXNtOiA2cHg7CgogICAgLS1mcy1oMTogICAgIGNsYW1wKDE4cHgsIDIuNXZ3LCAyNHB4KTsKICAgIC0t'
-    'ZnMtc3ViOiAgICBjbGFtcCg5cHgsICAwLjl2dywgMTFweCk7CiAgICAtLWZzLWxhYmVsOiAgY2xhbXAoOHB4LCAgMC44NXZ3LCAx'
-    'MHB4KTsKICAgIC0tZnMtdmFsdWU6ICBjbGFtcCgxMXB4LCAxLjF2dywgMTNweCk7CiAgICAtLWZzLXRhZzogICAgY2xhbXAoN3B4'
-    'LCAgMC43NXZ3LCA5cHgpOwogICAgLS1mcy1pbnB1dDogIGNsYW1wKDExcHgsIDEuMXZ3LCAxM3B4KTsKICAgIC0tZnMtbWV0YTog'
-    'ICBjbGFtcCg4cHgsICAwLjg1dncsIDEwcHgpOwogICAgLS1mcy1idG46ICAgIGNsYW1wKDlweCwgIDAuOXZ3LCAxMXB4KTsKfQoK'
-    'LmNvbnRhaW5lciB7CiAgICBtYXgtd2lkdGg6IDEyMDBweDsKICAgIHdpZHRoOiAxMDAlOwogICAgbWFyZ2luOiAwIGF1dG87CiAg'
-    'ICBwYWRkaW5nOiBjbGFtcCgxNHB4LCAyLjV2aCwgMjhweCkgY2xhbXAoMTJweCwgMnZ3LCAyNHB4KTsKICAgIGZvbnQtZmFtaWx5'
-    'OiAnRE0gU2FucycsIHNhbnMtc2VyaWY7CiAgICBjb2xvcjogdmFyKC0tbmF2eSk7CiAgICBhbmltYXRpb246IHdhcm1Cb290IDAu'
-    'NnMgY3ViaWMtYmV6aWVyKDAuMiwgMSwgMC4zLCAxKSBib3RoOwogICAgZGlzcGxheTogZmxleDsKICAgIGZsZXgtZGlyZWN0aW9u'
-    'OiBjb2x1bW47CiAgICBnYXA6IHZhcigtLWdhcC14bCk7CiAgICBib3gtc2l6aW5nOiBib3JkZXItYm94Owp9CgpAa2V5ZnJhbWVz'
-    'IHdhcm1Cb290IHsKICAgIGZyb20geyBvcGFjaXR5OiAwOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVkoMTBweCk7IH0KICAgIHRvICAg'
-    'eyBvcGFjaXR5OiAxOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVkoMCk7IH0KfQoKLyogLS0gUEFHRSBIRUFERVIgLS0gc2FtZSBnbGFz'
-    'cyB0cmVhdG1lbnQgYXMgdGhlIExlZGdlciBwYWdlIC0tICovCi5wYWdlSGVhZGVyIHsKICAgIGRpc3BsYXk6IGZsZXg7CiAgICBq'
-    'dXN0aWZ5LWNvbnRlbnQ6IHNwYWNlLWJldHdlZW47CiAgICBhbGlnbi1pdGVtczogY2VudGVyOwogICAgZmxleC13cmFwOiB3cmFw'
-    'OwogICAgZ2FwOiBjbGFtcCgxMHB4LCAxLjR2dywgMTZweCk7CiAgICBib3JkZXItbGVmdDogY2xhbXAoM3B4LCAwLjR2dywgNXB4'
-    'KSBzb2xpZCB2YXIoLS1vcmFuZ2UpOwogICAgcGFkZGluZzogY2xhbXAoMTBweCwgMS40dncsIDE2cHgpIGNsYW1wKDE2cHgsIDIu'
-    'MnZ3LCAyOHB4KTsKICAgIGJhY2tncm91bmQ6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC42Mik7CiAgICBib3JkZXItcmFkaXVzOiAw'
-    'IDEycHggMTJweCAwOwogICAgYmFja2Ryb3AtZmlsdGVyOiBibHVyKDE1cHgpOwogICAgYm94LXNoYWRvdzogMCA0cHggMTVweCBy'
-    'Z2JhKDAsIDAsIDAsIDAuMDcpOwogICAgZmxleC1zaHJpbms6IDA7Cn0KCi5oZWFkZXJMZWZ0IHsKICAgIGRpc3BsYXk6IGZsZXg7'
-    'CiAgICBmbGV4LWRpcmVjdGlvbjogY29sdW1uOwogICAgZ2FwOiBjbGFtcCgzcHgsIDAuNHZ3LCA1cHgpOwogICAgbWluLXdpZHRo'
-    'OiAwOwp9CgoudGl0bGUgewogICAgZm9udC1mYW1pbHk6ICdDaW56ZWwnLCBzZXJpZjsKICAgIGNvbG9yOiB2YXIoLS1uYXZ5KTsK'
-    'ICAgIGZvbnQtc2l6ZTogdmFyKC0tZnMtaDEpOwogICAgZm9udC13ZWlnaHQ6IDcwMDsKICAgIHRleHQtdHJhbnNmb3JtOiB1cHBl'
-    'cmNhc2U7CiAgICBsZXR0ZXItc3BhY2luZzogMnB4OwogICAgbWFyZ2luOiAwOwogICAgbGluZS1oZWlnaHQ6IDEuMTsKfQoKLnN1'
-    'YnRpdGxlIHsKICAgIGZvbnQtZmFtaWx5OiAnRE0gU2FucycsIHNhbnMtc2VyaWY7CiAgICBjb2xvcjogIzY0NzQ4YjsKICAgIGZv'
-    'bnQtc2l6ZTogdmFyKC0tZnMtc3ViKTsKICAgIGZvbnQtd2VpZ2h0OiA4MDA7CiAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNl'
-    'OwogICAgbWFyZ2luOiAwOwogICAgbGV0dGVyLXNwYWNpbmc6IDFweDsKfQoKLmFjdGlvbnMgeyBkaXNwbGF5OiBmbGV4OyBnYXA6'
-    'IHZhcigtLWdhcC1tZCk7IGZsZXgtc2hyaW5rOiAwOyB9Cgouc2VjdGlvbnMgeyBkaXNwbGF5OiBmbGV4OyBmbGV4LWRpcmVjdGlv'
-    'bjogY29sdW1uOyBnYXA6IHZhcigtLWdhcC1sZyk7IH0KCi5idG4gewogICAgZm9udC1mYW1pbHk6ICdTcGFjZSBNb25vJywgbW9u'
-    'b3NwYWNlOwogICAgZm9udC1zaXplOiB2YXIoLS1mcy1idG4pOwogICAgZm9udC13ZWlnaHQ6IDcwMDsKICAgIHRleHQtdHJhbnNm'
-    'b3JtOiB1cHBlcmNhc2U7CiAgICBsZXR0ZXItc3BhY2luZzogMXB4OwogICAgcGFkZGluZzogY2xhbXAoOHB4LCAxdncsIDEycHgp'
-    'IGNsYW1wKDE0cHgsIDJ2dywgMjJweCk7CiAgICBib3JkZXItcmFkaXVzOiB2YXIoLS1yYWRpdXMtc20pOwogICAgYm9yZGVyOiAx'
-    'cHggc29saWQgdmFyKC0tYm9yZGVyKTsKICAgIGJhY2tncm91bmQ6IHZhcigtLWNhcmQtYmcpOwogICAgY29sb3I6IHZhcigtLW5h'
-    'dnkpOwogICAgY3Vyc29yOiBwb2ludGVyOwogICAgdHJhbnNpdGlvbjogYWxsIDAuMnM7CiAgICBkaXNwbGF5OiBmbGV4OwogICAg'
-    'YWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGdhcDogNnB4Owp9Ci5idG46aG92ZXIgeyBib3JkZXItY29sb3I6IHZhcigtLW9yYW5n'
-    'ZSk7IGNvbG9yOiB2YXIoLS1vcmFuZ2UpOyB9Ci5idG4ucHJpbWFyeSB7IGJhY2tncm91bmQ6IHZhcigtLW9yYW5nZSk7IGNvbG9y'
-    'OiAjZmZmOyBib3JkZXItY29sb3I6IHZhcigtLW9yYW5nZSk7IH0KLmJ0bi5wcmltYXJ5OmhvdmVyIHsgYmFja2dyb3VuZDogI2Q5'
-    'N2EyYjsgYm9yZGVyLWNvbG9yOiAjZDk3YTJiOyBjb2xvcjogI2ZmZjsgfQouYnRuOmRpc2FibGVkIHsgb3BhY2l0eTogMC41OyBj'
-    'dXJzb3I6IG5vdC1hbGxvd2VkOyB9CgouZ3JpZCB7IGRpc3BsYXk6IGdyaWQ7IGdyaWQtdGVtcGxhdGUtY29sdW1uczogcmVwZWF0'
-    'KGF1dG8tZml0LCBtaW5tYXgoMjAwcHgsIDFmcikpOyBnYXA6IHZhcigtLWdhcC1sZyk7IH0KLmdyaWQyIHsgZGlzcGxheTogZ3Jp'
-    'ZDsgZ3JpZC10ZW1wbGF0ZS1jb2x1bW5zOiByZXBlYXQoYXV0by1maXQsIG1pbm1heCgyNTBweCwgMWZyKSk7IGdhcDogdmFyKC0t'
-    'Z2FwLWxnKTsgfQouZ3JpZDMgeyBkaXNwbGF5OiBncmlkOyBncmlkLXRlbXBsYXRlLWNvbHVtbnM6IHJlcGVhdChhdXRvLWZpdCwg'
-    'bWlubWF4KDE1MHB4LCAxZnIpKTsgZ2FwOiB2YXIoLS1nYXAtbGcpOyB9CgouZmllbGQgeyBkaXNwbGF5OiBmbGV4OyBmbGV4LWRp'
-    'cmVjdGlvbjogY29sdW1uOyBnYXA6IDRweDsgfQoubGFiZWwgeyBmb250LXNpemU6IHZhcigtLWZzLWxhYmVsKTsgZm9udC13ZWln'
-    'aHQ6IDgwMDsgY29sb3I6ICM2NDc0OGI7IHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7IGxldHRlci1zcGFjaW5nOiAwLjVweDsg'
-    'fQoucmVxdWlyZWQ6OmFmdGVyIHsgY29udGVudDogJyonOyBjb2xvcjogdmFyKC0tcmVkKTsgbWFyZ2luLWxlZnQ6IDJweDsgfQoK'
-    'LmlucHV0LCAuc2VsZWN0LCAudGV4dGFyZWEgewogICAgZm9udC1mYW1pbHk6ICdETSBTYW5zJywgc2Fucy1zZXJpZjsKICAgIGZv'
-    'bnQtc2l6ZTogdmFyKC0tZnMtaW5wdXQpOwogICAgZm9udC13ZWlnaHQ6IDYwMDsKICAgIHBhZGRpbmc6IGNsYW1wKDhweCwgMXZ3'
-    'LCAxMnB4KTsKICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLWJvcmRlcik7CiAgICBib3JkZXItcmFkaXVzOiB2YXIoLS1yYWRp'
-    'dXMtc20pOwogICAgYmFja2dyb3VuZDogdmFyKC0tYmcpOwogICAgY29sb3I6IHZhcigtLW5hdnkpOwogICAgd2lkdGg6IDEwMCU7'
-    'CiAgICBib3gtc2l6aW5nOiBib3JkZXItYm94OwogICAgdHJhbnNpdGlvbjogYm9yZGVyLWNvbG9yIDAuMnMsIGJveC1zaGFkb3cg'
-    'MC4yczsKfQouaW5wdXQ6Zm9jdXMsIC5zZWxlY3Q6Zm9jdXMsIC50ZXh0YXJlYTpmb2N1cyB7CiAgICBvdXRsaW5lOiBub25lOwog'
-    'ICAgYm9yZGVyLWNvbG9yOiB2YXIoLS1vcmFuZ2UpOwogICAgYm94LXNoYWRvdzogMCAwIDAgM3B4IHZhcigtLW9yYW5nZS1kaW0p'
-    'Owp9Ci5pbnB1dC5lcnJvciwgLnNlbGVjdC5lcnJvciB7IGJvcmRlci1jb2xvcjogdmFyKC0tcmVkKTsgfQoudGV4dGFyZWEgeyBt'
-    'aW4taGVpZ2h0OiA4MHB4OyByZXNpemU6IHZlcnRpY2FsOyB9Cgoub3duZXJSb3cgewogICAgZGlzcGxheTogZ3JpZDsKICAgIGdy'
-    'aWQtdGVtcGxhdGUtY29sdW1uczogMmZyIDFmciAxZnIgMS41ZnIgYXV0bzsKICAgIGdhcDogdmFyKC0tZ2FwLW1kKTsKICAgIGFs'
-    'aWduLWl0ZW1zOiBlbmQ7CiAgICBwYWRkaW5nOiB2YXIoLS1nYXAtbWQpOwogICAgYmFja2dyb3VuZDogdmFyKC0tYmcpOwogICAg'
-    'Ym9yZGVyOiAxcHggc29saWQgdmFyKC0tYm9yZGVyKTsKICAgIGJvcmRlci1yYWRpdXM6IHZhcigtLXJhZGl1cy1zbSk7Cn0KCi5z'
-    'dGFnZUxpc3QgeyBkaXNwbGF5OiBmbGV4OyBmbGV4LWRpcmVjdGlvbjogY29sdW1uOyBnYXA6IHZhcigtLWdhcC1tZCk7IH0KLnN0'
-    'YWdlSXRlbSB7CiAgICBkaXNwbGF5OiBmbGV4OwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGdhcDogdmFyKC0tZ2FwLW1k'
-    'KTsKICAgIHBhZGRpbmc6IHZhcigtLWdhcC1tZCk7CiAgICBiYWNrZ3JvdW5kOiB2YXIoLS1iZyk7CiAgICBib3JkZXI6IDFweCBz'
-    'b2xpZCB2YXIoLS1ib3JkZXIpOwogICAgYm9yZGVyLXJhZGl1czogdmFyKC0tcmFkaXVzLXNtKTsKICAgIGN1cnNvcjogcG9pbnRl'
-    'cjsKICAgIHRyYW5zaXRpb246IGFsbCAwLjJzOwp9Ci5zdGFnZUl0ZW06aG92ZXIgeyBib3JkZXItY29sb3I6IHZhcigtLW9yYW5n'
-    'ZSk7IH0KLnN0YWdlSXRlbS5jaGVja2VkIHsgYm9yZGVyLWNvbG9yOiB2YXIoLS1ncmVlbik7IGJhY2tncm91bmQ6IHJnYmEoMTYs'
-    'IDE4NSwgMTI5LCAwLjA1KTsgfQouY2hlY2tib3ggeyB3aWR0aDogMjBweDsgaGVpZ2h0OiAyMHB4OyBhY2NlbnQtY29sb3I6IHZh'
-    'cigtLW9yYW5nZSk7IGN1cnNvcjogcG9pbnRlcjsgfQouc3RhZ2VOYW1lIHsgZm9udC13ZWlnaHQ6IDcwMDsgY29sb3I6IHZhcigt'
-    'LW5hdnkpOyBmb250LXNpemU6IHZhcigtLWZzLXZhbHVlKTsgfQoKLmZpbmFuY2lhbHNTdW1tYXJ5IHsKICAgIGJhY2tncm91bmQ6'
-    'IHZhcigtLWJnKTsKICAgIHBhZGRpbmc6IHZhcigtLWdhcC1sZyk7CiAgICBib3JkZXItcmFkaXVzOiB2YXIoLS1yYWRpdXMtc20p'
-    'OwogICAgZGlzcGxheTogZmxleDsKICAgIGZsZXgtZGlyZWN0aW9uOiBjb2x1bW47CiAgICBnYXA6IHZhcigtLWdhcC1tZCk7Cn0K'
-    'LmZpblJvdyB7IGRpc3BsYXk6IGZsZXg7IGp1c3RpZnktY29udGVudDogc3BhY2UtYmV0d2VlbjsgZm9udC13ZWlnaHQ6IDcwMDsg'
-    'Y29sb3I6IHZhcigtLW5hdnkpOyBmb250LXNpemU6IHZhcigtLWZzLXZhbHVlKTsgfQouZmluUm93LnRvdGFsIHsgY29sb3I6IHZh'
-    'cigtLW9yYW5nZSk7IGZvbnQtc2l6ZTogY2xhbXAoMTRweCwgMS41dncsIDE4cHgpOyBib3JkZXItdG9wOiAxcHggc29saWQgdmFy'
-    'KC0tYm9yZGVyKTsgcGFkZGluZy10b3A6IHZhcigtLWdhcC1tZCk7IH0KCi5kcm9wem9uZSB7CiAgICBib3JkZXI6IDJweCBkYXNo'
-    'ZWQgdmFyKC0tb3JhbmdlLWJvcmRlcik7CiAgICBib3JkZXItcmFkaXVzOiB2YXIoLS1yYWRpdXMpOwogICAgcGFkZGluZzogdmFy'
-    'KC0tZ2FwLXhsKTsKICAgIHRleHQtYWxpZ246IGNlbnRlcjsKICAgIGNvbG9yOiAjNjQ3NDhiOwogICAgY3Vyc29yOiBwb2ludGVy'
-    'OwogICAgdHJhbnNpdGlvbjogYWxsIDAuMnM7Cn0KLmRyb3B6b25lOmhvdmVyIHsgYmFja2dyb3VuZDogdmFyKC0tb3JhbmdlLWRp'
-    'bSk7IGJvcmRlci1jb2xvcjogdmFyKC0tb3JhbmdlKTsgY29sb3I6IHZhcigtLW9yYW5nZSk7IH0KCi5maWxlTGlzdCB7IGRpc3Bs'
-    'YXk6IGZsZXg7IGZsZXgtZGlyZWN0aW9uOiBjb2x1bW47IGdhcDogdmFyKC0tZ2FwLW1kKTsgfQouZmlsZUl0ZW0geyBkaXNwbGF5'
-    'OiBmbGV4OyBqdXN0aWZ5LWNvbnRlbnQ6IHNwYWNlLWJldHdlZW47IGFsaWduLWl0ZW1zOiBjZW50ZXI7IGJhY2tncm91bmQ6IHZh'
-    'cigtLWJnKTsgcGFkZGluZzogdmFyKC0tZ2FwLW1kKTsgYm9yZGVyLXJhZGl1czogdmFyKC0tcmFkaXVzLXNtKTsgfQoKLmxlZ2Fj'
-    'eUJ0biB7CiAgICBiYWNrZ3JvdW5kOiB2YXIoLS1uYXZ5KTsKICAgIGNvbG9yOiAjZmZmOwogICAgYm9yZGVyOiAxcHggc29saWQg'
-    'dmFyKC0tbmF2eSk7CiAgICBwYWRkaW5nOiBjbGFtcCg4cHgsIDF2dywgMTJweCkgY2xhbXAoMTRweCwgMnZ3LCAyMnB4KTsKICAg'
-    'IGZvbnQtc2l6ZTogdmFyKC0tZnMtYnRuKTsKICAgIGZvbnQtd2VpZ2h0OiA3MDA7CiAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJj'
-    'YXNlOwogICAgYm9yZGVyLXJhZGl1czogdmFyKC0tcmFkaXVzLXNtKTsKICAgIGN1cnNvcjogcG9pbnRlcjsKICAgIGRpc3BsYXk6'
-    'IGZsZXg7CiAgICBhbGlnbi1pdGVtczogY2VudGVyOwogICAgZ2FwOiA2cHg7Cn0KLmxlZ2FjeUJ0bjpob3ZlciB7IGJhY2tncm91'
-    'bmQ6IHZhcigtLW5hdnktbWlkKTsgfQoKLyogUHJvamVjdCB0eXBlIHNlZ21lbnRlZCBjb250cm9sICovCi50eXBlR3JvdXAgeyBk'
-    'aXNwbGF5OiBmbGV4OyBnYXA6IHZhcigtLWdhcC1tZCk7IGZsZXgtd3JhcDogd3JhcDsgfQoudHlwZUJ0biB7CiAgICBkaXNwbGF5'
-    'OiBmbGV4OwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGdhcDogOHB4OwogICAgZm9udC1mYW1pbHk6ICdTcGFjZSBNb25v'
-    'JywgbW9ub3NwYWNlOwogICAgZm9udC1zaXplOiB2YXIoLS1mcy1idG4pOwogICAgZm9udC13ZWlnaHQ6IDcwMDsKICAgIHRleHQt'
-    'dHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICBsZXR0ZXItc3BhY2luZzogMXB4OwogICAgcGFkZGluZzogY2xhbXAoMTBweCwgMS4y'
-    'dncsIDE0cHgpIGNsYW1wKDE2cHgsIDJ2dywgMjJweCk7CiAgICBib3JkZXItcmFkaXVzOiB2YXIoLS1yYWRpdXMtc20pOwogICAg'
-    'Ym9yZGVyOiAycHggc29saWQgdmFyKC0tYm9yZGVyKTsKICAgIGJhY2tncm91bmQ6IHZhcigtLWJnKTsKICAgIGNvbG9yOiB2YXIo'
-    'LS1uYXZ5KTsKICAgIGN1cnNvcjogcG9pbnRlcjsKICAgIHRyYW5zaXRpb246IGFsbCAwLjJzOwp9Ci50eXBlQnRuOmhvdmVyIHsg'
-    'Ym9yZGVyLWNvbG9yOiB2YXIoLS1vcmFuZ2UtYm9yZGVyKTsgfQoudHlwZUJ0bkFjdGl2ZSB7IGJvcmRlci1jb2xvcjogdmFyKC0t'
-    'b3JhbmdlKTsgYmFja2dyb3VuZDogdmFyKC0tb3JhbmdlLWRpbSk7IGNvbG9yOiB2YXIoLS1vcmFuZ2UpOyB9Ci50eXBlSGludCB7'
-    'IGZvbnQtc2l6ZTogdmFyKC0tZnMtbWV0YSk7IGNvbG9yOiAjNjQ3NDhiOyBtYXJnaW46IDJweCAwIDAgMDsgfQoKLnN1YmhlYWRp'
-    'bmcgewogICAgZm9udC1mYW1pbHk6ICdDaW56ZWwnLCBzZXJpZjsKICAgIGZvbnQtc2l6ZTogY2xhbXAoMTJweCwgMS40dncsIDE0'
-    'cHgpOwogICAgZm9udC13ZWlnaHQ6IDcwMDsKICAgIGNvbG9yOiB2YXIoLS1uYXZ5KTsKICAgIGRpc3BsYXk6IGZsZXg7CiAgICBh'
-    'bGlnbi1pdGVtczogY2VudGVyOwogICAgZ2FwOiA2cHg7CiAgICBtYXJnaW46IDRweCAwIDAgMDsKfQoKLmlubGluZUFkZFJvdyB7'
-    'CiAgICBkaXNwbGF5OiBmbGV4OwogICAgZ2FwOiB2YXIoLS1nYXAtbWQpOwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGZs'
-    'ZXgtd3JhcDogd3JhcDsKICAgIGJhY2tncm91bmQ6IHZhcigtLWJnKTsKICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLW9yYW5n'
-    'ZS1ib3JkZXIpOwogICAgYm9yZGVyLXJhZGl1czogdmFyKC0tcmFkaXVzLXNtKTsKICAgIHBhZGRpbmc6IHZhcigtLWdhcC1tZCk7'
-    'Cn0KLmlubGluZUFkZFJvdyAuaW5wdXQgeyB3aWR0aDogYXV0bzsgZmxleDogMSAxIDIwMHB4OyB9Cgouc3RhZ2VJdGVtLnN0YWdl'
-    'TG9ja2VkIHsgY3Vyc29yOiBub3QtYWxsb3dlZDsgYm9yZGVyLWNvbG9yOiB2YXIoLS1uYXZ5KTsgYmFja2dyb3VuZDogcmdiYSgy'
-    'NiwgNDYsIDQ4LCAwLjA1KTsgfQoubG9ja2VkVGFnIHsKICAgIG1hcmdpbi1sZWZ0OiBhdXRvOwogICAgZGlzcGxheTogZmxleDsK'
-    'ICAgIGFsaWduLWl0ZW1zOiBjZW50ZXI7CiAgICBnYXA6IDRweDsKICAgIGZvbnQtc2l6ZTogdmFyKC0tZnMtdGFnKTsKICAgIGZv'
-    'bnQtd2VpZ2h0OiA4MDA7CiAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgY29sb3I6IHZhcigtLW5hdnktbWlkKTsK'
-    'ICAgIGxldHRlci1zcGFjaW5nOiAwLjVweDsKfQoKLnByZXNldExpc3QgeyBkaXNwbGF5OiBmbGV4OyBnYXA6IHZhcigtLWdhcC1t'
-    'ZCk7IGZsZXgtd3JhcDogd3JhcDsgfQoucHJlc2V0Q2hpcCB7CiAgICBkaXNwbGF5OiBmbGV4OwogICAgYWxpZ24taXRlbXM6IGNl'
-    'bnRlcjsKICAgIGdhcDogNnB4OwogICAgYmFja2dyb3VuZDogdmFyKC0tb3JhbmdlLWRpbSk7CiAgICBjb2xvcjogdmFyKC0tb3Jh'
-    'bmdlKTsKICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLW9yYW5nZS1ib3JkZXIpOwogICAgYm9yZGVyLXJhZGl1czogOTk5cHg7'
-    'CiAgICBwYWRkaW5nOiA0cHggMTBweDsKICAgIGZvbnQtc2l6ZTogdmFyKC0tZnMtbWV0YSk7CiAgICBmb250LXdlaWdodDogNzAw'
-    'Owp9Ci5wcmVzZXRDaGlwUmVtb3ZlIHsKICAgIGJhY2tncm91bmQ6IG5vbmU7CiAgICBib3JkZXI6IG5vbmU7CiAgICBjb2xvcjog'
-    'aW5oZXJpdDsKICAgIGN1cnNvcjogcG9pbnRlcjsKICAgIGRpc3BsYXk6IGZsZXg7CiAgICBhbGlnbi1pdGVtczogY2VudGVyOwog'
-    'ICAgcGFkZGluZzogMDsKfQoKLnRvYXN0IHsKICAgIHBvc2l0aW9uOiBmaXhlZDsKICAgIGJvdHRvbTogMjBweDsKICAgIHJpZ2h0'
-    'OiAyMHB4OwogICAgYmFja2dyb3VuZDogdmFyKC0tbmF2eSk7CiAgICBjb2xvcjogI2ZmZjsKICAgIHBhZGRpbmc6IDEycHggMjBw'
-    'eDsKICAgIGJvcmRlci1yYWRpdXM6IHZhcigtLXJhZGl1cy1zbSk7CiAgICBib3gtc2hhZG93OiAwIDRweCA2cHggcmdiYSgwLDAs'
-    'MCwwLjEpOwogICAgei1pbmRleDogOTk5OTsKICAgIGFuaW1hdGlvbjogc2xpZGVJbiAwLjNzIGVhc2Utb3V0Owp9Ci50b2FzdC5l'
-    'cnJvciB7IGJhY2tncm91bmQ6IHZhcigtLXJlZCk7IH0KLnRvYXN0LnN1Y2Nlc3MgeyBiYWNrZ3JvdW5kOiB2YXIoLS1ncmVlbik7'
-    'IH0KQGtleWZyYW1lcyBzbGlkZUluIHsgZnJvbSB7IHRyYW5zZm9ybTogdHJhbnNsYXRlWCgxMDAlKTsgfSB0byB7IHRyYW5zZm9y'
-    'bTogdHJhbnNsYXRlWCgwKTsgfSB9CgpAbWVkaWEgKG1heC13aWR0aDogNzY4cHgpIHsKICAgIC5vd25lclJvdyB7IGdyaWQtdGVt'
-    'cGxhdGUtY29sdW1uczogMWZyOyB9CiAgICAucGFnZUhlYWRlciB7CiAgICAgICAgZmxleC1kaXJlY3Rpb246IGNvbHVtbjsKICAg'
-    'ICAgICBhbGlnbi1pdGVtczogZmxleC1zdGFydDsKICAgICAgICBnYXA6IHZhcigtLWdhcC1sZyk7CiAgICAgICAgbWFyZ2luLWxl'
-    'ZnQ6IDA7CiAgICAgICAgYm9yZGVyLXJhZGl1czogMDsKICAgIH0KICAgIC5hY3Rpb25zIHsgd2lkdGg6IDEwMCU7IH0KICAgIC5h'
-    'Y3Rpb25zIC5idG4geyBmbGV4OiAxOyBqdXN0aWZ5LWNvbnRlbnQ6IGNlbnRlcjsgfQp9'
-)
-
-COLLAPSIBLE_SECTION_JSX = 'erp-frontend/src/components/ui/CollapsibleSection.jsx'
-COLLAPSIBLE_SECTION_CSS = 'erp-frontend/src/components/ui/CollapsibleSection.module.css'
-INTAKE_JSX = 'erp-frontend/src/pages/Intake/IntakePage.jsx'
-INTAKE_CSS = 'erp-frontend/src/pages/Intake/IntakePage.module.css'
-
-write_full(COLLAPSIBLE_SECTION_JSX, COLLAPSIBLE_SECTION_JSX_B64, 'CollapsibleSection.jsx: new reusable expand/contract card')
-write_full(COLLAPSIBLE_SECTION_CSS, COLLAPSIBLE_SECTION_CSS_B64, 'CollapsibleSection.module.css: new')
-write_full(INTAKE_JSX, INTAKE_JSX_B64, 'IntakePage.jsx: Ledger-themed header, collapsible sections, shorter copy')
-write_full(INTAKE_CSS, INTAKE_CSS_B64, 'IntakePage.module.css: glass pageHeader, drop unused .section/.sectionTitle')
-
-subprocess.run(['git', 'add', '-A'])
-subprocess.run(['git', 'commit', '-m',
-    'New Project page: match Ledger theme, collapsible sections, shorter copy\n\n'
-    '- New CollapsibleSection component (click-to-toggle card + chevron), used\n'
-    '  by all 8 New Project sections so staff can expand/contract each one\n'
-    '- Page header now uses the same glass pageHeader treatment as the Ledger\n'
-    '  page (orange left border, frosted background) instead of a plain\n'
-    '  bottom-border header\n'
-    '- "Project Index & Type" -> "Entry Mode"; Project Index field no longer\n'
-    '  shows "Auto-generated on save" as its value, just a disabled field\n'
-    '  with a dash placeholder\n'
-    '- Shortened labels/copy throughout: "Project Type" -> "Type", per-option\n'
-    '  hints, "Stage Checklist" -> "Stages", "Title & Plot Details" -> "Title\n'
-    '  & Plot", "Legacy Storage Fees" -> "Storage Fees", "Save as Preset" ->\n'
-    '  "Save Preset", dropzone copy, Notes field label removed\n'
-    '- No logic/validation/payload changes -- layout and copy only'])
-subprocess.run(['git', 'push'])
+- Convert all sections to dark hardware panel design (matches Ledger reference)
+- Add HardwareSelect dropdown for Tenure (app-standard styling)
+- Add live Index preview (shows next 001A format before save)
+- Add Date Started field (auto-filled today, editable)
+- Add Title Date field (optional, backdatable)
+- Split Documents and Notes into side-by-side columns
+- Unify typography: Cinzel headings, Inter labels, Space Mono buttons
+- Backend: previewNextIndex endpoint, projectStartDate on LandProject"""
+        
+        subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
+        print("\n  Git: Committed all changes")
+    except subprocess.CalledProcessError as e:
+        print(f"\n  Git: Commit failed (exit code {e.returncode})")
+        if e.output:
+            print(f"    {e.output.decode('utf-8', errors='replace').strip()}")
+    except FileNotFoundError:
+        print("\n  Git: git not found in PATH")

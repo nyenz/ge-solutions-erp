@@ -29,6 +29,14 @@ public class LandController {
     private final LandService landService;
 
     @PostMapping("/projects/{id}/unlock-log")
+    // INTAKE: preview next project index
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/next-index")
+    public ResponseEntity<String> previewNextIndex() {
+        return ResponseEntity.ok(landService.previewNextIndex());
+    }
+
+
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
         landService.logUnlockAction(id);
         return ResponseEntity.ok().build();

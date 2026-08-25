@@ -7,6 +7,7 @@ import {
     FiLock, FiEdit3, FiBookmark, FiX
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import HardwareSelect from '../../components/common/HardwareSelect';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
 import styles from './IntakePage.module.css';
@@ -14,32 +15,31 @@ import styles from './IntakePage.module.css';
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
 const PROJECT_TYPES = [
-    { value: 'NEW_FOLDER',    label: 'New Folder',    icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
-    { value: 'NEW_TITLE',     label: 'New Title',     icon: <FiFilePlus   aria-hidden="true" />,  hint: 'Title captured now' },
-    { value: 'LEGACY_TITLE',  label: 'Legacy Title',  icon: <FiArchive    aria-hidden="true" />,  hint: 'Existing title, receivable' },
+    { value: 'NEW_FOLDER',   label: 'New Folder',   icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
+    { value: 'NEW_TITLE',    label: 'New Title',    icon: <FiFilePlus aria-hidden="true" />,   hint: 'Title captured now' },
+    { value: 'LEGACY_TITLE', label: 'Legacy Title', icon: <FiArchive aria-hidden="true" />,    hint: 'Existing title, receivable' },
 ];
 
-const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
+const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
 const loadPresets = () => {
     try {
         const raw = localStorage.getItem(PRESET_STORAGE_KEY);
         return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
+    } catch { return []; }
 };
-
 const savePresets = (presets) => {
-    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch { /* no-op */ }
+    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch {}
 };
 
 export default function IntakePage() {
     const navigate = useNavigate();
     const [saving, setSaving] = useState(false);
-    const [projectIndex] = useState('');
+    const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('NEW_FOLDER');
-
+    const [projectStartDate, setProjectStartDate] = useState(todayISO);
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
     const [district, setDistrict] = useState('');
@@ -54,7 +54,6 @@ export default function IntakePage() {
     const [addingStage, setAddingStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
     const [newStageCost, setNewStageCost] = useState('');
-
     const [presets, setPresets] = useState(loadPresets);
     const [presetName, setPresetName] = useState('');
     const [showSavePreset, setShowSavePreset] = useState(false);
@@ -63,6 +62,7 @@ export default function IntakePage() {
     const [tenure, setTenure] = useState('FREEHOLD');
     const [plotNumber, setPlotNumber] = useState('');
     const [blockRoad, setBlockRoad] = useState('');
+    const [titleIssueDate, setTitleIssueDate] = useState('');
 
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
@@ -73,17 +73,20 @@ export default function IntakePage() {
     const [notes, setNotes] = useState('');
 
     const [toasts, setToasts] = useState([]);
-    const toast = useCallback((msg, type='info') => {
+    const toast = useCallback((msg, type = 'info') => {
         const id = Date.now();
-        setToasts(p => [...p, {id, msg, type}]);
+        setToasts(p => [...p, { id, msg, type }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
 
     const fetchTemplates = useCallback(() => {
         stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
     }, []);
-
     useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+    useEffect(() => {
+        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+    }, []);
 
     const sortedTemplates = useMemo(
         () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
@@ -92,10 +95,6 @@ export default function IntakePage() {
     const firstStageId = sortedTemplates[0]?.id;
     const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
 
-    // First and last stage are always part of the checklist and can't be
-    // unchecked -- every project starts with the first stage and can't be
-    // considered done until the last one. New/other stages default to
-    // unchecked unless a preset or the Legacy type turns them all on.
     useEffect(() => {
         if (!sortedTemplates.length) return;
         setCheckedStages(prev => {
@@ -114,8 +113,6 @@ export default function IntakePage() {
     const handleProjectTypeChange = (value) => {
         setProjectType(value);
         if (value === 'LEGACY_TITLE') {
-            // Legacy onboarding: the record is already fully processed, so
-            // every stage in the checklist is complete from day one.
             const allChecked = {};
             sortedTemplates.forEach(t => { allChecked[t.id] = true; });
             setCheckedStages(allChecked);
@@ -123,7 +120,7 @@ export default function IntakePage() {
     };
 
     const toggleStage = (id) => {
-        if (id === firstStageId || id === lastStageId) return; // locked
+        if (id === firstStageId || id === lastStageId) return;
         setCheckedStages(p => ({ ...p, [id]: !p[id] }));
     };
 
@@ -131,13 +128,9 @@ export default function IntakePage() {
         if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
         try {
             const last = sortedTemplates[sortedTemplates.length - 1];
-            // Insert the new stage just before the last (locked) stage,
-            // pushing the last stage's position down by one so it stays last.
             const lastOrder = last?.displayOrder ?? sortedTemplates.length;
             if (last) {
-                await stageTemplateService.updateTemplateStage(
-                    last.id, last.stageName, last.defaultCost, lastOrder + 1
-                );
+                await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
             }
             const created = await stageTemplateService.addTemplateStage(
                 newStageName.trim(),
@@ -157,9 +150,7 @@ export default function IntakePage() {
 
     const handleSavePreset = () => {
         if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
-        const stageNames = sortedTemplates
-            .filter(t => checkedStages[t.id])
-            .map(t => t.stageName);
+        const stageNames = sortedTemplates.filter(t => checkedStages[t.id]).map(t => t.stageName);
         const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
         setPresets(next);
         savePresets(next);
@@ -186,7 +177,7 @@ export default function IntakePage() {
     };
 
     const updateOwner = (idx, field, val) => {
-        setOwners(p => p.map((o, i) => i === idx ? {...o, [field]: val} : o));
+        setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
     };
 
     const handleFileUpload = (e) => {
@@ -221,6 +212,7 @@ export default function IntakePage() {
                 initialPayment: Number(initialPayment) || 0,
                 isLegacy: isLegacy,
                 titleAtIntake: titleAtIntake,
+                projectStartDate: projectStartDate || todayISO(),
                 owners: owners.map(o => ({
                     fullName: o.fullName.trim().toUpperCase(),
                     phone: o.phone.trim(),
@@ -245,6 +237,7 @@ export default function IntakePage() {
                 payload.tenure = tenure;
                 payload.blockRoad = blockRoad.trim().toUpperCase();
                 payload.titleId = titleId.trim().toUpperCase();
+                payload.titleIssueDate = titleIssueDate || null;
             }
 
             if (isLegacy) {
@@ -265,7 +258,6 @@ export default function IntakePage() {
 
     const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
 
-    // Section numbers shift depending on whether Title Details is showing.
     let n = 0;
     const nIndex = ++n;
     const nOwners = ++n;
@@ -293,240 +285,248 @@ export default function IntakePage() {
 
             <div className={styles.sections}>
 
-            <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
-                <div className={styles.grid2}>
+                <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Index</label>
+                            <input className={`${styles.input} ${styles.indexValue}`} value={nextIndex} placeholder="--" disabled />
+                            <p className={styles.hint}>Next available index, assigned on save</p>
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Date Started</label>
+                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)} />
+                            <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
+                        </div>
+                    </div>
                     <div className={styles.field}>
-                        <label className={styles.label}>Index</label>
-                        <input className={styles.input} value={projectIndex} placeholder="—" disabled />
+                        <label className={`${styles.label} ${styles.required}`}>Type</label>
+                        <div className={styles.typeGroup}>
+                            {PROJECT_TYPES.map(pt => (
+                                <button
+                                    key={pt.value}
+                                    type="button"
+                                    className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
+                                    onClick={() => handleProjectTypeChange(pt.value)}
+                                >
+                                    {pt.icon}
+                                    <span>{pt.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
                     </div>
-                </div>
-                <div className={styles.field}>
-                    <label className={`${styles.label} ${styles.required}`}>Type</label>
-                    <div className={styles.typeGroup}>
-                        {PROJECT_TYPES.map(pt => (
-                            <button
-                                key={pt.value}
-                                type="button"
-                                className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
-                                onClick={() => handleProjectTypeChange(pt.value)}
-                            >
-                                {pt.icon}
-                                <span>{pt.label}</span>
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
+                    {owners.map((o, idx) => (
+                        <div key={idx} className={styles.ownerRow}>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>NIN</label>
+                                <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Full Name</label>
+                                <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Phone</label>
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Email</label>
+                                <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
+                            </div>
+                            <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>
+                                <FiTrash2 />
                             </button>
-                        ))}
-                    </div>
-                    <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
-                </div>
-            </CollapsibleSection>
+                        </div>
+                    ))}
+                    <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                        <FiPlus /> Add joint owner
+                    </button>
+                </CollapsibleSection>
 
-            <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
-                {owners.map((o, idx) => (
-                    <div key={idx} className={styles.ownerRow}>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>NIN</label>
-                            <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
+                {isTitleSectionVisible && (
+                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
+                        <div className={styles.grid3}>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title ID</label>
+                                <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
+                            </div>
+                            <HardwareSelect
+                                label="Tenure"
+                                required
+                                options={TENURE_OPTIONS}
+                                value={tenure}
+                                onChange={setTenure}
+                            />
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
+                                <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Block</label>
+                                <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Title Date</label>
+                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => setTitleIssueDate(e.target.value)} />
+                                <p className={styles.hint}>Leave blank if not yet received.</p>
+                            </div>
                         </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Full Name</label>
-                            <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Phone</label>
-                            <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Email</label>
-                            <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
-                        </div>
-                        <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>
-                            <FiTrash2 />
-                        </button>
-                    </div>
-                ))}
-                <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
-                    <FiPlus /> Add joint owner
-                </button>
-            </CollapsibleSection>
+                    </CollapsibleSection>
+                )}
 
-            {isTitleSectionVisible && (
-                <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
+                <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
                     <div className={styles.grid3}>
                         <div className={styles.field}>
-                            <label className={styles.label}>Title ID</label>
-                            <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
+                            <label className={`${styles.label} ${styles.required}`}>District</label>
+                            <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Tenure</label>
-                            <select className={styles.select} value={tenure} onChange={e => setTenure(e.target.value)}>
-                                <option value="FREEHOLD">FREEHOLD</option>
-                                <option value="MAILO">MAILO</option>
-                                <option value="LEASEHOLD">LEASEHOLD</option>
-                                <option value="CUSTOMARY">CUSTOMARY</option>
-                            </select>
+                            <label className={`${styles.label} ${styles.required}`}>County</label>
+                            <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
-                            <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
+                            <label className={styles.label}>Sub-county</label>
+                            <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
                         </div>
                         <div className={styles.field}>
-                            <label className={styles.label}>Block</label>
-                            <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
+                            <label className={styles.label}>Parish</label>
+                            <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Village</label>
+                            <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
+                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
                         </div>
                     </div>
                 </CollapsibleSection>
-            )}
 
-            <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
-                <div className={styles.grid3}>
-                    <div className={styles.field}>
-                        <label className={`${styles.label} ${styles.required}`}>District</label>
-                        <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={`${styles.label} ${styles.required}`}>County</label>
-                        <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Sub-county</label>
-                        <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Parish</label>
-                        <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Village</label>
-                        <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
-                        <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
-                    </div>
-                </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-                icon={<FiCheckSquare />}
-                title={`${nStages}. Stages`}
-                right={
-                    <div style={{display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center'}}>
-                        {presets.length > 0 && (
-                            <select className={styles.select} style={{width: 'auto'}} defaultValue=""
-                                onChange={e => { applyPreset(e.target.value); e.target.value = ''; }}>
-                                <option value="" disabled>Apply preset...</option>
-                                {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-                            </select>
-                        )}
-                        <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
-                            <FiBookmark /> Save Preset
-                        </button>
-                        <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
-                            <FiPlus /> Add Stage
-                        </button>
-                    </div>
-                }
-            >
-                {showSavePreset && (
-                    <div className={styles.inlineAddRow}>
-                        <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
-                        <button className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
-                        <button className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
-                    </div>
-                )}
-
-                {addingStage && (
-                    <div className={styles.inlineAddRow}>
-                        <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
-                        <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{maxWidth: 160}} />
-                        <button className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                        <button className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
-                    </div>
-                )}
-
-                <div className={styles.stageList}>
-                    {sortedTemplates.map(t => {
-                        const locked = t.id === firstStageId || t.id === lastStageId;
-                        return (
-                            <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
-                                <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
-                                    disabled={locked}
-                                    onChange={() => toggleStage(t.id)} />
-                                <span className={styles.stageName}>{t.stageName}</span>
-                                {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
-                            </label>
-                        );
-                    })}
-                </div>
-
-                {presets.length > 0 && (
-                    <div className={styles.presetList}>
-                        {presets.map(p => (
-                            <span key={p.name} className={styles.presetChip}>
-                                {p.name}
-                                <button className={styles.presetChipRemove} onClick={() => deletePreset(p.name)} aria-label={`Delete preset ${p.name}`}><FiX size={12} /></button>
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </CollapsibleSection>
-
-            <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
-                <div className={styles.grid2}>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Total Cost</label>
-                        <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
-                    </div>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Initial Payment</label>
-                        <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
-                    </div>
-                </div>
-
-                {isLegacy && (
-                    <>
-                        <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
-                        <div className={styles.grid2}>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Initial Storage Fee</label>
-                                <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Monthly Storage Fee</label>
-                                <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
-                            </div>
+                <CollapsibleSection
+                    icon={<FiCheckSquare />}
+                    title={`${nStages}. Stages`}
+                    right={
+                        <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {presets.length > 0 && (
+                                <HardwareSelect
+                                    compact
+                                    placeholder="Apply preset..."
+                                    value=""
+                                    options={presets.map(p => p.name)}
+                                    onChange={applyPreset}
+                                />
+                            )}
+                            <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
+                                <FiBookmark /> Save Preset
+                            </button>
+                            <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
+                                <FiPlus /> Add Stage
+                            </button>
                         </div>
-                    </>
-                )}
-
-                <div className={styles.financialsSummary}>
-                    <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
-                    <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
-                    {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
-                    <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
-                </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
-                <label className={styles.dropzone}>
-                    <FiUploadCloud size={24} />
-                    <p>Click to upload</p>
-                    <input type="file" multiple style={{display: 'none'}} onChange={handleFileUpload} />
-                </label>
-                <div className={styles.fileList}>
-                    {fileQueue.map((f, i) => (
-                        <div key={i} className={styles.fileItem}>
-                            <span>{f.name}</span>
-                            <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>
+                    }
+                >
+                    {showSavePreset && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
+                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                            <button className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
                         </div>
-                    ))}
-                </div>
-            </CollapsibleSection>
+                    )}
+                    {addingStage && (
+                        <div className={styles.inlineAddRow}>
+                            <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                            <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
+                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                            <button className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
+                        </div>
+                    )}
+                    <div className={styles.stageList}>
+                        {sortedTemplates.map(t => {
+                            const locked = t.id === firstStageId || t.id === lastStageId;
+                            return (
+                                <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
+                                    <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
+                                        disabled={locked}
+                                        onChange={() => toggleStage(t.id)} />
+                                    <span className={styles.stageName}>{t.stageName}</span>
+                                    {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
+                                </label>
+                            );
+                        })}
+                    </div>
+                    {presets.length > 0 && (
+                        <div className={styles.presetList}>
+                            {presets.map(p => (
+                                <span key={p.name} className={styles.presetChip}>
+                                    {p.name}
+                                    <button className={styles.presetChipRemove} onClick={() => deletePreset(p.name)} aria-label={`Delete preset ${p.name}`}><FiX size={12} /></button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </CollapsibleSection>
 
-            <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
-                <div className={styles.field}>
-                    <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} />
+                <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Total Cost</label>
+                            <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Initial Payment</label>
+                            <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                        </div>
+                    </div>
+                    {isLegacy && (
+                        <>
+                            <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
+                            <div className={styles.grid2}>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Initial Storage Fee</label>
+                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
+                                </div>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Monthly Storage Fee</label>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    <div className={styles.financialsSummary}>
+                        <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
+                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
+                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
+                    </div>
+                </CollapsibleSection>
+
+                <div className={styles.splitRow}>
+                    <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
+                        <label className={styles.dropzone}>
+                            <FiUploadCloud size={24} />
+                            <p>Click to upload</p>
+                            <input type="file" multiple style={{ display: 'none' }} onChange={handleFileUpload} />
+                        </label>
+                        <div className={styles.fileList}>
+                            {fileQueue.map((f, i) => (
+                                <div key={i} className={styles.fileItem}>
+                                    <span>{f.name}</span>
+                                    <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </CollapsibleSection>
+
+                    <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
+                        <div className={styles.field}>
+                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes..." />
+                        </div>
+                    </CollapsibleSection>
                 </div>
-            </CollapsibleSection>
 
             </div>
 

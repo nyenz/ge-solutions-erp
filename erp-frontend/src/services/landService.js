@@ -114,3 +114,9 @@ const landService = {
 };
 
 export default landService;
+    // INTAKE: preview the next project index (001A format) before saving
+    getNextIndex: async () => {
+        const response = await api.get('/land/next-index');
+        return response.data;
+    },
+

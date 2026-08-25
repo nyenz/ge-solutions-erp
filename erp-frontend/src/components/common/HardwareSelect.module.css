@@ -7,7 +7,6 @@
     margin-bottom: 15px;
 }
 
-/* CRITICAL: When open, this wrapper must float above all other content */
 .openWrapper {
     z-index: 9999 !important;
     overflow: visible !important;
@@ -16,11 +15,14 @@
 
 .label {
     color: #FFFFFF !important;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1.5px;
 }
+.requiredMark { color: #ef4444; margin-left: 4px; }
+
+.placeholder { color: rgba(26, 46, 48, 0.45); }
 
 .selectBox {
     background: #ffffff;
@@ -36,7 +38,6 @@
     position: relative;
     z-index: 1;
 }
-
 .selectBox:hover, .active {
     border-color: var(--orange);
     box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
@@ -53,7 +54,6 @@
     transition: 0.3s;
     flex-shrink: 0;
 }
-
 .active .icon { transform: rotate(180deg); }
 
 .dropdown {
@@ -83,53 +83,35 @@
     cursor: pointer;
     transition: 0.2s;
 }
-
 .option:last-child { border-bottom: none; }
-
 .option:hover {
     background: var(--orange);
     color: white;
 }
-
 .selected {
     background: #f1f5f9;
     border-left: 5px solid var(--orange);
 }
 
-/* Mobile responsive */
+.compactWrapper { margin-bottom: 0; width: auto; }
+.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
+
 @media (max-width: 480px) {
-    .selectBox {
-        height: var(--input-height, 40px);
-        font-size: 12px;
-    }
-    .option {
-        padding: 12px 14px;
-        font-size: 13px;
-    }
+    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
+    .option { padding: 12px 14px; font-size: 13px; }
 }
 
-
-/* --- DROPDOWN RESPONSIVENESS --- */
 .dropdown {
     max-height: 250px;
     overflow-y: auto;
 }
-.dropdown::-webkit-scrollbar { width: 4px; }
+.dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
 .dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 @media (max-width: 480px) {
     .dropdown { max-height: 200px; }
     .option { padding: 10px 14px; font-size: 12px; }
 }
-
-
-/* --- PRIORITY 1 FINAL POLISH --- */
-
-/* Hide visible scrollbars on HardwareSelect dropdowns */
-.dropdown::-webkit-scrollbar {
-    display: none !important;
-}
 .dropdown {
     -ms-overflow-style: none !important;
     scrollbar-width: none !important;
 }
-

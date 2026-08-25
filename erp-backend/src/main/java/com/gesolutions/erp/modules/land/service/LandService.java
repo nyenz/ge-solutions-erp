@@ -242,6 +242,11 @@ public class LandService {
     // ─── INTAKE ───────────────────────────────────────────────────────────────
 
     @Transactional(rollbackFor = Exception.class)
+    public String previewNextIndex() {
+        return projectIndexService.previewNextIndex();
+    }
+
+
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
         // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
         // is only built if the legacy preset is used or the final

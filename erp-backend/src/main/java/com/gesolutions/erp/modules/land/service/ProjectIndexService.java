@@ -73,6 +73,37 @@ public class ProjectIndexService {
     }
 
     // A -> B -> C ... Z -> AA -> AB
+    /**
+     * Non-mutating preview of the index the next intake will receive.
+     * Same math as generateNextIndex() but never writes the counter.
+     */
+    public synchronized String previewNextIndex() {
+        try (Connection conn = dataSource.getConnection()) {
+            int currentNumber;
+            String currentLetter;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT current_number, current_letter FROM project_index_counter WHERE id = 1");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    currentNumber = rs.getInt("current_number");
+                    currentLetter = rs.getString("current_letter");
+                } else {
+                    currentNumber = 0;
+                    currentLetter = "A";
+                }
+            }
+            currentNumber = currentNumber + 1;
+            if (currentNumber > 999) {
+                currentNumber = 1;
+                currentLetter = nextLetter(currentLetter);
+            }
+            return String.format("%03d", currentNumber) + currentLetter;
+        } catch (Exception e) {
+            throw new RuntimeException("PROJECT_INDEX_FAULT: Could not preview project index", e);
+        }
+    }
+
+
     // Extremely unlikely to ever reach double letters (that would mean
     // 25,974+ projects processed), but this keeps the system correct
     // even if the company somehow gets there.

@@ -46,6 +46,13 @@ public class LandProject {
     private String projectIndex;
 
     /**
+     * PROJECT START DATE — set at intake, exists even before any title does.
+     * Maps to LandEntryRequest.projectStartDate from the frontend.
+     */
+    @Column(name = "project_start_date")
+    private LocalDate projectStartDate;
+
+    /**
      * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays
      * visible for the whole life of the record, title or no title.
      * district/county are moved up from LandTitle (existing data migrated

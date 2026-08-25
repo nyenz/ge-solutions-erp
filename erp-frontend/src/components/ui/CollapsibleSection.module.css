@@ -1,22 +1,18 @@
 /* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
+/* Dark "hardware panel" treatment - same language as HardwarePanel.dark,
+   the Ledger table shell and the reference New Plot design. */
 .section {
     --orange: #EE8C3A;
     --orange-dim: rgba(238, 140, 58, 0.18);
-    --orange-border: rgba(238, 140, 58, 0.28);
-    --navy: #1a2e30;
-    --border: #e2e8f0;
-    --card-bg: #ffffff;
-
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: border-color 0.2s ease;
+    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+    border: 1px solid rgba(238, 140, 58, 0.2);
+    border-radius: 12px;
+    overflow: visible;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.section.accent {
-    border: 2px solid var(--orange);
-}
+.section:hover { border-color: var(--orange); }
+.section.accent { border: 2px solid var(--orange); }
 
 .header {
     width: 100%;
@@ -32,29 +28,32 @@
     font: inherit;
     color: inherit;
 }
-.header:hover .title { color: var(--orange); }
 .header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
 
 .headerLeft {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     min-width: 0;
     color: var(--orange);
-    font-size: 18px;
+    font-size: clamp(15px, 1.8vw, 19px);
+    filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
 }
 
 .title {
     font-family: 'Cinzel', serif;
     font-size: clamp(13px, 1.6vw, 16px);
     font-weight: 700;
-    color: var(--navy);
+    color: var(--orange);
+    letter-spacing: 2px;
+    text-transform: uppercase;
     margin: 0;
     transition: color 0.15s ease;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.header:hover .title { color: #f59a4a; }
 
 .headerRight {
     display: flex;
@@ -64,7 +63,7 @@
 }
 
 .chevron {
-    color: #94a3b8;
+    color: rgba(255, 255, 255, 0.5);
     font-size: 16px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
@@ -76,9 +75,9 @@
     display: flex;
     flex-direction: column;
     gap: clamp(10px, 1.5vw, 18px);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(238, 140, 58, 0.25);
     padding-top: clamp(14px, 1.8vw, 20px);
-    animation: expand 0.18s ease-out both;
+    animation: expand 0.18s ease-out;
 }
 
 @keyframes expand {
