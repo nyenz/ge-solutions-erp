@@ -51,6 +51,13 @@ public class LandEntryRequest {
     @JsonProperty("isLegacy")
     private boolean isLegacy;
 
+    // INTAKE PAGE REDESIGN: set true when staff pick "New Title" as the
+    // project type at intake (a title is being created immediately even
+    // though the project is not a legacy record and the final processing
+    // stage has not been reached yet). See LandService.atomicIntake().
+    @JsonProperty("titleAtIntake")
+    private boolean titleAtIntake;
+
     // Staff can flag a plot as receivable right at intake (for old/existing cases)
     @JsonProperty("isStartAsReceivable")
     private boolean isStartAsReceivable;

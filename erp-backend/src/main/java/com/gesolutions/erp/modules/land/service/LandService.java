@@ -248,7 +248,7 @@ public class LandService {
         // processing stage ("Registration and Title Issuance") is checked.
         boolean hasFinalStage = request.getSelectedStages() != null && request.getSelectedStages().stream()
                 .anyMatch(s -> s.isCompleted() && "Registration and Title Issuance".equalsIgnoreCase(s.getStageName()));
-        boolean hasTitleFields = request.isLegacy() || hasFinalStage;
+        boolean hasTitleFields = request.isLegacy() || hasFinalStage || request.isTitleAtIntake();
         String projectIndex = projectIndexService.generateNextIndex();
 
         BigDecimal initialPayment = request.getInitialPayment() != null

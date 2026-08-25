@@ -214,8 +214,93 @@
     text-transform: uppercase;
     border-radius: var(--radius-sm);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .legacyBtn:hover { background: var(--navy-mid); }
+
+/* Project type segmented control */
+.typeGroup { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
+.typeBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: clamp(10px, 1.2vw, 14px) clamp(16px, 2vw, 22px);
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--navy);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.typeBtn:hover { border-color: var(--orange-border); }
+.typeBtnActive { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+.typeHint { font-size: var(--fs-meta); color: #64748b; margin: 2px 0 0 0; }
+
+.subheading {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(12px, 1.4vw, 14px);
+    font-weight: 700;
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0 0;
+}
+
+.inlineAddRow {
+    display: flex;
+    gap: var(--gap-md);
+    align-items: center;
+    flex-wrap: wrap;
+    background: var(--bg);
+    border: 1px solid var(--orange-border);
+    border-radius: var(--radius-sm);
+    padding: var(--gap-md);
+}
+.inlineAddRow .input { width: auto; flex: 1 1 200px; }
+
+.stageItem.stageLocked { cursor: not-allowed; border-color: var(--navy); background: rgba(26, 46, 48, 0.05); }
+.lockedTag {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-tag);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--navy-mid);
+    letter-spacing: 0.5px;
+}
+
+.presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
+.presetChip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--orange-dim);
+    color: var(--orange);
+    border: 1px solid var(--orange-border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: var(--fs-meta);
+    font-weight: 700;
+}
+.presetChipRemove {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
 
 .toast {
     position: fixed;

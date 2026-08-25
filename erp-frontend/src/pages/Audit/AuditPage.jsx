@@ -63,7 +63,7 @@ const AuditPage = () => {
         if (action === 'RECOVERY_SYNC')             return 'CALL LOGGED';
         if (action === 'MASTER_REWRITE')            return 'EDIT RECORD';
         if (action === 'STAGE_OVERRIDE')            return 'STAGE OVERRIDE';
-        if (action === 'INTAKE')                    return 'NEW PLOT';
+        if (action === 'INTAKE')                    return 'NEW PROJECT';
         if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
         if (action === 'EXPENSE_LOGGED')            return 'EXPENSE LOGGED';
         if (action === 'EXPENSE_EDITED')            return 'EXPENSE CORRECTED';

@@ -162,7 +162,7 @@ const RootTerminal = ({ stats }) => {
                         </div>
                         <div className={styles.panelInner}>
                             <div className={styles.launchPad}>
-                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to new plot"><FiFilePlus  aria-hidden="true" /> NEW PLOT</button>
+                                <button className={styles.launchBtn} onClick={() => navigate('/land/new')}      aria-label="Go to new project"><FiFilePlus  aria-hidden="true" /> NEW PROJECT</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/land/projects')} aria-label="Go to master ledger"><FiLayers    aria-hidden="true" /> LEDGER</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/reports')}       aria-label="Go to analytics"><FiPieChart  aria-hidden="true" /> REPORTS</button>
                                 <button className={styles.launchBtn} onClick={() => navigate('/recovery')}      aria-label="Go to recovery"><FiPhoneCall aria-hidden="true" /> RECOVERY</button>
