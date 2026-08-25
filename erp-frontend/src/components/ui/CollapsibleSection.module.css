@@ -1,0 +1,92 @@
+/* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
+.section {
+    --orange: #EE8C3A;
+    --orange-dim: rgba(238, 140, 58, 0.18);
+    --orange-border: rgba(238, 140, 58, 0.28);
+    --navy: #1a2e30;
+    --border: #e2e8f0;
+    --card-bg: #ffffff;
+
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.section.accent {
+    border: 2px solid var(--orange);
+}
+
+.header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(7px, 1.1vw, 13px);
+    padding: clamp(12px, 1.6vw, 18px) clamp(14px, 1.8vw, 20px);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+.header:hover .title { color: var(--orange); }
+.header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--orange);
+    font-size: 18px;
+}
+
+.title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 1.6vw, 16px);
+    font-weight: 700;
+    color: var(--navy);
+    margin: 0;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.2vw, 14px);
+    flex-shrink: 0;
+}
+
+.chevron {
+    color: #94a3b8;
+    font-size: 16px;
+    transition: transform 0.2s ease, color 0.2s ease;
+    flex-shrink: 0;
+}
+.chevronOpen { transform: rotate(180deg); color: var(--orange); }
+
+.body {
+    padding: 0 clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.5vw, 18px);
+    border-top: 1px solid var(--border);
+    padding-top: clamp(14px, 1.8vw, 20px);
+    animation: expand 0.18s ease-out both;
+}
+
+@keyframes expand {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .header { padding: 12px 14px; }
+    .body { padding: 12px 14px 14px; }
+}

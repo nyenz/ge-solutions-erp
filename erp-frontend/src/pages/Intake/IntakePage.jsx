@@ -6,6 +6,7 @@ import {
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
     FiLock, FiEdit3, FiBookmark, FiX
 } from 'react-icons/fi';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
 import styles from './IntakePage.module.css';
@@ -13,9 +14,9 @@ import styles from './IntakePage.module.css';
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
 const PROJECT_TYPES = [
-    { value: 'NEW_FOLDER',    label: 'New Folder',    icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet -- opens a working folder' },
-    { value: 'NEW_TITLE',     label: 'New Title',     icon: <FiFilePlus   aria-hidden="true" />,  hint: 'Title details are captured now' },
-    { value: 'LEGACY_TITLE',  label: 'Legacy Title',  icon: <FiArchive    aria-hidden="true" />,  hint: 'Existing title being onboarded as a receivable' },
+    { value: 'NEW_FOLDER',    label: 'New Folder',    icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
+    { value: 'NEW_TITLE',     label: 'New Title',     icon: <FiFilePlus   aria-hidden="true" />,  hint: 'Title captured now' },
+    { value: 'LEGACY_TITLE',  label: 'Legacy Title',  icon: <FiArchive    aria-hidden="true" />,  hint: 'Existing title, receivable' },
 ];
 
 const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
@@ -277,27 +278,30 @@ export default function IntakePage() {
 
     return (
         <div className={styles.container}>
-            <header className={styles.header}>
-                <div>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
                     <h1 className={styles.title}>New Project</h1>
                     <p className={styles.subtitle}>Intake Form</p>
                 </div>
                 <div className={styles.actions}>
                     <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
                     <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
-                        <FiSave /> {saving ? 'Saving...' : 'Save Project'}
+                        <FiSave /> {saving ? 'Saving...' : 'Save'}
                     </button>
                 </div>
             </header>
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiHash /> {nIndex}. Project Index &amp; Type</h2>
-                <div className={styles.field}>
-                    <label className={styles.label}>Project Index</label>
-                    <input className={styles.input} value={projectIndex || 'Auto-generated on save'} disabled />
+            <div className={styles.sections}>
+
+            <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
+                <div className={styles.grid2}>
+                    <div className={styles.field}>
+                        <label className={styles.label}>Index</label>
+                        <input className={styles.input} value={projectIndex} placeholder="—" disabled />
+                    </div>
                 </div>
                 <div className={styles.field}>
-                    <label className={`${styles.label} ${styles.required}`}>Project Type</label>
+                    <label className={`${styles.label} ${styles.required}`}>Type</label>
                     <div className={styles.typeGroup}>
                         {PROJECT_TYPES.map(pt => (
                             <button
@@ -313,10 +317,9 @@ export default function IntakePage() {
                     </div>
                     <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
                 </div>
-            </section>
+            </CollapsibleSection>
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiUsers /> {nOwners}. Owners</h2>
+            <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
                 {owners.map((o, idx) => (
                     <div key={idx} className={styles.ownerRow}>
                         <div className={styles.field}>
@@ -343,11 +346,10 @@ export default function IntakePage() {
                 <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
                     <FiPlus /> Add joint owner
                 </button>
-            </section>
+            </CollapsibleSection>
 
             {isTitleSectionVisible && (
-                <section className={styles.section} style={{border: '2px solid var(--orange)'}}>
-                    <h2 className={styles.sectionTitle}><FiFileText /> {nTitle}. Title &amp; Plot Details</h2>
+                <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
                     <div className={styles.grid3}>
                         <div className={styles.field}>
                             <label className={styles.label}>Title ID</label>
@@ -371,11 +373,10 @@ export default function IntakePage() {
                             <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
                         </div>
                     </div>
-                </section>
+                </CollapsibleSection>
             )}
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiMap /> {nLocation}. Location</h2>
+            <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
                 <div className={styles.grid3}>
                     <div className={styles.field}>
                         <label className={`${styles.label} ${styles.required}`}>District</label>
@@ -402,11 +403,12 @@ export default function IntakePage() {
                         <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
                     </div>
                 </div>
-            </section>
+            </CollapsibleSection>
 
-            <section className={styles.section}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--gap-md)'}}>
-                    <h2 className={styles.sectionTitle} style={{borderBottom: 'none', paddingBottom: 0}}><FiCheckSquare /> {nStages}. Stage Checklist</h2>
+            <CollapsibleSection
+                icon={<FiCheckSquare />}
+                title={`${nStages}. Stages`}
+                right={
                     <div style={{display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center'}}>
                         {presets.length > 0 && (
                             <select className={styles.select} style={{width: 'auto'}} defaultValue=""
@@ -416,14 +418,14 @@ export default function IntakePage() {
                             </select>
                         )}
                         <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
-                            <FiBookmark /> Save as Preset
+                            <FiBookmark /> Save Preset
                         </button>
                         <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
                             <FiPlus /> Add Stage
                         </button>
                     </div>
-                </div>
-
+                }
+            >
                 {showSavePreset && (
                     <div className={styles.inlineAddRow}>
                         <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
@@ -466,10 +468,9 @@ export default function IntakePage() {
                         ))}
                     </div>
                 )}
-            </section>
+            </CollapsibleSection>
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiDollarSign /> {nFinancials}. Financials</h2>
+            <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                 <div className={styles.grid2}>
                     <div className={styles.field}>
                         <label className={styles.label}>Total Cost</label>
@@ -483,7 +484,7 @@ export default function IntakePage() {
 
                 {isLegacy && (
                     <>
-                        <h3 className={styles.subheading}><FiArchive size={13} /> Legacy Storage Fees</h3>
+                        <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
                         <div className={styles.grid2}>
                             <div className={styles.field}>
                                 <label className={styles.label}>Initial Storage Fee</label>
@@ -491,7 +492,7 @@ export default function IntakePage() {
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Monthly Storage Fee</label>
-                                <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="Leave blank for system default" />
+                                <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
                             </div>
                         </div>
                     </>
@@ -503,13 +504,12 @@ export default function IntakePage() {
                     {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
                     <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                 </div>
-            </section>
+            </CollapsibleSection>
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiUploadCloud /> {nDocuments}. Documents</h2>
+            <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
                 <label className={styles.dropzone}>
                     <FiUploadCloud size={24} />
-                    <p>Click to upload documents</p>
+                    <p>Click to upload</p>
                     <input type="file" multiple style={{display: 'none'}} onChange={handleFileUpload} />
                 </label>
                 <div className={styles.fileList}>
@@ -520,15 +520,15 @@ export default function IntakePage() {
                         </div>
                     ))}
                 </div>
-            </section>
+            </CollapsibleSection>
 
-            <section className={styles.section}>
-                <h2 className={styles.sectionTitle}><FiEdit3 /> {nNotes}. Notes</h2>
+            <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                 <div className={styles.field}>
-                    <label className={styles.label}>Shared Project Notes</label>
                     <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
-            </section>
+            </CollapsibleSection>
+
+            </div>
 
             {toasts.map(t => (
                 <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>
