@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-fix.py — Dark-theme intake form revamp.
-Writes/patches all 10 target files (repairs landService.js if a bad
-patch landed the method outside the object), then auto-commits + pushes.
+fix.py — Ledger-consistency pass for the New Project page.
+Updates 4 frontend files, then auto-commits + pushes.
 Run: py fix.py
 """
 import sys
@@ -10,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
-WROTE, PATCHED, FAILED = [], [], []
+WROTE, FAILED = [], []
 
 def write(rel: str, content: str):
     p = ROOT / rel
@@ -21,50 +20,104 @@ def write(rel: str, content: str):
     except Exception as e:
         FAILED.append((rel, str(e)))
 
-def patch_append(rel: str, marker: str, insert: str):
-    p = ROOT / rel
-    try:
-        original = p.read_text(encoding="utf-8")
-    except Exception as e:
-        FAILED.append((rel, f"read failed: {e}")); return
-    if marker not in original:
-        FAILED.append((rel, f"marker not found")); return
-    if insert.strip() in original:
-        PATCHED.append(f"{rel} (already applied)"); return
-    try:
-        p.write_text(original.replace(marker, marker + "\n" + insert, 1), encoding="utf-8")
-        PATCHED.append(rel)
-    except Exception as e:
-        FAILED.append((rel, f"write failed: {e}"))
+# =====================================================================
+# 1) CollapsibleSection.jsx — inject CornerDecor like HardwarePanel
+# =====================================================================
+write("erp-frontend/src/components/ui/CollapsibleSection.jsx", r"""// PATH: erp-frontend/src/components/ui/CollapsibleSection.jsx
+import React, { useState } from 'react';
+import { FiChevronDown } from 'react-icons/fi';
+import CornerDecor from './CornerDecor';
+import styles from './CollapsibleSection.module.css';
+
+/**
+ * Generic expand/contract card - dark hardware panel treatment.
+ * Injects CornerDecor brackets/pins exactly like HardwarePanel does,
+ * so every section matches the Ledger table shell.
+ */
+const CollapsibleSection = ({
+    icon,
+    title,
+    right,
+    defaultOpen = true,
+    open: controlledOpen,
+    onToggle,
+    accent = false,
+    className = '',
+    children,
+}) => {
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+
+    const toggle = () => {
+        if (isControlled) onToggle?.(!open);
+        else setInternalOpen(o => !o);
+    };
+
+    return (
+        <section className={`${styles.section} ${accent ? styles.accent : ''} ${className}`}>
+            <CornerDecor />
+            <button
+                type="button"
+                className={styles.header}
+                onClick={toggle}
+                aria-expanded={open}
+            >
+                <span className={styles.headerLeft}>
+                    {icon}
+                    <h2 className={styles.title}>{title}</h2>
+                </span>
+                <span className={styles.headerRight}>
+                    {right && <span onClick={e => e.stopPropagation()}>{right}</span>}
+                    <FiChevronDown
+                        aria-hidden="true"
+                        className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}
+                    />
+                </span>
+            </button>
+            {open && <div className={styles.body}>{children}</div>}
+        </section>
+    );
+};
+
+export default CollapsibleSection;
+""")
 
 # =====================================================================
-# 1) CollapsibleSection.module.css — FULL WRITE (dark hardware panel)
+# 2) CollapsibleSection.module.css — Ledger table-head band + separator
 # =====================================================================
 write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
-/* Dark "hardware panel" treatment - same language as HardwarePanel.dark,
-   the Ledger table shell and the reference New Plot design. */
+/* Dark hardware panel - mirrors HardwarePanel.dark shell and the
+   Ledger table head (#162a2c band + 3px orange separator). */
 .section {
     --orange: #EE8C3A;
     --orange-dim: rgba(238, 140, 58, 0.18);
+    position: relative; /* anchor for CornerDecor brackets/pins */
     background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
     border: 1px solid rgba(238, 140, 58, 0.2);
     border-radius: 12px;
     overflow: visible;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.section:hover { border-color: var(--orange); }
+.section:hover {
+    border-color: var(--orange);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
 .section.accent { border: 2px solid var(--orange); }
 
+/* Header band - same shade + orange separator as the Ledger table head */
 .header {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: clamp(7px, 1.1vw, 13px);
-    padding: clamp(12px, 1.6vw, 18px) clamp(14px, 1.8vw, 20px);
-    background: transparent;
+    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
+    background: #162a2c;
     border: none;
+    border-bottom: 3px solid var(--orange);
+    box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
     cursor: pointer;
     text-align: left;
     font: inherit;
@@ -78,24 +131,24 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
     gap: 10px;
     min-width: 0;
     color: var(--orange);
-    font-size: clamp(15px, 1.8vw, 19px);
+    font-size: clamp(14px, 1.6vw, 18px);
     filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
 }
 
 .title {
     font-family: 'Cinzel', serif;
-    font-size: clamp(13px, 1.6vw, 16px);
+    font-size: clamp(12px, 1.5vw, 15px);
     font-weight: 700;
     color: var(--orange);
     letter-spacing: 2px;
     text-transform: uppercase;
     margin: 0;
-    transition: color 0.15s ease;
+    transition: color 0.18s ease;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.header:hover .title { color: #f59a4a; }
+.header:hover .title { color: #fff; } /* same as Ledger sortable hover */
 
 .headerRight {
     display: flex;
@@ -105,7 +158,7 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
 }
 
 .chevron {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
     font-size: 16px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
@@ -114,11 +167,10 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
 
 .body {
     padding: 0 clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
+    padding-top: clamp(14px, 1.8vw, 20px);
     display: flex;
     flex-direction: column;
     gap: clamp(10px, 1.5vw, 18px);
-    border-top: 1px solid rgba(238, 140, 58, 0.25);
-    padding-top: clamp(14px, 1.8vw, 20px);
     animation: expand 0.18s ease-out;
 }
 
@@ -134,190 +186,13 @@ write("erp-frontend/src/components/ui/CollapsibleSection.module.css", r"""/* PAT
 """)
 
 # =====================================================================
-# 2) HardwareSelect.jsx — FULL WRITE (adds required/placeholder/compact)
-# =====================================================================
-write("erp-frontend/src/components/common/HardwareSelect.jsx", r"""// PATH: erp-frontend/src/components/common/HardwareSelect.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import { FiChevronDown } from 'react-icons/fi';
-import styles from './HardwareSelect.module.css';
-
-const HardwareSelect = ({ label, options, value, onChange, required = false, placeholder = '', compact = false }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className={`${styles.fieldWrapper} ${isOpen ? styles.openWrapper : ''} ${compact ? styles.compactWrapper : ''}`} ref={containerRef}>
-            {label && (
-                <label className={styles.label}>
-                    {label}
-                    {required && <span className={styles.requiredMark}>*</span>}
-                </label>
-            )}
-            <div className={`${styles.selectBox} ${compact ? styles.compactBox : ''} ${isOpen ? styles.active : ''}`} onClick={() => setIsOpen(!isOpen)}>
-                <span className={`${styles.currentValue} ${!value ? styles.placeholder : ''}`}>{value || placeholder}</span>
-                <FiChevronDown className={styles.icon} />
-
-                {isOpen && (
-                    <div className={styles.dropdown}>
-                        {options.map(opt => (
-                            <div
-                                key={opt}
-                                className={`${styles.option} ${value === opt ? styles.selected : ''}`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onChange(opt);
-                                    setIsOpen(false);
-                                }}
-                            >
-                                {opt}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-export default HardwareSelect;
-""")
-
-# =====================================================================
-# 3) HardwareSelect.module.css — FULL WRITE (label 11px + new rules)
-# =====================================================================
-write("erp-frontend/src/components/common/HardwareSelect.module.css", r""".fieldWrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-    position: relative;
-    margin-bottom: 15px;
-}
-
-.openWrapper {
-    z-index: 9999 !important;
-    overflow: visible !important;
-    position: relative !important;
-}
-
-.label {
-    color: #FFFFFF !important;
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-}
-.requiredMark { color: #ef4444; margin-left: 4px; }
-
-.placeholder { color: rgba(26, 46, 48, 0.45); }
-
-.selectBox {
-    background: #ffffff;
-    border-radius: var(--input-radius, 8px);
-    border: 2px solid rgba(238, 140, 58, 0.3);
-    padding: 0 clamp(10px, 1.4vw, 18px);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    transition: 0.3s ease;
-    height: var(--input-height, 44px);
-    position: relative;
-    z-index: 1;
-}
-.selectBox:hover, .active {
-    border-color: var(--orange);
-    box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
-}
-
-.currentValue {
-    color: var(--navy);
-    font-weight: 700;
-    font-size: var(--input-font, 14px);
-}
-
-.icon {
-    color: var(--orange);
-    transition: 0.3s;
-    flex-shrink: 0;
-}
-.active .icon { transform: rotate(180deg); }
-
-.dropdown {
-    position: fixed;
-    background: #ffffff;
-    border: 2px solid var(--orange);
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
-    overflow: hidden;
-    animation: slideIn 0.2s ease-out;
-    z-index: 99999 !important;
-    min-width: 100%;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.option {
-    padding: 14px 20px;
-    color: var(--navy);
-    font-weight: 600;
-    font-size: 14px;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    transition: 0.2s;
-}
-.option:last-child { border-bottom: none; }
-.option:hover {
-    background: var(--orange);
-    color: white;
-}
-.selected {
-    background: #f1f5f9;
-    border-left: 5px solid var(--orange);
-}
-
-.compactWrapper { margin-bottom: 0; width: auto; }
-.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
-
-@media (max-width: 480px) {
-    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
-    .option { padding: 12px 14px; font-size: 13px; }
-}
-
-.dropdown {
-    max-height: 250px;
-    overflow-y: auto;
-}
-.dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
-.dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
-@media (max-width: 480px) {
-    .dropdown { max-height: 200px; }
-    .option { padding: 10px 14px; font-size: 12px; }
-}
-.dropdown {
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-}
-""")
-
-# =====================================================================
-# 4) IntakePage.module.css — FULL WRITE (dark hardware revamp)
+# 3) IntakePage.module.css — full Ledger consistency pass
 # =====================================================================
 write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Dark hardware revamp - same tokens as HardwarePanel/HardwareInput/
-   HardwareSelect and the Ledger reference. */
+   Ledger-consistency pass - dull labels (50% white, 900, 2px tracking),
+   Ledger hover language (white 4% + orange left border), filter-style
+   segmented buttons, pageBtn-style secondary buttons, 3px orange focus
+   ring, 1400px container, rgba(0,0,0,0.15) inner wells. */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -331,12 +206,13 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     --gap-lg:    clamp(10px, 1.5vw, 18px);
     --gap-md:    clamp(7px,  1.1vw, 13px);
     --radius:    12px;
-    --radius-sm: 8px;
+    --radius-sm: 6px;
 
     --fs-h1:     clamp(18px, 2.5vw, 24px);
     --fs-sub:    clamp(9px,  0.9vw, 11px);
-    --fs-label:  clamp(9px,  0.95vw, 11px);
+    --fs-label:  clamp(8px,  0.85vw, 10px);
     --fs-value:  clamp(11px, 1.1vw, 13px);
+    --fs-td:     clamp(10px, 1.05vw, 12px);
     --fs-tag:    clamp(7px,  0.75vw, 9px);
     --fs-input:  clamp(11px, 1.1vw, 13px);
     --fs-meta:   clamp(8px,  0.85vw, 10px);
@@ -344,12 +220,12 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1400px; /* same as Ledger */
     width: 100%;
     margin: 0 auto;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px);
+    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) 0;
     font-family: 'Inter', sans-serif;
-    color: #F4F2EF;
+    color: #fff;
     animation: warmBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
     display: flex;
     flex-direction: column;
@@ -362,6 +238,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     to   { opacity: 1; transform: translateY(0); }
 }
 
+/* -- PAGE HEADER - identical glass treatment to the Ledger page -- */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -408,70 +285,77 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     align-items: start;
 }
 
+/* -- BUTTONS - pageBtn language: transparent, white border, white hover -- */
 .btn {
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: var(--fs-btn);
-    font-weight: 700;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);
+    letter-spacing: 1.5px;
+    padding: clamp(7px, 1vw, 10px) clamp(12px, 1.6vw, 18px);
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(0, 0, 0, 0.25);
-    color: rgba(255, 255, 255, 0.85);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.btn:hover { border-color: var(--orange); color: var(--orange); }
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
+.btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.18; cursor: not-allowed; }
 
+/* filterBtn language for toolbar buttons */
 .legacyBtn {
-    background: rgba(0, 0, 0, 0.3);
-    color: #fff;
-    border: 1px solid rgba(238, 140, 58, 0.35);
-    padding: clamp(8px, 1vw, 12px) clamp(14px, 2vw, 22px);
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-btn);
-    font-weight: 700;
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(9px, 0.95vw, 11px);
+    font-weight: 900;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    border-radius: var(--radius-sm);
     cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.2s;
+    white-space: nowrap;
 }
-.legacyBtn:hover { border-color: var(--orange); color: var(--orange); }
+.legacyBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 
+/* -- FIELDS -- */
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap-lg); }
 
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
+/* DULL LABELS - Ledger muted metrics: 50% white, 900, 2px tracking */
 .label {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-label);
-    font-weight: 800;
-    color: #FFFFFF;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
 }
 .required::after { content: '*'; color: var(--red); margin-left: 4px; }
 
 .hint {
     font-size: var(--fs-meta);
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.45);
-    letter-spacing: 0.3px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.5px;
     margin: 0;
 }
 
+/* Inputs - white hardware inputs, Ledger 3px focus ring */
 .input, .textarea {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-input);
@@ -483,13 +367,13 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     color: var(--navy);
     width: 100%;
     box-sizing: border-box;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
-.input:hover, .textarea:hover,
+.input:hover, .textarea:hover { border-color: var(--orange); }
 .input:focus, .textarea:focus {
     outline: none;
     border-color: var(--orange);
-    box-shadow: 0 0 15px rgba(238, 140, 58, 0.2);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18);
 }
 .input:disabled { color: rgba(33, 62, 64, 0.5); cursor: not-allowed; }
 .input.indexValue {
@@ -501,43 +385,51 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .input.indexValue:disabled { color: var(--orange); opacity: 1; }
 .textarea { min-height: 110px; resize: vertical; }
 
-.typeGroup { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
+/* -- TYPE TOGGLE - filterBtn / activeFilter language -- */
+.typeGroup { display: flex; gap: clamp(6px, 1vw, 12px); flex-wrap: wrap; }
 .typeBtn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-family: 'Space Mono', monospace;
-    font-size: var(--fs-btn);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: clamp(10px, 1.2vw, 14px) clamp(16px, 2vw, 22px);
-    border-radius: var(--radius-sm);
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    background: rgba(0, 0, 0, 0.2);
+    gap: 6px;
+    background: rgba(26, 46, 48, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
+    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    font-size: clamp(9px, 0.95vw, 11px);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
-.typeBtn:hover { border-color: var(--orange-border); color: var(--orange); }
-.typeBtnActive {
-    border-color: var(--orange);
-    background: var(--orange-dim);
-    color: var(--orange);
-    box-shadow: 0 0 14px rgba(238, 140, 58, 0.25);
+.typeBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.typeBtnActive,
+.typeBtnActive:hover {
+    background: #EE8C3A;
+    color: #1a2e30;
+    border-color: #EE8C3A;
+    font-weight: 900;
+    box-shadow: 0 0 14px rgba(238, 140, 58, 0.4);
 }
-.typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.45); margin: 2px 0 0 0; }
+.typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
 
+/* -- INNER WELLS - Ledger table-shell shade -- */
 .ownerRow {
     display: grid;
     grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
     gap: var(--gap-md);
     align-items: end;
     padding: var(--gap-md);
-    background: rgba(0, 0, 0, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid transparent;
     border-radius: var(--radius-sm);
+    transition: background 0.18s, border-left-color 0.18s;
 }
+.ownerRow:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--orange); }
 
 .subheading {
     font-family: 'Cinzel', serif;
@@ -557,13 +449,14 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     gap: var(--gap-md);
     align-items: center;
     flex-wrap: wrap;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.15);
     border: 1px solid var(--orange-border);
     border-radius: var(--radius-sm);
     padding: var(--gap-md);
 }
 .inlineAddRow .input { width: auto; flex: 1 1 200px; }
 
+/* -- STAGES - Ledger row hover language -- */
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
     display: flex;
@@ -571,26 +464,27 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     gap: var(--gap-md);
     padding: var(--gap-md);
     background: rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.18s, border-left-color 0.18s;
 }
-.stageItem:hover { border-color: var(--orange); }
-.stageItem.checked { border-color: var(--orange); background: var(--orange-dim); }
-.stageItem.stageLocked { cursor: not-allowed; border-color: rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.25); }
+.stageItem:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--orange); }
+.stageItem.checked { border-left-color: var(--orange); background: rgba(238, 140, 58, 0.07); }
+.stageItem.stageLocked { cursor: not-allowed; background: rgba(0, 0, 0, 0.25); }
 .checkbox { width: 18px; height: 18px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
-.stageName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.3px; }
+.stageName { font-weight: 700; color: #fff; font-size: var(--fs-td); letter-spacing: 0.5px; }
 .lockedTag {
     margin-left: auto;
     display: flex;
     align-items: center;
     gap: 4px;
     font-size: var(--fs-tag);
-    font-weight: 800;
+    font-weight: 900;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.5);
-    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 1px;
 }
 
 .presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
@@ -611,8 +505,9 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     display: flex; align-items: center; padding: 0;
 }
 
+/* -- FINANCIALS -- */
 .financialsSummary {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.15);
     padding: var(--gap-lg);
     border-radius: var(--radius-sm);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -620,15 +515,16 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
     flex-direction: column;
     gap: var(--gap-md);
 }
-.finRow { display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: var(--fs-value); }
+.finRow { display: flex; justify-content: space-between; font-weight: 700; color: rgba(255, 255, 255, 0.85); font-size: var(--fs-td); letter-spacing: 0.5px; }
 .finRow.total { color: var(--orange); font-size: clamp(14px, 1.5vw, 18px); border-top: 1px solid rgba(238, 140, 58, 0.25); padding-top: var(--gap-md); }
 
+/* -- DOCUMENTS -- */
 .dropzone {
     border: 2px dashed rgba(238, 140, 58, 0.4);
     border-radius: var(--radius);
     padding: var(--gap-xl);
     text-align: center;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.45);
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -641,15 +537,19 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 .fileList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .fileItem {
     display: flex; justify-content: space-between; align-items: center;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid transparent;
     color: #fff;
-    font-size: var(--fs-value);
+    font-size: var(--fs-td);
     font-weight: 600;
     padding: var(--gap-md);
     border-radius: var(--radius-sm);
+    transition: background 0.18s, border-left-color 0.18s;
 }
+.fileItem:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--orange); }
 
+/* -- TOASTS -- */
 .toast {
     position: fixed;
     bottom: 20px;
@@ -679,700 +579,132 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 """)
 
 # =====================================================================
-# 5) IntakePage.jsx — FULL WRITE (index preview, dates, split row)
+# 4) HardwareSelect.module.css — dull labels + fixed dropdown sizing
 # =====================================================================
-write("erp-frontend/src/pages/Intake/IntakePage.jsx", r"""// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
-    FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiLock, FiEdit3, FiBookmark, FiX
-} from 'react-icons/fi';
-import CollapsibleSection from '../../components/ui/CollapsibleSection';
-import HardwareSelect from '../../components/common/HardwareSelect';
-import landService from '../../services/landService';
-import stageTemplateService from '../../services/stageTemplateService';
-import styles from './IntakePage.module.css';
+write("erp-frontend/src/components/common/HardwareSelect.module.css", r""".fieldWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    position: relative;
+    margin-bottom: 15px;
+}
 
-const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
+.openWrapper {
+    z-index: 9999 !important;
+    overflow: visible !important;
+    position: relative !important;
+}
 
-const PROJECT_TYPES = [
-    { value: 'NEW_FOLDER',   label: 'New Folder',   icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
-    { value: 'NEW_TITLE',    label: 'New Title',    icon: <FiFilePlus aria-hidden="true" />,   hint: 'Title captured now' },
-    { value: 'LEGACY_TITLE', label: 'Legacy Title', icon: <FiArchive aria-hidden="true" />,    hint: 'Existing title, receivable' },
-];
+/* Dull label - same metrics as every other label on dark panels */
+.label {
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.requiredMark { color: #ef4444; margin-left: 4px; }
 
-const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
-const todayISO = () => new Date().toISOString().slice(0, 10);
+.placeholder { color: rgba(26, 46, 48, 0.45); }
 
-const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
-const loadPresets = () => {
-    try {
-        const raw = localStorage.getItem(PRESET_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-};
-const savePresets = (presets) => {
-    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch {}
-};
+.selectBox {
+    background: #ffffff;
+    border-radius: var(--input-radius, 8px);
+    border: 2px solid rgba(238, 140, 58, 0.3);
+    padding: 0 clamp(10px, 1.4vw, 18px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    height: var(--input-height, 44px);
+    position: relative;
+    z-index: 1;
+}
+.selectBox:hover, .active {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18);
+}
 
-export default function IntakePage() {
-    const navigate = useNavigate();
-    const [saving, setSaving] = useState(false);
-    const [nextIndex, setNextIndex] = useState('');
-    const [projectType, setProjectType] = useState('NEW_FOLDER');
-    const [projectStartDate, setProjectStartDate] = useState(todayISO);
-    const [owners, setOwners] = useState([EMPTY_OWNER()]);
+.currentValue {
+    color: var(--navy);
+    font-weight: 700;
+    font-size: var(--input-font, 14px);
+}
 
-    const [district, setDistrict] = useState('');
-    const [county, setCounty] = useState('');
-    const [subCounty, setSubCounty] = useState('');
-    const [parish, setParish] = useState('');
-    const [village, setVillage] = useState('');
-    const [area, setArea] = useState('');
+.icon {
+    color: var(--orange);
+    transition: 0.3s;
+    flex-shrink: 0;
+}
+.active .icon { transform: rotate(180deg); }
 
-    const [templates, setTemplates] = useState([]);
-    const [checkedStages, setCheckedStages] = useState({});
-    const [addingStage, setAddingStage] = useState(false);
-    const [newStageName, setNewStageName] = useState('');
-    const [newStageCost, setNewStageCost] = useState('');
-    const [presets, setPresets] = useState(loadPresets);
-    const [presetName, setPresetName] = useState('');
-    const [showSavePreset, setShowSavePreset] = useState(false);
+/* ABSOLUTE (not fixed) so the panel sizes to its field, not the viewport */
+.dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 100%;
+    width: max-content;
+    background: #ffffff;
+    border: 2px solid var(--orange);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: slideIn 0.2s ease-out;
+    z-index: 99999 !important;
+}
 
-    const [titleId, setTitleId] = useState('');
-    const [tenure, setTenure] = useState('FREEHOLD');
-    const [plotNumber, setPlotNumber] = useState('');
-    const [blockRoad, setBlockRoad] = useState('');
-    const [titleIssueDate, setTitleIssueDate] = useState('');
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
-    const [totalCost, setTotalCost] = useState(0);
-    const [initialPayment, setInitialPayment] = useState(0);
-    const [initialStorageFee, setInitialStorageFee] = useState(0);
-    const [monthlyStorageFee, setMonthlyStorageFee] = useState(0);
+.option {
+    padding: 14px 20px;
+    color: var(--navy);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.option:last-child { border-bottom: none; }
+.option:hover {
+    background: var(--orange);
+    color: white;
+}
+.selected {
+    background: var(--orange);
+    color: white;
+}
 
-    const [fileQueue, setFileQueue] = useState([]);
-    const [notes, setNotes] = useState('');
+.compactWrapper { margin-bottom: 0; width: auto; }
+.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
 
-    const [toasts, setToasts] = useState([]);
-    const toast = useCallback((msg, type = 'info') => {
-        const id = Date.now();
-        setToasts(p => [...p, { id, msg, type }]);
-        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
-    }, []);
+@media (max-width: 480px) {
+    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
+    .option { padding: 12px 14px; font-size: 13px; }
+}
 
-    const fetchTemplates = useCallback(() => {
-        stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
-    }, []);
-    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
-
-    useEffect(() => {
-        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
-    }, []);
-
-    const sortedTemplates = useMemo(
-        () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
-        [templates]
-    );
-    const firstStageId = sortedTemplates[0]?.id;
-    const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
-
-    useEffect(() => {
-        if (!sortedTemplates.length) return;
-        setCheckedStages(prev => {
-            const next = { ...prev };
-            if (firstStageId && next[firstStageId] === undefined) next[firstStageId] = true;
-            if (lastStageId && next[lastStageId] === undefined) next[lastStageId] = true;
-            return next;
-        });
-    }, [sortedTemplates.length, firstStageId, lastStageId]);
-
-    const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
-    const isLegacy = projectType === 'LEGACY_TITLE';
-    const titleAtIntake = projectType === 'NEW_TITLE';
-    const isTitleSectionVisible = isLegacy || titleAtIntake || finalStageChecked;
-
-    const handleProjectTypeChange = (value) => {
-        setProjectType(value);
-        if (value === 'LEGACY_TITLE') {
-            const allChecked = {};
-            sortedTemplates.forEach(t => { allChecked[t.id] = true; });
-            setCheckedStages(allChecked);
-        }
-    };
-
-    const toggleStage = (id) => {
-        if (id === firstStageId || id === lastStageId) return;
-        setCheckedStages(p => ({ ...p, [id]: !p[id] }));
-    };
-
-    const handleAddStage = async () => {
-        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
-        try {
-            const last = sortedTemplates[sortedTemplates.length - 1];
-            const lastOrder = last?.displayOrder ?? sortedTemplates.length;
-            if (last) {
-                await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
-            }
-            const created = await stageTemplateService.addTemplateStage(
-                newStageName.trim(),
-                newStageCost ? Number(newStageCost) : 0,
-                last ? lastOrder : undefined,
-            );
-            setNewStageName('');
-            setNewStageCost('');
-            setAddingStage(false);
-            fetchTemplates();
-            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
-            toast('Stage added to checklist.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Could not add stage.', 'error');
-        }
-    };
-
-    const handleSavePreset = () => {
-        if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
-        const stageNames = sortedTemplates.filter(t => checkedStages[t.id]).map(t => t.stageName);
-        const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
-        setPresets(next);
-        savePresets(next);
-        setPresetName('');
-        setShowSavePreset(false);
-        toast('Stage preset saved.', 'success');
-    };
-
-    const applyPreset = (name) => {
-        if (!name) return;
-        const preset = presets.find(p => p.name === name);
-        if (!preset) return;
-        const next = {};
-        sortedTemplates.forEach(t => {
-            next[t.id] = t.id === firstStageId || t.id === lastStageId || preset.stageNames.includes(t.stageName);
-        });
-        setCheckedStages(next);
-    };
-
-    const deletePreset = (name) => {
-        const next = presets.filter(p => p.name !== name);
-        setPresets(next);
-        savePresets(next);
-    };
-
-    const updateOwner = (idx, field, val) => {
-        setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
-    };
-
-    const handleFileUpload = (e) => {
-        const files = Array.from(e.target.files);
-        setFileQueue(p => [...p, ...files]);
-    };
-
-    const handleSubmit = async () => {
-        if (!district.trim() || !county.trim()) {
-            toast('District and County are required.', 'error'); return;
-        }
-        for (let o of owners) {
-            if (!o.nationalId.trim()) {
-                toast('NIN is required for all owners.', 'error'); return;
-            }
-        }
-        if (isTitleSectionVisible) {
-            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return; }
-            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return; }
-        }
-
-        setSaving(true);
-        try {
-            const payload = {
-                district: district.trim().toUpperCase(),
-                county: county.trim().toUpperCase(),
-                subCounty: subCounty.trim().toUpperCase(),
-                parish: parish.trim().toUpperCase(),
-                village: village.trim().toUpperCase(),
-                area: area.trim(),
-                totalCost: Number(totalCost) || 0,
-                initialPayment: Number(initialPayment) || 0,
-                isLegacy: isLegacy,
-                titleAtIntake: titleAtIntake,
-                projectStartDate: projectStartDate || todayISO(),
-                owners: owners.map(o => ({
-                    fullName: o.fullName.trim().toUpperCase(),
-                    phone: o.phone.trim(),
-                    email: o.email.trim().toLowerCase(),
-                    nationalId: o.nationalId.trim().toUpperCase(),
-                    address: o.address.trim(),
-                })),
-                selectedStages: Object.entries(checkedStages).filter(([, v]) => v).map(([id]) => {
-                    const t = templates.find(x => x.id === id);
-                    return {
-                        stageTemplateId: id,
-                        stageName: t ? t.stageName : '',
-                        isCustom: false,
-                        isCompleted: true
-                    };
-                }),
-                notes: notes.trim() ? [{ content: notes.trim() }] : [],
-            };
-
-            if (isTitleSectionVisible) {
-                payload.plotNumber = plotNumber.trim().toUpperCase();
-                payload.tenure = tenure;
-                payload.blockRoad = blockRoad.trim().toUpperCase();
-                payload.titleId = titleId.trim().toUpperCase();
-                payload.titleIssueDate = titleIssueDate || null;
-            }
-
-            if (isLegacy) {
-                payload.isStartAsReceivable = true;
-                payload.initialStorageFee = Number(initialStorageFee) || 0;
-                payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
-            }
-
-            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
-            toast('Project registered successfully!', 'success');
-            setTimeout(() => navigate('/land/projects'), 1500);
-        } catch (err) {
-            toast(err.response?.data?.message || 'Save failed', 'error');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
-
-    let n = 0;
-    const nIndex = ++n;
-    const nOwners = ++n;
-    const nTitle = isTitleSectionVisible ? ++n : null;
-    const nLocation = ++n;
-    const nStages = ++n;
-    const nFinancials = ++n;
-    const nDocuments = ++n;
-    const nNotes = ++n;
-
-    return (
-        <div className={styles.container}>
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>New Project</h1>
-                    <p className={styles.subtitle}>Intake Form</p>
-                </div>
-                <div className={styles.actions}>
-                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
-                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
-                        <FiSave /> {saving ? 'Saving...' : 'Save'}
-                    </button>
-                </div>
-            </header>
-
-            <div className={styles.sections}>
-
-                <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
-                    <div className={styles.grid2}>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Index</label>
-                            <input className={`${styles.input} ${styles.indexValue}`} value={nextIndex} placeholder="--" disabled />
-                            <p className={styles.hint}>Next available index, assigned on save</p>
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Date Started</label>
-                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)} />
-                            <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
-                        </div>
-                    </div>
-                    <div className={styles.field}>
-                        <label className={`${styles.label} ${styles.required}`}>Type</label>
-                        <div className={styles.typeGroup}>
-                            {PROJECT_TYPES.map(pt => (
-                                <button
-                                    key={pt.value}
-                                    type="button"
-                                    className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
-                                    onClick={() => handleProjectTypeChange(pt.value)}
-                                >
-                                    {pt.icon}
-                                    <span>{pt.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
-                    </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
-                    {owners.map((o, idx) => (
-                        <div key={idx} className={styles.ownerRow}>
-                            <div className={styles.field}>
-                                <label className={`${styles.label} ${styles.required}`}>NIN</label>
-                                <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={`${styles.label} ${styles.required}`}>Full Name</label>
-                                <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Phone</label>
-                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Email</label>
-                                <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
-                            </div>
-                            <button className={styles.btn} onClick={() => setOwners(p => p.filter((_, i) => i !== idx))} disabled={owners.length === 1}>
-                                <FiTrash2 />
-                            </button>
-                        </div>
-                    ))}
-                    <button className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
-                        <FiPlus /> Add joint owner
-                    </button>
-                </CollapsibleSection>
-
-                {isTitleSectionVisible && (
-                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
-                        <div className={styles.grid3}>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Title ID</label>
-                                <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
-                            </div>
-                            <HardwareSelect
-                                label="Tenure"
-                                required
-                                options={TENURE_OPTIONS}
-                                value={tenure}
-                                onChange={setTenure}
-                            />
-                            <div className={styles.field}>
-                                <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
-                                <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Block</label>
-                                <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Title Date</label>
-                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => setTitleIssueDate(e.target.value)} />
-                                <p className={styles.hint}>Leave blank if not yet received.</p>
-                            </div>
-                        </div>
-                    </CollapsibleSection>
-                )}
-
-                <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
-                    <div className={styles.grid3}>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>District</label>
-                            <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>County</label>
-                            <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Sub-county</label>
-                            <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Parish</label>
-                            <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Village</label>
-                            <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
-                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
-                        </div>
-                    </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection
-                    icon={<FiCheckSquare />}
-                    title={`${nStages}. Stages`}
-                    right={
-                        <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
-                            {presets.length > 0 && (
-                                <HardwareSelect
-                                    compact
-                                    placeholder="Apply preset..."
-                                    value=""
-                                    options={presets.map(p => p.name)}
-                                    onChange={applyPreset}
-                                />
-                            )}
-                            <button className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
-                                <FiBookmark /> Save Preset
-                            </button>
-                            <button className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
-                                <FiPlus /> Add Stage
-                            </button>
-                        </div>
-                    }
-                >
-                    {showSavePreset && (
-                        <div className={styles.inlineAddRow}>
-                            <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
-                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
-                            <button className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
-                        </div>
-                    )}
-                    {addingStage && (
-                        <div className={styles.inlineAddRow}>
-                            <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
-                            <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
-                            <button className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                            <button className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
-                        </div>
-                    )}
-                    <div className={styles.stageList}>
-                        {sortedTemplates.map(t => {
-                            const locked = t.id === firstStageId || t.id === lastStageId;
-                            return (
-                                <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
-                                    <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
-                                        disabled={locked}
-                                        onChange={() => toggleStage(t.id)} />
-                                    <span className={styles.stageName}>{t.stageName}</span>
-                                    {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
-                                </label>
-                            );
-                        })}
-                    </div>
-                    {presets.length > 0 && (
-                        <div className={styles.presetList}>
-                            {presets.map(p => (
-                                <span key={p.name} className={styles.presetChip}>
-                                    {p.name}
-                                    <button className={styles.presetChipRemove} onClick={() => deletePreset(p.name)} aria-label={`Delete preset ${p.name}`}><FiX size={12} /></button>
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </CollapsibleSection>
-
-                <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
-                    <div className={styles.grid2}>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Total Cost</label>
-                            <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
-                        </div>
-                        <div className={styles.field}>
-                            <label className={styles.label}>Initial Payment</label>
-                            <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
-                        </div>
-                    </div>
-                    {isLegacy && (
-                        <>
-                            <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
-                            <div className={styles.grid2}>
-                                <div className={styles.field}>
-                                    <label className={styles.label}>Initial Storage Fee</label>
-                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
-                                </div>
-                                <div className={styles.field}>
-                                    <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                    <div className={styles.financialsSummary}>
-                        <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
-                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
-                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
-                        <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
-                    </div>
-                </CollapsibleSection>
-
-                <div className={styles.splitRow}>
-                    <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
-                        <label className={styles.dropzone}>
-                            <FiUploadCloud size={24} />
-                            <p>Click to upload</p>
-                            <input type="file" multiple style={{ display: 'none' }} onChange={handleFileUpload} />
-                        </label>
-                        <div className={styles.fileList}>
-                            {fileQueue.map((f, i) => (
-                                <div key={i} className={styles.fileItem}>
-                                    <span>{f.name}</span>
-                                    <button className={styles.btn} onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}><FiTrash2 /></button>
-                                </div>
-                            ))}
-                        </div>
-                    </CollapsibleSection>
-
-                    <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
-                        <div className={styles.field}>
-                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes..." />
-                        </div>
-                    </CollapsibleSection>
-                </div>
-
-            </div>
-
-            {toasts.map(t => (
-                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>
-            ))}
-        </div>
-    );
+.dropdown {
+    max-height: 250px;
+    overflow-y: auto;
+}
+.dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
+.dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
+@media (max-width: 480px) {
+    .dropdown { max-height: 200px; }
+    .option { padding: 10px 14px; font-size: 12px; }
+}
+.dropdown {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
 }
 """)
-
-# =====================================================================
-# 6) landService.js — REPAIR bad insertion + add getNextIndex INSIDE object
-# =====================================================================
-def patch_landservice():
-    rel = "erp-frontend/src/services/landService.js"
-    p = ROOT / rel
-    try:
-        s = p.read_text(encoding="utf-8")
-    except Exception as e:
-        FAILED.append((rel, f"read failed: {e}")); return
-
-    changed = False
-
-    # 6a) undo the bad patch that put the method AFTER "export default"
-    bad = """export default landService;
-    // INTAKE: preview the next project index (001A format) before saving
-    getNextIndex: async () => {
-        const response = await api.get('/land/next-index');
-        return response.data;
-    },"""
-    if bad in s:
-        s = s.replace(bad, "export default landService;", 1)
-        changed = True
-
-    # 6b) insert the method inside the object (before the closing "};")
-    if "getNextIndex" not in s:
-        marker = """        return response.data;
-    }
-};"""
-        good = """        return response.data;
-    },
-
-    // INTAKE: preview the next project index (001A format) before saving
-    getNextIndex: async () => {
-        const response = await api.get('/land/next-index');
-        return response.data;
-    }
-};"""
-        idx = s.rfind(marker)
-        if idx == -1:
-            FAILED.append((rel, "marker not found")); return
-        s = s[:idx] + good + s[idx + len(marker):]
-        changed = True
-
-    if changed:
-        p.write_text(s, encoding="utf-8")
-        PATCHED.append(rel)
-    else:
-        PATCHED.append(f"{rel} (already applied)")
-
-patch_landservice()
-
-# =====================================================================
-# 7) ProjectIndexService.java — PATCH: add previewNextIndex
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ProjectIndexService.java",
-    "    // A -> B -> C ... Z -> AA -> AB",
-    """    /**
-     * Non-mutating preview of the index the next intake will receive.
-     * Same math as generateNextIndex() but never writes the counter.
-     */
-    public synchronized String previewNextIndex() {
-        try (Connection conn = dataSource.getConnection()) {
-            int currentNumber;
-            String currentLetter;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT current_number, current_letter FROM project_index_counter WHERE id = 1");
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    currentNumber = rs.getInt("current_number");
-                    currentLetter = rs.getString("current_letter");
-                } else {
-                    currentNumber = 0;
-                    currentLetter = "A";
-                }
-            }
-            currentNumber = currentNumber + 1;
-            if (currentNumber > 999) {
-                currentNumber = 1;
-                currentLetter = nextLetter(currentLetter);
-            }
-            return String.format("%03d", currentNumber) + currentLetter;
-        } catch (Exception e) {
-            throw new RuntimeException("PROJECT_INDEX_FAULT: Could not preview project index", e);
-        }
-    }
-
-"""
-)
-
-# =====================================================================
-# 8) LandService.java — PATCH (a) previewNextIndex method
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "    @Transactional(rollbackFor = Exception.class)",
-    """    public String previewNextIndex() {
-        return projectIndexService.previewNextIndex();
-    }
-
-"""
-)
-
-# =====================================================================
-# 8) LandService.java — PATCH (b) .projectStartDate in builder chain
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java",
-    "            .projectIndex(projectIndex)",
-    """            .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())"""
-)
-
-# =====================================================================
-# 9) LandController.java — PATCH: /next-index endpoint
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
-    "    @PostMapping(\"/projects/{id}/unlock-log\")",
-    """    // INTAKE: preview next project index
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    @GetMapping("/next-index")
-    public ResponseEntity<String> previewNextIndex() {
-        return ResponseEntity.ok(landService.previewNextIndex());
-    }
-
-"""
-)
-
-# =====================================================================
-# 10) LandProject.java — PATCH: projectStartDate field
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java",
-    "    private String projectIndex;",
-    """
-    /**
-     * PROJECT START DATE — set at intake, exists even before any title does.
-     * Maps to LandEntryRequest.projectStartDate from the frontend.
-     */
-    @Column(name = "project_start_date")
-    private LocalDate projectStartDate;"""
-)
-
-# =====================================================================
-# 10b) LandProject.java — PATCH: missing LocalDate import
-# =====================================================================
-patch_append(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java",
-    "import java.time.LocalDateTime;",
-    "import java.time.LocalDate;"
-)
 
 # =====================================================================
 # Report
@@ -1380,8 +712,6 @@ patch_append(
 print(f"\n=== fix.py completed ===")
 print(f"  Wrote:   {len(WROTE)} file(s)")
 for f in WROTE: print(f"    + {f}")
-print(f"  Patched: {len(PATCHED)} file(s)")
-for f in PATCHED: print(f"    ~ {f}")
 if FAILED:
     print(f"  FAILED:  {len(FAILED)} file(s)")
     for f, e in FAILED: print(f"    ! {f} -> {e}")
@@ -1390,15 +720,21 @@ if FAILED:
 # =====================================================================
 # Auto-commit + push
 # =====================================================================
-if WROTE or PATCHED:
+if WROTE:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
 
-        commit_msg = """fix: repair landService.js getNextIndex placement (build fix)
+        commit_msg = """style: unify New Project page with Ledger reference design
 
-- getNextIndex now sits inside the landService object (was appended
-  after export default, breaking the Vite/Rollup build)
-- Dark theme intake revamp retained from previous commit"""
+- Section headers: #162a2c band + 3px orange separator (Ledger table head)
+- CornerDecor brackets + pins on every section (same as HardwarePanel)
+- Duller labels: 50% white, 900 weight, 2px letter-spacing (Ledger metrics)
+- Ledger hover language: white 4% + orange left border on rows/items
+- Type toggle now uses filterBtn/activeFilter styling (solid orange active)
+- Secondary buttons use pageBtn styling; focus = 3px orange ring
+- HardwareSelect dropdown absolute-positioned (fixes viewport-wide panel),
+  selected row solid orange like the reference
+- Container width 1400px to match Ledger"""
 
         subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed all changes")

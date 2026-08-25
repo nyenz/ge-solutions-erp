@@ -13,12 +13,13 @@
     position: relative !important;
 }
 
+/* Dull label - same metrics as every other label on dark panels */
 .label {
-    color: #FFFFFF !important;
-    font-size: 11px;
-    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
 }
 .requiredMark { color: #ef4444; margin-left: 4px; }
 
@@ -33,14 +34,14 @@
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: 0.3s ease;
+    transition: border-color 0.2s, box-shadow 0.2s;
     height: var(--input-height, 44px);
     position: relative;
     z-index: 1;
 }
 .selectBox:hover, .active {
     border-color: var(--orange);
-    box-shadow: 0 0 20px rgba(238, 140, 58, 0.2);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18);
 }
 
 .currentValue {
@@ -56,8 +57,13 @@
 }
 .active .icon { transform: rotate(180deg); }
 
+/* ABSOLUTE (not fixed) so the panel sizes to its field, not the viewport */
 .dropdown {
-    position: fixed;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 100%;
+    width: max-content;
     background: #ffffff;
     border: 2px solid var(--orange);
     border-radius: 8px;
@@ -65,7 +71,6 @@
     overflow: hidden;
     animation: slideIn 0.2s ease-out;
     z-index: 99999 !important;
-    min-width: 100%;
 }
 
 @keyframes slideIn {
@@ -76,8 +81,9 @@
 .option {
     padding: 14px 20px;
     color: var(--navy);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
+    letter-spacing: 0.5px;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
@@ -89,8 +95,8 @@
     color: white;
 }
 .selected {
-    background: #f1f5f9;
-    border-left: 5px solid var(--orange);
+    background: var(--orange);
+    color: white;
 }
 
 .compactWrapper { margin-bottom: 0; width: auto; }

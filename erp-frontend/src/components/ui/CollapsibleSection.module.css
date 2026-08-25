@@ -1,28 +1,35 @@
 /* PATH: erp-frontend/src/components/ui/CollapsibleSection.module.css */
-/* Dark "hardware panel" treatment - same language as HardwarePanel.dark,
-   the Ledger table shell and the reference New Plot design. */
+/* Dark hardware panel - mirrors HardwarePanel.dark shell and the
+   Ledger table head (#162a2c band + 3px orange separator). */
 .section {
     --orange: #EE8C3A;
     --orange-dim: rgba(238, 140, 58, 0.18);
+    position: relative; /* anchor for CornerDecor brackets/pins */
     background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
     border: 1px solid rgba(238, 140, 58, 0.2);
     border-radius: 12px;
     overflow: visible;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.section:hover { border-color: var(--orange); }
+.section:hover {
+    border-color: var(--orange);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
 .section.accent { border: 2px solid var(--orange); }
 
+/* Header band - same shade + orange separator as the Ledger table head */
 .header {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: clamp(7px, 1.1vw, 13px);
-    padding: clamp(12px, 1.6vw, 18px) clamp(14px, 1.8vw, 20px);
-    background: transparent;
+    padding: clamp(11px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
+    background: #162a2c;
     border: none;
+    border-bottom: 3px solid var(--orange);
+    box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
     cursor: pointer;
     text-align: left;
     font: inherit;
@@ -36,24 +43,24 @@
     gap: 10px;
     min-width: 0;
     color: var(--orange);
-    font-size: clamp(15px, 1.8vw, 19px);
+    font-size: clamp(14px, 1.6vw, 18px);
     filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.4));
 }
 
 .title {
     font-family: 'Cinzel', serif;
-    font-size: clamp(13px, 1.6vw, 16px);
+    font-size: clamp(12px, 1.5vw, 15px);
     font-weight: 700;
     color: var(--orange);
     letter-spacing: 2px;
     text-transform: uppercase;
     margin: 0;
-    transition: color 0.15s ease;
+    transition: color 0.18s ease;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.header:hover .title { color: #f59a4a; }
+.header:hover .title { color: #fff; } /* same as Ledger sortable hover */
 
 .headerRight {
     display: flex;
@@ -63,7 +70,7 @@
 }
 
 .chevron {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
     font-size: 16px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
@@ -72,11 +79,10 @@
 
 .body {
     padding: 0 clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
+    padding-top: clamp(14px, 1.8vw, 20px);
     display: flex;
     flex-direction: column;
     gap: clamp(10px, 1.5vw, 18px);
-    border-top: 1px solid rgba(238, 140, 58, 0.25);
-    padding-top: clamp(14px, 1.8vw, 20px);
     animation: expand 0.18s ease-out;
 }
 
