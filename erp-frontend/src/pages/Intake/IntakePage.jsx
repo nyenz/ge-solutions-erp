@@ -1,10 +1,11 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useBlocker } from 'react-router-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye, FiRefreshCw
+    FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye, FiRefreshCw,
+    FiCalendar
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareSelect from '../../components/common/HardwareSelect';
@@ -22,7 +23,6 @@ const PROJECT_TYPES = [
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 
-// Canonical default stage checklist (Restore Defaults target)
 const DEFAULT_STAGES = [
     'Field Work',
     'Deed Plan',
@@ -33,6 +33,10 @@ const DEFAULT_STAGES = [
 ];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayDMY = () => {
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
 const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
@@ -67,7 +71,7 @@ export default function IntakePage() {
     const [checkedStages, setCheckedStages] = useState({});
     const [addingStage, setAddingStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
-    const [insertAfter, setInsertAfter] = useState('');
+    const [insertAfterId, setInsertAfterId] = useState('');
     const [restoring, setRestoring] = useState(false);
     const [presets, setPresets] = useState(loadPresets);
     const [presetName, setPresetName] = useState('');
@@ -87,6 +91,10 @@ export default function IntakePage() {
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
 
+    const [dirty, setDirty] = useState(false);
+    const dirtyRef = useRef(false);
+    const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
+
     const [toasts, setToasts] = useState([]);
     const toast = useCallback((msg, type = 'info') => {
         const id = Date.now();
@@ -103,6 +111,42 @@ export default function IntakePage() {
         landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
     }, []);
 
+    // STANDARD: sidebar auto-collapses once the user starts working on the form
+    const collapsedOnce = useRef(false);
+    useEffect(() => {
+        const el = topRef.current;
+        if (!el) return;
+        const handler = () => {
+            if (collapsedOnce.current) return;
+            collapsedOnce.current = true;
+            const aside = document.querySelector('aside');
+            const toggle = document.querySelector('[class*="sidebarToggle"]');
+            if (aside && toggle && aside.getBoundingClientRect().width > 120) {
+                toggle.click();
+            }
+        };
+        el.addEventListener('focusin', handler);
+        el.addEventListener('input', handler);
+        el.addEventListener('click', handler);
+        return () => {
+            el.removeEventListener('focusin', handler);
+            el.removeEventListener('input', handler);
+            el.removeEventListener('click', handler);
+        };
+    }, []);
+
+    // STANDARD: warn before closing the tab with unsaved work
+    useEffect(() => {
+        const h = (e) => {
+            if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+        };
+        window.addEventListener('beforeunload', h);
+        return () => window.removeEventListener('beforeunload', h);
+    }, []);
+
+    // Warn before navigating away inside the app with unsaved work
+    const blocker = useBlocker(dirty && !saving);
+
     const sortedTemplates = useMemo(
         () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
         [templates]
@@ -110,7 +154,6 @@ export default function IntakePage() {
     const firstStageId = sortedTemplates[0]?.id;
     const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
 
-    // First stage checked by default; both first and last remain clickable.
     useEffect(() => {
         if (!sortedTemplates.length) return;
         setCheckedStages(prev => {
@@ -140,6 +183,7 @@ export default function IntakePage() {
 
     const handleProjectTypeChange = (value) => {
         setProjectType(value);
+        markDirty();
         if (value === 'LEGACY_TITLE' || value === 'NEW_TITLE') {
             setCheckedStages(allStagesChecked());
         } else {
@@ -148,27 +192,28 @@ export default function IntakePage() {
     };
 
     const toggleStage = (id) => {
-        // first & last are clickable like any other stage
+        markDirty();
         setCheckedStages(p => ({ ...p, [id]: !p[id] }));
     };
 
-    // Renumber the whole template list to match the given ordered array
-    const renumber = async (ordered) => {
-        for (let i = 0; i < ordered.length; i++) {
-            const t = ordered[i];
-            if (t?.id) {
-                await stageTemplateService.updateTemplateStage(t.id, t.stageName, t.defaultCost || 0, i + 1);
-            }
-        }
+    // one parallel wave of order updates = fast, no lag
+    const renumber = (ordered) => Promise.all(
+        ordered.map((t, i) =>
+            t?.id ? stageTemplateService.updateTemplateStage(t.id, t.stageName, t.defaultCost || 0, i + 1) : null
+        )
+    );
+
+    const openInsertBelow = (stageId) => {
+        setInsertAfterId(stageId);
+        setAddingStage(true);
     };
 
     const handleAddStage = async () => {
         if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
         try {
-            // allowed slot: after the first, before the last (middle only)
             let k = sortedTemplates.length - 1; // default: just before last
-            const idx = sortedTemplates.findIndex(t => t.stageName === insertAfter);
-            if (idx >= 0) k = idx + 1;
+            const idx = sortedTemplates.findIndex(t => t.id === insertAfterId);
+            if (idx >= 0) k = idx + 1; // appears directly under the clicked stage
             k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
 
             const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0);
@@ -178,7 +223,7 @@ export default function IntakePage() {
             await renumber(next);
 
             setNewStageName('');
-            setInsertAfter('');
+            setInsertAfterId('');
             setAddingStage(false);
             fetchTemplates();
             if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
@@ -199,17 +244,15 @@ export default function IntakePage() {
         }
     };
 
-    // Restore the canonical default checklist (removes custom stages like
-    // "ff", re-adds any missing defaults, renumbers in the default order)
     const handleRestoreDefaults = async () => {
         setRestoring(true);
         try {
             const keep = sortedTemplates.filter(t => DEFAULT_STAGES.includes(t.stageName));
-            for (const t of sortedTemplates) {
-                if (!DEFAULT_STAGES.includes(t.stageName)) {
-                    await stageTemplateService.deleteTemplateStage(t.id);
-                }
-            }
+            await Promise.all(
+                sortedTemplates
+                    .filter(t => !DEFAULT_STAGES.includes(t.stageName))
+                    .map(t => stageTemplateService.deleteTemplateStage(t.id))
+            );
             const have = new Set(keep.map(t => t.stageName));
             const added = [];
             for (const name of DEFAULT_STAGES) {
@@ -250,6 +293,7 @@ export default function IntakePage() {
             next[t.id] = preset.stageNames.includes(t.stageName);
         });
         setCheckedStages(next);
+        markDirty();
     };
 
     const deletePreset = (name) => {
@@ -259,6 +303,7 @@ export default function IntakePage() {
     };
 
     const updateOwner = (idx, field, val) => {
+        markDirty();
         setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
     };
 
@@ -266,7 +311,10 @@ export default function IntakePage() {
         const items = Array.from(e.target.files).map(f => ({
             name: f.name, size: f.size, file: f, url: URL.createObjectURL(f),
         }));
-        if (items.length) setFileQueue(p => [...p, ...items]);
+        if (items.length) {
+            setFileQueue(p => [...p, ...items]);
+            markDirty();
+        }
         e.target.value = '';
     };
 
@@ -281,33 +329,40 @@ export default function IntakePage() {
 
     const scrollTop = () => topRef.current && topRef.current.scrollIntoView({ behavior: 'smooth' });
 
-    const handleDuplicate = () => {
-        setProjectType('NEW_FOLDER');
-        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
-        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
-        setNotes('');
-        setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
-        setCheckedStages(defaultStages());
-        toast('Owners & location kept - ready for the next plot.', 'success');
-        scrollTop();
-    };
-
-    const handleSubmit = async () => {
+    // ---- validation shared by Save and Duplicate ----
+    const validate = () => {
         if (!district.trim() || !county.trim()) {
-            toast('District and County are required.', 'error'); return;
+            toast('District and County are required.', 'error'); return false;
         }
-        for (let o of owners) {
-            if (!o.nationalId.trim()) {
-                toast('NIN is required for all owners.', 'error'); return;
-            }
+        for (let i = 0; i < owners.length; i++) {
+            const o = owners[i];
+            if (!o.nationalId.trim()) { toast(`Owner ${i + 1}: NIN is required.`, 'error'); return false; }
+            if (!o.fullName.trim()) { toast(`Owner ${i + 1}: Full Name is required.`, 'error'); return false; }
+            if (!o.phone.trim()) { toast(`Owner ${i + 1}: Phone is required (use / for multiple numbers).`, 'error'); return false; }
         }
         if (isTitleSectionVisible) {
-            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return; }
-            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return; }
+            if (!titleId.trim()) { toast('Title ID is required for a title record.', 'error'); return false; }
+            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return false; }
+            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return false; }
         }
+        if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
+        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) {
+            toast('Initial Payment is required (0 or more).', 'error'); return false;
+        }
+        if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
+        return true;
+    };
 
+    // ---- the actual save (no navigation) ----
+    const doSave = async () => {
+        if (!validate()) return false;
         setSaving(true);
         try {
+            let noteText = notes.trim();
+            if (noteText && !/^\[\d{2}\/\d{2}\/\d{4}\]/.test(noteText)) {
+                noteText = `[${todayDMY()}] ${noteText}`; // STANDARD: notes carry their date
+            }
+
             const payload = {
                 district: district.trim().toUpperCase(),
                 county: county.trim().toUpperCase(),
@@ -338,7 +393,7 @@ export default function IntakePage() {
                             isCompleted: true
                         };
                     }),
-                notes: notes.trim() ? [{ content: notes.trim() }] : [],
+                notes: noteText ? [{ content: noteText }] : [],
             };
 
             if (isTitleSectionVisible) {
@@ -355,14 +410,41 @@ export default function IntakePage() {
                 payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
             }
 
-            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue.map(q => q.file) : null);
-            toast('Project registered successfully!', 'success');
-            setTimeout(() => navigate('/land/projects'), 1500);
+            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
+            dirtyRef.current = false;
+            setDirty(false);
+            return true;
         } catch (err) {
             toast(err.response?.data?.message || 'Save failed', 'error');
+            return false;
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSubmit = async () => {
+        const ok = await doSave();
+        if (ok) {
+            toast('Project registered successfully!', 'success');
+            setTimeout(() => navigate('/land/projects'), 1200);
+        }
+    };
+
+    // Duplicate = SAVE the current form first (same validations/warnings),
+    // then carry owners + location into a fresh form.
+    const handleDuplicate = async () => {
+        const ok = await doSave();
+        if (!ok) return;
+        toast('Saved. Form duplicated for the next plot.', 'success');
+        setProjectType('NEW_FOLDER');
+        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
+        setNotes('');
+        setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
+        setCheckedStages(defaultStages());
+        setProjectStartDate(todayISO);
+        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+        scrollTop();
     };
 
     const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
@@ -376,6 +458,8 @@ export default function IntakePage() {
     const nFinancials = ++n;
     const nDocuments = ++n;
     const nNotes = ++n;
+
+    const insertAfterName = sortedTemplates.find(t => t.id === insertAfterId)?.stageName;
 
     return (
         <div className={styles.container} ref={topRef}>
@@ -400,7 +484,7 @@ export default function IntakePage() {
                         </div>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>Date Started</label>
-                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => setProjectStartDate(e.target.value)} />
+                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />
                             <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
                         </div>
                     </div>
@@ -435,8 +519,9 @@ export default function IntakePage() {
                                 <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
                             </div>
                             <div className={styles.field}>
-                                <label className={styles.label}>Phone</label>
-                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} />
+                                <label className={`${styles.label} ${styles.required}`}>Phone</label>
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} placeholder="0700 000 000 / 0788 000 000" />
+                                <p className={styles.hint}>Multiple numbers: separate with /</p>
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Email</label>
@@ -453,7 +538,7 @@ export default function IntakePage() {
                             </button>
                         </div>
                     ))}
-                    <button type="button" className={styles.addBtn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                    <button type="button" className={styles.addBtn} onClick={() => { setOwners(p => [...p, EMPTY_OWNER()]); markDirty(); }}>
                         <FiPlus /> Add Owner
                     </button>
                 </CollapsibleSection>
@@ -462,27 +547,27 @@ export default function IntakePage() {
                     <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title Details`} accent>
                         <div className={styles.grid3}>
                             <div className={styles.field}>
-                                <label className={styles.label}>Title ID</label>
-                                <input className={styles.input} value={titleId} onChange={e => setTitleId(e.target.value)} />
+                                <label className={`${styles.label} ${styles.required}`}>Title ID</label>
+                                <input className={styles.input} value={titleId} onChange={e => { setTitleId(e.target.value); markDirty(); }} />
                             </div>
                             <HardwareSelect
                                 label="Tenure"
                                 required
                                 options={TENURE_OPTIONS}
                                 value={tenure}
-                                onChange={setTenure}
+                                onChange={(v) => { setTenure(v); markDirty(); }}
                             />
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
-                                <input className={styles.input} value={plotNumber} onChange={e => setPlotNumber(e.target.value)} />
+                                <input className={styles.input} value={plotNumber} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Block</label>
-                                <input className={styles.input} value={blockRoad} onChange={e => setBlockRoad(e.target.value)} />
+                                <input className={styles.input} value={blockRoad} onChange={e => { setBlockRoad(e.target.value); markDirty(); }} />
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Title Date</label>
-                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => setTitleIssueDate(e.target.value)} />
+                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => { setTitleIssueDate(e.target.value); markDirty(); }} />
                                 <p className={styles.hint}>Leave blank if not yet received.</p>
                             </div>
                         </div>
@@ -493,27 +578,27 @@ export default function IntakePage() {
                     <div className={styles.grid3}>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>District</label>
-                            <input className={styles.input} value={district} onChange={e => setDistrict(e.target.value)} />
+                            <input className={styles.input} value={district} onChange={e => { setDistrict(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${styles.required}`}>County</label>
-                            <input className={styles.input} value={county} onChange={e => setCounty(e.target.value)} />
+                            <input className={styles.input} value={county} onChange={e => { setCounty(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Sub-county</label>
-                            <input className={styles.input} value={subCounty} onChange={e => setSubCounty(e.target.value)} />
+                            <input className={styles.input} value={subCounty} onChange={e => { setSubCounty(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Parish</label>
-                            <input className={styles.input} value={parish} onChange={e => setParish(e.target.value)} />
+                            <input className={styles.input} value={parish} onChange={e => { setParish(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Village</label>
-                            <input className={styles.input} value={village} onChange={e => setVillage(e.target.value)} />
+                            <input className={styles.input} value={village} onChange={e => { setVillage(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
                             <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
-                            <input className={styles.input} value={area} onChange={e => setArea(e.target.value)} />
+                            <input className={styles.input} value={area} onChange={e => { setArea(e.target.value); markDirty(); }} />
                         </div>
                     </div>
                 </CollapsibleSection>
@@ -536,7 +621,7 @@ export default function IntakePage() {
                                 <button type="button" className={styles.addBtn} onClick={() => setShowSavePreset(s => !s)}>
                                     <FiBookmark /> Save Preset
                                 </button>
-                                <button type="button" className={styles.addBtn} onClick={() => setAddingStage(s => !s)}>
+                                <button type="button" className={styles.addBtn} onClick={() => { setAddingStage(s => !s); setInsertAfterId(''); }}>
                                     <FiPlus /> Add Stage
                                 </button>
                                 <button type="button" className={styles.addBtn} disabled={restoring} onClick={handleRestoreDefaults}>
@@ -549,41 +634,50 @@ export default function IntakePage() {
                             <div className={styles.inlineAddRow}>
                                 <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
                                 <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
-                                <button type="button" className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
+                                <button type="button" className={styles.xBtn} onClick={() => { setShowSavePreset(false); setPresetName(''); }} aria-label="Close"><FiX /></button>
                             </div>
                         )}
                         {addingStage && (
                             <div className={styles.inlineAddRow}>
+                                <span className={styles.insertCtx}>
+                                    {insertAfterName ? `Insert under: ${insertAfterName}` : 'Insert before last stage'}
+                                </span>
                                 <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
-                                <HardwareSelect
-                                    compact
-                                    placeholder="Insert after..."
-                                    value={insertAfter}
-                                    options={sortedTemplates.slice(0, -1).map(t => t.stageName)}
-                                    onChange={setInsertAfter}
-                                />
                                 <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                                <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfter(''); }}><FiX /></button>
+                                <button type="button" className={styles.xBtn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfterId(''); }} aria-label="Close"><FiX /></button>
                             </div>
                         )}
                         <div className={styles.stageList}>
-                            {sortedTemplates.map(t => {
-                                const isEdge = t.id === firstStageId || t.id === lastStageId;
+                            {sortedTemplates.map((t, i) => {
+                                const isLast = t.id === lastStageId;
                                 return (
                                     <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''}`}>
                                         <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
                                             onChange={() => toggleStage(t.id)} />
                                         <span className={styles.stageName}>{t.stageName}</span>
-                                        {!isEdge && (
-                                            <button
-                                                type="button"
-                                                className={`${styles.btn} ${styles.small} ${styles.deleteBtn} ${styles.stageDelete}`}
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(t.id); }}
-                                                aria-label={`Delete stage ${t.stageName}`}
-                                            >
-                                                <FiTrash2 size={12} />
-                                            </button>
-                                        )}
+                                        <span className={styles.stageActions}>
+                                            {!isLast && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.plusBtn}
+                                                    title="Insert a stage below this one"
+                                                    aria-label={`Insert stage below ${t.stageName}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(t.id); }}
+                                                >
+                                                    <FiPlus size={12} />
+                                                </button>
+                                            )}
+                                            {!isLast && t.id !== firstStageId && (
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(t.id); }}
+                                                    aria-label={`Delete stage ${t.stageName}`}
+                                                >
+                                                    <FiTrash2 size={12} />
+                                                </button>
+                                            )}
+                                        </span>
                                     </label>
                                 );
                             })}
@@ -611,12 +705,12 @@ export default function IntakePage() {
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
                         <div className={styles.field}>
-                            <label className={styles.label}>Total Cost</label>
-                            <input type="number" className={styles.input} value={totalCost} onChange={e => setTotalCost(e.target.value)} />
+                            <label className={`${styles.label} ${styles.required}`}>Total Cost</label>
+                            <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={styles.label}>Initial Payment</label>
-                            <input type="number" className={styles.input} value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                            <label className={`${styles.label} ${styles.required}`}>Initial Payment</label>
+                            <input type="number" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
                         </div>
                     </div>
                     {isLegacy && (
@@ -625,11 +719,11 @@ export default function IntakePage() {
                             <div className={styles.grid2}>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Initial Storage Fee</label>
-                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => setInitialStorageFee(e.target.value)} />
+                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => { setInitialStorageFee(e.target.value); markDirty(); }} />
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => setMonthlyStorageFee(e.target.value)} placeholder="System default" />
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} placeholder="System default" />
                                 </div>
                             </div>
                         </>
@@ -652,8 +746,8 @@ export default function IntakePage() {
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}
                         >
                             <span className={styles.dropzoneIcon}><FiUploadCloud size={18} /></span>
-                            <span className={styles.dropzoneTitle}>Click to upload</span>
-                            <span className={styles.dropzoneSub}>PDF, images, any file - stored in the folder</span>
+                            <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
+                            <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>
                         </div>
                         <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
                         <div className={styles.fileList}>
@@ -684,21 +778,21 @@ export default function IntakePage() {
 
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                         <div className={styles.notesWrap}>
-                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes - visible to all staff on the folder page..." />
-                            <p className={styles.hint}>Saved with the project as an intake note.</p>
+                            <span className={styles.noteDateChip}><FiCalendar size={11} /> {todayDMY()}</span>
+                            <textarea className={styles.textarea} value={notes} onChange={e => { setNotes(e.target.value); markDirty(); }} placeholder="Shared project notes - visible to all staff on the folder page..." />
+                            <p className={styles.hint}>Saved with today's date as an intake note.</p>
                         </div>
                     </CollapsibleSection>
                 </div>
 
             </div>
 
-            {/* BOTTOM ACTION BAR - scrolls with the page, plain row */}
             <div className={styles.bottomBar}>
-                <button type="button" className={styles.btn} onClick={scrollTop} aria-label="Back to top">
+                <button type="button" className={styles.topBtn} onClick={scrollTop} aria-label="Back to top">
                     <FiArrowUp />
                 </button>
                 <div className={styles.bottomBarRight}>
-                    <button type="button" className={styles.addBtn} onClick={handleDuplicate}>
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving}>
                         <FiCopy /> Duplicate
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
@@ -706,6 +800,31 @@ export default function IntakePage() {
                     </button>
                 </div>
             </div>
+
+            {blocker.state === 'blocked' && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalCard}>
+                        <h3 className={styles.modalTitle}>Unsaved work</h3>
+                        <p className={styles.modalText}>
+                            You have unsaved information on this form. Do you want to save it before leaving?
+                        </p>
+                        <div className={styles.modalBtns}>
+                            <button type="button" className={styles.btn} onClick={() => blocker.reset()}>Stay</button>
+                            <button type="button" className={`${styles.btn} ${styles.deleteBtn}`} onClick={() => blocker.proceed()}>Leave without saving</button>
+                            <button
+                                type="button"
+                                className={`${styles.btn} ${styles.primary}`}
+                                onClick={async () => {
+                                    const ok = await doSave();
+                                    if (ok) blocker.proceed(); else blocker.reset();
+                                }}
+                            >
+                                <FiSave /> Save & Leave
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {toasts.map(t => (
                 <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>

@@ -1,7 +1,6 @@
 /* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Pass 4 - field size standardized page-wide by scoping the global
-   input vars to the tenure-field size; bottom bar is a plain row that
-   scrolls with the page (no sticky, no background). */
+   Pass 5 - slightly bigger fields, visible borderless top arrow,
+   orange app-standard X buttons, unsaved-changes modal. */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -26,12 +25,11 @@
     --fs-btn:    clamp(8px,  0.85vw, 10px);
 }
 
-/* Scope the GLOBAL input variables to the tenure-field size so every
-   input on this page (text, number, date) matches it exactly. */
+/* scoped global input vars - a touch bigger than pass 4 */
 .container {
-    --input-height: clamp(32px, 4vw, 38px);
-    --input-font:   clamp(10px, 1vw, 12px);
-    --input-px:     clamp(8px, 1.1vw, 12px);
+    --input-height: clamp(34px, 4.3vw, 40px);
+    --input-font:   clamp(11px, 1.05vw, 13px);
+    --input-px:     clamp(9px, 1.2vw, 13px);
     --input-radius: 6px;
 
     max-width: 1400px;
@@ -52,7 +50,6 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* -- PAGE HEADER (compact; Cancel only lives here) -- */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -99,7 +96,6 @@
     align-items: start;
 }
 
-/* -- BUTTONS -- */
 .btn {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-btn);
@@ -132,8 +128,34 @@
     color: var(--red);
 }
 
-/* standardized compact button: Add Owner / Add Stage / Save Preset /
-   Restore Defaults / Duplicate - all identical */
+/* app-standard orange X (matches search clear etc.) */
+.xBtn {
+    background: transparent;
+    border: none;
+    color: var(--orange);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+.xBtn:hover { background: var(--orange-dim); }
+
+/* insert-below button on stage rows */
+.plusBtn {
+    background: transparent;
+    border: 1px solid rgba(238, 140, 58, 0.3);
+    color: var(--orange);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.plusBtn:hover { background: var(--orange-dim); border-color: var(--orange); }
+
 .addBtn {
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
@@ -151,11 +173,10 @@
     align-items: center;
     gap: 5px;
     white-space: nowrap;
-    align-self: flex-start; /* never stretch full-width */
+    align-self: flex-start;
 }
 .addBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 
-/* -- FIELDS -- */
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-lg); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--gap-lg); }
 
@@ -179,7 +200,6 @@
     margin: 0;
 }
 
-/* sizing comes from the scoped --input-* vars above; only the look here */
 .input, .textarea {
     font-family: 'Inter', sans-serif;
     font-weight: 600;
@@ -206,7 +226,6 @@
 }
 .input.indexValue:disabled { color: var(--orange); opacity: 1; }
 
-/* -- TYPE TOGGLE -- */
 .typeGroup { display: flex; gap: clamp(5px, 0.9vw, 10px); flex-wrap: wrap; }
 .typeBtn {
     display: flex;
@@ -236,10 +255,9 @@
 }
 .typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
 
-/* -- INNER WELLS -- */
 .ownerRow {
     display: grid;
-    grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
+    grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto auto;
     gap: var(--gap-md);
     align-items: end;
     padding: clamp(6px, 0.9vw, 9px);
@@ -272,8 +290,8 @@
     padding: var(--gap-md);
 }
 .inlineAddRow .input { width: auto; flex: 1 1 160px; }
+.insertCtx { font-size: var(--fs-meta); color: var(--orange); font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
 
-/* -- STAGES (first/last clickable; delete middle only) -- */
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
     display: flex;
@@ -290,7 +308,7 @@
 .stageItem.checked { background: rgba(238, 140, 58, 0.07); }
 .checkbox { width: 15px; height: 15px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
 .stageName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.5px; }
-.stageDelete { margin-left: auto; }
+.stageActions { margin-left: auto; display: flex; gap: var(--gap-md); align-items: center; }
 
 .presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
 .presetChip {
@@ -310,7 +328,6 @@
     display: flex; align-items: center; padding: 0;
 }
 
-/* -- FINANCIALS -- */
 .financialsSummary {
     background: rgba(0, 0, 0, 0.15);
     padding: var(--gap-lg);
@@ -323,7 +340,6 @@
 .finRow { display: flex; justify-content: space-between; font-weight: 700; color: rgba(255, 255, 255, 0.85); font-size: var(--fs-value); letter-spacing: 0.5px; }
 .finRow.total { color: var(--orange); font-size: clamp(13px, 1.4vw, 17px); border-top: 1px solid rgba(238, 140, 58, 0.25); padding-top: var(--gap-md); }
 
-/* -- DOCUMENTS -- */
 .dropzone {
     border: 2px dashed rgba(238, 140, 58, 0.4);
     border-radius: var(--radius);
@@ -351,6 +367,7 @@
     margin-bottom: 2px;
 }
 .dropzoneTitle { font-weight: 800; font-size: var(--fs-value); letter-spacing: 1px; text-transform: uppercase; }
+.dropzoneTitle .reqMark { color: var(--red); margin-left: 3px; }
 .dropzoneSub { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); font-weight: 700; letter-spacing: 0.5px; }
 
 .fileList { display: flex; flex-direction: column; gap: var(--gap-md); }
@@ -371,8 +388,22 @@
 .fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; }
 
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
+.noteDateChip {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: var(--fs-meta);
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
 
-/* -- BOTTOM ACTION BAR: plain row, scrolls with the page, no backdrop -- */
+/* -- BOTTOM BAR: plain row; visible borderless single-arrow top button -- */
 .bottomBar {
     display: flex;
     align-items: center;
@@ -383,7 +414,54 @@
 }
 .bottomBarRight { display: flex; gap: var(--gap-md); align-items: center; }
 
-/* -- TOASTS -- */
+.topBtn {
+    background: transparent;
+    border: none;
+    color: var(--orange);
+    font-size: 20px;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.5));
+    transition: transform 0.2s ease;
+}
+.topBtn:hover { transform: translateY(-2px); }
+
+/* -- UNSAVED CHANGES MODAL -- */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 22, 0.72);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modalCard {
+    width: min(480px, 90vw);
+    background: linear-gradient(135deg, #3a5a5c 0%, #213E40 100%);
+    border: 1px solid var(--orange-border);
+    border-radius: 12px;
+    padding: clamp(16px, 2vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modalTitle {
+    font-family: 'Cinzel', serif;
+    color: var(--orange);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: clamp(12px, 1.4vw, 15px);
+    margin: 0;
+}
+.modalText { color: rgba(255, 255, 255, 0.75); font-size: var(--fs-value); font-weight: 600; margin: 0; }
+.modalBtns { display: flex; gap: var(--gap-md); justify-content: flex-end; flex-wrap: wrap; }
+
 .toast {
     position: fixed;
     bottom: 20px;

@@ -16,6 +16,7 @@ const CollapsibleSection = ({
     children,
 }) => {
     const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const [active, setActive] = useState(false); // user is working inside
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : internalOpen;
 
@@ -24,11 +25,20 @@ const CollapsibleSection = ({
         else setInternalOpen(o => !o);
     };
 
-    // Accent (orange active border) only while the section is genuinely open
-    const showAccent = accent && open;
+    const handleBlur = (e) => {
+        // deactivate only when focus truly leaves the section
+        if (!e.currentTarget.contains(e.relatedTarget)) setActive(false);
+    };
+
+    // orange "active" border only while the user is actually inside
+    const showAccent = accent && active;
 
     return (
-        <section className={`${styles.section} ${showAccent ? styles.accent : ''} ${className}`}>
+        <section
+            className={`${styles.section} ${showAccent ? styles.accent : ''} ${className}`}
+            onFocusCapture={() => setActive(true)}
+            onBlurCapture={handleBlur}
+        >
             <button
                 type="button"
                 className={`${styles.header} ${open ? styles.headerOpen : ''}`}
