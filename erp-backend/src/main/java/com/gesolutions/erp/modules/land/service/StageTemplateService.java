@@ -234,7 +234,7 @@ public class StageTemplateService {
     }
 
     // INTAKE REDESIGN: allow deleting middle stages from the template
-    public void deleteTemplateStage(Long id) {
+    public void deleteTemplateStage(java.util.UUID id) {
         templateRepository.deleteById(id);
     }
 }
