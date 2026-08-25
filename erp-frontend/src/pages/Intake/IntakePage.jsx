@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiLock, FiEdit3, FiBookmark, FiX
+    FiLock, FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareSelect from '../../components/common/HardwareSelect';
@@ -22,6 +22,7 @@ const PROJECT_TYPES = [
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
 const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
 const loadPresets = () => {
@@ -36,6 +37,7 @@ const savePresets = (presets) => {
 
 export default function IntakePage() {
     const navigate = useNavigate();
+    const topRef = useRef(null);
     const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);
     const [nextIndex, setNextIndex] = useState('');
@@ -54,7 +56,6 @@ export default function IntakePage() {
     const [checkedStages, setCheckedStages] = useState({});
     const [addingStage, setAddingStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
-    const [newStageCost, setNewStageCost] = useState('');
     const [presets, setPresets] = useState(loadPresets);
     const [presetName, setPresetName] = useState('');
     const [showSavePreset, setShowSavePreset] = useState(false);
@@ -109,14 +110,28 @@ export default function IntakePage() {
     const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
     const isLegacy = projectType === 'LEGACY_TITLE';
     const titleAtIntake = projectType === 'NEW_TITLE';
-    const isTitleSectionVisible = isLegacy || titleAtIntake || finalStageChecked;
+    const isTitleType = isLegacy || titleAtIntake;
+    const isTitleSectionVisible = isTitleType || finalStageChecked;
+    const showStages = !isTitleType; // stages hidden for New/Legacy title
+
+    const allStagesChecked = () => {
+        const all = {};
+        sortedTemplates.forEach(t => { all[t.id] = true; });
+        return all;
+    };
+    const defaultStages = () => {
+        const d = {};
+        if (firstStageId) d[firstStageId] = true;
+        if (lastStageId) d[lastStageId] = true;
+        return d;
+    };
 
     const handleProjectTypeChange = (value) => {
         setProjectType(value);
-        if (value === 'LEGACY_TITLE') {
-            const allChecked = {};
-            sortedTemplates.forEach(t => { allChecked[t.id] = true; });
-            setCheckedStages(allChecked);
+        if (value === 'LEGACY_TITLE' || value === 'NEW_TITLE') {
+            setCheckedStages(allStagesChecked());
+        } else {
+            setCheckedStages(defaultStages());
         }
     };
 
@@ -134,18 +149,26 @@ export default function IntakePage() {
                 await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
             }
             const created = await stageTemplateService.addTemplateStage(
-                newStageName.trim(),
-                newStageCost ? Number(newStageCost) : 0,
-                last ? lastOrder : undefined,
+                newStageName.trim(), 0, last ? lastOrder : undefined,
             );
             setNewStageName('');
-            setNewStageCost('');
             setAddingStage(false);
             fetchTemplates();
             if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
             toast('Stage added to checklist.', 'success');
         } catch (err) {
             toast(err.response?.data?.message || 'Could not add stage.', 'error');
+        }
+    };
+
+    const handleDeleteStage = async (id) => {
+        try {
+            await stageTemplateService.deleteTemplateStage(id);
+            setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
+            fetchTemplates();
+            toast('Stage removed.', 'success');
+        } catch (err) {
+            toast(err.response?.data?.message || 'Could not delete stage.', 'error');
         }
     };
 
@@ -182,15 +205,34 @@ export default function IntakePage() {
     };
 
     const handleFileUpload = (e) => {
-        const files = Array.from(e.target.files);
-        setFileQueue(p => [...p, ...files]);
-        e.target.value = ''; // reset so same file can be re-added
+        const items = Array.from(e.target.files).map(f => ({
+            name: f.name, size: f.size, file: f, url: URL.createObjectURL(f),
+        }));
+        if (items.length) setFileQueue(p => [...p, ...items]);
+        e.target.value = '';
     };
 
-    const triggerFileInput = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
+    const removeFile = (i) => {
+        setFileQueue(p => {
+            URL.revokeObjectURL(p[i].url);
+            return p.filter((_, idx) => idx !== i);
+        });
+    };
+
+    const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
+
+    const scrollTop = () => topRef.current && topRef.current.scrollIntoView({ behavior: 'smooth' });
+
+    // Duplicate: keep owners + location, clear everything else for the next plot
+    const handleDuplicate = () => {
+        setProjectType('NEW_FOLDER');
+        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
+        setNotes('');
+        setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
+        setCheckedStages(defaultStages());
+        toast('Owners & location kept - ready for the next plot.', 'success');
+        scrollTop();
     };
 
     const handleSubmit = async () => {
@@ -254,7 +296,7 @@ export default function IntakePage() {
                 payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
             }
 
-            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue : null);
+            await landService.createAtomicEntry(payload, fileQueue.length ? fileQueue.map(q => q.file) : null);
             toast('Project registered successfully!', 'success');
             setTimeout(() => navigate('/land/projects'), 1500);
         } catch (err) {
@@ -271,13 +313,13 @@ export default function IntakePage() {
     const nOwners = ++n;
     const nTitle = isTitleSectionVisible ? ++n : null;
     const nLocation = ++n;
-    const nStages = ++n;
+    const nStages = showStages ? ++n : null;
     const nFinancials = ++n;
     const nDocuments = ++n;
     const nNotes = ++n;
 
     return (
-        <div className={styles.container}>
+        <div className={styles.container} ref={topRef}>
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>New Project</h1>
@@ -355,8 +397,8 @@ export default function IntakePage() {
                             </button>
                         </div>
                     ))}
-                    <button type="button" className={styles.btn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
-                        <FiPlus /> Add joint owner
+                    <button type="button" className={styles.addBtn} onClick={() => setOwners(p => [...p, EMPTY_OWNER()])}>
+                        <FiPlus /> Add Owner
                     </button>
                 </CollapsibleSection>
 
@@ -420,76 +462,87 @@ export default function IntakePage() {
                     </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection
-                    icon={<FiCheckSquare />}
-                    title={`${nStages}. Stages`}
-                    right={
-                        <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
-                            {presets.length > 0 && (
-                                <HardwareSelect
-                                    compact
-                                    placeholder="Apply preset..."
-                                    value=""
-                                    options={presets.map(p => p.name)}
-                                    onChange={applyPreset}
-                                />
-                            )}
-                            <button type="button" className={styles.legacyBtn} onClick={() => setShowSavePreset(s => !s)}>
-                                <FiBookmark /> Save Preset
-                            </button>
-                            <button type="button" className={styles.legacyBtn} onClick={() => setAddingStage(s => !s)}>
-                                <FiPlus /> Add Stage
-                            </button>
+                {showStages && (
+                    <CollapsibleSection
+                        icon={<FiCheckSquare />}
+                        title={`${nStages}. Stages`}
+                        right={
+                            <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {presets.length > 0 && (
+                                    <HardwareSelect
+                                        compact
+                                        placeholder="Apply preset..."
+                                        value=""
+                                        options={presets.map(p => p.name)}
+                                        onChange={applyPreset}
+                                    />
+                                )}
+                                <button type="button" className={styles.addBtn} onClick={() => setShowSavePreset(s => !s)}>
+                                    <FiBookmark /> Save Preset
+                                </button>
+                                <button type="button" className={styles.addBtn} onClick={() => setAddingStage(s => !s)}>
+                                    <FiPlus /> Add Stage
+                                </button>
+                            </div>
+                        }
+                    >
+                        {showSavePreset && (
+                            <div className={styles.inlineAddRow}>
+                                <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
+                                <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                                <button type="button" className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
+                            </div>
+                        )}
+                        {addingStage && (
+                            <div className={styles.inlineAddRow}>
+                                <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                                <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                                <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); }}><FiX /></button>
+                            </div>
+                        )}
+                        <div className={styles.stageList}>
+                            {sortedTemplates.map(t => {
+                                const locked = t.id === firstStageId || t.id === lastStageId;
+                                return (
+                                    <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
+                                        <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
+                                            disabled={locked}
+                                            onChange={() => toggleStage(t.id)} />
+                                        <span className={styles.stageName}>{t.stageName}</span>
+                                        {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
+                                        {!locked && (
+                                            <button
+                                                type="button"
+                                                className={`${styles.btn} ${styles.small} ${styles.deleteBtn} ${styles.stageDelete}`}
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(t.id); }}
+                                                aria-label={`Delete stage ${t.stageName}`}
+                                            >
+                                                <FiTrash2 size={12} />
+                                            </button>
+                                        )}
+                                    </label>
+                                );
+                            })}
                         </div>
-                    }
-                >
-                    {showSavePreset && (
-                        <div className={styles.inlineAddRow}>
-                            <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
-                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
-                            <button type="button" className={styles.btn} onClick={() => { setShowSavePreset(false); setPresetName(''); }}><FiX /></button>
-                        </div>
-                    )}
-                    {addingStage && (
-                        <div className={styles.inlineAddRow}>
-                            <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
-                            <input className={styles.input} type="number" placeholder="Default cost" value={newStageCost} onChange={e => setNewStageCost(e.target.value)} style={{ maxWidth: 160 }} />
-                            <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                            <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setNewStageCost(''); }}><FiX /></button>
-                        </div>
-                    )}
-                    <div className={styles.stageList}>
-                        {sortedTemplates.map(t => {
-                            const locked = t.id === firstStageId || t.id === lastStageId;
-                            return (
-                                <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
-                                    <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
-                                        disabled={locked}
-                                        onChange={() => toggleStage(t.id)} />
-                                    <span className={styles.stageName}>{t.stageName}</span>
-                                    {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
-                                </label>
-                            );
-                        })}
-                    </div>
-                    {presets.length > 0 && (
-                        <div className={styles.presetList}>
-                            {presets.map(p => (
-                                <span key={p.name} className={styles.presetChip}>
-                                    {p.name}
-                                    <button
-                                        type="button"
-                                        className={styles.presetChipRemove}
-                                        onClick={() => deletePreset(p.name)}
-                                        aria-label={`Delete preset ${p.name}`}
-                                    >
-                                        <FiX size={12} />
-                                    </button>
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </CollapsibleSection>
+                        {presets.length > 0 && (
+                            <div className={styles.presetList}>
+                                {presets.map(p => (
+                                    <span key={p.name} className={styles.presetChip}>
+                                        {p.name}
+                                        <button
+                                            type="button"
+                                            className={styles.presetChipRemove}
+                                            onClick={() => deletePreset(p.name)}
+                                            aria-label={`Delete preset ${p.name}`}
+                                        >
+                                            <FiX size={12} />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </CollapsibleSection>
+                )}
 
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
@@ -534,40 +587,60 @@ export default function IntakePage() {
                             tabIndex={0}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}
                         >
-                            <FiUploadCloud size={24} />
-                            <p>Click to upload</p>
+                            <span className={styles.dropzoneIcon}><FiUploadCloud size={18} /></span>
+                            <span className={styles.dropzoneTitle}>Click to upload</span>
+                            <span className={styles.dropzoneSub}>PDF, images, any file - stored in the folder</span>
                         </div>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            onChange={handleFileUpload}
-                            style={{ display: 'none' }}
-                        />
+                        <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
                         <div className={styles.fileList}>
                             {fileQueue.map((f, i) => (
                                 <div key={i} className={styles.fileItem}>
-                                    <span>{f.name}</span>
-                                    <button
-                                        type="button"
-                                        className={`${styles.btn} ${styles.deleteBtn}`}
-                                        onClick={() => setFileQueue(p => p.filter((_, idx) => idx !== i))}
-                                        aria-label="Remove file"
-                                    >
-                                        <FiTrash2 />
-                                    </button>
+                                    <span className={styles.fileMeta}>
+                                        <FiFile className={styles.fileIcon} size={14} />
+                                        <span className={styles.fileName}>{f.name}</span>
+                                        <span className={styles.fileSize}>{fmtSize(f.size)}</span>
+                                    </span>
+                                    <span className={styles.fileActions}>
+                                        <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>
+                                            <FiEye size={12} /> View
+                                        </a>
+                                        <button
+                                            type="button"
+                                            className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
+                                            onClick={() => removeFile(i)}
+                                            aria-label={`Remove ${f.name}`}
+                                        >
+                                            <FiTrash2 size={12} />
+                                        </button>
+                                    </span>
                                 </div>
                             ))}
                         </div>
                     </CollapsibleSection>
 
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
-                        <div className={styles.field}>
-                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes..." />
+                        <div className={styles.notesWrap}>
+                            <textarea className={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Shared project notes - visible to all staff on the folder page..." />
+                            <p className={styles.hint}>Saved with the project as an intake note.</p>
                         </div>
                     </CollapsibleSection>
                 </div>
 
+            </div>
+
+            {/* BOTTOM ACTION BAR */}
+            <div className={styles.bottomBar}>
+                <button type="button" className={styles.btn} onClick={scrollTop}>
+                    <FiArrowUp /> Top
+                </button>
+                <div className={styles.bottomBarRight}>
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate}>
+                        <FiCopy /> Duplicate
+                    </button>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> {saving ? 'Saving...' : 'Save Project'}
+                    </button>
+                </div>
             </div>
 
             {toasts.map(t => (

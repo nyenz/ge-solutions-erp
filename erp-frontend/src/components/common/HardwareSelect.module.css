@@ -1,10 +1,10 @@
 .fieldWrapper {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
     width: 100%;
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 0;
 }
 
 .openWrapper {
@@ -13,7 +13,6 @@
     position: relative !important;
 }
 
-/* Dull label - same metrics as every other label on dark panels */
 .label {
     color: rgba(255, 255, 255, 0.5) !important;
     font-size: clamp(8px, 0.85vw, 10px);
@@ -27,62 +26,63 @@
 
 .selectBox {
     background: #ffffff;
-    border-radius: var(--input-radius, 8px);
-    border: 2px solid rgba(238, 140, 58, 0.3);
-    padding: 0 clamp(10px, 1.4vw, 18px);
+    border-radius: 6px;
+    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    padding: 0 clamp(8px, 1.1vw, 14px);
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
     transition: border-color 0.2s, box-shadow 0.2s;
-    height: var(--input-height, 44px);
+    height: clamp(32px, 4vw, 38px);
     position: relative;
     z-index: 1;
 }
 .selectBox:hover, .active {
     border-color: var(--orange);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18);
+    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
 }
 
 .currentValue {
     color: var(--navy);
     font-weight: 700;
-    font-size: var(--input-font, 14px);
+    font-size: clamp(10px, 1vw, 12px);
+    letter-spacing: 0.5px;
 }
 
 .icon {
     color: var(--orange);
     transition: 0.3s;
     flex-shrink: 0;
+    font-size: 14px;
 }
 .active .icon { transform: rotate(180deg); }
 
-/* ABSOLUTE (not fixed) so the panel sizes to its field, not the viewport */
 .dropdown {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 4px);
     left: 0;
     min-width: 100%;
     width: max-content;
     background: #ffffff;
-    border: 2px solid var(--orange);
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0,0,0,0.3);
+    border: 1.5px solid var(--orange);
+    border-radius: 6px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0,0,0,0.3);
     overflow: hidden;
     animation: slideIn 0.2s ease-out;
     z-index: 99999 !important;
 }
 
 @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .option {
-    padding: 14px 20px;
+    padding: clamp(8px, 1vw, 11px) clamp(12px, 1.4vw, 16px);
     color: var(--navy);
     font-weight: 700;
-    font-size: 14px;
+    font-size: clamp(10px, 1vw, 12px);
     letter-spacing: 0.5px;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
@@ -99,23 +99,21 @@
     color: white;
 }
 
-.compactWrapper { margin-bottom: 0; width: auto; }
-.compactBox { height: clamp(34px, 4vw, 40px); min-width: clamp(150px, 15vw, 200px); }
+.compactWrapper { width: auto; }
+.compactBox { height: clamp(30px, 3.6vw, 36px); min-width: clamp(140px, 14vw, 190px); }
 
 @media (max-width: 480px) {
-    .selectBox { height: var(--input-height, 40px); font-size: 12px; }
-    .option { padding: 12px 14px; font-size: 13px; }
+    .selectBox { height: 36px; font-size: 12px; }
+    .option { padding: 9px 12px; font-size: 12px; }
 }
 
 .dropdown {
-    max-height: 250px;
+    max-height: 220px;
     overflow-y: auto;
 }
 .dropdown::-webkit-scrollbar { width: 4px; display: none !important; }
-.dropdown::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 2px; }
 @media (max-width: 480px) {
-    .dropdown { max-height: 200px; }
-    .option { padding: 10px 14px; font-size: 12px; }
+    .dropdown { max-height: 180px; }
 }
 .dropdown {
     -ms-overflow-style: none !important;

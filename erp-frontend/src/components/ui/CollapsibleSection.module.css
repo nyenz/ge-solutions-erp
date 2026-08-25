@@ -16,27 +16,28 @@
 }
 .section.accent { border: 2px solid var(--orange); }
 
-/* Header - no border decoration when closed */
+/* Header band - rounded to follow the section curve */
 .header {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: clamp(6px, 1vw, 12px);
-    padding: clamp(10px, 1.4vw, 16px) clamp(11px, 1.6vw, 18px);
+    padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
     background: #162a2c;
     border: none;
-    border-bottom: 3px solid transparent; /* hidden when closed */
+    border-bottom: 3px solid transparent;
+    border-radius: 9px; /* closed = fully rounded */
     cursor: pointer;
     text-align: left;
     font: inherit;
     color: inherit;
-    transition: border-bottom-color 0.25s ease;
+    transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
 }
 .header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
 
-/* Animated orange separator - only visible when open */
 .headerOpen {
+    border-radius: 9px 9px 0 0; /* open = square foot, rounded crown */
     border-bottom-color: var(--orange);
     box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
 }
@@ -47,13 +48,13 @@
     gap: 8px;
     min-width: 0;
     color: var(--orange);
-    font-size: clamp(13px, 1.5vw, 17px);
+    font-size: clamp(12px, 1.4vw, 16px);
     filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.4));
 }
 
 .title {
     font-family: 'Cinzel', serif;
-    font-size: clamp(11px, 1.4vw, 14px);
+    font-size: clamp(10px, 1.3vw, 13px);
     font-weight: 700;
     color: var(--orange);
     letter-spacing: 2px;
@@ -75,20 +76,19 @@
 
 .chevron {
     color: rgba(255, 255, 255, 0.4);
-    font-size: 15px;
+    font-size: 14px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
 }
 .chevronOpen { transform: rotate(180deg); color: var(--orange); }
 
-/* Body - relative for CornerDecor positioning */
 .body {
     position: relative;
-    padding: 0 clamp(12px, 1.6vw, 18px) clamp(12px, 1.6vw, 18px);
-    padding-top: clamp(12px, 1.6vw, 18px);
+    padding: 0 clamp(10px, 1.4vw, 16px) clamp(10px, 1.4vw, 16px);
+    padding-top: clamp(10px, 1.4vw, 16px);
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.3vw, 16px);
+    gap: clamp(7px, 1.1vw, 14px);
     animation: expand 0.2s ease-out;
 }
 
@@ -98,6 +98,6 @@
 }
 
 @media (max-width: 768px) {
-    .header { padding: 10px 12px; }
-    .body { padding: 10px 12px 12px; }
+    .header { padding: 9px 11px; }
+    .body { padding: 9px 11px 11px; }
 }

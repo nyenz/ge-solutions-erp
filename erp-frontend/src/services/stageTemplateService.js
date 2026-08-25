@@ -58,6 +58,10 @@ const stageTemplateService = {
     removeStage: async (projectId, stageId) => {
         await api.delete(`/land/projects/${projectId}/stages/${stageId}`);
     },
+    deleteTemplateStage: async (id) => {
+        await api.delete(`/stage-templates/${id}`);
+    },
+
 };
 
 export default stageTemplateService;

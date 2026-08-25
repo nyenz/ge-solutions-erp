@@ -232,4 +232,9 @@ public class StageTemplateService {
             "Operator [" + getCurrentOperator() + "] removed stage \"" + stage.getStageName()
             + "\" from project: " + stage.getProjectId());
     }
+
+    // INTAKE REDESIGN: allow deleting middle stages from the template
+    public void deleteTemplateStage(Long id) {
+        templateRepository.deleteById(id);
+    }
 }

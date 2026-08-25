@@ -46,7 +46,7 @@ const CollapsibleSection = ({
             </button>
             {open && (
                 <div className={styles.body}>
-                    <CornerDecor />
+                    <CornerDecor hideTop />
                     {children}
                 </div>
             )}

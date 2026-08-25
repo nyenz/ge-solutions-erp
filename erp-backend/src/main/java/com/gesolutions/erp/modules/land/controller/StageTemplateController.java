@@ -104,4 +104,12 @@ public class StageTemplateController {
         stageTemplateService.removeProjectStage(stageId);
         return ResponseEntity.noContent().build();
     }
+
+    // INTAKE REDESIGN: delete a middle stage template
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public org.springframework.http.ResponseEntity<Void> deleteStage(
+            @org.springframework.web.bind.annotation.PathVariable Long id) {
+        stageTemplateService.deleteTemplateStage(id);
+        return org.springframework.http.ResponseEntity.noContent().build();
+    }
 }
