@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 fix.py — Dark-theme intake form revamp.
-Writes/patches all 10 target files, then auto-commits.
+Writes/patches all 10 target files (repairs landService.js if a bad
+patch landed the method outside the object), then auto-commits + pushes.
 Run: py fix.py
 """
 import sys
@@ -1221,19 +1222,56 @@ export default function IntakePage() {
 """)
 
 # =====================================================================
-# 6) landService.js — PATCH: add getNextIndex method
+# 6) landService.js — REPAIR bad insertion + add getNextIndex INSIDE object
 # =====================================================================
-patch_append(
-    "erp-frontend/src/services/landService.js",
-    "export default landService;",
-    """    // INTAKE: preview the next project index (001A format) before saving
+def patch_landservice():
+    rel = "erp-frontend/src/services/landService.js"
+    p = ROOT / rel
+    try:
+        s = p.read_text(encoding="utf-8")
+    except Exception as e:
+        FAILED.append((rel, f"read failed: {e}")); return
+
+    changed = False
+
+    # 6a) undo the bad patch that put the method AFTER "export default"
+    bad = """export default landService;
+    // INTAKE: preview the next project index (001A format) before saving
     getNextIndex: async () => {
         const response = await api.get('/land/next-index');
         return response.data;
+    },"""
+    if bad in s:
+        s = s.replace(bad, "export default landService;", 1)
+        changed = True
+
+    # 6b) insert the method inside the object (before the closing "};")
+    if "getNextIndex" not in s:
+        marker = """        return response.data;
+    }
+};"""
+        good = """        return response.data;
     },
 
-"""
-)
+    // INTAKE: preview the next project index (001A format) before saving
+    getNextIndex: async () => {
+        const response = await api.get('/land/next-index');
+        return response.data;
+    }
+};"""
+        idx = s.rfind(marker)
+        if idx == -1:
+            FAILED.append((rel, "marker not found")); return
+        s = s[:idx] + good + s[idx + len(marker):]
+        changed = True
+
+    if changed:
+        p.write_text(s, encoding="utf-8")
+        PATCHED.append(rel)
+    else:
+        PATCHED.append(f"{rel} (already applied)")
+
+patch_landservice()
 
 # =====================================================================
 # 7) ProjectIndexService.java — PATCH: add previewNextIndex
@@ -1350,22 +1388,17 @@ if FAILED:
     sys.exit(1)
 
 # =====================================================================
-# Auto-commit + push all changes
+# Auto-commit + push
 # =====================================================================
 if WROTE or PATCHED:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
 
-        commit_msg = """feat: Dark theme intake form revamp
+        commit_msg = """fix: repair landService.js getNextIndex placement (build fix)
 
-- Convert all sections to dark hardware panel design (matches Ledger reference)
-- Add HardwareSelect dropdown for Tenure (app-standard styling)
-- Add live Index preview (shows next 001A format before save)
-- Add Date Started field (auto-filled today, editable)
-- Add Title Date field (optional, backdatable)
-- Split Documents and Notes into side-by-side columns
-- Unify typography: Cinzel headings, Inter labels, Space Mono buttons
-- Backend: previewNextIndex endpoint, projectStartDate on LandProject"""
+- getNextIndex now sits inside the landService object (was appended
+  after export default, breaking the Vite/Rollup build)
+- Dark theme intake revamp retained from previous commit"""
 
         subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed all changes")
