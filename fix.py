@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 fix.py — Dark-theme intake form revamp.
-Writes/patches all 10 target files. Run: py fix.py
+Writes/patches all 10 target files, then auto-commits.
+Run: py fix.py
 """
 import sys
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
@@ -676,7 +678,7 @@ write("erp-frontend/src/pages/Intake/IntakePage.module.css", r"""/* PATH: erp-fr
 """)
 
 # =====================================================================
-# 5) IntakePage.jsx — FULL WRITE (with index preview, dates, split row)
+# 5) IntakePage.jsx — FULL WRITE (index preview, dates, split row)
 # =====================================================================
 write("erp-frontend/src/pages/Intake/IntakePage.jsx", r"""// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -1326,6 +1328,15 @@ patch_append(
 )
 
 # =====================================================================
+# 10b) LandProject.java — PATCH: missing LocalDate import
+# =====================================================================
+patch_append(
+    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandProject.java",
+    "import java.time.LocalDateTime;",
+    "import java.time.LocalDate;"
+)
+
+# =====================================================================
 # Report
 # =====================================================================
 print(f"\n=== fix.py completed ===")
@@ -1337,17 +1348,14 @@ if FAILED:
     print(f"  FAILED:  {len(FAILED)} file(s)")
     for f, e in FAILED: print(f"    ! {f} -> {e}")
     sys.exit(1)
-print()
 
 # =====================================================================
 # Auto-commit all changes
 # =====================================================================
-import subprocess
-
 if WROTE or PATCHED:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
-        
+
         commit_msg = """feat: Dark theme intake form revamp
 
 - Convert all sections to dark hardware panel design (matches Ledger reference)
@@ -1358,12 +1366,17 @@ if WROTE or PATCHED:
 - Split Documents and Notes into side-by-side columns
 - Unify typography: Cinzel headings, Inter labels, Space Mono buttons
 - Backend: previewNextIndex endpoint, projectStartDate on LandProject"""
-        
+
         subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed all changes")
+        # Uncomment the next two lines to also push automatically:
+        # subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
+        # print("  Git: Pushed to remote")
     except subprocess.CalledProcessError as e:
         print(f"\n  Git: Commit failed (exit code {e.returncode})")
         if e.output:
             print(f"    {e.output.decode('utf-8', errors='replace').strip()}")
     except FileNotFoundError:
         print("\n  Git: git not found in PATH")
+
+print()
