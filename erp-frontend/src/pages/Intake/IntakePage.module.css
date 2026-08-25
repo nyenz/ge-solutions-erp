@@ -1,7 +1,7 @@
 /* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Pass 3 - compact + standardized: slimmer focus ring (2px), smaller
-   fields/spacing/header padding, NO orange left-stripe hovers anywhere,
-   standardized add/save buttons, bottom action bar, polished docs/notes. */
+   Pass 4 - field size standardized page-wide by scoping the global
+   input vars to the tenure-field size; bottom bar is a plain row that
+   scrolls with the page (no sticky, no background). */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -22,12 +22,18 @@
     --fs-label:  clamp(8px,  0.85vw, 10px);
     --fs-value:  clamp(10px, 1.05vw, 12px);
     --fs-tag:    clamp(7px,  0.75vw, 9px);
-    --fs-input:  clamp(10px, 1vw,   12px);
     --fs-meta:   clamp(8px,  0.85vw, 10px);
     --fs-btn:    clamp(8px,  0.85vw, 10px);
 }
 
+/* Scope the GLOBAL input variables to the tenure-field size so every
+   input on this page (text, number, date) matches it exactly. */
 .container {
+    --input-height: clamp(32px, 4vw, 38px);
+    --input-font:   clamp(10px, 1vw, 12px);
+    --input-px:     clamp(8px, 1.1vw, 12px);
+    --input-radius: 6px;
+
     max-width: 1400px;
     width: 100%;
     margin: 0 auto;
@@ -46,7 +52,7 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* -- PAGE HEADER (compact) -- */
+/* -- PAGE HEADER (compact; Cancel only lives here) -- */
 .pageHeader {
     display: flex;
     justify-content: space-between;
@@ -93,7 +99,7 @@
     align-items: start;
 }
 
-/* -- BUTTONS (standard) -- */
+/* -- BUTTONS -- */
 .btn {
     font-family: 'Inter', sans-serif;
     font-size: var(--fs-btn);
@@ -119,7 +125,6 @@
 .btn:disabled { opacity: 0.18; cursor: not-allowed; }
 .btn.small { padding: clamp(4px, 0.7vw, 7px) clamp(8px, 1.1vw, 12px); }
 
-/* RED DELETE */
 .btn.deleteBtn { border-color: rgba(239, 68, 68, 0.3); color: rgba(239, 68, 68, 0.7); }
 .btn.deleteBtn:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.15);
@@ -127,7 +132,8 @@
     color: var(--red);
 }
 
-/* standardized compact add/toolbar button (Add Owner / Add Stage / Save Preset) */
+/* standardized compact button: Add Owner / Add Stage / Save Preset /
+   Restore Defaults / Duplicate - all identical */
 .addBtn {
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
@@ -145,10 +151,11 @@
     align-items: center;
     gap: 5px;
     white-space: nowrap;
+    align-self: flex-start; /* never stretch full-width */
 }
 .addBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
 
-/* -- FIELDS (compact, slim focus) -- */
+/* -- FIELDS -- */
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-lg); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--gap-lg); }
 
@@ -172,27 +179,23 @@
     margin: 0;
 }
 
+/* sizing comes from the scoped --input-* vars above; only the look here */
 .input, .textarea {
     font-family: 'Inter', sans-serif;
-    font-size: var(--fs-input);
     font-weight: 600;
-    padding: clamp(5px, 0.8vw, 8px) clamp(8px, 1.1vw, 12px);
     border: 1.5px solid rgba(238, 140, 58, 0.3);
-    border-radius: var(--radius-sm);
     background: #ffffff;
     color: var(--navy);
     width: 100%;
     box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
-    height: clamp(32px, 4vw, 38px);
-    line-height: 1.2;
 }
-.textarea { height: auto; min-height: 120px; resize: vertical; line-height: 1.5; }
+.textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
 .input:hover, .textarea:hover { border-color: var(--orange); }
 .input:focus, .textarea:focus {
     outline: none;
     border-color: var(--orange);
-    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15); /* slim ring */
+    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
 }
 .input:disabled { color: rgba(33, 62, 64, 0.5); cursor: not-allowed; }
 .input.indexValue {
@@ -233,7 +236,7 @@
 }
 .typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
 
-/* -- INNER WELLS (no left-stripe hovers) -- */
+/* -- INNER WELLS -- */
 .ownerRow {
     display: grid;
     grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto;
@@ -270,7 +273,7 @@
 }
 .inlineAddRow .input { width: auto; flex: 1 1 160px; }
 
-/* -- STAGES (no left stripe) -- */
+/* -- STAGES (first/last clickable; delete middle only) -- */
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
     display: flex;
@@ -285,22 +288,9 @@
 }
 .stageItem:hover { background: rgba(255, 255, 255, 0.04); }
 .stageItem.checked { background: rgba(238, 140, 58, 0.07); }
-.stageItem.stageLocked { cursor: not-allowed; background: rgba(0, 0, 0, 0.25); }
 .checkbox { width: 15px; height: 15px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
 .stageName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.5px; }
-.lockedTag {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--fs-tag);
-    font-weight: 900;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.4);
-    letter-spacing: 1px;
-}
 .stageDelete { margin-left: auto; }
-.stageItem .lockedTag + .stageDelete { margin-left: 0; }
 
 .presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
 .presetChip {
@@ -333,7 +323,7 @@
 .finRow { display: flex; justify-content: space-between; font-weight: 700; color: rgba(255, 255, 255, 0.85); font-size: var(--fs-value); letter-spacing: 0.5px; }
 .finRow.total { color: var(--orange); font-size: clamp(13px, 1.4vw, 17px); border-top: 1px solid rgba(238, 140, 58, 0.25); padding-top: var(--gap-md); }
 
-/* -- DOCUMENTS (polished) -- */
+/* -- DOCUMENTS -- */
 .dropzone {
     border: 2px dashed rgba(238, 140, 58, 0.4);
     border-radius: var(--radius);
@@ -380,26 +370,18 @@
 .fileSize { color: rgba(255, 255, 255, 0.35); font-size: var(--fs-meta); font-weight: 700; flex-shrink: 0; }
 .fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; }
 
-/* -- NOTES (polished) -- */
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
 
-/* -- BOTTOM ACTION BAR -- */
+/* -- BOTTOM ACTION BAR: plain row, scrolls with the page, no backdrop -- */
 .bottomBar {
-    position: sticky;
-    bottom: 10px;
-    z-index: 300;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--gap-md);
-    padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
-    background: rgba(22, 42, 44, 0.92);
-    border: 1px solid var(--orange-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    padding: var(--gap-md) 0;
+    margin-bottom: clamp(12px, 2vh, 22px);
 }
-.bottomBarRight { display: flex; gap: var(--gap-md); }
+.bottomBarRight { display: flex; gap: var(--gap-md); align-items: center; }
 
 /* -- TOASTS -- */
 .toast {

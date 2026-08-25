@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiLock, FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye
+    FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye, FiRefreshCw
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareSelect from '../../components/common/HardwareSelect';
@@ -21,6 +21,17 @@ const PROJECT_TYPES = [
 ];
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
+
+// Canonical default stage checklist (Restore Defaults target)
+const DEFAULT_STAGES = [
+    'Field Work',
+    'Deed Plan',
+    'LC Inspection',
+    'District Land Board Approval',
+    'Tax Assessment and Stamp Duty',
+    'Registration and Title Issuance',
+];
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
@@ -56,6 +67,8 @@ export default function IntakePage() {
     const [checkedStages, setCheckedStages] = useState({});
     const [addingStage, setAddingStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
+    const [insertAfter, setInsertAfter] = useState('');
+    const [restoring, setRestoring] = useState(false);
     const [presets, setPresets] = useState(loadPresets);
     const [presetName, setPresetName] = useState('');
     const [showSavePreset, setShowSavePreset] = useState(false);
@@ -97,22 +110,22 @@ export default function IntakePage() {
     const firstStageId = sortedTemplates[0]?.id;
     const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
 
+    // First stage checked by default; both first and last remain clickable.
     useEffect(() => {
         if (!sortedTemplates.length) return;
         setCheckedStages(prev => {
             const next = { ...prev };
             if (firstStageId && next[firstStageId] === undefined) next[firstStageId] = true;
-            if (lastStageId && next[lastStageId] === undefined) next[lastStageId] = true;
             return next;
         });
-    }, [sortedTemplates.length, firstStageId, lastStageId]);
+    }, [sortedTemplates.length, firstStageId]);
 
     const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
     const isLegacy = projectType === 'LEGACY_TITLE';
     const titleAtIntake = projectType === 'NEW_TITLE';
     const isTitleType = isLegacy || titleAtIntake;
     const isTitleSectionVisible = isTitleType || finalStageChecked;
-    const showStages = !isTitleType; // stages hidden for New/Legacy title
+    const showStages = !isTitleType;
 
     const allStagesChecked = () => {
         const all = {};
@@ -122,7 +135,6 @@ export default function IntakePage() {
     const defaultStages = () => {
         const d = {};
         if (firstStageId) d[firstStageId] = true;
-        if (lastStageId) d[lastStageId] = true;
         return d;
     };
 
@@ -136,26 +148,41 @@ export default function IntakePage() {
     };
 
     const toggleStage = (id) => {
-        if (id === firstStageId || id === lastStageId) return;
+        // first & last are clickable like any other stage
         setCheckedStages(p => ({ ...p, [id]: !p[id] }));
+    };
+
+    // Renumber the whole template list to match the given ordered array
+    const renumber = async (ordered) => {
+        for (let i = 0; i < ordered.length; i++) {
+            const t = ordered[i];
+            if (t?.id) {
+                await stageTemplateService.updateTemplateStage(t.id, t.stageName, t.defaultCost || 0, i + 1);
+            }
+        }
     };
 
     const handleAddStage = async () => {
         if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
         try {
-            const last = sortedTemplates[sortedTemplates.length - 1];
-            const lastOrder = last?.displayOrder ?? sortedTemplates.length;
-            if (last) {
-                await stageTemplateService.updateTemplateStage(last.id, last.stageName, last.defaultCost, lastOrder + 1);
-            }
-            const created = await stageTemplateService.addTemplateStage(
-                newStageName.trim(), 0, last ? lastOrder : undefined,
-            );
+            // allowed slot: after the first, before the last (middle only)
+            let k = sortedTemplates.length - 1; // default: just before last
+            const idx = sortedTemplates.findIndex(t => t.stageName === insertAfter);
+            if (idx >= 0) k = idx + 1;
+            k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
+
+            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0);
+            const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
+            const next = sortedTemplates.filter(t => t.id !== created?.id);
+            next.splice(k, 0, item);
+            await renumber(next);
+
             setNewStageName('');
+            setInsertAfter('');
             setAddingStage(false);
             fetchTemplates();
             if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
-            toast('Stage added to checklist.', 'success');
+            toast('Stage inserted.', 'success');
         } catch (err) {
             toast(err.response?.data?.message || 'Could not add stage.', 'error');
         }
@@ -169,6 +196,37 @@ export default function IntakePage() {
             toast('Stage removed.', 'success');
         } catch (err) {
             toast(err.response?.data?.message || 'Could not delete stage.', 'error');
+        }
+    };
+
+    // Restore the canonical default checklist (removes custom stages like
+    // "ff", re-adds any missing defaults, renumbers in the default order)
+    const handleRestoreDefaults = async () => {
+        setRestoring(true);
+        try {
+            const keep = sortedTemplates.filter(t => DEFAULT_STAGES.includes(t.stageName));
+            for (const t of sortedTemplates) {
+                if (!DEFAULT_STAGES.includes(t.stageName)) {
+                    await stageTemplateService.deleteTemplateStage(t.id);
+                }
+            }
+            const have = new Set(keep.map(t => t.stageName));
+            const added = [];
+            for (const name of DEFAULT_STAGES) {
+                if (!have.has(name)) {
+                    const c = await stageTemplateService.addTemplateStage(name, 0);
+                    added.push({ id: c?.id, stageName: name, defaultCost: 0 });
+                }
+            }
+            const byName = {};
+            [...keep, ...added].forEach(t => { byName[t.stageName] = t; });
+            await renumber(DEFAULT_STAGES.map(name => byName[name]).filter(Boolean));
+            fetchTemplates();
+            toast('Default stages restored.', 'success');
+        } catch (err) {
+            toast(err.response?.data?.message || 'Restore failed.', 'error');
+        } finally {
+            setRestoring(false);
         }
     };
 
@@ -189,7 +247,7 @@ export default function IntakePage() {
         if (!preset) return;
         const next = {};
         sortedTemplates.forEach(t => {
-            next[t.id] = t.id === firstStageId || t.id === lastStageId || preset.stageNames.includes(t.stageName);
+            next[t.id] = preset.stageNames.includes(t.stageName);
         });
         setCheckedStages(next);
     };
@@ -223,7 +281,6 @@ export default function IntakePage() {
 
     const scrollTop = () => topRef.current && topRef.current.scrollIntoView({ behavior: 'smooth' });
 
-    // Duplicate: keep owners + location, clear everything else for the next plot
     const handleDuplicate = () => {
         setProjectType('NEW_FOLDER');
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
@@ -270,15 +327,17 @@ export default function IntakePage() {
                     nationalId: o.nationalId.trim().toUpperCase(),
                     address: o.address.trim(),
                 })),
-                selectedStages: Object.entries(checkedStages).filter(([, v]) => v).map(([id]) => {
-                    const t = templates.find(x => x.id === id);
-                    return {
-                        stageTemplateId: id,
-                        stageName: t ? t.stageName : '',
-                        isCustom: false,
-                        isCompleted: true
-                    };
-                }),
+                selectedStages: Object.entries(checkedStages)
+                    .filter(([id, v]) => v && templates.some(t => t.id === id))
+                    .map(([id]) => {
+                        const t = templates.find(x => x.id === id);
+                        return {
+                            stageTemplateId: id,
+                            stageName: t ? t.stageName : '',
+                            isCustom: false,
+                            isCompleted: true
+                        };
+                    }),
                 notes: notes.trim() ? [{ content: notes.trim() }] : [],
             };
 
@@ -327,9 +386,6 @@ export default function IntakePage() {
                 </div>
                 <div className={styles.actions}>
                     <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
-                    <button className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
-                        <FiSave /> {saving ? 'Saving...' : 'Save'}
-                    </button>
                 </div>
             </header>
 
@@ -403,7 +459,7 @@ export default function IntakePage() {
                 </CollapsibleSection>
 
                 {isTitleSectionVisible && (
-                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title & Plot`} accent>
+                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title Details`} accent>
                         <div className={styles.grid3}>
                             <div className={styles.field}>
                                 <label className={styles.label}>Title ID</label>
@@ -483,6 +539,9 @@ export default function IntakePage() {
                                 <button type="button" className={styles.addBtn} onClick={() => setAddingStage(s => !s)}>
                                     <FiPlus /> Add Stage
                                 </button>
+                                <button type="button" className={styles.addBtn} disabled={restoring} onClick={handleRestoreDefaults}>
+                                    <FiRefreshCw /> Restore Defaults
+                                </button>
                             </div>
                         }
                     >
@@ -496,21 +555,26 @@ export default function IntakePage() {
                         {addingStage && (
                             <div className={styles.inlineAddRow}>
                                 <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                                <HardwareSelect
+                                    compact
+                                    placeholder="Insert after..."
+                                    value={insertAfter}
+                                    options={sortedTemplates.slice(0, -1).map(t => t.stageName)}
+                                    onChange={setInsertAfter}
+                                />
                                 <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                                <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); }}><FiX /></button>
+                                <button type="button" className={styles.btn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfter(''); }}><FiX /></button>
                             </div>
                         )}
                         <div className={styles.stageList}>
                             {sortedTemplates.map(t => {
-                                const locked = t.id === firstStageId || t.id === lastStageId;
+                                const isEdge = t.id === firstStageId || t.id === lastStageId;
                                 return (
-                                    <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''} ${locked ? styles.stageLocked : ''}`}>
+                                    <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''}`}>
                                         <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
-                                            disabled={locked}
                                             onChange={() => toggleStage(t.id)} />
                                         <span className={styles.stageName}>{t.stageName}</span>
-                                        {locked && <span className={styles.lockedTag}><FiLock size={11} /> Required</span>}
-                                        {!locked && (
+                                        {!isEdge && (
                                             <button
                                                 type="button"
                                                 className={`${styles.btn} ${styles.small} ${styles.deleteBtn} ${styles.stageDelete}`}
@@ -628,17 +692,17 @@ export default function IntakePage() {
 
             </div>
 
-            {/* BOTTOM ACTION BAR */}
+            {/* BOTTOM ACTION BAR - scrolls with the page, plain row */}
             <div className={styles.bottomBar}>
-                <button type="button" className={styles.btn} onClick={scrollTop}>
-                    <FiArrowUp /> Top
+                <button type="button" className={styles.btn} onClick={scrollTop} aria-label="Back to top">
+                    <FiArrowUp />
                 </button>
                 <div className={styles.bottomBarRight}>
                     <button type="button" className={styles.addBtn} onClick={handleDuplicate}>
                         <FiCopy /> Duplicate
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
-                        <FiSave /> {saving ? 'Saving...' : 'Save Project'}
+                        <FiSave /> Save Project
                     </button>
                 </div>
             </div>

@@ -24,8 +24,11 @@ const CollapsibleSection = ({
         else setInternalOpen(o => !o);
     };
 
+    // Accent (orange active border) only while the section is genuinely open
+    const showAccent = accent && open;
+
     return (
-        <section className={`${styles.section} ${accent ? styles.accent : ''} ${className}`}>
+        <section className={`${styles.section} ${showAccent ? styles.accent : ''} ${className}`}>
             <button
                 type="button"
                 className={`${styles.header} ${open ? styles.headerOpen : ''}`}

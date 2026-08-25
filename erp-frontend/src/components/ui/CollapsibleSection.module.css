@@ -16,7 +16,6 @@
 }
 .section.accent { border: 2px solid var(--orange); }
 
-/* Header band - rounded to follow the section curve */
 .header {
     width: 100%;
     display: flex;
@@ -26,8 +25,8 @@
     padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
     background: #162a2c;
     border: none;
-    border-bottom: 3px solid transparent;
-    border-radius: 9px; /* closed = fully rounded */
+    border-bottom: 1.5px solid transparent; /* thin separator, hidden when closed */
+    border-radius: 9px;
     cursor: pointer;
     text-align: left;
     font: inherit;
@@ -37,9 +36,8 @@
 .header:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
 
 .headerOpen {
-    border-radius: 9px 9px 0 0; /* open = square foot, rounded crown */
-    border-bottom-color: var(--orange);
-    box-shadow: 0 3px 0 rgba(238, 140, 58, 0.15);
+    border-radius: 9px 9px 0 0;
+    border-bottom-color: var(--orange); /* thin 1.5px line, no glow */
 }
 
 .headerLeft {
