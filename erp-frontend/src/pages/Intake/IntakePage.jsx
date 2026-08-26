@@ -82,6 +82,11 @@ export default function IntakePage() {
     const [plotNumber, setPlotNumber] = useState('');
     const [blockRoad, setBlockRoad] = useState('');
     const [titleIssueDate, setTitleIssueDate] = useState('');
+    const [volume, setVolume] = useState('');
+    const [folio, setFolio] = useState('');
+    const [instrumentNo, setInstrumentNo] = useState('');
+    const [physicalBoxNumber, setPhysicalBoxNumber] = useState('');
+    const [surveyDate, setSurveyDate] = useState('');
 
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
@@ -402,6 +407,11 @@ export default function IntakePage() {
                 payload.blockRoad = blockRoad.trim().toUpperCase();
                 payload.titleId = titleId.trim().toUpperCase();
                 payload.titleIssueDate = titleIssueDate || null;
+                payload.volume = volume.trim().toUpperCase();
+                payload.folio = folio.trim().toUpperCase();
+                payload.instrumentNo = instrumentNo.trim().toUpperCase();
+                payload.physicalBoxNumber = physicalBoxNumber.trim().toUpperCase();
+                payload.surveyDate = surveyDate || null;
             }
 
             if (isLegacy) {
@@ -438,6 +448,7 @@ export default function IntakePage() {
         toast('Saved. Form duplicated for the next plot.', 'success');
         setProjectType('NEW_FOLDER');
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
+        setVolume(''); setFolio(''); setInstrumentNo(''); setPhysicalBoxNumber(''); setSurveyDate('');
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
         setNotes('');
         setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
@@ -569,6 +580,27 @@ export default function IntakePage() {
                                 <label className={styles.label}>Title Date</label>
                                 <input type="date" className={styles.input} value={titleIssueDate} onChange={e => { setTitleIssueDate(e.target.value); markDirty(); }} />
                                 <p className={styles.hint}>Leave blank if not yet received.</p>
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Volume</label>
+                                <input className={styles.input} value={volume} onChange={e => { setVolume(e.target.value); markDirty(); }} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Folio</label>
+                                <input className={styles.input} value={folio} onChange={e => { setFolio(e.target.value); markDirty(); }} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Instrument No.</label>
+                                <input className={styles.input} value={instrumentNo} onChange={e => { setInstrumentNo(e.target.value); markDirty(); }} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Physical Box Number</label>
+                                <input className={styles.input} value={physicalBoxNumber} onChange={e => { setPhysicalBoxNumber(e.target.value); markDirty(); }} />
+                                <p className={styles.hint}>Set once the physical document arrives.</p>
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Survey Date</label>
+                                <input type="date" className={styles.input} value={surveyDate} onChange={e => { setSurveyDate(e.target.value); markDirty(); }} />
                             </div>
                         </div>
                     </CollapsibleSection>
