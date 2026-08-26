@@ -19,8 +19,8 @@ const stageTemplateService = {
         return response.data;
     },
 
-    updateTemplateStage: async (id, stageName, defaultCost) => {
-        const response = await api.put(`/stage-templates/${id}`, { stageName, defaultCost });
+    updateTemplateStage: async (id, stageName, defaultCost, displayOrder) => {
+        const response = await api.put(`/stage-templates/${id}`, { stageName, defaultCost, displayOrder });
         return response.data;
     },
 

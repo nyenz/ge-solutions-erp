@@ -115,6 +115,19 @@
     text-decoration: none;
 }
 .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* .pageHeader has a light, semi-transparent background -- the default
+   .btn (white text, meant for dark surfaces) is nearly invisible there.
+   This variant gives it dark text/border for real contrast. */
+.headerBtn {
+    color: var(--navy-deep);
+    border-color: rgba(33, 62, 64, 0.25);
+}
+.headerBtn:hover:not(:disabled) {
+    background: rgba(33, 62, 64, 0.08);
+    border-color: rgba(33, 62, 64, 0.4);
+    color: var(--navy-deep);
+}
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
@@ -226,6 +239,18 @@
 }
 .input.indexValue:disabled { color: var(--orange); opacity: 1; }
 
+.indexDisplay {
+    font-family: 'Space Mono', monospace;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--orange);
+    font-size: var(--input-font);
+    height: var(--input-height);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--input-px);
+}
+
 .typeGroup { display: flex; gap: clamp(5px, 0.9vw, 10px); flex-wrap: wrap; }
 .typeBtn {
     display: flex;
@@ -259,12 +284,13 @@
     display: grid;
     grid-template-columns: 1.2fr 2fr 1fr 1.5fr auto auto;
     gap: var(--gap-md);
-    align-items: end;
+    align-items: start;
     padding: clamp(6px, 0.9vw, 9px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: var(--radius-sm);
 }
+.ownerRow .btn { margin-top: 20px; }
 
 .subheading {
     font-family: 'Cinzel', serif;

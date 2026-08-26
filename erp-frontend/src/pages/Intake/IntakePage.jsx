@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
@@ -113,7 +114,8 @@ export default function IntakePage() {
     useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
     useEffect(() => {
-        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+        landService.getNextIndex().then(idx => setNextIndex(idx || ''))
+            .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
     }, []);
 
     // STANDARD: sidebar auto-collapses once the user starts working on the form
@@ -221,7 +223,7 @@ export default function IntakePage() {
             if (idx >= 0) k = idx + 1; // appears directly under the clicked stage
             k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
 
-            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0);
+            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0, k + 1);
             const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
             const next = sortedTemplates.filter(t => t.id !== created?.id);
             next.splice(k, 0, item);
@@ -454,7 +456,8 @@ export default function IntakePage() {
         setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setCheckedStages(defaultStages());
         setProjectStartDate(todayISO);
-        landService.getNextIndex().then(idx => setNextIndex(idx || '')).catch(() => {});
+        landService.getNextIndex().then(idx => setNextIndex(idx || ''))
+            .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
         scrollTop();
     };
 
@@ -480,7 +483,7 @@ export default function IntakePage() {
                     <p className={styles.subtitle}>Intake Form</p>
                 </div>
                 <div className={styles.actions}>
-                    <button className={styles.btn} onClick={() => navigate(-1)}>Cancel</button>
+                    <button className={`${styles.btn} ${styles.headerBtn}`} onClick={() => navigate(-1)}>Cancel</button>
                 </div>
             </header>
 
@@ -490,7 +493,7 @@ export default function IntakePage() {
                     <div className={styles.grid2}>
                         <div className={styles.field}>
                             <label className={styles.label}>Index</label>
-                            <input className={`${styles.input} ${styles.indexValue}`} value={nextIndex} placeholder="--" disabled />
+                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>
                             <p className={styles.hint}>Next available index, assigned on save</p>
                         </div>
                         <div className={styles.field}>
@@ -532,7 +535,7 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Phone</label>
                                 <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} placeholder="0700 000 000 / 0788 000 000" />
-                                <p className={styles.hint}>Multiple numbers: separate with /</p>
+                                <p className={styles.hint}>Multiple: separate with /</p>
                             </div>
                             <div className={styles.field}>
                                 <label className={styles.label}>Email</label>
@@ -654,7 +657,7 @@ export default function IntakePage() {
                                     <FiBookmark /> Save Preset
                                 </button>
                                 <button type="button" className={styles.addBtn} onClick={() => { setAddingStage(s => !s); setInsertAfterId(''); }}>
-                                    <FiPlus /> Add Stage
+                                    <FiPlus /> New Stage
                                 </button>
                                 <button type="button" className={styles.addBtn} disabled={restoring} onClick={handleRestoreDefaults}>
                                     <FiRefreshCw /> Restore Defaults
@@ -833,7 +836,7 @@ export default function IntakePage() {
                 </div>
             </div>
 
-            {blocker.state === 'blocked' && (
+            {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
                 <div className={styles.modalOverlay}>
                     <div className={styles.modalCard}>
                         <h3 className={styles.modalTitle}>Unsaved work</h3>
@@ -855,7 +858,8 @@ export default function IntakePage() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {toasts.map(t => (
