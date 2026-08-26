@@ -234,7 +234,113 @@ public class StageTemplateService {
     }
 
     // INTAKE REDESIGN: allow deleting middle stages from the template
+    @Transactional
     public void deleteTemplateStage(java.util.UUID id) {
         templateRepository.deleteById(id);
+    }
+
+    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────────
+    // These three replace what used to be N sequential/parallel single-row
+    // HTTP calls from the Intake page's Stages panel: adding, restoring
+    // defaults, or deleting from a long stage list was slow enough that the
+    // UI sometimes didn't reflect the change until a manual refresh. Each
+    // of these now does the whole operation as one HTTP round trip and one
+    // @Transactional unit of work.
+
+    private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
+            java.util.Set.of(DEFAULT_STAGES);
+
+    /**
+     * Re-numbers displayOrder for exactly the given stages, in the order
+     * their ids are given, as a single batch save. Replaces the previous
+     * client-side pattern of one PUT per stage (Promise.all of N calls),
+     * which is what actually caused the lag on longer stage lists --
+     * browsers cap concurrent connections per host, so those requests
+     * queued instead of running in parallel once the list got long.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public List<StageTemplate> reorderTemplateStages(List<UUID> orderedIds) {
+        if (orderedIds == null || orderedIds.isEmpty()) return List.of();
+
+        List<StageTemplate> found = templateRepository.findAllById(orderedIds);
+        java.util.Map<UUID, StageTemplate> byId = found.stream()
+                .collect(java.util.stream.Collectors.toMap(StageTemplate::getId, s -> s));
+
+        List<StageTemplate> toSave = new java.util.ArrayList<>();
+        int order = 1;
+        for (UUID id : orderedIds) {
+            StageTemplate stage = byId.get(id);
+            if (stage == null) continue; // ignore stale/unknown ids rather than fail the whole batch
+            stage.setDisplayOrder(order++);
+            toSave.add(stage);
+        }
+        List<StageTemplate> saved = templateRepository.saveAll(toSave);
+        auditService.logAction("STAGE_TEMPLATE_REORDERED",
+            "Operator [" + getCurrentOperator() + "] reordered " + saved.size() + " master stage(s).");
+        return saved;
+    }
+
+    /**
+     * Deletes several template stages in one batch instead of one
+     * DELETE per row.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void bulkDeleteTemplateStages(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        List<StageTemplate> toDelete = templateRepository.findAllById(ids);
+        if (toDelete.isEmpty()) return;
+        templateRepository.deleteAllInBatch(toDelete);
+        auditService.logAction("STAGE_TEMPLATE_BULK_DELETED",
+            "Operator [" + getCurrentOperator() + "] bulk-deleted " + toDelete.size() + " master stage(s).");
+    }
+
+    /**
+     * Restores the master template to exactly DEFAULT_STAGES, in order.
+     * Previously this was: N parallel deletes of non-default stages, then
+     * a *sequential* await-loop re-adding any missing defaults (one call
+     * at a time -- the slowest part), then another N-call renumber pass,
+     * then a client refetch. All of that collapses into one transactional
+     * method and one HTTP round trip.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public List<StageTemplate> restoreDefaultStages() {
+        List<StageTemplate> current = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+
+        List<StageTemplate> nonDefault = current.stream()
+                .filter(s -> !DEFAULT_STAGE_NAMES.contains(s.getStageName()))
+                .toList();
+        if (!nonDefault.isEmpty()) {
+            templateRepository.deleteAllInBatch(nonDefault);
+        }
+
+        java.util.Map<String, StageTemplate> keepByName = current.stream()
+                .filter(s -> DEFAULT_STAGE_NAMES.contains(s.getStageName()))
+                .collect(java.util.stream.Collectors.toMap(
+                        StageTemplate::getStageName, s -> s, (a, b) -> a));
+
+        List<StageTemplate> toSave = new java.util.ArrayList<>();
+        int order = 1;
+        for (String name : DEFAULT_STAGES) {
+            StageTemplate stage = keepByName.get(name);
+            if (stage == null) {
+                stage = StageTemplate.builder()
+                        .stageName(name)
+                        .defaultCost(BigDecimal.ZERO)
+                        .displayOrder(order)
+                        .isActive(true)
+                        .build();
+            } else {
+                stage.setDisplayOrder(order);
+            }
+            order++;
+            toSave.add(stage);
+        }
+        List<StageTemplate> saved = templateRepository.saveAll(toSave);
+        auditService.logAction("STAGE_TEMPLATE_DEFAULTS_RESTORED",
+            "Operator [" + getCurrentOperator() + "] restored the default master stage list.");
+        return saved;
     }
 }

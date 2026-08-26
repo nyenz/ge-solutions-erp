@@ -24,6 +24,22 @@ const stageTemplateService = {
         return response.data;
     },
 
+    // PERF FIX: one round trip to persist a whole new ordering, instead of
+    // the caller firing one PUT per stage. See reorderTemplateStages usage
+    // in IntakePage's handleAddStage.
+    reorderTemplateStages: async (orderedIds) => {
+        const response = await api.put('/stage-templates/reorder', { orderedIds });
+        return response.data;
+    },
+
+    // PERF FIX: restoring the default checklist used to be N deletes + a
+    // sequential add-loop + another N-call renumber pass from the client.
+    // Now it's a single backend-transactional round trip.
+    restoreDefaultStages: async () => {
+        const response = await api.post('/stage-templates/restore-defaults');
+        return response.data;
+    },
+
     deactivateTemplateStage: async (id) => {
         await api.delete(`/stage-templates/${id}`);
     },

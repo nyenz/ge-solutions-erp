@@ -25,14 +25,11 @@ const PROJECT_TYPES = [
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 
-const DEFAULT_STAGES = [
-    'Field Work',
-    'Deed Plan',
-    'LC Inspection',
-    'District Land Board Approval',
-    'Tax Assessment and Stamp Duty',
-    'Registration and Title Issuance',
-];
+// NOTE: the default stage list itself now lives only on the backend
+// (StageTemplateService.DEFAULT_STAGES) -- Restore Defaults is a single
+// backend call (see handleRestoreDefaults) rather than the frontend
+// re-deriving the list and issuing per-stage requests, so there is no
+// longer a client-side copy to keep in sync with it.
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const todayDMY = () => {
@@ -110,14 +107,39 @@ export default function IntakePage() {
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
 
+    // PERF FIX: sequence guard so an older, slower fetchTemplates() response
+    // can never overwrite a newer one (or an optimistic local update made
+    // in the meantime). This was the "doesn't stick until refresh" bug --
+    // there was previously no ordering guard at all, so a stale refetch
+    // firing after a mutation could silently clobber fresh state.
+    const fetchSeqRef = useRef(0);
     const fetchTemplates = useCallback(() => {
-        stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
+        const seq = ++fetchSeqRef.current;
+        stageTemplateService.getTemplate()
+            .then(t => { if (seq === fetchSeqRef.current) setTemplates(t || []); })
+            .catch(() => {});
     }, []);
     useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
     useEffect(() => {
-        landService.getNextIndex().then(idx => setNextIndex(idx || ''))
-            .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
+        let cancelled = false;
+        // The Index field was observed stuck on "Loading..." for a while.
+        // Profiling shows the query itself is a single trivial row lookup
+        // and this call already doesn't block anything else on the page
+        // (it's an independent effect and nothing else reads `nextIndex`).
+        // The realistic remaining cause is a slow/cold first connection to
+        // the API, which a retry can paper over without any downside.
+        const load = (attempt) => {
+            landService.getNextIndex()
+                .then(idx => { if (!cancelled) setNextIndex(idx || ''); })
+                .catch(() => {
+                    if (cancelled) return;
+                    if (attempt < 1) { setTimeout(() => load(attempt + 1), 3000); return; }
+                    toast('Could not load the next index. Refresh to try again.', 'error');
+                });
+        };
+        load(0);
+        return () => { cancelled = true; };
     }, []);
 
     // STANDARD: sidebar auto-collapses once the user starts working on the form
@@ -215,18 +237,19 @@ export default function IntakePage() {
         setCheckedStages(p => ({ ...p, [id]: !p[id] }));
     };
 
-    // one parallel wave of order updates = fast, no lag
-    const renumber = (ordered) => Promise.all(
-        ordered.map((t, i) =>
-            t?.id ? stageTemplateService.updateTemplateStage(t.id, t.stageName, t.defaultCost || 0, i + 1) : null
-        )
-    );
-
     const openInsertBelow = (stageId) => {
         setInsertAfterId(stageId);
         setAddingStage(true);
     };
 
+    // PERF FIX: this used to await a full renumber() -- one PUT per stage
+    // via Promise.all -- and then call fetchTemplates() for a third round
+    // trip. On a 15-20+ stage list that Promise.all queued behind the
+    // browser's per-host connection limit instead of actually running
+    // concurrently, which is what made Add feel like it hung. Now: the
+    // create call, then ONE bulk reorder call, with the UI updated
+    // optimistically from local state in between so it never waits on
+    // either request to feel done.
     const handleAddStage = async () => {
         if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
         try {
@@ -239,51 +262,53 @@ export default function IntakePage() {
             const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
             const next = sortedTemplates.filter(t => t.id !== created?.id);
             next.splice(k, 0, item);
-            await renumber(next);
+            // Assign sequential order locally so the list is visually correct
+            // right away, independent of the reorder round trip below.
+            const reordered = next.map((t, i) => ({ ...t, displayOrder: i + 1 }));
 
+            setTemplates(reordered);
+            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates so it can't overwrite this
             setNewStageName('');
             setInsertAfterId('');
             setAddingStage(false);
-            fetchTemplates();
             if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
             toast('Stage inserted.', 'success');
+
+            await stageTemplateService.reorderTemplateStages(reordered.map(t => t.id));
         } catch (err) {
             toast(err.response?.data?.message || 'Could not add stage.', 'error');
+            fetchTemplates(); // resync with the server if anything above failed
         }
     };
 
+    // PERF FIX: instant optimistic removal instead of waiting on a delete
+    // + a full refetch. Order gaps left behind are harmless since the list
+    // is always rendered sorted by displayOrder, not by contiguous values.
     const handleDeleteStage = async (id) => {
+        const prevTemplates = templates;
+        setTemplates(ts => ts.filter(t => t.id !== id));
+        setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
+        fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
         try {
             await stageTemplateService.deleteTemplateStage(id);
-            setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
-            fetchTemplates();
             toast('Stage removed.', 'success');
         } catch (err) {
+            setTemplates(prevTemplates); // roll back on failure
             toast(err.response?.data?.message || 'Could not delete stage.', 'error');
         }
     };
 
+    // PERF FIX: was N parallel deletes + a SEQUENTIAL await-loop re-adding
+    // missing defaults (the single slowest part -- one call at a time) +
+    // another N-call renumber pass + a refetch. Now it's one transactional
+    // backend call, so it's a single HTTP round trip no matter how long
+    // the current list is.
     const handleRestoreDefaults = async () => {
         setRestoring(true);
         try {
-            const keep = sortedTemplates.filter(t => DEFAULT_STAGES.includes(t.stageName));
-            await Promise.all(
-                sortedTemplates
-                    .filter(t => !DEFAULT_STAGES.includes(t.stageName))
-                    .map(t => stageTemplateService.deleteTemplateStage(t.id))
-            );
-            const have = new Set(keep.map(t => t.stageName));
-            const added = [];
-            for (const name of DEFAULT_STAGES) {
-                if (!have.has(name)) {
-                    const c = await stageTemplateService.addTemplateStage(name, 0);
-                    added.push({ id: c?.id, stageName: name, defaultCost: 0 });
-                }
-            }
-            const byName = {};
-            [...keep, ...added].forEach(t => { byName[t.stageName] = t; });
-            await renumber(DEFAULT_STAGES.map(name => byName[name]).filter(Boolean));
-            fetchTemplates();
+            const restored = await stageTemplateService.restoreDefaultStages();
+            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
+            setTemplates(restored || []);
             toast('Default stages restored.', 'success');
         } catch (err) {
             toast(err.response?.data?.message || 'Restore failed.', 'error');

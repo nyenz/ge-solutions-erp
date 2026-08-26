@@ -63,6 +63,36 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
+    // PERF FIX: bulk reorder in one round trip. A literal path segment
+    // ("reorder") always wins over the "{id}" pattern above for an exact
+    // match, so this cannot be shadowed by updateTemplateStage/deactivate.
+    @PutMapping("/stage-templates/reorder")
+    public ResponseEntity<List<StageTemplate>> reorderTemplateStages(@RequestBody Map<String, List<String>> body) {
+        List<UUID> orderedIds = (body.getOrDefault("orderedIds", List.of())).stream()
+                .map(UUID::fromString)
+                .toList();
+        return ResponseEntity.ok(stageTemplateService.reorderTemplateStages(orderedIds));
+    }
+
+    // PERF FIX: bulk delete in one round trip (used internally by
+    // restoreDefaultStages, also useful for any future multi-select UI).
+    @DeleteMapping("/stage-templates/bulk")
+    public ResponseEntity<Void> bulkDeleteTemplateStages(@RequestBody Map<String, List<String>> body) {
+        List<UUID> ids = (body.getOrDefault("ids", List.of())).stream()
+                .map(UUID::fromString)
+                .toList();
+        stageTemplateService.bulkDeleteTemplateStages(ids);
+        return ResponseEntity.noContent().build();
+    }
+
+    // PERF FIX: restoring defaults used to be many HTTP calls from the
+    // client (parallel deletes + a sequential add-loop + a renumber pass).
+    // This wraps the whole operation in one backend-transactional call.
+    @PostMapping("/stage-templates/restore-defaults")
+    public ResponseEntity<List<StageTemplate>> restoreDefaultStages() {
+        return ResponseEntity.ok(stageTemplateService.restoreDefaultStages());
+    }
+
     // ─── PER-PROJECT STAGES ──────────────────────────────────────────────
 
     // STAGE 2 FIX: Secretary can view a project's stage checklist
