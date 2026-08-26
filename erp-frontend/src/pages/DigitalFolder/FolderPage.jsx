@@ -10,11 +10,12 @@ import {
     FiPhoneCall, FiMail, FiMapPin, FiShield,
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
-    FiDollarSign, FiActivity, FiHome, FiArchive
+    FiDollarSign, FiActivity, FiHome, FiArchive, FiArrowUp
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import NinMismatchModal from '../../components/common/NinMismatchModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
@@ -1165,6 +1166,7 @@ const FolderPage = () => {
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing || paying} />
+            <BackToTopButton />
             <BackToTopButton />
 
             {/* PRINT-ONLY CORPORATE DOSSIER HEADER */}

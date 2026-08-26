@@ -1,6 +1,6 @@
 /* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Pass 5 - slightly bigger fields, visible borderless top arrow,
-   orange app-standard X buttons, unsaved-changes modal. */
+   Pass 6 - red Cancel + top Save, required location/title fields,
+   viewport-bottom portalled toasts, borderless standard back-to-top. */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -20,12 +20,10 @@
     --fs-sub:    clamp(9px,  0.9vw, 11px);
     --fs-label:  clamp(8px,  0.85vw, 10px);
     --fs-value:  clamp(10px, 1.05vw, 12px);
-    --fs-tag:    clamp(7px,  0.75vw, 9px);
     --fs-meta:   clamp(8px,  0.85vw, 10px);
     --fs-btn:    clamp(8px,  0.85vw, 10px);
 }
 
-/* scoped global input vars - a touch bigger than pass 4 */
 .container {
     --input-height: clamp(34px, 4.3vw, 40px);
     --input-font:   clamp(11px, 1.05vw, 13px);
@@ -89,12 +87,7 @@
 .actions { display: flex; gap: var(--gap-md); flex-shrink: 0; }
 .sections { display: flex; flex-direction: column; gap: var(--gap-lg); }
 
-.splitRow {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--gap-lg);
-    align-items: start;
-}
+.splitRow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-lg); align-items: start; }
 
 .btn {
     font-family: 'Inter', sans-serif;
@@ -115,34 +108,6 @@
     text-decoration: none;
 }
 .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); color: #fff; }
-
-/* .pageHeader has a light, semi-transparent background -- the default
-   .btn (white text, meant for dark surfaces) is nearly invisible there.
-   This variant gives it dark text/border for real contrast. */
-.headerBtn {
-    color: var(--navy-deep);
-    border-color: rgba(33, 62, 64, 0.25);
-}
-.headerBtn:hover:not(:disabled) {
-    background: rgba(33, 62, 64, 0.08);
-    border-color: rgba(33, 62, 64, 0.4);
-    color: var(--navy-deep);
-}
-
-/* Cancel / Discard on light headers -- same rgba(239,68,68,...) danger
-   tone as .deleteBtn below and .btnDanger in FolderPage.jsx, tuned so
-   it reads red by default (not just on hover) against the light
-   .pageHeader background. */
-.headerBtnDanger {
-    color: var(--red);
-    border-color: rgba(239, 68, 68, 0.4);
-    background: rgba(239, 68, 68, 0.08);
-}
-.headerBtnDanger:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.18);
-    border-color: var(--red);
-    color: var(--red);
-}
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
@@ -156,7 +121,18 @@
     color: var(--red);
 }
 
-/* app-standard orange X (matches search clear etc.) */
+/* APP-STANDARD RED CANCEL on the light header */
+.cancelBtn {
+    color: var(--red);
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.08);
+}
+.cancelBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: var(--red);
+    color: var(--red);
+}
+
 .xBtn {
     background: transparent;
     border: none;
@@ -170,7 +146,6 @@
 }
 .xBtn:hover { background: var(--orange-dim); }
 
-/* insert-below button on stage rows */
 .plusBtn {
     background: transparent;
     border: 1px solid rgba(238, 140, 58, 0.3);
@@ -203,7 +178,8 @@
     white-space: nowrap;
     align-self: flex-start;
 }
-.addBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.addBtn:hover:not(:disabled) { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.addBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-lg); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--gap-lg); }
@@ -245,14 +221,6 @@
     border-color: var(--orange);
     box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
 }
-.input:disabled { color: rgba(33, 62, 64, 0.5); cursor: not-allowed; }
-.input.indexValue {
-    font-family: 'Space Mono', monospace;
-    font-weight: 900;
-    letter-spacing: 1px;
-    color: var(--orange);
-}
-.input.indexValue:disabled { color: var(--orange); opacity: 1; }
 
 .indexDisplay {
     font-family: 'Space Mono', monospace;
@@ -268,29 +236,20 @@
 
 .typeGroup { display: flex; gap: clamp(5px, 0.9vw, 10px); flex-wrap: wrap; }
 .typeBtn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    display: flex; align-items: center; gap: 5px;
     background: rgba(26, 46, 48, 0.75);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
     padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 16px);
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
-    font-weight: 900;
-    font-size: var(--fs-btn);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
+    font-weight: 900; font-size: var(--fs-btn);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
 }
 .typeBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
-.typeBtnActive,
-.typeBtnActive:hover {
-    background: #EE8C3A;
-    color: #1a2e30;
-    border-color: #EE8C3A;
+.typeBtnActive, .typeBtnActive:hover {
+    background: #EE8C3A; color: #1a2e30; border-color: #EE8C3A;
     box-shadow: 0 0 14px rgba(238, 140, 58, 0.4);
 }
 .typeHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.35); margin: 2px 0 0 0; letter-spacing: 0.5px; }
@@ -314,17 +273,12 @@
     color: var(--orange);
     letter-spacing: 2px;
     text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    display: flex; align-items: center; gap: 5px;
     margin: 2px 0 0 0;
 }
 
 .inlineAddRow {
-    display: flex;
-    gap: var(--gap-md);
-    align-items: center;
-    flex-wrap: wrap;
+    display: flex; gap: var(--gap-md); align-items: center; flex-wrap: wrap;
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid var(--orange-border);
     border-radius: var(--radius-sm);
@@ -335,9 +289,7 @@
 
 .stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
 .stageItem {
-    display: flex;
-    align-items: center;
-    gap: var(--gap-md);
+    display: flex; align-items: center; gap: var(--gap-md);
     padding: clamp(6px, 0.9vw, 9px);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -353,30 +305,20 @@
 
 .presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
 .presetChip {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--orange-dim);
-    color: var(--orange);
+    display: flex; align-items: center; gap: 5px;
+    background: var(--orange-dim); color: var(--orange);
     border: 1px solid var(--orange-border);
-    border-radius: 999px;
-    padding: 3px 9px;
-    font-size: var(--fs-meta);
-    font-weight: 700;
+    border-radius: 999px; padding: 3px 9px;
+    font-size: var(--fs-meta); font-weight: 700;
 }
-.presetChipRemove {
-    background: none; border: none; color: inherit; cursor: pointer;
-    display: flex; align-items: center; padding: 0;
-}
+.presetChipRemove { background: none; border: none; color: inherit; cursor: pointer; display: flex; align-items: center; padding: 0; }
 
 .financialsSummary {
     background: rgba(0, 0, 0, 0.15);
     padding: var(--gap-lg);
     border-radius: var(--radius-sm);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-md);
+    display: flex; flex-direction: column; gap: var(--gap-md);
 }
 .finRow { display: flex; justify-content: space-between; font-weight: 700; color: rgba(255, 255, 255, 0.85); font-size: var(--fs-value); letter-spacing: 0.5px; }
 .finRow.total { color: var(--orange); font-size: clamp(13px, 1.4vw, 17px); border-top: 1px solid rgba(238, 140, 58, 0.25); padding-top: var(--gap-md); }
@@ -389,23 +331,16 @@
     color: rgba(255, 255, 255, 0.55);
     cursor: pointer;
     transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 .dropzone:hover { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
 .dropzoneIcon {
-    width: clamp(34px, 4vw, 44px);
-    height: clamp(34px, 4vw, 44px);
+    width: clamp(34px, 4vw, 44px); height: clamp(34px, 4vw, 44px);
     border-radius: 50%;
     background: rgba(238, 140, 58, 0.12);
     border: 1px solid var(--orange-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--orange);
-    margin-bottom: 2px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--orange); margin-bottom: 2px;
 }
 .dropzoneTitle { font-weight: 800; font-size: var(--fs-value); letter-spacing: 1px; text-transform: uppercase; }
 .dropzoneTitle .reqMark { color: var(--red); margin-left: 3px; }
@@ -416,9 +351,7 @@
     display: flex; justify-content: space-between; align-items: center; gap: var(--gap-md);
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    color: #fff;
-    font-size: var(--fs-value);
-    font-weight: 600;
+    color: #fff; font-size: var(--fs-value); font-weight: 600;
     padding: clamp(6px, 0.9vw, 9px) clamp(8px, 1.1vw, 12px);
     border-radius: var(--radius-sm);
 }
@@ -431,40 +364,31 @@
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
 .noteDateChip {
     align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+    display: inline-flex; align-items: center; gap: 5px;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.6);
-    font-size: var(--fs-meta);
-    font-weight: 800;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 4px;
+    font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px;
+    padding: 3px 8px; border-radius: 4px;
 }
 
-/* -- BOTTOM BAR: back-to-top is now the shared BackToTopButton component -- */
 .bottomBar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: var(--gap-md);
     padding: var(--gap-md) 0;
     margin-bottom: clamp(12px, 2vh, 22px);
 }
 .bottomBarRight { display: flex; gap: var(--gap-md); align-items: center; }
 
-/* -- UNSAVED CHANGES MODAL -- */
+/* -- UNSAVED CHANGES MODAL (2 short buttons) -- */
 .modalOverlay {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: rgba(10, 20, 22, 0.72);
     backdrop-filter: blur(4px);
     z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
 }
 .modalCard {
     width: min(480px, 90vw);
@@ -472,38 +396,47 @@
     border: 1px solid var(--orange-border);
     border-radius: 12px;
     padding: clamp(16px, 2vw, 24px);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    display: flex; flex-direction: column; gap: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 .modalTitle {
-    font-family: 'Cinzel', serif;
-    color: var(--orange);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    font-size: clamp(12px, 1.4vw, 15px);
-    margin: 0;
+    font-family: 'Cinzel', serif; color: var(--orange);
+    letter-spacing: 2px; text-transform: uppercase;
+    font-size: clamp(12px, 1.4vw, 15px); margin: 0;
 }
 .modalText { color: rgba(255, 255, 255, 0.75); font-size: var(--fs-value); font-weight: 600; margin: 0; }
 .modalBtns { display: flex; gap: var(--gap-md); justify-content: flex-end; flex-wrap: wrap; }
+.modalHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.4); font-weight: 700; margin: 0; text-align: right; }
 
-.toast {
+/* -- STANDARD TOASTS: portalled to body, fixed to the VIEWPORT bottom --
+   (hardcoded colours -- this renders outside .container) */
+.toastStack {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--navy-deep);
-    color: #fff;
-    border: 1px solid var(--orange-border);
-    padding: 12px 20px;
-    border-radius: var(--radius-sm);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    z-index: 9999;
-    animation: slideIn 0.3s ease-out;
+    bottom: clamp(16px, 2.5vh, 28px);
+    right: clamp(16px, 2vw, 28px);
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(420px, 90vw);
+    pointer-events: none;
 }
-.toast.error { background: var(--red); border-color: var(--red); }
-.toast.success { background: var(--green); border-color: var(--green); }
-@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.toast {
+    background: #1a2e30;
+    color: #fff;
+    border: 1px solid rgba(238, 140, 58, 0.28);
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    animation: slideIn 0.3s ease-out;
+    pointer-events: all;
+}
+.toast_error   { background: #ef4444; border-color: #ef4444; }
+.toast_success { background: #10b981; border-color: #10b981; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 @media (max-width: 900px) {
     .splitRow { grid-template-columns: 1fr; }

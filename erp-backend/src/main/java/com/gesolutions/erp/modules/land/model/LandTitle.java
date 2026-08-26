@@ -10,7 +10,8 @@ import java.util.UUID;
 /**
  * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
  * Maps 1-1 with the technical documents (Deed Plans and Titles).
- * Optimized with Indexes for high-speed filing cabinet lookups.
+ * PASS 6: volume / folio / instrument_no / physical_box_number /
+ * survey_date retired app-wide and dropped from the DB (PHASE G).
  */
 @Entity
 @Table(name = "land_titles", indexes = {
@@ -37,13 +38,6 @@ public class LandTitle {
     @Column(name = "block_road", length = 100)
     private String blockRoad;
 
-    // DEPRECATED (Phase A, Section 18.10): district/county now live on
-    // LandProject and are the source of truth going forward. These
-    // columns are kept here on purpose -- not deleted -- because
-    // LandService.java and ReportService.java still read/write them
-    // directly. Repointing those call sites to LandProject is scoped to
-    // Phase B (Section 18.9.1), not this phase. Do not remove these
-    // fields until Phase B has migrated every call site.
     @Deprecated
     @Column(length = 100)
     private String district;
@@ -55,36 +49,13 @@ public class LandTitle {
     @Column(name = "title_id", length = 100)
     private String titleId;
 
-    /**
-     * PROJECT INDEX
-     * Short, never-repeating, searchable code shown to clients and staff.
-     * Format: 001A, 002A ... 999A, 001B, 002B ... 999B, 001C ...
-     * Generated automatically at intake by ProjectIndexService.
-     */
-    // DEPRECATED (Phase B, Section 18.10/18.3): projectIndex now lives
-    // on LandProject and is assigned there at creation, before any title
-    // exists -- see LandProject.java. Kept here on purpose -- not
-    // deleted -- since atomicIntake() still writes the same value to
-    // both places for backward compatibility with anything still reading
-    // it off LandTitle. Safe to drop once nothing reads it from here.
     @Deprecated
     @Column(name = "project_index", unique = true, length = 10)
     private String projectIndex;
 
-    /**
-     * PROJECT START DATE
-     * The date when the project was initiated/intake was done.
-     * Auto-filled with today's date during intake, but can be edited.
-     */
     @Column(name = "project_start_date")
     private LocalDate projectStartDate;
 
-    /**
-     * TITLE ISSUE DATE
-     * The date when the land title was actually issued/received.
-     * Optional field - can be set later when title is received.
-     * Can be backdated to match the actual title issue date.
-     */
     @Column(name = "title_issue_date")
     private LocalDate titleIssueDate;
 

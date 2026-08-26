@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
@@ -25,20 +25,35 @@ const PROJECT_TYPES = [
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 
-// NOTE: the default stage list itself now lives only on the backend
-// (StageTemplateService.DEFAULT_STAGES) -- Restore Defaults is a single
-// backend call (see handleRestoreDefaults) rather than the frontend
-// re-deriving the list and issuing per-stage requests, so there is no
-// longer a client-side copy to keep in sync with it.
+// Canonical default checklist. The Stages section works on a LOCAL copy of
+// this list: edits are instant, never hit the master template, and the list
+// always resets to these defaults whenever the form is opened unsaved.
+const DEFAULT_STAGES = [
+    'Field Work',
+    'Deed Plan',
+    'LC Inspection',
+    'District Land Board Approval',
+    'Tax Assessment and Stamp Duty',
+    'Registration and Title Issuance',
+];
+const FINAL_STAGE = 'Registration and Title Issuance';
+
+const DEFAULT_MONTHLY_STORAGE_FEE = 50000;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const todayDMY = () => {
     const d = new Date();
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
+const formatDMY = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+};
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
 const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
+const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
 const loadPresets = () => {
     try {
         const raw = localStorage.getItem(PRESET_STORAGE_KEY);
@@ -56,10 +71,7 @@ export default function IntakePage() {
     const [saving, setSaving] = useState(false);
     const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('NEW_FOLDER');
-    // STEP 7: Date Started is no longer user-editable, so it no longer
-    // needs its own piece of state -- it's just today's date, displayed
-    // read-only and computed fresh (todayISO()/todayDMY()) wherever it's
-    // needed, same as how the Index field already works.
+    const [projectStartDate] = useState(todayISO);
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
     const [district, setDistrict] = useState('');
@@ -69,12 +81,13 @@ export default function IntakePage() {
     const [village, setVillage] = useState('');
     const [area, setArea] = useState('');
 
-    const [templates, setTemplates] = useState([]);
-    const [checkedStages, setCheckedStages] = useState({});
+    // ── STAGES: local-only working list (keyed by name) ──────────────
+    const [masterTemplates, setMasterTemplates] = useState([]);
+    const [stageList, setStageList] = useState(() => DEFAULT_STAGES.map(name => ({ id: null, name })));
+    const [checked, setChecked] = useState({ [DEFAULT_STAGES[0]]: true });
     const [addingStage, setAddingStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
-    const [insertAfterId, setInsertAfterId] = useState('');
-    const [restoring, setRestoring] = useState(false);
+    const [insertAfterName, setInsertAfterName] = useState('');
     const [presets, setPresets] = useState(loadPresets);
     const [presetName, setPresetName] = useState('');
     const [showSavePreset, setShowSavePreset] = useState(false);
@@ -88,10 +101,7 @@ export default function IntakePage() {
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
-    // STEP 6: pre-filled with the system default (50000), same as
-    // FolderPage's `project.storageFeeOverride || 50000` fallback,
-    // instead of only showing 'System default' text with no number.
-    const [monthlyStorageFee, setMonthlyStorageFee] = useState(50000);
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);
 
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
@@ -102,47 +112,42 @@ export default function IntakePage() {
 
     const [toasts, setToasts] = useState([]);
     const toast = useCallback((msg, type = 'info') => {
-        const id = Date.now();
+        const id = Date.now() + Math.random();
         setToasts(p => [...p, { id, msg, type }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
 
-    // PERF FIX: sequence guard so an older, slower fetchTemplates() response
-    // can never overwrite a newer one (or an optimistic local update made
-    // in the meantime). This was the "doesn't stick until refresh" bug --
-    // there was previously no ordering guard at all, so a stale refetch
-    // firing after a mutation could silently clobber fresh state.
-    const fetchSeqRef = useRef(0);
-    const fetchTemplates = useCallback(() => {
-        const seq = ++fetchSeqRef.current;
-        stageTemplateService.getTemplate()
-            .then(t => { if (seq === fetchSeqRef.current) setTemplates(t || []); })
-            .catch(() => {});
+    // Master template fetched READ-ONLY
+    useEffect(() => {
+        stageTemplateService.getTemplate().then(list => {
+            const sorted = [...(list || [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+            const seen = new Set(); const uniq = [];
+            sorted.forEach(t => {
+                if (t.stageName && !seen.has(t.stageName)) { seen.add(t.stageName); uniq.push({ id: t.id, name: t.stageName }); }
+            });
+            setMasterTemplates(uniq);
+        }).catch(() => {});
     }, []);
-    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
+    // INDEX: instant paint from cache + up to 2 silent retries on failure.
     useEffect(() => {
         let cancelled = false;
-        // The Index field was observed stuck on "Loading..." for a while.
-        // Profiling shows the query itself is a single trivial row lookup
-        // and this call already doesn't block anything else on the page
-        // (it's an independent effect and nothing else reads `nextIndex`).
-        // The realistic remaining cause is a slow/cold first connection to
-        // the API, which a retry can paper over without any downside.
+        try { const c = localStorage.getItem(INDEX_CACHE_KEY); if (c) setNextIndex(c); } catch {}
         const load = (attempt) => {
-            landService.getNextIndex()
-                .then(idx => { if (!cancelled) setNextIndex(idx || ''); })
-                .catch(() => {
-                    if (cancelled) return;
-                    if (attempt < 1) { setTimeout(() => load(attempt + 1), 3000); return; }
-                    toast('Could not load the next index. Refresh to try again.', 'error');
-                });
+            landService.getNextIndex().then(idx => {
+                if (cancelled) return;
+                if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} }
+            }).catch(() => {
+                if (cancelled) return;
+                if (attempt < 2) { setTimeout(() => load(attempt + 1), 2500); return; }
+                let cached = null; try { cached = localStorage.getItem(INDEX_CACHE_KEY); } catch {}
+                if (!cached) toast('Could not load the next index. Refresh to try again.', 'error');
+            });
         };
         load(0);
         return () => { cancelled = true; };
-    }, []);
+    }, [toast]);
 
-    // STANDARD: sidebar auto-collapses once the user starts working on the form
     const collapsedOnce = useRef(false);
     useEffect(() => {
         const el = topRef.current;
@@ -166,7 +171,6 @@ export default function IntakePage() {
         };
     }, []);
 
-    // STANDARD: warn before closing the tab with unsaved work
     useEffect(() => {
         const h = (e) => {
             if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
@@ -175,12 +179,8 @@ export default function IntakePage() {
         return () => window.removeEventListener('beforeunload', h);
     }, []);
 
-    // Warn before navigating away inside the app with unsaved work
     const blocker = useBlocker(dirty && !saving);
 
-    // STEP 5: 'Stay' is no longer a button -- Escape does the same thing
-    // (overlay-click handles the mouse equivalent, wired directly on the
-    // overlay element below).
     useEffect(() => {
         if (blocker.state !== 'blocked') return;
         const onKeyDown = (e) => { if (e.key === 'Escape') blocker.reset(); };
@@ -188,138 +188,76 @@ export default function IntakePage() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [blocker]);
 
-    const sortedTemplates = useMemo(
-        () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
-        [templates]
-    );
-    const firstStageId = sortedTemplates[0]?.id;
-    const lastStageId = sortedTemplates[sortedTemplates.length - 1]?.id;
-
-    useEffect(() => {
-        if (!sortedTemplates.length) return;
-        setCheckedStages(prev => {
-            const next = { ...prev };
-            if (firstStageId && next[firstStageId] === undefined) next[firstStageId] = true;
-            return next;
-        });
-    }, [sortedTemplates.length, firstStageId]);
-
-    const finalStageChecked = lastStageId ? !!checkedStages[lastStageId] : false;
+    const finalStageChecked = !!checked[FINAL_STAGE];
     const isLegacy = projectType === 'LEGACY_TITLE';
     const titleAtIntake = projectType === 'NEW_TITLE';
     const isTitleType = isLegacy || titleAtIntake;
     const isTitleSectionVisible = isTitleType || finalStageChecked;
     const showStages = !isTitleType;
 
-    const allStagesChecked = () => {
-        const all = {};
-        sortedTemplates.forEach(t => { all[t.id] = true; });
-        return all;
-    };
-    const defaultStages = () => {
-        const d = {};
-        if (firstStageId) d[firstStageId] = true;
-        return d;
-    };
-
     const handleProjectTypeChange = (value) => {
         setProjectType(value);
         markDirty();
         if (value === 'LEGACY_TITLE' || value === 'NEW_TITLE') {
-            setCheckedStages(allStagesChecked());
+            const all = {};
+            stageList.forEach(s => { all[s.name] = true; });
+            setChecked(all);
         } else {
-            setCheckedStages(defaultStages());
+            setChecked({ [stageList[0]?.name]: true });
         }
     };
 
-    const toggleStage = (id) => {
+    const toggleStage = (name) => {
         markDirty();
-        setCheckedStages(p => ({ ...p, [id]: !p[id] }));
+        setChecked(p => ({ ...p, [name]: !p[name] }));
     };
 
-    const openInsertBelow = (stageId) => {
-        setInsertAfterId(stageId);
+    const openInsertBelow = (name) => {
+        setInsertAfterName(name);
         setAddingStage(true);
     };
 
-    // PERF FIX: this used to await a full renumber() -- one PUT per stage
-    // via Promise.all -- and then call fetchTemplates() for a third round
-    // trip. On a 15-20+ stage list that Promise.all queued behind the
-    // browser's per-host connection limit instead of actually running
-    // concurrently, which is what made Add feel like it hung. Now: the
-    // create call, then ONE bulk reorder call, with the UI updated
-    // optimistically from local state in between so it never waits on
-    // either request to feel done.
-    const handleAddStage = async () => {
-        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
-        try {
-            let k = sortedTemplates.length - 1; // default: just before last
-            const idx = sortedTemplates.findIndex(t => t.id === insertAfterId);
-            if (idx >= 0) k = idx + 1; // appears directly under the clicked stage
-            k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
-
-            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0, k + 1);
-            const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
-            const next = sortedTemplates.filter(t => t.id !== created?.id);
-            next.splice(k, 0, item);
-            // Assign sequential order locally so the list is visually correct
-            // right away, independent of the reorder round trip below.
-            const reordered = next.map((t, i) => ({ ...t, displayOrder: i + 1 }));
-
-            setTemplates(reordered);
-            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates so it can't overwrite this
-            setNewStageName('');
-            setInsertAfterId('');
-            setAddingStage(false);
-            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
-            toast('Stage inserted.', 'success');
-
-            await stageTemplateService.reorderTemplateStages(reordered.map(t => t.id));
-        } catch (err) {
-            toast(err.response?.data?.message || 'Could not add stage.', 'error');
-            fetchTemplates(); // resync with the server if anything above failed
+    const handleAddStage = () => {
+        const name = newStageName.trim();
+        if (!name) { toast('Enter a stage name first.', 'error'); return; }
+        if (stageList.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+            toast('That stage is already on the list.', 'error'); return;
         }
+        let k;
+        if (!stageList.length) k = 0;
+        else {
+            k = stageList.length - 1;
+            const idx = stageList.findIndex(s => s.name === insertAfterName);
+            if (idx >= 0) k = idx + 1;
+            k = Math.min(Math.max(k, 1), Math.max(1, stageList.length - 1));
+        }
+        const next = [...stageList];
+        next.splice(k, 0, { id: null, name });
+        setStageList(next);
+        setChecked(p => ({ ...p, [name]: true }));
+        setNewStageName(''); setInsertAfterName(''); setAddingStage(false);
+        markDirty();
+        toast('Stage inserted.', 'success');
     };
 
-    // PERF FIX: instant optimistic removal instead of waiting on a delete
-    // + a full refetch. Order gaps left behind are harmless since the list
-    // is always rendered sorted by displayOrder, not by contiguous values.
-    const handleDeleteStage = async (id) => {
-        const prevTemplates = templates;
-        setTemplates(ts => ts.filter(t => t.id !== id));
-        setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
-        fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
-        try {
-            await stageTemplateService.deleteTemplateStage(id);
-            toast('Stage removed.', 'success');
-        } catch (err) {
-            setTemplates(prevTemplates); // roll back on failure
-            toast(err.response?.data?.message || 'Could not delete stage.', 'error');
-        }
+    const handleDeleteStage = (name) => {
+        setStageList(p => p.filter(s => s.name !== name));
+        setChecked(p => { const n = { ...p }; delete n[name]; return n; });
+        markDirty();
+        toast('Stage removed.', 'success');
     };
 
-    // PERF FIX: was N parallel deletes + a SEQUENTIAL await-loop re-adding
-    // missing defaults (the single slowest part -- one call at a time) +
-    // another N-call renumber pass + a refetch. Now it's one transactional
-    // backend call, so it's a single HTTP round trip no matter how long
-    // the current list is.
-    const handleRestoreDefaults = async () => {
-        setRestoring(true);
-        try {
-            const restored = await stageTemplateService.restoreDefaultStages();
-            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
-            setTemplates(restored || []);
-            toast('Default stages restored.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Restore failed.', 'error');
-        } finally {
-            setRestoring(false);
-        }
+    const handleRestoreDefaults = () => {
+        setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
+        setChecked({ [DEFAULT_STAGES[0]]: true });
+        setAddingStage(false); setNewStageName(''); setInsertAfterName('');
+        markDirty();
+        toast('Default stages restored.', 'success');
     };
 
     const handleSavePreset = () => {
         if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
-        const stageNames = sortedTemplates.filter(t => checkedStages[t.id]).map(t => t.stageName);
+        const stageNames = stageList.filter(s => checked[s.name]).map(s => s.name);
         const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
         setPresets(next);
         savePresets(next);
@@ -333,10 +271,8 @@ export default function IntakePage() {
         const preset = presets.find(p => p.name === name);
         if (!preset) return;
         const next = {};
-        sortedTemplates.forEach(t => {
-            next[t.id] = preset.stageNames.includes(t.stageName);
-        });
-        setCheckedStages(next);
+        stageList.forEach(s => { next[s.name] = preset.stageNames.includes(s.name); });
+        setChecked(next);
         markDirty();
     };
 
@@ -371,13 +307,14 @@ export default function IntakePage() {
 
     const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
 
-    const scrollTop = () => topRef.current && topRef.current.scrollIntoView({ behavior: 'smooth' });
-
-    // ---- validation shared by Save and Duplicate ----
     const validate = () => {
-        if (!district.trim() || !county.trim()) {
-            toast('District and County are required.', 'error'); return false;
-        }
+        // ALL location information is a must.
+        if (!district.trim()) { toast('District is required.', 'error'); return false; }
+        if (!county.trim()) { toast('County is required.', 'error'); return false; }
+        if (!subCounty.trim()) { toast('Sub-county is required.', 'error'); return false; }
+        if (!parish.trim()) { toast('Parish is required.', 'error'); return false; }
+        if (!village.trim()) { toast('Village is required.', 'error'); return false; }
+        if (!area.trim()) { toast('Area is required.', 'error'); return false; }
         for (let i = 0; i < owners.length; i++) {
             const o = owners[i];
             if (!o.nationalId.trim()) { toast(`Owner ${i + 1}: NIN is required.`, 'error'); return false; }
@@ -385,12 +322,10 @@ export default function IntakePage() {
             if (!o.phone.trim()) { toast(`Owner ${i + 1}: Phone is required (use / for multiple numbers).`, 'error'); return false; }
         }
         if (isTitleSectionVisible) {
-            if (!titleId.trim()) { toast('Title ID is required for a title record.', 'error'); return false; }
-            if (!tenure) { toast('Tenure is required for a title record.', 'error'); return false; }
-            if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return false; }
-            if (!blockRoad.trim()) { toast('Block is required for a title record.', 'error'); return false; }
-            if (!titleIssueDate) { toast('Title Date is required for a title record.', 'error'); return false; }
-            if (!area.trim()) { toast('Area is required for Title details.', 'error'); return false; }
+            if (!titleId.trim()) { toast('Title ID is required.', 'error'); return false; }
+            if (!plotNumber.trim()) { toast('Plot Number is required.', 'error'); return false; }
+            if (!blockRoad.trim()) { toast('Block is required.', 'error'); return false; }
+            if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
         }
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) {
@@ -400,14 +335,13 @@ export default function IntakePage() {
         return true;
     };
 
-    // ---- the actual save (no navigation) ----
     const doSave = async () => {
         if (!validate()) return false;
         setSaving(true);
         try {
             let noteText = notes.trim();
             if (noteText && !/^\[\d{2}\/\d{2}\/\d{4}\]/.test(noteText)) {
-                noteText = `[${todayDMY()}] ${noteText}`; // STANDARD: notes carry their date
+                noteText = `[${todayDMY()}] ${noteText}`;
             }
 
             const payload = {
@@ -416,12 +350,11 @@ export default function IntakePage() {
                 subCounty: subCounty.trim().toUpperCase(),
                 parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(),
-                area: area.trim(),
+                area: area.trim().toUpperCase(),
                 totalCost: Number(totalCost) || 0,
                 initialPayment: Number(initialPayment) || 0,
                 isLegacy: isLegacy,
                 titleAtIntake: titleAtIntake,
-                // STEP 7: computed fresh at save time, never from client-held state
                 projectStartDate: todayISO(),
                 owners: owners.map(o => ({
                     fullName: o.fullName.trim().toUpperCase(),
@@ -430,16 +363,13 @@ export default function IntakePage() {
                     nationalId: o.nationalId.trim().toUpperCase(),
                     address: o.address.trim(),
                 })),
-                selectedStages: Object.entries(checkedStages)
-                    .filter(([id, v]) => v && templates.some(t => t.id === id))
-                    .map(([id]) => {
-                        const t = templates.find(x => x.id === id);
-                        return {
-                            stageTemplateId: id,
-                            stageName: t ? t.stageName : '',
-                            isCustom: false,
-                            isCompleted: true
-                        };
+                selectedStages: stageList
+                    .filter(s => checked[s.name])
+                    .map(s => {
+                        const m = masterTemplates.find(t => t.name === s.name);
+                        return m
+                            ? { stageTemplateId: m.id, stageName: s.name, isCustom: false, isCompleted: true }
+                            : { stageName: s.name, isCustom: true, cost: 0, isCompleted: true };
                     }),
                 notes: noteText ? [{ content: noteText }] : [],
             };
@@ -455,7 +385,7 @@ export default function IntakePage() {
             if (isLegacy) {
                 payload.isStartAsReceivable = true;
                 payload.initialStorageFee = Number(initialStorageFee) || 0;
-                payload.monthlyStorageFee = Number(monthlyStorageFee) || 0;
+                payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
             }
 
             await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
@@ -478,21 +408,22 @@ export default function IntakePage() {
         }
     };
 
-    // Duplicate = SAVE the current form first (same validations/warnings),
-    // then carry owners + location into a fresh form.
     const handleDuplicate = async () => {
         const ok = await doSave();
         if (!ok) return;
         toast('Saved. Form duplicated for the next plot.', 'success');
         setProjectType('NEW_FOLDER');
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
-        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0);
+        setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
         setNotes('');
         setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
-        setCheckedStages(defaultStages());
-        landService.getNextIndex().then(idx => setNextIndex(idx || ''))
-            .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
-        scrollTop();
+        setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
+        setChecked({ [DEFAULT_STAGES[0]]: true });
+        landService.getNextIndex().then(idx => {
+            if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} }
+        }).catch(() => {});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
@@ -507,8 +438,6 @@ export default function IntakePage() {
     const nDocuments = ++n;
     const nNotes = ++n;
 
-    const insertAfterName = sortedTemplates.find(t => t.id === insertAfterId)?.stageName;
-
     return (
         <div className={styles.container} ref={topRef}>
             <header className={styles.pageHeader}>
@@ -517,7 +446,10 @@ export default function IntakePage() {
                     <p className={styles.subtitle}>Intake Form</p>
                 </div>
                 <div className={styles.actions}>
-                    <button className={`${styles.btn} ${styles.headerBtnDanger}`} onClick={() => navigate(-1)}>Cancel</button>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> Save
+                    </button>
+                    <button type="button" className={`${styles.btn} ${styles.cancelBtn}`} onClick={() => navigate(-1)}>Cancel</button>
                 </div>
             </header>
 
@@ -532,8 +464,8 @@ export default function IntakePage() {
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Date Started</label>
-                            <div className={styles.indexDisplay}>{todayDMY()}</div>
-                            <p className={styles.hint}>Auto-generated at save time — always today.</p>
+                            <div className={styles.indexDisplay}>{formatDMY(projectStartDate)}</div>
+                            <p className={styles.hint}>Auto-generated with today's date</p>
                         </div>
                     </div>
                     <div className={styles.field}>
@@ -632,19 +564,19 @@ export default function IntakePage() {
                             <input className={styles.input} value={county} onChange={e => { setCounty(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={styles.label}>Sub-county</label>
+                            <label className={`${styles.label} ${styles.required}`}>Sub-county</label>
                             <input className={styles.input} value={subCounty} onChange={e => { setSubCounty(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={styles.label}>Parish</label>
+                            <label className={`${styles.label} ${styles.required}`}>Parish</label>
                             <input className={styles.input} value={parish} onChange={e => { setParish(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={styles.label}>Village</label>
+                            <label className={`${styles.label} ${styles.required}`}>Village</label>
                             <input className={styles.input} value={village} onChange={e => { setVillage(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${isTitleSectionVisible ? styles.required : ''}`}>Area{!isTitleSectionVisible ? ' (Optional)' : ''}</label>
+                            <label className={`${styles.label} ${styles.required}`}>Area</label>
                             <input className={styles.input} value={area} onChange={e => { setArea(e.target.value); markDirty(); }} />
                         </div>
                     </div>
@@ -668,7 +600,7 @@ export default function IntakePage() {
                                 <button type="button" className={styles.addBtn} onClick={() => setShowSavePreset(s => !s)}>
                                     <FiBookmark /> Save Preset
                                 </button>
-                                <button type="button" className={styles.addBtn} disabled={restoring} onClick={handleRestoreDefaults}>
+                                <button type="button" className={styles.addBtn} onClick={handleRestoreDefaults}>
                                     <FiRefreshCw /> Restore Defaults
                                 </button>
                             </div>
@@ -688,35 +620,36 @@ export default function IntakePage() {
                                 </span>
                                 <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
                                 <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
-                                <button type="button" className={styles.xBtn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfterId(''); }} aria-label="Close"><FiX /></button>
+                                <button type="button" className={styles.xBtn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfterName(''); }} aria-label="Close"><FiX /></button>
                             </div>
                         )}
                         <div className={styles.stageList}>
-                            {sortedTemplates.map((t, i) => {
-                                const isLast = t.id === lastStageId;
+                            {stageList.map((s, i) => {
+                                const isLast = i === stageList.length - 1;
+                                const isFirst = i === 0;
                                 return (
-                                    <label key={t.id} className={`${styles.stageItem} ${checkedStages[t.id] ? styles.checked : ''}`}>
-                                        <input type="checkbox" className={styles.checkbox} checked={!!checkedStages[t.id]}
-                                            onChange={() => toggleStage(t.id)} />
-                                        <span className={styles.stageName}>{t.stageName}</span>
+                                    <label key={s.name} className={`${styles.stageItem} ${checked[s.name] ? styles.checked : ''}`}>
+                                        <input type="checkbox" className={styles.checkbox} checked={!!checked[s.name]}
+                                            onChange={() => toggleStage(s.name)} />
+                                        <span className={styles.stageName}>{s.name}</span>
                                         <span className={styles.stageActions}>
                                             {!isLast && (
                                                 <button
                                                     type="button"
                                                     className={styles.plusBtn}
                                                     title="Insert a stage below this one"
-                                                    aria-label={`Insert stage below ${t.stageName}`}
-                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(t.id); }}
+                                                    aria-label={`Insert stage below ${s.name}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(s.name); }}
                                                 >
                                                     <FiPlus size={12} />
                                                 </button>
                                             )}
-                                            {!isLast && t.id !== firstStageId && (
+                                            {!isLast && !isFirst && (
                                                 <button
                                                     type="button"
                                                     className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
-                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(t.id); }}
-                                                    aria-label={`Delete stage ${t.stageName}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(s.name); }}
+                                                    aria-label={`Delete stage ${s.name}`}
                                                 >
                                                     <FiTrash2 size={12} />
                                                 </button>
@@ -726,15 +659,6 @@ export default function IntakePage() {
                                 );
                             })}
                         </div>
-                        {/* AMBIGUITY CALL: the header '+ New Stage' button was removed
-                            (each stage row already has its own inline insert-below +),
-                            but that left no way to add a first stage when the list is
-                            empty, or to append after the very last one. Kept a minimal
-                            '+' affordance at the end of the list, reusing the exact same
-                            handler the old header button used. */}
-                        <button type="button" className={styles.addBtn} onClick={() => { setAddingStage(s => !s); setInsertAfterId(''); }}>
-                            <FiPlus /> Add Stage
-                        </button>
                         {presets.length > 0 && (
                             <div className={styles.presetList}>
                                 {presets.map(p => (
@@ -776,7 +700,8 @@ export default function IntakePage() {
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} placeholder="50000" />
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
+                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>
                                 </div>
                             </div>
                         </>
@@ -841,7 +766,6 @@ export default function IntakePage() {
             </div>
 
             <div className={styles.bottomBar}>
-                <BackToTopButton />
                 <div className={styles.bottomBarRight}>
                     <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving}>
                         <FiCopy /> Duplicate
@@ -852,15 +776,14 @@ export default function IntakePage() {
                 </div>
             </div>
 
+            <BackToTopButton />
+
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
-                // STEP 5: down from 3 buttons to 2 ('Save' / 'Leave'). 'Stay' is
-                // gone as a button -- clicking the overlay (outside the card) or
-                // pressing Escape (see the useEffect above) does the same thing.
                 <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
                     <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
                         <h3 className={styles.modalTitle}>Unsaved work</h3>
                         <p className={styles.modalText}>
-                            You have unsaved information on this form. Do you want to save it before leaving?
+                            You have unsaved information on this form. Save before leaving?
                         </p>
                         <div className={styles.modalBtns}>
                             <button type="button" className={`${styles.btn} ${styles.deleteBtn}`} onClick={() => blocker.proceed()}>Leave</button>
@@ -868,23 +791,27 @@ export default function IntakePage() {
                                 type="button"
                                 className={`${styles.btn} ${styles.primary}`}
                                 onClick={async () => {
-                                    // Same doSave() the bottom 'Save Project' button uses --
-                                    // identical validation errors/toasts, not reimplemented.
                                     const ok = await doSave();
                                     if (ok) blocker.proceed(); else blocker.reset();
                                 }}
                             >
-                                <FiSave /> Save
+                                <FiSave /> Save & Leave
                             </button>
                         </div>
+                        <p className={styles.modalHint}>Click outside or press Esc to keep editing</p>
                     </div>
                 </div>,
                 document.body
             )}
 
-            {toasts.map(t => (
-                <div key={t.id} className={`${styles.toast} ${styles[t.type] || ''}`}>{t.msg}</div>
-            ))}
+            {typeof document !== 'undefined' && createPortal(
+                <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
+                    {toasts.map(t => (
+                        <div key={t.id} className={`${styles.toast} ${styles['toast_' + (t.type || 'info')]}`}>{t.msg}</div>
+                    ))}
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

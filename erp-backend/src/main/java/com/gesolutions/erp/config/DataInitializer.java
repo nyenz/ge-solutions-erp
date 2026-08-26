@@ -3,6 +3,10 @@ package com.gesolutions.erp.config;
 
 import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
+import com.gesolutions.erp.modules.land.dto.LandEntryRequest;
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.StageTemplate;
+import com.gesolutions.erp.modules.land.service.LandService;
 import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +26,7 @@ public class DataInitializer implements CommandLineRunner {
     private final DataSource dataSource;
     private final StageTemplateService stageTemplateService;
     private final ExpensePresetRepository expensePresetRepository;
+    private final LandService landService;
 
     @Value("${ADMIN_EMAIL}")
     private String adminEmail;
@@ -41,6 +46,18 @@ public class DataInitializer implements CommandLineRunner {
 
         // PHASE 4: Seed the default stage template checklist if empty
         stageTemplateService.seedDefaultStagesIfEmpty();
+
+        // PASS 6: master checklist must always be exactly the 6 defaults
+        // (repairs duplicate/junk rows from earlier buggy passes).
+        try {
+            stageTemplateService.normalizeToDefaultStages();
+            System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
+        } catch (Exception e) {
+            System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
+        }
+
+        // PASS 6: seed 5 unique SAMPLE projects for Ledger testing (once).
+        seedSampleProjects();
 
         // EXPENSES REBUILD: Seed the default expense presets if empty
         seedDefaultExpensePresets();
@@ -203,6 +220,13 @@ public class DataInitializer implements CommandLineRunner {
             // attach an empty LandTitle record to unlock fields before
             // the unique plot numbers are known.
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
+
+            // PHASE G -- RETIRED TITLE DETAILS (pass 6): removed app-wide.
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
         };
 
         try (Connection conn = dataSource.getConnection();

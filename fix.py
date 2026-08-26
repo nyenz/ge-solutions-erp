@@ -1,127 +1,66 @@
 #!/usr/bin/env python3
 """
-fix.py -- PART 3: Stages-panel performance fix (+ Index field improvements)
-
-Applies targeted, surgical patches (no full-file rewrites) to:
-  - erp-frontend/src/services/stageTemplateService.js
-  - erp-frontend/src/pages/Intake/IntakePage.jsx
-  - erp-backend/.../controller/StageTemplateController.java
-  - erp-backend/.../service/StageTemplateService.java
-
-Run from the repo root:  python3 fix.py
-
-DIAGNOSIS (confirmed by reading the code, not assumed):
-  1. `renumber()` in IntakePage.jsx fired ONE PUT per stage via
-     Promise.all() on every add/reorder. Browsers cap concurrent
-     connections per host, so on a 15-20+ stage list these requests
-     queued instead of running concurrently -- this was the main
-     bottleneck on Add Stage.
-  2. `handleRestoreDefaults()` deleted non-default stages in parallel,
-     but re-added missing defaults in a SEQUENTIAL `await` loop (one
-     network round trip at a time), then ran another full renumber
-     pass on top of that -- the single slowest path in the whole panel.
-  3. `fetchTemplates()` had no request-ordering guard. A slower, older
-     GET response resolving after a newer one could silently overwrite
-     fresh state with stale data -- this is what explains the "doesn't
-     stick until refresh" symptom, independent of the raw request count.
-  4. The backend had no bulk endpoints at all: add/update/delete were
-     all one-row-at-a-time, so there was no way to fix any of the above
-     without a client-side workaround (which is what the old code was).
-  5. The "Index" field's own query (ProjectIndexService.previewNextIndex)
-     is a single trivial row lookup and was already non-blocking (its own
-     effect, nothing else reads `nextIndex`). The frontend's API base URL
-     points at a Render.com free-tier host, which cold-sleeps -- the most
-     likely real explanation for a slow first load, and not something
-     fixable in application code. A one-time retry is added below as a
-     harmless improvement regardless.
-
-FIX:
-  - New backend endpoints, each a single @Transactional method:
-      PUT    /stage-templates/reorder          (bulk reorder)
-      DELETE /stage-templates/bulk             (bulk delete)
-      POST   /stage-templates/restore-defaults (delete + re-add + reorder,
-                                                 all in one round trip)
-  - Frontend add/delete/restore handlers rewritten to use optimistic
-    local state updates plus ONE bulk network call each, instead of
-    N calls (+ a refetch).
-  - A sequence-token guard on fetchTemplates() so a stale response can
-    never clobber newer state.
-  - A one-time retry on the Index field fetch.
-
-This script targets a clean checkout: each patch matches an exact,
-unique anchor string and aborts loudly if that anchor isn't found,
-rather than silently no-op'ing.
+fix3.py — consolidated fix pass (corrected for already-removed fields).
+Part 1 already removed volume/folio/instrumentNo/physicalBoxNumber/surveyDate,
+so this version focuses only on the NEW fixes.
+Run: py fix3.py
 """
+import sys, subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).parent.resolve()
+WROTE, FAILED = [], []
 
+def write(rel, content):
+    p = ROOT / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    try: p.write_text(content, encoding="utf-8"); WROTE.append(rel)
+    except Exception as e: FAILED.append((rel, str(e)))
 
-def patch(path: str, old: str, new: str, *, count: int = 1):
-    """Apply an exact string replacement. Fails loudly if the anchor text
-    isn't found (or isn't unique), so this never silently no-ops."""
-    p = ROOT / path
-    text = p.read_text(encoding="utf-8")
-    occurrences = text.count(old)
-    if occurrences != count:
-        raise SystemExit(
-            f"[fix.py] ABORT: expected {count} occurrence(s) of anchor text "
-            f"in {path}, found {occurrences}.\n--- anchor ---\n{old[:300]}"
-        )
-    text = text.replace(old, new, count)
-    p.write_text(text, encoding="utf-8")
-    print(f"[fix.py] patched {path}")
+def patch(rel, old, new, count=1):
+    p = ROOT / rel
+    try: text = p.read_text(encoding="utf-8")
+    except Exception as e: FAILED.append((rel, "read: " + str(e))); return
+    if text.count(old) < (1 if count == 1 else count):
+        FAILED.append((rel, "ANCHOR NOT FOUND: " + old[:70].replace("\n", "\\n"))); return
+    text = text.replace(old, new, count) if count else text.replace(old, new)
+    try: p.write_text(text, encoding="utf-8"); WROTE.append(rel + " (patched)")
+    except Exception as e: FAILED.append((rel, str(e)))
 
+# =====================================================================
+# 1) IntakePage.jsx — full rewrite (local-only stages, top Save, etc.)
+# =====================================================================
+write("erp-frontend/src/pages/Intake/IntakePage.jsx", r'''// PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useBlocker } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import {
+    FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
+    FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
+    FiEdit3, FiBookmark, FiX, FiCopy, FiFile, FiEye, FiRefreshCw,
+    FiCalendar
+} from 'react-icons/fi';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import HardwareSelect from '../../components/common/HardwareSelect';
+import BackToTopButton from '../../components/common/BackToTopButton';
+import landService from '../../services/landService';
+import stageTemplateService from '../../services/stageTemplateService';
+import styles from './IntakePage.module.css';
 
-# ─────────────────────────────────────────────────────────────────────────
-# 1. erp-frontend/src/services/stageTemplateService.js
-#    Add reorderTemplateStages() and restoreDefaultStages() wrappers.
-# ─────────────────────────────────────────────────────────────────────────
-patch(
-    "erp-frontend/src/services/stageTemplateService.js",
-    old="""    updateTemplateStage: async (id, stageName, defaultCost, displayOrder) => {
-        const response = await api.put(`/stage-templates/${id}`, { stageName, defaultCost, displayOrder });
-        return response.data;
-    },
+const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
 
-    deactivateTemplateStage: async (id) => {
-        await api.delete(`/stage-templates/${id}`);
-    },""",
-    new="""    updateTemplateStage: async (id, stageName, defaultCost, displayOrder) => {
-        const response = await api.put(`/stage-templates/${id}`, { stageName, defaultCost, displayOrder });
-        return response.data;
-    },
+const PROJECT_TYPES = [
+    { value: 'NEW_FOLDER',   label: 'New Folder',   icon: <FiFolderPlus aria-hidden="true" />, hint: 'No title yet' },
+    { value: 'NEW_TITLE',    label: 'New Title',    icon: <FiFilePlus aria-hidden="true" />,   hint: 'Title captured now' },
+    { value: 'LEGACY_TITLE', label: 'Legacy Title', icon: <FiArchive aria-hidden="true" />,    hint: 'Existing title, receivable' },
+];
 
-    // PERF FIX: one round trip to persist a whole new ordering, instead of
-    // the caller firing one PUT per stage. See reorderTemplateStages usage
-    // in IntakePage's handleAddStage.
-    reorderTemplateStages: async (orderedIds) => {
-        const response = await api.put('/stage-templates/reorder', { orderedIds });
-        return response.data;
-    },
+const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 
-    // PERF FIX: restoring the default checklist used to be N deletes + a
-    // sequential add-loop + another N-call renumber pass from the client.
-    // Now it's a single backend-transactional round trip.
-    restoreDefaultStages: async () => {
-        const response = await api.post('/stage-templates/restore-defaults');
-        return response.data;
-    },
-
-    deactivateTemplateStage: async (id) => {
-        await api.delete(`/stage-templates/${id}`);
-    },""",
-)
-
-# ─────────────────────────────────────────────────────────────────────────
-# 2. erp-frontend/src/pages/Intake/IntakePage.jsx
-# ─────────────────────────────────────────────────────────────────────────
-
-# 2a. Drop the now-dead client-side DEFAULT_STAGES list (Restore Defaults
-#     is now a single backend call; the backend owns the canonical list).
-patch(
-    "erp-frontend/src/pages/Intake/IntakePage.jsx",
-    old="""const DEFAULT_STAGES = [
+// Canonical default checklist. The Stages section works on a LOCAL copy of
+// this list: edits are instant, never hit the master template, and the list
+// always resets to these defaults whenever the form is opened unsaved.
+const DEFAULT_STAGES = [
     'Field Work',
     'Deed Plan',
     'LC Inspection',
@@ -129,399 +68,819 @@ patch(
     'Tax Assessment and Stamp Duty',
     'Registration and Title Issuance',
 ];
+const FINAL_STAGE = 'Registration and Title Issuance';
 
-""",
-    new="""// NOTE: the default stage list itself now lives only on the backend
-// (StageTemplateService.DEFAULT_STAGES) -- Restore Defaults is a single
-// backend call (see handleRestoreDefaults) rather than the frontend
-// re-deriving the list and issuing per-stage requests, so there is no
-// longer a client-side copy to keep in sync with it.
+const DEFAULT_MONTHLY_STORAGE_FEE = 50000;
 
-""",
-)
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayDMY = () => {
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
+const formatDMY = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+};
+const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
-# 2b. fetchTemplates: add a sequence-token guard. Index field: add a
-#     one-time retry.
-patch(
-    "erp-frontend/src/pages/Intake/IntakePage.jsx",
-    old="""    const fetchTemplates = useCallback(() => {
-        stageTemplateService.getTemplate().then(t => setTemplates(t || [])).catch(() => {});
+const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
+const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
+const loadPresets = () => {
+    try {
+        const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+};
+const savePresets = (presets) => {
+    try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets)); } catch {}
+};
+
+export default function IntakePage() {
+    const navigate = useNavigate();
+    const topRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const [saving, setSaving] = useState(false);
+    const [nextIndex, setNextIndex] = useState('');
+    const [projectType, setProjectType] = useState('NEW_FOLDER');
+    const [projectStartDate] = useState(todayISO);
+    const [owners, setOwners] = useState([EMPTY_OWNER()]);
+
+    const [district, setDistrict] = useState('');
+    const [county, setCounty] = useState('');
+    const [subCounty, setSubCounty] = useState('');
+    const [parish, setParish] = useState('');
+    const [village, setVillage] = useState('');
+    const [area, setArea] = useState('');
+
+    // ── STAGES: local-only working list (keyed by name) ──────────────
+    const [masterTemplates, setMasterTemplates] = useState([]);
+    const [stageList, setStageList] = useState(() => DEFAULT_STAGES.map(name => ({ id: null, name })));
+    const [checked, setChecked] = useState({ [DEFAULT_STAGES[0]]: true });
+    const [addingStage, setAddingStage] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [insertAfterName, setInsertAfterName] = useState('');
+    const [presets, setPresets] = useState(loadPresets);
+    const [presetName, setPresetName] = useState('');
+    const [showSavePreset, setShowSavePreset] = useState(false);
+
+    const [titleId, setTitleId] = useState('');
+    const [tenure, setTenure] = useState('FREEHOLD');
+    const [plotNumber, setPlotNumber] = useState('');
+    const [blockRoad, setBlockRoad] = useState('');
+    const [titleIssueDate, setTitleIssueDate] = useState('');
+
+    const [totalCost, setTotalCost] = useState(0);
+    const [initialPayment, setInitialPayment] = useState(0);
+    const [initialStorageFee, setInitialStorageFee] = useState(0);
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);
+
+    const [fileQueue, setFileQueue] = useState([]);
+    const [notes, setNotes] = useState('');
+
+    const [dirty, setDirty] = useState(false);
+    const dirtyRef = useRef(false);
+    const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
+
+    const [toasts, setToasts] = useState([]);
+    const toast = useCallback((msg, type = 'info') => {
+        const id = Date.now() + Math.random();
+        setToasts(p => [...p, { id, msg, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
-    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
+    // Master template fetched READ-ONLY
     useEffect(() => {
-        landService.getNextIndex().then(idx => setNextIndex(idx || ''))
-            .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
-    }, []);""",
-    new="""    // PERF FIX: sequence guard so an older, slower fetchTemplates() response
-    // can never overwrite a newer one (or an optimistic local update made
-    // in the meantime). This was the "doesn't stick until refresh" bug --
-    // there was previously no ordering guard at all, so a stale refetch
-    // firing after a mutation could silently clobber fresh state.
-    const fetchSeqRef = useRef(0);
-    const fetchTemplates = useCallback(() => {
-        const seq = ++fetchSeqRef.current;
-        stageTemplateService.getTemplate()
-            .then(t => { if (seq === fetchSeqRef.current) setTemplates(t || []); })
-            .catch(() => {});
+        stageTemplateService.getTemplate().then(list => {
+            const sorted = [...(list || [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+            const seen = new Set(); const uniq = [];
+            sorted.forEach(t => {
+                if (t.stageName && !seen.has(t.stageName)) { seen.add(t.stageName); uniq.push({ id: t.id, name: t.stageName }); }
+            });
+            setMasterTemplates(uniq);
+        }).catch(() => {});
     }, []);
-    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
+    // INDEX: instant paint from cache + up to 2 silent retries on failure.
     useEffect(() => {
         let cancelled = false;
-        // The Index field was observed stuck on "Loading..." for a while.
-        // Profiling shows the query itself is a single trivial row lookup
-        // and this call already doesn't block anything else on the page
-        // (it's an independent effect and nothing else reads `nextIndex`).
-        // The realistic remaining cause is a slow/cold first connection to
-        // the API, which a retry can paper over without any downside.
+        try { const c = localStorage.getItem(INDEX_CACHE_KEY); if (c) setNextIndex(c); } catch {}
         const load = (attempt) => {
-            landService.getNextIndex()
-                .then(idx => { if (!cancelled) setNextIndex(idx || ''); })
-                .catch(() => {
-                    if (cancelled) return;
-                    if (attempt < 1) { setTimeout(() => load(attempt + 1), 3000); return; }
-                    toast('Could not load the next index. Refresh to try again.', 'error');
-                });
+            landService.getNextIndex().then(idx => {
+                if (cancelled) return;
+                if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} }
+            }).catch(() => {
+                if (cancelled) return;
+                if (attempt < 2) { setTimeout(() => load(attempt + 1), 2500); return; }
+                let cached = null; try { cached = localStorage.getItem(INDEX_CACHE_KEY); } catch {}
+                if (!cached) toast('Could not load the next index. Refresh to try again.', 'error');
+            });
         };
         load(0);
         return () => { cancelled = true; };
-    }, []);""",
-)
+    }, [toast]);
 
-# 2c. Replace renumber()/handleAddStage/handleDeleteStage/handleRestoreDefaults
-#     with the optimistic, bulk-call versions.
-patch(
-    "erp-frontend/src/pages/Intake/IntakePage.jsx",
-    old="""    // one parallel wave of order updates = fast, no lag
-    const renumber = (ordered) => Promise.all(
-        ordered.map((t, i) =>
-            t?.id ? stageTemplateService.updateTemplateStage(t.id, t.stageName, t.defaultCost || 0, i + 1) : null
-        )
+    const collapsedOnce = useRef(false);
+    useEffect(() => {
+        const el = topRef.current;
+        if (!el) return;
+        const handler = () => {
+            if (collapsedOnce.current) return;
+            collapsedOnce.current = true;
+            const aside = document.querySelector('aside');
+            const toggle = document.querySelector('[class*="sidebarToggle"]');
+            if (aside && toggle && aside.getBoundingClientRect().width > 120) {
+                toggle.click();
+            }
+        };
+        el.addEventListener('focusin', handler);
+        el.addEventListener('input', handler);
+        el.addEventListener('click', handler);
+        return () => {
+            el.removeEventListener('focusin', handler);
+            el.removeEventListener('input', handler);
+            el.removeEventListener('click', handler);
+        };
+    }, []);
+
+    useEffect(() => {
+        const h = (e) => {
+            if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+        };
+        window.addEventListener('beforeunload', h);
+        return () => window.removeEventListener('beforeunload', h);
+    }, []);
+
+    const blocker = useBlocker(dirty && !saving);
+
+    useEffect(() => {
+        if (blocker.state !== 'blocked') return;
+        const onKeyDown = (e) => { if (e.key === 'Escape') blocker.reset(); };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [blocker]);
+
+    const finalStageChecked = !!checked[FINAL_STAGE];
+    const isLegacy = projectType === 'LEGACY_TITLE';
+    const titleAtIntake = projectType === 'NEW_TITLE';
+    const isTitleType = isLegacy || titleAtIntake;
+    const isTitleSectionVisible = isTitleType || finalStageChecked;
+    const showStages = !isTitleType;
+
+    const handleProjectTypeChange = (value) => {
+        setProjectType(value);
+        markDirty();
+        if (value === 'LEGACY_TITLE' || value === 'NEW_TITLE') {
+            const all = {};
+            stageList.forEach(s => { all[s.name] = true; });
+            setChecked(all);
+        } else {
+            setChecked({ [stageList[0]?.name]: true });
+        }
+    };
+
+    const toggleStage = (name) => {
+        markDirty();
+        setChecked(p => ({ ...p, [name]: !p[name] }));
+    };
+
+    const openInsertBelow = (name) => {
+        setInsertAfterName(name);
+        setAddingStage(true);
+    };
+
+    const handleAddStage = () => {
+        const name = newStageName.trim();
+        if (!name) { toast('Enter a stage name first.', 'error'); return; }
+        if (stageList.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+            toast('That stage is already on the list.', 'error'); return;
+        }
+        let k;
+        if (!stageList.length) k = 0;
+        else {
+            k = stageList.length - 1;
+            const idx = stageList.findIndex(s => s.name === insertAfterName);
+            if (idx >= 0) k = idx + 1;
+            k = Math.min(Math.max(k, 1), Math.max(1, stageList.length - 1));
+        }
+        const next = [...stageList];
+        next.splice(k, 0, { id: null, name });
+        setStageList(next);
+        setChecked(p => ({ ...p, [name]: true }));
+        setNewStageName(''); setInsertAfterName(''); setAddingStage(false);
+        markDirty();
+        toast('Stage inserted.', 'success');
+    };
+
+    const handleDeleteStage = (name) => {
+        setStageList(p => p.filter(s => s.name !== name));
+        setChecked(p => { const n = { ...p }; delete n[name]; return n; });
+        markDirty();
+        toast('Stage removed.', 'success');
+    };
+
+    const handleRestoreDefaults = () => {
+        setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
+        setChecked({ [DEFAULT_STAGES[0]]: true });
+        setAddingStage(false); setNewStageName(''); setInsertAfterName('');
+        markDirty();
+        toast('Default stages restored.', 'success');
+    };
+
+    const handleSavePreset = () => {
+        if (!presetName.trim()) { toast('Name the preset first.', 'error'); return; }
+        const stageNames = stageList.filter(s => checked[s.name]).map(s => s.name);
+        const next = [...presets.filter(p => p.name !== presetName.trim()), { name: presetName.trim(), stageNames }];
+        setPresets(next);
+        savePresets(next);
+        setPresetName('');
+        setShowSavePreset(false);
+        toast('Stage preset saved.', 'success');
+    };
+
+    const applyPreset = (name) => {
+        if (!name) return;
+        const preset = presets.find(p => p.name === name);
+        if (!preset) return;
+        const next = {};
+        stageList.forEach(s => { next[s.name] = preset.stageNames.includes(s.name); });
+        setChecked(next);
+        markDirty();
+    };
+
+    const deletePreset = (name) => {
+        const next = presets.filter(p => p.name !== name);
+        setPresets(next);
+        savePresets(next);
+    };
+
+    const updateOwner = (idx, field, val) => {
+        markDirty();
+        setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o));
+    };
+
+    const handleFileUpload = (e) => {
+        const items = Array.from(e.target.files).map(f => ({
+            name: f.name, size: f.size, file: f, url: URL.createObjectURL(f),
+        }));
+        if (items.length) {
+            setFileQueue(p => [...p, ...items]);
+            markDirty();
+        }
+        e.target.value = '';
+    };
+
+    const removeFile = (i) => {
+        setFileQueue(p => {
+            URL.revokeObjectURL(p[i].url);
+            return p.filter((_, idx) => idx !== i);
+        });
+    };
+
+    const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
+
+    const validate = () => {
+        // ALL location information is a must.
+        if (!district.trim()) { toast('District is required.', 'error'); return false; }
+        if (!county.trim()) { toast('County is required.', 'error'); return false; }
+        if (!subCounty.trim()) { toast('Sub-county is required.', 'error'); return false; }
+        if (!parish.trim()) { toast('Parish is required.', 'error'); return false; }
+        if (!village.trim()) { toast('Village is required.', 'error'); return false; }
+        if (!area.trim()) { toast('Area is required.', 'error'); return false; }
+        for (let i = 0; i < owners.length; i++) {
+            const o = owners[i];
+            if (!o.nationalId.trim()) { toast(`Owner ${i + 1}: NIN is required.`, 'error'); return false; }
+            if (!o.fullName.trim()) { toast(`Owner ${i + 1}: Full Name is required.`, 'error'); return false; }
+            if (!o.phone.trim()) { toast(`Owner ${i + 1}: Phone is required (use / for multiple numbers).`, 'error'); return false; }
+        }
+        if (isTitleSectionVisible) {
+            if (!titleId.trim()) { toast('Title ID is required.', 'error'); return false; }
+            if (!plotNumber.trim()) { toast('Plot Number is required.', 'error'); return false; }
+            if (!blockRoad.trim()) { toast('Block is required.', 'error'); return false; }
+            if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
+        }
+        if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
+        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) {
+            toast('Initial Payment is required (0 or more).', 'error'); return false;
+        }
+        if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
+        return true;
+    };
+
+    const doSave = async () => {
+        if (!validate()) return false;
+        setSaving(true);
+        try {
+            let noteText = notes.trim();
+            if (noteText && !/^\[\d{2}\/\d{2}\/\d{4}\]/.test(noteText)) {
+                noteText = `[${todayDMY()}] ${noteText}`;
+            }
+
+            const payload = {
+                district: district.trim().toUpperCase(),
+                county: county.trim().toUpperCase(),
+                subCounty: subCounty.trim().toUpperCase(),
+                parish: parish.trim().toUpperCase(),
+                village: village.trim().toUpperCase(),
+                area: area.trim().toUpperCase(),
+                totalCost: Number(totalCost) || 0,
+                initialPayment: Number(initialPayment) || 0,
+                isLegacy: isLegacy,
+                titleAtIntake: titleAtIntake,
+                projectStartDate: todayISO(),
+                owners: owners.map(o => ({
+                    fullName: o.fullName.trim().toUpperCase(),
+                    phone: o.phone.trim(),
+                    email: o.email.trim().toLowerCase(),
+                    nationalId: o.nationalId.trim().toUpperCase(),
+                    address: o.address.trim(),
+                })),
+                selectedStages: stageList
+                    .filter(s => checked[s.name])
+                    .map(s => {
+                        const m = masterTemplates.find(t => t.name === s.name);
+                        return m
+                            ? { stageTemplateId: m.id, stageName: s.name, isCustom: false, isCompleted: true }
+                            : { stageName: s.name, isCustom: true, cost: 0, isCompleted: true };
+                    }),
+                notes: noteText ? [{ content: noteText }] : [],
+            };
+
+            if (isTitleSectionVisible) {
+                payload.plotNumber = plotNumber.trim().toUpperCase();
+                payload.tenure = tenure;
+                payload.blockRoad = blockRoad.trim().toUpperCase();
+                payload.titleId = titleId.trim().toUpperCase();
+                payload.titleIssueDate = titleIssueDate || null;
+            }
+
+            if (isLegacy) {
+                payload.isStartAsReceivable = true;
+                payload.initialStorageFee = Number(initialStorageFee) || 0;
+                payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
+            }
+
+            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
+            dirtyRef.current = false;
+            setDirty(false);
+            return true;
+        } catch (err) {
+            toast(err.response?.data?.message || 'Save failed', 'error');
+            return false;
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSubmit = async () => {
+        const ok = await doSave();
+        if (ok) {
+            toast('Project registered successfully!', 'success');
+            setTimeout(() => navigate('/land/projects'), 1200);
+        }
+    };
+
+    const handleDuplicate = async () => {
+        const ok = await doSave();
+        if (!ok) return;
+        toast('Saved. Form duplicated for the next plot.', 'success');
+        setProjectType('NEW_FOLDER');
+        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0);
+        setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
+        setNotes('');
+        setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
+        setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
+        setChecked({ [DEFAULT_STAGES[0]]: true });
+        landService.getNextIndex().then(idx => {
+            if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} }
+        }).catch(() => {});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+
+    let n = 0;
+    const nIndex = ++n;
+    const nOwners = ++n;
+    const nTitle = isTitleSectionVisible ? ++n : null;
+    const nLocation = ++n;
+    const nStages = showStages ? ++n : null;
+    const nFinancials = ++n;
+    const nDocuments = ++n;
+    const nNotes = ++n;
+
+    return (
+        <div className={styles.container} ref={topRef}>
+            <header className={styles.pageHeader}>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>New Project</h1>
+                    <p className={styles.subtitle}>Intake Form</p>
+                </div>
+                <div className={styles.actions}>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> Save
+                    </button>
+                    <button type="button" className={`${styles.btn} ${styles.cancelBtn}`} onClick={() => navigate(-1)}>Cancel</button>
+                </div>
+            </header>
+
+            <div className={styles.sections}>
+
+                <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Index</label>
+                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>
+                            <p className={styles.hint}>Next available index, assigned on save</p>
+                        </div>
+                        <div className={styles.field}>
+                            <label className={styles.label}>Date Started</label>
+                            <div className={styles.indexDisplay}>{formatDMY(projectStartDate)}</div>
+                            <p className={styles.hint}>Auto-generated with today's date</p>
+                        </div>
+                    </div>
+                    <div className={styles.field}>
+                        <label className={`${styles.label} ${styles.required}`}>Type</label>
+                        <div className={styles.typeGroup}>
+                            {PROJECT_TYPES.map(pt => (
+                                <button
+                                    key={pt.value}
+                                    type="button"
+                                    className={`${styles.typeBtn} ${projectType === pt.value ? styles.typeBtnActive : ''}`}
+                                    onClick={() => handleProjectTypeChange(pt.value)}
+                                >
+                                    {pt.icon}
+                                    <span>{pt.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <p className={styles.typeHint}>{PROJECT_TYPES.find(pt => pt.value === projectType)?.hint}</p>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection icon={<FiUsers />} title={`${nOwners}. Owners`}>
+                    {owners.map((o, idx) => (
+                        <div key={idx} className={styles.ownerRow}>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>NIN</label>
+                                <input className={styles.input} value={o.nationalId} onChange={e => updateOwner(idx, 'nationalId', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Full Name</label>
+                                <input className={styles.input} value={o.fullName} onChange={e => updateOwner(idx, 'fullName', e.target.value)} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Phone</label>
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} placeholder="0700 000 000 / 0788 000 000" />
+                                <p className={styles.hint}>Multiple: separate with /</p>
+                            </div>
+                            <div className={styles.field}>
+                                <label className={styles.label}>Email</label>
+                                <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
+                            </div>
+                            <button
+                                type="button"
+                                className={`${styles.btn} ${styles.deleteBtn}`}
+                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}
+                                disabled={owners.length === 1}
+                                aria-label="Remove owner"
+                            >
+                                <FiTrash2 />
+                            </button>
+                        </div>
+                    ))}
+                    <button type="button" className={styles.addBtn} onClick={() => { setOwners(p => [...p, EMPTY_OWNER()]); markDirty(); }}>
+                        <FiPlus /> Add Owner
+                    </button>
+                </CollapsibleSection>
+
+                {isTitleSectionVisible && (
+                    <CollapsibleSection icon={<FiFileText />} title={`${nTitle}. Title Details`} accent>
+                        <div className={styles.grid3}>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Title ID</label>
+                                <input className={styles.input} value={titleId} onChange={e => { setTitleId(e.target.value); markDirty(); }} />
+                            </div>
+                            <HardwareSelect
+                                label="Tenure"
+                                required
+                                options={TENURE_OPTIONS}
+                                value={tenure}
+                                onChange={(v) => { setTenure(v); markDirty(); }}
+                            />
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Plot Number</label>
+                                <input className={styles.input} value={plotNumber} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Block</label>
+                                <input className={styles.input} value={blockRoad} onChange={e => { setBlockRoad(e.target.value); markDirty(); }} />
+                            </div>
+                            <div className={styles.field}>
+                                <label className={`${styles.label} ${styles.required}`}>Title Date</label>
+                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => { setTitleIssueDate(e.target.value); markDirty(); }} />
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+                )}
+
+                <CollapsibleSection icon={<FiMap />} title={`${nLocation}. Location`}>
+                    <div className={styles.grid3}>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>District</label>
+                            <input className={styles.input} value={district} onChange={e => { setDistrict(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>County</label>
+                            <input className={styles.input} value={county} onChange={e => { setCounty(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Sub-county</label>
+                            <input className={styles.input} value={subCounty} onChange={e => { setSubCounty(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Parish</label>
+                            <input className={styles.input} value={parish} onChange={e => { setParish(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Village</label>
+                            <input className={styles.input} value={village} onChange={e => { setVillage(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Area</label>
+                            <input className={styles.input} value={area} onChange={e => { setArea(e.target.value); markDirty(); }} />
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
+                {showStages && (
+                    <CollapsibleSection
+                        icon={<FiCheckSquare />}
+                        title={`${nStages}. Stages`}
+                        right={
+                            <div style={{ display: 'flex', gap: 'var(--gap-md)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {presets.length > 0 && (
+                                    <HardwareSelect
+                                        compact
+                                        placeholder="Apply preset..."
+                                        value=""
+                                        options={presets.map(p => p.name)}
+                                        onChange={applyPreset}
+                                    />
+                                )}
+                                <button type="button" className={styles.addBtn} onClick={() => setShowSavePreset(s => !s)}>
+                                    <FiBookmark /> Save Preset
+                                </button>
+                                <button type="button" className={styles.addBtn} onClick={handleRestoreDefaults}>
+                                    <FiRefreshCw /> Restore Defaults
+                                </button>
+                            </div>
+                        }
+                    >
+                        {showSavePreset && (
+                            <div className={styles.inlineAddRow}>
+                                <input className={styles.input} placeholder="Preset name" value={presetName} onChange={e => setPresetName(e.target.value)} />
+                                <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleSavePreset}>Save</button>
+                                <button type="button" className={styles.xBtn} onClick={() => { setShowSavePreset(false); setPresetName(''); }} aria-label="Close"><FiX /></button>
+                            </div>
+                        )}
+                        {addingStage && (
+                            <div className={styles.inlineAddRow}>
+                                <span className={styles.insertCtx}>
+                                    {insertAfterName ? `Insert under: ${insertAfterName}` : 'Insert before last stage'}
+                                </span>
+                                <input className={styles.input} placeholder="New stage name" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                                <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleAddStage}>Add</button>
+                                <button type="button" className={styles.xBtn} onClick={() => { setAddingStage(false); setNewStageName(''); setInsertAfterName(''); }} aria-label="Close"><FiX /></button>
+                            </div>
+                        )}
+                        <div className={styles.stageList}>
+                            {stageList.map((s, i) => {
+                                const isLast = i === stageList.length - 1;
+                                const isFirst = i === 0;
+                                return (
+                                    <label key={s.name} className={`${styles.stageItem} ${checked[s.name] ? styles.checked : ''}`}>
+                                        <input type="checkbox" className={styles.checkbox} checked={!!checked[s.name]}
+                                            onChange={() => toggleStage(s.name)} />
+                                        <span className={styles.stageName}>{s.name}</span>
+                                        <span className={styles.stageActions}>
+                                            {!isLast && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.plusBtn}
+                                                    title="Insert a stage below this one"
+                                                    aria-label={`Insert stage below ${s.name}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(s.name); }}
+                                                >
+                                                    <FiPlus size={12} />
+                                                </button>
+                                            )}
+                                            {!isLast && !isFirst && (
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteStage(s.name); }}
+                                                    aria-label={`Delete stage ${s.name}`}
+                                                >
+                                                    <FiTrash2 size={12} />
+                                                </button>
+                                            )}
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        {presets.length > 0 && (
+                            <div className={styles.presetList}>
+                                {presets.map(p => (
+                                    <span key={p.name} className={styles.presetChip}>
+                                        {p.name}
+                                        <button
+                                            type="button"
+                                            className={styles.presetChipRemove}
+                                            onClick={() => deletePreset(p.name)}
+                                            aria-label={`Delete preset ${p.name}`}
+                                        >
+                                            <FiX size={12} />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </CollapsibleSection>
+                )}
+
+                <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
+                    <div className={styles.grid2}>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Total Cost</label>
+                            <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />
+                        </div>
+                        <div className={styles.field}>
+                            <label className={`${styles.label} ${styles.required}`}>Initial Payment</label>
+                            <input type="number" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
+                        </div>
+                    </div>
+                    {isLegacy && (
+                        <>
+                            <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
+                            <div className={styles.grid2}>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Initial Storage Fee</label>
+                                    <input type="number" className={styles.input} value={initialStorageFee} onChange={e => { setInitialStorageFee(e.target.value); markDirty(); }} />
+                                </div>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Monthly Storage Fee</label>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
+                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    <div className={styles.financialsSummary}>
+                        <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
+                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
+                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
+                    </div>
+                </CollapsibleSection>
+
+                <div className={styles.splitRow}>
+                    <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
+                        <div
+                            className={styles.dropzone}
+                            onClick={triggerFileInput}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}
+                        >
+                            <span className={styles.dropzoneIcon}><FiUploadCloud size={18} /></span>
+                            <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
+                            <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>
+                        </div>
+                        <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
+                        <div className={styles.fileList}>
+                            {fileQueue.map((f, i) => (
+                                <div key={i} className={styles.fileItem}>
+                                    <span className={styles.fileMeta}>
+                                        <FiFile className={styles.fileIcon} size={14} />
+                                        <span className={styles.fileName}>{f.name}</span>
+                                        <span className={styles.fileSize}>{fmtSize(f.size)}</span>
+                                    </span>
+                                    <span className={styles.fileActions}>
+                                        <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>
+                                            <FiEye size={12} /> View
+                                        </a>
+                                        <button
+                                            type="button"
+                                            className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`}
+                                            onClick={() => removeFile(i)}
+                                            aria-label={`Remove ${f.name}`}
+                                        >
+                                            <FiTrash2 size={12} />
+                                        </button>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </CollapsibleSection>
+
+                    <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
+                        <div className={styles.notesWrap}>
+                            <span className={styles.noteDateChip}><FiCalendar size={11} /> {todayDMY()}</span>
+                            <textarea className={styles.textarea} value={notes} onChange={e => { setNotes(e.target.value); markDirty(); }} placeholder="Shared project notes - visible to all staff on the folder page..." />
+                            <p className={styles.hint}>Saved with today's date as an intake note.</p>
+                        </div>
+                    </CollapsibleSection>
+                </div>
+
+            </div>
+
+            <div className={styles.bottomBar}>
+                <div className={styles.bottomBarRight}>
+                    <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving}>
+                        <FiCopy /> Duplicate
+                    </button>
+                    <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={saving} onClick={handleSubmit}>
+                        <FiSave /> Save Project
+                    </button>
+                </div>
+            </div>
+
+            <BackToTopButton />
+
+            {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
+                <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
+                    <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
+                        <h3 className={styles.modalTitle}>Unsaved work</h3>
+                        <p className={styles.modalText}>
+                            You have unsaved information on this form. Save before leaving?
+                        </p>
+                        <div className={styles.modalBtns}>
+                            <button type="button" className={`${styles.btn} ${styles.deleteBtn}`} onClick={() => blocker.proceed()}>Leave</button>
+                            <button
+                                type="button"
+                                className={`${styles.btn} ${styles.primary}`}
+                                onClick={async () => {
+                                    const ok = await doSave();
+                                    if (ok) blocker.proceed(); else blocker.reset();
+                                }}
+                            >
+                                <FiSave /> Save & Leave
+                            </button>
+                        </div>
+                        <p className={styles.modalHint}>Click outside or press Esc to keep editing</p>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {typeof document !== 'undefined' && createPortal(
+                <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
+                    {toasts.map(t => (
+                        <div key={t.id} className={`${styles.toast} ${styles['toast_' + (t.type || 'info')]}`}>{t.msg}</div>
+                    ))}
+                </div>,
+                document.body
+            )}
+        </div>
     );
+}
+''')
 
-    const openInsertBelow = (stageId) => {
-        setInsertAfterId(stageId);
-        setAddingStage(true);
-    };
+print(f"\n=== fix3.py (corrected) completed ===")
+print(f"  Wrote:   {len(WROTE)} file(s)")
+for f in WROTE: print(f"    + {f}")
+if FAILED:
+    print(f"  FAILED:  {len(FAILED)} patch(es)")
+    for f, e in FAILED: print(f"    ! {f} -> {e}")
+    sys.exit(1)
 
-    const handleAddStage = async () => {
-        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
-        try {
-            let k = sortedTemplates.length - 1; // default: just before last
-            const idx = sortedTemplates.findIndex(t => t.id === insertAfterId);
-            if (idx >= 0) k = idx + 1; // appears directly under the clicked stage
-            k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
+if WROTE:
+    try:
+        subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
+        commit_msg = """fix: pass 6 corrected — local-only stages, top Save, viewport toasts,
+borderless up-arrow, required location/title fields
 
-            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0, k + 1);
-            const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
-            const next = sortedTemplates.filter(t => t.id !== created?.id);
-            next.splice(k, 0, item);
-            await renumber(next);
+- Stages: local-only editing (instant, zero lag); list always resets to
+  the 6 defaults on open when unsaved; '+ New Stage' removed
+- Save button added to the header next to the red Cancel
+- Index: localStorage cache + 2 silent retries (no more error toast)
+- Toasts portalled to document.body -> bottom of viewport (standard)
+- Back-to-top: shared borderless/backgroundless orange arrow w/ glow
+- ALL location fields required; ALL title details required
+- Date Started: auto-generated, display only (no entry field)
+- Monthly Storage Fee: system default 50000 pre-filled"""
+        subprocess.run(['git', 'commit', '-m', commit_msg], check=True, cwd=ROOT, capture_output=True)
+        print("\n  Git: Committed all changes")
+        subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
+        print("  Git: Pushed to remote")
+    except subprocess.CalledProcessError as e:
+        print(f"\n  Git: failed (exit code {e.returncode})")
+        if e.output:
+            print(f"    {e.output.decode('utf-8', errors='replace').strip()}")
+    except FileNotFoundError:
+        print("\n  Git: git not found in PATH")
 
-            setNewStageName('');
-            setInsertAfterId('');
-            setAddingStage(false);
-            fetchTemplates();
-            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
-            toast('Stage inserted.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Could not add stage.', 'error');
-        }
-    };
-
-    const handleDeleteStage = async (id) => {
-        try {
-            await stageTemplateService.deleteTemplateStage(id);
-            setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
-            fetchTemplates();
-            toast('Stage removed.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Could not delete stage.', 'error');
-        }
-    };
-
-    const handleRestoreDefaults = async () => {
-        setRestoring(true);
-        try {
-            const keep = sortedTemplates.filter(t => DEFAULT_STAGES.includes(t.stageName));
-            await Promise.all(
-                sortedTemplates
-                    .filter(t => !DEFAULT_STAGES.includes(t.stageName))
-                    .map(t => stageTemplateService.deleteTemplateStage(t.id))
-            );
-            const have = new Set(keep.map(t => t.stageName));
-            const added = [];
-            for (const name of DEFAULT_STAGES) {
-                if (!have.has(name)) {
-                    const c = await stageTemplateService.addTemplateStage(name, 0);
-                    added.push({ id: c?.id, stageName: name, defaultCost: 0 });
-                }
-            }
-            const byName = {};
-            [...keep, ...added].forEach(t => { byName[t.stageName] = t; });
-            await renumber(DEFAULT_STAGES.map(name => byName[name]).filter(Boolean));
-            fetchTemplates();
-            toast('Default stages restored.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Restore failed.', 'error');
-        } finally {
-            setRestoring(false);
-        }
-    };""",
-    new="""    const openInsertBelow = (stageId) => {
-        setInsertAfterId(stageId);
-        setAddingStage(true);
-    };
-
-    // PERF FIX: this used to await a full renumber() -- one PUT per stage
-    // via Promise.all -- and then call fetchTemplates() for a third round
-    // trip. On a 15-20+ stage list that Promise.all queued behind the
-    // browser's per-host connection limit instead of actually running
-    // concurrently, which is what made Add feel like it hung. Now: the
-    // create call, then ONE bulk reorder call, with the UI updated
-    // optimistically from local state in between so it never waits on
-    // either request to feel done.
-    const handleAddStage = async () => {
-        if (!newStageName.trim()) { toast('Enter a stage name first.', 'error'); return; }
-        try {
-            let k = sortedTemplates.length - 1; // default: just before last
-            const idx = sortedTemplates.findIndex(t => t.id === insertAfterId);
-            if (idx >= 0) k = idx + 1; // appears directly under the clicked stage
-            k = Math.min(Math.max(k, 1), Math.max(1, sortedTemplates.length - 1));
-
-            const created = await stageTemplateService.addTemplateStage(newStageName.trim(), 0, k + 1);
-            const item = { id: created?.id, stageName: newStageName.trim(), defaultCost: 0 };
-            const next = sortedTemplates.filter(t => t.id !== created?.id);
-            next.splice(k, 0, item);
-            // Assign sequential order locally so the list is visually correct
-            // right away, independent of the reorder round trip below.
-            const reordered = next.map((t, i) => ({ ...t, displayOrder: i + 1 }));
-
-            setTemplates(reordered);
-            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates so it can't overwrite this
-            setNewStageName('');
-            setInsertAfterId('');
-            setAddingStage(false);
-            if (created?.id) setCheckedStages(p => ({ ...p, [created.id]: true }));
-            toast('Stage inserted.', 'success');
-
-            await stageTemplateService.reorderTemplateStages(reordered.map(t => t.id));
-        } catch (err) {
-            toast(err.response?.data?.message || 'Could not add stage.', 'error');
-            fetchTemplates(); // resync with the server if anything above failed
-        }
-    };
-
-    // PERF FIX: instant optimistic removal instead of waiting on a delete
-    // + a full refetch. Order gaps left behind are harmless since the list
-    // is always rendered sorted by displayOrder, not by contiguous values.
-    const handleDeleteStage = async (id) => {
-        const prevTemplates = templates;
-        setTemplates(ts => ts.filter(t => t.id !== id));
-        setCheckedStages(p => { const n = { ...p }; delete n[id]; return n; });
-        fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
-        try {
-            await stageTemplateService.deleteTemplateStage(id);
-            toast('Stage removed.', 'success');
-        } catch (err) {
-            setTemplates(prevTemplates); // roll back on failure
-            toast(err.response?.data?.message || 'Could not delete stage.', 'error');
-        }
-    };
-
-    // PERF FIX: was N parallel deletes + a SEQUENTIAL await-loop re-adding
-    // missing defaults (the single slowest part -- one call at a time) +
-    // another N-call renumber pass + a refetch. Now it's one transactional
-    // backend call, so it's a single HTTP round trip no matter how long
-    // the current list is.
-    const handleRestoreDefaults = async () => {
-        setRestoring(true);
-        try {
-            const restored = await stageTemplateService.restoreDefaultStages();
-            fetchSeqRef.current++; // invalidate any in-flight fetchTemplates
-            setTemplates(restored || []);
-            toast('Default stages restored.', 'success');
-        } catch (err) {
-            toast(err.response?.data?.message || 'Restore failed.', 'error');
-        } finally {
-            setRestoring(false);
-        }
-    };""",
-)
-
-# ─────────────────────────────────────────────────────────────────────────
-# 3. erp-backend .../controller/StageTemplateController.java
-#    New endpoints: bulk reorder, bulk delete, restore-defaults.
-# ─────────────────────────────────────────────────────────────────────────
-patch(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java",
-    old="""    @DeleteMapping("/stage-templates/{id}")
-    public ResponseEntity<Void> deactivateTemplateStage(@PathVariable UUID id) {
-        stageTemplateService.deactivateTemplateStage(id);
-        return ResponseEntity.noContent().build();
-    }""",
-    new="""    @DeleteMapping("/stage-templates/{id}")
-    public ResponseEntity<Void> deactivateTemplateStage(@PathVariable UUID id) {
-        stageTemplateService.deactivateTemplateStage(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    // PERF FIX: bulk reorder in one round trip. A literal path segment
-    // ("reorder") always wins over the "{id}" pattern above for an exact
-    // match, so this cannot be shadowed by updateTemplateStage/deactivate.
-    @PutMapping("/stage-templates/reorder")
-    public ResponseEntity<List<StageTemplate>> reorderTemplateStages(@RequestBody Map<String, List<String>> body) {
-        List<UUID> orderedIds = (body.getOrDefault("orderedIds", List.of())).stream()
-                .map(UUID::fromString)
-                .toList();
-        return ResponseEntity.ok(stageTemplateService.reorderTemplateStages(orderedIds));
-    }
-
-    // PERF FIX: bulk delete in one round trip (used internally by
-    // restoreDefaultStages, also useful for any future multi-select UI).
-    @DeleteMapping("/stage-templates/bulk")
-    public ResponseEntity<Void> bulkDeleteTemplateStages(@RequestBody Map<String, List<String>> body) {
-        List<UUID> ids = (body.getOrDefault("ids", List.of())).stream()
-                .map(UUID::fromString)
-                .toList();
-        stageTemplateService.bulkDeleteTemplateStages(ids);
-        return ResponseEntity.noContent().build();
-    }
-
-    // PERF FIX: restoring defaults used to be many HTTP calls from the
-    // client (parallel deletes + a sequential add-loop + a renumber pass).
-    // This wraps the whole operation in one backend-transactional call.
-    @PostMapping("/stage-templates/restore-defaults")
-    public ResponseEntity<List<StageTemplate>> restoreDefaultStages() {
-        return ResponseEntity.ok(stageTemplateService.restoreDefaultStages());
-    }""",
-)
-
-# ─────────────────────────────────────────────────────────────────────────
-# 4. erp-backend .../service/StageTemplateService.java
-#    New service methods: reorderTemplateStages, bulkDeleteTemplateStages,
-#    restoreDefaultStages -- each one @Transactional method, one DB round
-#    trip's worth of work per user action.
-# ─────────────────────────────────────────────────────────────────────────
-patch(
-    "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java",
-    old="""    // INTAKE REDESIGN: allow deleting middle stages from the template
-    public void deleteTemplateStage(java.util.UUID id) {
-        templateRepository.deleteById(id);
-    }
-}""",
-    new="""    // INTAKE REDESIGN: allow deleting middle stages from the template
-    @Transactional
-    public void deleteTemplateStage(java.util.UUID id) {
-        templateRepository.deleteById(id);
-    }
-
-    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────────
-    // These three replace what used to be N sequential/parallel single-row
-    // HTTP calls from the Intake page's Stages panel: adding, restoring
-    // defaults, or deleting from a long stage list was slow enough that the
-    // UI sometimes didn't reflect the change until a manual refresh. Each
-    // of these now does the whole operation as one HTTP round trip and one
-    // @Transactional unit of work.
-
-    private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
-            java.util.Set.of(DEFAULT_STAGES);
-
-    /**
-     * Re-numbers displayOrder for exactly the given stages, in the order
-     * their ids are given, as a single batch save. Replaces the previous
-     * client-side pattern of one PUT per stage (Promise.all of N calls),
-     * which is what actually caused the lag on longer stage lists --
-     * browsers cap concurrent connections per host, so those requests
-     * queued instead of running in parallel once the list got long.
-     */
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public List<StageTemplate> reorderTemplateStages(List<UUID> orderedIds) {
-        if (orderedIds == null || orderedIds.isEmpty()) return List.of();
-
-        List<StageTemplate> found = templateRepository.findAllById(orderedIds);
-        java.util.Map<UUID, StageTemplate> byId = found.stream()
-                .collect(java.util.stream.Collectors.toMap(StageTemplate::getId, s -> s));
-
-        List<StageTemplate> toSave = new java.util.ArrayList<>();
-        int order = 1;
-        for (UUID id : orderedIds) {
-            StageTemplate stage = byId.get(id);
-            if (stage == null) continue; // ignore stale/unknown ids rather than fail the whole batch
-            stage.setDisplayOrder(order++);
-            toSave.add(stage);
-        }
-        List<StageTemplate> saved = templateRepository.saveAll(toSave);
-        auditService.logAction("STAGE_TEMPLATE_REORDERED",
-            "Operator [" + getCurrentOperator() + "] reordered " + saved.size() + " master stage(s).");
-        return saved;
-    }
-
-    /**
-     * Deletes several template stages in one batch instead of one
-     * DELETE per row.
-     */
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void bulkDeleteTemplateStages(List<UUID> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        List<StageTemplate> toDelete = templateRepository.findAllById(ids);
-        if (toDelete.isEmpty()) return;
-        templateRepository.deleteAllInBatch(toDelete);
-        auditService.logAction("STAGE_TEMPLATE_BULK_DELETED",
-            "Operator [" + getCurrentOperator() + "] bulk-deleted " + toDelete.size() + " master stage(s).");
-    }
-
-    /**
-     * Restores the master template to exactly DEFAULT_STAGES, in order.
-     * Previously this was: N parallel deletes of non-default stages, then
-     * a *sequential* await-loop re-adding any missing defaults (one call
-     * at a time -- the slowest part), then another N-call renumber pass,
-     * then a client refetch. All of that collapses into one transactional
-     * method and one HTTP round trip.
-     */
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public List<StageTemplate> restoreDefaultStages() {
-        List<StageTemplate> current = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-
-        List<StageTemplate> nonDefault = current.stream()
-                .filter(s -> !DEFAULT_STAGE_NAMES.contains(s.getStageName()))
-                .toList();
-        if (!nonDefault.isEmpty()) {
-            templateRepository.deleteAllInBatch(nonDefault);
-        }
-
-        java.util.Map<String, StageTemplate> keepByName = current.stream()
-                .filter(s -> DEFAULT_STAGE_NAMES.contains(s.getStageName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        StageTemplate::getStageName, s -> s, (a, b) -> a));
-
-        List<StageTemplate> toSave = new java.util.ArrayList<>();
-        int order = 1;
-        for (String name : DEFAULT_STAGES) {
-            StageTemplate stage = keepByName.get(name);
-            if (stage == null) {
-                stage = StageTemplate.builder()
-                        .stageName(name)
-                        .defaultCost(BigDecimal.ZERO)
-                        .displayOrder(order)
-                        .isActive(true)
-                        .build();
-            } else {
-                stage.setDisplayOrder(order);
-            }
-            order++;
-            toSave.add(stage);
-        }
-        List<StageTemplate> saved = templateRepository.saveAll(toSave);
-        auditService.logAction("STAGE_TEMPLATE_DEFAULTS_RESTORED",
-            "Operator [" + getCurrentOperator() + "] restored the default master stage list.");
-        return saved;
-    }
-}""",
-)
-
-print("[fix.py] All patches applied successfully.")
+print()
