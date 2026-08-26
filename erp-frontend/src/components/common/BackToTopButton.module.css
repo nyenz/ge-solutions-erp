@@ -1,5 +1,4 @@
-/* PATH: erp-frontend/src/components/common/BackToTopButton.module.css
-   STANDARD: borderless / backgroundless reactive up-arrow. */
+/* PATH: erp-frontend/src/components/common/BackToTopButton.module.css */
 .topBtn {
     position: fixed;
     left: clamp(14px, 2vw, 26px);

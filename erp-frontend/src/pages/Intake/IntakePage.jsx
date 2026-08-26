@@ -25,9 +25,6 @@ const PROJECT_TYPES = [
 
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 
-// Canonical default checklist. The Stages section works on a LOCAL copy of
-// this list: edits are instant, never hit the master template, and the list
-// always resets to these defaults whenever the form is opened unsaved.
 const DEFAULT_STAGES = [
     'Field Work',
     'Deed Plan',
@@ -81,7 +78,6 @@ export default function IntakePage() {
     const [village, setVillage] = useState('');
     const [area, setArea] = useState('');
 
-    // ── STAGES: local-only working list (keyed by name) ──────────────
     const [masterTemplates, setMasterTemplates] = useState([]);
     const [stageList, setStageList] = useState(() => DEFAULT_STAGES.map(name => ({ id: null, name })));
     const [checked, setChecked] = useState({ [DEFAULT_STAGES[0]]: true });
@@ -117,7 +113,6 @@ export default function IntakePage() {
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
 
-    // Master template fetched READ-ONLY
     useEffect(() => {
         stageTemplateService.getTemplate().then(list => {
             const sorted = [...(list || [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -129,7 +124,6 @@ export default function IntakePage() {
         }).catch(() => {});
     }, []);
 
-    // INDEX: instant paint from cache + up to 2 silent retries on failure.
     useEffect(() => {
         let cancelled = false;
         try { const c = localStorage.getItem(INDEX_CACHE_KEY); if (c) setNextIndex(c); } catch {}
@@ -308,7 +302,6 @@ export default function IntakePage() {
     const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
 
     const validate = () => {
-        // ALL location information is a must.
         if (!district.trim()) { toast('District is required.', 'error'); return false; }
         if (!county.trim()) { toast('County is required.', 'error'); return false; }
         if (!subCounty.trim()) { toast('Sub-county is required.', 'error'); return false; }
@@ -329,8 +322,7 @@ export default function IntakePage() {
         }
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) {
-            toast('Initial Payment is required (0 or more).', 'error'); return false;
-        }
+            toast('Initial Payment is required (0 or more).', 'error'); return false; }
         if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
         return true;
     };

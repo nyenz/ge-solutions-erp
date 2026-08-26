@@ -38,17 +38,13 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
 
-        // Run schema migrations via raw JDBC -- never touches JPA/Hibernate session
         runSchemaMigrations();
-
-        // Seed root user if missing
         seedRootUser();
 
         // PHASE 4: Seed the default stage template checklist if empty
         stageTemplateService.seedDefaultStagesIfEmpty();
 
         // PASS 6: master checklist must always be exactly the 6 defaults
-        // (repairs duplicate/junk rows from earlier buggy passes).
         try {
             stageTemplateService.normalizeToDefaultStages();
             System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
@@ -65,9 +61,6 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 
-    // NOTE: Deliberately NOT @Transactional -- same raw-JDBC-safety reasoning
-    // as seedRootUser() below. Only seeds if the table is completely empty,
-    // so it never overwrites presets a Manager has already created.
     public void seedDefaultExpensePresets() {
         if (expensePresetRepository.count() > 0) {
             System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
@@ -83,6 +76,131 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
+    // PASS 6: 5 unique SAMPLE projects exercising different Ledger
+    // scenarios. Guarded so it only ever runs once (district = SAMPLE DATA).
+    private void seedSampleProjects() {
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM land_projects WHERE district = 'SAMPLE DATA'")) {
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    System.out.println(">>> [SAMPLE] Sample projects already present -- skipping seed.");
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] guard check failed: " + e.getMessage());
+            return;
+        }
+
+        java.util.List<StageTemplate> master = stageTemplateService.getActiveTemplate();
+        java.util.Map<String, String> idByName = new java.util.HashMap<>();
+        for (StageTemplate t : master) idByName.put(t.getStageName(), t.getId().toString());
+
+        try {
+            java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
+
+            // 1) ACTIVE, 50% paid, mid-pipeline (YELLOW badge after backdate)
+            ids.add(seedOne("SAMPLE-001", false, false, false, "SMPL-1001", "2026-04-15", "B-10",
+                    5000000L, 2500000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER ONE", "CM000000000001", "0772000001" } },
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName));
+
+            // 2) LEGACY title, FULLY PAID
+            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12",
+                    8000000L, 8000000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER TWO", "CM000000000002", "0772000002" } },
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                                   "District Land Board Approval", "Tax Assessment and Stamp Duty",
+                                   "Registration and Title Issuance" }, idByName));
+
+            // 3) RECEIVABLE with storage fees running
+            ids.add(seedOne("SAMPLE-003", false, false, true, "SMPL-3003", "2026-05-20", "C-03",
+                    6000000L, 1000000L, 50000L, 50000L,
+                    new String[][] { { "SAMPLE OWNER THREE", "CM000000000003", "0772000003" } },
+                    new String[] { "Field Work", "Deed Plan" }, idByName));
+
+            // 4) CRITICAL debtor (10% paid) with JOINT owners
+            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null,
+                    10000000L, 1000000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER FOUR", "CM000000000004", "0772000004" },
+                                     { "SAMPLE CO OWNER FOUR", "CM000000000005", "0772000005" } },
+                    new String[] { "Field Work" }, idByName));
+
+            // 5) NEW TITLE at intake, 75% paid, fresh payment (GREEN badge)
+            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-01", "K-07",
+                    4000000L, 3000000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER FIVE", "CM000000000006", "0772000006" } },
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                                   "District Land Board Approval" }, idByName));
+
+            // Backdate payments for badge variety (days ago): 10 / 200 / 45 / 60
+            int[] days = { 10, 200, 45, 60 };
+            try (java.sql.Connection conn = dataSource.getConnection()) {
+                for (int i = 0; i < days.length && i < ids.size(); i++) {
+                    if (ids.get(i) == null) continue;
+                    java.sql.Timestamp ts = java.sql.Timestamp.valueOf(
+                            java.time.LocalDateTime.now().minusDays(days[i]));
+                    try (java.sql.PreparedStatement u1 = conn.prepareStatement(
+                            "UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) {
+                        u1.setTimestamp(1, ts); u1.setObject(2, ids.get(i)); u1.executeUpdate();
+                    }
+                    try (java.sql.PreparedStatement u2 = conn.prepareStatement(
+                            "UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) {
+                        u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate();
+                    }
+                }
+            }
+            System.out.println(">>> [SAMPLE] Seeded 5 sample projects (district = SAMPLE DATA).");
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());
+        }
+    }
+
+    private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
+                                   boolean receivable, String titleId, String titleDate,
+                                   String block, long cost, long paid, long initFee,
+                                   long monthlyFee, String[][] owners, String[] stages,
+                                   java.util.Map<String, String> idByName) throws Exception {
+        LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
+                .district("SAMPLE DATA").county("SAMPLE COUNTY")
+                .subCounty("SAMPLE SUB").parish("SAMPLE PARISH")
+                .village("SAMPLE VILLAGE").area("SAMPLE AREA")
+                .tenure("FREEHOLD")
+                .totalCost(java.math.BigDecimal.valueOf(cost))
+                .initialPayment(java.math.BigDecimal.valueOf(paid))
+                .isLegacy(legacy)
+                .titleAtIntake(titleAtIntake)
+                .isStartAsReceivable(receivable);
+        if (plot != null) b.plotNumber(plot);
+        if (titleId != null) b.titleId(titleId);
+        if (block != null) b.blockRoad(block);
+        if (titleDate != null) b.titleIssueDate(java.time.LocalDate.parse(titleDate));
+        if (receivable) {
+            b.initialStorageFee(java.math.BigDecimal.valueOf(initFee > 0 ? initFee : 50000));
+            b.monthlyStorageFee(java.math.BigDecimal.valueOf(monthlyFee > 0 ? monthlyFee : 50000));
+        }
+        java.util.List<LandEntryRequest.OwnerRequest> os = new java.util.ArrayList<>();
+        for (String[] o : owners) {
+            os.add(LandEntryRequest.OwnerRequest.builder()
+                    .fullName(o[0]).nationalId(o[1]).phone(o[2]).build());
+        }
+        b.owners(os);
+        java.util.List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> ss = new java.util.ArrayList<>();
+        for (String s : stages) {
+            String tid = idByName.get(s);
+            ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
+                    .stageTemplateId(tid)
+                    .stageName(s)
+                    .isCustom(tid == null)
+                    .isCompleted(true)
+                    .build());
+        }
+        b.selectedStages(ss);
+        LandProject saved = landService.atomicIntake(b.build(), null);
+        return saved.getId();
+    }
+
     private void runSchemaMigrations() {
         String[] migrations = {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
@@ -90,11 +208,6 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
-            // NOTE: the "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS
-            // survey_date DATE" migration that used to live here has been
-            // removed along with the surveyDate field itself (Title Details
-            // cleanup) -- leaving it in place would silently re-add the
-            // column on every boot even after a manual DROP COLUMN.
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
 
             // PHASE 1 - PROJECT INDEX SYSTEM
@@ -108,55 +221,19 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
 
             // PHASE 2 - NIN-BASED IDENTITY
-            // Phone numbers are no longer required to be unique -- joint owners or
-            // family members can share one phone. NIN is now the real identity check.
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
 
-            // PHASE C - FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.4)
-            // national_id becomes a TRUE mandatory, unique column. The old
-            // "ADD CONSTRAINT UNIQUE" line above this comment (removed) had been
-            // silently failing on every boot since Phase 2 -- the blanket
-            // try/catch below logs any failure as "already exists" whether that
-            // was true or not, and there was nothing upstream cleaning duplicate
-            // or blank values first. These four steps run in order, each one
-            // guarded so it is a no-op once already applied -- same repeatable,
-            // safe-on-every-boot pattern as the district/county and projectIndex
-            // backfills above.
-            //
-            // Step 1: blank-string NINs are not the same as a real NULL -- fold
-            // them in first so step 3 catches them too.
+            // PHASE C - national_id mandatory + unique
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
-            //
-            // Step 2: disambiguate any rows that already share a duplicate NIN
-            // (possible from before this was ever enforced) -- keep the oldest
-            // row's value untouched, suffix every later duplicate with its own
-            // id so the unique constraint below has something valid to apply to.
-            // Naturally idempotent: once every value is distinct, ROW_NUMBER()
-            // never produces rn > 1 for the same national_id again.
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
                 "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
                 "FROM clients WHERE national_id IS NOT NULL) ranked " +
                 "WHERE c.id = ranked.id AND ranked.rn > 1",
-            //
-            // Step 3: legacy rows created before Phase 2 may still have a blank
-            // national_id (per the old Client.java comment, "blank until next
-            // edited") -- a real NOT NULL constraint cannot coexist with actual
-            // NULLs, so give each one a unique placeholder. Naturally idempotent:
-            // once set, national_id is no longer NULL so the WHERE clause skips it.
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
-            //
-            // Step 4: now safe to apply both constraints for real. SET NOT NULL is
-            // itself idempotent in Postgres (no error re-running it once already
-            // set). The UNIQUE constraint is wrapped in a DO block guarded by a
-            // pg_constraint lookup, so once it exists every later boot silently
-            // no-ops and logs OK instead of a red "already exists" skip.
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
 
-            // EXPENSES REBUILD -- flat cash-out log, replaces the old
-            // committed/paid CompanyExpense model for new entries. The old
-            // company_expenses table is left untouched (deprecated, not
-            // deleted) so nothing already recorded there is lost.
+            // EXPENSES REBUILD
             "CREATE TABLE IF NOT EXISTS expense_presets (" +
                 "id UUID PRIMARY KEY, " +
                 "name VARCHAR(100) NOT NULL UNIQUE, " +
@@ -178,47 +255,25 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
 
-            // PHASE A -- FOLDER-TO-TITLE REDESIGN (Section 18.10)
-            // landTitle becomes optional on LandProject (see model change),
-            // and location fields move up so they are permanent even for
-            // titleless folder-stage projects.
+            // PHASE A -- location fields on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
-            // Backfill: copy existing district/county from land_titles up to
-            // their parent land_projects row via the title_id FK. The
-            // "lp.district IS NULL" guard makes this safe to run on every
-            // boot -- once a row has been backfilled its district is no
-            // longer NULL, so this becomes a no-op for it from then on.
-            // land_titles.district/county are left in place (deprecated,
-            // not dropped) so this UPDATE is repeatable and non-destructive.
             "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
                 "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
 
-            // PHASE B -- FOLDER-TO-TITLE REDESIGN (Section 18.10 / 18.3)
-            // projectIndex moves up to LandProject: Section 18.3 requires it
-            // be assigned at LandProject creation, before any title exists,
-            // and Phase B's null-safe audit-log fallback needs it to exist
-            // even when landTitle does not. land_titles.project_index is
-            // left in place (deprecated, not dropped).
+            // PHASE B -- projectIndex on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
-            // Backfill: copy each project's existing projectIndex up from
-            // its LandTitle via the title_id FK. Same "IS NULL" guard as
-            // the district/county backfill above -- safe on every boot,
-            // no-op once already copied.
             "UPDATE land_projects lp SET project_index = lt.project_index " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
 
-            // PHASE F -- FOLDER-TO-TITLE REDESIGN (Section 18.10)
-            // Make plot_number nullable so bulk title-produced action can
-            // attach an empty LandTitle record to unlock fields before
-            // the unique plot numbers are known.
+            // PHASE F -- plot_number nullable
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
 
             // PHASE G -- RETIRED TITLE DETAILS (pass 6): removed app-wide.
@@ -237,27 +292,21 @@ public class DataInitializer implements CommandLineRunner {
                     stmt.execute(sql);
                     System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length())));
                 } catch (Exception e) {
-                    // Column already exists or similar -- safe to ignore
                     System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
                 }
             }
 
         } catch (Exception e) {
-            // If we can't get a connection, log and continue -- don't kill startup
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
         }
     }
 
-    // NOTE: Deliberately NOT @Transactional -- we use raw JDBC so this is
-    // completely immune to Spring AOP proxy bypass, Hibernate L1 cache,
-    // EntityManager flush timing, and @Builder.Default field conflicts.
     public void seedRootUser() {
         String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
         String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
         try (java.sql.Connection conn = dataSource.getConnection()) {
-            // Check if admin_root exists
             boolean exists = false;
             try (java.sql.PreparedStatement ps = conn.prepareStatement(
                     "SELECT COUNT(*) FROM users WHERE username = ?")) {
@@ -268,7 +317,6 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             if (!exists) {
-                // INSERT brand-new admin_root row
                 String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
                            + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
                 try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -279,9 +327,6 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
                 }
 
-                // Verify by re-reading the stored hash -- only meaningful right
-                // after a fresh insert, since this is the only branch that
-                // actually wrote a new password.
                 try (java.sql.PreparedStatement ps = conn.prepareStatement(
                         "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
                     try (java.sql.ResultSet rs = ps.executeQuery()) {
@@ -303,9 +348,6 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 }
             } else {
-                // STAGE 1 FIX: admin_root already exists -- do NOT touch its
-                // password, is_active, or must_change_password on restart.
-                // Whatever David set those to in the running app stays as-is.
                 System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
             }
 

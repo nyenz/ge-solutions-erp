@@ -19,13 +19,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * GE SOLUTIONS - STAGE TEMPLATE ENGINE (PHASE 4)
- *
- * Manages the master Stage Template checklist and the per-project stage
- * instances attached to each land project. See Section 17.5 of the LLM
- * context guide for the full business rules this implements.
- */
 @Service
 @RequiredArgsConstructor
 public class StageTemplateService {
@@ -34,11 +27,6 @@ public class StageTemplateService {
     private final ProjectStageRepository projectStageRepository;
     private final AuditService auditService;
 
-    /**
-     * DEFAULT STAGE LIST (Section 17.5)
-     * Seeded once, on first startup, if the template table is empty.
-     * Costs start at 0 and are fully editable by staff afterward.
-     */
     private static final String[] DEFAULT_STAGES = {
         "Field Work",
         "Deed Plan",
@@ -55,11 +43,9 @@ public class StageTemplateService {
         return "SYSTEM";
     }
 
-    // Called once from DataInitializer at startup.
     @Transactional
     public void seedDefaultStagesIfEmpty() {
         if (templateRepository.count() > 0) return;
-
         int order = 1;
         for (String name : DEFAULT_STAGES) {
             StageTemplate stage = StageTemplate.builder()
@@ -73,7 +59,7 @@ public class StageTemplateService {
         System.out.println(">>> [STAGE_TEMPLATE] Seeded " + DEFAULT_STAGES.length + " default stages.");
     }
 
-    // ─── MASTER TEMPLATE CRUD ────────────────────────────────────────────
+    // ─── MASTER TEMPLATE CRUD ────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<StageTemplate> getActiveTemplate() {
@@ -123,19 +109,13 @@ public class StageTemplateService {
             "Operator [" + getCurrentOperator() + "] removed master stage from checklist: " + stage.getStageName());
     }
 
-    // ─── PER-PROJECT STAGE MANAGEMENT ────────────────────────────────────
+    // ─── PER-PROJECT STAGE MANAGEMENT ────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ProjectStage> getProjectStages(UUID projectId) {
         return projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
     }
 
-    /**
-     * Attaches a checklist of stages to a project. Called from intake, and
-     * reusable later to add more stages to an existing project. Not
-     * @PreAuthorize-gated directly here -- callers apply the appropriate
-     * gate (intake itself stays open to Manager/Admin/Director for now).
-     */
     @Transactional
     public List<ProjectStage> attachStagesToProject(UUID projectId, List<ProjectStageRequest> requests) {
         if (requests == null || requests.isEmpty()) return List.of();
@@ -183,11 +163,6 @@ public class StageTemplateService {
         return created;
     }
 
-    /**
-     * Toggles a stage's completion status only -- STAGE-CHANGE ACTION per
-     * Section 17.7 (Secretary can eventually do this, once wired, without
-     * ever touching cost). Deliberately does not touch cost or notes.
-     */
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ProjectStage toggleStageCompletion(UUID stageId, boolean completed) {
@@ -202,12 +177,6 @@ public class StageTemplateService {
         return saved;
     }
 
-    /**
-     * Edits cost and/or notes on an already-attached project stage --
-     * COST-EDIT ACTION, kept separate from toggleStageCompletion() per
-     * Section 17.7 so a future Secretary role can be wired to the
-     * stage-only toggle without ever reaching this method.
-     */
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ProjectStage updateStageCostAndNotes(UUID stageId, BigDecimal cost, String notes) {
@@ -239,25 +208,11 @@ public class StageTemplateService {
         templateRepository.deleteById(id);
     }
 
-    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────────
-    // These three replace what used to be N sequential/parallel single-row
-    // HTTP calls from the Intake page's Stages panel: adding, restoring
-    // defaults, or deleting from a long stage list was slow enough that the
-    // UI sometimes didn't reflect the change until a manual refresh. Each
-    // of these now does the whole operation as one HTTP round trip and one
-    // @Transactional unit of work.
+    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────
 
     private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
             java.util.Set.of(DEFAULT_STAGES);
 
-    /**
-     * Re-numbers displayOrder for exactly the given stages, in the order
-     * their ids are given, as a single batch save. Replaces the previous
-     * client-side pattern of one PUT per stage (Promise.all of N calls),
-     * which is what actually caused the lag on longer stage lists --
-     * browsers cap concurrent connections per host, so those requests
-     * queued instead of running in parallel once the list got long.
-     */
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public List<StageTemplate> reorderTemplateStages(List<UUID> orderedIds) {
@@ -271,7 +226,7 @@ public class StageTemplateService {
         int order = 1;
         for (UUID id : orderedIds) {
             StageTemplate stage = byId.get(id);
-            if (stage == null) continue; // ignore stale/unknown ids rather than fail the whole batch
+            if (stage == null) continue;
             stage.setDisplayOrder(order++);
             toSave.add(stage);
         }
@@ -281,10 +236,6 @@ public class StageTemplateService {
         return saved;
     }
 
-    /**
-     * Deletes several template stages in one batch instead of one
-     * DELETE per row.
-     */
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void bulkDeleteTemplateStages(List<UUID> ids) {
@@ -296,14 +247,6 @@ public class StageTemplateService {
             "Operator [" + getCurrentOperator() + "] bulk-deleted " + toDelete.size() + " master stage(s).");
     }
 
-    /**
-     * Restores the master template to exactly DEFAULT_STAGES, in order.
-     * Previously this was: N parallel deletes of non-default stages, then
-     * a *sequential* await-loop re-adding any missing defaults (one call
-     * at a time -- the slowest part), then another N-call renumber pass,
-     * then a client refetch. All of that collapses into one transactional
-     * method and one HTTP round trip.
-     */
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public List<StageTemplate> restoreDefaultStages() {
@@ -342,5 +285,46 @@ public class StageTemplateService {
         auditService.logAction("STAGE_TEMPLATE_DEFAULTS_RESTORED",
             "Operator [" + getCurrentOperator() + "] restored the default master stage list.");
         return saved;
+    }
+
+    /**
+     * PASS 6: called once at boot. The Intake form no longer writes to the
+     * master template (its stage edits are local-only), so the master must
+     * always be exactly the 6 canonical defaults, in order, with no
+     * duplicates. Repairs the junk/duplicate rows created by earlier buggy
+     * passes and keeps the checklist canonical going forward.
+     */
+    @Transactional
+    public void normalizeToDefaultStages() {
+        List<StageTemplate> active = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+        java.util.Set<String> defaults = new java.util.LinkedHashSet<>(java.util.Arrays.asList(DEFAULT_STAGES));
+        java.util.Map<String, StageTemplate> kept = new java.util.LinkedHashMap<>();
+
+        for (StageTemplate t : active) {
+            String name = t.getStageName();
+            boolean isDefault = name != null && defaults.contains(name);
+            if (!isDefault || kept.containsKey(name)) {
+                t.setActive(false); // non-default or duplicate -> retire
+                templateRepository.save(t);
+            } else {
+                kept.put(name, t);
+            }
+        }
+        int order = 1;
+        for (String name : DEFAULT_STAGES) {
+            StageTemplate stage = kept.get(name);
+            if (stage == null) {
+                templateRepository.save(StageTemplate.builder()
+                        .stageName(name)
+                        .defaultCost(BigDecimal.ZERO)
+                        .displayOrder(order)
+                        .isActive(true)
+                        .build());
+            } else if (stage.getDisplayOrder() == null || stage.getDisplayOrder() != order) {
+                stage.setDisplayOrder(order);
+                templateRepository.save(stage);
+            }
+            order++;
+        }
     }
 }

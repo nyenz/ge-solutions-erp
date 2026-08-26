@@ -1,6 +1,4 @@
-/* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css
-   Pass 6 - red Cancel + top Save, required location/title fields,
-   viewport-bottom portalled toasts, borderless standard back-to-top. */
+/* PATH: erp-frontend/src/pages/Intake/IntakePage.module.css */
 :root {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
@@ -121,7 +119,6 @@
     color: var(--red);
 }
 
-/* APP-STANDARD RED CANCEL on the light header */
 .cancelBtn {
     color: var(--red);
     border-color: rgba(239, 68, 68, 0.45);
@@ -382,7 +379,6 @@
 }
 .bottomBarRight { display: flex; gap: var(--gap-md); align-items: center; }
 
-/* -- UNSAVED CHANGES MODAL (2 short buttons) -- */
 .modalOverlay {
     position: fixed; inset: 0;
     background: rgba(10, 20, 22, 0.72);
@@ -408,8 +404,6 @@
 .modalBtns { display: flex; gap: var(--gap-md); justify-content: flex-end; flex-wrap: wrap; }
 .modalHint { font-size: var(--fs-meta); color: rgba(255, 255, 255, 0.4); font-weight: 700; margin: 0; text-align: right; }
 
-/* -- STANDARD TOASTS: portalled to body, fixed to the VIEWPORT bottom --
-   (hardcoded colours -- this renders outside .container) */
 .toastStack {
     position: fixed;
     bottom: clamp(16px, 2.5vh, 28px);
