@@ -3,7 +3,6 @@ package com.gesolutions.erp.modules.client.dto;
 
 import lombok.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,7 +36,6 @@ public class RecoveryTaskDTO {
     public static class PlotSummary {
         private UUID projectId;
         private String plotNumber;
-        private String physicalBoxNumber;
         private boolean isReceivable;
 
         private BigDecimal totalCost;
@@ -54,7 +52,6 @@ public class RecoveryTaskDTO {
         private String paymentHealthBadge;
         private String lastPaymentDate;
         private String lastInteractionNote;
-        private LocalDate surveyDate;
 
         // STAGE 10: joint-owner visibility (design brief 3.3)
         private String ownershipType; // "SOLO" or "JOINT"

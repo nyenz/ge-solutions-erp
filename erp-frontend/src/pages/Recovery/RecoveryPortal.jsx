@@ -337,7 +337,6 @@ const RecoveryPortal = () => {
                                             <div key={p.projectId} className={styles.plotSubCard}>
                                                 <div className={styles.plotSubCardHeader}>
                                                     <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
-                                                    {p.physicalBoxNumber && <span className={styles.plotSubCardBox}>BOX: {p.physicalBoxNumber}</span>}
                                                 </div>
 
                                                 {/* STAGE 12 FIX: SOLO/JOINT badge + navigable co-owner links
@@ -382,12 +381,6 @@ const RecoveryPortal = () => {
                                                     <div className={styles.interactionNote}>
                                                         <span className={styles.interactionNoteLabel}>YOUR LAST NOTE WITH THIS OWNER</span>
                                                         <p className={styles.interactionNoteText}>{p.ownerLastContactNote}</p>
-                                                    </div>
-                                                )}
-
-                                                {p.isReceivable && p.surveyDate && (
-                                                    <div className={styles.surveyDateRow}>
-                                                        SURVEYED: <strong>{p.surveyDate}</strong>
                                                     </div>
                                                 )}
 

@@ -400,26 +400,6 @@
 .plotSubCard:hover { border-color: rgba(238, 140, 58, 0.5); border-left-color: var(--orange); background: rgba(255, 255, 255, 0.05); }
 .plotSubCard:last-child { margin-bottom: 0; }
 
-.surveyDateRow {
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(8px, 0.85vw, 10px);
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: clamp(8px, 1vw, 11px);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.surveyDateRow strong {
-    font-family: 'Space Mono', monospace;
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.75);
-    font-size: clamp(9px, 0.9vw, 11px);
-    letter-spacing: 0.5px;
-}
-
 .plotSubCardHeader {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: clamp(10px, 1.3vw, 14px);
@@ -429,10 +409,6 @@
 .plotSubCardTitle {
     font-family: 'Space Mono', monospace; color: var(--orange);
     font-size: clamp(11px, 1.2vw, 14px); font-weight: 900;
-}
-.plotSubCardBox {
-    font-family: 'Space Mono', monospace; font-size: clamp(9px, 0.95vw, 10px);
-    color: rgba(255, 255, 255, 0.35); font-weight: 700; text-transform: uppercase;
 }
 
 /* ── FINANCIAL BREAKDOWN — high-contrast values ── */

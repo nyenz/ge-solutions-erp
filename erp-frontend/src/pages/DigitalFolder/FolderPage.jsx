@@ -848,12 +848,7 @@ const FolderPage = () => {
                     parish:            data.project?.parish                       || '',
                     village:           data.project?.village                      || '',
                     area:              data.project?.area                         || '',
-                    volume:            data.project?.landTitle?.volume            || '',
-                    folio:             data.project?.landTitle?.folio             || '',
-                    instrumentNo:      data.project?.landTitle?.instrumentNo      || '',
-                    surveyDate:        data.project?.landTitle?.surveyDate         || '',
                     titleId:           data.project?.landTitle?.titleId           || '',
-                    physicalBoxNumber: data.project?.landTitle?.physicalBoxNumber || '',
                     totalCost:         String(data.project?.totalCost             || 0),
                     initialPayment:    String(data.project?.amountPaid            || 0),
                     isLegacy:          data.project?.isLegacy                     || false,
@@ -1364,18 +1359,6 @@ const FolderPage = () => {
                                             </div>
                                             <div className={styles.inputGrid3}>
                                                 <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({...buffer, blockRoad: e.target.value.toUpperCase()})} />
-                                                <SmartInput label="INSTRUMENT NO." value={buffer.instrumentNo} showCaps onChange={e => touchedSetBuffer({...buffer, instrumentNo: e.target.value.toUpperCase()})} />
-                                                <SmartInput label="VOLUME" value={buffer.volume} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, volume: e.target.value.replace(/\D/g,'')})} />
-                                            </div>
-                                            <div className={styles.inputGrid3}>
-                                                <SmartInput label="FOLIO" value={buffer.folio} inputMode="numeric" hint="Numbers only" onChange={e => touchedSetBuffer({...buffer, folio: e.target.value.replace(/\D/g,'')})} />
-                                                <div className={styles.hwInputWrap}>
-                                                    <div className={styles.inputLabelRow}><label>DATE OF SURVEY</label></div>
-                                                    <input type="date" className={styles.hwInput}
-                                                        value={buffer.surveyDate || ''}
-                                                        onChange={e => touchedSetBuffer({...buffer, surveyDate: e.target.value})} />
-                                                </div>
-                                                <SmartInput label="BOX NUMBER" value={buffer.physicalBoxNumber} showCaps onChange={e => touchedSetBuffer({...buffer, physicalBoxNumber: e.target.value.toUpperCase()})} />
                                             </div>
                                         </>
                                     )}
@@ -1407,11 +1390,6 @@ const FolderPage = () => {
                                                     ['TENURE',       project.landTitle.tenure],
                                                     ['TITLE ID',     project.landTitle.titleId],
                                                     ['BLOCK / ROAD', project.landTitle.blockRoad],
-                                                    ['VOLUME',       project.landTitle.volume],
-                                                    ['FOLIO',        project.landTitle.folio],
-                                                    ['INSTRUMENT',   project.landTitle.instrumentNo],
-                                                    ['SURVEY DATE',  project.landTitle.surveyDate || '---'],
-                                                    ['BOX NUMBER',   project.landTitle.physicalBoxNumber || '---'],
                                                 ].map(([l,v],i) => (
                                                     <div key={i} className={styles.specItem}>
                                                         <span className={styles.specLabel}>{l}</span>

@@ -73,7 +73,11 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
-            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS survey_date DATE",
+            // NOTE: the "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS
+            // survey_date DATE" migration that used to live here has been
+            // removed along with the surveyDate field itself (Title Details
+            // cleanup) -- leaving it in place would silently re-add the
+            // column on every boot even after a manual DROP COLUMN.
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
 
             // PHASE 1 - PROJECT INDEX SYSTEM

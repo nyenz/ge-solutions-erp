@@ -274,10 +274,6 @@ public class LandService {
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
                     .blockRoad(request.getBlockRoad())
-                    .volume(request.getVolume())
-                    .folio(request.getFolio())
-                    .instrumentNo(request.getInstrumentNo())
-                    .surveyDate(request.getSurveyDate())
                     .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
@@ -392,10 +388,6 @@ public class LandService {
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
                     .blockRoad(request.getBlockRoad())
-                    .volume(request.getVolume())
-                    .folio(request.getFolio())
-                    .instrumentNo(request.getInstrumentNo())
-                    .surveyDate(request.getSurveyDate())
                     .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : java.time.LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
@@ -405,10 +397,6 @@ public class LandService {
             title.setPlotNumber(request.getPlotNumber());
             title.setTenure(request.getTenure());
             title.setBlockRoad(request.getBlockRoad());
-            title.setVolume(request.getVolume());
-            title.setFolio(request.getFolio());
-            title.setInstrumentNo(request.getInstrumentNo());
-            title.setSurveyDate(request.getSurveyDate());
         }
 
         // Save location fields on LandProject (Phase A/E)

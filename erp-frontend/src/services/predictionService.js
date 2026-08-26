@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'gs_neural_memory';
 
 // The fields we want to learn patterns for
-const LEARNABLE_FIELDS = ['district', 'county', 'blockRoad', 'volume', 'tenure'];
+const LEARNABLE_FIELDS = ['district', 'county', 'blockRoad', 'tenure'];
 
 const predictionService = {
     
