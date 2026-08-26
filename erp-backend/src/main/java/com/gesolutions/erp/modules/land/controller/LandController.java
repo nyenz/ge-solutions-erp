@@ -28,15 +28,19 @@ public class LandController {
 
     private final LandService landService;
 
-    @PostMapping("/projects/{id}/unlock-log")
-    // INTAKE: preview next project index
+    // INTAKE: preview next project index.
+    // FIX: this method previously had TWO mapping annotations stacked on it
+    // (@PostMapping unlock-log + @GetMapping next-index). Spring only
+    // registers one mapping per method, so GET /next-index was never
+    // reachable (404) and the Index field always failed. Now each method
+    // has exactly one mapping.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
         return ResponseEntity.ok(landService.previewNextIndex());
     }
 
-
+    @PostMapping("/projects/{id}/unlock-log")
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
         landService.logUnlockAction(id);
         return ResponseEntity.ok().build();
@@ -51,12 +55,8 @@ public class LandController {
 
     // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
     // STAGE 10 FIX: ownerId is now required so a joint-project call is
-    // attributed to the specific person staff actually reached, instead of
-    // silently defaulting to whichever co-owner sorts first alphabetically
-    // (design brief 3.3/3.4).
-    // STAGE 11 FIX: response now carries an optional soft coOwnerWarning
-    // (design brief 3.4 #2) instead of an empty body -- never blocks the
-    // save, frontend decides whether/how to surface it.
+    // attributed to the specific person staff actually reached.
+    // STAGE 11 FIX: response carries an optional soft coOwnerWarning.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/follow-up")
     public ResponseEntity<java.util.Map<String, Object>> logContact(@PathVariable UUID id,
@@ -96,7 +96,7 @@ public class LandController {
         return ResponseEntity.noContent().build();
     }
 
-    // STAGE 3: soft-delete restore + deleted-list, same restriction as delete itself
+    // STAGE 3: soft-delete restore + deleted-list
     @PostMapping("/projects/{id}/restore")
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
     public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
@@ -182,7 +182,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Receivable management
     @PostMapping("/projects/{id}/receivable")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> moveToReceivable(@PathVariable UUID id) {
@@ -205,15 +204,13 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Payment history per plot
     @GetMapping("/projects/{id}/payments")
     public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectPayments(id));
     }
 
     // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
-    // calling it since it was built. Class-level @PreAuthorize already
-    // covers ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR.
+    // calling it since it was built.
     @PostMapping("/projects/{id}/payment")
     public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal amount,
@@ -222,7 +219,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Pause / resume storage fee accumulation
     @PatchMapping("/projects/{id}/storage-pause")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
@@ -231,7 +227,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Edit the monthly storage fee rate for this plot
     @PatchMapping("/projects/{id}/storage-rate")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
@@ -240,7 +235,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Directly adjust accumulated storage fees (waive/correct)
     @PatchMapping("/projects/{id}/storage-fees")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
@@ -249,7 +243,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Set negotiation deadline (pauses storage fees until this date)
     @PatchMapping("/projects/{id}/negotiation-deadline")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
@@ -258,7 +251,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // NEW: Set receivable start override date (for late-entered titles)
     @PatchMapping("/projects/{id}/receivable-start")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setReceivableStartOverride(@PathVariable UUID id,

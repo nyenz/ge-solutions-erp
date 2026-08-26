@@ -41,10 +41,8 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
 
-        // PHASE 4: Seed the default stage template checklist if empty
         stageTemplateService.seedDefaultStagesIfEmpty();
 
-        // PASS 6: master checklist must always be exactly the 6 defaults
         try {
             stageTemplateService.normalizeToDefaultStages();
             System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
@@ -52,10 +50,7 @@ public class DataInitializer implements CommandLineRunner {
             System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
         }
 
-        // PASS 6: seed 5 unique SAMPLE projects for Ledger testing (once).
         seedSampleProjects();
-
-        // EXPENSES REBUILD: Seed the default expense presets if empty
         seedDefaultExpensePresets();
 
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
@@ -76,8 +71,6 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // PASS 6: 5 unique SAMPLE projects exercising different Ledger
-    // scenarios. Guarded so it only ever runs once (district = SAMPLE DATA).
     private void seedSampleProjects() {
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -100,45 +93,50 @@ public class DataInitializer implements CommandLineRunner {
         try {
             java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
 
-            // 1) ACTIVE, 50% paid, mid-pipeline (YELLOW badge after backdate)
-            ids.add(seedOne("SAMPLE-001", false, false, false, "SMPL-1001", "2026-04-15", "B-10",
+            ids.add(seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
                     5000000L, 2500000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER ONE", "CM000000000001", "0772000001" } },
+                    new String[][] { { "SAMPLE OWNER ONE", "SMPL00000001A", "0772000001" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName));
 
-            // 2) LEGACY title, FULLY PAID
-            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12",
+            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
                     8000000L, 8000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER TWO", "CM000000000002", "0772000002" } },
+                    new String[][] { { "SAMPLE OWNER TWO", "SMPL00000002A", "0772000002" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
                                    "District Land Board Approval", "Tax Assessment and Stamp Duty",
                                    "Registration and Title Issuance" }, idByName));
 
-            // 3) RECEIVABLE with storage fees running
-            ids.add(seedOne("SAMPLE-003", false, false, true, "SMPL-3003", "2026-05-20", "C-03",
+            ids.add(seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
                     6000000L, 1000000L, 50000L, 50000L,
-                    new String[][] { { "SAMPLE OWNER THREE", "CM000000000003", "0772000003" } },
+                    new String[][] { { "SAMPLE OWNER THREE", "SMPL00000003A", "0772000003" } },
                     new String[] { "Field Work", "Deed Plan" }, idByName));
 
-            // 4) CRITICAL debtor (10% paid) with JOINT owners
-            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null,
+            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
                     10000000L, 1000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER FOUR", "CM000000000004", "0772000004" },
-                                     { "SAMPLE CO OWNER FOUR", "CM000000000005", "0772000005" } },
+                    new String[][] { { "SAMPLE OWNER FOUR", "SMPL00000004A", "0772000004" },
+                                     { "SAMPLE CO OWNER FOUR", "SMPL00000005A", "0772000005" } },
                     new String[] { "Field Work" }, idByName));
 
-            // 5) NEW TITLE at intake, 75% paid, fresh payment (GREEN badge)
-            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-01", "K-07",
+            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
                     4000000L, 3000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER FIVE", "CM000000000006", "0772000006" } },
+                    new String[][] { { "SAMPLE OWNER FIVE", "SMPL00000006A", "0772000006" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
                                    "District Land Board Approval" }, idByName));
 
-            // Backdate payments for badge variety (days ago): 10 / 200 / 45 / 60
-            int[] days = { 10, 200, 45, 60 };
+            ids.add(seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
+                    3000000L, 0L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER SIX", "SMPL00000007A", "0772000007" } },
+                    new String[] { "Field Work" }, idByName));
+
+            ids.add(seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
+                    9000000L, 8100000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER SEVEN", "SMPL00000008A", "0772000008" } },
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                                   "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName));
+
+            int[] days = { 10, 200, 45, 60, 0, -1, 25 };
             try (java.sql.Connection conn = dataSource.getConnection()) {
                 for (int i = 0; i < days.length && i < ids.size(); i++) {
-                    if (ids.get(i) == null) continue;
+                    if (ids.get(i) == null || days[i] < 0) continue;
                     java.sql.Timestamp ts = java.sql.Timestamp.valueOf(
                             java.time.LocalDateTime.now().minusDays(days[i]));
                     try (java.sql.PreparedStatement u1 = conn.prepareStatement(
@@ -151,7 +149,7 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 }
             }
-            System.out.println(">>> [SAMPLE] Seeded 5 sample projects (district = SAMPLE DATA).");
+            System.out.println(">>> [SAMPLE] Seeded 7 sample projects (district = SAMPLE DATA).");
         } catch (Exception e) {
             System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());
         }
@@ -159,14 +157,15 @@ public class DataInitializer implements CommandLineRunner {
 
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
                                    boolean receivable, String titleId, String titleDate,
-                                   String block, long cost, long paid, long initFee,
-                                   long monthlyFee, String[][] owners, String[] stages,
-                                   java.util.Map<String, String> idByName) throws Exception {
+                                   String block, String startDate, long cost, long paid,
+                                   long initFee, long monthlyFee, String[][] owners,
+                                   String[] stages, java.util.Map<String, String> idByName) throws Exception {
         LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
                 .district("SAMPLE DATA").county("SAMPLE COUNTY")
                 .subCounty("SAMPLE SUB").parish("SAMPLE PARISH")
                 .village("SAMPLE VILLAGE").area("SAMPLE AREA")
                 .tenure("FREEHOLD")
+                .projectStartDate(java.time.LocalDate.parse(startDate))
                 .totalCost(java.math.BigDecimal.valueOf(cost))
                 .initialPayment(java.math.BigDecimal.valueOf(paid))
                 .isLegacy(legacy)
@@ -210,20 +209,16 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
 
-            // PHASE 1 - PROJECT INDEX SYSTEM
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
 
-            // PHASE 1.5 - DATE TRACKING SYSTEM
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
 
-            // PHASE 2 - NIN-BASED IDENTITY
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
 
-            // PHASE C - national_id mandatory + unique
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
                 "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
@@ -233,7 +228,6 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
 
-            // EXPENSES REBUILD
             "CREATE TABLE IF NOT EXISTS expense_presets (" +
                 "id UUID PRIMARY KEY, " +
                 "name VARCHAR(100) NOT NULL UNIQUE, " +
@@ -251,11 +245,9 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
 
-            // STAGE 3 -- SOFT DELETE
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
 
-            // PHASE A -- location fields on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
@@ -266,17 +258,15 @@ public class DataInitializer implements CommandLineRunner {
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
                 "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
 
-            // PHASE B -- projectIndex on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
             "UPDATE land_projects lp SET project_index = lt.project_index " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
 
-            // PHASE F -- plot_number nullable
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
 
-            // PHASE G -- RETIRED TITLE DETAILS (pass 6): removed app-wide.
+            // PHASE G -- RETIRED TITLE DETAILS: dropped from DB
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
@@ -286,7 +276,6 @@ public class DataInitializer implements CommandLineRunner {
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
-
             for (String sql : migrations) {
                 try {
                     stmt.execute(sql);
@@ -295,7 +284,6 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
                 }
             }
-
         } catch (Exception e) {
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
         }
@@ -338,17 +326,15 @@ public class DataInitializer implements CommandLineRunner {
                             System.out.println(">>>   is_active in DB = " + active);
                             System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
                             if (!matches) {
-                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write!");
                             } else {
-                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified.");
                             }
-                        } else {
-                            System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
                         }
                     }
                 }
             } else {
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
             }
 
         } catch (Exception e) {

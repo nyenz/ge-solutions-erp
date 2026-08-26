@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-fix5.py — repair broken deploy.
-1) FolderPage.jsx: collapse duplicate BackToTopButton import/render.
-2) StageTemplateService.java: FULL rewrite (original + Part-3 bulk
-   methods + normalizeToDefaultStages).
-3) DataInitializer.java: FULL rewrite (Part-1 base + PHASE G drops +
-   normalize call + seedSampleProjects/seedOne).
-Run: py fix5.py
+fix7.py — FULL REWRITES for the two failing files (no anchor dependencies).
+1) LandController.java: splits the stacked @PostMapping + @GetMapping
+   into two properly-mapped methods (the real index fix).
+2) StageTemplateService.java: full rewrite including normalizeToDefaultStages().
+3) DataInitializer.java: full rewrite including seedSampleProjects() + PHASE G.
+Run: py fix7.py
 """
 import sys, subprocess
 from pathlib import Path
@@ -21,27 +20,273 @@ def write(rel, content):
     except Exception as e: FAILED.append((rel, str(e)))
 
 # =====================================================================
-# 1) FolderPage.jsx — de-duplicate the self-applied patches
+# 1) LandController.java — FULL REWRITE (fixes the stacked-annotation bug)
 # =====================================================================
-p = ROOT / "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx"
-try:
-    t = p.read_text(encoding="utf-8")
-    imp = "import BackToTopButton from '../../components/common/BackToTopButton';\n"
-    while (imp + imp) in t: t = t.replace(imp + imp, imp)
-    if imp not in t:
-        t = t.replace("import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';\n",
-                      "import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';\n" + imp)
-    ren = "            <BackToTopButton />\n"
-    while (ren + ren) in t: t = t.replace(ren + ren, ren)
-    if "<BackToTopButton />" not in t:
-        t = t.replace("            <SavingOverlay visible={committing || paying} />\n",
-                      "            <SavingOverlay visible={committing || paying} />\n" + ren)
-    p.write_text(t, encoding="utf-8"); WROTE.append("FolderPage.jsx (deduped)")
-except Exception as e:
-    FAILED.append(("FolderPage.jsx", str(e)))
+write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java
+package com.gesolutions.erp.modules.land.controller;
+
+import com.gesolutions.erp.modules.land.dto.*;
+import com.gesolutions.erp.modules.land.model.FollowUpLog;
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.PaymentRecord;
+import com.gesolutions.erp.modules.land.model.ProjectDocument;
+import com.gesolutions.erp.modules.land.service.LandService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/land")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class LandController {
+
+    private final LandService landService;
+
+    // INTAKE: preview next project index.
+    // FIX: this method previously had TWO mapping annotations stacked on it
+    // (@PostMapping unlock-log + @GetMapping next-index). Spring only
+    // registers one mapping per method, so GET /next-index was never
+    // reachable (404) and the Index field always failed. Now each method
+    // has exactly one mapping.
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/next-index")
+    public ResponseEntity<String> previewNextIndex() {
+        return ResponseEntity.ok(landService.previewNextIndex());
+    }
+
+    @PostMapping("/projects/{id}/unlock-log")
+    public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
+        landService.logUnlockAction(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // STAGE 2 FIX: Secretary is data-entry -- needs to read/add notes
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/notes")
+    public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectNotes(id));
+    }
+
+    // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
+    // STAGE 10 FIX: ownerId is now required so a joint-project call is
+    // attributed to the specific person staff actually reached.
+    // STAGE 11 FIX: response carries an optional soft coOwnerWarning.
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/follow-up")
+    public ResponseEntity<java.util.Map<String, Object>> logContact(@PathVariable UUID id,
+                                            @RequestParam UUID ownerId,
+                                            @RequestParam String content) {
+        return ResponseEntity.ok(landService.logFollowUp(id, ownerId, content));
+    }
+
+    // STAGE 2 FIX: intake is a data-entry endpoint per the role table
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LandProject> ingestTitle(
+            @RequestPart("data") String jsonData,
+            @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
+        return ResponseEntity.ok(landService.atomicIntake(request, scans));
+    }
+
+    // STAGE 2 FIX: Folder page cannot load at all for Secretary without this
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/deep")
+    public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDeepDetail(id));
+    }
+
+    @PutMapping("/projects/{id}/full-update")
+    public ResponseEntity<LandProject> updateProjectFull(
+            @PathVariable UUID id, @RequestBody LandEntryRequest request) {
+        return ResponseEntity.ok(landService.updateProjectFull(id, request));
+    }
+
+    @DeleteMapping("/projects/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id) {
+        landService.nuclearDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // STAGE 3: soft-delete restore + deleted-list
+    @PostMapping("/projects/{id}/restore")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
+        landService.restoreProject(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/projects/deleted")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<List<LandProject>> getDeletedProjects() {
+        return ResponseEntity.ok(landService.getDeletedProjects());
+    }
+
+    // STAGE 2 FIX: document upload/view is a data-entry endpoint
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/documents")
+    public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDocuments(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addExtraDocuments(
+            @PathVariable UUID id,
+            @RequestParam("scans") MultipartFile[] scans) throws Exception {
+        landService.addScansToProject(id, scans);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/documents/{docId}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable UUID docId) {
+        landService.removeDocument(docId);
+        return ResponseEntity.ok().build();
+    }
+
+    // STAGE 2 FIX: adding a standalone note is data-entry
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/notes")
+    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
+        landService.logNewNote(id, content);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/notes/{noteId}")
+    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId, @RequestParam String content) {
+        landService.updateNote(noteId, content);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/notes/{noteId}")
+    public ResponseEntity<Void> deleteNote(@PathVariable UUID noteId) {
+        landService.removeNote(noteId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/reality-override")
+    public ResponseEntity<Void> manualRealityOverride(
+            @PathVariable UUID id, @RequestParam int targetStage) {
+        landService.manualRealityOverride(id, targetStage);
+        return ResponseEntity.ok().build();
+    }
+
+    // STAGE 2 FIX: Secretary needs to browse the Ledger to find projects
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/ledger")
+    public ResponseEntity<Page<LandProject>> getLedger(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/bulk-mark-title-produced")
+    public ResponseEntity<Integer> bulkMarkTitleProduced(@RequestBody List<UUID> projectIds) {
+        return ResponseEntity.ok(landService.bulkMarkTitleProduced(projectIds));
+    }
+
+    @PatchMapping("/projects/{id}/release")
+    public ResponseEntity<Void> authorizeRelease(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String managerNote) {
+        landService.authorizeRelease(id, managerNote);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/receivable")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> moveToReceivable(@PathVariable UUID id) {
+        landService.moveToReceivable(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/exit-receivable")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitReceivable(@PathVariable UUID id,
+                                            @RequestParam(defaultValue = "false") boolean capitalizeFees) {
+        landService.exitReceivable(id, capitalizeFees);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/exit-receivable-capitalize")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitReceivableCapitalize(@PathVariable UUID id) {
+        landService.exitReceivable(id, true);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/projects/{id}/payments")
+    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectPayments(id));
+    }
+
+    // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
+    // calling it since it was built.
+    @PostMapping("/projects/{id}/payment")
+    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam(required = false) String notes) {
+        landService.recordPayment(id, amount, notes);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-pause")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
+                                                   @RequestParam boolean paused) {
+        landService.setStoragePaused(id, paused);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-rate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal rate) {
+        landService.setStorageFeeOverride(id, rate);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount) {
+        landService.setAccumulatedFees(id, amount);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/negotiation-deadline")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
+                                                        @RequestParam(required = false) String deadline) {
+        landService.setNegotiationDeadline(id, deadline);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/receivable-start")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setReceivableStartOverride(@PathVariable UUID id,
+                                                         @RequestParam String startDate) {
+        landService.setReceivableStartOverride(id, startDate);
+        return ResponseEntity.ok().build();
+    }
+}
+""")
 
 # =====================================================================
-# 2) StageTemplateService.java — FULL canonical rewrite
+# 2) StageTemplateService.java — FULL REWRITE (adds normalizeToDefaultStages)
 # =====================================================================
 write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java
 package com.gesolutions.erp.modules.land.service;
@@ -64,6 +309,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * GE SOLUTIONS - STAGE TEMPLATE ENGINE (PHASE 4)
+ */
 @Service
 @RequiredArgsConstructor
 public class StageTemplateService {
@@ -248,96 +496,14 @@ public class StageTemplateService {
     }
 
     // INTAKE REDESIGN: allow deleting middle stages from the template
-    @Transactional
     public void deleteTemplateStage(java.util.UUID id) {
         templateRepository.deleteById(id);
     }
 
-    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────
-
-    private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
-            java.util.Set.of(DEFAULT_STAGES);
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public List<StageTemplate> reorderTemplateStages(List<UUID> orderedIds) {
-        if (orderedIds == null || orderedIds.isEmpty()) return List.of();
-
-        List<StageTemplate> found = templateRepository.findAllById(orderedIds);
-        java.util.Map<UUID, StageTemplate> byId = found.stream()
-                .collect(java.util.stream.Collectors.toMap(StageTemplate::getId, s -> s));
-
-        List<StageTemplate> toSave = new java.util.ArrayList<>();
-        int order = 1;
-        for (UUID id : orderedIds) {
-            StageTemplate stage = byId.get(id);
-            if (stage == null) continue;
-            stage.setDisplayOrder(order++);
-            toSave.add(stage);
-        }
-        List<StageTemplate> saved = templateRepository.saveAll(toSave);
-        auditService.logAction("STAGE_TEMPLATE_REORDERED",
-            "Operator [" + getCurrentOperator() + "] reordered " + saved.size() + " master stage(s).");
-        return saved;
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void bulkDeleteTemplateStages(List<UUID> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        List<StageTemplate> toDelete = templateRepository.findAllById(ids);
-        if (toDelete.isEmpty()) return;
-        templateRepository.deleteAllInBatch(toDelete);
-        auditService.logAction("STAGE_TEMPLATE_BULK_DELETED",
-            "Operator [" + getCurrentOperator() + "] bulk-deleted " + toDelete.size() + " master stage(s).");
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public List<StageTemplate> restoreDefaultStages() {
-        List<StageTemplate> current = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-
-        List<StageTemplate> nonDefault = current.stream()
-                .filter(s -> !DEFAULT_STAGE_NAMES.contains(s.getStageName()))
-                .toList();
-        if (!nonDefault.isEmpty()) {
-            templateRepository.deleteAllInBatch(nonDefault);
-        }
-
-        java.util.Map<String, StageTemplate> keepByName = current.stream()
-                .filter(s -> DEFAULT_STAGE_NAMES.contains(s.getStageName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        StageTemplate::getStageName, s -> s, (a, b) -> a));
-
-        List<StageTemplate> toSave = new java.util.ArrayList<>();
-        int order = 1;
-        for (String name : DEFAULT_STAGES) {
-            StageTemplate stage = keepByName.get(name);
-            if (stage == null) {
-                stage = StageTemplate.builder()
-                        .stageName(name)
-                        .defaultCost(BigDecimal.ZERO)
-                        .displayOrder(order)
-                        .isActive(true)
-                        .build();
-            } else {
-                stage.setDisplayOrder(order);
-            }
-            order++;
-            toSave.add(stage);
-        }
-        List<StageTemplate> saved = templateRepository.saveAll(toSave);
-        auditService.logAction("STAGE_TEMPLATE_DEFAULTS_RESTORED",
-            "Operator [" + getCurrentOperator() + "] restored the default master stage list.");
-        return saved;
-    }
-
     /**
-     * PASS 6: called once at boot. The Intake form no longer writes to the
-     * master template (its stage edits are local-only), so the master must
-     * always be exactly the 6 canonical defaults, in order, with no
-     * duplicates. Repairs the junk/duplicate rows created by earlier buggy
-     * passes and keeps the checklist canonical going forward.
+     * PASS 6: called once at boot. The master checklist must always be
+     * exactly the 6 canonical defaults, in order, with no duplicates.
+     * Repairs junk/duplicate rows created by earlier buggy passes.
      */
     @Transactional
     public void normalizeToDefaultStages() {
@@ -349,7 +515,7 @@ public class StageTemplateService {
             String name = t.getStageName();
             boolean isDefault = name != null && defaults.contains(name);
             if (!isDefault || kept.containsKey(name)) {
-                t.setActive(false); // non-default or duplicate -> retire
+                t.setActive(false);
                 templateRepository.save(t);
             } else {
                 kept.put(name, t);
@@ -376,7 +542,7 @@ public class StageTemplateService {
 """)
 
 # =====================================================================
-# 3) DataInitializer.java — FULL canonical rewrite
+# 3) DataInitializer.java — FULL REWRITE (seed 7 samples + PHASE G)
 # =====================================================================
 write("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java
 package com.gesolutions.erp.config;
@@ -421,10 +587,8 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
 
-        // PHASE 4: Seed the default stage template checklist if empty
         stageTemplateService.seedDefaultStagesIfEmpty();
 
-        // PASS 6: master checklist must always be exactly the 6 defaults
         try {
             stageTemplateService.normalizeToDefaultStages();
             System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
@@ -432,10 +596,7 @@ public class DataInitializer implements CommandLineRunner {
             System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
         }
 
-        // PASS 6: seed 5 unique SAMPLE projects for Ledger testing (once).
         seedSampleProjects();
-
-        // EXPENSES REBUILD: Seed the default expense presets if empty
         seedDefaultExpensePresets();
 
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
@@ -456,8 +617,6 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // PASS 6: 5 unique SAMPLE projects exercising different Ledger
-    // scenarios. Guarded so it only ever runs once (district = SAMPLE DATA).
     private void seedSampleProjects() {
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -480,45 +639,50 @@ public class DataInitializer implements CommandLineRunner {
         try {
             java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
 
-            // 1) ACTIVE, 50% paid, mid-pipeline (YELLOW badge after backdate)
-            ids.add(seedOne("SAMPLE-001", false, false, false, "SMPL-1001", "2026-04-15", "B-10",
+            ids.add(seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
                     5000000L, 2500000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER ONE", "CM000000000001", "0772000001" } },
+                    new String[][] { { "SAMPLE OWNER ONE", "SMPL00000001A", "0772000001" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName));
 
-            // 2) LEGACY title, FULLY PAID
-            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12",
+            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
                     8000000L, 8000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER TWO", "CM000000000002", "0772000002" } },
+                    new String[][] { { "SAMPLE OWNER TWO", "SMPL00000002A", "0772000002" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
                                    "District Land Board Approval", "Tax Assessment and Stamp Duty",
                                    "Registration and Title Issuance" }, idByName));
 
-            // 3) RECEIVABLE with storage fees running
-            ids.add(seedOne("SAMPLE-003", false, false, true, "SMPL-3003", "2026-05-20", "C-03",
+            ids.add(seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
                     6000000L, 1000000L, 50000L, 50000L,
-                    new String[][] { { "SAMPLE OWNER THREE", "CM000000000003", "0772000003" } },
+                    new String[][] { { "SAMPLE OWNER THREE", "SMPL00000003A", "0772000003" } },
                     new String[] { "Field Work", "Deed Plan" }, idByName));
 
-            // 4) CRITICAL debtor (10% paid) with JOINT owners
-            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null,
+            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
                     10000000L, 1000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER FOUR", "CM000000000004", "0772000004" },
-                                     { "SAMPLE CO OWNER FOUR", "CM000000000005", "0772000005" } },
+                    new String[][] { { "SAMPLE OWNER FOUR", "SMPL00000004A", "0772000004" },
+                                     { "SAMPLE CO OWNER FOUR", "SMPL00000005A", "0772000005" } },
                     new String[] { "Field Work" }, idByName));
 
-            // 5) NEW TITLE at intake, 75% paid, fresh payment (GREEN badge)
-            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-01", "K-07",
+            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
                     4000000L, 3000000L, 0L, 0L,
-                    new String[][] { { "SAMPLE OWNER FIVE", "CM000000000006", "0772000006" } },
+                    new String[][] { { "SAMPLE OWNER FIVE", "SMPL00000006A", "0772000006" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
                                    "District Land Board Approval" }, idByName));
 
-            // Backdate payments for badge variety (days ago): 10 / 200 / 45 / 60
-            int[] days = { 10, 200, 45, 60 };
+            ids.add(seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
+                    3000000L, 0L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER SIX", "SMPL00000007A", "0772000007" } },
+                    new String[] { "Field Work" }, idByName));
+
+            ids.add(seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
+                    9000000L, 8100000L, 0L, 0L,
+                    new String[][] { { "SAMPLE OWNER SEVEN", "SMPL00000008A", "0772000008" } },
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                                   "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName));
+
+            int[] days = { 10, 200, 45, 60, 0, -1, 25 };
             try (java.sql.Connection conn = dataSource.getConnection()) {
                 for (int i = 0; i < days.length && i < ids.size(); i++) {
-                    if (ids.get(i) == null) continue;
+                    if (ids.get(i) == null || days[i] < 0) continue;
                     java.sql.Timestamp ts = java.sql.Timestamp.valueOf(
                             java.time.LocalDateTime.now().minusDays(days[i]));
                     try (java.sql.PreparedStatement u1 = conn.prepareStatement(
@@ -531,7 +695,7 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 }
             }
-            System.out.println(">>> [SAMPLE] Seeded 5 sample projects (district = SAMPLE DATA).");
+            System.out.println(">>> [SAMPLE] Seeded 7 sample projects (district = SAMPLE DATA).");
         } catch (Exception e) {
             System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());
         }
@@ -539,14 +703,15 @@ public class DataInitializer implements CommandLineRunner {
 
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
                                    boolean receivable, String titleId, String titleDate,
-                                   String block, long cost, long paid, long initFee,
-                                   long monthlyFee, String[][] owners, String[] stages,
-                                   java.util.Map<String, String> idByName) throws Exception {
+                                   String block, String startDate, long cost, long paid,
+                                   long initFee, long monthlyFee, String[][] owners,
+                                   String[] stages, java.util.Map<String, String> idByName) throws Exception {
         LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
                 .district("SAMPLE DATA").county("SAMPLE COUNTY")
                 .subCounty("SAMPLE SUB").parish("SAMPLE PARISH")
                 .village("SAMPLE VILLAGE").area("SAMPLE AREA")
                 .tenure("FREEHOLD")
+                .projectStartDate(java.time.LocalDate.parse(startDate))
                 .totalCost(java.math.BigDecimal.valueOf(cost))
                 .initialPayment(java.math.BigDecimal.valueOf(paid))
                 .isLegacy(legacy)
@@ -590,20 +755,16 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
 
-            // PHASE 1 - PROJECT INDEX SYSTEM
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
 
-            // PHASE 1.5 - DATE TRACKING SYSTEM
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
 
-            // PHASE 2 - NIN-BASED IDENTITY
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
 
-            // PHASE C - national_id mandatory + unique
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
                 "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
@@ -613,7 +774,6 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
 
-            // EXPENSES REBUILD
             "CREATE TABLE IF NOT EXISTS expense_presets (" +
                 "id UUID PRIMARY KEY, " +
                 "name VARCHAR(100) NOT NULL UNIQUE, " +
@@ -631,11 +791,9 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
 
-            // STAGE 3 -- SOFT DELETE
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
 
-            // PHASE A -- location fields on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
@@ -646,17 +804,15 @@ public class DataInitializer implements CommandLineRunner {
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
                 "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
 
-            // PHASE B -- projectIndex on projects + backfill
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
             "UPDATE land_projects lp SET project_index = lt.project_index " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
 
-            // PHASE F -- plot_number nullable
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
 
-            // PHASE G -- RETIRED TITLE DETAILS (pass 6): removed app-wide.
+            // PHASE G -- RETIRED TITLE DETAILS: dropped from DB
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
@@ -666,7 +822,6 @@ public class DataInitializer implements CommandLineRunner {
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
-
             for (String sql : migrations) {
                 try {
                     stmt.execute(sql);
@@ -675,7 +830,6 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
                 }
             }
-
         } catch (Exception e) {
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
         }
@@ -718,17 +872,15 @@ public class DataInitializer implements CommandLineRunner {
                             System.out.println(">>>   is_active in DB = " + active);
                             System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
                             if (!matches) {
-                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write! Check encoder config.");
+                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write!");
                             } else {
-                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified. Login WILL work.");
+                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified.");
                             }
-                        } else {
-                            System.err.println(">>> [REGISTRY] FATAL: admin_root row not found after write!");
                         }
                     }
                 }
             } else {
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
             }
 
         } catch (Exception e) {
@@ -742,7 +894,7 @@ public class DataInitializer implements CommandLineRunner {
 # =====================================================================
 # Report + commit + push
 # =====================================================================
-print(f"\n=== fix5.py completed ===")
+print(f"\n=== fix7.py completed ===")
 print(f"  Wrote:   {len(WROTE)} file(s)")
 for f in WROTE: print(f"    + {f}")
 if FAILED:
@@ -753,7 +905,7 @@ if FAILED:
 if WROTE:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
-        subprocess.run(['git', 'commit', '-m', 'fix5: repair deploy — dedupe FolderPage import, full rewrites of StageTemplateService + DataInitializer (normalize + samples)'], check=True, cwd=ROOT, capture_output=True)
+        subprocess.run(['git', 'commit', '-m', 'fix7: ROOT-CAUSE index fix (split stacked mappings), normalize stages, seed 7 SAMPLE projects'], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed")
         subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
         print("  Git: Pushed")
