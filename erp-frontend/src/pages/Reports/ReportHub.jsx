@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import reportService from '../../services/reportService';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './ReportHub.module.css';
 
 // ─── TOAST ────────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ const ReportHub = () => {
     return (
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+            <BackToTopButton />
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>

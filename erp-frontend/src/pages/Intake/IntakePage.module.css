@@ -128,6 +128,21 @@
     border-color: rgba(33, 62, 64, 0.4);
     color: var(--navy-deep);
 }
+
+/* Cancel / Discard on light headers -- same rgba(239,68,68,...) danger
+   tone as .deleteBtn below and .btnDanger in FolderPage.jsx, tuned so
+   it reads red by default (not just on hover) against the light
+   .pageHeader background. */
+.headerBtnDanger {
+    color: var(--red);
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+}
+.headerBtnDanger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: var(--red);
+    color: var(--red);
+}
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .btn.primary { background: var(--orange); color: #fff; border-color: var(--orange); }
 .btn.primary:hover { background: #d97a2b; border-color: #d97a2b; color: #fff; }
@@ -429,7 +444,7 @@
     border-radius: 4px;
 }
 
-/* -- BOTTOM BAR: plain row; visible borderless single-arrow top button -- */
+/* -- BOTTOM BAR: back-to-top is now the shared BackToTopButton component -- */
 .bottomBar {
     display: flex;
     align-items: center;
@@ -439,21 +454,6 @@
     margin-bottom: clamp(12px, 2vh, 22px);
 }
 .bottomBarRight { display: flex; gap: var(--gap-md); align-items: center; }
-
-.topBtn {
-    background: transparent;
-    border: none;
-    color: var(--orange);
-    font-size: 20px;
-    padding: 4px 8px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.5));
-    transition: transform 0.2s ease;
-}
-.topBtn:hover { transform: translateY(-2px); }
 
 /* -- UNSAVED CHANGES MODAL -- */
 .modalOverlay {

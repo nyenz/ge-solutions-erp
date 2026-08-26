@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import ErrorMessage from '../../components/common/ErrorMessage';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
@@ -206,6 +207,7 @@ const LedgerPage = () => {
 
     return (
         <div className={styles.container}>
+            <BackToTopButton />
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>

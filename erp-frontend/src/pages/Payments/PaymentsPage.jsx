@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './PaymentsPage.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -97,6 +98,7 @@ const PaymentsPage = () => {
 
     return (
         <div className={styles.container}>
+            <BackToTopButton />
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Payment Records</h1>

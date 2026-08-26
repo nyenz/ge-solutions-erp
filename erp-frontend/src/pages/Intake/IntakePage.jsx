@@ -5,11 +5,12 @@ import { createPortal } from 'react-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiEdit3, FiBookmark, FiX, FiCopy, FiArrowUp, FiFile, FiEye, FiRefreshCw,
+    FiEdit3, FiBookmark, FiX, FiCopy, FiFile, FiEye, FiRefreshCw,
     FiCalendar
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareSelect from '../../components/common/HardwareSelect';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
 import styles from './IntakePage.module.css';
@@ -58,7 +59,10 @@ export default function IntakePage() {
     const [saving, setSaving] = useState(false);
     const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('NEW_FOLDER');
-    const [projectStartDate, setProjectStartDate] = useState(todayISO);
+    // STEP 7: Date Started is no longer user-editable, so it no longer
+    // needs its own piece of state -- it's just today's date, displayed
+    // read-only and computed fresh (todayISO()/todayDMY()) wherever it's
+    // needed, same as how the Index field already works.
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
 
     const [district, setDistrict] = useState('');
@@ -83,16 +87,14 @@ export default function IntakePage() {
     const [plotNumber, setPlotNumber] = useState('');
     const [blockRoad, setBlockRoad] = useState('');
     const [titleIssueDate, setTitleIssueDate] = useState('');
-    const [volume, setVolume] = useState('');
-    const [folio, setFolio] = useState('');
-    const [instrumentNo, setInstrumentNo] = useState('');
-    const [physicalBoxNumber, setPhysicalBoxNumber] = useState('');
-    const [surveyDate, setSurveyDate] = useState('');
 
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
-    const [monthlyStorageFee, setMonthlyStorageFee] = useState(0);
+    // STEP 6: pre-filled with the system default (50000), same as
+    // FolderPage's `project.storageFeeOverride || 50000` fallback,
+    // instead of only showing 'System default' text with no number.
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState(50000);
 
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
@@ -153,6 +155,16 @@ export default function IntakePage() {
 
     // Warn before navigating away inside the app with unsaved work
     const blocker = useBlocker(dirty && !saving);
+
+    // STEP 5: 'Stay' is no longer a button -- Escape does the same thing
+    // (overlay-click handles the mouse equivalent, wired directly on the
+    // overlay element below).
+    useEffect(() => {
+        if (blocker.state !== 'blocked') return;
+        const onKeyDown = (e) => { if (e.key === 'Escape') blocker.reset(); };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [blocker]);
 
     const sortedTemplates = useMemo(
         () => [...templates].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
@@ -349,7 +361,10 @@ export default function IntakePage() {
         }
         if (isTitleSectionVisible) {
             if (!titleId.trim()) { toast('Title ID is required for a title record.', 'error'); return false; }
+            if (!tenure) { toast('Tenure is required for a title record.', 'error'); return false; }
             if (!plotNumber.trim()) { toast('Plot Number is required for a title record.', 'error'); return false; }
+            if (!blockRoad.trim()) { toast('Block is required for a title record.', 'error'); return false; }
+            if (!titleIssueDate) { toast('Title Date is required for a title record.', 'error'); return false; }
             if (!area.trim()) { toast('Area is required for Title details.', 'error'); return false; }
         }
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
@@ -381,7 +396,8 @@ export default function IntakePage() {
                 initialPayment: Number(initialPayment) || 0,
                 isLegacy: isLegacy,
                 titleAtIntake: titleAtIntake,
-                projectStartDate: projectStartDate || todayISO(),
+                // STEP 7: computed fresh at save time, never from client-held state
+                projectStartDate: todayISO(),
                 owners: owners.map(o => ({
                     fullName: o.fullName.trim().toUpperCase(),
                     phone: o.phone.trim(),
@@ -409,11 +425,6 @@ export default function IntakePage() {
                 payload.blockRoad = blockRoad.trim().toUpperCase();
                 payload.titleId = titleId.trim().toUpperCase();
                 payload.titleIssueDate = titleIssueDate || null;
-                payload.volume = volume.trim().toUpperCase();
-                payload.folio = folio.trim().toUpperCase();
-                payload.instrumentNo = instrumentNo.trim().toUpperCase();
-                payload.physicalBoxNumber = physicalBoxNumber.trim().toUpperCase();
-                payload.surveyDate = surveyDate || null;
             }
 
             if (isLegacy) {
@@ -450,12 +461,10 @@ export default function IntakePage() {
         toast('Saved. Form duplicated for the next plot.', 'success');
         setProjectType('NEW_FOLDER');
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
-        setVolume(''); setFolio(''); setInstrumentNo(''); setPhysicalBoxNumber(''); setSurveyDate('');
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(0);
         setNotes('');
         setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setCheckedStages(defaultStages());
-        setProjectStartDate(todayISO);
         landService.getNextIndex().then(idx => setNextIndex(idx || ''))
             .catch(() => toast('Could not load the next index. Refresh to try again.', 'error'));
         scrollTop();
@@ -483,7 +492,7 @@ export default function IntakePage() {
                     <p className={styles.subtitle}>Intake Form</p>
                 </div>
                 <div className={styles.actions}>
-                    <button className={`${styles.btn} ${styles.headerBtn}`} onClick={() => navigate(-1)}>Cancel</button>
+                    <button className={`${styles.btn} ${styles.headerBtnDanger}`} onClick={() => navigate(-1)}>Cancel</button>
                 </div>
             </header>
 
@@ -497,9 +506,9 @@ export default function IntakePage() {
                             <p className={styles.hint}>Next available index, assigned on save</p>
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Date Started</label>
-                            <input type="date" className={styles.input} value={projectStartDate} onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />
-                            <p className={styles.hint}>Auto-filled with today. Edit if started earlier.</p>
+                            <label className={styles.label}>Date Started</label>
+                            <div className={styles.indexDisplay}>{todayDMY()}</div>
+                            <p className={styles.hint}>Auto-generated at save time — always today.</p>
                         </div>
                     </div>
                     <div className={styles.field}>
@@ -576,34 +585,12 @@ export default function IntakePage() {
                                 <input className={styles.input} value={plotNumber} onChange={e => { setPlotNumber(e.target.value); markDirty(); }} />
                             </div>
                             <div className={styles.field}>
-                                <label className={styles.label}>Block</label>
+                                <label className={`${styles.label} ${styles.required}`}>Block</label>
                                 <input className={styles.input} value={blockRoad} onChange={e => { setBlockRoad(e.target.value); markDirty(); }} />
                             </div>
                             <div className={styles.field}>
-                                <label className={styles.label}>Title Date</label>
+                                <label className={`${styles.label} ${styles.required}`}>Title Date</label>
                                 <input type="date" className={styles.input} value={titleIssueDate} onChange={e => { setTitleIssueDate(e.target.value); markDirty(); }} />
-                                <p className={styles.hint}>Leave blank if not yet received.</p>
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Volume</label>
-                                <input className={styles.input} value={volume} onChange={e => { setVolume(e.target.value); markDirty(); }} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Folio</label>
-                                <input className={styles.input} value={folio} onChange={e => { setFolio(e.target.value); markDirty(); }} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Instrument No.</label>
-                                <input className={styles.input} value={instrumentNo} onChange={e => { setInstrumentNo(e.target.value); markDirty(); }} />
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Physical Box Number</label>
-                                <input className={styles.input} value={physicalBoxNumber} onChange={e => { setPhysicalBoxNumber(e.target.value); markDirty(); }} />
-                                <p className={styles.hint}>Set once the physical document arrives.</p>
-                            </div>
-                            <div className={styles.field}>
-                                <label className={styles.label}>Survey Date</label>
-                                <input type="date" className={styles.input} value={surveyDate} onChange={e => { setSurveyDate(e.target.value); markDirty(); }} />
                             </div>
                         </div>
                     </CollapsibleSection>
@@ -655,9 +642,6 @@ export default function IntakePage() {
                                 )}
                                 <button type="button" className={styles.addBtn} onClick={() => setShowSavePreset(s => !s)}>
                                     <FiBookmark /> Save Preset
-                                </button>
-                                <button type="button" className={styles.addBtn} onClick={() => { setAddingStage(s => !s); setInsertAfterId(''); }}>
-                                    <FiPlus /> New Stage
                                 </button>
                                 <button type="button" className={styles.addBtn} disabled={restoring} onClick={handleRestoreDefaults}>
                                     <FiRefreshCw /> Restore Defaults
@@ -717,6 +701,15 @@ export default function IntakePage() {
                                 );
                             })}
                         </div>
+                        {/* AMBIGUITY CALL: the header '+ New Stage' button was removed
+                            (each stage row already has its own inline insert-below +),
+                            but that left no way to add a first stage when the list is
+                            empty, or to append after the very last one. Kept a minimal
+                            '+' affordance at the end of the list, reusing the exact same
+                            handler the old header button used. */}
+                        <button type="button" className={styles.addBtn} onClick={() => { setAddingStage(s => !s); setInsertAfterId(''); }}>
+                            <FiPlus /> Add Stage
+                        </button>
                         {presets.length > 0 && (
                             <div className={styles.presetList}>
                                 {presets.map(p => (
@@ -758,7 +751,7 @@ export default function IntakePage() {
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} placeholder="System default" />
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} placeholder="50000" />
                                 </div>
                             </div>
                         </>
@@ -823,9 +816,7 @@ export default function IntakePage() {
             </div>
 
             <div className={styles.bottomBar}>
-                <button type="button" className={styles.topBtn} onClick={scrollTop} aria-label="Back to top">
-                    <FiArrowUp />
-                </button>
+                <BackToTopButton />
                 <div className={styles.bottomBarRight}>
                     <button type="button" className={styles.addBtn} onClick={handleDuplicate} disabled={saving}>
                         <FiCopy /> Duplicate
@@ -837,24 +828,28 @@ export default function IntakePage() {
             </div>
 
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalCard}>
+                // STEP 5: down from 3 buttons to 2 ('Save' / 'Leave'). 'Stay' is
+                // gone as a button -- clicking the overlay (outside the card) or
+                // pressing Escape (see the useEffect above) does the same thing.
+                <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
+                    <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
                         <h3 className={styles.modalTitle}>Unsaved work</h3>
                         <p className={styles.modalText}>
                             You have unsaved information on this form. Do you want to save it before leaving?
                         </p>
                         <div className={styles.modalBtns}>
-                            <button type="button" className={styles.btn} onClick={() => blocker.reset()}>Stay</button>
-                            <button type="button" className={`${styles.btn} ${styles.deleteBtn}`} onClick={() => blocker.proceed()}>Leave without saving</button>
+                            <button type="button" className={`${styles.btn} ${styles.deleteBtn}`} onClick={() => blocker.proceed()}>Leave</button>
                             <button
                                 type="button"
                                 className={`${styles.btn} ${styles.primary}`}
                                 onClick={async () => {
+                                    // Same doSave() the bottom 'Save Project' button uses --
+                                    // identical validation errors/toasts, not reimplemented.
                                     const ok = await doSave();
                                     if (ok) blocker.proceed(); else blocker.reset();
                                 }}
                             >
-                                <FiSave /> Save & Leave
+                                <FiSave /> Save
                             </button>
                         </div>
                     </div>

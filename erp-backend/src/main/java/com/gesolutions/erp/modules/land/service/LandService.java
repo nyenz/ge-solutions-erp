@@ -269,12 +269,29 @@ public class LandService {
             if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
                 throw new com.gesolutions.erp.common.exception.BusinessException("PLOT_NUMBER_REQUIRED: Plot number is required when using Legacy preset or completing the final stage.");
             }
+            // STEP 4 (intake fix): Title Details is now fully required on the
+            // frontend once shown -- mirror that here the same way
+            // PLOT_NUMBER_REQUIRED already does, since this service validates
+            // DTOs imperatively rather than via @Valid/bean-validation.
+            if (request.getTitleId() == null || request.getTitleId().isBlank()) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("TITLE_ID_REQUIRED: Title ID is required when using Legacy preset or completing the final stage.");
+            }
+            if (request.getBlockRoad() == null || request.getBlockRoad().isBlank()) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("BLOCK_REQUIRED: Block is required when using Legacy preset or completing the final stage.");
+            }
+            if (request.getTitleIssueDate() == null) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("TITLE_DATE_REQUIRED: Title Date is required when using Legacy preset or completing the final stage.");
+            }
             title = LandTitle.builder()
                     .titleId(request.getTitleId())
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
                     .blockRoad(request.getBlockRoad())
-                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                    // STEP 7: Date Started is no longer client-editable on the intake
+                    // form, so creation no longer trusts a client-supplied value here
+                    // -- always today. (updateProjectFull(), the Folder page's edit
+                    // flow, is a different form and is untouched.)
+                    .projectStartDate(LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
         }
