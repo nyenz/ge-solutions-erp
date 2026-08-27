@@ -26,11 +26,8 @@ public class DataInitializer implements CommandLineRunner {
     private final ExpensePresetRepository expensePresetRepository;
     private final LandService landService;
 
-    @Value("${ADMIN_EMAIL}")
-    private String adminEmail;
-
-    @Value("${ADMIN_DEFAULT_PASSWORD}")
-    private String adminDefaultPassword;
+    @Value("${ADMIN_EMAIL}") private String adminEmail;
+    @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
 
     @Override
     public void run(String... args) {
@@ -38,6 +35,12 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
         stageTemplateService.seedDefaultStagesIfEmpty();
+        try {
+            stageTemplateService.normalizeToDefaultStages();
+            System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
+        } catch (Exception e) {
+            System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
+        }
         seedSampleProjects();
         seedDefaultExpensePresets();
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
@@ -55,91 +58,137 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // Runs each sample independently so one failure cannot wipe the batch.
-    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {
-        try {
-            return supplier.call();
+    // Wipe ALL old sample rows (any previous seed generation) before re-seeding.
+    private void purgeSampleData() {
+        String[] stmts = {
+            "DELETE FROM payment_records WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
+            "DELETE FROM follow_up_logs WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
+            "DELETE FROM project_stages WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
+            "DELETE FROM project_proprietors WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
+            "DELETE FROM land_projects WHERE district = 'SAMPLE DATA'",
+            "DELETE FROM land_titles WHERE plot_number LIKE 'SAMPLE-%'",
+            "DELETE FROM clients WHERE national_id LIKE 'SMPL-%'",
+        };
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            for (String s : stmts) { try { st.execute(s); } catch (Exception ignore) {} }
+            System.out.println(">>> [SAMPLE] Old sample data purged.");
         } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] purge warning: " + e.getMessage());
+        }
+    }
+
+    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {
+        try { return supplier.call(); }
+        catch (Exception e) {
             System.err.println(">>> [SAMPLE] " + label + " failed (skipped): " + e.getMessage());
             return null;
         }
     }
 
     private void seedSampleProjects() {
-        try (Connection conn = dataSource.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(
-                "SELECT COUNT(*) FROM land_projects WHERE district = 'SAMPLE DATA'")) {
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    System.out.println(">>> [SAMPLE] Sample projects already present -- skipping seed.");
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            System.err.println(">>> [SAMPLE] guard check failed: " + e.getMessage());
-            return;
-        }
+        purgeSampleData();
 
-        java.util.List<com.gesolutions.erp.modules.land.model.StageTemplate> master =
-                stageTemplateService.getActiveTemplate();
+        java.util.List<com.gesolutions.erp.modules.land.model.StageTemplate> master = stageTemplateService.getActiveTemplate();
         java.util.Map<String, String> idByName = new java.util.HashMap<>();
-        for (com.gesolutions.erp.modules.land.model.StageTemplate t : master) {
-            idByName.put(t.getStageName(), t.getId().toString());
-        }
+        for (com.gesolutions.erp.modules.land.model.StageTemplate t : master) idByName.put(t.getStageName(), t.getId().toString());
+
+        String FW = "Field Work", DP = "Deed Plan", LCI = "LC Inspection",
+               DLB = "District Land Board Approval", TASD = "Tax Assessment and Stamp Duty",
+               REG = "Registration and Title Issuance";
 
         java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
 
-        ids.add(trySeed("SAMPLE-001", () -> seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
-                5000000L, 2500000L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER ONE", "SMPL00000001A", "0772000001" } },
-                new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName)));
+        // 1) FOLDER, active, GREEN (paid 5 days ago)
+        ids.add(trySeed("SAMPLE-101", () -> seedOne("SAMPLE-101", false, false, false, null, null, null, "2026-05-04",
+                4000000L, 2000000L, 0, 0,
+                new String[][] { { "JOHN SSERUGO", "SMPL-1001", "0772100100" } },
+                new String[] { FW, DP }, null,
+                new String[] { "WAKISO", "KYADONDO", "NAKAWA EAST", "BUKOTO", "KIIWA", "0.5 acres" },
+                "Sample: fresh folder, paying well.", idByName)));
 
-        ids.add(trySeed("SAMPLE-002", () -> seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
-                8000000L, 8000000L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER TWO", "SMPL00000002A", "0772000002" } },
-                new String[] { "Field Work", "Deed Plan", "LC Inspection",
-                               "District Land Board Approval", "Tax Assessment and Stamp Duty",
-                               "Registration and Title Issuance" }, idByName)));
+        // 2) FOLDER, never paid, RED + CRITICAL
+        ids.add(trySeed("SAMPLE-102", () -> seedOne("SAMPLE-102", false, false, false, null, null, null, "2026-07-10",
+                6000000L, 0L, 0, 0,
+                new String[][] { { "MARY NAKATO", "SMPL-1002", "0772100200" } },
+                new String[] { FW }, null,
+                new String[] { "MPIGI", "MPIGI COUNTY", "MPIGI TOWN", "CENTRAL", "KIZUNGU", "1 acre" },
+                "Sample: folder, no payment yet.", idByName)));
 
-        ids.add(trySeed("SAMPLE-003", () -> seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
-                6000000L, 1000000L, 50000L, 50000L,
-                new String[][] { { "SAMPLE OWNER THREE", "SMPL00000003A", "0772000003" } },
-                new String[] { "Field Work", "Deed Plan" }, idByName)));
+        // 3) FOLDER, ready-for-titling, YELLOW (20 days)
+        ids.add(trySeed("SAMPLE-103", () -> seedOne("SAMPLE-103", false, false, false, null, null, null, "2026-02-02",
+                9000000L, 6000000L, 0, 0,
+                new String[][] { { "PETER OPOK", "SMPL-1003", "0772100300" } },
+                new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG },
+                new String[] { "MUKONO", "MUKONO COUNTY", "KATABI", "BULANGA", "NAGOGBE", "2 acres" },
+                "Sample: all pre-stages done, awaiting registration.", idByName)));
 
-        ids.add(trySeed("SAMPLE-004", () -> seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
-                10000000L, 1000000L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER FOUR", "SMPL00000004A", "0772000004" },
-                                 { "SAMPLE CO OWNER FOUR", "SMPL00000005A", "0772000005" } },
-                new String[] { "Field Work" }, idByName)));
+        // 4) NEW TITLE, active, GREEN (3 days)
+        ids.add(trySeed("SAMPLE-104", () -> seedOne("SAMPLE-104", false, true, false, "SMPL-T-104", "2026-06-15", "KBL-77", "2026-06-01",
+                15000000L, 11000000L, 0, 0,
+                new String[][] { { "GRACE ACHENG", "SMPL-1004", "0772100400" } },
+                new String[] { FW, DP, LCI, DLB }, null,
+                new String[] { "KAMPALA", "KAMPALA CENTRAL", "MAKINDYE", "KABALAGALA", "GABA", "0.25 acres" },
+                "Sample: new title in processing.", idByName)));
 
-        ids.add(trySeed("SAMPLE-005", () -> seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
-                4000000L, 3000000L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER FIVE", "SMPL00000006A", "0772000006" } },
-                new String[] { "Field Work", "Deed Plan", "LC Inspection",
-                               "District Land Board Approval" }, idByName)));
+        // 5) LEGACY, fully paid (not released), RED badge
+        ids.add(trySeed("SAMPLE-105", () -> seedOne("SAMPLE-105", true, false, false, "SMPL-T-105", "2025-12-01", "EBB-12", "2025-11-01",
+                20000000L, 20000000L, 0, 0,
+                new String[][] { { "DAVID KIGONGO", "SMPL-1005", "0772100500" } },
+                new String[] { FW, DP, LCI, DLB, TASD, REG }, null,
+                new String[] { "WAKISO", "ENTEBBE", "ENTEBBE TOWN", "KATABI", "LUGALA", "0.3 acres" },
+                "Sample: legacy fully paid, awaiting release.", idByName)));
 
-        ids.add(trySeed("SAMPLE-006", () -> seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
-                3000000L, 0L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER SIX", "SMPL00000007A", "0772000007" } },
-                new String[] { "Field Work" }, idByName)));
+        // 6) LEGACY, RELEASED
+        ids.add(trySeed("SAMPLE-106", () -> seedOne("SAMPLE-106", true, false, false, "SMPL-T-106", "2025-06-20", "MSK-3", "2025-05-02",
+                25000000L, 25000000L, 0, 0,
+                new String[][] { { "SARAH NANSUBU", "SMPL-1006", "0772100600" } },
+                new String[] { FW, DP, LCI, DLB, TASD, REG }, "RELEASE",
+                new String[] { "MASAKA", "MASAKA CENTRAL", "MASAKA MUNICIPAL", "KIMAANYA", "KABOGA", "1.5 acres" },
+                "Sample: released legacy title.", idByName)));
 
-        ids.add(trySeed("SAMPLE-007", () -> seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
-                9000000L, 8100000L, 0L, 0L,
-                new String[][] { { "SAMPLE OWNER SEVEN", "SMPL00000008A", "0772000008" } },
-                new String[] { "Field Work", "Deed Plan", "LC Inspection",
-                               "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName)));
+        // 7) LEGACY, RECEIVABLE with storage fees, RED (45 days)
+        ids.add(trySeed("SAMPLE-107", () -> seedOne("SAMPLE-107", true, false, true, "SMPL-T-107", "2025-09-10", "MBR-9", "2025-08-01",
+                12000000L, 2000000L, 50000L, 50000L,
+                new String[][] { { "JAMES TURYAHEREZA", "SMPL-1007", "0772100700" } },
+                new String[] { FW, DP }, null,
+                new String[] { "MBARARA", "MBARARA COUNTY", "MBARARA TOWN", "KAKIIKA", "NYAMITUKURA", "0.8 acres" },
+                "Sample: receivable, storage fees accruing.", idByName)));
 
-        int[] days = { 10, 200, 45, 60, 0, -1, 25 };
+        // 8) NEW TITLE, RECEIVABLE, recent payment GREEN (12 days)
+        ids.add(trySeed("SAMPLE-108", () -> seedOne("SAMPLE-108", false, true, true, "SMPL-T-108", "2026-02-14", "JIN-41", "2026-02-01",
+                10000000L, 3000000L, 50000L, 50000L,
+                new String[][] { { "RACHEL NABIRYE", "SMPL-1008", "0772100800" } },
+                new String[] { FW, DP, LCI }, null,
+                new String[] { "JINJA", "JINJA COUNTY", "JINJA MUNICIPAL", "WALUKUBA", "MPUMUDDE", "0.4 acres" },
+                "Sample: receivable but paying recently.", idByName)));
+
+        // 9) FOLDER, CRITICAL, JOINT (3 owners), RED (60 days)
+        ids.add(trySeed("SAMPLE-109", () -> seedOne("SAMPLE-109", false, false, false, null, null, null, "2026-01-15",
+                30000000L, 3000000L, 0, 0,
+                new String[][] { { "SAMUEL KIBUKA", "SMPL-1091", "0772100901" },
+                                 { "JOYCE NAKALEMA", "SMPL-1092", "0772100902" },
+                                 { "BRIAN MUWANGA", "SMPL-1093", "0772100903" } },
+                new String[] { FW }, null,
+                new String[] { "KAYUNGA", "KAYUNGA COUNTY", "KAYUNGA TOWN", "BUKOMBE", "NAJJA", "5 acres" },
+                "Sample: joint family plot, critical arrears.", idByName)));
+
+        // 10) LEGACY, active 90%, YELLOW (25 days)
+        ids.add(trySeed("SAMPLE-110", () -> seedOne("SAMPLE-110", true, false, false, "SMPL-T-110", "2026-01-25", "LWR-5", "2026-01-05",
+                18000000L, 16200000L, 0, 0,
+                new String[][] { { "HENRY SSEMMAMBWA", "SMPL-1100", "0772101000" } },
+                new String[] { FW, DP, LCI, DLB, TASD }, null,
+                new String[] { "LUWERO", "LUWERO COUNTY", "LUWERO MUNICIPAL", "BAMUNU", "ZIWA", "3 acres" },
+                "Sample: nearly paid legacy.", idByName)));
+
+        int[] days = { 5, -1, 20, 3, 40, 200, 45, 12, 60, 25 };
         try (Connection conn = dataSource.getConnection()) {
             for (int i = 0; i < days.length && i < ids.size(); i++) {
                 if (ids.get(i) == null || days[i] < 0) continue;
                 java.sql.Timestamp ts = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(days[i]));
-                try (java.sql.PreparedStatement u1 = conn.prepareStatement(
-                        "UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) {
+                try (java.sql.PreparedStatement u1 = conn.prepareStatement("UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) {
                     u1.setTimestamp(1, ts); u1.setObject(2, ids.get(i)); u1.executeUpdate();
                 }
-                try (java.sql.PreparedStatement u2 = conn.prepareStatement(
-                        "UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) {
+                try (java.sql.PreparedStatement u2 = conn.prepareStatement("UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) {
                     u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate();
                 }
             }
@@ -148,25 +197,22 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         long saved = ids.stream().filter(java.util.Objects::nonNull).count();
-        System.out.println(">>> [SAMPLE] Seeded " + saved + " of 7 sample projects (district = SAMPLE DATA).");
+        System.out.println(">>> [SAMPLE] Seeded " + saved + " detailed sample projects (district = SAMPLE DATA).");
     }
 
-    private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
-                                   boolean receivable, String titleId, String titleDate,
-                                   String block, String startDate, long cost, long paid,
-                                   long initFee, long monthlyFee, String[][] owners,
-                                   String[] stages, java.util.Map<String, String> idByName) throws Exception {
+    private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
+                                   String titleId, String titleDate, String block, String startDate,
+                                   long cost, long paid, long initFee, long monthlyFee,
+                                   String[][] owners, String[] doneStages, String[] openStages,
+                                   String releaseFlag, String[] loc, String note,
+                                   java.util.Map<String, String> idByName) throws Exception {
         LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
-                .district("SAMPLE DATA").county("SAMPLE COUNTY")
-                .subCounty("SAMPLE SUB").parish("SAMPLE PARISH")
-                .village("SAMPLE VILLAGE").area("SAMPLE AREA")
+                .district(loc[0]).county(loc[1]).subCounty(loc[2]).parish(loc[3]).village(loc[4]).area(loc[5])
                 .tenure("FREEHOLD")
                 .projectStartDate(java.time.LocalDate.parse(startDate))
                 .totalCost(java.math.BigDecimal.valueOf(cost))
                 .initialPayment(java.math.BigDecimal.valueOf(paid))
-                .isLegacy(legacy)
-                .titleAtIntake(titleAtIntake)
-                .isStartAsReceivable(receivable);
+                .isLegacy(legacy).titleAtIntake(titleAtIntake).isStartAsReceivable(receivable);
         if (plot != null) b.plotNumber(plot);
         if (titleId != null) b.titleId(titleId);
         if (block != null) b.blockRoad(block);
@@ -177,18 +223,29 @@ public class DataInitializer implements CommandLineRunner {
         }
         java.util.List<LandEntryRequest.OwnerRequest> os = new java.util.ArrayList<>();
         for (String[] o : owners) {
-            os.add(LandEntryRequest.OwnerRequest.builder()
-                    .fullName(o[0]).nationalId(o[1]).phone(o[2]).build());
+            os.add(LandEntryRequest.OwnerRequest.builder().fullName(o[0]).nationalId(o[1]).phone(o[2]).build());
         }
         b.owners(os);
         java.util.List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> ss = new java.util.ArrayList<>();
-        for (String s : stages) {
+        for (String s : doneStages) {
             String tid = idByName.get(s);
             ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
                     .stageTemplateId(tid).stageName(s).isCustom(tid == null).isCompleted(true).build());
         }
+        if (openStages != null) for (String s : openStages) {
+            String tid = idByName.get(s);
+            ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
+                    .stageTemplateId(tid).stageName(s).isCustom(tid == null).isCompleted(false).build());
+        }
         b.selectedStages(ss);
-        return landService.atomicIntake(b.build(), null).getId();
+        if (note != null) {
+            b.notes(java.util.List.of(LandEntryRequest.NoteRequest.builder().content(note).build()));
+        }
+        com.gesolutions.erp.modules.land.model.LandProject saved = landService.atomicIntake(b.build(), null);
+        if ("RELEASE".equals(releaseFlag)) {
+            try { landService.authorizeRelease(saved.getId(), "Sample release"); } catch (Exception ignore) {}
+        }
+        return saved.getId();
     }
 
     private void runSchemaMigrations() {
@@ -206,7 +263,7 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
-            // Sweep for ANY Hibernate-generated unique constraint on phone_number
+            // Sweep ANY leftover Hibernate-generated unique constraint on phone_number
             "DO $$ DECLARE cname text; BEGIN " +
                 "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
                 "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
@@ -223,20 +280,8 @@ public class DataInitializer implements CommandLineRunner {
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
-            "CREATE TABLE IF NOT EXISTS expense_presets (" +
-                "id UUID PRIMARY KEY, " +
-                "name VARCHAR(100) NOT NULL UNIQUE, " +
-                "created_by VARCHAR(100), " +
-                "created_at TIMESTAMP NOT NULL DEFAULT now())",
-            "CREATE TABLE IF NOT EXISTS expenses (" +
-                "id UUID PRIMARY KEY, " +
-                "category VARCHAR(150) NOT NULL, " +
-                "amount NUMERIC(15,2) NOT NULL, " +
-                "note TEXT, " +
-                "recorded_by VARCHAR(100), " +
-                "created_at TIMESTAMP NOT NULL DEFAULT now(), " +
-                "edited_at TIMESTAMP, " +
-                "edited_by VARCHAR(100))",
+            "CREATE TABLE IF NOT EXISTS expense_presets (id UUID PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, created_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
@@ -256,16 +301,14 @@ public class DataInitializer implements CommandLineRunner {
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
-            // Retired Title Details columns (Volume/Folio/Instrument/Box/Survey)
+            // Retired Title Details columns
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
         };
-
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             for (String sql : migrations) {
                 try {
                     stmt.execute(sql);
@@ -283,20 +326,14 @@ public class DataInitializer implements CommandLineRunner {
         String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
         String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
-
         try (java.sql.Connection conn = dataSource.getConnection()) {
             boolean exists = false;
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) {
                 ps.setString(1, "admin_root");
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) exists = rs.getInt(1) > 0;
-                }
+                try (java.sql.ResultSet rs = ps.executeQuery()) { if (rs.next()) exists = rs.getInt(1) > 0; }
             }
-
             if (!exists) {
-                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
-                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
                 try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setObject(1, java.util.UUID.randomUUID());
                     ps.setString(2, email);
@@ -305,7 +342,7 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
                 }
             } else {
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
             }
         } catch (Exception e) {
             System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:");

@@ -1,26 +1,12 @@
 /* PATH: erp-frontend/src/components/common/BackToTopButton.module.css */
 .topBtn {
-    position: fixed;
-    left: clamp(14px, 2vw, 26px);
-    bottom: clamp(14px, 2vh, 26px);
-    z-index: 9500;
-    background: transparent;
-    border: none;
-    color: #EE8C3A;
-    width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 23px;
-    cursor: pointer;
-    opacity: 0.9;
+    position: fixed; left: clamp(14px, 2vw, 26px); bottom: clamp(14px, 2vh, 26px); z-index: 9500;
+    background: transparent; border: none; color: #EE8C3A;
+    width: 38px; height: 38px; font-size: 23px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0.9;
     filter: drop-shadow(0 0 6px rgba(238, 140, 58, 0.6));
     transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
 }
-.topBtn:hover {
-    transform: translateY(-3px);
-    opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(238, 140, 58, 0.85));
-}
+.topBtn:hover { transform: translateY(-3px); opacity: 1; filter: drop-shadow(0 0 10px rgba(238, 140, 58, 0.85)); }
 .topBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; }

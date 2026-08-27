@@ -25,6 +25,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import styles from './FolderPage.module.css';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const STAGE_LABELS = ['COMMITMENT', 'FIELD WORK', 'DOCUMENTATION', 'DEED PLAN', 'RELEASE'];
@@ -739,6 +740,18 @@ const FolderPage = () => {
 
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
+
+// STANDARD: sidebar auto-collapses on first interaction
+useEffect(() => {
+    const handler = () => {
+        const aside = document.querySelector('aside');
+        const toggle = document.querySelector('[class*="sidebarToggle"]');
+        if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
+        window.removeEventListener('click', handler);
+    };
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+}, []);
     // Track whether any field was actually changed since edit mode opened
     // MUST be declared before useRouterBlock to avoid TDZ crash in minified build
     const touchedRef    = useRef(false);
