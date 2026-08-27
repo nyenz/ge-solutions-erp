@@ -30,7 +30,7 @@ public class LandTitle {
     private UUID id;
 
     @Column(nullable = false, length = 50)
-    private String tenure;
+    private String tenure; // e.g. MAILO, FREEHOLD
 
     @Column(name = "plot_number", unique = true, length = 100)
     private String plotNumber;

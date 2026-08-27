@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-fix12.py — make the deploy green + Ledger resilient.
-1) Re-issues the 5 backend files my scripts touched as ONE consistent set
-   (LandController index-fix, StageTemplate service+controller pair,
-   LandTitle compile-safe shape, DataInitializer with normalize + 7 sample
-   projects + sample docs + PHASE G drops of the 5 retired columns only).
-2) LedgerPage: auto-retry once after 5s on sync fault (free-tier cold start)
-   before showing LEDGER SYNC FAULT.
-Run: py fix12.py
+fix13.py — ship the backend as ONE consistent set so the deploy goes green
+AND the sample-data seed / stage normalize / index fix finally run.
+Writes 5 backend files (no anchors, no patching):
+  LandController (index endpoint fix), StageTemplateService (+normalize+bulk),
+  StageTemplateController (+bulk), DataInitializer (+seed 7 samples + docs +
+  PHASE G drops), LandTitle (compile-proven shape).
+Run: py fix13.py
 """
 import sys, subprocess
 from pathlib import Path
@@ -19,16 +18,6 @@ def write(rel, content):
     p = ROOT / rel
     p.parent.mkdir(parents=True, exist_ok=True)
     try: p.write_text(content, encoding="utf-8"); WROTE.append(rel)
-    except Exception as e: FAILED.append((rel, str(e)))
-
-def patch(rel, old, new):
-    p = ROOT / rel
-    try: text = p.read_text(encoding="utf-8")
-    except Exception as e: FAILED.append((rel, "read: " + str(e))); return
-    if old not in text:
-        FAILED.append((rel, "ANCHOR NOT FOUND: " + old[:70].replace("\n", "\\n"))); return
-    text = text.replace(old, new, 1)
-    try: p.write_text(text, encoding="utf-8"); WROTE.append(rel + " (patched)")
     except Exception as e: FAILED.append((rel, str(e)))
 
 # =====================================================================
@@ -64,8 +53,9 @@ public class LandController {
 
     private final LandService landService;
 
-    // FIX: was stacked with @PostMapping unlock-log on one method, so it
-    // never registered and the Index field always 404'd. One mapping each.
+    // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
+    // stacked on ONE method, so /next-index never registered (404) and the
+    // Index field always failed. One mapping per method now.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
@@ -281,7 +271,7 @@ public class LandController {
 """)
 
 # =====================================================================
-# 2) StageTemplateService.java — normalize + bulk, matched pair
+# 2) StageTemplateService.java — + normalize + bulk (matched pair)
 # =====================================================================
 write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java
 package com.gesolutions.erp.modules.land.service;
@@ -681,8 +671,7 @@ public class StageTemplateController {
 """)
 
 # =====================================================================
-# 4) LandTitle.java — compile-safe shape (deprecated district/county kept,
-#    retired 5 stay removed)
+# 4) LandTitle.java — compile-proven shape
 # =====================================================================
 write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java
 package com.gesolutions.erp.modules.land.model;
@@ -716,7 +705,7 @@ public class LandTitle {
     private UUID id;
 
     @Column(nullable = false, length = 50)
-    private String tenure;
+    private String tenure; // e.g. MAILO, FREEHOLD
 
     @Column(name = "plot_number", unique = true, length = 100)
     private String plotNumber;
@@ -1109,49 +1098,9 @@ public class DataInitializer implements CommandLineRunner {
 """)
 
 # =====================================================================
-# 6) LedgerPage.jsx — auto-retry once on cold-start fault
-# =====================================================================
-patch("erp-frontend/src/pages/Ledger/LedgerPage.jsx",
-"""    const fetchLedger = useCallback(async () => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            const data = await landService.getGlobalLedger(page, 50);
-            setProjects(data.content || []);
-        } catch {
-            setLoadError(true);
-        } finally {
-            setLoading(false);
-        }
-    }, [page]);
-
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);""",
-"""    // Free-tier cold start: the API can take ~a minute to wake. Retry once
-    // after 5s before declaring a fault, so a waking backend no longer
-    // shows LEDGER SYNC FAULT.
-    const fetchLedger = useCallback(async (attempt = 0) => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            const data = await landService.getGlobalLedger(page, 50);
-            setProjects(data.content || []);
-            setLoading(false);
-        } catch {
-            if (attempt < 1) {
-                setTimeout(() => fetchLedger(attempt + 1), 5000);
-                return;
-            }
-            setLoadError(true);
-            setLoading(false);
-        }
-    }, [page]);
-
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);""")
-
-# =====================================================================
 # Report + commit + push
 # =====================================================================
-print(f"\n=== fix12.py completed ===")
+print(f"\n=== fix13.py completed ===")
 print(f"  Wrote:   {len(WROTE)} file(s)")
 for f in WROTE: print(f"    + {f}")
 if FAILED:
@@ -1162,7 +1111,7 @@ if FAILED:
 if WROTE:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
-        subprocess.run(['git', 'commit', '-m', 'fix12: consistent backend set (compile-safe) + Ledger cold-start auto-retry + samples/docs seed'], check=True, cwd=ROOT, capture_output=True)
+        subprocess.run(['git', 'commit', '-m', 'fix13: consistent backend set — index fix + stage normalize + 7 sample projects + docs seed + PHASE G drops'], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed")
         subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
         print("  Git: Pushed")
