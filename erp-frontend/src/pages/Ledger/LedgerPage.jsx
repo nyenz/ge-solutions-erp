@@ -174,7 +174,7 @@ const LedgerPage = () => {
 
             {/* table panel: bottom corner brackets only, no top decor */}
             <div className={styles.tablePanel}>
-                <CornerDecor hideTop />
+                <CornerDecor />
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
