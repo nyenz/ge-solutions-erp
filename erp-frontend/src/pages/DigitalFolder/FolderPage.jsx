@@ -1207,8 +1207,8 @@ useEffect(() => {
                     </div>
                 </div>
                 <div className={styles.printDossierMeta}>
-                    <span><strong>PLOT ID:</strong> {project.landTitle.plotNumber}</span>
-                    <span><strong>TENURE:</strong> {project.landTitle.tenure}</span>
+                    <span><strong>PLOT ID:</strong> {project.landTitle?.plotNumber || project.projectIndex || 'UNTITLED'}</span>
+                    <span><strong>TENURE:</strong> {project.landTitle?.tenure || '---'}</span>
                     {project.district && <span><strong>DISTRICT:</strong> {project.district}</span>}
                     <span><strong>STATUS:</strong> {project.status}</span>
                     <span><strong>STAGE:</strong> {STAGE_LABELS[(project.currentStageIndex || 1) - 1] || project.currentStageIndex}</span>

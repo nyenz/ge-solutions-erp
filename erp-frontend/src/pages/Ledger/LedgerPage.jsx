@@ -3,12 +3,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
-    FiChevronLeft, FiChevronRight,
-    FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX, FiInfo
+    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
 } from 'react-icons/fi';
-import HardwarePanel from '../../components/ui/HardwarePanel';
-import ErrorMessage from '../../components/common/ErrorMessage';
-import BackToTopButton from '../../components/common/BackToTopButton';
+import CornerDecor from '../../components/ui/CornerDecor';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
@@ -46,7 +43,6 @@ const PaymentDot = ({ proj }) => {
     );
 };
 
-// multi-value helper: "a / b" -> ["a","b"] so entries stack downward
 const splitMulti = (v) => (v || '').split('/').map(s => s.trim()).filter(Boolean);
 
 const isReadyForTitling = (p) => {
@@ -70,7 +66,6 @@ const LedgerPage = () => {
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
 
-    // STANDARD: sidebar auto-collapses when the Ledger page is opened
     useEffect(() => {
         const t = setTimeout(() => {
             const aside = document.querySelector('aside');
@@ -133,17 +128,17 @@ const LedgerPage = () => {
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Project Ledger</h1>
-                    <p className={styles.subtitle}>Every registered project — from first folder to released title, with live payment health</p>
+                    <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
                 </div>
             </header>
 
-            {/* Sticky toolbar: search + filters stay visible; legend is a hover popover */}
+            {/* scrolls away with the page (not sticky) */}
             <div className={styles.controlHub}>
                 <div className={styles.toolbarRow}>
                     <div className={styles.searchBlock}>
                         <div className={styles.searchInner}>
                             <input type="search" id="ledger-search"
-                                placeholder="Search any field: index, plot, title ID, owner, phone, NIN, email, district, county, parish, village..."
+                                placeholder="Search any field..."
                                 className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
                                 value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)}
@@ -154,18 +149,6 @@ const LedgerPage = () => {
                                     <FiX aria-hidden="true" />
                                 </button>
                             )}
-                        </div>
-                    </div>
-                    <div className={styles.legendWrap}>
-                        <button type="button" className={styles.legendChip} aria-label="Payment health legend">
-                            <FiInfo aria-hidden="true" /> LEGEND
-                        </button>
-                        <div className={styles.legendPop} role="tooltip">
-                            {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                                <span key={k} className={styles.legendItem}>
-                                    <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                                </span>
-                            ))}
                         </div>
                     </div>
                 </div>
@@ -180,10 +163,18 @@ const LedgerPage = () => {
                         ))}
                     </div>
                 </div>
+                <div className={styles.legendRow} aria-label="Payment health legend">
+                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
+                        <span key={k} className={styles.legendItem}>
+                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
+                        </span>
+                    ))}
+                </div>
             </div>
 
-            <div>
-            <HardwarePanel variant="dark">
+            {/* table panel: bottom corner brackets only, no top decor */}
+            <div className={styles.tablePanel}>
+                <CornerDecor hideTop />
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
@@ -238,7 +229,6 @@ const LedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        {/* INDEX: dot + index + NINs stacked downward */}
                                         <td className={styles.plotCell}>
                                             <div className={styles.indexRow}>
                                                 <PaymentDot proj={proj} />
@@ -250,7 +240,6 @@ const LedgerPage = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        {/* OWNER(S): names stacked downward */}
                                         <td>
                                             <div className={styles.stack}>
                                                 {names.length
@@ -258,7 +247,6 @@ const LedgerPage = () => {
                                                     : <span className={styles.ownerName}>---</span>}
                                             </div>
                                         </td>
-                                        {/* PHONE: every number stacked downward */}
                                         <td>
                                             <div className={styles.stack}>
                                                 {phones.length
@@ -283,9 +271,7 @@ const LedgerPage = () => {
                                                 <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString()}</span>
                                             </div>
                                             {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div style={{ fontSize: '0.7rem', color: '#ef4444', marginBottom: 4 }}>
-                                                    +UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees
-                                                </div>
+                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>
                                             )}
                                             <div className={styles.velocityBar} role="progressbar"
                                                 aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
@@ -311,9 +297,10 @@ const LedgerPage = () => {
                         NEXT <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>
-            </HardwarePanel>
             </div>
-            <BackToTopButton />
+            <button type="button" className={styles.topBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top">
+                <FiArrowUp aria-hidden="true" />
+            </button>
         </div>
     );
 };
