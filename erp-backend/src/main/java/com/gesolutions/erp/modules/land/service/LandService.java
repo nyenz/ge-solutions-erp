@@ -254,9 +254,6 @@ public class LandService {
     // Now the whole intake is one all-or-nothing unit, same as every
     // other write method in this class.
     @Transactional(rollbackFor = Exception.class)
-    // FIX (combined): wrap in @Transactional so a failure partway through
-    // rolls back cleanly instead of leaving orphaned rows that poison retries.
-    @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
         // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
         // is only built if the legacy preset is used or the final

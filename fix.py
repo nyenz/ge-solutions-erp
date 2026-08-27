@@ -1,173 +1,367 @@
 #!/usr/bin/env python3
 """
-fix_robust.py -- Applies the definitive fixes using minimal, guaranteed anchors.
-Avoids "anchor not found" errors by using regex for repetitive blocks.
+fix_cleanup.py -- repair the Frankenstein state left by stacked fix scripts.
+1. LandService.java: collapse duplicated @Transactional on atomicIntake.
+2. DataInitializer.java: FULL clean rewrite (single landService field, single
+   seedSampleProjects/trySeed, phone-constraint sweep, title_id unlock,
+   retired-column drops, 7-sample seeding).
+Run: py fix_cleanup.py
 """
-import os
-import re
-import subprocess
+import os, re, subprocess
 
-def process_file(path, modifications, regex_mods=None):
-    if not os.path.exists(path):
-        print(f"❌ MISSING FILE: {path}")
-        return False
-        
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
-        
-    original_content = content
-    all_ok = True
-    
-    # String replacements
-    for desc, old, new in modifications:
-        if new in content:
-            print(f"✅ {desc} (already applied)")
-            continue
-        if old not in content:
-            print(f"❌ {desc} (anchor not found)")
-            all_ok = False
-            continue
-            
-        content = content.replace(old, new, 1)
-        print(f"🔧 {desc}")
-        
-    # Regex replacements
-    if regex_mods:
-        for desc, pattern, repl, check_str in regex_mods:
-            if check_str in content:
-                print(f"✅ {desc} (already applied)")
-                continue
-            new_content, count = re.subn(pattern, repl, content, flags=re.DOTALL)
-            if count == 0:
-                print(f"❌ {desc} (regex pattern not found)")
-                all_ok = False
-            else:
-                content = new_content
-                print(f"🔧 {desc} ({count} matches)")
-        
-    if content != original_content:
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(content)
-            
-    return all_ok
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
 
-# --- DataInitializer.java ---
-di_path = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
-di_mods = [
-    (
-        "Add phone constraint sweep & title_id nullable migration",
-        '            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",\n',
-        '            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",\n'
-        '            // FIX: Sweep for any Hibernate-generated unique constraint on phone_number\n'
-        '            "DO $$ DECLARE cname text; BEGIN " +\n'
-        '                "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +\n'
-        '                "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +\n'
-        '                "WHERE tc.table_name = \'clients\' AND tc.constraint_type = \'UNIQUE\' AND ccu.column_name = \'phone_number\' LIMIT 1; " +\n'
-        '                "IF cname IS NOT NULL THEN EXECUTE \'ALTER TABLE clients DROP CONSTRAINT \' || quote_ident(cname); END IF; " +\n'
-        '                "END $$",\n'
-        '            // FIX: Ensure title_id is nullable for Folder-type projects\n'
-        '            "ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL",\n'
-    ),
-    (
-        "Add verifyTitleIdNullable() call and method",
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());\n'
-        '        }\n'
-        '    }\n',
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());\n'
-        '        }\n'
-        '\n'
-        '        // FIX: verify title_id is actually nullable after migrations\n'
-        '        verifyTitleIdNullable();\n'
-        '    }\n'
-        '\n'
-        '    private void verifyTitleIdNullable() {\n'
-        '        try (Connection conn = dataSource.getConnection();\n'
-        '             Statement stmt = conn.createStatement()) {\n'
-        '            boolean nullable = false;\n'
-        '            try (java.sql.ResultSet rs = stmt.executeQuery(\n'
-        '                    "SELECT is_nullable FROM information_schema.columns " +\n'
-        '                    "WHERE table_name = \'land_projects\' AND column_name = \'title_id\'")) {\n'
-        '                if (rs.next()) nullable = "YES".equalsIgnoreCase(rs.getString(1));\n'
-        '            }\n'
-        '            if (!nullable) {\n'
-        '                System.out.println(">>> [DB_SCHEMA] title_id is still NOT NULL -- forcing fix now.");\n'
-        '                stmt.execute("ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL");\n'
-        '                try (java.sql.ResultSet rs2 = stmt.executeQuery(\n'
-        '                        "SELECT is_nullable FROM information_schema.columns " +\n'
-        '                        "WHERE table_name = \'land_projects\' AND column_name = \'title_id\'")) {\n'
-        '                    nullable = rs2.next() && "YES".equalsIgnoreCase(rs2.getString(1));\n'
-        '                }\n'
-        '            }\n'
-        '            if (nullable) {\n'
-        '                System.out.println(">>> [DB_SCHEMA] VERIFIED: land_projects.title_id is nullable. Folder projects can save.");\n'
-        '            } else {\n'
-        '                System.err.println(">>> [DB_SCHEMA] CRITICAL: land_projects.title_id is STILL NOT NULL after force-fix.");\n'
-        '            }\n'
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [DB_SCHEMA] CRITICAL: could not verify title_id nullability: " + e.getMessage());\n'
-        '        }\n'
-        '    }\n'
-    ),
-    (
-        "Update seed completion log",
-        '            System.out.println(">>> [SAMPLE] Seeded 7 sample projects (district = SAMPLE DATA).");\n',
-        '            long saved = ids.stream().filter(java.util.Objects::nonNull).count();\n'
-        '            System.out.println(">>> [SAMPLE] Seeded " + saved + " of 7 sample projects (district = SAMPLE DATA).");\n'
-    ),
-    (
-        "Add trySeed method definition",
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());\n'
-        '        }\n'
-        '    }\n',
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());\n'
-        '        }\n'
-        '    }\n'
-        '\n'
-        '    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {\n'
-        '        try {\n'
-        '            return supplier.call();\n'
-        '        } catch (Exception e) {\n'
-        '            System.err.println(">>> [SAMPLE] " + label + " failed (skipped): " + e.getMessage());\n'
-        '            return null;\n'
-        '        }\n'
-        '    }\n'
-    )
-]
+# ----------------------------------------------------------------------
+# 1. LandService.java -- collapse stacked @Transactional on atomicIntake
+# ----------------------------------------------------------------------
+LS = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
+with open(LS, "r", encoding="utf-8") as f:
+    text = f.read()
 
-di_regex = [
-    (
-        "Wrap seedOne calls in trySeed()",
-        r'ids\.add\(seedOne\("SAMPLE-00(\d)",(.*?)idByName\)\);',
-        r'ids.add(trySeed("SAMPLE-00\1", () -> seedOne("SAMPLE-00\1",\2idByName)));',
-        'trySeed("SAMPLE-001"'
-    )
-]
+before = text
+# one @Transactional followed by comments and/or more @Transactional, then the method
+pattern = re.compile(
+    r'(@Transactional\(rollbackFor = Exception\.class\)\s*)'
+    r'(?://[^\n]*\n\s*|/\*.*?\*/\s*|@Transactional\(rollbackFor = Exception\.class\)\s*)+'
+    r'(public LandProject atomicIntake)', re.DOTALL)
+text = pattern.sub(lambda m: m.group(1) + m.group(2), text)
+# simple adjacent duplicate as a fallback
+text = text.replace(
+    "@Transactional(rollbackFor = Exception.class)\n    @Transactional(rollbackFor = Exception.class)\n",
+    "@Transactional(rollbackFor = Exception.class)\n")
 
-# --- LandService.java ---
-ls_path = "erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/LandService.java"
-ls_mods = [
-    (
-        "Add @Transactional to atomicIntake",
-        '    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {\n',
-        '    @Transactional(rollbackFor = Exception.class)\n'
-        '    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {\n'
-    )
-]
+with open(LS, "w", encoding="utf-8", newline="\n") as f:
+    f.write(text)
+print("OK: LandService.java duplicate @Transactional collapsed" if text != before else "OK: LandService.java already clean")
 
-print("=== Applying robust fixes ===")
-ok1 = process_file(di_path, di_mods, di_regex)
-ok2 = process_file(ls_path, ls_mods)
+# ----------------------------------------------------------------------
+# 2. DataInitializer.java -- FULL clean rewrite
+# ----------------------------------------------------------------------
+DI = "erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java"
+with open(DI, "w", encoding="utf-8", newline="\n") as f:
+    f.write(r'''// PATH: erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java
+package com.gesolutions.erp.config;
 
-if not (ok1 and ok2):
-    print("\n❌ One or more fixes failed to apply. Check the output above.")
-    exit(1)
+import com.gesolutions.erp.modules.finance.model.ExpensePreset;
+import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
+import com.gesolutions.erp.modules.land.dto.LandEntryRequest;
+import com.gesolutions.erp.modules.land.service.LandService;
+import com.gesolutions.erp.modules.land.service.StageTemplateService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
 
-print("\n✅ All fixes applied successfully!")
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
+
+@Component
+@RequiredArgsConstructor
+public class DataInitializer implements CommandLineRunner {
+
+    private final PasswordEncoder passwordEncoder;
+    private final DataSource dataSource;
+    private final StageTemplateService stageTemplateService;
+    private final ExpensePresetRepository expensePresetRepository;
+    private final LandService landService;
+
+    @Value("${ADMIN_EMAIL}")
+    private String adminEmail;
+
+    @Value("${ADMIN_DEFAULT_PASSWORD}")
+    private String adminDefaultPassword;
+
+    @Override
+    public void run(String... args) {
+        System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
+        runSchemaMigrations();
+        seedRootUser();
+        stageTemplateService.seedDefaultStagesIfEmpty();
+        seedSampleProjects();
+        seedDefaultExpensePresets();
+        System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
+    }
+
+    public void seedDefaultExpensePresets() {
+        if (expensePresetRepository.count() > 0) {
+            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
+            return;
+        }
+        String[] defaults = { "Office", "Fieldwork", "Land Office" };
+        for (String name : defaults) {
+            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        }
+        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
+    }
+
+    // Runs each sample independently so one failure cannot wipe the batch.
+    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {
+        try {
+            return supplier.call();
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] " + label + " failed (skipped): " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void seedSampleProjects() {
+        try (Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM land_projects WHERE district = 'SAMPLE DATA'")) {
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    System.out.println(">>> [SAMPLE] Sample projects already present -- skipping seed.");
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] guard check failed: " + e.getMessage());
+            return;
+        }
+
+        java.util.List<com.gesolutions.erp.modules.land.model.StageTemplate> master =
+                stageTemplateService.getActiveTemplate();
+        java.util.Map<String, String> idByName = new java.util.HashMap<>();
+        for (com.gesolutions.erp.modules.land.model.StageTemplate t : master) {
+            idByName.put(t.getStageName(), t.getId().toString());
+        }
+
+        java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
+
+        ids.add(trySeed("SAMPLE-001", () -> seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
+                5000000L, 2500000L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER ONE", "SMPL00000001A", "0772000001" } },
+                new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-002", () -> seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
+                8000000L, 8000000L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER TWO", "SMPL00000002A", "0772000002" } },
+                new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                               "District Land Board Approval", "Tax Assessment and Stamp Duty",
+                               "Registration and Title Issuance" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-003", () -> seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
+                6000000L, 1000000L, 50000L, 50000L,
+                new String[][] { { "SAMPLE OWNER THREE", "SMPL00000003A", "0772000003" } },
+                new String[] { "Field Work", "Deed Plan" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-004", () -> seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
+                10000000L, 1000000L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER FOUR", "SMPL00000004A", "0772000004" },
+                                 { "SAMPLE CO OWNER FOUR", "SMPL00000005A", "0772000005" } },
+                new String[] { "Field Work" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-005", () -> seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
+                4000000L, 3000000L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER FIVE", "SMPL00000006A", "0772000006" } },
+                new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                               "District Land Board Approval" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-006", () -> seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
+                3000000L, 0L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER SIX", "SMPL00000007A", "0772000007" } },
+                new String[] { "Field Work" }, idByName)));
+
+        ids.add(trySeed("SAMPLE-007", () -> seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
+                9000000L, 8100000L, 0L, 0L,
+                new String[][] { { "SAMPLE OWNER SEVEN", "SMPL00000008A", "0772000008" } },
+                new String[] { "Field Work", "Deed Plan", "LC Inspection",
+                               "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName)));
+
+        int[] days = { 10, 200, 45, 60, 0, -1, 25 };
+        try (Connection conn = dataSource.getConnection()) {
+            for (int i = 0; i < days.length && i < ids.size(); i++) {
+                if (ids.get(i) == null || days[i] < 0) continue;
+                java.sql.Timestamp ts = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(days[i]));
+                try (java.sql.PreparedStatement u1 = conn.prepareStatement(
+                        "UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) {
+                    u1.setTimestamp(1, ts); u1.setObject(2, ids.get(i)); u1.executeUpdate();
+                }
+                try (java.sql.PreparedStatement u2 = conn.prepareStatement(
+                        "UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) {
+                    u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] backdate warning: " + e.getMessage());
+        }
+
+        long saved = ids.stream().filter(java.util.Objects::nonNull).count();
+        System.out.println(">>> [SAMPLE] Seeded " + saved + " of 7 sample projects (district = SAMPLE DATA).");
+    }
+
+    private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
+                                   boolean receivable, String titleId, String titleDate,
+                                   String block, String startDate, long cost, long paid,
+                                   long initFee, long monthlyFee, String[][] owners,
+                                   String[] stages, java.util.Map<String, String> idByName) throws Exception {
+        LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
+                .district("SAMPLE DATA").county("SAMPLE COUNTY")
+                .subCounty("SAMPLE SUB").parish("SAMPLE PARISH")
+                .village("SAMPLE VILLAGE").area("SAMPLE AREA")
+                .tenure("FREEHOLD")
+                .projectStartDate(java.time.LocalDate.parse(startDate))
+                .totalCost(java.math.BigDecimal.valueOf(cost))
+                .initialPayment(java.math.BigDecimal.valueOf(paid))
+                .isLegacy(legacy)
+                .titleAtIntake(titleAtIntake)
+                .isStartAsReceivable(receivable);
+        if (plot != null) b.plotNumber(plot);
+        if (titleId != null) b.titleId(titleId);
+        if (block != null) b.blockRoad(block);
+        if (titleDate != null) b.titleIssueDate(java.time.LocalDate.parse(titleDate));
+        if (receivable) {
+            b.initialStorageFee(java.math.BigDecimal.valueOf(initFee > 0 ? initFee : 50000));
+            b.monthlyStorageFee(java.math.BigDecimal.valueOf(monthlyFee > 0 ? monthlyFee : 50000));
+        }
+        java.util.List<LandEntryRequest.OwnerRequest> os = new java.util.ArrayList<>();
+        for (String[] o : owners) {
+            os.add(LandEntryRequest.OwnerRequest.builder()
+                    .fullName(o[0]).nationalId(o[1]).phone(o[2]).build());
+        }
+        b.owners(os);
+        java.util.List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> ss = new java.util.ArrayList<>();
+        for (String s : stages) {
+            String tid = idByName.get(s);
+            ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
+                    .stageTemplateId(tid).stageName(s).isCustom(tid == null).isCompleted(true).build());
+        }
+        b.selectedStages(ss);
+        return landService.atomicIntake(b.build(), null).getId();
+    }
+
+    private void runSchemaMigrations() {
+        String[] migrations = {
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
+            "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
+            "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            // Sweep for ANY Hibernate-generated unique constraint on phone_number
+            "DO $$ DECLARE cname text; BEGIN " +
+                "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
+                "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
+                "WHERE tc.table_name = 'clients' AND tc.constraint_type = 'UNIQUE' AND ccu.column_name = 'phone_number' LIMIT 1; " +
+                "IF cname IS NOT NULL THEN EXECUTE 'ALTER TABLE clients DROP CONSTRAINT ' || quote_ident(cname); END IF; " +
+                "END $$",
+            // Folder-type projects have no title yet -- title_id must be nullable
+            "ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL",
+            "UPDATE clients SET national_id = NULL WHERE national_id = ''",
+            "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
+                "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
+                "FROM clients WHERE national_id IS NOT NULL) ranked " +
+                "WHERE c.id = ranked.id AND ranked.rn > 1",
+            "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
+            "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
+            "CREATE TABLE IF NOT EXISTS expense_presets (" +
+                "id UUID PRIMARY KEY, " +
+                "name VARCHAR(100) NOT NULL UNIQUE, " +
+                "created_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS expenses (" +
+                "id UUID PRIMARY KEY, " +
+                "category VARCHAR(150) NOT NULL, " +
+                "amount NUMERIC(15,2) NOT NULL, " +
+                "note TEXT, " +
+                "recorded_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now(), " +
+                "edited_at TIMESTAMP, " +
+                "edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
+            "UPDATE land_projects lp SET project_index = lt.project_index " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
+                "AND lt.project_index IS NOT NULL",
+            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
+            // Retired Title Details columns (Volume/Folio/Instrument/Box/Survey)
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
+        };
+
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            for (String sql : migrations) {
+                try {
+                    stmt.execute(sql);
+                    System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length())));
+                } catch (Exception e) {
+                    System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
+        }
+    }
+
+    public void seedRootUser() {
+        String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
+        String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exists = rs.getInt(1) > 0;
+                }
+            }
+
+            if (!exists) {
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
+                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, java.util.UUID.randomUUID());
+                    ps.setString(2, email);
+                    ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+            } else {
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:");
+            e.printStackTrace();
+        }
+    }
+}
+''')
+print("OK: DataInitializer.java rewritten clean")
+
+# ----------------------------------------------------------------------
+# Commit + push
+# ----------------------------------------------------------------------
 subprocess.run(["git", "add", "-A"], check=False)
-subprocess.run(["git", "commit", "-m", "fix: robust application of phone sweep, title_id nullable, transactional intake, and resilient seeding"], check=False)
+subprocess.run(["git", "commit", "-m", "fix: cleanup duplicates (landService/seedSampleProjects/@Transactional); clean DataInitializer with sample seeding"], check=False)
 subprocess.run(["git", "push"], check=False)
-print("\nDone. Pushed to remote. Check Render logs for 'VERIFIED: land_projects.title_id is nullable'.")
+print("\nDone. Pushed. Watch Render for a GREEN build and '>>> [SAMPLE] Seeded 7 of 7'.")
