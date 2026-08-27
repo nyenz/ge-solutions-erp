@@ -1,24 +1,24 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight,
     FiArrowUp, FiArrowDown, FiClock, FiUsers,
-    FiAlertTriangle, FiX
+    FiAlertTriangle, FiX, FiPhoneCall
 } from 'react-icons/fi';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
-// Search mirrors the New Project intake fields (location incl. parish/village)
+// Search mirrors EVERY field captured at intake
 const matchesSearch = (proj, term) => {
     if (!term) return true;
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
-        proj.landTitle?.plotNumber,
         proj.projectIndex,
+        proj.landTitle?.plotNumber,
         proj.landTitle?.titleId,
         proj.landTitle?.blockRoad,
         proj.landTitle?.tenure,
@@ -28,6 +28,7 @@ const matchesSearch = (proj, term) => {
         proj.parish,
         proj.village,
         proj.area,
+        proj.status,
         ...(proj.proprietors || []).flatMap(p => [
             p.fullName,
             p.phoneNumber?.replace(/\s+/g, ''),
@@ -39,7 +40,6 @@ const matchesSearch = (proj, term) => {
     return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
 };
 
-// Payment health badge logic (same rules as Recovery)
 const getPaymentBadge = (proj) => {
     if (!proj.lastPaymentDate) return 'RED';
     const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
@@ -58,39 +58,19 @@ const PaymentDot = ({ proj }) => {
             title={BADGE_LABELS[badge]}
             aria-label={BADGE_LABELS[badge]}
             style={{
-                display: 'inline-block',
-                width: 7, height: 7,
-                borderRadius: '50%',
-                background: BADGE_COLORS[badge],
-                boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-                flexShrink: 0,
-                marginTop: 4,
+                display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
+                flexShrink: 0, marginTop: 4,
             }}
         />
     );
 };
 
-// Entry-type badge, mirrors the New Project "Type" selector
-const typeBadge = (proj) => {
-    if (proj.isLegacy) return 'LEGACY';
-    return proj.landTitle ? 'TITLED' : 'FOLDER';
-};
-
-const isReadyForTitling = (p) => {
-    if (p.landTitle) return false;
-    const stages = p.stages || [];
-    if (stages.length === 0) return false;
-    const finalStage = stages.find(s => (s.stageName || '').toLowerCase().includes('registration'));
-    if (!finalStage) return false;
-    const priorStages = stages.filter(s => s.id !== finalStage.id);
-    const allPriorComplete = priorStages.every(s => s.isCompleted);
-    const finalOutstanding = !finalStage.isCompleted;
-    const finalCheckedButEmpty = finalStage.isCompleted && !p.landTitle;
-    return (allPriorComplete && finalOutstanding) || finalCheckedButEmpty;
-};
+const typeBadge = (proj) => (proj.isLegacy ? 'LEGACY' : proj.landTitle ? 'TITLED' : 'FOLDER');
 
 const LedgerPage = () => {
     const navigate = useNavigate();
+    const containerRef = useRef(null);
 
     const [projects,     setProjects]     = useState([]);
     const [loading,      setLoading]      = useState(true);
@@ -99,9 +79,31 @@ const LedgerPage = () => {
     const [searchTerm,   setSearchTerm]   = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
-    const [selectedIds, setSelectedIds] = useState(new Set());
-    const [bulkProcessing, setBulkProcessing] = useState(false);
     const [sortConfig,   setSortConfig]   = useState({ key: 'plotNumber', direction: 'asc' });
+
+    // STANDARD: sidebar auto-collapses once the user starts working on the page
+    const collapsedOnce = useRef(false);
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const handler = () => {
+            if (collapsedOnce.current) return;
+            collapsedOnce.current = true;
+            const aside = document.querySelector('aside');
+            const toggle = document.querySelector('[class*="sidebarToggle"]');
+            if (aside && toggle && aside.getBoundingClientRect().width > 120) {
+                toggle.click();
+            }
+        };
+        el.addEventListener('focusin', handler);
+        el.addEventListener('input', handler);
+        el.addEventListener('click', handler);
+        return () => {
+            el.removeEventListener('focusin', handler);
+            el.removeEventListener('input', handler);
+            el.removeEventListener('click', handler);
+        };
+    }, []);
 
     const fetchLedger = useCallback(async () => {
         setLoading(true);
@@ -121,18 +123,16 @@ const LedgerPage = () => {
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm));
 
-        if (activeFilter === 'FOLDERS')     filtered = filtered.filter(p => !p.landTitle);
+        if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
-        if (activeFilter === 'UNPAID')      filtered = filtered.filter(p => (p.amountPaid || 0) < (p.totalCost || 0));
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
-        if (activeFilter === 'READY_FOR_TITLING') filtered = filtered.filter(isReadyForTitling);
+        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased));
+        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25 && !(p.amountPaid >= p.totalCost));
 
         filtered.sort((a, b) => {
             let aVal, bVal;
-            if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || ''; bVal = b.landTitle?.plotNumber || ''; }
+            if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
             else if (sortConfig.key === 'owner')      { aVal = a.proprietors?.[0]?.fullName || ''; bVal = b.proprietors?.[0]?.fullName || ''; }
             else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
             else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
@@ -143,36 +143,6 @@ const LedgerPage = () => {
 
         return filtered;
     }, [projects, searchTerm, activeFilter, sortConfig]);
-
-    const handleBulkMark = async () => {
-        setBulkProcessing(true);
-        try {
-            await landService.bulkMarkTitleProduced([...selectedIds]);
-            await fetchLedger();
-            setSelectedIds(new Set());
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setBulkProcessing(false);
-        }
-    };
-
-    const toggleSelect = (id, e) => {
-        e.stopPropagation();
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const toggleSelectAll = () => {
-        const readyIds = new Set(processedData.map(p => p.id));
-        const allSelected = processedData.length > 0 && processedData.every(p => selectedIds.has(p.id));
-        if (allSelected) setSelectedIds(new Set());
-        else setSelectedIds(readyIds);
-    };
 
     const handleSort = (key) => {
         setSortConfig(prev => ({
@@ -189,26 +159,22 @@ const LedgerPage = () => {
     };
 
     const FILTERS = [
-        { key: 'ALL',               label: 'ALL ARCHIVES'        },
-        { key: 'FOLDERS',           label: 'FOLDERS'             },
-        { key: 'TITLED',            label: 'TITLED'              },
-        { key: 'LEGACY',            label: 'LEGACY'              },
-        { key: 'RECEIVABLES',       label: 'RECEIVABLES'         },
-        { key: 'PAID',              label: 'PAID'                },
-        { key: 'UNPAID',            label: 'UNPAID'              },
-        { key: 'CRITICAL',          label: 'CRITICAL'            },
-        { key: 'READY_FOR_TITLING', label: 'READY FOR TITLING'   },
+        { key: 'ALL',         label: 'ALL PROJECTS' },
+        { key: 'BACKLOG',     label: 'BACKLOG'      },
+        { key: 'TITLED',      label: 'TITLED'       },
+        { key: 'LEGACY',      label: 'LEGACY'       },
+        { key: 'RECEIVABLES', label: 'RECEIVABLES'  },
+        { key: 'CRITICAL',    label: 'CRITICAL'     },
+        { key: 'PAID',        label: 'PAID'         },
     ];
 
-    const colSpan = activeFilter === 'READY_FOR_TITLING' ? 6 : 5;
-
     return (
-        <div className={styles.container}>
+        <div className={styles.container} ref={containerRef}>
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Plot Ledger</h1>
-                    <p className={styles.subtitle}>All registered plots and their payment status</p>
+                    <h1 className={styles.title}>Project Ledger</h1>
+                    <p className={styles.subtitle}>Every registered project — from first folder to released title, with live payment health</p>
                 </div>
             </header>
 
@@ -217,7 +183,7 @@ const LedgerPage = () => {
                     <div className={styles.searchInner}>
                         <input
                             type="search" id="ledger-search"
-                            placeholder="Plot ID, index, title ID, owner, phone, NIN, email, district, county, parish, village, tenure..."
+                            placeholder="Search any field: index, plot, title ID, owner, phone, NIN, email, district, county, parish, village, tenure..."
                             className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -249,17 +215,6 @@ const LedgerPage = () => {
                     </div>
                 </div>
 
-                {activeFilter === 'READY_FOR_TITLING' && selectedIds.size > 0 && (
-                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '10px', fontWeight: 900, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            {selectedIds.size} RECORD{selectedIds.size > 1 ? 'S' : ''} SELECTED
-                        </span>
-                        <button className={styles.bulkActionBtn} onClick={handleBulkMark} disabled={bulkProcessing}>
-                            {bulkProcessing ? 'PROCESSING...' : 'MARK AS TITLE-PRODUCED'}
-                        </button>
-                    </div>
-                )}
-
                 <div className={styles.badgeLegend}>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.badgeLegendItem}>
@@ -273,51 +228,43 @@ const LedgerPage = () => {
             <div>
             <HardwarePanel variant="dark">
                 <div className={styles.tableScroll}>
-                    <table className={styles.ledgerTable} aria-label="Land records ledger" aria-rowcount={processedData.length}>
+                    <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
-                                {activeFilter === 'READY_FOR_TITLING' && (
-                                    <th style={{width: '30px'}}>
-                                        <input
-                                            type="checkbox"
-                                            onChange={toggleSelectAll}
-                                            checked={processedData.length > 0 && processedData.every(p => selectedIds.has(p.id))}
-                                            onClick={e => e.stopPropagation()}
-                                        />
-                                    </th>
-                                )}
                                 <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiMapPin aria-hidden="true" /> PLOT ID {renderSortIcon('plotNumber')}
+                                    <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
                                 </th>
                                 <th onClick={() => handleSort('owner')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiUser aria-hidden="true" /> PRIMARY OWNER {renderSortIcon('owner')}
+                                    <FiUser aria-hidden="true" /> OWNER(S) {renderSortIcon('owner')}
                                 </th>
                                 <th>
-                                    <FiMapPin aria-hidden="true" /> LOCATION
+                                    <FiPhoneCall aria-hidden="true" /> PHONE
                                 </th>
+                                <th>PARISH</th>
+                                <th>VILLAGE</th>
+                                <th>STATUS</th>
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
                                 </th>
-                                <th>STATUS</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading && (
-                                <tr><td colSpan={colSpan} className={styles.loadingCell}>
+                                <tr><td colSpan={7} className={styles.loadingCell}>
                                     <FiClock aria-hidden="true" /> SYNCING ARCHIVE...
                                 </td></tr>
                             )}
                             {!loading && loadError && (
-                                <tr><td colSpan={colSpan} className={styles.errorCell}>
+                                <tr><td colSpan={7} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
                                     <button className={styles.retryBtn} onClick={fetchLedger}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={colSpan} className={styles.emptyCell}>
+                                <tr><td colSpan={7} className={styles.emptyCell}>
                                     <FiLayers aria-hidden="true" />
                                     {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
                                 </td></tr>
@@ -329,8 +276,9 @@ const LedgerPage = () => {
                                     ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
                                     : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct        = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
-                                const isCritical = pct < 25 && proj.totalCost > 0;
-                                const locLine    = [proj.parish, proj.village].filter(Boolean).join(' / ');
+                                const isCritical = pct < 25 && proj.totalCost > 0 && !(proj.amountPaid >= proj.totalCost);
+                                const owners     = proj.proprietors || [];
+                                const phones     = owners.map(o => o.phoneNumber).filter(Boolean);
 
                                 return (
                                     <tr key={proj.id}
@@ -340,16 +288,6 @@ const LedgerPage = () => {
                                         aria-label={`Record: ${proj.landTitle?.plotNumber || proj.projectIndex}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}
                                     >
-                                        {activeFilter === 'READY_FOR_TITLING' && (
-                                            <td>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.has(proj.id)}
-                                                    onChange={e => toggleSelect(proj.id, e)}
-                                                    onClick={e => e.stopPropagation()}
-                                                />
-                                            </td>
-                                        )}
                                         <td className={styles.plotCell}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                                                 <PaymentDot proj={proj} />
@@ -365,8 +303,8 @@ const LedgerPage = () => {
                                                         {proj.landTitle?.tenure && (
                                                             <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>
                                                         )}
-                                                        {proj.landTitle?.titleId && (
-                                                            <span className={styles.districtTag}>{proj.landTitle.titleId}</span>
+                                                        {proj.district && (
+                                                            <span className={styles.districtTag}>{proj.district}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -375,13 +313,12 @@ const LedgerPage = () => {
                                         <td>
                                             <div className={styles.ownerWrap}>
                                                 <div className={styles.ownerMeta}>
-                                                    <span className={styles.ownerName}>{proj.proprietors?.[0]?.fullName || '---'}</span>
-                                                    <span className={styles.ownerPhone}>{proj.proprietors?.[0]?.phoneNumber || '---'}</span>
+                                                    <span className={styles.ownerName}>{owners[0]?.fullName || '---'}</span>
                                                 </div>
-                                                {proj.proprietors?.length > 1 && (
+                                                {owners.length > 1 && (
                                                     <div className={styles.jointBadge}>
                                                         <FiUsers aria-hidden="true" />
-                                                        <span>+{proj.proprietors.length - 1} MORE</span>
+                                                        <span>+{owners.length - 1} MORE</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -389,13 +326,24 @@ const LedgerPage = () => {
                                         <td>
                                             <div className={styles.ownerWrap}>
                                                 <div className={styles.ownerMeta}>
-                                                    <span className={styles.ownerName}>{proj.district || '---'}</span>
-                                                    <span className={styles.ownerPhone}>{proj.county || '---'}</span>
+                                                    <span className={styles.ownerPhone}>{phones[0] || '---'}</span>
                                                 </div>
-                                                <div className={styles.jointBadge}>
-                                                    <FiMapPin aria-hidden="true" />
-                                                    <span>{locLine || proj.area || '---'}</span>
-                                                </div>
+                                                {phones.length > 1 && (
+                                                    <div className={styles.jointBadge}>
+                                                        <span>+{phones.length - 1} MORE</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
+                                        <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
+                                        <td>
+                                            <div className={styles.statusGroup}>
+                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
+                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
+                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
+                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
+                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
                                             </div>
                                         </td>
                                         <td className={styles.moneyCell}>
@@ -416,15 +364,6 @@ const LedgerPage = () => {
                                                     style={{ width: `${pct}%` }} />
                                             </div>
                                             <span className={styles.pctLabel}>{Math.round(pct)}%</span>
-                                        </td>
-                                        <td>
-                                            <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
-                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                            </div>
                                         </td>
                                     </tr>
                                 );
