@@ -129,7 +129,22 @@ Every element **must** be explicitly styled -- **no** browser defaults anywhere 
 Icons **must** come from the same icon library already used in the app (react-icons/fi -- see Section 11's import-checking rule). Size, color, and stroke weight for icons of the same type **must** match everywhere they appear.
 
 ### ANIMATION / TRANSITION RULE
-Any hover, active, or state-change animation **must** use consistent timing and easing across the whole app (match whatever Ledger already uses). No page gets its own custom animation speed or style without explicit instruction.
+Any hover, active, or state-change animation **must** use consistent timing and easing across the whole app. Confirmed standard timings (from the New Project Page, the reference implementation): hover/state transitions = **0.2s**, toast slide-in = **0.3s ease-out**, whole-page entrance fade-up = **0.6s cubic-bezier(0.2, 1, 0.3, 1)**. No page gets its own custom animation speed or style without explicit instruction.
+
+### CORE DESIGN TOKENS (confirmed from code -- use these exact values everywhere)
+```
+--orange:        #EE8C3A
+--orange-dim:    rgba(238, 140, 58, 0.18)
+--orange-border: rgba(238, 140, 58, 0.28)
+--navy:          #213E40
+--navy-deep:     #1a2e30
+--red:           #ef4444
+--green:         #10b981
+--radius:        10px
+--radius-sm:     6px
+```
+Font families: **Cinzel** (serif) for page titles, section headings, modal titles. **Inter** (sans-serif) for body text, labels, buttons, inputs. **Space Mono** for plot numbers and project index values.
+Font sizes and spacing use `clamp()` throughout (see Responsiveness Rule) -- do not hardcode pixel font sizes.
 
 ### Page Header Style (ALL pages must match Dashboard)
 - `className={styles.pageHeader}` on `<header>`
@@ -204,23 +219,38 @@ Any hover, active, or state-change animation **must** use consistent timing and 
 - Use `modalStyles.modalFooter` for the button row
 - Import: `import modalStyles from '../../components/common/HardwareModal.module.css'`
 
-### Button Style Standard (outside modals)
-- Primary: `background: var(--orange)`, `color: #1a2e30`, bold uppercase text
-- Secondary: `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)`
-- Danger: red-tinted background, white text
-- Hover/active states follow the same pattern as Filter Button Style
+### Button Style Standard (outside modals) -- CONFIRMED FROM CODE
+- Default: transparent background, `border: 1.5px solid rgba(255,255,255,0.1)`, `color: rgba(255,255,255,0.7)`, uppercase, letter-spacing 1.5px, font-weight 900
+- Default hover: `background: rgba(255,255,255,0.07)`, `border-color: rgba(255,255,255,0.22)`, `color: #fff`
+- Primary: `background: var(--orange)`, `color: #fff` (white text, NOT navy), `border-color: var(--orange)`
+- Primary hover: `background: #d97a2b`
+- Secondary/Add/Filter-style button (dark-bg variant): `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)` -- same as Filter Button Style above
+- Danger/Delete: transparent background, `border-color: rgba(239,68,68,0.3)`, `color: rgba(239,68,68,0.7)` -- turns solid only on hover: `background: rgba(239,68,68,0.15)`, `border-color: var(--red)`, `color: var(--red)`
+- Disabled: `opacity: 0.18`, `cursor: not-allowed`
+- Small variant: reduced padding, same colors/states
 
-### Loading State Style
-- Use a simple spinner or skeleton block matching the app's dark theme -- no default browser spinners, no white flash
+### Loading State Style -- CONFIRMED FROM CODE
+- Simple inline text "Loading..." where a value isn't ready yet (e.g. project index before it's assigned). No spinner graphic, no skeleton block.
 
-### Toast / Notification Style
-- Success: green-tinted, Error: red-tinted, both dark-glass background matching the app theme, positioned consistently (e.g. top-right), auto-dismiss after a few seconds
+### Toast / Notification Style -- CONFIRMED FROM CODE
+- Info/default: `background: #1a2e30`, `border: 1px solid rgba(238,140,58,0.28)`, white text
+- Success: solid `background: #10b981` (green), matching border
+- Error: solid `background: #ef4444` (red), matching border
+- Position: fixed, **bottom-right** of screen (`bottom: clamp(16px,2.5vh,28px)`, `right: clamp(16px,2vw,28px)`)
+- Animation: slides in from the right, `0.3s ease-out`
+- Auto-dismiss after a few seconds (do not require the user to close it manually)
 
-### Checkbox / Toggle Style
-- Custom-styled to match theme -- checked state uses `var(--orange)`, unchecked uses the dark theme border color, no native browser checkbox/toggle appearance anywhere
+### Checkbox / Toggle Style -- CONFIRMED FROM CODE
+- Use a normal native `<input type="checkbox">`, tinted with `accent-color: var(--orange)`, sized `15px x 15px`. Do NOT fully custom-build checkboxes from scratch -- the native element with `accent-color` is the standard here.
 
 ### Empty State Rules
 - Searching in tables MUST return dynamic text: `NO RECORDS MATCH 'term'`
+
+### Grid Field Layout Pattern (NEW -- confirmed from code, apply everywhere forms have grouped fields)
+- 2-column field groups: `grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))`
+- 3-column field groups (e.g. short fields like plot number, block): `repeat(auto-fit, minmax(130px, 1fr))`
+- Both auto-collapse to fewer columns on narrow screens automatically -- no manual breakpoint needed for this part
+- Gap between fields: use the standard `--gap-lg` spacing token
 
 ### FolderPage Header
 - Uses `.terminalHeader` -- its own unique design, do NOT change to pageHeader
@@ -244,13 +274,15 @@ Assigned at `LandProject` creation, before any title exists. Permanent and unive
 - NIN identity rule: see Section 5 ("Identity uniqueness"). Technical note: `Client.nationalId` moves from soft/optional to a true mandatory, unique-checked database constraint -- this redesign is where it actually gets enforced in code.
 - Location hierarchy -- District -> County -> Sub-county -> Parish -> Village, plus an optional Area field -- is PERMANENT, not folder-only. It lives on `LandProject` (moved up from `LandTitle`, which only had District/County) and stays visible for the record's entire life, title or no title.
 
-### 8.5 PROCESSING STAGES -- UNLOCK TRIGGER (Folder Page)
-No new stage model needed. For a project started as "New Folder," checking the final template stage ("Registration and Title Issuance") on the Folder Page reveals the Title Details fields. No separate "convert" button, modal, or wizard step. Stage checklist has no per-stage notes -- notes are a single project-level field (see 8.8).
+### 8.5 PROCESSING STAGES -- UNLOCK TRIGGER
+No new stage model needed. Checking the final template stage ("Registration and Title Issuance") reveals the Title Details fields. This works in two places, confirmed in code: (1) on the Folder Page, for an existing Folder-mode project as staff work through its stages over time, and (2) right on the New Project Page itself, if staff check the final stage while still creating a New Folder-mode project -- Title Details appears immediately in that same form. No separate "convert" button, modal, or wizard step in either case. Stage checklist has no per-stage notes -- notes are a single project-level field (see 8.8).
 
-This trigger only applies to Folder-mode projects. "New Title" and "Legacy Title" projects skip Stages entirely and show Title Details right away -- see 8.6.
+"New Title" and "Legacy Title" entry modes skip Stages entirely and show Title Details right away -- see 8.6.
 
 ### 8.6 LEGACY TITLE ENTRY MODE
 Legacy Title is one of the 3 entry modes picked at the start of the New Project Page (New Folder, New Title, Legacy Title). Picking it shows the same layout as "New Title" mode -- Title Details appears, Stages is skipped entirely. Under the hood it produces the same record shape as a Folder-mode project that has completed all its stages. `isLegacy` still exists as a flag marking this entry mode was used.
+
+**Technical note:** `isLegacy` and `isReceivable` (the Receivable/debt flag -- see Section 5) are two separate, independently-set fields in the code. Choosing Legacy Title mode does not automatically make a project Receivable, and a non-legacy project can still become Receivable on its own (e.g. via the 365-day trigger). Don't assume one implies the other when reading or writing logic that touches either flag.
 
 ### 8.7 FINANCIALS
 Live from day one regardless of title status -- total cost, initial payment, amount owed all exist and are editable before a title exists. No change needed to where these fields live (`LandProject`) -- they are already correct under this model.
@@ -291,35 +323,31 @@ Owners and Location are always shown. Stage checklist is shown only for projects
 
 ### 8.10 PHASE TRACKER (this is the only part of Section 8 that updates as work progresses)
 
+**Confirmed against the actual codebase (August 2026): Phases A through F are all built and live.**
+
 **PHASE A: Make LandTitle optional + move location fields up**
 - What: `LandProject.landTitle` becomes optional. Location fields (subCounty/parish/village/area) added to `LandProject`. Migrate existing district/county data up from `LandTitle`.
-- Must land before any other phase in this section.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `LandProject.landTitle` is `nullable = true`; district/county/subCounty/parish/village/area all live on `LandProject`. `LandTitle` has gone further than planned -- district/county and other legacy fields have been fully dropped from `LandTitle` (referred to in code comments as "PHASE G").
 
 **PHASE B: LandService.java null-safety audit**
 - What: find and fix any code that assumes every project has a `LandTitle` -- it needs a safe fallback when one doesn't exist yet. Also update any code still reading/writing `district`/`county` from `LandTitle` instead of `LandProject`.
-- Depends on: Phase A.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `LandService.java` has null-safe handling for `landTitle` throughout.
 
 **PHASE C: NIN becomes a true mandatory/unique constraint on Client**
 - What: DB constraint + service-level validation, replacing the current soft/optional column.
-- Depends on: nothing above, but ship before Phase D so the New Project Page doesn't need two passes on owner validation.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `Client.nationalId` is `nullable = false, unique = true`, enforced at both DB and service level.
 
 **PHASE D: New Project Page rebuild**
 - What: the mode-based layout in 8.9 (New Folder / New Title / Legacy Title), new fields wired to updated `LandEntryRequest`, stage unlock behavior (8.5), Legacy Title entry mode (8.6), separate notes field, area carry-forward logic.
-- Depends on: Phase A, B, C.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `IntakePage.jsx` implements all 3 entry modes with the correct section order and fields as described in 8.9.
 
 **PHASE E: Folder page additive display + status tag**
 - What: per 8.9.1 -- title/plot fields as an added block once present, status tag in header.
-- Depends on: Phase A, D.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `FolderPage.jsx` shows FOLDER/TITLED status and renders title fields conditionally once `landTitle` exists.
 
 **PHASE F: Ledger status tag column + Ready for Titling queue**
 - What: per 8.9.2 -- status tag column, filtered queue view, bulk-mark-titled action.
-- Depends on: Phase A, E.
-- Status: NOT STARTED.
+- Status: DONE. Confirmed in code -- `LedgerPage.jsx` has the status tag column, a "READY FOR TITLING" filter, and a working bulk-mark action.
 
 ### 8.11 RECOMMENDED BUILD ORDER
 Phase A (schema) -> Phase B (service null-safety) -> Phase C (NIN constraint) -> Phase D (New Project Page rebuild) -> Phase E (folder page) -> Phase F (ledger + queue).
@@ -443,4 +471,4 @@ Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that fi
 ---
 
 ## 16. KNOWN ISSUES (not blocking)
-*(Nothing listed yet -- starts fresh from this reset point forward.)*
+- Database columns still use the old name `is_backlog`, `backlog_start_date`, `backlog_start_override`, `backlog_months_billed` for what the code and business rules now call "Receivable" (money owed / overdue payment -- see Section 5). This is kept intentionally for migration safety (renaming risks Hibernate creating new empty columns and stranding historical data). Do not confuse this with the NEW "Backlog" business term (work not yet finished) -- same word, different meaning, only at the raw DB column level. Do not rename these columns without a manual, out-of-band migration run directly against the live DB first.

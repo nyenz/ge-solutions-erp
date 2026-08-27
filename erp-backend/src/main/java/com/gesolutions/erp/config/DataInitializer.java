@@ -87,45 +87,47 @@ public class DataInitializer implements CommandLineRunner {
         try {
             java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
 
-            ids.add(seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
+            // FIX (combined): each sample saves independently. If one fails,
+            // the others still save instead of the whole batch coming back empty.
+            ids.add(trySeed("SAMPLE-001", () -> seedOne("SAMPLE-001", false, false, false, null, null, null, "2026-05-04",
                     5000000L, 2500000L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER ONE", "SMPL00000001A", "0772000001" } },
-                    new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName));
+                    new String[] { "Field Work", "Deed Plan", "LC Inspection" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
+            ids.add(trySeed("SAMPLE-002", () -> seedOne("SAMPLE-002", true, false, false, "SMPL-2002", "2026-03-01", "B-12", "2025-11-10",
                     8000000L, 8000000L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER TWO", "SMPL00000002A", "0772000002" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
                                    "District Land Board Approval", "Tax Assessment and Stamp Duty",
-                                   "Registration and Title Issuance" }, idByName));
+                                   "Registration and Title Issuance" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
+            ids.add(trySeed("SAMPLE-003", () -> seedOne("SAMPLE-003", false, false, true, null, null, null, "2026-01-15",
                     6000000L, 1000000L, 50000L, 50000L,
                     new String[][] { { "SAMPLE OWNER THREE", "SMPL00000003A", "0772000003" } },
-                    new String[] { "Field Work", "Deed Plan" }, idByName));
+                    new String[] { "Field Work", "Deed Plan" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
+            ids.add(trySeed("SAMPLE-004", () -> seedOne("SAMPLE-004", false, false, false, null, null, null, "2026-06-20",
                     10000000L, 1000000L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER FOUR", "SMPL00000004A", "0772000004" },
                                      { "SAMPLE CO OWNER FOUR", "SMPL00000005A", "0772000005" } },
-                    new String[] { "Field Work" }, idByName));
+                    new String[] { "Field Work" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
+            ids.add(trySeed("SAMPLE-005", () -> seedOne("SAMPLE-005", false, true, false, "SMPL-5005", "2026-07-20", "K-07", "2026-07-01",
                     4000000L, 3000000L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER FIVE", "SMPL00000006A", "0772000006" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
-                                   "District Land Board Approval" }, idByName));
+                                   "District Land Board Approval" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
+            ids.add(trySeed("SAMPLE-006", () -> seedOne("SAMPLE-006", false, false, false, null, null, null, "2026-08-20",
                     3000000L, 0L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER SIX", "SMPL00000007A", "0772000007" } },
-                    new String[] { "Field Work" }, idByName));
+                    new String[] { "Field Work" }, idByName)));
 
-            ids.add(seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
+            ids.add(trySeed("SAMPLE-007", () -> seedOne("SAMPLE-007", true, false, false, "SMPL-7007", "2026-06-10", "W-03", "2026-02-02",
                     9000000L, 8100000L, 0L, 0L,
                     new String[][] { { "SAMPLE OWNER SEVEN", "SMPL00000008A", "0772000008" } },
                     new String[] { "Field Work", "Deed Plan", "LC Inspection",
-                                   "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName));
+                                   "District Land Board Approval", "Tax Assessment and Stamp Duty" }, idByName)));
 
             int[] days = { 10, 200, 45, 60, 0, -1, 25 };
             try (java.sql.Connection conn = dataSource.getConnection()) {
@@ -143,9 +145,31 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 }
             }
-            System.out.println(">>> [SAMPLE] Seeded 7 sample projects (district = SAMPLE DATA).");
+            long saved = ids.stream().filter(java.util.Objects::nonNull).count();
+            System.out.println(">>> [SAMPLE] Seeded " + saved + " of 7 sample projects (district = SAMPLE DATA).");
         } catch (Exception e) {
             System.err.println(">>> [SAMPLE] seed failed (non-fatal): " + e.getMessage());
+        }
+    }
+
+    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {
+        try {
+            return supplier.call();
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] " + label + " failed (skipped): " + e.getMessage());
+            return null;
+        }
+    }
+
+    // FIX (combined): runs one seedOne() call and swallows a failure for just
+    // that one sample, printing which one failed and why, instead of the
+    // single try-block around all 7 that let one bad sample zero out the batch.
+    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> supplier) {
+        try {
+            return supplier.call();
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] " + label + " failed (skipped): " + e.getMessage());
+            return null;
         }
     }
 
@@ -250,6 +274,24 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            // FIX: Sweep for any Hibernate-generated unique constraint on phone_number
+            "DO $$ DECLARE cname text; BEGIN " +
+                "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
+                "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
+                "WHERE tc.table_name = 'clients' AND tc.constraint_type = 'UNIQUE' AND ccu.column_name = 'phone_number' LIMIT 1; " +
+                "IF cname IS NOT NULL THEN EXECUTE 'ALTER TABLE clients DROP CONSTRAINT ' || quote_ident(cname); END IF; " +
+                "END $$",
+            // FIX: Ensure title_id is nullable for Folder-type projects
+            "ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL",
+            // FIX (combined): sweep for any Hibernate-generated unique constraint on phone_number
+            "DO $$ DECLARE cname text; BEGIN " +
+                "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
+                "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
+                "WHERE tc.table_name = 'clients' AND tc.constraint_type = 'UNIQUE' AND ccu.column_name = 'phone_number' LIMIT 1; " +
+                "IF cname IS NOT NULL THEN EXECUTE 'ALTER TABLE clients DROP CONSTRAINT ' || quote_ident(cname); END IF; " +
+                "END $$",
+            // FIX (combined): ensure title_id is nullable for Folder-type projects
+            "ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL",
             // FIX (combined): the line above only knew one name. An older
             // schema also created a UNIQUE constraint on clients.phone_number
             // under a Hibernate auto-generated name (uk_bt1ji0od8t2mhp0thot6pod8u)
@@ -326,6 +368,37 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
+        }
+
+        // FIX: verify title_id is actually nullable after migrations
+        verifyTitleIdNullable();
+    }
+
+    private void verifyTitleIdNullable() {
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            boolean nullable = false;
+            try (java.sql.ResultSet rs = stmt.executeQuery(
+                    "SELECT is_nullable FROM information_schema.columns " +
+                    "WHERE table_name = 'land_projects' AND column_name = 'title_id'")) {
+                if (rs.next()) nullable = "YES".equalsIgnoreCase(rs.getString(1));
+            }
+            if (!nullable) {
+                System.out.println(">>> [DB_SCHEMA] title_id is still NOT NULL -- forcing fix now.");
+                stmt.execute("ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL");
+                try (java.sql.ResultSet rs2 = stmt.executeQuery(
+                        "SELECT is_nullable FROM information_schema.columns " +
+                        "WHERE table_name = 'land_projects' AND column_name = 'title_id'")) {
+                    nullable = rs2.next() && "YES".equalsIgnoreCase(rs2.getString(1));
+                }
+            }
+            if (nullable) {
+                System.out.println(">>> [DB_SCHEMA] VERIFIED: land_projects.title_id is nullable. Folder projects can save.");
+            } else {
+                System.err.println(">>> [DB_SCHEMA] CRITICAL: land_projects.title_id is STILL NOT NULL after force-fix.");
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [DB_SCHEMA] CRITICAL: could not verify title_id nullability: " + e.getMessage());
         }
     }
 
