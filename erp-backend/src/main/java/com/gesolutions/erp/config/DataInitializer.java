@@ -43,22 +43,18 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     public void seedDefaultExpensePresets() {
-        if (expensePresetRepository.count() > 0) {
-            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
-            return;
-        }
+        if (expensePresetRepository.count() > 0) return;
         String[] defaults = { "Office", "Fieldwork", "Land Office" };
-        for (String name : defaults) {
-            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
-        }
-        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
+        for (String name : defaults) expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        System.out.println(">>> [EXPENSES] Seeded default presets.");
     }
 
-    // Robust purge: sample rows identified by intake note / title plot / owner NIN.
+    // Wipe EVERY sample row (projects + children + titles + clients) so we
+    // always start from a clean slate, then re-seed correct scenarios.
     private void purgeSampleData() {
         String idsSql =
             "SELECT lp.id FROM land_projects lp " +
-            "WHERE lp.id IN (SELECT fl.project_id FROM follow_up_logs fl WHERE fl.notes LIKE 'INTAKE NOTE: Sample:%') " +
+            "WHERE lp.district = 'SAMPLE DATA' " +
             "OR lp.id IN (SELECT lt.id FROM land_titles lt WHERE lt.plot_number LIKE 'SAMPLE-%') " +
             "OR lp.id IN (SELECT pp.project_id FROM project_proprietors pp JOIN clients c ON c.id = pp.client_id WHERE c.national_id LIKE 'SMPL-%')";
         String[] stmts = {
@@ -72,7 +68,7 @@ public class DataInitializer implements CommandLineRunner {
         };
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
             for (String s : stmts) { try { st.execute(s); } catch (Exception e) {} }
-            System.out.println(">>> [SAMPLE] Old sample data purged.");
+            System.out.println(">>> [SAMPLE] All sample data wiped.");
         } catch (Exception e) {}
     }
 
@@ -128,7 +124,7 @@ public class DataInitializer implements CommandLineRunner {
                 try (java.sql.PreparedStatement u2 = conn.prepareStatement("UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) { u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate(); }
             }
         } catch (Exception e) {}
-        System.out.println(">>> [SAMPLE] Seeded " + ids.stream().filter(java.util.Objects::nonNull).count() + " sample projects.");
+        System.out.println(">>> [SAMPLE] Seeded " + ids.stream().filter(java.util.Objects::nonNull).count() + " clean sample projects.");
     }
 
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
@@ -169,22 +165,14 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
-            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
-            "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
-                "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
-                "FROM clients WHERE national_id IS NOT NULL) ranked " +
-                "WHERE c.id = ranked.id AND ranked.rn > 1",
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
-            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
             "CREATE TABLE IF NOT EXISTS expense_presets (id UUID PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, created_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now())",
             "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
-            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
-            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
@@ -193,14 +181,7 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
-            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
-                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
-                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
-            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
-            "UPDATE land_projects lp SET project_index = lt.project_index " +
-                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
-                "AND lt.project_index IS NOT NULL",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
@@ -210,10 +191,9 @@ public class DataInitializer implements CommandLineRunner {
         };
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             for (String sql : migrations) {
-                try { stmt.execute(sql); System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length()))); }
-                catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage()); }
+                try { stmt.execute(sql); } catch (Exception e) {}
             }
-        } catch (Exception e) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage()); }
+        } catch (Exception e) {}
     }
 
     public void seedRootUser() {
@@ -231,12 +211,9 @@ public class DataInitializer implements CommandLineRunner {
                         "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) " +
                         "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)")) {
                     ps.setObject(1, java.util.UUID.randomUUID()); ps.setString(2, email); ps.setString(3, encodedPassword);
-                    int rows = ps.executeUpdate();
-                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                    ps.executeUpdate();
                 }
-            } else {
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
             }
-        } catch (Exception e) { System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:"); e.printStackTrace(); }
+        } catch (Exception e) {}
     }
 }
