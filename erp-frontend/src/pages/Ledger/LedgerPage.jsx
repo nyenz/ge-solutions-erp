@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight,
-    FiArrowUp, FiArrowDown, FiClock, FiUsers,
-    FiAlertTriangle, FiX
+    FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX, FiInfo
 } from 'react-icons/fi';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import ErrorMessage from '../../components/common/ErrorMessage';
@@ -17,9 +16,9 @@ const matchesSearch = (proj, term) => {
     if (!term) return true;
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
-        proj.landTitle?.plotNumber, proj.projectIndex,
+        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.titleId,
+        proj.landTitle?.blockRoad, proj.landTitle?.tenure,
         proj.district, proj.county, proj.subCounty, proj.parish, proj.village, proj.area,
-        proj.landTitle?.blockRoad, proj.landTitle?.tenure, proj.landTitle?.titleId,
         ...(proj.proprietors || []).flatMap(p => [
             p.fullName, p.phoneNumber?.replace(/\s+/g, ''), p.nationalId, p.email, p.homeAddress,
         ]),
@@ -47,6 +46,9 @@ const PaymentDot = ({ proj }) => {
     );
 };
 
+// multi-value helper: "a / b" -> ["a","b"] so entries stack downward
+const splitMulti = (v) => (v || '').split('/').map(s => s.trim()).filter(Boolean);
+
 const isReadyForTitling = (p) => {
     if (p.landTitle) return false;
     const stages = p.stages || [];
@@ -67,6 +69,16 @@ const LedgerPage = () => {
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
+
+    // STANDARD: sidebar auto-collapses when the Ledger page is opened
+    useEffect(() => {
+        const t = setTimeout(() => {
+            const aside = document.querySelector('aside');
+            const toggle = document.querySelector('[class*="sidebarToggle"]');
+            if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
+        }, 150);
+        return () => clearTimeout(t);
+    }, []);
 
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
@@ -125,24 +137,38 @@ const LedgerPage = () => {
                 </div>
             </header>
 
+            {/* Sticky toolbar: search + filters stay visible; legend is a hover popover */}
             <div className={styles.controlHub}>
-                <div className={styles.searchBlock}>
-                    <div className={styles.searchInner}>
-                        <input type="search" id="ledger-search"
-                            placeholder="Search any field: index, plot, title ID, owner, phone, NIN, email, district, county, parish, village..."
-                            className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
-                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)}
-                            aria-label="Search ledger records" autoComplete="off" />
-                        {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
-                        {searchTerm && (
-                            <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button">
-                                <FiX aria-hidden="true" />
-                            </button>
-                        )}
+                <div className={styles.toolbarRow}>
+                    <div className={styles.searchBlock}>
+                        <div className={styles.searchInner}>
+                            <input type="search" id="ledger-search"
+                                placeholder="Search any field: index, plot, title ID, owner, phone, NIN, email, district, county, parish, village..."
+                                className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
+                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)}
+                                aria-label="Search ledger records" autoComplete="off" />
+                            {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                            {searchTerm && (
+                                <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button">
+                                    <FiX aria-hidden="true" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className={styles.legendWrap}>
+                        <button type="button" className={styles.legendChip} aria-label="Payment health legend">
+                            <FiInfo aria-hidden="true" /> LEGEND
+                        </button>
+                        <div className={styles.legendPop} role="tooltip">
+                            {Object.entries(BADGE_COLORS).map(([k, c]) => (
+                                <span key={k} className={styles.legendItem}>
+                                    <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 </div>
-
                 <div className={styles.filterRailContainer}>
                     <div className={styles.filterRail} role="group" aria-label="Filter records">
                         {FILTERS.map(f => (
@@ -153,15 +179,6 @@ const LedgerPage = () => {
                             </button>
                         ))}
                     </div>
-                </div>
-
-                <div className={styles.badgeLegend}>
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.badgeLegendItem}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', boxShadow: `0 0 4px ${c}` }} />
-                            {BADGE_LABELS[k]}
-                        </span>
-                    ))}
                 </div>
             </div>
 
@@ -211,7 +228,9 @@ const LedgerPage = () => {
                                     : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = pct < 25 && proj.totalCost > 0;
-                                const nins = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean).join(' / ');
+                                const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
+                                const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
+                                const phones = (proj.proprietors || []).flatMap(p => splitMulti(p.phoneNumber));
                                 return (
                                     <tr key={proj.id}
                                         onClick={() => navigate(`/folder/${proj.id}`)}
@@ -219,32 +238,34 @@ const LedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        {/* INDEX column: dot + index + NIN(s) below only */}
+                                        {/* INDEX: dot + index + NINs stacked downward */}
                                         <td className={styles.plotCell}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                                            <div className={styles.indexRow}>
                                                 <PaymentDot proj={proj} />
-                                                <div>
+                                                <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
-                                                    <div>
-                                                        <span className={styles.ownerPhone}>{nins || '---'}</span>
-                                                    </div>
+                                                    {nins.length
+                                                        ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>)
+                                                        : <span className={styles.stackSub}>---</span>}
                                                 </div>
                                             </div>
                                         </td>
+                                        {/* OWNER(S): names stacked downward */}
                                         <td>
-                                            <div className={styles.ownerWrap}>
-                                                <div className={styles.ownerMeta}>
-                                                    <span className={styles.ownerName}>{proj.proprietors?.[0]?.fullName || '---'}</span>
-                                                </div>
-                                                {proj.proprietors?.length > 1 && (
-                                                    <div className={styles.jointBadge}>
-                                                        <FiUsers aria-hidden="true" />
-                                                        <span>+{proj.proprietors.length - 1} MORE</span>
-                                                    </div>
-                                                )}
+                                            <div className={styles.stack}>
+                                                {names.length
+                                                    ? names.map((nm, i) => <span key={i} className={i === 0 ? styles.ownerName : styles.stackSub}>{nm}</span>)
+                                                    : <span className={styles.ownerName}>---</span>}
                                             </div>
                                         </td>
-                                        <td><span className={styles.ownerPhone}>{proj.proprietors?.[0]?.phoneNumber || '---'}</span></td>
+                                        {/* PHONE: every number stacked downward */}
+                                        <td>
+                                            <div className={styles.stack}>
+                                                {phones.length
+                                                    ? phones.map((ph, i) => <span key={i} className={styles.ownerPhone}>{ph}</span>)
+                                                    : <span className={styles.ownerPhone}>---</span>}
+                                            </div>
+                                        </td>
                                         <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
                                         <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
                                         <td>

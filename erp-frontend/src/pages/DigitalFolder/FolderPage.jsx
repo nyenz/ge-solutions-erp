@@ -25,6 +25,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import styles from './FolderPage.module.css';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const STAGE_LABELS = ['COMMITMENT', 'FIELD WORK', 'DOCUMENTATION', 'DEED PLAN', 'RELEASE'];
@@ -739,6 +740,16 @@ const FolderPage = () => {
 
     const firstInputRef = useRef(null);
     const fileInputRef  = useRef(null);
+
+// STANDARD: sidebar auto-collapses when the folder page is opened
+useEffect(() => {
+    const t = setTimeout(() => {
+        const aside = document.querySelector('aside');
+        const toggle = document.querySelector('[class*="sidebarToggle"]');
+        if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
+    }, 150);
+    return () => clearTimeout(t);
+}, []);
 
 // STANDARD: sidebar auto-collapses on first interaction
 useEffect(() => {
