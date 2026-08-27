@@ -15,13 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * GE SOLUTIONS - STAGE TEMPLATE & PROJECT STAGE API (PHASE 4)
- *
- * Base gate: any authenticated Manager/Admin/Director can read. Specific
- * write endpoints are tightened further in StageTemplateService via method
- * security -- see Section 17.7 for the full permission table.
- */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -30,7 +23,7 @@ public class StageTemplateController {
 
     private final StageTemplateService stageTemplateService;
 
-    // ─── MASTER TEMPLATE ─────────────────────────────────────────────────
+    // ─── MASTER TEMPLATE ─────────────────────────────────────────────
 
     @GetMapping("/stage-templates")
     public ResponseEntity<List<StageTemplate>> getTemplate() {
@@ -63,9 +56,7 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    // PERF FIX: bulk reorder in one round trip. A literal path segment
-    // ("reorder") always wins over the "{id}" pattern above for an exact
-    // match, so this cannot be shadowed by updateTemplateStage/deactivate.
+    // PERF FIX: bulk reorder in one round trip.
     @PutMapping("/stage-templates/reorder")
     public ResponseEntity<List<StageTemplate>> reorderTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> orderedIds = (body.getOrDefault("orderedIds", List.of())).stream()
@@ -74,8 +65,7 @@ public class StageTemplateController {
         return ResponseEntity.ok(stageTemplateService.reorderTemplateStages(orderedIds));
     }
 
-    // PERF FIX: bulk delete in one round trip (used internally by
-    // restoreDefaultStages, also useful for any future multi-select UI).
+    // PERF FIX: bulk delete in one round trip.
     @DeleteMapping("/stage-templates/bulk")
     public ResponseEntity<Void> bulkDeleteTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> ids = (body.getOrDefault("ids", List.of())).stream()
@@ -85,17 +75,14 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    // PERF FIX: restoring defaults used to be many HTTP calls from the
-    // client (parallel deletes + a sequential add-loop + a renumber pass).
-    // This wraps the whole operation in one backend-transactional call.
+    // PERF FIX: restore defaults in one transactional round trip.
     @PostMapping("/stage-templates/restore-defaults")
     public ResponseEntity<List<StageTemplate>> restoreDefaultStages() {
         return ResponseEntity.ok(stageTemplateService.restoreDefaultStages());
     }
 
-    // ─── PER-PROJECT STAGES ──────────────────────────────────────────────
+    // ─── PER-PROJECT STAGES ──────────────────────────────────────────
 
-    // STAGE 2 FIX: Secretary can view a project's stage checklist
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/land/projects/{projectId}/stages")
     public ResponseEntity<List<ProjectStage>> getProjectStages(@PathVariable UUID projectId) {
@@ -108,10 +95,6 @@ public class StageTemplateController {
         return ResponseEntity.ok(stageTemplateService.attachStagesToProject(projectId, requests));
     }
 
-    // STAGE 2 FIX: "Changes Stages: Yes (stage only)" per the role table --
-    // Secretary may toggle stage completion but NOT edit stage cost, attach
-    // new stages, remove stages, or touch the master template (all below
-    // stay on the class-level Manager/Admin/Director-only default).
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
     public ResponseEntity<ProjectStage> toggleStageCompletion(
@@ -136,10 +119,9 @@ public class StageTemplateController {
     }
 
     // INTAKE REDESIGN: delete a middle stage template
-    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
-    public org.springframework.http.ResponseEntity<Void> deleteStage(
-            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
         stageTemplateService.deleteTemplateStage(id);
-        return org.springframework.http.ResponseEntity.noContent().build();
+        return ResponseEntity.noContent().build();
     }
 }

@@ -46,9 +46,11 @@ public class StageTemplateService {
         return "SYSTEM";
     }
 
+    // Called once from DataInitializer at startup.
     @Transactional
     public void seedDefaultStagesIfEmpty() {
         if (templateRepository.count() > 0) return;
+
         int order = 1;
         for (String name : DEFAULT_STAGES) {
             StageTemplate stage = StageTemplate.builder()
@@ -206,8 +208,88 @@ public class StageTemplateService {
     }
 
     // INTAKE REDESIGN: allow deleting middle stages from the template
+    @Transactional
     public void deleteTemplateStage(java.util.UUID id) {
         templateRepository.deleteById(id);
+    }
+
+    // ─── BULK OPERATIONS (PERF FIX) ──────────────────────────────────
+
+    private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
+            java.util.Set.of(DEFAULT_STAGES);
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public List<StageTemplate> reorderTemplateStages(List<UUID> orderedIds) {
+        if (orderedIds == null || orderedIds.isEmpty()) return List.of();
+
+        List<StageTemplate> found = templateRepository.findAllById(orderedIds);
+        java.util.Map<UUID, StageTemplate> byId = found.stream()
+                .collect(java.util.stream.Collectors.toMap(StageTemplate::getId, s -> s));
+
+        List<StageTemplate> toSave = new java.util.ArrayList<>();
+        int order = 1;
+        for (UUID id : orderedIds) {
+            StageTemplate stage = byId.get(id);
+            if (stage == null) continue;
+            stage.setDisplayOrder(order++);
+            toSave.add(stage);
+        }
+        List<StageTemplate> saved = templateRepository.saveAll(toSave);
+        auditService.logAction("STAGE_TEMPLATE_REORDERED",
+            "Operator [" + getCurrentOperator() + "] reordered " + saved.size() + " master stage(s).");
+        return saved;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void bulkDeleteTemplateStages(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        List<StageTemplate> toDelete = templateRepository.findAllById(ids);
+        if (toDelete.isEmpty()) return;
+        templateRepository.deleteAllInBatch(toDelete);
+        auditService.logAction("STAGE_TEMPLATE_BULK_DELETED",
+            "Operator [" + getCurrentOperator() + "] bulk-deleted " + toDelete.size() + " master stage(s).");
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public List<StageTemplate> restoreDefaultStages() {
+        List<StageTemplate> current = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+
+        List<StageTemplate> nonDefault = current.stream()
+                .filter(s -> !DEFAULT_STAGE_NAMES.contains(s.getStageName()))
+                .toList();
+        if (!nonDefault.isEmpty()) {
+            templateRepository.deleteAllInBatch(nonDefault);
+        }
+
+        java.util.Map<String, StageTemplate> keepByName = current.stream()
+                .filter(s -> DEFAULT_STAGE_NAMES.contains(s.getStageName()))
+                .collect(java.util.stream.Collectors.toMap(
+                        StageTemplate::getStageName, s -> s, (a, b) -> a));
+
+        List<StageTemplate> toSave = new java.util.ArrayList<>();
+        int order = 1;
+        for (String name : DEFAULT_STAGES) {
+            StageTemplate stage = keepByName.get(name);
+            if (stage == null) {
+                stage = StageTemplate.builder()
+                        .stageName(name)
+                        .defaultCost(BigDecimal.ZERO)
+                        .displayOrder(order)
+                        .isActive(true)
+                        .build();
+            } else {
+                stage.setDisplayOrder(order);
+            }
+            order++;
+            toSave.add(stage);
+        }
+        List<StageTemplate> saved = templateRepository.saveAll(toSave);
+        auditService.logAction("STAGE_TEMPLATE_DEFAULTS_RESTORED",
+            "Operator [" + getCurrentOperator() + "] restored the default master stage list.");
+        return saved;
     }
 
     /**
@@ -218,12 +300,11 @@ public class StageTemplateService {
     @Transactional
     public void normalizeToDefaultStages() {
         List<StageTemplate> active = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-        java.util.Set<String> defaults = new java.util.LinkedHashSet<>(java.util.Arrays.asList(DEFAULT_STAGES));
         java.util.Map<String, StageTemplate> kept = new java.util.LinkedHashMap<>();
 
         for (StageTemplate t : active) {
             String name = t.getStageName();
-            boolean isDefault = name != null && defaults.contains(name);
+            boolean isDefault = name != null && DEFAULT_STAGE_NAMES.contains(name);
             if (!isDefault || kept.containsKey(name)) {
                 t.setActive(false);
                 templateRepository.save(t);
