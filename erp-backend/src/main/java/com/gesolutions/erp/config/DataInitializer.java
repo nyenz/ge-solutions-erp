@@ -11,7 +11,7 @@ import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.passwordPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -37,20 +37,24 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
         stageTemplateService.seedDefaultStagesIfEmpty();
-        try { stageTemplateService.normalizeToDefaultStages(); } catch (Exception e) {}
         seedSampleProjects();
         seedDefaultExpensePresets();
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 
     public void seedDefaultExpensePresets() {
-        if (expensePresetRepository.count() > 0) return;
+        if (expensePresetRepository.count() > 0) {
+            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
+            return;
+        }
         String[] defaults = { "Office", "Fieldwork", "Land Office" };
-        for (String name : defaults) expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        for (String name : defaults) {
+            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        }
+        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // Robust purge: sample rows are tagged by their intake note AND title plot,
-    // so every accumulated junk row from earlier buggy seeds is removed.
+    // Robust purge: sample rows identified by intake note / title plot / owner NIN.
     private void purgeSampleData() {
         String idsSql =
             "SELECT lp.id FROM land_projects lp " +
@@ -165,15 +169,22 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
+            "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
+                "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
+                "FROM clients WHERE national_id IS NOT NULL) ranked " +
+                "WHERE c.id = ranked.id AND ranked.rn > 1",
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
             "CREATE TABLE IF NOT EXISTS expense_presets (id UUID PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, created_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now())",
             "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
@@ -182,7 +193,14 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
+            "UPDATE land_projects lp SET project_index = lt.project_index " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
+                "AND lt.project_index IS NOT NULL",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
@@ -191,21 +209,34 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
         };
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            for (String sql : migrations) { try { stmt.execute(sql); } catch (Exception e) {} }
-        } catch (Exception e) {}
+            for (String sql : migrations) {
+                try { stmt.execute(sql); System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length()))); }
+                catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage()); }
+            }
+        } catch (Exception e) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage()); }
     }
 
     public void seedRootUser() {
         String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
         String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String encodedPassword = passwordEncoder.encode(rawPassword);
         try (java.sql.Connection conn = dataSource.getConnection()) {
             boolean exists = false;
-            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) { ps.setString(1, "admin_root"); try (java.sql.ResultSet rs = ps.executeQuery()) { if (rs.next()) exists = rs.getInt(1) > 0; } }
-            if (!exists) {
-                try (java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)")) {
-                    ps.setObject(1, java.util.UUID.randomUUID()); ps.setString(2, email); ps.setString(3, passwordEncoder.encode(rawPassword)); ps.executeUpdate();
-                }
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) { if (rs.next()) exists = rs.getInt(1) > 0; }
             }
-        } catch (Exception e) {}
+            if (!exists) {
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                        "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) " +
+                        "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)")) {
+                    ps.setObject(1, java.util.UUID.randomUUID()); ps.setString(2, email); ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+            } else {
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
+            }
+        } catch (Exception e) { System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:"); e.printStackTrace(); }
     }
 }
