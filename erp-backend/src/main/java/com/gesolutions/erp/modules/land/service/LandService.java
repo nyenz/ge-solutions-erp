@@ -247,6 +247,13 @@ public class LandService {
     }
 
 
+    // FIX (combined): this method was missing @Transactional, so its
+    // individual saves (client, project, payment, stages, notes) each
+    // committed on their own. A failure partway -- like the sample seed --
+    // left an orphaned Client row that re-poisoned every later restart.
+    // Now the whole intake is one all-or-nothing unit, same as every
+    // other write method in this class.
+    @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
         // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
         // is only built if the legacy preset is used or the final

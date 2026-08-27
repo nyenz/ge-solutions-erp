@@ -247,6 +247,21 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            // FIX (combined): the line above only knew one name. An older
+            // schema also created a UNIQUE constraint on clients.phone_number
+            // under a Hibernate auto-generated name (uk_bt1ji0od8t2mhp0thot6pod8u)
+            // that silently blocked every duplicate-phone insert (joint owners,
+            // repeat sample seeds). Fast-path the known name first...
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS uk_bt1ji0od8t2mhp0thot6pod8u",
+            // ...then a name-agnostic sweep via information_schema so ANY
+            // leftover unique constraint on phone_number is removed regardless
+            // of what Hibernate called it.
+            "DO $$ DECLARE cname text; BEGIN " +
+                "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
+                "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
+                "WHERE tc.table_name = 'clients' AND tc.constraint_type = 'UNIQUE' AND ccu.column_name = 'phone_number' LIMIT 1; " +
+                "IF cname IS NOT NULL THEN EXECUTE 'ALTER TABLE clients DROP CONSTRAINT ' || quote_ident(cname); END IF; " +
+                "END $$",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
                 "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
