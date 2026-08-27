@@ -25,7 +25,6 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import styles from './FolderPage.module.css';
-import BackToTopButton from '../../components/common/BackToTopButton';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const STAGE_LABELS = ['COMMITMENT', 'FIELD WORK', 'DOCUMENTATION', 'DEED PLAN', 'RELEASE'];

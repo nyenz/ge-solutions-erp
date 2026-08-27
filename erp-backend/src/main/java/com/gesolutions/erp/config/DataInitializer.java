@@ -58,7 +58,6 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // Wipe ALL old sample rows (any previous seed generation) before re-seeding.
     private void purgeSampleData() {
         String[] stmts = {
             "DELETE FROM payment_records WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
@@ -87,10 +86,9 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedSampleProjects() {
         purgeSampleData();
-
         java.util.List<com.gesolutions.erp.modules.land.model.StageTemplate> master = stageTemplateService.getActiveTemplate();
         java.util.Map<String, String> idByName = new java.util.HashMap<>();
-        for (com.gesolutions.erp.modules.land.model.StageTemplate t : master) idByName.put(t.getStageName(), t.getId().toString());
+        for (com.gesolutions.erp.modules.land.model.StageTemplate st : master) idByName.put(st.getStageName(), st.getId().toString());
 
         String FW = "Field Work", DP = "Deed Plan", LCI = "LC Inspection",
                DLB = "District Land Board Approval", TASD = "Tax Assessment and Stamp Duty",
@@ -98,85 +96,75 @@ public class DataInitializer implements CommandLineRunner {
 
         java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
 
-        // 1) FOLDER, active, GREEN (paid 5 days ago)
         ids.add(trySeed("SAMPLE-101", () -> seedOne("SAMPLE-101", false, false, false, null, null, null, "2026-05-04",
-                4000000L, 2000000L, 0, 0,
+                4000000L, 2000000L, 0L, 0L,
                 new String[][] { { "JOHN SSERUGO", "SMPL-1001", "0772100100" } },
-                new String[] { FW, DP }, null,
+                new String[] { FW, DP }, null, null,
                 new String[] { "WAKISO", "KYADONDO", "NAKAWA EAST", "BUKOTO", "KIIWA", "0.5 acres" },
                 "Sample: fresh folder, paying well.", idByName)));
 
-        // 2) FOLDER, never paid, RED + CRITICAL
         ids.add(trySeed("SAMPLE-102", () -> seedOne("SAMPLE-102", false, false, false, null, null, null, "2026-07-10",
-                6000000L, 0L, 0, 0,
+                6000000L, 0L, 0L, 0L,
                 new String[][] { { "MARY NAKATO", "SMPL-1002", "0772100200" } },
-                new String[] { FW }, null,
+                new String[] { FW }, null, null,
                 new String[] { "MPIGI", "MPIGI COUNTY", "MPIGI TOWN", "CENTRAL", "KIZUNGU", "1 acre" },
                 "Sample: folder, no payment yet.", idByName)));
 
-        // 3) FOLDER, ready-for-titling, YELLOW (20 days)
         ids.add(trySeed("SAMPLE-103", () -> seedOne("SAMPLE-103", false, false, false, null, null, null, "2026-02-02",
-                9000000L, 6000000L, 0, 0,
+                9000000L, 6000000L, 0L, 0L,
                 new String[][] { { "PETER OPOK", "SMPL-1003", "0772100300" } },
-                new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG },
+                new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG }, null,
                 new String[] { "MUKONO", "MUKONO COUNTY", "KATABI", "BULANGA", "NAGOGBE", "2 acres" },
                 "Sample: all pre-stages done, awaiting registration.", idByName)));
 
-        // 4) NEW TITLE, active, GREEN (3 days)
         ids.add(trySeed("SAMPLE-104", () -> seedOne("SAMPLE-104", false, true, false, "SMPL-T-104", "2026-06-15", "KBL-77", "2026-06-01",
-                15000000L, 11000000L, 0, 0,
+                15000000L, 11000000L, 0L, 0L,
                 new String[][] { { "GRACE ACHENG", "SMPL-1004", "0772100400" } },
-                new String[] { FW, DP, LCI, DLB }, null,
+                new String[] { FW, DP, LCI, DLB }, null, null,
                 new String[] { "KAMPALA", "KAMPALA CENTRAL", "MAKINDYE", "KABALAGALA", "GABA", "0.25 acres" },
                 "Sample: new title in processing.", idByName)));
 
-        // 5) LEGACY, fully paid (not released), RED badge
         ids.add(trySeed("SAMPLE-105", () -> seedOne("SAMPLE-105", true, false, false, "SMPL-T-105", "2025-12-01", "EBB-12", "2025-11-01",
-                20000000L, 20000000L, 0, 0,
+                20000000L, 20000000L, 0L, 0L,
                 new String[][] { { "DAVID KIGONGO", "SMPL-1005", "0772100500" } },
-                new String[] { FW, DP, LCI, DLB, TASD, REG }, null,
+                new String[] { FW, DP, LCI, DLB, TASD, REG }, null, null,
                 new String[] { "WAKISO", "ENTEBBE", "ENTEBBE TOWN", "KATABI", "LUGALA", "0.3 acres" },
                 "Sample: legacy fully paid, awaiting release.", idByName)));
 
-        // 6) LEGACY, RELEASED
         ids.add(trySeed("SAMPLE-106", () -> seedOne("SAMPLE-106", true, false, false, "SMPL-T-106", "2025-06-20", "MSK-3", "2025-05-02",
-                25000000L, 25000000L, 0, 0,
+                25000000L, 25000000L, 0L, 0L,
                 new String[][] { { "SARAH NANSUBU", "SMPL-1006", "0772100600" } },
-                new String[] { FW, DP, LCI, DLB, TASD, REG }, "RELEASE",
+                new String[] { FW, DP, LCI, DLB, TASD, REG }, null, "RELEASE",
                 new String[] { "MASAKA", "MASAKA CENTRAL", "MASAKA MUNICIPAL", "KIMAANYA", "KABOGA", "1.5 acres" },
                 "Sample: released legacy title.", idByName)));
 
-        // 7) LEGACY, RECEIVABLE with storage fees, RED (45 days)
         ids.add(trySeed("SAMPLE-107", () -> seedOne("SAMPLE-107", true, false, true, "SMPL-T-107", "2025-09-10", "MBR-9", "2025-08-01",
                 12000000L, 2000000L, 50000L, 50000L,
                 new String[][] { { "JAMES TURYAHEREZA", "SMPL-1007", "0772100700" } },
-                new String[] { FW, DP }, null,
+                new String[] { FW, DP }, null, null,
                 new String[] { "MBARARA", "MBARARA COUNTY", "MBARARA TOWN", "KAKIIKA", "NYAMITUKURA", "0.8 acres" },
                 "Sample: receivable, storage fees accruing.", idByName)));
 
-        // 8) NEW TITLE, RECEIVABLE, recent payment GREEN (12 days)
         ids.add(trySeed("SAMPLE-108", () -> seedOne("SAMPLE-108", false, true, true, "SMPL-T-108", "2026-02-14", "JIN-41", "2026-02-01",
                 10000000L, 3000000L, 50000L, 50000L,
                 new String[][] { { "RACHEL NABIRYE", "SMPL-1008", "0772100800" } },
-                new String[] { FW, DP, LCI }, null,
+                new String[] { FW, DP, LCI }, null, null,
                 new String[] { "JINJA", "JINJA COUNTY", "JINJA MUNICIPAL", "WALUKUBA", "MPUMUDDE", "0.4 acres" },
                 "Sample: receivable but paying recently.", idByName)));
 
-        // 9) FOLDER, CRITICAL, JOINT (3 owners), RED (60 days)
         ids.add(trySeed("SAMPLE-109", () -> seedOne("SAMPLE-109", false, false, false, null, null, null, "2026-01-15",
-                30000000L, 3000000L, 0, 0,
+                30000000L, 3000000L, 0L, 0L,
                 new String[][] { { "SAMUEL KIBUKA", "SMPL-1091", "0772100901" },
                                  { "JOYCE NAKALEMA", "SMPL-1092", "0772100902" },
                                  { "BRIAN MUWANGA", "SMPL-1093", "0772100903" } },
-                new String[] { FW }, null,
+                new String[] { FW }, null, null,
                 new String[] { "KAYUNGA", "KAYUNGA COUNTY", "KAYUNGA TOWN", "BUKOMBE", "NAJJA", "5 acres" },
                 "Sample: joint family plot, critical arrears.", idByName)));
 
-        // 10) LEGACY, active 90%, YELLOW (25 days)
         ids.add(trySeed("SAMPLE-110", () -> seedOne("SAMPLE-110", true, false, false, "SMPL-T-110", "2026-01-25", "LWR-5", "2026-01-05",
-                18000000L, 16200000L, 0, 0,
+                18000000L, 16200000L, 0L, 0L,
                 new String[][] { { "HENRY SSEMMAMBWA", "SMPL-1100", "0772101000" } },
-                new String[] { FW, DP, LCI, DLB, TASD }, null,
+                new String[] { FW, DP, LCI, DLB, TASD }, null, null,
                 new String[] { "LUWERO", "LUWERO COUNTY", "LUWERO MUNICIPAL", "BAMUNU", "ZIWA", "3 acres" },
                 "Sample: nearly paid legacy.", idByName)));
 
@@ -200,6 +188,7 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [SAMPLE] Seeded " + saved + " detailed sample projects (district = SAMPLE DATA).");
     }
 
+    // 19 params, always called with 19 args.
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
                                    String titleId, String titleDate, String block, String startDate,
                                    long cost, long paid, long initFee, long monthlyFee,
@@ -263,14 +252,12 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
-            // Sweep ANY leftover Hibernate-generated unique constraint on phone_number
             "DO $$ DECLARE cname text; BEGIN " +
                 "SELECT tc.constraint_name INTO cname FROM information_schema.table_constraints tc " +
                 "JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name " +
                 "WHERE tc.table_name = 'clients' AND tc.constraint_type = 'UNIQUE' AND ccu.column_name = 'phone_number' LIMIT 1; " +
                 "IF cname IS NOT NULL THEN EXECUTE 'ALTER TABLE clients DROP CONSTRAINT ' || quote_ident(cname); END IF; " +
                 "END $$",
-            // Folder-type projects have no title yet -- title_id must be nullable
             "ALTER TABLE land_projects ALTER COLUMN title_id DROP NOT NULL",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
@@ -301,7 +288,6 @@ public class DataInitializer implements CommandLineRunner {
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
-            // Retired Title Details columns
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
