@@ -23,8 +23,6 @@ public class StageTemplateController {
 
     private final StageTemplateService stageTemplateService;
 
-    // ─── MASTER TEMPLATE ─────────────────────────────────────────────
-
     @GetMapping("/stage-templates")
     public ResponseEntity<List<StageTemplate>> getTemplate() {
         return ResponseEntity.ok(stageTemplateService.getActiveTemplate());
@@ -56,7 +54,6 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    // PERF FIX: bulk reorder in one round trip.
     @PutMapping("/stage-templates/reorder")
     public ResponseEntity<List<StageTemplate>> reorderTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> orderedIds = (body.getOrDefault("orderedIds", List.of())).stream()
@@ -65,7 +62,6 @@ public class StageTemplateController {
         return ResponseEntity.ok(stageTemplateService.reorderTemplateStages(orderedIds));
     }
 
-    // PERF FIX: bulk delete in one round trip.
     @DeleteMapping("/stage-templates/bulk")
     public ResponseEntity<Void> bulkDeleteTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> ids = (body.getOrDefault("ids", List.of())).stream()
@@ -75,13 +71,10 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    // PERF FIX: restore defaults in one transactional round trip.
     @PostMapping("/stage-templates/restore-defaults")
     public ResponseEntity<List<StageTemplate>> restoreDefaultStages() {
         return ResponseEntity.ok(stageTemplateService.restoreDefaultStages());
     }
-
-    // ─── PER-PROJECT STAGES ──────────────────────────────────────────
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/land/projects/{projectId}/stages")
@@ -118,7 +111,6 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    // INTAKE REDESIGN: delete a middle stage template
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
         stageTemplateService.deleteTemplateStage(id);

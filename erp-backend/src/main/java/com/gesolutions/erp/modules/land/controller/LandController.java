@@ -28,12 +28,8 @@ public class LandController {
 
     private final LandService landService;
 
-    // INTAKE: preview next project index.
-    // FIX: this method previously had TWO mapping annotations stacked on it
-    // (@PostMapping unlock-log + @GetMapping next-index). Spring only
-    // registers one mapping per method, so GET /next-index was never
-    // reachable (404) and the Index field always failed. Now each method
-    // has exactly one mapping.
+    // INTAKE: preview next project index (fixed: was stacked with the
+    // unlock-log mapping, so it never registered and always 404'd).
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
@@ -46,17 +42,12 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // STAGE 2 FIX: Secretary is data-entry -- needs to read/add notes
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/notes")
     public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
         return ResponseEntity.ok(landService.getProjectNotes(id));
     }
 
-    // STAGE 2 FIX: Secretary logs recovery calls (data-entry)
-    // STAGE 10 FIX: ownerId is now required so a joint-project call is
-    // attributed to the specific person staff actually reached.
-    // STAGE 11 FIX: response carries an optional soft coOwnerWarning.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/follow-up")
     public ResponseEntity<java.util.Map<String, Object>> logContact(@PathVariable UUID id,
@@ -65,7 +56,6 @@ public class LandController {
         return ResponseEntity.ok(landService.logFollowUp(id, ownerId, content));
     }
 
-    // STAGE 2 FIX: intake is a data-entry endpoint per the role table
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LandProject> ingestTitle(
@@ -76,7 +66,6 @@ public class LandController {
         return ResponseEntity.ok(landService.atomicIntake(request, scans));
     }
 
-    // STAGE 2 FIX: Folder page cannot load at all for Secretary without this
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/deep")
     public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
@@ -96,7 +85,6 @@ public class LandController {
         return ResponseEntity.noContent().build();
     }
 
-    // STAGE 3: soft-delete restore + deleted-list
     @PostMapping("/projects/{id}/restore")
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
     public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
@@ -110,7 +98,6 @@ public class LandController {
         return ResponseEntity.ok(landService.getDeletedProjects());
     }
 
-    // STAGE 2 FIX: document upload/view is a data-entry endpoint
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/projects/{id}/documents")
     public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
@@ -132,7 +119,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // STAGE 2 FIX: adding a standalone note is data-entry
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/notes")
     public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
@@ -159,7 +145,6 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // STAGE 2 FIX: Secretary needs to browse the Ledger to find projects
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/ledger")
     public ResponseEntity<Page<LandProject>> getLedger(
@@ -209,8 +194,6 @@ public class LandController {
         return ResponseEntity.ok(landService.getProjectPayments(id));
     }
 
-    // STAGE 1 FIX: this endpoint did not exist -- the frontend has been
-    // calling it since it was built.
     @PostMapping("/projects/{id}/payment")
     public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal amount,

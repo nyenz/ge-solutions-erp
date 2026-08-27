@@ -10,18 +10,19 @@ import java.util.UUID;
 /**
  * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
  * Maps 1-1 with the technical documents (Deed Plans and Titles).
- * PASS 6: volume / folio / instrument_no / physical_box_number /
- * survey_date retired app-wide and dropped from the DB (PHASE G).
+ * PASS 6/10: volume/folio/instrument_no/physical_box_number/survey_date
+ * and the deprecated district/county columns are retired app-wide and
+ * dropped from the DB (PHASE G). Location lives on LandProject.
  */
 @Entity
 @Table(name = "land_titles", indexes = {
     @Index(name = "idx_plot_registry", columnList = "plot_number"),
     @Index(name = "idx_title_id", columnList = "title_id")
 })
-@Getter 
-@Setter 
-@NoArgsConstructor 
-@AllArgsConstructor 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class LandTitle {
 
@@ -38,17 +39,15 @@ public class LandTitle {
     @Column(name = "block_road", length = 100)
     private String blockRoad;
 
-    @Deprecated
-    @Column(length = 100)
-    private String district;
-
-    @Deprecated
-    @Column(length = 100)
-    private String county;
-
     @Column(name = "title_id", length = 100)
     private String titleId;
 
+    /**
+     * PROJECT INDEX
+     * Short, never-repeating, searchable code shown to clients and staff.
+     * Kept for backward compatibility; LandProject.projectIndex is the
+     * source of truth going forward.
+     */
     @Deprecated
     @Column(name = "project_index", unique = true, length = 10)
     private String projectIndex;

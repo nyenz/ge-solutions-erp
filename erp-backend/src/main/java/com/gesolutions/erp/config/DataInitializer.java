@@ -72,6 +72,7 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
+    // 7 diverse SAMPLE projects (guarded: only when none exist yet)
     private void seedSampleProjects() {
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -156,6 +157,48 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    // 2 viewable sample docs per SAMPLE project that has none
+    private void seedSampleDocuments() {
+        String[][] docs = {
+            { "SAMPLE_DEED_PLAN.pdf",  "DEED_PLAN",  "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" },
+            { "SAMPLE_TITLE_CERT.pdf", "TITLE_CERT", "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf" },
+        };
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                "SELECT id FROM land_projects WHERE district = 'SAMPLE DATA'")) {
+            int attached = 0;
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Object pid = rs.getObject(1);
+                    try (java.sql.PreparedStatement c = conn.prepareStatement(
+                            "SELECT COUNT(*) FROM project_documents WHERE project_id = ?")) {
+                        c.setObject(1, pid);
+                        try (java.sql.ResultSet crs = c.executeQuery()) {
+                            if (crs.next() && crs.getInt(1) > 0) continue;
+                        }
+                    }
+                    for (String[] d : docs) {
+                        try (java.sql.PreparedStatement ins = conn.prepareStatement(
+                                "INSERT INTO project_documents (id, project_id, file_name, file_type, file_path, uploaded_by, uploaded_at) VALUES (?,?,?,?,?,?,?)")) {
+                            ins.setObject(1, java.util.UUID.randomUUID());
+                            ins.setObject(2, pid);
+                            ins.setString(3, d[0]);
+                            ins.setString(4, d[1]);
+                            ins.setString(5, d[2]);
+                            ins.setString(6, "SYSTEM");
+                            ins.setTimestamp(7, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
+                            ins.executeUpdate();
+                        }
+                    }
+                    attached++;
+                }
+            }
+            System.out.println(">>> [SAMPLE] Documents attached to " + attached + " sample project(s).");
+        } catch (Exception e) {
+            System.err.println(">>> [SAMPLE] document seed failed (non-fatal): " + e.getMessage());
+        }
+    }
+
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake,
                                    boolean receivable, String titleId, String titleDate,
                                    String block, String startDate, long cost, long paid,
@@ -199,51 +242,6 @@ public class DataInitializer implements CommandLineRunner {
         b.selectedStages(ss);
         LandProject saved = landService.atomicIntake(b.build(), null);
         return saved.getId();
-    }
-
-    // PASS 6b: attach 2 sample documents to every SAMPLE project that has
-    // none yet. Independent guard (per-project doc count) so it also
-    // backfills projects seeded by an earlier deploy, and never duplicates.
-    // Uses public sample PDFs so the Folder page "View" opens a real file.
-    private void seedSampleDocuments() {
-        String[][] docs = {
-            { "SAMPLE_DEED_PLAN.pdf",  "DEED_PLAN",  "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" },
-            { "SAMPLE_TITLE_CERT.pdf", "TITLE_CERT", "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf" },
-        };
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(
-                "SELECT id FROM land_projects WHERE district = 'SAMPLE DATA'")) {
-            int attached = 0;
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Object pid = rs.getObject(1);
-                    try (java.sql.PreparedStatement c = conn.prepareStatement(
-                            "SELECT COUNT(*) FROM project_documents WHERE project_id = ?")) {
-                        c.setObject(1, pid);
-                        try (java.sql.ResultSet crs = c.executeQuery()) {
-                            if (crs.next() && crs.getInt(1) > 0) continue;
-                        }
-                    }
-                    for (String[] d : docs) {
-                        try (java.sql.PreparedStatement ins = conn.prepareStatement(
-                                "INSERT INTO project_documents (id, project_id, file_name, file_type, file_path, uploaded_by, uploaded_at) VALUES (?,?,?,?,?,?,?)")) {
-                            ins.setObject(1, java.util.UUID.randomUUID());
-                            ins.setObject(2, pid);
-                            ins.setString(3, d[0]);
-                            ins.setString(4, d[1]);
-                            ins.setString(5, d[2]);
-                            ins.setString(6, "SYSTEM");
-                            ins.setTimestamp(7, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
-                            ins.executeUpdate();
-                        }
-                    }
-                    attached++;
-                }
-            }
-            System.out.println(">>> [SAMPLE] Documents attached to " + attached + " sample project(s).");
-        } catch (Exception e) {
-            System.err.println(">>> [SAMPLE] document seed failed (non-fatal): " + e.getMessage());
-        }
     }
 
     private void runSchemaMigrations() {
@@ -300,9 +298,6 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
-            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
-                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
-                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
 
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
@@ -318,10 +313,14 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
+            // PASS 10 -- location lives on land_projects only
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS district",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS county",
         };
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
+
             for (String sql : migrations) {
                 try {
                     stmt.execute(sql);
@@ -330,6 +329,7 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
                 }
             }
+
         } catch (Exception e) {
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
         }
@@ -360,27 +360,8 @@ public class DataInitializer implements CommandLineRunner {
                     int rows = ps.executeUpdate();
                     System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
                 }
-
-                try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                        "SELECT password, is_active FROM users WHERE username = 'admin_root'")) {
-                    try (java.sql.ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            String storedHash = rs.getString("password");
-                            boolean active = rs.getBoolean("is_active");
-                            boolean matches = passwordEncoder.matches(rawPassword, storedHash);
-                            System.out.println(">>> [REGISTRY] Post-write verification:");
-                            System.out.println(">>>   is_active in DB = " + active);
-                            System.out.println(">>>   BCrypt.matches(rawPassword, storedHash) = " + matches);
-                            if (!matches) {
-                                System.err.println(">>> [REGISTRY] FATAL: BCrypt verify FAILED after write!");
-                            } else {
-                                System.out.println(">>> [REGISTRY] SUCCESS: Password verified.");
-                            }
-                        }
-                    }
-                }
             } else {
-                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
             }
 
         } catch (Exception e) {
