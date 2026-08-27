@@ -59,17 +59,24 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void purgeSampleData() {
+        // FK-safe order: detach sample titles from any project FIRST so the
+        // land_titles delete can never hit an FK violation (the bug that left
+        // orphan SAMPLE-1xx titles blocking every re-seed).
         String[] stmts = {
             "DELETE FROM payment_records WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
             "DELETE FROM follow_up_logs WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
             "DELETE FROM project_stages WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
             "DELETE FROM project_proprietors WHERE project_id IN (SELECT id FROM land_projects WHERE district = 'SAMPLE DATA')",
+            "UPDATE land_projects SET title_id = NULL WHERE title_id IN (SELECT id FROM land_titles WHERE plot_number LIKE 'SAMPLE-%' OR title_id LIKE 'SMPL-T-%')",
             "DELETE FROM land_projects WHERE district = 'SAMPLE DATA'",
-            "DELETE FROM land_titles WHERE plot_number LIKE 'SAMPLE-%'",
+            "DELETE FROM land_titles WHERE plot_number LIKE 'SAMPLE-%' OR title_id LIKE 'SMPL-T-%'",
             "DELETE FROM clients WHERE national_id LIKE 'SMPL-%'",
         };
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
-            for (String s : stmts) { try { st.execute(s); } catch (Exception ignore) {} }
+            for (String s : stmts) {
+                try { st.execute(s); }
+                catch (Exception e) { System.err.println(">>> [SAMPLE] purge stmt failed: " + s.substring(0, 40) + " -> " + e.getMessage()); }
+            }
             System.out.println(">>> [SAMPLE] Old sample data purged.");
         } catch (Exception e) {
             System.err.println(">>> [SAMPLE] purge warning: " + e.getMessage());
