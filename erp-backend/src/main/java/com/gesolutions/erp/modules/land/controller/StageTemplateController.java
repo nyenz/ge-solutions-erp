@@ -57,16 +57,14 @@ public class StageTemplateController {
     @PutMapping("/stage-templates/reorder")
     public ResponseEntity<List<StageTemplate>> reorderTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> orderedIds = (body.getOrDefault("orderedIds", List.of())).stream()
-                .map(UUID::fromString)
-                .toList();
+                .map(UUID::fromString).toList();
         return ResponseEntity.ok(stageTemplateService.reorderTemplateStages(orderedIds));
     }
 
     @DeleteMapping("/stage-templates/bulk")
     public ResponseEntity<Void> bulkDeleteTemplateStages(@RequestBody Map<String, List<String>> body) {
         List<UUID> ids = (body.getOrDefault("ids", List.of())).stream()
-                .map(UUID::fromString)
-                .toList();
+                .map(UUID::fromString).toList();
         stageTemplateService.bulkDeleteTemplateStages(ids);
         return ResponseEntity.noContent().build();
     }

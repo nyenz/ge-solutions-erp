@@ -28,8 +28,8 @@ public class LandController {
 
     private final LandService landService;
 
-    // INTAKE: preview next project index (fixed: was stacked with the
-    // unlock-log mapping, so it never registered and always 404'd).
+    // FIX: was stacked with @PostMapping unlock-log on one method, so it
+    // never registered and the Index field always 404'd. One mapping each.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
@@ -135,7 +135,7 @@ public class LandController {
     @DeleteMapping("/notes/{noteId}")
     public ResponseEntity<Void> deleteNote(@PathVariable UUID noteId) {
         landService.removeNote(noteId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/projects/{id}/reality-override")

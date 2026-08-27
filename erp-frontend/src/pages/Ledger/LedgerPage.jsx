@@ -105,15 +105,22 @@ const LedgerPage = () => {
         };
     }, []);
 
-    const fetchLedger = useCallback(async () => {
+    // Free-tier cold start: the API can take ~a minute to wake. Retry once
+    // after 5s before declaring a fault, so a waking backend no longer
+    // shows LEDGER SYNC FAULT.
+    const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true);
         setLoadError(false);
         try {
             const data = await landService.getGlobalLedger(page, 50);
             setProjects(data.content || []);
+            setLoading(false);
         } catch {
+            if (attempt < 1) {
+                setTimeout(() => fetchLedger(attempt + 1), 5000);
+                return;
+            }
             setLoadError(true);
-        } finally {
             setLoading(false);
         }
     }, [page]);

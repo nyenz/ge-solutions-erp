@@ -37,23 +37,18 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
-
         runSchemaMigrations();
         seedRootUser();
-
         stageTemplateService.seedDefaultStagesIfEmpty();
-
         try {
             stageTemplateService.normalizeToDefaultStages();
             System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
         } catch (Exception e) {
             System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
         }
-
         seedSampleProjects();
         seedSampleDocuments();
         seedDefaultExpensePresets();
-
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 
@@ -64,10 +59,7 @@ public class DataInitializer implements CommandLineRunner {
         }
         String[] defaults = { "Office", "Fieldwork", "Land Office" };
         for (String name : defaults) {
-            expensePresetRepository.save(ExpensePreset.builder()
-                    .name(name)
-                    .createdBy("SYSTEM")
-                    .build());
+            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
         }
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
@@ -233,11 +225,7 @@ public class DataInitializer implements CommandLineRunner {
         for (String s : stages) {
             String tid = idByName.get(s);
             ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
-                    .stageTemplateId(tid)
-                    .stageName(s)
-                    .isCustom(tid == null)
-                    .isCompleted(true)
-                    .build());
+                    .stageTemplateId(tid).stageName(s).isCustom(tid == null).isCompleted(true).build());
         }
         b.selectedStages(ss);
         LandProject saved = landService.atomicIntake(b.build(), null);
@@ -252,17 +240,13 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
-
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
-
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
-
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
-
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
                 "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
@@ -271,7 +255,6 @@ public class DataInitializer implements CommandLineRunner {
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
-
             "CREATE TABLE IF NOT EXISTS expense_presets (" +
                 "id UUID PRIMARY KEY, " +
                 "name VARCHAR(100) NOT NULL UNIQUE, " +
@@ -288,39 +271,33 @@ public class DataInitializer implements CommandLineRunner {
                 "edited_by VARCHAR(100))",
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
-
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
-
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
-
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
             "UPDATE land_projects lp SET project_index = lt.project_index " +
                 "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
                 "AND lt.project_index IS NOT NULL",
-
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
-
             // PHASE G -- RETIRED TITLE DETAILS: dropped from DB
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
-            // PASS 10 -- location lives on land_projects only
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS district",
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS county",
         };
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
-
             for (String sql : migrations) {
                 try {
                     stmt.execute(sql);
@@ -329,7 +306,6 @@ public class DataInitializer implements CommandLineRunner {
                     System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
                 }
             }
-
         } catch (Exception e) {
             System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
         }

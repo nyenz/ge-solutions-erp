@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-fix11.py — Ledger rebuild to spec + backend unblock so data finally shows.
-- LedgerPage: PROJECT LEDGER; filters ALL/BACKLOG/TITLED/LEGACY/RECEIVABLES/
-  CRITICAL/PAID; columns INDEX/OWNER(S)/PHONE/PARISH/VILLAGE/STATUS/PROGRESS;
-  search every entered field; sidebar auto-collapse standard.
-- Backend: LandTitle restored to compile-proven shape; LandController index
-  fix; stage service/controller aligned; DataInitializer seeds 7 samples +
-  docs and drops the 5 retired columns.
-Run: py fix11.py
+fix12.py — make the deploy green + Ledger resilient.
+1) Re-issues the 5 backend files my scripts touched as ONE consistent set
+   (LandController index-fix, StageTemplate service+controller pair,
+   LandTitle compile-safe shape, DataInitializer with normalize + 7 sample
+   projects + sample docs + PHASE G drops of the 5 retired columns only).
+2) LedgerPage: auto-retry once after 5s on sync fault (free-tier cold start)
+   before showing LEDGER SYNC FAULT.
+Run: py fix12.py
 """
 import sys, subprocess
 from pathlib import Path
@@ -21,12 +21,10 @@ def write(rel, content):
     try: p.write_text(content, encoding="utf-8"); WROTE.append(rel)
     except Exception as e: FAILED.append((rel, str(e)))
 
-def patch(rel, old, new, skip_if=None):
+def patch(rel, old, new):
     p = ROOT / rel
     try: text = p.read_text(encoding="utf-8")
     except Exception as e: FAILED.append((rel, "read: " + str(e))); return
-    if skip_if and skip_if in text:
-        print(f"    ~ {rel}: already applied, skipped"); return
     if old not in text:
         FAILED.append((rel, "ANCHOR NOT FOUND: " + old[:70].replace("\n", "\\n"))); return
     text = text.replace(old, new, 1)
@@ -34,498 +32,40 @@ def patch(rel, old, new, skip_if=None):
     except Exception as e: FAILED.append((rel, str(e)))
 
 # =====================================================================
-# 1) LedgerPage.jsx — FULL redesign
+# 1) LandController.java — one mapping per method (the index fix)
 # =====================================================================
-write("erp-frontend/src/pages/Ledger/LedgerPage.jsx", r'''// PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
-    FiChevronLeft, FiChevronRight,
-    FiArrowUp, FiArrowDown, FiClock, FiUsers,
-    FiAlertTriangle, FiX, FiPhoneCall
-} from 'react-icons/fi';
-import HardwarePanel from '../../components/ui/HardwarePanel';
-import ErrorMessage from '../../components/common/ErrorMessage';
-import landService from '../../services/landService';
-import styles from './LedgerPage.module.css';
+write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java
+package com.gesolutions.erp.modules.land.controller;
 
-// Search mirrors EVERY field captured at intake
-const matchesSearch = (proj, term) => {
-    if (!term) return true;
-    const t = term.toLowerCase().replace(/\s+/g, '');
-    const fields = [
-        proj.projectIndex,
-        proj.landTitle?.plotNumber,
-        proj.landTitle?.titleId,
-        proj.landTitle?.blockRoad,
-        proj.landTitle?.tenure,
-        proj.district,
-        proj.county,
-        proj.subCounty,
-        proj.parish,
-        proj.village,
-        proj.area,
-        proj.status,
-        ...(proj.proprietors || []).flatMap(p => [
-            p.fullName,
-            p.phoneNumber?.replace(/\s+/g, ''),
-            p.nationalId,
-            p.email,
-            p.homeAddress,
-        ]),
-    ];
-    return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
-};
+import com.gesolutions.erp.modules.land.dto.*;
+import com.gesolutions.erp.modules.land.model.FollowUpLog;
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.PaymentRecord;
+import com.gesolutions.erp.modules.land.model.ProjectDocument;
+import com.gesolutions.erp.modules.land.service.LandService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-const getPaymentBadge = (proj) => {
-    if (!proj.lastPaymentDate) return 'RED';
-    const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
-    if (days <= 14) return 'GREEN';
-    if (days <= 30) return 'YELLOW';
-    return 'RED';
-};
-
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
-
-const PaymentDot = ({ proj }) => {
-    const badge = getPaymentBadge(proj);
-    return (
-        <span
-            title={BADGE_LABELS[badge]}
-            aria-label={BADGE_LABELS[badge]}
-            style={{
-                display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-                background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-                flexShrink: 0, marginTop: 4,
-            }}
-        />
-    );
-};
-
-const typeBadge = (proj) => (proj.isLegacy ? 'LEGACY' : proj.landTitle ? 'TITLED' : 'FOLDER');
-
-const LedgerPage = () => {
-    const navigate = useNavigate();
-    const containerRef = useRef(null);
-
-    const [projects,     setProjects]     = useState([]);
-    const [loading,      setLoading]      = useState(true);
-    const [loadError,    setLoadError]    = useState(false);
-    const [page,         setPage]         = useState(0);
-    const [searchTerm,   setSearchTerm]   = useState('');
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [activeFilter, setActiveFilter] = useState('ALL');
-    const [sortConfig,   setSortConfig]   = useState({ key: 'plotNumber', direction: 'asc' });
-
-    // STANDARD: sidebar auto-collapses once the user starts working on the page
-    const collapsedOnce = useRef(false);
-    useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-        const handler = () => {
-            if (collapsedOnce.current) return;
-            collapsedOnce.current = true;
-            const aside = document.querySelector('aside');
-            const toggle = document.querySelector('[class*="sidebarToggle"]');
-            if (aside && toggle && aside.getBoundingClientRect().width > 120) {
-                toggle.click();
-            }
-        };
-        el.addEventListener('focusin', handler);
-        el.addEventListener('input', handler);
-        el.addEventListener('click', handler);
-        return () => {
-            el.removeEventListener('focusin', handler);
-            el.removeEventListener('input', handler);
-            el.removeEventListener('click', handler);
-        };
-    }, []);
-
-    const fetchLedger = useCallback(async () => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            const data = await landService.getGlobalLedger(page, 50);
-            setProjects(data.content || []);
-        } catch {
-            setLoadError(true);
-        } finally {
-            setLoading(false);
-        }
-    }, [page]);
-
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);
-
-    const processedData = useMemo(() => {
-        let filtered = projects.filter(p => matchesSearch(p, searchTerm));
-
-        if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
-        if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
-        if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased));
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25 && !(p.amountPaid >= p.totalCost));
-
-        filtered.sort((a, b) => {
-            let aVal, bVal;
-            if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
-            else if (sortConfig.key === 'owner')      { aVal = a.proprietors?.[0]?.fullName || ''; bVal = b.proprietors?.[0]?.fullName || ''; }
-            else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
-            else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ?  1 : -1;
-            return 0;
-        });
-
-        return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig]);
-
-    const handleSort = (key) => {
-        setSortConfig(prev => ({
-            key,
-            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-        }));
-    };
-
-    const renderSortIcon = (key) => {
-        if (sortConfig.key !== key) return null;
-        return sortConfig.direction === 'asc'
-            ? <FiArrowUp  className={styles.sortActive} aria-hidden="true" />
-            : <FiArrowDown className={styles.sortActive} aria-hidden="true" />;
-    };
-
-    const FILTERS = [
-        { key: 'ALL',         label: 'ALL PROJECTS' },
-        { key: 'BACKLOG',     label: 'BACKLOG'      },
-        { key: 'TITLED',      label: 'TITLED'       },
-        { key: 'LEGACY',      label: 'LEGACY'       },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES'  },
-        { key: 'CRITICAL',    label: 'CRITICAL'     },
-        { key: 'PAID',        label: 'PAID'         },
-    ];
-
-    return (
-        <div className={styles.container} ref={containerRef}>
-
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Project Ledger</h1>
-                    <p className={styles.subtitle}>Every registered project — from first folder to released title, with live payment health</p>
-                </div>
-            </header>
-
-            <div className={styles.controlHub}>
-                <div className={styles.searchBlock}>
-                    <div className={styles.searchInner}>
-                        <input
-                            type="search" id="ledger-search"
-                            placeholder="Search any field: index, plot, title ID, owner, phone, NIN, email, district, county, parish, village, tenure..."
-                            className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            onFocus={() => setIsSearchFocused(true)}
-                            onBlur={() => setIsSearchFocused(false)}
-                            aria-label="Search ledger records"
-                            autoComplete="off"
-                        />
-                        {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
-                        {searchTerm && (
-                            <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')}
-                                aria-label="Clear search" type="button">
-                                <FiX aria-hidden="true" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <div className={styles.filterRailContainer}>
-                    <div className={styles.filterRail} role="group" aria-label="Filter records">
-                        {FILTERS.map(f => (
-                            <button key={f.key}
-                                onClick={() => setActiveFilter(f.key)}
-                                className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                                aria-pressed={activeFilter === f.key} aria-label={f.label}>
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className={styles.badgeLegend}>
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.badgeLegendItem}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block', boxShadow: `0 0 4px ${c}` }} />
-                            {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            <div>
-            <HardwarePanel variant="dark">
-                <div className={styles.tableScroll}>
-                    <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
-                        <thead>
-                            <tr>
-                                <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
-                                </th>
-                                <th onClick={() => handleSort('owner')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiUser aria-hidden="true" /> OWNER(S) {renderSortIcon('owner')}
-                                </th>
-                                <th>
-                                    <FiPhoneCall aria-hidden="true" /> PHONE
-                                </th>
-                                <th>PARISH</th>
-                                <th>VILLAGE</th>
-                                <th>STATUS</th>
-                                <th onClick={() => handleSort('paid')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && (
-                                <tr><td colSpan={7} className={styles.loadingCell}>
-                                    <FiClock aria-hidden="true" /> SYNCING ARCHIVE...
-                                </td></tr>
-                            )}
-                            {!loading && loadError && (
-                                <tr><td colSpan={7} className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
-                                    <button className={styles.retryBtn} onClick={fetchLedger}>RETRY</button>
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={7} className={styles.emptyCell}>
-                                    <FiLayers aria-hidden="true" />
-                                    {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.map((proj) => {
-                                const isReceivable  = proj.isReceivable;
-                                const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt       = isReceivable
-                                    ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
-                                    : (proj.totalCost || 0) - (proj.amountPaid || 0);
-                                const pct        = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
-                                const isCritical = pct < 25 && proj.totalCost > 0 && !(proj.amountPaid >= proj.totalCost);
-                                const owners     = proj.proprietors || [];
-                                const phones     = owners.map(o => o.phoneNumber).filter(Boolean);
-
-                                return (
-                                    <tr key={proj.id}
-                                        onClick={() => navigate(`/folder/${proj.id}`)}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
-                                        tabIndex={0} role="row"
-                                        aria-label={`Record: ${proj.landTitle?.plotNumber || proj.projectIndex}`}
-                                        className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}
-                                    >
-                                        <td className={styles.plotCell}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                                                <PaymentDot proj={proj} />
-                                                <div>
-                                                    <strong>{proj.landTitle?.plotNumber || '---'}</strong>
-                                                    {proj.projectIndex && (
-                                                        <span className={styles.districtTag}> #{proj.projectIndex}</span>
-                                                    )}
-                                                    <span className={proj.landTitle ? styles.statusTagTitled : styles.statusTagFolder}>
-                                                        {typeBadge(proj)}
-                                                    </span>
-                                                    <div>
-                                                        {proj.landTitle?.tenure && (
-                                                            <span className={styles.tenureTag}>{proj.landTitle.tenure}</span>
-                                                        )}
-                                                        {proj.district && (
-                                                            <span className={styles.districtTag}>{proj.district}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.ownerWrap}>
-                                                <div className={styles.ownerMeta}>
-                                                    <span className={styles.ownerName}>{owners[0]?.fullName || '---'}</span>
-                                                </div>
-                                                {owners.length > 1 && (
-                                                    <div className={styles.jointBadge}>
-                                                        <FiUsers aria-hidden="true" />
-                                                        <span>+{owners.length - 1} MORE</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.ownerWrap}>
-                                                <div className={styles.ownerMeta}>
-                                                    <span className={styles.ownerPhone}>{phones[0] || '---'}</span>
-                                                </div>
-                                                {phones.length > 1 && (
-                                                    <div className={styles.jointBadge}>
-                                                        <span>+{phones.length - 1} MORE</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
-                                        <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
-                                        <td>
-                                            <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
-                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                            </div>
-                                        </td>
-                                        <td className={styles.moneyCell}>
-                                            <div className={styles.moneyRow}>
-                                                <span className={styles.debtLabel}>DEBT:</span>
-                                                <span className={isCritical ? styles.debtCritical : styles.debtAmount}>
-                                                    UGX {debt.toLocaleString()}
-                                                </span>
-                                            </div>
-                                            {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div style={{ fontSize: '0.7rem', color: '#ef4444', marginBottom: 4 }}>
-                                                    +UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees
-                                                </div>
-                                            )}
-                                            <div className={styles.velocityBar} role="progressbar"
-                                                aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-                                                <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`}
-                                                    style={{ width: `${pct}%` }} />
-                                            </div>
-                                            <span className={styles.pctLabel}>{Math.round(pct)}%</span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                <footer className={styles.pagination} aria-label="Pagination">
-                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                        aria-label="Previous page" className={styles.pageBtn}>
-                        <FiChevronLeft aria-hidden="true" /> PREV
-                    </button>
-                    <span className={styles.pageIndicator} aria-current="page">
-                        RANGE {page + 1}
-                        {processedData.length > 0 && <span className={styles.recordCount}> — {processedData.length} RECORDS</span>}
-                    </span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50}
-                        aria-label="Next page" className={styles.pageBtn}>
-                        NEXT <FiChevronRight aria-hidden="true" />
-                    </button>
-                </footer>
-            </HardwarePanel>
-            </div>
-        </div>
-    );
-};
-
-export default LedgerPage;
-''')
-
-# =====================================================================
-# 2) LandTitle.java — compile-proven shape (deprecated district/county kept,
-#    retired 5 stay removed)
-# =====================================================================
-write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java
-package com.gesolutions.erp.modules.land.model;
-
-import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
-/**
- * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
- * Maps 1-1 with the technical documents (Deed Plans and Titles).
- * RETIRED (pass 6): volume / folio / instrument_no / physical_box_number /
- * survey_date removed app-wide and dropped from the DB (PHASE G).
- * district/county stay as deprecated columns (backwards compatibility).
- */
-@Entity
-@Table(name = "land_titles", indexes = {
-    @Index(name = "idx_plot_registry", columnList = "plot_number"),
-    @Index(name = "idx_title_id", columnList = "title_id")
-})
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class LandTitle {
+@RestController
+@RequestMapping("/api/v1/land")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class LandController {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private final LandService landService;
 
-    @Column(nullable = false, length = 50)
-    private String tenure; // e.g. MAILO, FREEHOLD
-
-    @Column(name = "plot_number", unique = true, length = 100)
-    private String plotNumber;
-
-    @Column(name = "block_road", length = 100)
-    private String blockRoad;
-
-    @Deprecated
-    @Column(length = 100)
-    private String district;
-
-    @Deprecated
-    @Column(length = 100)
-    private String county;
-
-    @Column(name = "title_id", length = 100)
-    private String titleId;
-
-    @Deprecated
-    @Column(name = "project_index", unique = true, length = 10)
-    private String projectIndex;
-
-    @Column(name = "project_start_date")
-    private LocalDate projectStartDate;
-
-    @Column(name = "title_issue_date")
-    private LocalDate titleIssueDate;
-
-    @Builder.Default
-    @Column(name = "is_released", nullable = false)
-    private boolean isReleased = false;
-
-    @Column(name = "created_at", updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
-}
-""")
-
-# =====================================================================
-# 3) LandController.java — split the stacked mappings (the index fix)
-# =====================================================================
-patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/LandController.java",
-"""    @PostMapping("/projects/{id}/unlock-log")
-    // INTAKE: preview next project index
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    @GetMapping("/next-index")
-    public ResponseEntity<String> previewNextIndex() {
-        return ResponseEntity.ok(landService.previewNextIndex());
-    }
-
-    public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
-        landService.logUnlockAction(id);
-        return ResponseEntity.ok().build();
-    }""",
-"""    // INTAKE: preview next project index (fixed: one mapping per method)
+    // FIX: was stacked with @PostMapping unlock-log on one method, so it
+    // never registered and the Index field always 404'd. One mapping each.
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
@@ -536,25 +76,402 @@ patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/Lan
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
         landService.logUnlockAction(id);
         return ResponseEntity.ok().build();
-    }""",
-    skip_if="// INTAKE: preview next project index (fixed")
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/notes")
+    public ResponseEntity<List<FollowUpLog>> getProjectNotes(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectNotes(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/follow-up")
+    public ResponseEntity<java.util.Map<String, Object>> logContact(@PathVariable UUID id,
+                                            @RequestParam UUID ownerId,
+                                            @RequestParam String content) {
+        return ResponseEntity.ok(landService.logFollowUp(id, ownerId, content));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LandProject> ingestTitle(
+            @RequestPart("data") String jsonData,
+            @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
+        return ResponseEntity.ok(landService.atomicIntake(request, scans));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/deep")
+    public ResponseEntity<ProjectDeepDetailDTO> getProjectDeepDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDeepDetail(id));
+    }
+
+    @PutMapping("/projects/{id}/full-update")
+    public ResponseEntity<LandProject> updateProjectFull(
+            @PathVariable UUID id, @RequestBody LandEntryRequest request) {
+        return ResponseEntity.ok(landService.updateProjectFull(id, request));
+    }
+
+    @DeleteMapping("/projects/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id) {
+        landService.nuclearDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/projects/{id}/restore")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
+        landService.restoreProject(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/projects/deleted")
+    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    public ResponseEntity<List<LandProject>> getDeletedProjects() {
+        return ResponseEntity.ok(landService.getDeletedProjects());
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/projects/{id}/documents")
+    public ResponseEntity<List<ProjectDocument>> getDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectDocuments(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addExtraDocuments(
+            @PathVariable UUID id,
+            @RequestParam("scans") MultipartFile[] scans) throws Exception {
+        landService.addScansToProject(id, scans);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/documents/{docId}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable UUID docId) {
+        landService.removeDocument(docId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/{id}/notes")
+    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
+        landService.logNewNote(id, content);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/notes/{noteId}")
+    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId, @RequestParam String content) {
+        landService.updateNote(noteId, content);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/notes/{noteId}")
+    public ResponseEntity<Void> deleteNote(@PathVariable UUID noteId) {
+        landService.removeNote(noteId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/projects/{id}/reality-override")
+    public ResponseEntity<Void> manualRealityOverride(
+            @PathVariable UUID id, @RequestParam int targetStage) {
+        landService.manualRealityOverride(id, targetStage);
+        return ResponseEntity.ok().build();
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/ledger")
+    public ResponseEntity<Page<LandProject>> getLedger(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/projects/bulk-mark-title-produced")
+    public ResponseEntity<Integer> bulkMarkTitleProduced(@RequestBody List<UUID> projectIds) {
+        return ResponseEntity.ok(landService.bulkMarkTitleProduced(projectIds));
+    }
+
+    @PatchMapping("/projects/{id}/release")
+    public ResponseEntity<Void> authorizeRelease(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String managerNote) {
+        landService.authorizeRelease(id, managerNote);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/receivable")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> moveToReceivable(@PathVariable UUID id) {
+        landService.moveToReceivable(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/exit-receivable")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitReceivable(@PathVariable UUID id,
+                                            @RequestParam(defaultValue = "false") boolean capitalizeFees) {
+        landService.exitReceivable(id, capitalizeFees);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/exit-receivable-capitalize")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> exitReceivableCapitalize(@PathVariable UUID id) {
+        landService.exitReceivable(id, true);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/projects/{id}/payments")
+    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(landService.getProjectPayments(id));
+    }
+
+    @PostMapping("/projects/{id}/payment")
+    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam(required = false) String notes) {
+        landService.recordPayment(id, amount, notes);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-pause")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
+                                                   @RequestParam boolean paused) {
+        landService.setStoragePaused(id, paused);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-rate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal rate) {
+        landService.setStorageFeeOverride(id, rate);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/storage-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount) {
+        landService.setAccumulatedFees(id, amount);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/negotiation-deadline")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
+                                                        @RequestParam(required = false) String deadline) {
+        landService.setNegotiationDeadline(id, deadline);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/receivable-start")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> setReceivableStartOverride(@PathVariable UUID id,
+                                                         @RequestParam String startDate) {
+        landService.setReceivableStartOverride(id, startDate);
+        return ResponseEntity.ok().build();
+    }
+}
+""")
 
 # =====================================================================
-# 4) StageTemplateService.java — add normalize + bulk (idempotent)
+# 2) StageTemplateService.java — normalize + bulk, matched pair
 # =====================================================================
-patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java",
-"""    // INTAKE REDESIGN: allow deleting middle stages from the template
-    public void deleteTemplateStage(java.util.UUID id) {
-        templateRepository.deleteById(id);
-    }
-}""",
-"""    // INTAKE REDESIGN: allow deleting middle stages from the template
-    public void deleteTemplateStage(java.util.UUID id) {
-        templateRepository.deleteById(id);
-    }
+write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageTemplateService.java
+package com.gesolutions.erp.modules.land.service;
+
+import com.gesolutions.erp.modules.land.model.ProjectStage;
+import com.gesolutions.erp.modules.land.model.StageTemplate;
+import com.gesolutions.erp.modules.land.dto.ProjectStageRequest;
+import com.gesolutions.erp.modules.land.repository.ProjectStageRepository;
+import com.gesolutions.erp.modules.land.repository.StageTemplateRepository;
+import com.gesolutions.erp.common.audit.AuditService;
+import com.gesolutions.erp.common.exception.BusinessException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class StageTemplateService {
+
+    private final StageTemplateRepository templateRepository;
+    private final ProjectStageRepository projectStageRepository;
+    private final AuditService auditService;
+
+    private static final String[] DEFAULT_STAGES = {
+        "Field Work",
+        "Deed Plan",
+        "LC Inspection",
+        "District Land Board Approval",
+        "Tax Assessment and Stamp Duty",
+        "Registration and Title Issuance"
+    };
 
     private static final java.util.Set<String> DEFAULT_STAGE_NAMES =
             java.util.Set.of(DEFAULT_STAGES);
+
+    private String getCurrentOperator() {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return SecurityContextHolder.getContext().getAuthentication().getName();
+        }
+        return "SYSTEM";
+    }
+
+    @Transactional
+    public void seedDefaultStagesIfEmpty() {
+        if (templateRepository.count() > 0) return;
+        int order = 1;
+        for (String name : DEFAULT_STAGES) {
+            templateRepository.save(StageTemplate.builder()
+                    .stageName(name).defaultCost(BigDecimal.ZERO)
+                    .displayOrder(order++).isActive(true).build());
+        }
+        System.out.println(">>> [STAGE_TEMPLATE] Seeded " + DEFAULT_STAGES.length + " default stages.");
+    }
+
+    @Transactional(readOnly = true)
+    public List<StageTemplate> getActiveTemplate() {
+        return templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public StageTemplate addTemplateStage(String stageName, BigDecimal defaultCost, Integer displayOrder) {
+        if (stageName == null || stageName.isBlank()) {
+            throw new BusinessException("STAGE_NAME_REQUIRED: A stage name is required.");
+        }
+        StageTemplate stage = StageTemplate.builder()
+                .stageName(stageName.trim())
+                .defaultCost(defaultCost != null ? defaultCost : BigDecimal.ZERO)
+                .displayOrder(displayOrder != null ? displayOrder : (int) templateRepository.count() + 1)
+                .isActive(true)
+                .build();
+        StageTemplate saved = templateRepository.save(stage);
+        auditService.logAction("STAGE_TEMPLATE_ADDED",
+            "Operator [" + getCurrentOperator() + "] added master stage: " + stage.getStageName());
+        return saved;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public StageTemplate updateTemplateStage(UUID id, String stageName, BigDecimal defaultCost, Integer displayOrder) {
+        StageTemplate stage = templateRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("STAGE_TEMPLATE_NOT_FOUND"));
+        if (stageName != null && !stageName.isBlank()) stage.setStageName(stageName.trim());
+        if (defaultCost != null) stage.setDefaultCost(defaultCost);
+        if (displayOrder != null) stage.setDisplayOrder(displayOrder);
+        StageTemplate saved = templateRepository.save(stage);
+        auditService.logAction("STAGE_TEMPLATE_UPDATED",
+            "Operator [" + getCurrentOperator() + "] updated master stage: " + stage.getStageName());
+        return saved;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void deactivateTemplateStage(UUID id) {
+        StageTemplate stage = templateRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("STAGE_TEMPLATE_NOT_FOUND"));
+        stage.setActive(false);
+        templateRepository.save(stage);
+        auditService.logAction("STAGE_TEMPLATE_REMOVED",
+            "Operator [" + getCurrentOperator() + "] removed master stage from checklist: " + stage.getStageName());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectStage> getProjectStages(UUID projectId) {
+        return projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
+    }
+
+    @Transactional
+    public List<ProjectStage> attachStagesToProject(UUID projectId, List<ProjectStageRequest> requests) {
+        if (requests == null || requests.isEmpty()) return List.of();
+        int startOrder = projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId).size();
+        java.util.List<ProjectStage> created = new java.util.ArrayList<>();
+        int i = 0;
+        for (ProjectStageRequest req : requests) {
+            String name; BigDecimal cost;
+            if (req.isCustom()) {
+                if (req.getStageName() == null || req.getStageName().isBlank()) {
+                    throw new BusinessException("STAGE_NAME_REQUIRED: Custom stage needs a name.");
+                }
+                name = req.getStageName().trim();
+                cost = req.getCost() != null ? req.getCost() : BigDecimal.ZERO;
+            } else {
+                if (req.getStageTemplateId() == null) throw new BusinessException("STAGE_TEMPLATE_ID_REQUIRED");
+                StageTemplate template = templateRepository.findById(UUID.fromString(req.getStageTemplateId()))
+                        .orElseThrow(() -> new BusinessException("STAGE_TEMPLATE_NOT_FOUND"));
+                name = template.getStageName();
+                cost = req.getCost() != null ? req.getCost() : template.getDefaultCost();
+            }
+            created.add(projectStageRepository.save(ProjectStage.builder()
+                    .projectId(projectId).stageName(name).cost(cost).notes(req.getNotes())
+                    .isCustom(req.isCustom()).isCompleted(req.isCompleted())
+                    .displayOrder(startOrder + (i++))
+                    .build()));
+        }
+        auditService.logAction("PROJECT_STAGES_ATTACHED",
+            "Operator [" + getCurrentOperator() + "] attached " + created.size()
+            + " stage(s) to project: " + projectId);
+        return created;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ProjectStage toggleStageCompletion(UUID stageId, boolean completed) {
+        ProjectStage stage = projectStageRepository.findById(stageId)
+                .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
+        stage.setCompleted(completed);
+        stage.setCompletedAt(completed ? LocalDateTime.now() : null);
+        ProjectStage saved = projectStageRepository.save(stage);
+        auditService.logAction("PROJECT_STAGE_STATUS_CHANGED",
+            "Operator [" + getCurrentOperator() + "] marked stage \"" + stage.getStageName()
+            + "\" as " + (completed ? "COMPLETE" : "NOT COMPLETE") + " on project: " + stage.getProjectId());
+        return saved;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ProjectStage updateStageCostAndNotes(UUID stageId, BigDecimal cost, String notes) {
+        ProjectStage stage = projectStageRepository.findById(stageId)
+                .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
+        if (cost != null) stage.setCost(cost);
+        if (notes != null) stage.setNotes(notes);
+        ProjectStage saved = projectStageRepository.save(stage);
+        auditService.logAction("PROJECT_STAGE_COST_UPDATED",
+            "Operator [" + getCurrentOperator() + "] updated cost/notes on stage \"" + stage.getStageName()
+            + "\" for project: " + stage.getProjectId());
+        return saved;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void removeProjectStage(UUID stageId) {
+        ProjectStage stage = projectStageRepository.findById(stageId)
+                .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
+        projectStageRepository.delete(stage);
+        auditService.logAction("PROJECT_STAGE_REMOVED",
+            "Operator [" + getCurrentOperator() + "] removed stage \"" + stage.getStageName()
+            + "\" from project: " + stage.getProjectId());
+    }
+
+    @Transactional
+    public void deleteTemplateStage(java.util.UUID id) {
+        templateRepository.deleteById(id);
+    }
 
     /** Boot-time: master checklist = exactly the 6 defaults, in order, no dupes. */
     @Transactional
@@ -576,11 +493,8 @@ patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageT
             StageTemplate stage = kept.get(name);
             if (stage == null) {
                 templateRepository.save(StageTemplate.builder()
-                        .stageName(name)
-                        .defaultCost(BigDecimal.ZERO)
-                        .displayOrder(order)
-                        .isActive(true)
-                        .build());
+                        .stageName(name).defaultCost(BigDecimal.ZERO)
+                        .displayOrder(order).isActive(true).build());
             } else if (stage.getDisplayOrder() == null || stage.getDisplayOrder() != order) {
                 stage.setDisplayOrder(order);
                 templateRepository.save(stage);
@@ -641,22 +555,65 @@ patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/StageT
         }
         return templateRepository.saveAll(toSave);
     }
-}""",
-    skip_if="normalizeToDefaultStages")
+}
+""")
 
 # =====================================================================
-# 5) StageTemplateController.java — bulk endpoints (idempotent)
+# 3) StageTemplateController.java — matched pair
 # =====================================================================
-patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java",
-"""    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
-        stageTemplateService.deleteTemplateStage(id);
-        return ResponseEntity.noContent().build();
+write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/StageTemplateController.java
+package com.gesolutions.erp.modules.land.controller;
+
+import com.gesolutions.erp.modules.land.model.ProjectStage;
+import com.gesolutions.erp.modules.land.model.StageTemplate;
+import com.gesolutions.erp.modules.land.dto.ProjectStageRequest;
+import com.gesolutions.erp.modules.land.service.StageTemplateService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public class StageTemplateController {
+
+    private final StageTemplateService stageTemplateService;
+
+    @GetMapping("/stage-templates")
+    public ResponseEntity<List<StageTemplate>> getTemplate() {
+        return ResponseEntity.ok(stageTemplateService.getActiveTemplate());
     }
-}""",
-"""    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
-        stageTemplateService.deleteTemplateStage(id);
+
+    @PostMapping("/stage-templates")
+    public ResponseEntity<StageTemplate> addTemplateStage(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("stageName");
+        BigDecimal cost = body.get("defaultCost") != null
+                ? new BigDecimal(body.get("defaultCost").toString()) : BigDecimal.ZERO;
+        Integer order = body.get("displayOrder") != null
+                ? Integer.valueOf(body.get("displayOrder").toString()) : null;
+        return ResponseEntity.ok(stageTemplateService.addTemplateStage(name, cost, order));
+    }
+
+    @PutMapping("/stage-templates/{id}")
+    public ResponseEntity<StageTemplate> updateTemplateStage(@PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        String name = (String) body.get("stageName");
+        BigDecimal cost = body.get("defaultCost") != null
+                ? new BigDecimal(body.get("defaultCost").toString()) : null;
+        Integer order = body.get("displayOrder") != null
+                ? Integer.valueOf(body.get("displayOrder").toString()) : null;
+        return ResponseEntity.ok(stageTemplateService.updateTemplateStage(id, name, cost, order));
+    }
+
+    @DeleteMapping("/stage-templates/{id}")
+    public ResponseEntity<Void> deactivateTemplateStage(@PathVariable UUID id) {
+        stageTemplateService.deactivateTemplateStage(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -679,75 +636,195 @@ patch("erp-backend/src/main/java/com/gesolutions/erp/modules/land/controller/Sta
     public ResponseEntity<List<StageTemplate>> restoreDefaultStages() {
         return ResponseEntity.ok(stageTemplateService.restoreDefaultStages());
     }
-}""",
-    skip_if="restore-defaults")
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/land/projects/{projectId}/stages")
+    public ResponseEntity<List<ProjectStage>> getProjectStages(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(stageTemplateService.getProjectStages(projectId));
+    }
+
+    @PostMapping("/land/projects/{projectId}/stages")
+    public ResponseEntity<List<ProjectStage>> attachStages(
+            @PathVariable UUID projectId, @RequestBody List<ProjectStageRequest> requests) {
+        return ResponseEntity.ok(stageTemplateService.attachStagesToProject(projectId, requests));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
+    public ResponseEntity<ProjectStage> toggleStageCompletion(
+            @PathVariable UUID projectId, @PathVariable UUID stageId,
+            @RequestParam boolean completed) {
+        return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));
+    }
+
+    @PatchMapping("/land/projects/{projectId}/stages/{stageId}/cost")
+    public ResponseEntity<ProjectStage> updateStageCost(
+            @PathVariable UUID projectId, @PathVariable UUID stageId,
+            @RequestBody Map<String, Object> body) {
+        BigDecimal cost = body.get("cost") != null ? new BigDecimal(body.get("cost").toString()) : null;
+        String notes = (String) body.get("notes");
+        return ResponseEntity.ok(stageTemplateService.updateStageCostAndNotes(stageId, cost, notes));
+    }
+
+    @DeleteMapping("/land/projects/{projectId}/stages/{stageId}")
+    public ResponseEntity<Void> removeStage(@PathVariable UUID projectId, @PathVariable UUID stageId) {
+        stageTemplateService.removeProjectStage(stageId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
+        stageTemplateService.deleteTemplateStage(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+""")
 
 # =====================================================================
-# 6) DataInitializer.java — add normalize + 7 sample projects + docs +
-#    PHASE G drops (idempotent)
+# 4) LandTitle.java — compile-safe shape (deprecated district/county kept,
+#    retired 5 stay removed)
 # =====================================================================
-patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-"""import com.gesolutions.erp.modules.finance.model.ExpensePreset;
-import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
-import com.gesolutions.erp.modules.land.service.StageTemplateService;""",
-"""import com.gesolutions.erp.modules.finance.model.ExpensePreset;
+write("erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/LandTitle.java
+package com.gesolutions.erp.modules.land.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
+ * RETIRED (pass 6): volume / folio / instrument_no / physical_box_number /
+ * survey_date removed app-wide and dropped from the DB (PHASE G).
+ * district/county stay as deprecated columns for backwards compatibility.
+ */
+@Entity
+@Table(name = "land_titles", indexes = {
+    @Index(name = "idx_plot_registry", columnList = "plot_number"),
+    @Index(name = "idx_title_id", columnList = "title_id")
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class LandTitle {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false, length = 50)
+    private String tenure;
+
+    @Column(name = "plot_number", unique = true, length = 100)
+    private String plotNumber;
+
+    @Column(name = "block_road", length = 100)
+    private String blockRoad;
+
+    @Deprecated
+    @Column(length = 100)
+    private String district;
+
+    @Deprecated
+    @Column(length = 100)
+    private String county;
+
+    @Column(name = "title_id", length = 100)
+    private String titleId;
+
+    @Deprecated
+    @Column(name = "project_index", unique = true, length = 10)
+    private String projectIndex;
+
+    @Column(name = "project_start_date")
+    private LocalDate projectStartDate;
+
+    @Column(name = "title_issue_date")
+    private LocalDate titleIssueDate;
+
+    @Builder.Default
+    @Column(name = "is_released", nullable = false)
+    private boolean isReleased = false;
+
+    @Column(name = "created_at", updatable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+}
+""")
+
+# =====================================================================
+# 5) DataInitializer.java — normalize + 7 samples + docs + PHASE G
+# =====================================================================
+write("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java", r"""// PATH: erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java
+package com.gesolutions.erp.config;
+
+import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
 import com.gesolutions.erp.modules.land.dto.LandEntryRequest;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.StageTemplate;
 import com.gesolutions.erp.modules.land.service.LandService;
-import com.gesolutions.erp.modules.land.service.StageTemplateService;""",
-    skip_if="seedSampleProjects")
+import com.gesolutions.erp.modules.land.service.StageTemplateService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
 
-patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-"""    private final StageTemplateService stageTemplateService;
-    private final ExpensePresetRepository expensePresetRepository;""",
-"""    private final StageTemplateService stageTemplateService;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
+
+@Component
+@RequiredArgsConstructor
+public class DataInitializer implements CommandLineRunner {
+
+    private final PasswordEncoder passwordEncoder;
+    private final DataSource dataSource;
+    private final StageTemplateService stageTemplateService;
     private final ExpensePresetRepository expensePresetRepository;
-    private final LandService landService;""",
-    skip_if="private final LandService landService;")
+    private final LandService landService;
 
-patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-"""        // PHASE 4: Seed the default stage template checklist if empty
-        stageTemplateService.seedDefaultStagesIfEmpty();
-""",
-"""        // PHASE 4: Seed the default stage template checklist if empty
-        stageTemplateService.seedDefaultStagesIfEmpty();
+    @Value("${ADMIN_EMAIL}")
+    private String adminEmail;
 
-        // PASS 6: master checklist must always be exactly the 6 defaults
+    @Value("${ADMIN_DEFAULT_PASSWORD}")
+    private String adminDefaultPassword;
+
+    @Override
+    public void run(String... args) {
+        System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
+        runSchemaMigrations();
+        seedRootUser();
+        stageTemplateService.seedDefaultStagesIfEmpty();
         try {
             stageTemplateService.normalizeToDefaultStages();
             System.out.println(">>> [STAGE_TEMPLATE] Normalized master checklist to defaults.");
         } catch (Exception e) {
             System.err.println(">>> [STAGE_TEMPLATE] normalize warning: " + e.getMessage());
         }
-
-        // PASS 6/11: seed diverse SAMPLE projects so the Ledger has data (once)
         seedSampleProjects();
         seedSampleDocuments();
-""",
-    skip_if="seedSampleProjects();")
+        seedDefaultExpensePresets();
+        System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
+    }
 
-patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-"""            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
-        };""",
-"""            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
+    public void seedDefaultExpensePresets() {
+        if (expensePresetRepository.count() > 0) {
+            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
+            return;
+        }
+        String[] defaults = { "Office", "Fieldwork", "Land Office" };
+        for (String name : defaults) {
+            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        }
+        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
+    }
 
-            // PHASE G -- RETIRED TITLE DETAILS: dropped from DB
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
-            "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
-        };""",
-    skip_if="DROP COLUMN IF EXISTS volume")
-
-patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java",
-"""    // NOTE: Deliberately NOT @Transactional -- we use raw JDBC so this is
-    // completely immune to Spring AOP proxy bypass, Hibernate L1 cache,
-    // EntityManager flush timing, and @Builder.Default field conflicts.
-    public void seedRootUser() {""",
-"""    // 7 diverse SAMPLE projects (guarded: only when none exist yet)
+    // 7 diverse SAMPLE projects (guarded: only when none exist yet)
     private void seedSampleProjects() {
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -908,27 +985,173 @@ patch("erp-backend/src/main/java/com/gesolutions/erp/config/DataInitializer.java
         for (String s : stages) {
             String tid = idByName.get(s);
             ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder()
-                    .stageTemplateId(tid)
-                    .stageName(s)
-                    .isCustom(tid == null)
-                    .isCompleted(true)
-                    .build());
+                    .stageTemplateId(tid).stageName(s).isCustom(tid == null).isCompleted(true).build());
         }
         b.selectedStages(ss);
         LandProject saved = landService.atomicIntake(b.build(), null);
         return saved.getId();
     }
 
-    // NOTE: Deliberately NOT @Transactional -- we use raw JDBC so this is
-    // completely immune to Spring AOP proxy bypass, Hibernate L1 cache,
-    // EntityManager flush timing, and @Builder.Default field conflicts.
-    public void seedRootUser() {""",
-    skip_if="private void seedSampleProjects()")
+    private void runSchemaMigrations() {
+        String[] migrations = {
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
+            "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
+            "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            "UPDATE clients SET national_id = NULL WHERE national_id = ''",
+            "UPDATE clients c SET national_id = c.national_id || '-DUPE-' || c.id::text " +
+                "FROM (SELECT id, national_id, ROW_NUMBER() OVER (PARTITION BY national_id ORDER BY id) AS rn " +
+                "FROM clients WHERE national_id IS NOT NULL) ranked " +
+                "WHERE c.id = ranked.id AND ranked.rn > 1",
+            "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
+            "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
+            "CREATE TABLE IF NOT EXISTS expense_presets (" +
+                "id UUID PRIMARY KEY, " +
+                "name VARCHAR(100) NOT NULL UNIQUE, " +
+                "created_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS expenses (" +
+                "id UUID PRIMARY KEY, " +
+                "category VARCHAR(150) NOT NULL, " +
+                "amount NUMERIC(15,2) NOT NULL, " +
+                "note TEXT, " +
+                "recorded_by VARCHAR(100), " +
+                "created_at TIMESTAMP NOT NULL DEFAULT now(), " +
+                "edited_at TIMESTAMP, " +
+                "edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
+            "UPDATE land_projects lp SET project_index = lt.project_index " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
+                "AND lt.project_index IS NOT NULL",
+            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
+            // PHASE G -- RETIRED TITLE DETAILS: dropped from DB
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS instrument_no",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS physical_box_number",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS survey_date",
+        };
+
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            for (String sql : migrations) {
+                try {
+                    stmt.execute(sql);
+                    System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length())));
+                } catch (Exception e) {
+                    System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage());
+        }
+    }
+
+    public void seedRootUser() {
+        String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
+        String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM users WHERE username = ?")) {
+                ps.setString(1, "admin_root");
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exists = rs.getInt(1) > 0;
+                }
+            }
+
+            if (!exists) {
+                String sql = "INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) "
+                           + "VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)";
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setObject(1, java.util.UUID.randomUUID());
+                    ps.setString(2, email);
+                    ps.setString(3, encodedPassword);
+                    int rows = ps.executeUpdate();
+                    System.out.println(">>> [REGISTRY] INSERT admin_root rows affected: " + rows);
+                }
+            } else {
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset. Existing credentials remain in effect.");
+            }
+
+        } catch (Exception e) {
+            System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:");
+            e.printStackTrace();
+        }
+    }
+}
+""")
+
+# =====================================================================
+# 6) LedgerPage.jsx — auto-retry once on cold-start fault
+# =====================================================================
+patch("erp-frontend/src/pages/Ledger/LedgerPage.jsx",
+"""    const fetchLedger = useCallback(async () => {
+        setLoading(true);
+        setLoadError(false);
+        try {
+            const data = await landService.getGlobalLedger(page, 50);
+            setProjects(data.content || []);
+        } catch {
+            setLoadError(true);
+        } finally {
+            setLoading(false);
+        }
+    }, [page]);
+
+    useEffect(() => { fetchLedger(); }, [fetchLedger]);""",
+"""    // Free-tier cold start: the API can take ~a minute to wake. Retry once
+    // after 5s before declaring a fault, so a waking backend no longer
+    // shows LEDGER SYNC FAULT.
+    const fetchLedger = useCallback(async (attempt = 0) => {
+        setLoading(true);
+        setLoadError(false);
+        try {
+            const data = await landService.getGlobalLedger(page, 50);
+            setProjects(data.content || []);
+            setLoading(false);
+        } catch {
+            if (attempt < 1) {
+                setTimeout(() => fetchLedger(attempt + 1), 5000);
+                return;
+            }
+            setLoadError(true);
+            setLoading(false);
+        }
+    }, [page]);
+
+    useEffect(() => { fetchLedger(); }, [fetchLedger]);""")
 
 # =====================================================================
 # Report + commit + push
 # =====================================================================
-print(f"\n=== fix11.py completed ===")
+print(f"\n=== fix12.py completed ===")
 print(f"  Wrote:   {len(WROTE)} file(s)")
 for f in WROTE: print(f"    + {f}")
 if FAILED:
@@ -939,7 +1162,7 @@ if FAILED:
 if WROTE:
     try:
         subprocess.run(['git', 'add', '.'], check=True, cwd=ROOT, capture_output=True)
-        subprocess.run(['git', 'commit', '-m', 'fix11: PROJECT LEDGER redesign (filters/columns/search per spec + sidebar standard) + backend unblock (compile-safe LandTitle, index fix, samples seed)'], check=True, cwd=ROOT, capture_output=True)
+        subprocess.run(['git', 'commit', '-m', 'fix12: consistent backend set (compile-safe) + Ledger cold-start auto-retry + samples/docs seed'], check=True, cwd=ROOT, capture_output=True)
         print("\n  Git: Committed")
         subprocess.run(['git', 'push'], check=True, cwd=ROOT, capture_output=True)
         print("  Git: Pushed")

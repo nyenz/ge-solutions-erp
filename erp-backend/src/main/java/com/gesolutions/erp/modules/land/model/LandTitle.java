@@ -9,10 +9,9 @@ import java.util.UUID;
 
 /**
  * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
- * Maps 1-1 with the technical documents (Deed Plans and Titles).
  * RETIRED (pass 6): volume / folio / instrument_no / physical_box_number /
  * survey_date removed app-wide and dropped from the DB (PHASE G).
- * district/county stay as deprecated columns (backwards compatibility).
+ * district/county stay as deprecated columns for backwards compatibility.
  */
 @Entity
 @Table(name = "land_titles", indexes = {
@@ -31,7 +30,7 @@ public class LandTitle {
     private UUID id;
 
     @Column(nullable = false, length = 50)
-    private String tenure; // e.g. MAILO, FREEHOLD
+    private String tenure;
 
     @Column(name = "plot_number", unique = true, length = 100)
     private String plotNumber;
