@@ -59,7 +59,7 @@
 /* header: Payments-matched padding/scale, sticky, rounded top corners to match panel.
    top:0 because the navbar lives OUTSIDE .scrollArea (the real scroll container) —
    any positive top value here just opens a gap that rows can peek through. */
-.ledgerTable thead th{position:sticky;top:-1px;z-index:500;isolation:isolate;transform:translateZ(0);background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 3px 10px rgba(0,0,0,0.35);}
+.ledgerTable thead th{position:sticky;top:64px;z-index:100;background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 -300px 0 0 #f2ede4;}
 /* NOTE: intentionally no border-radius on thead th anymore. Rounded corners
    on a sticky element only make sense while it sits at the panel's actual
    top edge (unscrolled). The instant it's scrolled and "stuck", it's really
@@ -107,3 +107,6 @@
 .recordCount{color:var(--orange);}
 .topBtn{position:fixed;left:clamp(14px,2vw,26px);bottom:clamp(14px,2vh,26px);z-index:9500;background:transparent;border:none;color:var(--orange);width:38px;height:38px;font-size:23px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0.9;filter:drop-shadow(0 0 6px rgba(238,140,58,0.6));transition:transform .2s,opacity .2s,filter .2s;}
 .topBtn:hover{transform:translateY(-3px);opacity:1;filter:drop-shadow(0 0 10px rgba(238,140,58,0.85));}
+
+.ledgerTable thead th:first-child{border-radius:var(--radius) 0 0 0;}
+.ledgerTable thead th:last-child{border-radius:0 var(--radius) 0 0;}
