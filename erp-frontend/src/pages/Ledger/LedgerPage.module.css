@@ -56,8 +56,10 @@
 .tablePanel{position:relative;background:var(--panel-bg);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;}
 .tableScroll{overflow:visible;border-radius:var(--radius);}
 .ledgerTable{width:100%;border-collapse:separate;border-spacing:0;min-width:clamp(700px,90vw,1100px);}
-/* header: Payments-matched padding/scale, sticky, rounded top corners to match panel */
-.ledgerTable thead th{position:sticky;top:64px;z-index:100;background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 -300px 0 0 #f2ede4;}
+/* header: Payments-matched padding/scale, sticky, rounded top corners to match panel.
+   top:0 because the navbar lives OUTSIDE .scrollArea (the real scroll container) —
+   any positive top value here just opens a gap that rows can peek through. */
+.ledgerTable thead th{position:sticky;top:0;z-index:100;background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 3px 10px rgba(0,0,0,0.35);}
 .ledgerTable thead th:first-child{border-radius:var(--radius) 0 0 0;}
 .ledgerTable thead th:last-child{border-radius:0 var(--radius) 0 0;}
 .ledgerTable thead th:first-child{border-radius:var(--radius) 0 0 0;}
