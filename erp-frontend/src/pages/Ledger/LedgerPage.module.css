@@ -53,13 +53,13 @@
 
 /* table panel: ZERO padding so the bg shares borders with the table,
    and the sticky header sits flush at the very top (nothing above it) */
-.tablePanel{position:relative;background:var(--panel-bg);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;}
+.tablePanel{position:relative;background:var(--panel-bg);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;}
 .tableScroll{overflow:visible;border-radius:var(--radius);}
 .ledgerTable{width:100%;border-collapse:separate;border-spacing:0;min-width:clamp(700px,90vw,1100px);}
 /* header: Payments-matched padding/scale, sticky, rounded top corners to match panel.
    top:0 because the navbar lives OUTSIDE .scrollArea (the real scroll container) —
    any positive top value here just opens a gap that rows can peek through. */
-.ledgerTable thead th{position:sticky;top:0;z-index:100;background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 3px 10px rgba(0,0,0,0.35);}
+.ledgerTable thead th{position:sticky;top:-1px;z-index:500;isolation:isolate;transform:translateZ(0);background:#162a2c;color:var(--orange);font-family:'Inter',sans-serif;font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;box-shadow:0 3px 10px rgba(0,0,0,0.35);}
 /* NOTE: intentionally no border-radius on thead th anymore. Rounded corners
    on a sticky element only make sense while it sits at the panel's actual
    top edge (unscrolled). The instant it's scrolled and "stuck", it's really
@@ -71,6 +71,7 @@
 .sortable{cursor:pointer;transition:background .18s,color .18s;}
 .sortable:hover{background:rgba(238,140,58,0.07);color:#fff;}   /* hover back */
 .ledgerTable tbody td{padding:clamp(9px,1.3vw,14px) clamp(12px,1.8vw,20px);border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:top;color:#fff;font-size:var(--fs-td);}
+.ledgerTable tbody{position:relative;z-index:1;}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;}
 .ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);}
 .rowReceivable{background:rgba(239,68,68,0.05);}
