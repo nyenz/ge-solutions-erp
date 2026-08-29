@@ -37,20 +37,24 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
         stageTemplateService.seedDefaultStagesIfEmpty();
-        purgeSampleData();
+        seedSampleProjects();
         seedDefaultExpensePresets();
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
 
     public void seedDefaultExpensePresets() {
-        if (expensePresetRepository.count() > 0) return;
+        if (expensePresetRepository.count() > 0) {
+            System.out.println(">>> [EXPENSES] Presets already exist, skipping default seed.");
+            return;
+        }
         String[] defaults = { "Office", "Fieldwork", "Land Office" };
-        for (String name : defaults) expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
-        System.out.println(">>> [EXPENSES] Seeded default presets.");
+        for (String name : defaults) {
+            expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
+        }
+        System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // Wipe EVERY sample row (projects + children + titles + clients) so we
-    // always start from a clean slate, then re-seed correct scenarios.
+    // Wipe ALL sample rows first so re-runs never duplicate.
     private void purgeSampleData() {
         String idsSql =
             "SELECT lp.id FROM land_projects lp " +
@@ -68,8 +72,8 @@ public class DataInitializer implements CommandLineRunner {
         };
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
             for (String s : stmts) { try { st.execute(s); } catch (Exception e) {} }
-            System.out.println(">>> [SAMPLE] All sample data wiped.");
-        } catch (Exception e) {}
+            System.out.println(">>> [SAMPLE] Old sample data purged.");
+        } catch (Exception e) { System.err.println(">>> [SAMPLE] purge warning: " + e.getMessage()); }
     }
 
     private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> s) {
@@ -123,8 +127,8 @@ public class DataInitializer implements CommandLineRunner {
                 try (java.sql.PreparedStatement u1 = conn.prepareStatement("UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) { u1.setTimestamp(1, ts); u1.setObject(2, ids.get(i)); u1.executeUpdate(); }
                 try (java.sql.PreparedStatement u2 = conn.prepareStatement("UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) { u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate(); }
             }
-        } catch (Exception e) {}
-        System.out.println(">>> [SAMPLE] Seeded " + ids.stream().filter(java.util.Objects::nonNull).count() + " clean sample projects.");
+        } catch (Exception e) { System.err.println(">>> [SAMPLE] backdate warning: " + e.getMessage()); }
+        System.out.println(">>> [SAMPLE] Seeded " + ids.stream().filter(java.util.Objects::nonNull).count() + " sample projects.");
     }
 
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
@@ -165,14 +169,18 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
             "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_titles_project_index') THEN ALTER TABLE land_titles ADD CONSTRAINT uq_land_titles_project_index UNIQUE (project_index); END IF; END $$",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
             "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
             "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
             "UPDATE clients SET national_id = NULL WHERE national_id = ''",
             "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
             "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
             "CREATE TABLE IF NOT EXISTS expense_presets (id UUID PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, created_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now())",
             "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
@@ -181,7 +189,14 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            "UPDATE land_projects lp SET district = lt.district, county = lt.county " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.district IS NULL " +
+                "AND (lt.district IS NOT NULL OR lt.county IS NOT NULL)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_land_projects_project_index') THEN ALTER TABLE land_projects ADD CONSTRAINT uq_land_projects_project_index UNIQUE (project_index); END IF; END $$",
+            "UPDATE land_projects lp SET project_index = lt.project_index " +
+                "FROM land_titles lt WHERE lp.title_id = lt.id AND lp.project_index IS NULL " +
+                "AND lt.project_index IS NOT NULL",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS volume",
             "ALTER TABLE land_titles DROP COLUMN IF EXISTS folio",
@@ -191,9 +206,10 @@ public class DataInitializer implements CommandLineRunner {
         };
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             for (String sql : migrations) {
-                try { stmt.execute(sql); } catch (Exception e) {}
+                try { stmt.execute(sql); System.out.println(">>> [DB_SCHEMA] OK: " + sql.substring(0, Math.min(60, sql.length()))); }
+                catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped (already exists): " + e.getMessage()); }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage()); }
     }
 
     public void seedRootUser() {
@@ -213,7 +229,9 @@ public class DataInitializer implements CommandLineRunner {
                     ps.setObject(1, java.util.UUID.randomUUID()); ps.setString(2, email); ps.setString(3, encodedPassword);
                     ps.executeUpdate();
                 }
+            } else {
+                System.out.println(">>> [REGISTRY] admin_root already exists -- skipping password reset.");
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { System.err.println(">>> [REGISTRY] CRITICAL SEED/RESET FAULT:"); e.printStackTrace(); }
     }
 }
