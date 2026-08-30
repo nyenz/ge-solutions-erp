@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""fix33.py -- Ledger page: page-then-table directional scroll handoff
-(matches design mockup), opaque sticky header on hover, non-shifting row
-hover (reserved border-left), hidden table scrollbar, shared BackToTopButton
-(fixes the old window.scrollTo no-op). Run: py fix33.py"""
+"""fix34.py -- Ledger page: controlHub (search + filters + legend) is now
+sticky to the top of the page scroll on EVERY screen size (position:sticky
+needs no separate mobile rule, so small and large screens behave the same
+way automatically) -- the search field no longer scrolls away. Legend row
+("Recent payment / Payment 2-4 weeks ago / No recent payment") now stays on
+ONE line at every width instead of wrapping -- it scrolls sideways if it
+doesn't fit, same fix already used on the filter row. Search box is capped
+to a normal width instead of stretching edge-to-edge. Run: py fix34.py"""
 import subprocess
 from pathlib import Path
 ROOT = Path(__file__).parent.resolve()
@@ -16,354 +20,6 @@ def write(rel, content):
     WROTE.append(rel)
     print("OK:", rel)
 
-write('erp-frontend/src/pages/Ledger/LedgerPage.jsx', r"""// PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
-    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
-} from 'react-icons/fi';
-import landService from '../../services/landService';
-import BackToTopButton from '../../components/common/BackToTopButton';
-import styles from './LedgerPage.module.css';
-
-const matchesSearch = (proj, term) => {
-    if (!term) return true;
-    const t = term.toLowerCase().replace(/\s+/g, '');
-    const fields = [
-        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.titleId,
-        proj.landTitle?.blockRoad, proj.landTitle?.tenure,
-        proj.district, proj.county, proj.subCounty, proj.parish, proj.village, proj.area,
-        ...(proj.proprietors || []).flatMap(p => [
-            p.fullName, p.phoneNumber?.replace(/\s+/g, ''), p.nationalId, p.email, p.homeAddress,
-        ]),
-    ];
-    return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
-};
-const getPaymentBadge = (proj) => {
-    if (!proj.lastPaymentDate) return 'RED';
-    const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
-    if (days <= 14) return 'GREEN';
-    if (days <= 30) return 'YELLOW';
-    return 'RED';
-};
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
-const PaymentDot = ({ proj }) => {
-    const badge = getPaymentBadge(proj);
-    return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
-        style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-            background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-            flexShrink: 0, marginTop: 4 }} />);
-};
-const Pins = ({ pos }) => (
-    <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
-        {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
-    </div>
-);
-
-// -- DIRECTIONAL SCROLL HANDOFF (matches design-mockup behavior) --
-// scrolling DOWN -> the PAGE (.scrollArea) scrolls first; the table only
-//   takes over once the page has hit its own bottom edge.
-// scrolling UP   -> the TABLE scrolls first (inverse); the page only takes
-//   over once the table has hit its own top edge.
-// Done in JS (both directions) rather than left to native scroll-chaining,
-// same reasoning as the design mockup: a fast flick/fling mid-gesture can
-// hand the browser's remaining momentum to the wrong scroller and cause an
-// overshoot past the search bar / filters. overscroll-behavior:contain on
-// the table (set in CSS) blocks native chaining so this logic owns 100% of
-// the handoff, in both directions, consistently across browsers.
-function useDirectionalScrollHandoff(tableScrollRef) {
-    useEffect(() => {
-        const tableScroll = tableScrollRef.current;
-        if (!tableScroll) return undefined;
-        // The app's real page-scroll container is Shell's ".scrollArea" div
-        // (the shell locks window/body scroll with overflow:hidden) -- same
-        // element BackToTopButton already targets.
-        const pageEl = document.querySelector('[class*="scrollArea"]');
-        if (!pageEl) return undefined;
-
-        const EDGE_TOLERANCE = 2;
-        const MAX_STEP_PX = 120;
-        const LINE_HEIGHT = 16;
-
-        const pageAtBottom = () =>
-            pageEl.scrollTop + pageEl.clientHeight >= pageEl.scrollHeight - EDGE_TOLERANCE;
-        const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
-
-        const normalizeWheelDelta = (e) => {
-            if (e.deltaMode === 1) return e.deltaY * LINE_HEIGHT;
-            if (e.deltaMode === 2) return e.deltaY * pageEl.clientHeight;
-            return e.deltaY;
-        };
-        const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);
-
-        const routeDelta = (deltaY, e) => {
-            if (deltaY > 0) {
-                // scrolling down: page has priority until it bottoms out
-                if (pageAtBottom()) return; // let the table's own overflow take over
-                pageEl.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            } else if (deltaY < 0) {
-                // scrolling up: table has priority until IT bottoms out at its
-                // own top -- only then hand off to the page
-                if (!tableAtTop()) {
-                    tableScroll.scrollTop += clampStep(deltaY);
-                    e.preventDefault();
-                    return;
-                }
-                pageEl.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            }
-        };
-
-        const onWheel = (e) => routeDelta(normalizeWheelDelta(e), e);
-        tableScroll.addEventListener('wheel', onWheel, { passive: false });
-
-        let touchLastY = 0;
-        const onTouchStart = (e) => { touchLastY = e.touches[0].clientY; };
-        const onTouchMove = (e) => {
-            const currentY = e.touches[0].clientY;
-            const deltaY = touchLastY - currentY; // finger up = content scrolls down
-            touchLastY = currentY;
-            routeDelta(deltaY, e);
-        };
-        tableScroll.addEventListener('touchstart', onTouchStart, { passive: true });
-        tableScroll.addEventListener('touchmove', onTouchMove, { passive: false });
-
-        // Chrome's scroll anchoring fights our own scrollTop writes above and
-        // can cause a Chrome-only snap/skip -- we own scroll position here.
-        pageEl.style.overflowAnchor = 'none';
-
-        return () => {
-            tableScroll.removeEventListener('wheel', onWheel);
-            tableScroll.removeEventListener('touchstart', onTouchStart);
-            tableScroll.removeEventListener('touchmove', onTouchMove);
-        };
-    }, [tableScrollRef]);
-}
-
-const LedgerPage = () => {
-    const navigate = useNavigate();
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
-    const [page, setPage] = useState(0);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilter, setActiveFilter] = useState('ALL');
-    const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
-    const tableScrollRef = useRef(null);
-
-    useDirectionalScrollHandoff(tableScrollRef);
-
-    const fetchLedger = useCallback(async (attempt = 0) => {
-        setLoading(true); setLoadError(false);
-        try {
-            const data = await landService.getGlobalLedger(page, 50);
-            setProjects(data.content || []); setLoading(false);
-        } catch {
-            if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }
-            setLoadError(true); setLoading(false);
-        }
-    }, [page]);
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);
-
-    const processedData = useMemo(() => {
-        let filtered = projects.filter(p => matchesSearch(p, searchTerm));
-        if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
-        if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
-        if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
-        if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
-        filtered.sort((a, b) => {
-            let aVal, bVal;
-            if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
-            else if (sortConfig.key === 'owner')      { aVal = a.proprietors?.[0]?.fullName || ''; bVal = b.proprietors?.[0]?.fullName || ''; }
-            else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
-            else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ?  1 : -1;
-            return 0;
-        });
-        return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig]);
-
-    const handleSort = (key) => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-    const renderSortIcon = (key) => sortConfig.key !== key ? null
-        : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
-
-    const FILTERS = [
-        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'BACKLOG' },
-        { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
-        { key: 'PAID', label: 'PAID' },
-    ];
-
-    return (
-        <div className={styles.container}>
-            {/* Page title -- scrolls away */}
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Project Ledger</h1>
-                    <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
-                </div>
-            </header>
-
-            {/* Control cluster -- NOT sticky. Scrolls away with the page,
-                same as the search bar/filters in the design mockup. Only the
-                table panel below stays put once the page runs out of room. */}
-            <div className={styles.controlHub}>
-                <div className={styles.searchBlock}>
-                    <div className={styles.searchInner}>
-                        <input type="search" placeholder="Search any field..." className={styles.searchInput}
-                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search ledger records" autoComplete="off" />
-                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                        {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
-                    </div>
-                </div>
-                <div className={styles.filterRail} role="group" aria-label="Filter records">
-                    {FILTERS.map(f => (
-                        <button key={f.key} onClick={() => setActiveFilter(f.key)}
-                            className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                            aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
-                    ))}
-                </div>
-                <div className={styles.legendRow} aria-label="Payment health legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            {/* Table panel -- bottom corner brackets + pins, NO top corner brackets */}
-            <div className={styles.tablePanel}>
-                <Pins pos="top" />
-                <div className={styles.decorBl} aria-hidden="true" />
-                <div className={styles.decorBr} aria-hidden="true" />
-                <div className={styles.tableScroll} ref={tableScrollRef}>
-                    <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
-                        <thead>
-                            <tr>
-                                <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
-                                </th>
-                                <th onClick={() => handleSort('owner')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiUser aria-hidden="true" /> OWNER(S) {renderSortIcon('owner')}
-                                </th>
-                                <th>PHONE</th>
-                                <th>PARISH</th>
-                                <th>VILLAGE</th>
-                                <th>STATUS</th>
-                                <th onClick={() => handleSort('paid')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && (<tr><td colSpan={7} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
-                            {!loading && loadError && (
-                                <tr><td colSpan={7} className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
-                                    <button className={styles.retryBtn} onClick={() => fetchLedger()}>RETRY</button>
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={7} className={styles.emptyCell}>
-                                    <FiLayers aria-hidden="true" />
-                                    {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.map((proj) => {
-                                const isReceivable = proj.isReceivable;
-                                const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
-                                const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
-                                const isCritical = pct < 25 && proj.totalCost > 0;
-                                const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
-                                const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
-                                const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
-                                return (
-                                    <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
-                                        tabIndex={0} role="row"
-                                        aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
-                                        className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        <td className={styles.plotCell}>
-                                            <div className={styles.indexRow}>
-                                                <PaymentDot proj={proj} />
-                                                <div className={styles.stack}>
-                                                    <strong>#{proj.projectIndex || '---'}</strong>
-                                                    {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.stack}>
-                                                {names.length ? names.map((nm, i) => <span key={i} className={i === 0 ? styles.ownerName : styles.stackSub}>{nm}</span>) : <span className={styles.ownerName}>---</span>}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.stack}>
-                                                {phones.length ? phones.map((ph, i) => <span key={i} className={styles.ownerPhone}>{ph}</span>) : <span className={styles.ownerPhone}>---</span>}
-                                            </div>
-                                        </td>
-                                        <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
-                                        <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
-                                        <td>
-                                            <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
-                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                            </div>
-                                        </td>
-                                        <td className={styles.moneyCell}>
-                                            <div className={styles.moneyRow}>
-                                                <span className={styles.debtLabel}>DEBT:</span>
-                                                <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString()}</span>
-                                            </div>
-                                            {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>
-                                            )}
-                                            <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-                                                <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />
-                                            </div>
-                                            <span className={styles.pctLabel}>{Math.round(pct)}%</span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                <Pins pos="bottom" />
-                <footer className={styles.pagination} aria-label="Pagination">
-                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous page" className={styles.pageBtn}>
-                        <FiChevronLeft aria-hidden="true" /> PREV
-                    </button>
-                    <span className={styles.pageIndicator} aria-current="page">
-                        RANGE {page + 1}
-                        {processedData.length > 0 && <span className={styles.recordCount}> — {processedData.length} RECORDS</span>}
-                    </span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50} aria-label="Next page" className={styles.pageBtn}>
-                        NEXT <FiChevronRight aria-hidden="true" />
-                    </button>
-                </footer>
-            </div>
-            <BackToTopButton />
-        </div>
-    );
-};
-export default LedgerPage;
-""")
-
 write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-frontend/src/pages/Ledger/LedgerPage.module.css */
 .container {
     --orange:#EE8C3A; --orange-dim:rgba(238,140,58,0.18); --orange-border:rgba(238,140,58,0.28);
@@ -375,7 +31,7 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
     font-family:'Inter',sans-serif; color:#fff;
     display:flex; flex-direction:column;
 }
-/* Page title -- scrolls away */
+/* Page title -- still scrolls away (unchanged) */
 .pageHeader {
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
     gap:clamp(8px,1.2vw,14px); border-left:clamp(3px,0.4vw,5px) solid var(--orange);
@@ -392,15 +48,37 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster -- NOT sticky anymore. Flows with the page and scrolls
-   away, same as the design mockup. Only .tablePanel stays in view once the
-   page runs out of room (handled by useDirectionalScrollHandoff in the JSX). */
+/* Control cluster -- STICKY (fix34). Search + filters + legend pin to the
+   top of the page's own scroll container (.scrollArea in Shell.module.css)
+   once the title above has scrolled past. position:sticky needs no media
+   query to behave the same way at every width, so this is identical on
+   phones and desktops -- no separate "mobile sticky" rule to drift out of
+   sync. Opaque glass background (same treatment as .pageHeader) so rows
+   scrolling up from .tablePanel disappear cleanly behind it instead of
+   showing through. z-index 25 clears .tablePanel's decor pins (20) and its
+   own sticky thead (5, scoped to the table's OWN inner scroll container --
+   a separate sticky context, so the two never fight), and stays well under
+   the app Header (101) / Sidebar (100). */
 .controlHub {
-    background: transparent;
-    padding: 0 0 8px;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: rgba(244,242,239,0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+    padding: clamp(10px,1.4vw,14px) clamp(14px,1.8vw,18px) clamp(8px,1.2vw,10px);
+    margin-bottom: clamp(10px,1.5vh,16px);
     display: flex; flex-direction: column; gap: 8px;
+    /* same Chrome backdrop-filter scroll-tear fix as .pageHeader above */
+    transform: translateZ(0);
+    will-change: transform;
 }
-.searchBlock{width:100%;}
+/* Search box: capped to a normal reading width instead of stretching the
+   full row -- shrinks safely down to 100% on narrow screens instead of
+   overflowing. */
+.searchBlock{width:min(100%, clamp(220px,38vw,420px));}
 .searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);transition:border-color .2s,box-shadow .2s;}
 .searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
 .searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
@@ -413,8 +91,13 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 .filterBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:8px 16px;border-radius:6px;font-weight:900;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .2s;}
 .filterBtn:hover{background:rgba(238,140,58,0.12);color:var(--orange);border-color:var(--orange);}
 .activeFilter{background:var(--orange) !important;color:#1a2e30 !important;border-color:var(--orange) !important;}
-.legendRow{display:flex;flex-wrap:wrap;gap:14px;padding:2px 0 0;}
-.legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);}
+/* Legend row (fix34): stays on ONE line at every viewport width -- no more
+   wrap. If it doesn't fit, it scrolls sideways instead (same pattern
+   .filterRail already used), so a dot never gets separated from its label
+   on a small screen. */
+.legendRow{display:flex;flex-wrap:nowrap;gap:14px;padding:2px 0 0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.legendRow::-webkit-scrollbar{display:none;}
+.legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
 /* Table panel -- bottom corner brackets + pins, NO top corner brackets */
 .tablePanel{position:relative;background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;}
@@ -497,7 +180,7 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 """)
 
 subprocess.run(['git', 'add', '.'], check=False, cwd=ROOT, capture_output=True)
-subprocess.run(['git', 'commit', '-m', 'fix33: Ledger demo scroll model (page-first down / table-first up), opaque hover header, non-shifting row hover, hidden table scrollbar, shared BackToTopButton'], check=False, cwd=ROOT, capture_output=True)
+subprocess.run(['git', 'commit', '-m', 'fix34: Ledger controlHub (search+filters+legend) sticky on all screen sizes, one-line legend row, capped search width'], check=False, cwd=ROOT, capture_output=True)
 subprocess.run(['git', 'push'], check=False, cwd=ROOT, capture_output=True)
 print("Wrote:", *WROTE, sep="\n  ")
 print("Done. Pushed.")

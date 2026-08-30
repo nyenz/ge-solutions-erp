@@ -9,7 +9,7 @@
     font-family:'Inter',sans-serif; color:#fff;
     display:flex; flex-direction:column;
 }
-/* Page title -- scrolls away */
+/* Page title -- still scrolls away (unchanged) */
 .pageHeader {
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
     gap:clamp(8px,1.2vw,14px); border-left:clamp(3px,0.4vw,5px) solid var(--orange);
@@ -26,15 +26,37 @@
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster -- NOT sticky anymore. Flows with the page and scrolls
-   away, same as the design mockup. Only .tablePanel stays in view once the
-   page runs out of room (handled by useDirectionalScrollHandoff in the JSX). */
+/* Control cluster -- STICKY (fix34). Search + filters + legend pin to the
+   top of the page's own scroll container (.scrollArea in Shell.module.css)
+   once the title above has scrolled past. position:sticky needs no media
+   query to behave the same way at every width, so this is identical on
+   phones and desktops -- no separate "mobile sticky" rule to drift out of
+   sync. Opaque glass background (same treatment as .pageHeader) so rows
+   scrolling up from .tablePanel disappear cleanly behind it instead of
+   showing through. z-index 25 clears .tablePanel's decor pins (20) and its
+   own sticky thead (5, scoped to the table's OWN inner scroll container --
+   a separate sticky context, so the two never fight), and stays well under
+   the app Header (101) / Sidebar (100). */
 .controlHub {
-    background: transparent;
-    padding: 0 0 8px;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: rgba(244,242,239,0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+    padding: clamp(10px,1.4vw,14px) clamp(14px,1.8vw,18px) clamp(8px,1.2vw,10px);
+    margin-bottom: clamp(10px,1.5vh,16px);
     display: flex; flex-direction: column; gap: 8px;
+    /* same Chrome backdrop-filter scroll-tear fix as .pageHeader above */
+    transform: translateZ(0);
+    will-change: transform;
 }
-.searchBlock{width:100%;}
+/* Search box: capped to a normal reading width instead of stretching the
+   full row -- shrinks safely down to 100% on narrow screens instead of
+   overflowing. */
+.searchBlock{width:min(100%, clamp(220px,38vw,420px));}
 .searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);transition:border-color .2s,box-shadow .2s;}
 .searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
 .searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
@@ -47,8 +69,13 @@
 .filterBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:8px 16px;border-radius:6px;font-weight:900;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .2s;}
 .filterBtn:hover{background:rgba(238,140,58,0.12);color:var(--orange);border-color:var(--orange);}
 .activeFilter{background:var(--orange) !important;color:#1a2e30 !important;border-color:var(--orange) !important;}
-.legendRow{display:flex;flex-wrap:wrap;gap:14px;padding:2px 0 0;}
-.legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);}
+/* Legend row (fix34): stays on ONE line at every viewport width -- no more
+   wrap. If it doesn't fit, it scrolls sideways instead (same pattern
+   .filterRail already used), so a dot never gets separated from its label
+   on a small screen. */
+.legendRow{display:flex;flex-wrap:nowrap;gap:14px;padding:2px 0 0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.legendRow::-webkit-scrollbar{display:none;}
+.legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
 /* Table panel -- bottom corner brackets + pins, NO top corner brackets */
 .tablePanel{position:relative;background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;}
