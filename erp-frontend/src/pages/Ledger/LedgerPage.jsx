@@ -44,31 +44,110 @@ const Pins = ({ pos }) => (
     </div>
 );
 
-// -- STICKY TOOLBAR OFFSET --------------------------------------------------
-// .controlHub (search + filters + legend) is pinned with CSS position:sticky
-// at top:0. .tablePanel is ALSO pinned, right below it, so the table's own
-// header row (already sticky within its own inner .tableScroll) is never
-// carried off-screen when it -- along with .controlHub -- is what pins the
-// panel in place. Since .controlHub's height is fluid (clamp()-based
-// padding/gaps, wraps differently per width), that offset can't be a fixed
-// CSS number -- it's measured from the real rendered element and pushed
-// down as a CSS custom property (--toolbar-h) on the page container, which
-// .tablePanel's `top` reads. Recomputed on resize and via ResizeObserver so
-// it stays correct across breakpoints and orientation changes, with no
-// separate "mobile" rule to fall out of sync.
-function useMeasuredHeight(ref) {
-    const [height, setHeight] = useState(0);
+// -- DIRECTIONAL SCROLL HANDOFF (fix36) --------------------------------
+// FIX: .controlHub (search/filters/legend) and .tablePanel (which holds
+// the table's own sticky header row) were BOTH position:sticky, pinned
+// to the top of the viewport at the same time. That's what caused the
+// search bar, the legend dots, and the table's column headers to overlap
+// / fight each other during scroll -- two independently-pinned sticky
+// layers stacking on top of one another instead of one clean handoff.
+//
+// Fix: neither .controlHub nor .tablePanel is sticky anymore (see the
+// CSS module) -- they scroll away with the rest of the page like normal
+// content. The ONLY thing that stays pinned is the table's own <thead>,
+// which sticks to the top of ITS OWN scroll container (.tableScroll),
+// never to the viewport -- so it can never collide with the search bar
+// or the legend above it.
+//
+// On top of that, scroll priority is DIRECTIONAL and asymmetric, exactly
+// like the approved design mockup:
+//   - scrolling DOWN -> the PAGE scrolls first; the table only takes
+//                         over once the page has hit its own bottom edge.
+//   - scrolling UP   -> the TABLE scrolls first (inverse); the page only
+//                         takes over once the table has hit its own top
+//                         edge.
+// This is done in JS (not left to native scroll-chaining) because a fast
+// flick/fling handed off mid-gesture by the browser's own chaining can
+// dump un-damped momentum onto the page and make it rocket past the
+// search bar -- `overscroll-behavior: contain` on .tableScroll (see CSS)
+// blocks that native handoff so every bit of table<->page scrolling goes
+// through this clamped routing instead, identically across browsers.
+function useDirectionalScrollHandoff(scrollRef) {
     useEffect(() => {
-        const el = ref.current;
-        if (!el) return undefined;
-        const update = () => setHeight(el.getBoundingClientRect().height);
-        update();
-        const ro = new ResizeObserver(update);
-        ro.observe(el);
-        window.addEventListener('resize', update);
-        return () => { ro.disconnect(); window.removeEventListener('resize', update); };
-    }, [ref]);
-    return height;
+        const tableScroll = scrollRef.current;
+        if (!tableScroll) return undefined;
+        const docEl = document.scrollingElement || document.documentElement;
+
+        // small buffer so sub-pixel rounding (common on mobile/high-DPI
+        // screens) can never leave a scroller "stuck" a few px short of
+        // its true edge
+        const EDGE_TOLERANCE = 2;
+
+        const pageAtBottom = () =>
+            docEl.scrollTop + window.innerHeight >= docEl.scrollHeight - EDGE_TOLERANCE;
+        const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
+
+        // deltaY units differ across browsers: deltaMode 0 = pixels
+        // (Chrome/Safari, ~100-120px per notch), 1 = lines (Firefox,
+        // ~3/tick), 2 = pages. Normalize to pixels so the same physical
+        // scroll produces the same jump size everywhere.
+        const normalizeWheelDelta = (e) => {
+            const LINE_HEIGHT = 16;
+            if (e.deltaMode === 1) return e.deltaY * LINE_HEIGHT;
+            if (e.deltaMode === 2) return e.deltaY * window.innerHeight;
+            return e.deltaY;
+        };
+
+        // Even with units normalized, a fast flick/fling (or a
+        // high-precision touchpad) can still report one huge deltaY in a
+        // single event -- capping the max px moved per event keeps every
+        // programmatic step roughly the same size as a normal native step.
+        const MAX_STEP_PX = 120;
+        const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);
+
+        // deltaY convention: positive = scrolling down, negative = up
+        const routeDelta = (deltaY, e) => {
+            if (deltaY > 0) {
+                // scrolling down: page has priority until it bottoms out
+                if (pageAtBottom()) return; // let table's own overflow take over
+                window.scrollBy({ top: clampStep(deltaY) });
+                e.preventDefault();
+            } else if (deltaY < 0) {
+                // scrolling up: table has priority until IT bottoms out
+                // at its own top -- only then hand off to the page
+                if (!tableAtTop()) {
+                    tableScroll.scrollTop += clampStep(deltaY);
+                    e.preventDefault();
+                    return;
+                }
+                window.scrollBy({ top: clampStep(deltaY) });
+                e.preventDefault();
+            }
+        };
+
+        const handleWheel = (e) => routeDelta(normalizeWheelDelta(e), e);
+        tableScroll.addEventListener('wheel', handleWheel, { passive: false });
+
+        let touchLastY = 0;
+        const handleTouchStart = (e) => { touchLastY = e.touches[0].clientY; };
+        const handleTouchMove = (e) => {
+            const currentY = e.touches[0].clientY;
+            // finger moving UP the screen means content scrolls DOWN --
+            // same sign convention as wheel's deltaY. Touch deltas are
+            // already in CSS pixels, no unit normalization needed.
+            const deltaY = touchLastY - currentY;
+            touchLastY = currentY;
+            routeDelta(deltaY, e);
+        };
+        tableScroll.addEventListener('touchstart', handleTouchStart, { passive: true });
+        tableScroll.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+        return () => {
+            tableScroll.removeEventListener('wheel', handleWheel);
+            tableScroll.removeEventListener('touchstart', handleTouchStart);
+            tableScroll.removeEventListener('touchmove', handleTouchMove);
+        };
+    }, [scrollRef]);
 }
 
 const LedgerPage = () => {
@@ -80,8 +159,8 @@ const LedgerPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
-    const controlHubRef = useRef(null);
-    const toolbarHeight = useMeasuredHeight(controlHubRef);
+    const tableScrollRef = useRef(null);
+    useDirectionalScrollHandoff(tableScrollRef);
 
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
@@ -128,7 +207,7 @@ const LedgerPage = () => {
     ];
 
     return (
-        <div className={styles.container} style={{ '--toolbar-h': `${toolbarHeight}px` }}>
+        <div className={styles.container}>
             {/* Page title -- scrolls away */}
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
@@ -137,10 +216,11 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Control cluster -- sticky, plain/transparent (no background
-                box). See useMeasuredHeight above: its real rendered height
-                feeds .tablePanel's sticky offset below. */}
-            <div className={styles.controlHub} ref={controlHubRef}>
+            {/* Control cluster (fix36): NOT sticky -- scrolls away with the
+                page like normal content. See useDirectionalScrollHandoff
+                above for why this can't also be pinned alongside the
+                table's own sticky header. */}
+            <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
                         <input type="search" placeholder="Search any field..." className={styles.searchInput}
@@ -165,14 +245,16 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* Table panel -- sticky, locks in place right below the toolbar
-                (top:var(--toolbar-h)) so its own header row is always in
-                view. Bottom corner brackets + pins, NO top corner brackets. */}
+            {/* Table panel (fix36): NOT sticky -- scrolls away with the
+                page. Only the table's own header row (inside .tableScroll
+                below) stays pinned, and only to ITS OWN scroll container,
+                never to the viewport. Bottom corner brackets + pins, NO
+                top corner brackets. */}
             <div className={styles.tablePanel}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />
-                <div className={styles.tableScroll}>
+                <div className={styles.tableScroll} ref={tableScrollRef}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>

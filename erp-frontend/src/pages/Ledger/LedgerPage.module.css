@@ -23,14 +23,15 @@
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster (fix35): sticky, PLAIN/TRANSPARENT -- no background box,
-   no blur, no shadow, no card. Only search's own white pill and the filter
-   buttons' own dark pills carry a background, same as before -- the toolbar
-   ROW itself stays invisible, exactly like it did pre-fix34. */
+/* Control cluster (fix36): NOT sticky anymore. Previously this AND
+   .tablePanel below were both position:sticky pinned to the viewport top
+   at the same time -- that's what made the search bar, legend dots, and
+   the table's own column headers fight/overlap during scroll. Now this
+   is a normal in-flow block that scrolls away with the page like any
+   other content; only the table's own <thead> stays pinned, and only to
+   its own scroll container (see .tableScroll / thead th below), never to
+   the viewport, so it can never collide with this block again. */
 .controlHub {
-    position: sticky;
-    top: 0;
-    z-index: 25;
     background: transparent;
     padding: 0 0 8px;
     display: flex; flex-direction: column; gap: 8px;
@@ -57,16 +58,10 @@
 .legendRow::-webkit-scrollbar{display:none;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-/* Table panel (fix35): sticky, locked right below the toolbar via
-   top:var(--toolbar-h) -- set on .container from the toolbar's real
-   measured height (see useMeasuredHeight in the JSX). This is what keeps
-   the table's own header row (INDEX / OWNER(S) / ... below) in view: the
-   header row was ALREADY sticky within its own .tableScroll, it just had
-   nothing pinning the PANEL itself in place before, so the whole panel --
-   header included -- scrolled off with the rest of the page. Bottom corner
-   brackets + pins, NO top corner brackets. */
+/* Table panel (fix36): NOT sticky anymore -- see .controlHub note above.
+   This is a normal in-flow block now; it scrolls away with the page.
+   Bottom corner brackets + pins, NO top corner brackets. */
 .tablePanel{
-    position:sticky; top:var(--toolbar-h, 0px); z-index:15;
     background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
 }
 .decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}
@@ -76,9 +71,11 @@
 .pinsTop{top:-3px;}
 .pinsBottom{bottom:-3px;}
 .pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}
-/* Inner scroll -- rows scroll here (native browser scroll -- no custom JS
-   needed now that .tablePanel is pinned in place, see fix35 note above).
-   The OS scrollbar is hidden but scroll still works via wheel/touch/drag. */
+/* Inner scroll -- rows scroll here. overscroll-behavior:contain blocks
+   native scroll-chaining so the JS directional handoff in the JSX
+   (useDirectionalScrollHandoff) owns 100% of the table<->page handoff
+   instead of the browser -- see the long comment there for why. The OS
+   scrollbar is hidden but scroll still works via wheel/touch/drag. */
 .tableScroll{
     max-height:min(62vh,620px); min-height:280px;
     overflow:auto; overscroll-behavior:contain; overflow-anchor:none;
@@ -88,8 +85,10 @@
 }
 .tableScroll::-webkit-scrollbar{display:none;width:0;height:0;}
 .ledgerTable{width:100%;border-collapse:separate;border-spacing:0;min-width:700px;}
-/* Opaque sticky header -- rows slide under and disappear behind it, in
-   BOTH default and hover states (see .sortable:hover below). */
+/* Opaque sticky header -- sticky relative to .tableScroll (its own
+   scrolling ancestor), NOT the viewport. Rows slide under and disappear
+   behind it, in BOTH default and hover states (see .sortable:hover
+   below). This is the ONLY sticky element left on this page. */
 .ledgerTable thead th{
     position:sticky;top:0;z-index:5;
     background:#162a2c;color:var(--orange);
