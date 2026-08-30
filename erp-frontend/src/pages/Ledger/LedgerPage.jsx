@@ -1,11 +1,12 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './LedgerPage.module.css';
 
 const matchesSearch = (proj, term) => {
@@ -43,6 +44,87 @@ const Pins = ({ pos }) => (
     </div>
 );
 
+// -- DIRECTIONAL SCROLL HANDOFF (matches design-mockup behavior) --
+// scrolling DOWN -> the PAGE (.scrollArea) scrolls first; the table only
+//   takes over once the page has hit its own bottom edge.
+// scrolling UP   -> the TABLE scrolls first (inverse); the page only takes
+//   over once the table has hit its own top edge.
+// Done in JS (both directions) rather than left to native scroll-chaining,
+// same reasoning as the design mockup: a fast flick/fling mid-gesture can
+// hand the browser's remaining momentum to the wrong scroller and cause an
+// overshoot past the search bar / filters. overscroll-behavior:contain on
+// the table (set in CSS) blocks native chaining so this logic owns 100% of
+// the handoff, in both directions, consistently across browsers.
+function useDirectionalScrollHandoff(tableScrollRef) {
+    useEffect(() => {
+        const tableScroll = tableScrollRef.current;
+        if (!tableScroll) return undefined;
+        // The app's real page-scroll container is Shell's ".scrollArea" div
+        // (the shell locks window/body scroll with overflow:hidden) -- same
+        // element BackToTopButton already targets.
+        const pageEl = document.querySelector('[class*="scrollArea"]');
+        if (!pageEl) return undefined;
+
+        const EDGE_TOLERANCE = 2;
+        const MAX_STEP_PX = 120;
+        const LINE_HEIGHT = 16;
+
+        const pageAtBottom = () =>
+            pageEl.scrollTop + pageEl.clientHeight >= pageEl.scrollHeight - EDGE_TOLERANCE;
+        const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
+
+        const normalizeWheelDelta = (e) => {
+            if (e.deltaMode === 1) return e.deltaY * LINE_HEIGHT;
+            if (e.deltaMode === 2) return e.deltaY * pageEl.clientHeight;
+            return e.deltaY;
+        };
+        const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);
+
+        const routeDelta = (deltaY, e) => {
+            if (deltaY > 0) {
+                // scrolling down: page has priority until it bottoms out
+                if (pageAtBottom()) return; // let the table's own overflow take over
+                pageEl.scrollTop += clampStep(deltaY);
+                e.preventDefault();
+            } else if (deltaY < 0) {
+                // scrolling up: table has priority until IT bottoms out at its
+                // own top -- only then hand off to the page
+                if (!tableAtTop()) {
+                    tableScroll.scrollTop += clampStep(deltaY);
+                    e.preventDefault();
+                    return;
+                }
+                pageEl.scrollTop += clampStep(deltaY);
+                e.preventDefault();
+            }
+        };
+
+        const onWheel = (e) => routeDelta(normalizeWheelDelta(e), e);
+        tableScroll.addEventListener('wheel', onWheel, { passive: false });
+
+        let touchLastY = 0;
+        const onTouchStart = (e) => { touchLastY = e.touches[0].clientY; };
+        const onTouchMove = (e) => {
+            const currentY = e.touches[0].clientY;
+            const deltaY = touchLastY - currentY; // finger up = content scrolls down
+            touchLastY = currentY;
+            routeDelta(deltaY, e);
+        };
+        tableScroll.addEventListener('touchstart', onTouchStart, { passive: true });
+        tableScroll.addEventListener('touchmove', onTouchMove, { passive: false });
+
+        // Chrome's scroll anchoring fights our own scrollTop writes above and
+        // can cause a Chrome-only snap/skip -- we own scroll position here.
+        pageEl.style.overflowAnchor = 'none';
+
+        return () => {
+            tableScroll.removeEventListener('wheel', onWheel);
+            tableScroll.removeEventListener('touchstart', onTouchStart);
+            tableScroll.removeEventListener('touchmove', onTouchMove);
+        };
+    }, [tableScrollRef]);
+}
+
 const LedgerPage = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
@@ -52,6 +134,9 @@ const LedgerPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
+    const tableScrollRef = useRef(null);
+
+    useDirectionalScrollHandoff(tableScrollRef);
 
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
@@ -107,7 +192,9 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Sticky control cluster -- locks under the app bar */}
+            {/* Control cluster -- NOT sticky. Scrolls away with the page,
+                same as the search bar/filters in the design mockup. Only the
+                table panel below stays put once the page runs out of room. */}
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
@@ -138,7 +225,7 @@ const LedgerPage = () => {
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />
-                <div className={styles.tableScroll}>
+                <div className={styles.tableScroll} ref={tableScrollRef}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
@@ -252,9 +339,7 @@ const LedgerPage = () => {
                     </button>
                 </footer>
             </div>
-            <button type="button" className={styles.topBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top">
-                <FiArrowUp aria-hidden="true" />
-            </button>
+            <BackToTopButton />
         </div>
     );
 };
