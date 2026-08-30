@@ -22,7 +22,6 @@ const matchesSearch = (proj, term) => {
     ];
     return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
 };
-
 const getPaymentBadge = (proj) => {
     if (!proj.lastPaymentDate) return 'RED';
     const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
@@ -32,27 +31,12 @@ const getPaymentBadge = (proj) => {
 };
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
-
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
-    return (
-        <span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
-            style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-                background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-                flexShrink: 0, marginTop: 4 }} />
-    );
-};
-
-const splitMulti = (v) => (v || '').split('/').map(s => s.trim()).filter(Boolean);
-
-const isReadyForTitling = (p) => {
-    if (p.landTitle) return false;
-    const stages = p.stages || [];
-    if (stages.length === 0) return false;
-    const finalStage = stages.find(s => (s.stageName || '').toLowerCase().includes('registration'));
-    if (!finalStage) return false;
-    const prior = stages.filter(s => s.id !== finalStage.id);
-    return (prior.every(s => s.isCompleted) && !finalStage.isCompleted) || (finalStage.isCompleted && !p.landTitle);
+    return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
+        style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+            background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
+            flexShrink: 0, marginTop: 4 }} />);
 };
 
 const LedgerPage = () => {
@@ -62,18 +46,8 @@ const LedgerPage = () => {
     const [loadError, setLoadError] = useState(false);
     const [page, setPage] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
-
-    useEffect(() => {
-        const t = setTimeout(() => {
-            const aside = document.querySelector('aside');
-            const toggle = document.querySelector('[class*="sidebarToggle"]');
-            if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
-        }, 150);
-        return () => clearTimeout(t);
-    }, []);
 
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
@@ -95,7 +69,6 @@ const LedgerPage = () => {
         if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
-        if (activeFilter === 'READY_FOR_TITLING') filtered = filtered.filter(isReadyForTitling);
         filtered.sort((a, b) => {
             let aVal, bVal;
             if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
@@ -114,17 +87,15 @@ const LedgerPage = () => {
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
     const FILTERS = [
-        { key: 'ALL',         label: 'ALL PROJECTS' },
-        { key: 'BACKLOG',     label: 'BACKLOG' },
-        { key: 'TITLED',      label: 'TITLED' },
-        { key: 'LEGACY',      label: 'LEGACY' },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES' },
-        { key: 'CRITICAL',    label: 'CRITICAL' },
-        { key: 'PAID',        label: 'PAID' },
+        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'BACKLOG' },
+        { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
+        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
+        { key: 'PAID', label: 'PAID' },
     ];
 
     return (
         <div className={styles.container}>
+            {/* Page title scrolls away */}
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Project Ledger</h1>
@@ -132,36 +103,22 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* scrolls away with the page (not sticky) */}
+            {/* Sticky control cluster: locks under the app bar once reached */}
             <div className={styles.controlHub}>
-                <div className={styles.toolbarRow}>
-                    <div className={styles.searchBlock}>
-                        <div className={styles.searchInner}>
-                            <input type="search" id="ledger-search"
-                                placeholder="Search any field..."
-                                className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
-                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)}
-                                aria-label="Search ledger records" autoComplete="off" />
-                            {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
-                            {searchTerm && (
-                                <button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button">
-                                    <FiX aria-hidden="true" />
-                                </button>
-                            )}
-                        </div>
+                <div className={styles.searchBlock}>
+                    <div className={styles.searchInner}>
+                        <input type="search" placeholder="Search any field..." className={styles.searchInput}
+                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search ledger records" autoComplete="off" />
+                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                        {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
                     </div>
                 </div>
-                <div className={styles.filterRailContainer}>
-                    <div className={styles.filterRail} role="group" aria-label="Filter records">
-                        {FILTERS.map(f => (
-                            <button key={f.key} onClick={() => setActiveFilter(f.key)}
-                                className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                                aria-pressed={activeFilter === f.key} aria-label={f.label}>
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
+                <div className={styles.filterRail} role="group" aria-label="Filter records">
+                    {FILTERS.map(f => (
+                        <button key={f.key} onClick={() => setActiveFilter(f.key)}
+                            className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
+                            aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
+                    ))}
                 </div>
                 <div className={styles.legendRow} aria-label="Payment health legend">
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
@@ -172,9 +129,9 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* table panel: bottom corner brackets only, no top decor */}
+            {/* Table panel: bottom corner brackets + pins, NO top corner brackets */}
             <div className={styles.tablePanel}>
-                <CornerDecor hideTop />
+                <CornerDecor hideTopCorners />
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
@@ -214,17 +171,14 @@ const LedgerPage = () => {
                             {!loading && !loadError && processedData.map((proj) => {
                                 const isReceivable = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt = isReceivable
-                                    ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0)
-                                    : (proj.totalCost || 0) - (proj.amountPaid || 0);
+                                const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = pct < 25 && proj.totalCost > 0;
                                 const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
                                 const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
-                                const phones = (proj.proprietors || []).flatMap(p => splitMulti(p.phoneNumber));
+                                const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
                                 return (
-                                    <tr key={proj.id}
-                                        onClick={() => navigate(`/folder/${proj.id}`)}
+                                    <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
@@ -234,24 +188,18 @@ const LedgerPage = () => {
                                                 <PaymentDot proj={proj} />
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
-                                                    {nins.length
-                                                        ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>)
-                                                        : <span className={styles.stackSub}>---</span>}
+                                                    {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
                                             <div className={styles.stack}>
-                                                {names.length
-                                                    ? names.map((nm, i) => <span key={i} className={i === 0 ? styles.ownerName : styles.stackSub}>{nm}</span>)
-                                                    : <span className={styles.ownerName}>---</span>}
+                                                {names.length ? names.map((nm, i) => <span key={i} className={i === 0 ? styles.ownerName : styles.stackSub}>{nm}</span>) : <span className={styles.ownerName}>---</span>}
                                             </div>
                                         </td>
                                         <td>
                                             <div className={styles.stack}>
-                                                {phones.length
-                                                    ? phones.map((ph, i) => <span key={i} className={styles.ownerPhone}>{ph}</span>)
-                                                    : <span className={styles.ownerPhone}>---</span>}
+                                                {phones.length ? phones.map((ph, i) => <span key={i} className={styles.ownerPhone}>{ph}</span>) : <span className={styles.ownerPhone}>---</span>}
                                             </div>
                                         </td>
                                         <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
@@ -273,8 +221,7 @@ const LedgerPage = () => {
                                             {isReceivable && proj.storageFeesAccumulated > 0 && (
                                                 <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>
                                             )}
-                                            <div className={styles.velocityBar} role="progressbar"
-                                                aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+                                            <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
                                                 <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />
                                             </div>
                                             <span className={styles.pctLabel}>{Math.round(pct)}%</span>
