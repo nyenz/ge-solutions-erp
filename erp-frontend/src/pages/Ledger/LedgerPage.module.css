@@ -4,7 +4,6 @@
     --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981;
     --app-header-h: 64px;
     --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
-    --fs-label: clamp(8px,0.85vw,10px); --fs-value: clamp(11px,1.1vw,13px);
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
     padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 0;
@@ -23,15 +22,14 @@
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-
-/* Sticky control cluster -- locks under the app bar, page scrolls behind it */
+/* Sticky control cluster -- locks under the app bar, solid bg */
 .controlHub {
     position: sticky; top: var(--app-header-h); z-index: 60;
-    background: #f4f1ec; /* solid page bg so nothing shows through */
+    background: #f4f1ec;
     padding: 10px 0 8px;
     display: flex; flex-direction: column; gap: 8px;
 }
-.searchBlock{flex:0 1 clamp(280px,40vw,480px);min-width:0;}
+.searchBlock{width:100%;}
 .searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);}
 .searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
 .searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
@@ -46,9 +44,15 @@
 .legendRow{display:flex;flex-wrap:wrap;gap:14px;padding:2px 0 0;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-
 /* Table panel -- bottom corner brackets + pins, NO top corner brackets */
 .tablePanel{position:relative;background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;}
+.decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;}
+.decorBl{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 6px;}
+.decorBr{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 6px 0;}
+.pinsTop,.pinsBottom{position:absolute;display:flex;gap:7px;left:50%;transform:translateX(-50%);}
+.pinsTop{top:-3px;}
+.pinsBottom{bottom:-3px;}
+.pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}
 /* Inner scroll: down-scroll = table, up-scroll at top = page */
 .tableScroll{max-height:calc(100vh - 320px);min-height:280px;overflow-y:auto;overflow-x:auto;border-radius:var(--radius);}
 .tableScroll::-webkit-scrollbar{width:5px;height:5px;}
@@ -62,7 +66,6 @@
     text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);
     border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;
 }
-.ledgerTable thead th:first-child{border-radius:0;}
 .sortable{cursor:pointer;transition:background .18s,color .18s;}
 .sortable:hover{background:rgba(238,140,58,0.07);color:#fff;}
 .ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;color:#fff;font-size:var(--fs-td);}

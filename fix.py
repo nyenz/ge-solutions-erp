@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""fix31.py — Ledger demo scroll model: sticky toolbar, inner table scroll,
-rows hide behind opaque sticky header, non-fading hover, bottom-only corner
-brackets (top pins kept). Run: py fix31.py"""
+"""fix32.py — rewrite LedgerPage.jsx + .module.css as a self-contained pair
+that always renders (demo scroll model). Run: py fix32.py"""
 import subprocess
 from pathlib import Path
 ROOT = Path(__file__).parent.resolve()
@@ -9,35 +8,6 @@ WROTE=[]
 def write(rel, content):
     p = ROOT / rel; p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8"); WROTE.append(rel)
-
-# ---------------- CornerDecor: add hideTopCorners (keep top pins) ----------------
-write('erp-frontend/src/components/ui/CornerDecor.jsx', r"""// PATH: erp-frontend/src/components/ui/CornerDecor.jsx
-import React from 'react';
-import styles from './CornerDecor.module.css';
-// hideTop            -> hide top corners AND top pins
-// hideTopCorners     -> hide ONLY the two top corner brackets (keep top pins)
-const CornerDecor = ({ hidePins = false, hideTop = false, hideTopCorners = false }) => {
-    return (
-        <>
-            {!hideTop && !hideTopCorners && <div className={`${styles.cornerAccent} ${styles.topLeft}`}></div>}
-            {!hideTop && !hideTopCorners && <div className={`${styles.cornerAccent} ${styles.topRight}`}></div>}
-            <div className={`${styles.cornerAccent} ${styles.bottomLeft}`}></div>
-            <div className={`${styles.cornerAccent} ${styles.bottomRight}`}></div>
-            {!hidePins && !hideTop && (
-                <div className={`${styles.pins} ${styles.top}`}>
-                    {[...Array(4)].map((_, i) => <div key={i} className={styles.pin}></div>)}
-                </div>
-            )}
-            {!hidePins && (
-                <div className={`${styles.pins} ${styles.bottom}`}>
-                    {[...Array(4)].map((_, i) => <div key={i} className={styles.pin}></div>)}
-                </div>
-            )}
-        </>
-    );
-};
-export default CornerDecor;
-""")
 
 # ---------------- LedgerPage.jsx ----------------
 write('erp-frontend/src/pages/Ledger/LedgerPage.jsx', r"""// PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
@@ -47,7 +17,6 @@ import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
 } from 'react-icons/fi';
-import CornerDecor from '../../components/ui/CornerDecor';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
@@ -80,6 +49,11 @@ const PaymentDot = ({ proj }) => {
             background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
             flexShrink: 0, marginTop: 4 }} />);
 };
+const Pins = ({ pos }) => (
+    <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
+        {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
+    </div>
+);
 
 const LedgerPage = () => {
     const navigate = useNavigate();
@@ -137,7 +111,7 @@ const LedgerPage = () => {
 
     return (
         <div className={styles.container}>
-            {/* Page title scrolls away */}
+            {/* Page title -- scrolls away */}
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Project Ledger</h1>
@@ -145,7 +119,7 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Sticky control cluster: locks under the app bar once reached */}
+            {/* Sticky control cluster -- locks under the app bar */}
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
@@ -171,9 +145,11 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* Table panel: bottom corner brackets + pins, NO top corner brackets */}
+            {/* Table panel -- bottom corner brackets + pins, NO top corner brackets */}
             <div className={styles.tablePanel}>
-                <CornerDecor hideTopCorners />
+                <Pins pos="top" />
+                <div className={styles.decorBl} aria-hidden="true" />
+                <div className={styles.decorBr} aria-hidden="true" />
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
@@ -274,6 +250,7 @@ const LedgerPage = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pins pos="bottom" />
                 <footer className={styles.pagination} aria-label="Pagination">
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous page" className={styles.pageBtn}>
                         <FiChevronLeft aria-hidden="true" /> PREV
@@ -303,7 +280,6 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
     --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981;
     --app-header-h: 64px;
     --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
-    --fs-label: clamp(8px,0.85vw,10px); --fs-value: clamp(11px,1.1vw,13px);
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
     padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 0;
@@ -322,15 +298,14 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-
-/* Sticky control cluster -- locks under the app bar, page scrolls behind it */
+/* Sticky control cluster -- locks under the app bar, solid bg */
 .controlHub {
     position: sticky; top: var(--app-header-h); z-index: 60;
-    background: #f4f1ec; /* solid page bg so nothing shows through */
+    background: #f4f1ec;
     padding: 10px 0 8px;
     display: flex; flex-direction: column; gap: 8px;
 }
-.searchBlock{flex:0 1 clamp(280px,40vw,480px);min-width:0;}
+.searchBlock{width:100%;}
 .searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);}
 .searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
 .searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
@@ -345,9 +320,15 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 .legendRow{display:flex;flex-wrap:wrap;gap:14px;padding:2px 0 0;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-
 /* Table panel -- bottom corner brackets + pins, NO top corner brackets */
 .tablePanel{position:relative;background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;}
+.decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;}
+.decorBl{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 6px;}
+.decorBr{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 6px 0;}
+.pinsTop,.pinsBottom{position:absolute;display:flex;gap:7px;left:50%;transform:translateX(-50%);}
+.pinsTop{top:-3px;}
+.pinsBottom{bottom:-3px;}
+.pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}
 /* Inner scroll: down-scroll = table, up-scroll at top = page */
 .tableScroll{max-height:calc(100vh - 320px);min-height:280px;overflow-y:auto;overflow-x:auto;border-radius:var(--radius);}
 .tableScroll::-webkit-scrollbar{width:5px;height:5px;}
@@ -361,7 +342,6 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
     text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);
     border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;
 }
-.ledgerTable thead th:first-child{border-radius:0;}
 .sortable{cursor:pointer;transition:background .18s,color .18s;}
 .sortable:hover{background:rgba(238,140,58,0.07);color:#fff;}
 .ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;color:#fff;font-size:var(--fs-td);}
@@ -404,7 +384,7 @@ write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-fr
 """)
 
 subprocess.run(['git','add','.'],check=False,cwd=ROOT,capture_output=True)
-subprocess.run(['git','commit','-m','fix31: Ledger demo scroll model (sticky toolbar + inner table scroll + opaque sticky header + non-fading hover + bottom-only corner decor)'],check=False,cwd=ROOT,capture_output=True)
+subprocess.run(['git','commit','-m','fix32: self-contained Ledger (always renders) with demo scroll model'],check=False,cwd=ROOT,capture_output=True)
 subprocess.run(['git','push'],check=False,cwd=ROOT,capture_output=True)
 print("Wrote:", *WROTE, sep="\n  ")
 print("Done. Pushed.")

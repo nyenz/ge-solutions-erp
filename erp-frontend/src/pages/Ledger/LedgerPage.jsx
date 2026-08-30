@@ -5,7 +5,6 @@ import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
 } from 'react-icons/fi';
-import CornerDecor from '../../components/ui/CornerDecor';
 import landService from '../../services/landService';
 import styles from './LedgerPage.module.css';
 
@@ -38,6 +37,11 @@ const PaymentDot = ({ proj }) => {
             background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
             flexShrink: 0, marginTop: 4 }} />);
 };
+const Pins = ({ pos }) => (
+    <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
+        {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
+    </div>
+);
 
 const LedgerPage = () => {
     const navigate = useNavigate();
@@ -95,7 +99,7 @@ const LedgerPage = () => {
 
     return (
         <div className={styles.container}>
-            {/* Page title scrolls away */}
+            {/* Page title -- scrolls away */}
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Project Ledger</h1>
@@ -103,7 +107,7 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Sticky control cluster: locks under the app bar once reached */}
+            {/* Sticky control cluster -- locks under the app bar */}
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
@@ -129,9 +133,11 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* Table panel: bottom corner brackets + pins, NO top corner brackets */}
+            {/* Table panel -- bottom corner brackets + pins, NO top corner brackets */}
             <div className={styles.tablePanel}>
-                <CornerDecor hideTopCorners />
+                <Pins pos="top" />
+                <div className={styles.decorBl} aria-hidden="true" />
+                <div className={styles.decorBr} aria-hidden="true" />
                 <div className={styles.tableScroll}>
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
@@ -232,6 +238,7 @@ const LedgerPage = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pins pos="bottom" />
                 <footer className={styles.pagination} aria-label="Pagination">
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous page" className={styles.pageBtn}>
                         <FiChevronLeft aria-hidden="true" /> PREV
