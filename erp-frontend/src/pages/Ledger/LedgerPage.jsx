@@ -32,7 +32,6 @@ const getPaymentBadge = (proj) => {
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
 const PAGE_SIZE = 15;
-const PAGE_SIZE = 15;
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
@@ -295,7 +294,6 @@ const LedgerPage = () => {
                         <thead>
                             <tr>
                                 <th className={styles.rowNum}>#</th>
-                                <th className={styles.rowNum}>#</th>
                                 <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
@@ -343,7 +341,6 @@ const LedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={styles.plotCell}>
                                             <div className={styles.indexRow}>
