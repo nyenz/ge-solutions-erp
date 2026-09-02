@@ -108,7 +108,7 @@
    instead of the browser -- see the long comment there for why. The OS
    scrollbar is hidden but scroll still works via wheel/touch/drag. */
 .tableScroll{
-    max-height:min(62vh,620px); min-height:280px;
+    max-height:min(74vh,760px); min-height:340px;
     overflow:auto; overscroll-behavior:contain; overflow-anchor:none;
     border-radius:var(--radius);
     scrollbar-width:none; -ms-overflow-style:none;
