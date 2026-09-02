@@ -226,7 +226,7 @@ const FolderPage = () => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
-    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];
+    const TABS = ['OVERVIEW', 'FINANCIALS', 'NOTES', 'OWNERS', 'DOCUMENTS'];
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
@@ -258,6 +258,7 @@ const FolderPage = () => {
                 else if (hash.startsWith('payment-')) { const el = document.getElementById(hash); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add(styles.highlightRow); setTimeout(() => el.classList.remove(styles.highlightRow), 3000); } }
                 else { const el = document.getElementById('paymentHistorySection'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
             }, 350);
+        } else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');
         } else if (hash === 'identity' || hash === 'owners') setActiveTab('OWNERS');
         else if (hash === 'vault' || hash === 'documents') setActiveTab('DOCUMENTS');
         else window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -576,6 +577,8 @@ const FolderPage = () => {
                                 </div>))}</div>)}
                         </div></div>
                     </section>
+                </div>
+                <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>

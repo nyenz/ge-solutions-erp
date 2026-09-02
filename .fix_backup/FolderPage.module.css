@@ -2743,3 +2743,35 @@
 .xEmpty{color:#64748b;font-size:13px}
 .xTable{width:100%;border-collapse:collapse;font-size:13px}
 .xTable th,.xTable td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}
+
+/* FS-UNIFY v1 — tokens + classes ported from Intake/Ledger reference */
+:root{--fs-orange:#EE8C3A;--fs-red:#ef4444;--fs-green:#34d399;--fs-muted:rgba(255,255,255,.6);--fs-line:rgba(255,255,255,.08);}
+.textBadge{font-family:'Space Mono',monospace;font-size:10px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;padding:2px 0;border-bottom:1px solid currentColor;background:none}
+.badgeBacklog{color:var(--fs-orange)}
+.badgeRecv{color:var(--fs-red)}
+.badgeTitled{color:var(--fs-green)}
+.badgeActive{color:var(--fs-muted)}
+.sectionTitle{font-family:'Cinzel',serif;color:#fff;letter-spacing:.06em;margin:16px 0 8px;font-size:14px}
+.portfolioTable{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:12px}
+.portfolioTable th{text-align:left;font-size:10px;letter-spacing:1.5px;color:var(--fs-muted);border-bottom:1px solid var(--fs-line);padding:6px 8px}
+.portfolioTable td{padding:7px 8px;border-bottom:1px solid var(--fs-line)}
+.portfolioTable tbody tr:hover td{background:rgba(255,255,255,.03);cursor:pointer}
+.stageRow{display:flex;align-items:center;gap:12px;border:1px solid var(--fs-line);border-radius:7px;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,.04)}
+.stageRowDone{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.3)}
+.stageName{font-weight:900;font-size:13px;text-transform:uppercase;color:#fff}
+.stageNameDone{color:var(--fs-green);text-decoration:line-through}
+.stageCost{font-family:'Space Mono',monospace;font-size:11px;color:var(--fs-muted);margin-top:4px}
+.stageEditRow{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.stageTplRow{display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;color:#fff}
+.iconBtn2{background:transparent;border:none;color:var(--fs-orange);cursor:pointer;font-size:15px;padding:4px}
+.iconBtnDanger{background:transparent;border:none;color:var(--fs-red);cursor:pointer;font-size:15px;padding:4px}
+.addStageBtn{width:100%;margin-top:8px;padding:10px 0;background:rgba(238,140,58,.06);border:2px dashed rgba(238,140,58,.4);border-radius:7px;color:var(--fs-orange);font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:1px;cursor:pointer}
+.convertRow{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.dtInput{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);border-radius:8px;padding:10px 12px;color:#fff;font-family:'Space Mono',monospace}
+.ghostBtn{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.8);border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:900;font-size:11px}
+.dangerBtn{background:var(--fs-red);border:none;color:#fff;border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:900;font-size:11px}
+.recvActionRow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.printStatement{display:none}
+@media print{.printStatement{display:block;font-family:'Space Mono',monospace;font-size:11px;color:#000;margin:12px 0}
+.printStatement table{width:100%;border-collapse:collapse}
+.printStatement td,.printStatement th{border-bottom:1px solid #ccc;padding:4px 6px;text-align:left}}
