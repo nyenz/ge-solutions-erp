@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
@@ -44,48 +44,59 @@ const Pins = ({ pos }) => (
     </div>
 );
 
-// -- DIRECTIONAL SCROLL HANDOFF (fix36) --------------------------------
-// FIX: .controlHub (search/filters/legend) and .tablePanel (which holds
-// the table's own sticky header row) were BOTH position:sticky, pinned
-// to the top of the viewport at the same time. That's what caused the
-// search bar, the legend dots, and the table's column headers to overlap
-// / fight each other during scroll -- two independently-pinned sticky
-// layers stacking on top of one another instead of one clean handoff.
-//
-// Fix: neither .controlHub nor .tablePanel is sticky anymore (see the
-// CSS module) -- they scroll away with the rest of the page like normal
-// content. The ONLY thing that stays pinned is the table's own <thead>,
-// which sticks to the top of ITS OWN scroll container (.tableScroll),
-// never to the viewport -- so it can never collide with the search bar
-// or the legend above it.
-//
-// On top of that, scroll priority is DIRECTIONAL and asymmetric, exactly
-// like the approved design mockup:
-//   - scrolling DOWN -> the PAGE scrolls first; the table only takes
-//                         over once the page has hit its own bottom edge.
-//   - scrolling UP   -> the TABLE scrolls first (inverse); the page only
-//                         takes over once the table has hit its own top
-//                         edge.
+// -- SCROLL PARENT DISCOVERY (fix37) ------------------------------------
+// The app's real scrolling element is Shell's .scrollArea (overflow-y:
+// auto) -- the outer .shell is height:100vh with overflow:hidden, so
+// document/window never actually scrolls at all. The old fix36 code used
+// document.scrollingElement, which meant its "page scroll" branch was
+// always a no-op -- this is why scrolling up used to dead-end once the
+// table hit its own top. Walking up from the table to find the nearest
+// real scrolling ancestor fixes that, and keeps working no matter how
+// deeply the page is nested, on any screen size, without hardcoding a
+// class name.
+function findScrollParent(el) {
+    let node = el ? el.parentElement : null;
+    while (node && node !== document.body && node !== document.documentElement) {
+        const overflowY = window.getComputedStyle(node).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') return node;
+        node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
+// -- DIRECTIONAL SCROLL HANDOFF (fix37) ---------------------------------
+// Priority is directional and asymmetric, per instruction (reversed from
+// fix36 on purpose):
+//   - scrolling DOWN -> the TABLE scrolls first; the page only takes
+//                         over once the table has hit its own bottom
+//                         edge (page kicks in LAST).
+//   - scrolling UP   -> the PAGE scrolls first; the table only takes
+//                         over once the page has hit its own top edge
+//                         (page kicks in FIRST).
 // This is done in JS (not left to native scroll-chaining) because a fast
 // flick/fling handed off mid-gesture by the browser's own chaining can
-// dump un-damped momentum onto the page and make it rocket past the
-// search bar -- `overscroll-behavior: contain` on .tableScroll (see CSS)
-// blocks that native handoff so every bit of table<->page scrolling goes
-// through this clamped routing instead, identically across browsers.
+// dump un-damped momentum onto the page and skip past the sticky bars --
+// `overscroll-behavior: contain` on .tableScroll (see CSS) blocks that
+// native handoff so every bit of table<->page scrolling goes through
+// this clamped routing instead, identically across browsers and screen
+// sizes.
 function useDirectionalScrollHandoff(scrollRef) {
     useEffect(() => {
         const tableScroll = scrollRef.current;
         if (!tableScroll) return undefined;
-        const docEl = document.scrollingElement || document.documentElement;
+        const pageScroll = findScrollParent(tableScroll);
 
         // small buffer so sub-pixel rounding (common on mobile/high-DPI
         // screens) can never leave a scroller "stuck" a few px short of
         // its true edge
         const EDGE_TOLERANCE = 2;
 
+        const pageAtTop = () => pageScroll.scrollTop <= EDGE_TOLERANCE;
         const pageAtBottom = () =>
-            docEl.scrollTop + window.innerHeight >= docEl.scrollHeight - EDGE_TOLERANCE;
+            pageScroll.scrollTop + pageScroll.clientHeight >= pageScroll.scrollHeight - EDGE_TOLERANCE;
         const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
+        const tableAtBottom = () =>
+            tableScroll.scrollTop + tableScroll.clientHeight >= tableScroll.scrollHeight - EDGE_TOLERANCE;
 
         // deltaY units differ across browsers: deltaMode 0 = pixels
         // (Chrome/Safari, ~100-120px per notch), 1 = lines (Firefox,
@@ -108,19 +119,24 @@ function useDirectionalScrollHandoff(scrollRef) {
         // deltaY convention: positive = scrolling down, negative = up
         const routeDelta = (deltaY, e) => {
             if (deltaY > 0) {
-                // scrolling down: page has priority until it bottoms out
-                if (pageAtBottom()) return; // let table's own overflow take over
-                window.scrollBy({ top: clampStep(deltaY) });
-                e.preventDefault();
-            } else if (deltaY < 0) {
-                // scrolling up: table has priority until IT bottoms out
-                // at its own top -- only then hand off to the page
-                if (!tableAtTop()) {
+                // scrolling down: TABLE has priority until it bottoms out
+                if (!tableAtBottom()) {
                     tableScroll.scrollTop += clampStep(deltaY);
                     e.preventDefault();
                     return;
                 }
-                window.scrollBy({ top: clampStep(deltaY) });
+                if (pageAtBottom()) return; // nothing left to scroll anywhere
+                pageScroll.scrollTop += clampStep(deltaY);
+                e.preventDefault();
+            } else if (deltaY < 0) {
+                // scrolling up: PAGE has priority until it hits its own top
+                if (!pageAtTop()) {
+                    pageScroll.scrollTop += clampStep(deltaY);
+                    e.preventDefault();
+                    return;
+                }
+                if (tableAtTop()) return; // nothing left to scroll anywhere
+                tableScroll.scrollTop += clampStep(deltaY);
                 e.preventDefault();
             }
         };
@@ -150,6 +166,41 @@ function useDirectionalScrollHandoff(scrollRef) {
     }, [scrollRef]);
 }
 
+// -- STICKY BAR STACK OFFSETS (fix37) ------------------------------------
+// Search bar and legend bar are both position:sticky (see CSS), stacked
+// directly on top of each other: search at top:0, legend at
+// top:<search's real rendered height>. That height is measured live via
+// ResizeObserver -- not hardcoded -- so the two bars line up correctly at
+// every viewport size and font scale instead of a fixed px guess drifting
+// out of sync on a different screen. useLayoutEffect (not useEffect) so
+// the first measurement lands before paint, avoiding a flash of the
+// legend bar overlapping the search bar on initial load.
+function useStickyBarOffsets(searchRef, legendRef, containerRef) {
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+        const searchEl = searchRef.current;
+        const legendEl = legendRef.current;
+        if (!container || !searchEl || !legendEl) return undefined;
+
+        const update = () => {
+            const searchH = Math.ceil(searchEl.getBoundingClientRect().height);
+            const legendH = Math.ceil(legendEl.getBoundingClientRect().height);
+            container.style.setProperty('--stickySearchH', `${searchH}px`);
+            container.style.setProperty('--stickyLegendH', `${legendH}px`);
+        };
+
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(searchEl);
+        ro.observe(legendEl);
+        window.addEventListener('resize', update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', update);
+        };
+    }, [searchRef, legendRef, containerRef]);
+}
+
 const LedgerPage = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
@@ -160,7 +211,11 @@ const LedgerPage = () => {
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
     const tableScrollRef = useRef(null);
+    const containerRef = useRef(null);
+    const searchBarRef = useRef(null);
+    const legendBarRef = useRef(null);
     useDirectionalScrollHandoff(tableScrollRef);
+    useStickyBarOffsets(searchBarRef, legendBarRef, containerRef);
 
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
@@ -207,7 +262,7 @@ const LedgerPage = () => {
     ];
 
     return (
-        <div className={styles.container}>
+        <div className={styles.container} ref={containerRef}>
             {/* Page title -- scrolls away */}
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
@@ -216,17 +271,23 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Control cluster (fix36): NOT sticky -- scrolls away with the
-                page like normal content. See useDirectionalScrollHandoff
-                above for why this can't also be pinned alongside the
-                table's own sticky header. */}
+            {/* Control cluster (fix37): search bar and legend bar are now
+                page-level sticky, stacked directly under each other via
+                the measured --stickySearchH/--stickyLegendH offsets from
+                useStickyBarOffsets above. filterRail stays in normal flow
+                between them (not sticky, per instruction -- only 3 things
+                are sticky: search, legend, column headers) and simply
+                scrolls out of view behind the sticky search bar as the
+                page scrolls. */}
             <div className={styles.controlHub}>
-                <div className={styles.searchBlock}>
-                    <div className={styles.searchInner}>
-                        <input type="search" placeholder="Search any field..." className={styles.searchInput}
-                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search ledger records" autoComplete="off" />
-                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                        {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
+                <div className={styles.searchStickyBar} ref={searchBarRef}>
+                    <div className={styles.searchBlock}>
+                        <div className={styles.searchInner}>
+                            <input type="search" placeholder="Search any field..." className={styles.searchInput}
+                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search ledger records" autoComplete="off" />
+                            <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                            {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
+                        </div>
                     </div>
                 </div>
                 <div className={styles.filterRail} role="group" aria-label="Filter records">
@@ -236,20 +297,32 @@ const LedgerPage = () => {
                             aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
                     ))}
                 </div>
-                <div className={styles.legendRow} aria-label="Payment health legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
+                <div className={styles.legendStickyBar} ref={legendBarRef}>
+                    <div className={styles.legendRow} aria-label="Payment health legend">
+                        {Object.entries(BADGE_COLORS).map(([k, c]) => (
+                            <span key={k} className={styles.legendItem}>
+                                <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Table panel (fix36): NOT sticky -- scrolls away with the
-                page. Only the table's own header row (inside .tableScroll
-                below) stays pinned, and only to ITS OWN scroll container,
-                never to the viewport. Bottom corner brackets + pins, NO
-                top corner brackets. */}
+            {/* Table panel (fix37): still NOT sticky itself -- it scrolls
+                away with the page like normal content, exactly as fix36
+                intended (a whole sticky tablePanel is what caused the
+                overlap bug two fixes ago). The table's own header row
+                (inside .tableScroll below) stays pinned only to ITS OWN
+                scroll container, never to the viewport. Because the
+                directional scroll handoff above freezes the page in
+                place for the entire time the table is mid-scroll, in
+                practice that column header stays visually locked at the
+                top of the visible table for the whole time you're
+                scrolling through rows -- it only moves once you've
+                scrolled the table to its own edge and the page itself
+                starts moving again, which is the correct moment for it
+                to. Bottom corner brackets + pins, NO top corner
+                brackets. */}
             <div className={styles.tablePanel}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
