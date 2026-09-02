@@ -236,12 +236,12 @@ const LedgerPage = () => {
                 </div>
             </header>
 
-            {/* Control cluster (fix41): NOT sticky, matching the approved
-                design mockup exactly -- search, filters, and legend all
-                scroll away with the page like normal content. Only the
-                table's own column header row stays pinned (inside
-                .tableScroll below), and only to its own scroll
-                container, never to the viewport. */}
+            {/* Control cluster (fix42): only .searchBlock is sticky (see
+                CSS) -- filters and legend are normal in-flow content and
+                scroll away with the page. Only 2 things are sticky on
+                this page in total: the search bar here, and the table's
+                own column header row below (inside .tableScroll, pinned
+                to its own scroll container, never to the viewport). */}
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
@@ -267,16 +267,23 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* Table panel (fix41): NOT sticky -- scrolls away with the
-                page, matching the approved design mockup. Only the
-                table's own header row (inside .tableScroll below) stays
-                pinned, and only to ITS OWN scroll container, never to
-                the viewport. Border/corner decor matches the mockup:
-                .tablePanel keeps its full 1.5px orange-tinted border all
-                the way around; 4 pin marks render at BOTH the top and
-                bottom center edges; the bracket-style corner decor (with
-                a small glowing dot at the tip) renders ONLY on the two
-                bottom corners -- no top corner brackets. */}
+            {/* Table panel (fix42): NOT sticky itself -- scrolls away with
+                the page. Only the table's own header row (inside
+                .tableScroll below) stays pinned, and only to ITS OWN
+                scroll container, never to the viewport.
+
+                Border/corner decor -- now correctly scoped to THIS card
+                (fixed in fix42 by adding position:relative to
+                .tablePanel in the CSS; without it, these absolutely-
+                positioned pieces were attaching to a positioned ancestor
+                much higher up the page instead of this card, which is
+                why they looked like they belonged to the page rather
+                than the table): .tablePanel keeps its full 1.5px
+                orange-tinted border all the way around; 4 pin marks
+                render at BOTH the top and bottom center edges of THIS
+                card; the bracket-style corner decor (with a small
+                glowing dot at the tip) renders ONLY on the two bottom
+                corners of THIS card -- no top corner brackets. */}
             <div className={styles.tablePanel}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />

@@ -23,19 +23,30 @@
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster (fix41): reverted to match the approved design mockup
-   exactly -- NOT sticky. A plain in-flow wrapper that scrolls away with
-   the page like any other content; only the table's own <thead> stays
-   pinned, and only to its own scroll container (see .tableScroll / thead
-   th below), never to the viewport. */
+/* Control cluster (fix42): only .searchBlock is sticky now (see below) --
+   filters and legend stay in normal flow and scroll away with the page.
+   Only 2 things are sticky on this page: the search bar, and the
+   table's own column header row. */
 .controlHub {
     background: transparent;
     padding: 0 0 8px;
     display: flex; flex-direction: column; gap: 8px;
 }
-/* Search box: capped to a normal reading width instead of stretching the
-   full row -- shrinks safely down to 100% on narrow screens. */
-.searchBlock{width:min(100%, clamp(220px,38vw,420px));}
+/* Search bar (fix42): sticky, pinned to the top of the page's real
+   scroll container (Shell's .scrollArea) at top:0 -- CSS position:sticky
+   auto-resolves to that ancestor, no JS needed. Transparent (no
+   background/blur/shadow), per earlier instruction -- table rows
+   scrolling underneath show through around the search box itself; the
+   search box stays legible because .searchInner below already has its
+   own solid white background. z-index keeps it above the table content
+   as it scrolls past underneath. No offset math needed here (unlike the
+   earlier 2-sticky-bar attempt) since nothing else is stacked below it
+   anymore. */
+.searchBlock{
+    position:sticky; top:0; z-index:30;
+    width:min(100%, clamp(220px,38vw,420px));
+    padding:4px 0;
+}
 .searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);transition:border-color .2s,box-shadow .2s;}
 .searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
 .searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
@@ -55,12 +66,26 @@
 .legendRow::-webkit-scrollbar{display:none;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-/* Table panel (fix41): NOT sticky -- scrolls away with the page, matching
+/* Table panel (fix42): NOT sticky -- scrolls away with the page, matching
    the approved design mockup. Only the table's own header row (inside
    .tableScroll below) stays pinned, and only to ITS OWN scroll
    container, never to the viewport. Bottom corner brackets + pins, NO
-   top corner brackets. */
+   top corner brackets.
+   position:relative added here (fix42) -- this was missing before, which
+   is the actual bug behind "border/corner decor/pins are on the page,
+   not the table": .decorBl/.decorBr/.pinsTop/.pinsBottom below are all
+   position:absolute, and an absolutely-positioned element always
+   attaches to its nearest ANCESTOR that has position set to anything
+   other than static -- with .tablePanel itself left at the default
+   (static), that search skipped past it entirely and landed on Shell's
+   .mainContent (which does have position:relative), so the decor was
+   positioning itself against the whole page content area instead of
+   this card. Giving .tablePanel its own position:relative makes it the
+   containing block, so all 3 decor pieces are now correctly pinned to
+   THIS card's own edges, matching the mockup (which had the same
+   position:relative on its .tablePanel). */
 .tablePanel{
+    position:relative;
     background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
 }
 /* Corner brackets: bottom corners only (matches the mockup's
