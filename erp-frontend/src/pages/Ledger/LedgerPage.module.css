@@ -5,7 +5,7 @@
     --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
-    padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 60px;
+    padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 16px;
     font-family:'Inter',sans-serif; color:#fff;
     display:flex; flex-direction:column;
 }
@@ -108,7 +108,7 @@
    instead of the browser -- see the long comment there for why. The OS
    scrollbar is hidden but scroll still works via wheel/touch/drag. */
 .tableScroll{
-    max-height:calc(100vh - 280px); min-height:280px;
+    min-height:280px;
     overflow:auto; overscroll-behavior:contain; overflow-anchor:none;
     border-radius:var(--radius);
     scrollbar-width:none; -ms-overflow-style:none;
@@ -134,6 +134,7 @@
 .sortable{cursor:pointer;transition:background .18s,color .18s;}
 .sortable:hover{background:linear-gradient(rgba(238,140,58,0.12),rgba(238,140,58,0.12)),#162a2c;color:#fff;}
 .ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;color:#fff;font-size:var(--fs-td);}
+.ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(255,255,255,0.5);}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
 .ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:var(--orange);}
 .rowReceivable{background:rgba(239,68,68,0.05);}

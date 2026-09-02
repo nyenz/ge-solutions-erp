@@ -31,6 +31,7 @@ const getPaymentBadge = (proj) => {
 };
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
+const PAGE_SIZE = 15;
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
@@ -185,7 +186,7 @@ const LedgerPage = () => {
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
         try {
-            const data = await landService.getGlobalLedger(page, 50);
+            const data = await landService.getGlobalLedger(page, PAGE_SIZE);
             setProjects(data.content || []); setLoading(false);
         } catch {
             if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }
@@ -292,6 +293,7 @@ const LedgerPage = () => {
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
+                                <th className={styles.rowNum}>#</th>
                                 <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
@@ -311,20 +313,20 @@ const LedgerPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && (<tr><td colSpan={7} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
+                            {loading && (<tr><td colSpan={8} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
                             {!loading && loadError && (
-                                <tr><td colSpan={7} className={styles.errorCell}>
+                                <tr><td colSpan={8} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
                                     <button className={styles.retryBtn} onClick={() => fetchLedger()}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={7} className={styles.emptyCell}>
+                                <tr><td colSpan={8} className={styles.emptyCell}>
                                     <FiLayers aria-hidden="true" />
                                     {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
                                 </td></tr>
                             )}
-                            {!loading && !loadError && processedData.map((proj) => {
+                            {!loading && !loadError && processedData.map((proj, i) => {
                                 const isReceivable = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
                                 const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
@@ -339,6 +341,7 @@ const LedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
+                                        <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={styles.plotCell}>
                                             <div className={styles.indexRow}>
                                                 <PaymentDot proj={proj} />
@@ -397,7 +400,7 @@ const LedgerPage = () => {
                         RANGE {page + 1}
                         {processedData.length > 0 && <span className={styles.recordCount}> — {processedData.length} RECORDS</span>}
                     </span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50} aria-label="Next page" className={styles.pageBtn}>
+                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < PAGE_SIZE} aria-label="Next page" className={styles.pageBtn}>
                         NEXT <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>
