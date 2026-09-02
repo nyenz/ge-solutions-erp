@@ -11,6 +11,15 @@ import styles from './Shell.module.css';
  */
 const Shell = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const location = useLocation();
+
+    // fix48: auto-contract sidebar on Ledger
+    useEffect(() => {
+        if (location.pathname.includes('/land/projects')) {
+            setIsCollapsed(true);
+        }
+    }, [location.pathname]);
+
 
     const handleSidebarToggle = () => setIsCollapsed(prev => !prev);
 
