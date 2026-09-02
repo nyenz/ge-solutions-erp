@@ -9,7 +9,7 @@ import landService from '../../services/landService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './LedgerPage.module.css';
 
-const matchesSearch = (proj, term) => {
+const matchesSearch = (proj, term, stages) => {
     if (!term) return true;
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
@@ -19,6 +19,7 @@ const matchesSearch = (proj, term) => {
         ...(proj.proprietors || []).flatMap(p => [
             p.fullName, p.phoneNumber?.replace(/\s+/g, ''), p.nationalId, p.email, p.homeAddress,
         ]),
+        ...(stages || []).map(s => s.stageName),
     ];
     return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
 };
@@ -195,8 +196,24 @@ const LedgerPage = () => {
     }, [page]);
     useEffect(() => { fetchLedger(); }, [fetchLedger]);
 
+    // STAGES COLUMN (fix47): one bulk call per page hydrates each
+    // row's stage list -- exactly the stages (template + custom)
+    // saved from the Intake page. On failure shows "---".
+    const [stageMap, setStageMap] = useState({});
+    useEffect(() => {
+        const ids = projects.map(p => p.id).filter(Boolean);
+        if (!ids.length) { setStageMap({}); return; }
+        landService.getStagesBulk(ids)
+            .then(list => {
+                const m = {};
+                (list || []).forEach(s => { (m[s.projectId] = m[s.projectId] || []).push(s); });
+                setStageMap(m);
+            })
+            .catch(() => setStageMap({}));
+    }, [projects]);
+
     const processedData = useMemo(() => {
-        let filtered = projects.filter(p => matchesSearch(p, searchTerm));
+        let filtered = projects.filter(p => matchesSearch(p, searchTerm, stageMap[p.id]));
         if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
@@ -214,7 +231,7 @@ const LedgerPage = () => {
             return 0;
         });
         return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig]);
+    }, [projects, searchTerm, activeFilter, sortConfig, stageMap]);
 
     const handleSort = (key) => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
     const renderSortIcon = (key) => sortConfig.key !== key ? null
@@ -306,6 +323,7 @@ const LedgerPage = () => {
                                 <th>PARISH</th>
                                 <th>VILLAGE</th>
                                 <th>STATUS</th>
+                                <th><FiLayers aria-hidden="true" /> STAGES</th>
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
@@ -313,15 +331,15 @@ const LedgerPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && (<tr><td colSpan={8} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
+                            {loading && (<tr><td colSpan={9} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
                             {!loading && loadError && (
-                                <tr><td colSpan={8} className={styles.errorCell}>
+                                <tr><td colSpan={9} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
                                     <button className={styles.retryBtn} onClick={() => fetchLedger()}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={8} className={styles.emptyCell}>
+                                <tr><td colSpan={9} className={styles.emptyCell}>
                                     <FiLayers aria-hidden="true" />
                                     {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
                                 </td></tr>
@@ -335,6 +353,9 @@ const LedgerPage = () => {
                                 const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
                                 const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
                                 const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
+                                const stages = (stageMap[proj.id] || []).map(s => ({ ...s, done: !!(s.isCompleted ?? s.completed) })).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+                                const curStageIdx = stages.findIndex(s => !s.done);
+                                const curStage = curStageIdx >= 0 ? stages[curStageIdx] : null;
                                 return (
                                     <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
@@ -371,6 +392,20 @@ const LedgerPage = () => {
                                                 {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
                                             </div>
+                                        </td>
+                                        <td className={styles.stageCell}>
+                                            {stages.length === 0 ? <span className={styles.stackSub}>---</span> : (
+                                                <div className={styles.stack}>
+                                                    <span className={styles.stageName} title={stages.map(s => s.stageName + (s.done ? ' ✓' : '')).join(' · ')}>
+                                                        {curStage ? curStage.stageName : 'COMPLETE'}
+                                                    </span>
+                                                    <span className={styles.stageDots}>
+                                                        {stages.map((s, si) => (
+                                                            <span key={s.id || si} className={`${styles.stageDot} ${s.done ? styles.stageDotDone : si === curStageIdx ? styles.stageDotCurrent : ''}`} />
+                                                        ))}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className={styles.moneyCell}>
                                             <div className={styles.moneyRow}>

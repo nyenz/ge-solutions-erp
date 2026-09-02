@@ -137,6 +137,13 @@
 .ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(255,255,255,0.5);}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
 .ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:var(--orange);}
+/* stage column (fix47) */
+.stageCell{min-width:130px;}
+.stageName{font-weight:800;color:#fff;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
+.stageDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+.stageDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
+.stageDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
+.stageDotCurrent{background:var(--orange);box-shadow:0 0 4px var(--orange);}
 .rowReceivable{background:rgba(239,68,68,0.05);}
 .rowCritical{background:rgba(239,68,68,0.07);}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}

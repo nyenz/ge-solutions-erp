@@ -6,6 +6,8 @@ import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.model.ProjectDocument;
+import com.gesolutions.erp.modules.land.model.ProjectStage;
+import com.gesolutions.erp.modules.land.repository.ProjectStageRepository;
 import com.gesolutions.erp.modules.land.service.LandService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ import java.util.UUID;
 public class LandController {
 
     private final LandService landService;
+    private final ProjectStageRepository projectStageRepository;
 
     // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
     // stacked on ONE method, so /next-index never registered (404) and the
@@ -152,6 +155,12 @@ public class LandController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PostMapping("/ledger/stages-bulk")
+    public ResponseEntity<List<ProjectStage>> getStagesBulk(@RequestBody List<UUID> projectIds) {
+        return ResponseEntity.ok(projectStageRepository.findByProjectIdIn(projectIds));
     }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")

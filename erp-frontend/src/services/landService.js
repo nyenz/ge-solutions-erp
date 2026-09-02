@@ -70,6 +70,11 @@ const landService = {
         return response.data;
     },
 
+    getStagesBulk: async (projectIds) => {
+        const response = await api.post('/land/ledger/stages-bulk', projectIds);
+        return response.data;
+    },
+
     bulkMarkTitleProduced: async (projectIds) => {
         const response = await api.post('/land/projects/bulk-mark-title-produced', projectIds);
         return response.data;

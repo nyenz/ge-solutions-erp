@@ -11,5 +11,7 @@ public interface ProjectStageRepository extends JpaRepository<ProjectStage, UUID
 
     List<ProjectStage> findByProjectIdOrderByDisplayOrderAsc(UUID projectId);
 
+    List<ProjectStage> findByProjectIdIn(List<UUID> projectIds);
+
     void deleteByProjectId(UUID projectId);
 }
