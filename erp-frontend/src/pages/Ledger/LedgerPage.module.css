@@ -33,19 +33,18 @@
     padding: 0 0 8px;
     display: flex; flex-direction: column; gap: 0;
 }
-/* Sticky bar 1 of 3 (fix37): search. Pinned to the top of the page's real
+/* Sticky bar 1 of 3 (fix38): search. Pinned to the top of the page's real
    scroll container (Shell's .scrollArea) at top:0 -- CSS position:sticky
    auto-resolves to that ancestor, no JS needed for the pinning itself.
-   Opaque + blurred background so table rows scrolling underneath never
-   show through. The `var(--stickySearchH, 64px)` fallback on the legend
-   bar below is only used for the first frame before JS has measured this
+   No background/blur/shadow (per instruction) -- it pins in place but
+   stays visually transparent, so table rows scrolling underneath show
+   through. The `var(--stickySearchH, 64px)` fallback on the legend bar
+   below is only used for the first frame before JS has measured this
    bar's real height -- 64px is a close estimate of this bar's rendered
    height at typical sizes so there's no visible jump once JS takes over. */
 .searchStickyBar{
     position:sticky; top:0; z-index:50;
-    background:rgba(255,255,255,0.88); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     padding:clamp(8px,1.2vh,12px) 0;
-    box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
 /* Search box: capped to a normal reading width instead of stretching the
    full row -- shrinks safely down to 100% on narrow screens. */
@@ -66,16 +65,15 @@
 .filterBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:8px 16px;border-radius:6px;font-weight:900;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .2s;}
 .filterBtn:hover{background:rgba(238,140,58,0.12);color:var(--orange);border-color:var(--orange);}
 .activeFilter{background:var(--orange) !important;color:#1a2e30 !important;border-color:var(--orange) !important;}
-/* Sticky bar 2 of 3 (fix37): legend. Pinned directly below the search
+/* Sticky bar 2 of 3 (fix38): legend. Pinned directly below the search
    bar -- top offset is the search bar's real measured height
    (--stickySearchH, set by useStickyBarOffsets in the JSX), so the two
    bars dock flush against each other with no gap and no overlap, at any
-   viewport size. Same opaque/blurred treatment as the search bar. */
+   viewport size. No background/blur/shadow (per instruction), same as
+   the search bar above. */
 .legendStickyBar{
     position:sticky; top:var(--stickySearchH, 64px); z-index:45;
-    background:rgba(255,255,255,0.88); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     padding:6px 0 clamp(8px,1.2vh,12px);
-    box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
 /* Legend row: stays on ONE line at every viewport width -- no wrap. If it
    doesn't fit, it scrolls sideways instead (same pattern .filterRail
