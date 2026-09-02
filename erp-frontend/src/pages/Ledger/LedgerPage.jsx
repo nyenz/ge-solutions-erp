@@ -64,15 +64,16 @@ function findScrollParent(el) {
     return document.scrollingElement || document.documentElement;
 }
 
-// -- DIRECTIONAL SCROLL HANDOFF (fix37) ---------------------------------
-// Priority is directional and asymmetric, per instruction (reversed from
-// fix36 on purpose):
-//   - scrolling DOWN -> the TABLE scrolls first; the page only takes
-//                         over once the table has hit its own bottom
-//                         edge (page kicks in LAST).
+// -- DIRECTIONAL SCROLL HANDOFF (fix40) ---------------------------------
+// Priority is directional and asymmetric again, per instruction (back to
+// fix37/38's mapping -- fix39's "table wins both directions" is reverted):
 //   - scrolling UP   -> the PAGE scrolls first; the table only takes
 //                         over once the page has hit its own top edge
-//                         (page kicks in FIRST).
+//                         (page kicks in FIRST going up).
+//   - scrolling DOWN -> the TABLE scrolls first (the "vice versa" of the
+//                         up case); the page only takes over once the
+//                         table has hit its own bottom edge (page kicks
+//                         in LAST going down).
 // This is done in JS (not left to native scroll-chaining) because a fast
 // flick/fling handed off mid-gesture by the browser's own chaining can
 // dump un-damped momentum onto the page and skip past the sticky bars --
@@ -129,7 +130,8 @@ function useDirectionalScrollHandoff(scrollRef) {
                 pageScroll.scrollTop += clampStep(deltaY);
                 e.preventDefault();
             } else if (deltaY < 0) {
-                // scrolling up: PAGE has priority until it hits its own top
+                // scrolling up: PAGE has priority until it hits its own
+                // top edge (reverted in fix40 -- was table-first in fix39)
                 if (!pageAtTop()) {
                     pageScroll.scrollTop += clampStep(deltaY);
                     e.preventDefault();
@@ -308,10 +310,10 @@ const LedgerPage = () => {
                 </div>
             </div>
 
-            {/* Table panel (fix37): still NOT sticky itself -- it scrolls
-                away with the page like normal content, exactly as fix36
+            {/* Table panel: still NOT sticky itself -- it scrolls away
+                with the page like normal content, exactly as fix36
                 intended (a whole sticky tablePanel is what caused the
-                overlap bug two fixes ago). The table's own header row
+                overlap bug a few fixes ago). The table's own header row
                 (inside .tableScroll below) stays pinned only to ITS OWN
                 scroll container, never to the viewport. Because the
                 directional scroll handoff above freezes the page in
@@ -321,8 +323,16 @@ const LedgerPage = () => {
                 scrolling through rows -- it only moves once you've
                 scrolled the table to its own edge and the page itself
                 starts moving again, which is the correct moment for it
-                to. Bottom corner brackets + pins, NO top corner
-                brackets. */}
+                to.
+
+                Border/corner decor (confirmed intact, unchanged by any
+                scroll-priority fix): .tablePanel keeps its full 1.5px
+                orange-tinted border all the way around (see CSS). Pins
+                (4 small tick marks) render at BOTH the top and bottom
+                center edges. The bracket-style corner decor
+                (.decorBl/.decorBr) renders ONLY on the two bottom
+                corners -- there is no .decorTl/.decorTr, so the top
+                corners are deliberately left plain. */}
             <div className={styles.tablePanel}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
