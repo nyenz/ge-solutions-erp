@@ -23,28 +23,15 @@
 .headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
 .title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
 .subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster (fix37): the two sticky bars below (.searchStickyBar,
-   .legendStickyBar) are now the only sticky pieces here -- .controlHub
-   itself stays a plain in-flow wrapper (gap:0 -- each sticky bar carries
-   its own padding so its measured height already includes the visual
-   breathing room, keeping the two bars flush when both are pinned). */
+/* Control cluster (fix41): reverted to match the approved design mockup
+   exactly -- NOT sticky. A plain in-flow wrapper that scrolls away with
+   the page like any other content; only the table's own <thead> stays
+   pinned, and only to its own scroll container (see .tableScroll / thead
+   th below), never to the viewport. */
 .controlHub {
     background: transparent;
     padding: 0 0 8px;
-    display: flex; flex-direction: column; gap: 0;
-}
-/* Sticky bar 1 of 3 (fix38): search. Pinned to the top of the page's real
-   scroll container (Shell's .scrollArea) at top:0 -- CSS position:sticky
-   auto-resolves to that ancestor, no JS needed for the pinning itself.
-   No background/blur/shadow (per instruction) -- it pins in place but
-   stays visually transparent, so table rows scrolling underneath show
-   through. The `var(--stickySearchH, 64px)` fallback on the legend bar
-   below is only used for the first frame before JS has measured this
-   bar's real height -- 64px is a close estimate of this bar's rendered
-   height at typical sizes so there's no visible jump once JS takes over. */
-.searchStickyBar{
-    position:sticky; top:0; z-index:50;
-    padding:clamp(8px,1.2vh,12px) 0;
+    display: flex; flex-direction: column; gap: 8px;
 }
 /* Search box: capped to a normal reading width instead of stretching the
    full row -- shrinks safely down to 100% on narrow screens. */
@@ -56,25 +43,11 @@
 .searchInput::placeholder{color:rgba(26,46,48,0.35);font-weight:500;}
 .searchInput::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;}
 .searchClearBtn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--orange);cursor:pointer;display:flex;}
-/* Filter rail (fix37): NOT one of the 3 sticky items -- stays in normal
-   flow between the two sticky bars and scrolls out of view behind
-   .searchStickyBar (lower z-index, see above) as the page scrolls. Own
-   margin now that .controlHub's gap is 0. */
-.filterRail{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:8px 0;}
+.filterRail{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
 .filterRail::-webkit-scrollbar{display:none;}
 .filterBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:8px 16px;border-radius:6px;font-weight:900;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .2s;}
 .filterBtn:hover{background:rgba(238,140,58,0.12);color:var(--orange);border-color:var(--orange);}
 .activeFilter{background:var(--orange) !important;color:#1a2e30 !important;border-color:var(--orange) !important;}
-/* Sticky bar 2 of 3 (fix38): legend. Pinned directly below the search
-   bar -- top offset is the search bar's real measured height
-   (--stickySearchH, set by useStickyBarOffsets in the JSX), so the two
-   bars dock flush against each other with no gap and no overlap, at any
-   viewport size. No background/blur/shadow (per instruction), same as
-   the search bar above. */
-.legendStickyBar{
-    position:sticky; top:var(--stickySearchH, 64px); z-index:45;
-    padding:6px 0 clamp(8px,1.2vh,12px);
-}
 /* Legend row: stays on ONE line at every viewport width -- no wrap. If it
    doesn't fit, it scrolls sideways instead (same pattern .filterRail
    already uses), so a dot never gets separated from its label. */
@@ -82,15 +55,24 @@
 .legendRow::-webkit-scrollbar{display:none;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-/* Table panel (fix36): NOT sticky anymore -- see .controlHub note above.
-   This is a normal in-flow block now; it scrolls away with the page.
-   Bottom corner brackets + pins, NO top corner brackets. */
+/* Table panel (fix41): NOT sticky -- scrolls away with the page, matching
+   the approved design mockup. Only the table's own header row (inside
+   .tableScroll below) stays pinned, and only to ITS OWN scroll
+   container, never to the viewport. Bottom corner brackets + pins, NO
+   top corner brackets. */
 .tablePanel{
     background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
 }
+/* Corner brackets: bottom corners only (matches the mockup's
+   .cornerAccent) -- an L-shaped bracket with a small glowing white dot
+   sitting right at the outer tip of the corner. No top-corner version
+   exists on purpose. */
 .decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}
+.decorBl::after,.decorBr::after{content:'';position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,0.4);}
 .decorBl{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 6px;}
+.decorBl::after{bottom:-2px;left:-2px;}
 .decorBr{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 6px 0;}
+.decorBr::after{bottom:-2px;right:-2px;}
 .pinsTop,.pinsBottom{position:absolute;display:flex;gap:7px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:20;}
 .pinsTop{top:-3px;}
 .pinsBottom{bottom:-3px;}
@@ -109,15 +91,13 @@
 }
 .tableScroll::-webkit-scrollbar{display:none;width:0;height:0;}
 .ledgerTable{width:100%;border-collapse:separate;border-spacing:0;min-width:700px;}
-/* Sticky bar 3 of 3 (fix37): column headers. Opaque sticky header --
-   sticky relative to .tableScroll (its own scrolling ancestor), NOT the
-   viewport (see the tablePanel comment in the JSX for why that's still
-   correct here). Rows slide under and disappear behind it, in BOTH
-   default and hover states (see .sortable:hover below). z-index bumped
-   above the search/legend bars' shadow so it can never render on top of
-   them during the brief moment their edges touch on screen. */
+/* Opaque sticky header -- sticky relative to .tableScroll (its own
+   scrolling ancestor), NOT the viewport. Rows slide under and disappear
+   behind it, in BOTH default and hover states (see .sortable:hover
+   below). This is the ONLY sticky element left on this page (matches
+   the approved design mockup). */
 .ledgerTable thead th{
-    position:sticky;top:0;z-index:15;
+    position:sticky;top:0;z-index:5;
     background:#162a2c;color:var(--orange);
     font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;
     text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);
