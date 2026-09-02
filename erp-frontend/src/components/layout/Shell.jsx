@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import styles from './Shell.module.css';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 /**
  * GOLDEN SEED — NAVIGATION SHELL
