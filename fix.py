@@ -1,468 +1,305 @@
-#!/usr/bin/env python3
-"""fix35.py -- Ledger page: the table's column-heading row (INDEX / OWNER(S)
-/ PHONE / etc) now stays visible too, not just the search bar -- the whole
-table panel locks into place right below the sticky toolbar once you scroll
-past the title, so its own header row (already sticky within itself) is
-never carried off-screen with it. controlHub goes back to a plain
-transparent background (fix34's glass card behind search/filters/legend is
-removed, per instruction -- no background box). The old manual
-page-then-table scroll routing (useDirectionalScrollHandoff) is removed --
-it was written for a page where the table panel scrolled away with
-everything else; now that the panel is pinned in place, the browser's own
-native scrolling (page scrolls until the panel locks, then the mouse/finger
-naturally scrolls the rows underneath) does the same job with no custom
-math, and one less thing to fight the new sticky layout. Run: py fix35.py"""
-import subprocess
-from pathlib import Path
-ROOT = Path(__file__).parent.resolve()
-WROTE = []
+# fix.py — GE Solutions ERP: Folder Page Redesign (safe, self-verifying)
+import os, re, sys, shutil, subprocess
 
-def write(rel, content):
-    p = ROOT / rel
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
-    WROTE.append(rel)
-    print("OK:", rel)
+ROOT = os.path.dirname(os.path.abspath(__file__))
+FE = os.path.join(ROOT, "erp-frontend", "src")
+BE = os.path.join(ROOT, "erp-backend", "src", "main", "java", "com", "gesolutions", "erp")
+BACKUP = os.path.join(ROOT, ".fix_backup")
+report = []
 
-write('erp-frontend/src/pages/Ledger/LedgerPage.jsx', r"""// PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
-    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
-} from 'react-icons/fi';
-import landService from '../../services/landService';
-import BackToTopButton from '../../components/common/BackToTopButton';
-import styles from './LedgerPage.module.css';
+def log(m): report.append(m); print(m)
+def read(p):
+    with open(p, "r", encoding="utf-8") as f: return f.read()
+def write(p, c):
+    with open(p, "w", encoding="utf-8") as f: f.write(c)
+def find(name, base):
+    for r, d, fs in os.walk(base):
+        if name in fs: return os.path.join(r, name)
+    return None
+def rel_import(from_dir, to_file):
+    a, b = os.path.dirname(to_file), from_dir
+    rel = os.path.relpath(a, b).replace(os.sep, "/")
+    return rel if rel.startswith(".") else "./" + rel
 
-const matchesSearch = (proj, term) => {
-    if (!term) return true;
-    const t = term.toLowerCase().replace(/\s+/g, '');
-    const fields = [
-        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.titleId,
-        proj.landTitle?.blockRoad, proj.landTitle?.tenure,
-        proj.district, proj.county, proj.subCounty, proj.parish, proj.village, proj.area,
-        ...(proj.proprietors || []).flatMap(p => [
-            p.fullName, p.phoneNumber?.replace(/\s+/g, ''), p.nationalId, p.email, p.homeAddress,
-        ]),
-    ];
-    return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
-};
-const getPaymentBadge = (proj) => {
-    if (!proj.lastPaymentDate) return 'RED';
-    const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
-    if (days <= 14) return 'GREEN';
-    if (days <= 30) return 'YELLOW';
-    return 'RED';
-};
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
-const PaymentDot = ({ proj }) => {
-    const badge = getPaymentBadge(proj);
-    return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
-        style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-            background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-            flexShrink: 0, marginTop: 4 }} />);
-};
-const Pins = ({ pos }) => (
-    <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
-        {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
-    </div>
-);
+# ---------- BACKUP ----------
+os.makedirs(BACKUP, exist_ok=True)
 
-// -- STICKY TOOLBAR OFFSET --------------------------------------------------
-// .controlHub (search + filters + legend) is pinned with CSS position:sticky
-// at top:0. .tablePanel is ALSO pinned, right below it, so the table's own
-// header row (already sticky within its own inner .tableScroll) is never
-// carried off-screen when it -- along with .controlHub -- is what pins the
-// panel in place. Since .controlHub's height is fluid (clamp()-based
-// padding/gaps, wraps differently per width), that offset can't be a fixed
-// CSS number -- it's measured from the real rendered element and pushed
-// down as a CSS custom property (--toolbar-h) on the page container, which
-// .tablePanel's `top` reads. Recomputed on resize and via ResizeObserver so
-// it stays correct across breakpoints and orientation changes, with no
-// separate "mobile" rule to fall out of sync.
-function useMeasuredHeight(ref) {
-    const [height, setHeight] = useState(0);
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return undefined;
-        const update = () => setHeight(el.getBoundingClientRect().height);
-        update();
-        const ro = new ResizeObserver(update);
-        ro.observe(el);
-        window.addEventListener('resize', update);
-        return () => { ro.disconnect(); window.removeEventListener('resize', update); };
-    }, [ref]);
-    return height;
-}
+# ---------- LOCATE FILES ----------
+folder_jsx = find("FolderPage.jsx", FE)
+folder_css = find("FolderPage.module.css", FE)
+land_svc = find("landService.js", FE) or find("landService.jsx", FE)
+useauth_hook = find("useAuth.js", FE) or find("useAuth.jsx", FE)
+if not (folder_jsx and folder_css and land_svc):
+    log("ABORT: core files not found."); sys.exit(1)
+for p in (folder_jsx, folder_css, land_svc):
+    shutil.copy2(p, BACKUP)
 
-const LedgerPage = () => {
-    const navigate = useNavigate();
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
-    const [page, setPage] = useState(0);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilter, setActiveFilter] = useState('ALL');
-    const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
-    const controlHubRef = useRef(null);
-    const toolbarHeight = useMeasuredHeight(controlHubRef);
+PAGE_DIR = os.path.dirname(folder_jsx)
+SVC_DIR = os.path.dirname(land_svc)
 
-    const fetchLedger = useCallback(async (attempt = 0) => {
-        setLoading(true); setLoadError(false);
-        try {
-            const data = await landService.getGlobalLedger(page, 50);
-            setProjects(data.content || []); setLoading(false);
-        } catch {
-            if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }
-            setLoadError(true); setLoading(false);
+# ---------- BACKEND: new controller (brand-new file, no patching) ----------
+ctrl = '''package com.gesolutions.erp.modules.land.controller;
+
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
+import com.gesolutions.erp.common.audit.AuditService;
+import com.gesolutions.erp.common.exception.BusinessException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/v1/land/portal")
+@RequiredArgsConstructor
+public class FolderPortalController {
+
+    private final LandProjectRepository projectRepository;
+    private final AuditService auditService;
+
+    private String op() {
+        var a = SecurityContextHolder.getContext().getAuthentication();
+        return a != null ? a.getName() : "SYSTEM";
+    }
+
+    @GetMapping("/{id}/receivable")
+    @Transactional(readOnly = true)
+    public Map<String, Object> receivable(@PathVariable UUID id) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        Map<String, Object> m = new HashMap<>();
+        m.put("receivable", p.isReceivable());
+        m.put("actual", p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO);
+        m.put("storage", p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO);
+        m.put("paid", p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
+        m.put("total", p.receivableTotalOwed());
+        m.put("rate", p.getStorageFeeOverride());
+        m.put("deadline", p.getNegotiationDeadline());
+        m.put("startDate", p.getReceivableStartDate());
+        m.put("backlog", p.getLandTitle() == null);
+        return m;
+    }
+
+    @GetMapping("/{id}/portfolio")
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> portfolio(@PathVariable UUID id) {
+        LandProject current = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (current.getProprietors() == null) return out;
+        for (LandProject other : projectRepository.findAll()) {
+            if (other.getId().equals(id) || other.getProprietors() == null) continue;
+            for (var owner : current.getProprietors()) {
+                if (other.getProprietors().stream().anyMatch(c -> c.getId().equals(owner.getId()))) {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("projectId", other.getId());
+                    m.put("index", other.getProjectIndex());
+                    m.put("plot", other.getLandTitle() != null ? other.getLandTitle().getPlotNumber() : null);
+                    m.put("titled", other.getLandTitle() != null);
+                    m.put("receivable", other.isReceivable());
+                    m.put("sharedOwner", owner.getFullName());
+                    out.add(m);
+                    break;
+                }
+            }
         }
-    }, [page]);
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);
+        return out;
+    }
 
-    const processedData = useMemo(() => {
-        let filtered = projects.filter(p => matchesSearch(p, searchTerm));
-        if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
-        if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
-        if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
-        if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
-        filtered.sort((a, b) => {
-            let aVal, bVal;
-            if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
-            else if (sortConfig.key === 'owner')      { aVal = a.proprietors?.[0]?.fullName || ''; bVal = b.proprietors?.[0]?.fullName || ''; }
-            else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
-            else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ?  1 : -1;
-            return 0;
-        });
-        return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig]);
+    @PostMapping("/{id}/receivable/enter")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> enter(@PathVariable UUID id) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        p.setReceivable(true);
+        if (p.getReceivableStartDate() == null) p.setReceivableStartDate(LocalDateTime.now());
+        BigDecimal owed = (p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO)
+                .add(p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO)
+                .subtract(p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
+        p.setOriginalDebt(owed.max(BigDecimal.ZERO));
+        p.setStatus("RECEIVABLE");
+        projectRepository.save(p);
+        auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables.");
+        return receivable(id);
+    }
 
-    const handleSort = (key) => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-    const renderSortIcon = (key) => sortConfig.key !== key ? null
-        : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
+    @PostMapping("/{id}/receivable/exit")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> exit(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        String action = body.getOrDefault("action", "SET_ASIDE");
+        BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
+        if ("WAIVE".equals(action)) {
+            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ".");
+            p.setStorageFeesAccumulated(BigDecimal.ZERO);
+        } else if ("CAPITALIZE".equals(action)) {
+            p.setTotalCost((p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO).add(fees));
+            p.setStorageFeesAccumulated(BigDecimal.ZERO);
+            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees + " into total cost on #" + p.getProjectIndex() + ".");
+        } else {
+            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (fees UGX " + fees + " retained, billing stopped).");
+        }
+        p.setReceivable(false);
+        p.setStatus("ACTIVE");
+        projectRepository.save(p);
+        return receivable(id);
+    }
 
-    const FILTERS = [
-        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'BACKLOG' },
-        { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
-        { key: 'PAID', label: 'PAID' },
-    ];
+    @PostMapping("/{id}/receivable/settings")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> settings(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        if (body.containsKey("rate")) {
+            p.setStorageFeeOverride(body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate")));
+        }
+        if (body.containsKey("deadline")) {
+            p.setNegotiationDeadline(body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline")));
+        }
+        projectRepository.save(p);
+        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex() + ".");
+        return receivable(id);
+    }
+}
+'''
+ctrl_path = os.path.join(BE, "modules", "land", "controller", "FolderPortalController.java")
+shutil.copy2(ctrl_path, BACKUP) if os.path.exists(ctrl_path) else None
+write(ctrl_path, ctrl)
+log("BACKEND: FolderPortalController.java written.")
 
-    return (
-        <div className={styles.container} style={{ '--toolbar-h': `${toolbarHeight}px` }}>
-            {/* Page title -- scrolls away */}
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Project Ledger</h1>
-                    <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
-                </div>
-            </header>
-
-            {/* Control cluster -- sticky, plain/transparent (no background
-                box). See useMeasuredHeight above: its real rendered height
-                feeds .tablePanel's sticky offset below. */}
-            <div className={styles.controlHub} ref={controlHubRef}>
-                <div className={styles.searchBlock}>
-                    <div className={styles.searchInner}>
-                        <input type="search" placeholder="Search any field..." className={styles.searchInput}
-                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search ledger records" autoComplete="off" />
-                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                        {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
-                    </div>
-                </div>
-                <div className={styles.filterRail} role="group" aria-label="Filter records">
-                    {FILTERS.map(f => (
-                        <button key={f.key} onClick={() => setActiveFilter(f.key)}
-                            className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                            aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
-                    ))}
-                </div>
-                <div className={styles.legendRow} aria-label="Payment health legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            {/* Table panel -- sticky, locks in place right below the toolbar
-                (top:var(--toolbar-h)) so its own header row is always in
-                view. Bottom corner brackets + pins, NO top corner brackets. */}
-            <div className={styles.tablePanel}>
-                <Pins pos="top" />
-                <div className={styles.decorBl} aria-hidden="true" />
-                <div className={styles.decorBr} aria-hidden="true" />
-                <div className={styles.tableScroll}>
-                    <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
-                        <thead>
-                            <tr>
-                                <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
-                                </th>
-                                <th onClick={() => handleSort('owner')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiUser aria-hidden="true" /> OWNER(S) {renderSortIcon('owner')}
-                                </th>
-                                <th>PHONE</th>
-                                <th>PARISH</th>
-                                <th>VILLAGE</th>
-                                <th>STATUS</th>
-                                <th onClick={() => handleSort('paid')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && (<tr><td colSpan={7} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
-                            {!loading && loadError && (
-                                <tr><td colSpan={7} className={styles.errorCell}>
-                                    <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
-                                    <button className={styles.retryBtn} onClick={() => fetchLedger()}>RETRY</button>
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.length === 0 && (
-                                <tr><td colSpan={7} className={styles.emptyCell}>
-                                    <FiLayers aria-hidden="true" />
-                                    {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
-                                </td></tr>
-                            )}
-                            {!loading && !loadError && processedData.map((proj) => {
-                                const isReceivable = proj.isReceivable;
-                                const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
-                                const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
-                                const isCritical = pct < 25 && proj.totalCost > 0;
-                                const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
-                                const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
-                                const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
-                                return (
-                                    <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
-                                        tabIndex={0} role="row"
-                                        aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
-                                        className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        <td className={styles.plotCell}>
-                                            <div className={styles.indexRow}>
-                                                <PaymentDot proj={proj} />
-                                                <div className={styles.stack}>
-                                                    <strong>#{proj.projectIndex || '---'}</strong>
-                                                    {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.stack}>
-                                                {names.length ? names.map((nm, i) => <span key={i} className={i === 0 ? styles.ownerName : styles.stackSub}>{nm}</span>) : <span className={styles.ownerName}>---</span>}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className={styles.stack}>
-                                                {phones.length ? phones.map((ph, i) => <span key={i} className={styles.ownerPhone}>{ph}</span>) : <span className={styles.ownerPhone}>---</span>}
-                                            </div>
-                                        </td>
-                                        <td><span className={styles.ownerName}>{proj.parish || '---'}</span></td>
-                                        <td><span className={styles.ownerName}>{proj.village || '---'}</span></td>
-                                        <td>
-                                            <div className={styles.statusGroup}>
-                                                {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
-                                                {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
-                                                {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                            </div>
-                                        </td>
-                                        <td className={styles.moneyCell}>
-                                            <div className={styles.moneyRow}>
-                                                <span className={styles.debtLabel}>DEBT:</span>
-                                                <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString()}</span>
-                                            </div>
-                                            {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>
-                                            )}
-                                            <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-                                                <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />
-                                            </div>
-                                            <span className={styles.pctLabel}>{Math.round(pct)}%</span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                <Pins pos="bottom" />
-                <footer className={styles.pagination} aria-label="Pagination">
-                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous page" className={styles.pageBtn}>
-                        <FiChevronLeft aria-hidden="true" /> PREV
-                    </button>
-                    <span className={styles.pageIndicator} aria-current="page">
-                        RANGE {page + 1}
-                        {processedData.length > 0 && <span className={styles.recordCount}> — {processedData.length} RECORDS</span>}
-                    </span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < 50} aria-label="Next page" className={styles.pageBtn}>
-                        NEXT <FiChevronRight aria-hidden="true" />
-                    </button>
-                </footer>
-            </div>
-            <BackToTopButton />
-        </div>
-    );
+# ---------- FRONTEND: new service (header cloned from landService) ----------
+ls = read(land_svc)
+m = re.search(r"([\s\S]*?)(export|const|function)", ls)
+header = m.group(1) if m else ""
+svc = header + '''
+export const folderPortalService = {
+  getReceivable: (id) => api.get(`/land/portal/${id}/receivable`).then(r => r.data),
+  getPortfolio: (id) => api.get(`/land/portal/${id}/portfolio`).then(r => r.data),
+  enter: (id) => api.post(`/land/portal/${id}/receivable/enter`).then(r => r.data),
+  exit: (id, action) => api.post(`/land/portal/${id}/receivable/exit`, { action }).then(r => r.data),
+  settings: (id, payload) => api.post(`/land/portal/${id}/receivable/settings`, payload).then(r => r.data),
 };
-export default LedgerPage;
-""")
+export default folderPortalService;
+'''
+svc_path = os.path.join(SVC_DIR, "folderPortalService.js")
+write(svc_path, svc)
+log("FRONTEND: folderPortalService.js written.")
 
-write('erp-frontend/src/pages/Ledger/LedgerPage.module.css', r"""/* PATH: erp-frontend/src/pages/Ledger/LedgerPage.module.css */
-.container {
-    --orange:#EE8C3A; --orange-dim:rgba(238,140,58,0.18); --orange-border:rgba(238,140,58,0.28);
-    --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981;
-    --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
-    --radius: 10px;
-    max-width:1400px; width:100%; margin:0 auto;
-    padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 60px;
-    font-family:'Inter',sans-serif; color:#fff;
-    display:flex; flex-direction:column;
-}
-/* Page title -- scrolls away */
-.pageHeader {
-    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-    gap:clamp(8px,1.2vw,14px); border-left:clamp(3px,0.4vw,5px) solid var(--orange);
-    padding:clamp(8px,1.2vw,14px) clamp(14px,1.8vw,22px);
-    background:rgba(255,255,255,0.62); border-radius:0 12px 12px 0;
-    backdrop-filter:blur(15px); box-shadow:0 4px 15px rgba(0,0,0,0.07);
-    margin-bottom:clamp(10px,1.5vh,16px);
-    transform:translateZ(0);
-    will-change:transform;
-}
-.headerLeft{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
-.title{font-family:'Cinzel',serif;color:var(--navy-deep);font-size:clamp(18px,2.5vw,24px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0;}
-.subtitle{color:#64748b;font-size:clamp(9px,0.9vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
-/* Control cluster (fix35): sticky, PLAIN/TRANSPARENT -- no background box,
-   no blur, no shadow, no card. Only search's own white pill and the filter
-   buttons' own dark pills carry a background, same as before -- the toolbar
-   ROW itself stays invisible, exactly like it did pre-fix34. */
-.controlHub {
-    position: sticky;
-    top: 0;
-    z-index: 25;
-    background: transparent;
-    padding: 0 0 8px;
-    display: flex; flex-direction: column; gap: 8px;
-}
-/* Search box: capped to a normal reading width instead of stretching the
-   full row -- shrinks safely down to 100% on narrow screens. */
-.searchBlock{width:min(100%, clamp(220px,38vw,420px));}
-.searchInner{position:relative;display:flex;align-items:center;background:#fff;border:1.5px solid #c8d6d7;border-radius:6px;height:clamp(36px,4.5vw,44px);transition:border-color .2s,box-shadow .2s;}
-.searchInner:focus-within{border-color:var(--orange);box-shadow:0 0 0 3px rgba(238,140,58,0.18);}
-.searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--orange);pointer-events:none;}
-.searchInput{width:100%;border:none;outline:none;background:transparent;color:#1a2e30;padding:0 34px 0 38px;font-weight:600;font-size:12px;height:100%;}
-.searchInput::placeholder{color:rgba(26,46,48,0.35);font-weight:500;}
-.searchInput::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;}
-.searchClearBtn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--orange);cursor:pointer;display:flex;}
-.filterRail{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
-.filterRail::-webkit-scrollbar{display:none;}
-.filterBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:8px 16px;border-radius:6px;font-weight:900;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .2s;}
-.filterBtn:hover{background:rgba(238,140,58,0.12);color:var(--orange);border-color:var(--orange);}
-.activeFilter{background:var(--orange) !important;color:#1a2e30 !important;border-color:var(--orange) !important;}
-/* Legend row: stays on ONE line at every viewport width -- no wrap. If it
-   doesn't fit, it scrolls sideways instead (same pattern .filterRail
-   already uses), so a dot never gets separated from its label. */
-.legendRow{display:flex;flex-wrap:nowrap;gap:14px;padding:2px 0 0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
-.legendRow::-webkit-scrollbar{display:none;}
-.legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
-.legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-/* Table panel (fix35): sticky, locked right below the toolbar via
-   top:var(--toolbar-h) -- set on .container from the toolbar's real
-   measured height (see useMeasuredHeight in the JSX). This is what keeps
-   the table's own header row (INDEX / OWNER(S) / ... below) in view: the
-   header row was ALREADY sticky within its own .tableScroll, it just had
-   nothing pinning the PANEL itself in place before, so the whole panel --
-   header included -- scrolled off with the rest of the page. Bottom corner
-   brackets + pins, NO top corner brackets. */
-.tablePanel{
-    position:sticky; top:var(--toolbar-h, 0px); z-index:15;
-    background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
-}
-.decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}
-.decorBl{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 6px;}
-.decorBr{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 6px 0;}
-.pinsTop,.pinsBottom{position:absolute;display:flex;gap:7px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:20;}
-.pinsTop{top:-3px;}
-.pinsBottom{bottom:-3px;}
-.pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}
-/* Inner scroll -- rows scroll here (native browser scroll -- no custom JS
-   needed now that .tablePanel is pinned in place, see fix35 note above).
-   The OS scrollbar is hidden but scroll still works via wheel/touch/drag. */
-.tableScroll{
-    max-height:min(62vh,620px); min-height:280px;
-    overflow:auto; overscroll-behavior:contain; overflow-anchor:none;
-    border-radius:var(--radius);
-    scrollbar-width:none; -ms-overflow-style:none;
-    transform:translateZ(0);
-}
-.tableScroll::-webkit-scrollbar{display:none;width:0;height:0;}
-.ledgerTable{width:100%;border-collapse:separate;border-spacing:0;min-width:700px;}
-/* Opaque sticky header -- rows slide under and disappear behind it, in
-   BOTH default and hover states (see .sortable:hover below). */
-.ledgerTable thead th{
-    position:sticky;top:0;z-index:5;
-    background:#162a2c;color:var(--orange);
-    font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;
-    text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);
-    border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;
-    box-shadow:0 1px 0 var(--orange);
-}
-.ledgerTable thead th:first-child{border-radius:var(--radius) 0 0 0;}
-.ledgerTable thead th:last-child{border-radius:0 var(--radius) 0 0;}
-.sortable{cursor:pointer;transition:background .18s,color .18s;}
-.sortable:hover{background:linear-gradient(rgba(238,140,58,0.12),rgba(238,140,58,0.12)),#162a2c;color:#fff;}
-.ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;color:#fff;font-size:var(--fs-td);}
-.ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
-.ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:var(--orange);}
-.rowReceivable{background:rgba(239,68,68,0.05);}
-.rowCritical{background:rgba(239,68,68,0.07);}
-.indexRow{display:flex;align-items:flex-start;gap:6px;}
-.indexRow strong{font-family:'Space Mono',monospace;color:#fff;}
-.stack{display:flex;flex-direction:column;gap:2px;}
-.stackSub{font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);font-family:'Space Mono',monospace;}
-.ownerName{font-weight:800;color:#fff;}
-.ownerPhone{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.7);}
-.statusGroup{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
-.tagReceivable,.tagPaid,.tagStandard,.tagCritical{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
-.tagReceivable{color:#fca5a5;}
-.tagPaid{color:#34d399;}
-.tagStandard{color:rgba(255,255,255,0.6);}
-.tagCritical{color:#ef4444;}
-.moneyCell{min-width:150px;}
-.moneyRow{display:flex;justify-content:space-between;gap:8px;}
-.debtLabel{color:rgba(255,255,255,0.5);font-size:10px;font-weight:800;}
-.debtAmount{font-family:'Space Mono',monospace;color:#fca5a5;font-weight:700;}
-.debtCritical{font-family:'Space Mono',monospace;color:#ef4444;font-weight:900;}
-.feesLine{font-size:0.7rem;color:#ef4444;margin-bottom:4px;}
-.velocityBar{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;margin-top:6px;overflow:hidden;}
-.velocityFill{height:100%;background:var(--orange);border-radius:3px;}
-.velocityFillCritical{background:var(--red);}
-.pctLabel{font-size:9px;color:rgba(255,255,255,0.5);font-weight:700;}
-.loadingCell,.errorCell,.emptyCell{text-align:center;padding:30px !important;color:rgba(255,255,255,0.5);font-weight:800;letter-spacing:1px;}
-.retryBtn{background:none;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:800;}
-.pagination{display:flex;justify-content:space-between;align-items:center;padding:10px 4px 2px;}
-.pageBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:7px 14px;border-radius:6px;font-weight:900;font-size:10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:all .2s;}
-.pageBtn:hover:not(:disabled){background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.22);color:#fff;}
-.pageBtn:disabled{opacity:0.4;cursor:not-allowed;}
-.pageIndicator{color:rgba(255,255,255,0.6);font-size:10px;font-weight:800;letter-spacing:1px;}
-.recordCount{color:var(--orange);}
-""")
+# ---------- FRONTEND: transform FolderPage.jsx ----------
+src = read(folder_jsx)
 
-subprocess.run(['git', 'add', '.'], check=False, cwd=ROOT, capture_output=True)
-subprocess.run(['git', 'commit', '-m', 'fix35: Ledger table panel sticky under toolbar (header row never scrolls away), toolbar back to transparent (no bg box), remove now-redundant scroll-handoff JS'], check=False, cwd=ROOT, capture_output=True)
-subprocess.run(['git', 'push'], check=False, cwd=ROOT, capture_output=True)
-print("Wrote:", *WROTE, sep="\n  ")
-print("Done. Pushed.")
+# 1) Remove Pipeline HUD
+new_src, n = re.subn(r"<nav className=\{styles\.pipelineHUD\}[\s\S]*?</nav>", "", src)
+if n == 0: log("WARN: pipeline HUD not found (already removed?).")
+src = new_src
+
+# 2) Ensure imports (folderPortalService + useAuth)
+imp_svc = "import folderPortalService from '" + rel_import(PAGE_DIR, svc_path) + "';"
+if "folderPortalService" not in src:
+    src = re.sub(r"(\n)(export default)", r"\1" + imp_svc + r"\n\2", src, count=1)
+if "useAuth" not in src:
+    if not useauth_hook: log("ABORT: useAuth not found."); sys.exit(1)
+    src = re.sub(r"(\n)(export default)", r"\1import { useAuth } from '" + rel_import(PAGE_DIR, useauth_hook) + "';\n\2", src, count=1)
+
+# 3) Insert FolderExtras component before export default
+EXTRAS = '''
+function FolderExtras({ id, toast }) {
+  const auth = useAuth();
+  const role = String(auth?.user?.role || auth?.role || "").toUpperCase();
+  const isAdmin = role.includes("ADMIN") || role.includes("PROGRAMMER");
+  const isDirector = isAdmin || role.includes("DIRECTOR");
+  const isManager = isDirector || role.includes("MANAGER");
+  const canMoney = isDirector, canEdit = isManager;
+  const [data, setData] = useState(null);
+  const [portfolio, setPortfolio] = useState([]);
+  const [fee, setFee] = useState(""); const [deadline, setDeadline] = useState("");
+  const load = async () => { try {
+    const [d, p] = await Promise.all([folderPortalService.getReceivable(id), folderPortalService.getPortfolio(id)]);
+    setData(d); setPortfolio(p); setFee(d.rate ? String(d.rate) : ""); setDeadline(d.deadline ? String(d.deadline).slice(0,16) : "");
+  } catch (e) { toast && toast("Failed to load receivables", "error"); } };
+  useEffect(() => { load(); }, [id]);
+  if (!data) return null;
+  return (<>
+    <section className={styles.hwPanel} aria-label="Receivables and Portfolio">
+      <div className={styles.panelBody + " " + styles.bodyOpen}><div className={styles.panelInner}>
+        <h3 className={styles.xTitle}>RECEIVABLES</h3>
+        {data.backlog && <span className={styles.badgeBacklog}>BACKLOG — NOT TITLED</span>}
+        {data.receivable && <span className={styles.badgeRecv}>IN RECEIVABLES</span>}
+        <div className={styles.xGrid}>
+          <div><label>Actual Debt</label><strong>UGX {Number(data.actual).toLocaleString()}</strong></div>
+          <div><label>Storage Fees</label><strong>UGX {Number(data.storage).toLocaleString()}</strong></div>
+          <div><label>Total Owed</label><strong>UGX {Number(data.total).toLocaleString()}</strong></div>
+        </div>
+        {canMoney && (<div className={styles.xRow}>
+          <input type="number" value={fee} onChange={e=>setFee(e.target.value)} placeholder="Monthly rate (default 50000)" />
+          <input type="datetime-local" value={deadline} onChange={e=>setDeadline(e.target.value)} />
+          <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.settings(id,{rate:fee,deadline:deadline})); toast&&toast("Settings saved");}}>Save Settings</button>
+        </div>)}
+        <div className={styles.xRow}>
+          {!data.receivable
+            ? canEdit && <button className={styles.btnPrimary} onClick={async()=>{ setData(await folderPortalService.enter(id)); toast&&toast("Moved to receivables");}}>Add to Receivables</button>
+            : canMoney && (<>
+                <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.exit(id,"SET_ASIDE")); toast&&toast("Set aside");}}>Set Aside</button>
+                <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.exit(id,"CAPITALIZE")); toast&&toast("Fees capitalized");}}>Capitalize</button>
+                <button className={styles.btnDanger} onClick={async()=>{ setData(await folderPortalService.exit(id,"WAIVE")); toast&&toast("Fees waived");}}>Waive</button>
+              </>)}
+        </div>
+        <h3 className={styles.xTitle}>OWNER PORTFOLIO</h3>
+        {portfolio.length === 0 ? <p className={styles.xEmpty}>No other projects for these owners.</p> : (
+          <table className={styles.xTable}><thead><tr><th>#</th><th>Plot</th><th>Owner</th><th>Status</th></tr></thead>
+          <tbody>{portfolio.map((r,i)=>(<tr key={i}><td>{r.index}</td><td>{r.plot||"—"}</td><td>{r.sharedOwner}</td><td>{r.receivable?"RECEIVABLE":(r.titled?"TITLED":"BACKLOG")}</td></tr>))}</tbody></table>
+        )}
+      </div></div>
+    </section>
+  </>);
+}
+'''
+src = re.sub(r"(\n)(export default)", r"\1" + EXTRAS + r"\2", src, count=1)
+
+# 4) Mount <FolderExtras> before the Stage Checklist section (verbatim anchor)
+anchor = '<section className={styles.hwPanel} aria-label="Stage Checklist"'
+if anchor in src:
+    src = src.replace(anchor, '<FolderExtras id={id} toast={toast} />\n                ' + anchor, 1)
+    log("FRONTEND: FolderExtras mounted.")
+else:
+    log("ABORT: Stage Checklist anchor not found — refusing to guess."); sys.exit(1)
+
+write(folder_jsx, src)
+log("FRONTEND: FolderPage.jsx transformed.")
+
+# ---------- FRONTEND: append CSS ----------
+css = read(folder_css)
+css += '''
+/* Folder redesign tokens */
+.xTitle{font-family:Cinzel,serif;color:var(--navy,#0b1f3a);margin:14px 0 8px;letter-spacing:.06em}
+.badgeBacklog{background:#7c2d12;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;margin-right:6px}
+.badgeRecv{background:#b91c1c;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px}
+.xGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+.xGrid label{display:block;font-size:11px;color:#64748b}
+.xRow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.xRow input{border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace}
+.btnPrimary{background:#f97316;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
+.btnGhost{background:transparent;border:1px solid #0b1f3a;color:#0b1f3a;border-radius:6px;padding:8px 12px;cursor:pointer}
+.btnDanger{background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
+.xEmpty{color:#64748b;font-size:13px}
+.xTable{width:100%;border-collapse:collapse;font-size:13px}
+.xTable th,.xTable td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}
+'''
+write(folder_css, css)
+log("FRONTEND: CSS appended.")
+
+# ---------- GIT ----------
+try:
+    subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
+    subprocess.run(["git","commit","-m","Folder page redesign: receivables panel, portfolio, backlog badge, remove pipeline HUD"],cwd=ROOT,check=True)
+    subprocess.run(["git","push"],cwd=ROOT,check=True)
+    log("GIT: committed and pushed.")
+except Exception as e:
+    log("GIT WARN: " + str(e))
+
+log("DONE. Review the diff; backups are in .fix_backup/")
+print("\n".join(report))

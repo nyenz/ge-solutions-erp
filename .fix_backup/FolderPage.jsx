@@ -394,7 +394,20 @@ const FolderPage = () => {
                 </div>
             </div>
             {/* PIPELINE HUD */}
-            
+            <nav className={styles.pipelineHUD} aria-label="Project pipeline">
+                <div className={styles.track}>
+                    {STAGE_LABELS.map((label, idx) => { const num = idx + 1; const active = project.currentStageIndex >= num;
+                        return (<div key={num} className={styles.stageModule}>
+                            <div className={`${styles.dot} ${active ? styles.dotActive : ''} ${isEditing ? styles.dotInteractive : ''}`}
+                                onClick={() => handleStageClick(num)} role={isEditing ? 'button' : 'img'} tabIndex={isEditing ? 0 : -1}
+                                aria-label={`Stage ${num}: ${label}${active ? ' (complete)' : ''}`}>
+                                {active ? <FiCheckCircle aria-hidden="true" /> : num}
+                            </div>
+                            <span className={styles.stageLabel}>{label}</span>
+                        </div>); })}
+                </div>
+                <div className={styles.protocolReadout}><strong>PROTOCOL: {project.status}</strong><span>LIVE STATUS</span></div>
+            </nav>
             {/* TERMINAL HEADER with PRINT + PAYMENT + RECEIVABLES + EDIT */}
             <header className={styles.terminalHeader}>
                 <div className={styles.idPlate}>
@@ -463,7 +476,6 @@ const FolderPage = () => {
                         </>)}
                     </div></div>
                 </section>
-                <FolderExtras id={id} toast={toast} />
                 <section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? {display:'none'} : {}}>
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -588,56 +600,4 @@ const FolderPage = () => {
         </div>
     );
 };
-import folderPortalService from '../../services';
-
-function FolderExtras({ id, toast }) {
-  const auth = useAuth();
-  const role = String(auth?.user?.role || auth?.role || "").toUpperCase();
-  const isAdmin = role.includes("ADMIN") || role.includes("PROGRAMMER");
-  const isDirector = isAdmin || role.includes("DIRECTOR");
-  const isManager = isDirector || role.includes("MANAGER");
-  const canMoney = isDirector, canEdit = isManager;
-  const [data, setData] = useState(null);
-  const [portfolio, setPortfolio] = useState([]);
-  const [fee, setFee] = useState(""); const [deadline, setDeadline] = useState("");
-  const load = async () => { try {
-    const [d, p] = await Promise.all([folderPortalService.getReceivable(id), folderPortalService.getPortfolio(id)]);
-    setData(d); setPortfolio(p); setFee(d.rate ? String(d.rate) : ""); setDeadline(d.deadline ? String(d.deadline).slice(0,16) : "");
-  } catch (e) { toast && toast("Failed to load receivables", "error"); } };
-  useEffect(() => { load(); }, [id]);
-  if (!data) return null;
-  return (<>
-    <section className={styles.hwPanel} aria-label="Receivables and Portfolio">
-      <div className={styles.panelBody + " " + styles.bodyOpen}><div className={styles.panelInner}>
-        <h3 className={styles.xTitle}>RECEIVABLES</h3>
-        {data.backlog && <span className={styles.badgeBacklog}>BACKLOG — NOT TITLED</span>}
-        {data.receivable && <span className={styles.badgeRecv}>IN RECEIVABLES</span>}
-        <div className={styles.xGrid}>
-          <div><label>Actual Debt</label><strong>UGX {Number(data.actual).toLocaleString()}</strong></div>
-          <div><label>Storage Fees</label><strong>UGX {Number(data.storage).toLocaleString()}</strong></div>
-          <div><label>Total Owed</label><strong>UGX {Number(data.total).toLocaleString()}</strong></div>
-        </div>
-        {canMoney && (<div className={styles.xRow}>
-          <input type="number" value={fee} onChange={e=>setFee(e.target.value)} placeholder="Monthly rate (default 50000)" />
-          <input type="datetime-local" value={deadline} onChange={e=>setDeadline(e.target.value)} />
-          <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.settings(id,{rate:fee,deadline:deadline})); toast&&toast("Settings saved");}}>Save Settings</button>
-        </div>)}
-        <div className={styles.xRow}>
-          {!data.receivable
-            ? canEdit && <button className={styles.btnPrimary} onClick={async()=>{ setData(await folderPortalService.enter(id)); toast&&toast("Moved to receivables");}}>Add to Receivables</button>
-            : canMoney && (<>
-                <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.exit(id,"SET_ASIDE")); toast&&toast("Set aside");}}>Set Aside</button>
-                <button className={styles.btnGhost} onClick={async()=>{ setData(await folderPortalService.exit(id,"CAPITALIZE")); toast&&toast("Fees capitalized");}}>Capitalize</button>
-                <button className={styles.btnDanger} onClick={async()=>{ setData(await folderPortalService.exit(id,"WAIVE")); toast&&toast("Fees waived");}}>Waive</button>
-              </>)}
-        </div>
-        <h3 className={styles.xTitle}>OWNER PORTFOLIO</h3>
-        {portfolio.length === 0 ? <p className={styles.xEmpty}>No other projects for these owners.</p> : (
-          <table className={styles.xTable}><thead><tr><th>#</th><th>Plot</th><th>Owner</th><th>Status</th></tr></thead>
-          <tbody>{portfolio.map((r,i)=>(<tr key={i}><td>{r.index}</td><td>{r.plot||"—"}</td><td>{r.sharedOwner}</td><td>{r.receivable?"RECEIVABLE":(r.titled?"TITLED":"BACKLOG")}</td></tr>))}</tbody></table>
-        )}
-      </div></div>
-    </section>
-  </>);
-}
 export default FolderPage;

@@ -2728,18 +2728,3 @@
         print-color-adjust: exact;
     }
 }
-
-/* Folder redesign tokens */
-.xTitle{font-family:Cinzel,serif;color:var(--navy,#0b1f3a);margin:14px 0 8px;letter-spacing:.06em}
-.badgeBacklog{background:#7c2d12;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;margin-right:6px}
-.badgeRecv{background:#b91c1c;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px}
-.xGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
-.xGrid label{display:block;font-size:11px;color:#64748b}
-.xRow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
-.xRow input{border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace}
-.btnPrimary{background:#f97316;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
-.btnGhost{background:transparent;border:1px solid #0b1f3a;color:#0b1f3a;border-radius:6px;padding:8px 12px;cursor:pointer}
-.btnDanger{background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
-.xEmpty{color:#64748b;font-size:13px}
-.xTable{width:100%;border-collapse:collapse;font-size:13px}
-.xTable th,.xTable td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}
