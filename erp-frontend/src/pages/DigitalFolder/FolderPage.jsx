@@ -588,7 +588,7 @@ const FolderPage = () => {
         </div>
     );
 };
-import folderPortalService from '../../services';
+import folderPortalService from '../../services/folderPortalService';
 
 function FolderExtras({ id, toast }) {
   const auth = useAuth();
