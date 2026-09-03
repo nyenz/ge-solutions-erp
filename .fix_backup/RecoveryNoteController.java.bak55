@@ -1,0 +1,175 @@
+package com.gesolutions.erp.modules.client.controller;
+
+import com.gesolutions.erp.modules.client.model.Client;
+import com.gesolutions.erp.modules.client.model.RecoveryNote;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
+
+/**
+ * RECOVERY CALL COCKPIT - numbers-only (no money), queue-first, tag-driven.
+ * 2-14 rule enforced SERVER SIDE on attempt tags.
+ */
+@RestController
+@RequestMapping("/api/recovery")
+@RequiredArgsConstructor
+public class RecoveryNoteController {
+
+    private final ClientRepository clientRepo;
+    private final RecoveryNoteRepository noteRepo;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private UserRepository userRepo;
+
+    // THE 8 LOCKED TAGS: label | tone | countsAsAttempt
+    private static final String[][] TAGS = {
+        {"committed to pay",   "POSITIVE", "true"},
+        {"answered call",      "POSITIVE", "true"},
+        {"not picking up",     "NEGATIVE", "true"},
+        {"not going through",  "NEGATIVE", "true"},
+        {"rings, no answer",   "NEGATIVE", "true"},
+        {"phone off",          "NEGATIVE", "true"},
+        {"needs site visit",   "NEGATIVE", "false"},
+        {"failed to pay",      "NEGATIVE", "false"}
+    };
+
+    private static String[] tagDef(String tag) {
+        for (String[] t : TAGS) if (t[0].equals(tag)) return t;
+        return null;
+    }
+
+    private boolean locked(Client c, LocalDateTime now) {
+        LocalDateTime unlock = now.minusDays(14);
+        LocalDateTime last = c.getLastContactedAt();
+        if (last != null && last.isAfter(unlock)) return true;
+        long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(
+            c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
+        return attempts >= 2;
+    }
+
+    // reflection: entryType badge without compile-time coupling to model version
+    private String entryType(Client c) {
+        for (String g : new String[]{"getEntryType","getIntakeType","getClientType","getPreset"}) {
+            try {
+                Object v = c.getClass().getMethod(g).invoke(c);
+                if (v != null) return String.valueOf(v);
+            } catch (Exception ignored) { }
+        }
+        return null;
+    }
+
+    private Map<String, Object> clientDto(Client c, LocalDateTime now) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", c.getId());
+        m.put("name", c.getFullName());
+        m.put("nin", c.getNationalId());
+        m.put("phone", c.getPhoneNumber());
+        m.put("entryType", entryType(c));
+        m.put("lastContactedAt", c.getLastContactedAt());
+        m.put("locked", locked(c, now));
+        noteRepo.findFirstByClientOrderByCreatedAtDesc(c).ifPresent(n -> {
+            m.put("lastTag", n.getTag());
+            m.put("lastTone", n.getTone());
+        });
+        return m;
+    }
+
+    @GetMapping("/tags")
+    public List<Map<String, Object>> tags() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String[] t : TAGS) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("tag", t[0]); m.put("tone", t[1]);
+            m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
+            out.add(m);
+        }
+        return out;
+    }
+
+    @GetMapping("/queue")
+    public List<Map<String, Object>> queue() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Client> due = new ArrayList<>();
+        for (Client c : clientRepo.findAll()) if (!locked(c, now)) due.add(c);
+        due.sort(Comparator.comparing(Client::getLastContactedAt,
+            Comparator.nullsFirst(Comparator.naturalOrder())));
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Client c : due) out.add(clientDto(c, now));
+        return out;
+    }
+
+    @GetMapping("/stats")
+    public Map<String, Object> stats() {
+        LocalDateTime now = LocalDateTime.now();
+        long due = 0, lockedCount = 0, siteVisits = 0;
+        for (Client c : clientRepo.findAll()) {
+            if (locked(c, now)) lockedCount++; else due++;
+            var last = noteRepo.findFirstByClientOrderByCreatedAtDesc(c);
+            if (last.isPresent() && "needs site visit".equals(last.get().getTag())) siteVisits++;
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("dueNow", due);
+        m.put("callsToday", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(
+            LocalDate.now().atStartOfDay()));
+        m.put("callsThisMonth", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(
+            LocalDate.now().withDayOfMonth(1).atStartOfDay()));
+        m.put("locked", lockedCount);
+        m.put("siteVisits", siteVisits);
+        return m;
+    }
+
+    @GetMapping("/clients/{id}/notes")
+    public List<Map<String, Object>> notes(@PathVariable UUID id) {
+        return clientRepo.findById(id).map(c -> {
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", n.getId()); m.put("tag", n.getTag());
+                m.put("tone", n.getTone()); m.put("text", n.getText());
+                m.put("createdAt", n.getCreatedAt());
+                m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
+                out.add(m);
+            }
+            return out;
+        }).orElse(List.of());
+    }
+
+    @PostMapping("/notes")
+    public ResponseEntity<?> log(@RequestBody Map<String, String> body, Authentication auth) {
+        String tag = body.get("tag");
+        String[] def = tagDef(tag);
+        if (def == null) return ResponseEntity.badRequest().body(Map.of("error", "unknown tag"));
+        UUID clientId = UUID.fromString(body.get("clientId"));
+        Client c = clientRepo.findById(clientId)
+            .orElseThrow(() -> new RuntimeException("client not found"));
+        LocalDateTime now = LocalDateTime.now();
+        boolean attempt = Boolean.parseBoolean(def[2]);
+        if (attempt && locked(c, now))
+            return ResponseEntity.status(409).body(Map.of(
+                "error", "cool-down active: 14-day interval or 2-call monthly limit"));
+        com.gesolutions.erp.modules.auth.model.User author = null;
+        if (userRepo != null && auth != null) {
+            try {
+                author = (com.gesolutions.erp.modules.auth.model.User)
+                    userRepo.getClass().getMethod("findByUsername", String.class)
+                    .invoke(userRepo, auth.getName());
+                if (author instanceof java.util.Optional) author = ((java.util.Optional<com.gesolutions.erp.modules.auth.model.User>) author).orElse(null);
+            } catch (Exception ignored) { }
+        }
+        RecoveryNote n = RecoveryNote.builder()
+            .client(c).author(author).tag(def[0]).tone(def[1])
+            .countsAsAttempt(attempt)
+            .text(body.get("text") == null || body.get("text").isBlank() ? null : body.get("text").trim())
+            .build();
+        noteRepo.save(n);
+        if (attempt) { c.setLastContactedAt(now); clientRepo.save(c); }
+        return ResponseEntity.ok(Map.of("ok", true, "id", n.getId()));
+    }
+}
