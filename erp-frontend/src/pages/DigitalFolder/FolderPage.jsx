@@ -259,7 +259,7 @@ const FolderPage = () => {
                 else { const el = document.getElementById('paymentHistorySection'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
             }, 350);
         } else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');
-        } else if (hash === 'identity' || hash === 'owners') setActiveTab('OWNERS');
+        else if (hash === 'identity' || hash === 'owners') setActiveTab('OWNERS');
         else if (hash === 'vault' || hash === 'documents') setActiveTab('DOCUMENTS');
         else window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [id, canEdit]);
