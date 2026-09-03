@@ -129,7 +129,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
             <span className={styles.confirmTitle}>{state.title}</span></div>
         <p className={styles.confirmMessage}>{state.message}</p>
         <div className={styles.confirmFooter}>
-            
+            <button type="button" className={styles.confirmCancelBtn} onClick={() => onAnswer(false)} autoFocus><FiX aria-hidden="true" /> CANCEL</button>
             <button type="button" className={`${styles.confirmOkBtn} ${isDanger ? styles.confirmOkDanger : styles.confirmOkWarn}`} onClick={() => onAnswer(true)}>
                 {isDanger ? <><FiTrash2 aria-hidden="true" /> CONFIRM ERASE</> : <><FiCheckCircle aria-hidden="true" /> CONFIRM</>}</button>
         </div></div></div>, document.body);
@@ -188,6 +188,7 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
             </div>
             <div className={modalStyles.modalField}><input type="text" value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Custom stage name" className={styles.dtInput} aria-label="Custom stage name" /></div>
             <div className={modalStyles.modalFooter}>
+                <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => setAddModalOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
                 <HardwareButton type="button" onClick={handleAttach} loading={saving} icon={FiCheckCircle}>ADD SELECTED</HardwareButton>
             </div>
         </HardwareModal>
@@ -240,12 +241,6 @@ const FolderPage = () => {
     const touchedRef = useRef(false);
     const touchedSetBuffer = React.useCallback((updater) => { touchedRef.current = true; setBuffer(updater); }, []);
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(!committing && isEditing);
-    const lastActiveRef = useRef(Date.now());
-    useEffect(() => {
-        const mark = () => { lastActiveRef.current = Date.now(); };
-        window.addEventListener('click', mark); window.addEventListener('keydown', mark);
-        return () => { window.removeEventListener('click', mark); window.removeEventListener('keydown', mark); };
-    }, []);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -278,16 +273,6 @@ const FolderPage = () => {
         if (action === 'pay') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('TITLE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
         else if (action === 'storage') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('STORAGE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
     }, [location.search, binder]);
-    useEffect(() => {
-        const t = setInterval(() => {
-            if (!isEditing || committing) return;
-            if (Date.now() - lastActiveRef.current > 5 * 60 * 1000) {
-                lastActiveRef.current = Date.now();
-                handleCommit();
-            }
-        }, 15000);
-        return () => clearInterval(t);
-    });
     useEffect(() => {
         if (!isEditing || committing) return;
         const handler = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
@@ -420,7 +405,7 @@ const FolderPage = () => {
     const handleOpenDoc = (filePath) => { if (!filePath) return; const url = getDocUrl(filePath); if (filePath.startsWith('http')) window.open(url, '_blank', 'noopener,noreferrer'); else fetch(url, { headers: { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } }).then(r => r.blob()).then(blob => { const b = URL.createObjectURL(blob); window.open(b, '_blank', 'noopener,noreferrer'); setTimeout(() => URL.revokeObjectURL(b), 30000); }).catch(() => window.open(url, '_blank', 'noopener,noreferrer')); };
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
 
-    if (loading) return (<div className={styles.container}><div className={styles.skeletonPage}><div className={styles.skeletonTermHeader} /><div className={styles.skeletonHUD} /><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div></div></div>);
+    if (loading) return <div className={styles.container}><p style={{ padding: 40, color: 'rgba(255,255,255,0.4)' }}>Loading record…</p></div>;
     if (loadError || !binder || !buffer) return (<div style={{ padding: 'clamp(40px,8vw,80px) clamp(20px,4vw,40px)' }}><ErrorMessage type="error" title="Record not found" message="This archive entry could not be loaded." onRetry={loadFolderData} retryLabel="Try Again" /></div>);
 
     const project = binder.project;
@@ -466,7 +451,7 @@ const FolderPage = () => {
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>IN RECEIVABLES</span>
                             : amountPaid >= totalValue ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>FULLY PAID</span>
                             : <span className={`${styles.textBadge} ${styles.badgeActive}`}>ACTIVE</span>}
-                        {project.landTitle?.isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`}>RELEASED</span>}
+                        {project.landTitle?.isReleased && <span className={`${styles.textBadge} ${styles.badgeTitled}`}>RELEASED</span>}
                         {project.isLegacy && <span className={`${styles.textBadge} ${styles.badgeLegacy}`}>LEGACY</span>}
                         {project.storagePaused && <span className={`${styles.textBadge} ${styles.badgePaused}`}>STORAGE PAUSED</span>}
                         {project.negotiationDeadline && <span className={`${styles.textBadge} ${styles.badgePaused}`}>NEGOTIATION</span>}
@@ -637,16 +622,6 @@ const FolderPage = () => {
                                     </div>)}
                             </div>))}
                         </div>
-                        <h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
-                        {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
-                            <table className={styles.portfolioTable}>
-                                <thead><tr><th>#</th><th>PLOT</th><th>OWNER</th><th>STATUS</th></tr></thead>
-                                <tbody>{portfolio.map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
-                                    onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
-                                    <td>#{r.index}</td><td>{r.plot || '—'}</td><td>{r.sharedOwner}</td>
-                                    <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
-                                </tr>))}</tbody>
-                            </table>)}
                     </div></div>
                 </section>
                 <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
@@ -707,6 +682,7 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} onChange={e => setPayNotes(e.target.value)} /></div>
                 <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }}><FiX aria-hidden="true" /> CANCEL</button>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
             </HardwareModal>

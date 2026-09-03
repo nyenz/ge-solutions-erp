@@ -472,3 +472,9 @@ Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that fi
 
 ## 16. KNOWN ISSUES (not blocking)
 - Database columns still use the old name `is_backlog`, `backlog_start_date`, `backlog_start_override`, `backlog_months_billed` for what the code and business rules now call "Receivable" (money owed / overdue payment -- see Section 5). This is kept intentionally for migration safety (renaming risks Hibernate creating new empty columns and stranding historical data). Do not confuse this with the NEW "Backlog" business term (work not yet finished) -- same word, different meaning, only at the raw DB column level. Do not rename these columns without a manual, out-of-band migration run directly against the live DB first.
+## DESIGN RULES (fix58)
+1. X IS THE CLOSER: any popup/modal that shows the animated X must NOT also show a CANCEL button. X = dismiss.
+2. LOADING STATES: every page renders the skeleton loader (skeletonPage/skeletonPanel), never plain text.
+3. ATTENTION COLORS: green = healthy/active/paid, orange = pending/backlog, red = debt/danger, amber = paused/negotiation, cyan = released/info. Use consistently app-wide.
+4. INACTIVITY: edit mode auto-saves and deactivates after 5 minutes of no interaction.
+5. RELATED PROJECTS: Owners tab always lists every other project of each owner/joint owner, clickable to navigate.

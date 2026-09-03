@@ -2957,3 +2957,12 @@
 @keyframes xPop{from{transform:rotate(0)}to{transform:rotate(90deg)}}
 .confirmClose{position:absolute;top:10px;right:10px;background:rgba(239,68,68,0.12);border:1.5px solid rgba(239,68,68,0.45);color:#ef4444;border-radius:8px;padding:6px;cursor:pointer;transition:all .2s;display:inline-flex;}
 .confirmClose:hover{background:#ef4444;color:#fff;animation:xPop .2s ease forwards;}
+
+/* FS-UNIFY v8 — attention-color semantics */
+.badgeActive{color:#10b981;background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.35);}
+.badgeTitled{color:#10b981;background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.35);}
+.badgeReleased{color:#06b6d4;background:rgba(6,182,212,0.10);border-color:rgba(6,182,212,0.35);}
+.badgeRecv{color:#ef4444;background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.4);}
+.badgeBacklog{color:#EE8C3A;background:rgba(238,140,58,0.10);border-color:rgba(238,140,58,0.35);}
+.badgeLegacy{color:#64748b;background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.35);}
+.badgePaused{color:#f59e0b;background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.4);}
