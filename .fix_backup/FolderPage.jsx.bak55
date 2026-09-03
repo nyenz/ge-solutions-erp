@@ -604,10 +604,10 @@ const FolderPage = () => {
                             </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>
                                 <h2 className={styles.ownerName}>{p.fullName}</h2>
                                 <div className={styles.infoColumns}>
-                                    <div className={styles.infoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{p.phoneNumber||'---'}</span></div>
-                                    <div className={styles.infoRow}><FiMail aria-hidden="true" /><span>{p.email||'---'}</span></div>
-                                    <div className={styles.infoRow}><FiShield aria-hidden="true" /><span>{p.nationalId||'---'}</span></div>
-                                    <div className={styles.infoRow}><FiMapPin aria-hidden="true" /><span>{p.homeAddress||'---'}</span></div>
+                                    <div className={styles.infoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{p.phoneNumber || '---'}</span></div>
+                                    <div className={styles.infoRow}><FiMail aria-hidden="true" /><span>{p.email || '---'}</span></div>
+                                    <div className={styles.infoRow}><FiShield aria-hidden="true" /><span>{p.nationalId || '---'}</span></div>
+                                    <div className={styles.infoRow}><FiMapPin aria-hidden="true" /><span>{p.homeAddress || '---'}</span></div>
                                 </div>
                                 {(portfolio.filter(r => r.sharedOwner === p.fullName).length > 0) && (
                                     <div className={styles.ownerPortfolio}>
@@ -621,9 +621,10 @@ const FolderPage = () => {
                                                 </tr>))}
                                         </tbody></table>
                                     </div>)}
+                                </div>
                             </div>))}
                         </div>
-                    </div>
+                    </div></div>
                 </section>
                 <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
