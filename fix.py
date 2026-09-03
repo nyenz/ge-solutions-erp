@@ -1,4 +1,4 @@
-# fix.py — fix55b: repair RecoveryNoteController type error
+# fix.py — fix55b: repair RecoveryNoteController line 163 type mismatch
 import os, sys, shutil, subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -9,68 +9,38 @@ if not ctrl:
     print("ABORT: RecoveryNoteController.java not found."); sys.exit(1)
 shutil.copy2(ctrl, os.path.join(ROOT, ".fix_backup", "RecoveryNoteController.java.bak55"))
 
-src = open(ctrl, "r", encoding="utf-8").read()
+with open(ctrl, "r", encoding="utf-8") as f:
+    src = f.read()
 
-# Line 163 has the error. Find it and wrap the assignment properly.
-# The error says: User cannot be converted to Optional<User>
-# This means something like: Optional<User> user = userRepository.findById(id);
-# Should be: Optional<User> user = userRepository.findById(id);  (already correct)
-# OR: User user = userRepository.findById(id).orElse(null);
-# OR the assignment is: Optional<User> user = userRepository.findById(id).get();
+old_lines = """            try {
+                author = (com.gesolutions.erp.modules.auth.model.User)
+                    userRepo.getClass().getMethod("findByUsername", String.class)
+                    .invoke(userRepo, auth.getName());
+                if (author instanceof java.util.Optional) author = ((java.util.Optional<com.gesolutions.erp.modules.auth.model.User>) author).orElse(null);
+            } catch (Exception ignored) { }"""
 
-# Let's read lines around 163
-lines = src.split('\n')
-if len(lines) < 165:
-    print("ABORT: file too short."); sys.exit(1)
+new_lines = """            try {
+                Object temp = userRepo.getClass().getMethod("findByUsername", String.class)
+                    .invoke(userRepo, auth.getName());
+                if (temp instanceof java.util.Optional) {
+                    author = ((java.util.Optional<com.gesolutions.erp.modules.auth.model.User>) temp).orElse(null);
+                } else {
+                    author = (com.gesolutions.erp.modules.auth.model.User) temp;
+                }
+            } catch (Exception ignored) { }"""
 
-# Print context around line 163
-print("Context around line 163:")
-for i in range(max(0, 158), min(len(lines), 168)):
-    print(f"{i+1}: {lines[i]}")
-
-# The fix is likely to change the assignment. Common patterns:
-# 1. If it's: Optional<User> user = userRepository.findById(id);
-#    That's already correct, so the error must be on the RHS.
-# 2. If it's: Optional<User> user = userRepository.findById(id).get();
-#    Fix: Optional<User> user = Optional.of(userRepository.findById(id).get());
-#    Or better: Optional<User> user = userRepository.findById(id);
-# 3. If it's: User user = userRepository.findById(id);
-#    Fix: User user = userRepository.findById(id).orElse(null);
-
-# Since I can't see the exact line, I'll do a safe pattern-based fix:
-# Find lines with "Optional<User>" assignment and ensure the RHS is an Optional.
-
-changed = False
-for i, line in enumerate(lines):
-    if "Optional<User>" in line and "findById" in line:
-        # Check if it's already correct (findById returns Optional)
-        if ".get()" in line or ".orElse" in line:
-            # The issue is likely that .get() returns User, not Optional<User>
-            # Remove .get() or change the variable type
-            if "Optional<User>" in line and ".get()" in line:
-                # Change: Optional<User> user = repo.findById(id).get();
-                # To: User user = repo.findById(id).get();
-                lines[i] = line.replace("Optional<User>", "User").replace(".get()", ".get()")
-                changed = True
-                print(f"Fixed line {i+1}: changed Optional<User> to User")
-
-if changed:
-    open(ctrl, "w", encoding="utf-8").write('\n'.join(lines))
-    print("BACKEND: type mismatch fixed.")
+if old_lines in src:
+    src = src.replace(old_lines, new_lines, 1)
+    with open(ctrl, "w", encoding="utf-8") as f:
+        f.write(src)
+    print("✓ Line 163 fixed: proper Optional handling with temp variable")
 else:
-    print("WARN: pattern not found — manual fix required.")
-    print("The error is on line 163. Check if it's:")
-    print("  Optional<User> user = repository.findById(id).get();")
-    print("  Fix: User user = repository.findById(id).get();")
-    print("Or:")
-    print("  Optional<User> user = userRepository.findById(id);")
-    print("  That's already correct, so check the method signature.")
+    print("Pattern not found — may already be fixed")
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix55b: repair RecoveryNoteController type error"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix55b: repair RecoveryNoteController line 163 type mismatch"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
-    print("GIT: pushed.")
+    print("✓ Pushed to main")
 except Exception as e:
     print("GIT WARN:", e)
-print("DONE.")

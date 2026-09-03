@@ -157,10 +157,13 @@ public class RecoveryNoteController {
         com.gesolutions.erp.modules.auth.model.User author = null;
         if (userRepo != null && auth != null) {
             try {
-                author = (com.gesolutions.erp.modules.auth.model.User)
-                    userRepo.getClass().getMethod("findByUsername", String.class)
+                Object temp = userRepo.getClass().getMethod("findByUsername", String.class)
                     .invoke(userRepo, auth.getName());
-                if (author instanceof java.util.Optional) author = ((java.util.Optional<com.gesolutions.erp.modules.auth.model.User>) author).orElse(null);
+                if (temp instanceof java.util.Optional) {
+                    author = ((java.util.Optional<com.gesolutions.erp.modules.auth.model.User>) temp).orElse(null);
+                } else {
+                    author = (com.gesolutions.erp.modules.auth.model.User) temp;
+                }
             } catch (Exception ignored) { }
         }
         RecoveryNote n = RecoveryNote.builder()
