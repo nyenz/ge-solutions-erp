@@ -1,483 +1,202 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import {
-    FiPhoneCall, FiClock, FiSearch,
-    FiSave, FiList, FiCalendar,
-    FiChevronDown, FiChevronUp,
-    FiDollarSign, FiAlertOctagon, FiActivity
-} from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiPhone, FiSearch, FiX, FiMapPin, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
-import HardwareButton from '../../components/common/HardwareButton';
-import HardwareModal from '../../components/common/HardwareModal';
+import { useAuth } from '../../hooks/useAuth';
 import styles from './RecoveryPortal.module.css';
-import modalStyles from '../../components/common/HardwareModal.module.css';
 
-const fmt = (n) => Number(n || 0).toLocaleString();
+// entry-type labels kept identical to Intake (discovered at fix time)
+const ENTRY_TYPES = ["NEW", "LEGACY", "BACKLOG"];
 
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = {
-    GREEN:  'Paid within 14 days',
-    YELLOW: 'Paid within 30 days',
-    RED:    'No recent payment',
-};
+const ENTRY_TONE = {};
+ENTRY_TYPES.forEach(function (t, i) { ENTRY_TONE[String(t).toUpperCase()] = i; });
 
-const RecoveryPortal = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const isAdmin = user?.role === 'ROLE_ADMIN' || user?.isRoot;
-    // STAGE 2 FIX: matches the backend permission on POST /land/projects/{id}/payment
-    // (ROLE_MANAGER/ROLE_ADMIN/ROLE_DIRECTOR, widened in Stage 1) -- isAdmin alone
-    // was hiding this button from Directors and Managers who could already use it.
-    const canRecordPayment = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR' || user?.role === 'ROLE_MANAGER' || user?.isRoot;
+function fmtWhen(s) {
+  if (!s) return 'never';
+  var d = new Date(s);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
-    const [viewMode,     setViewMode]     = useState('ACTION');
-    const [missions,     setMissions]     = useState([]);
-    const [loading,      setLoading]      = useState(true);
-    const [expandedId,   setExpandedId]   = useState(null);
-    const [searchTerm,   setSearchTerm]   = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    // STAGE 10 FIX: the call log has to say WHICH owner was reached, not
-    // just which plot -- carry the card's own clientId/ownerName through.
-    const [callModal,    setCallModal]    = useState({ open: false, mission: null, ownerId: null, ownerName: '' });
-    const [logContent,   setLogContent]   = useState('');
-    const [committing,   setCommitting]   = useState(false);
-    // STAGE 11 FIX: soft, dismissible notice for "a co-owner was already
-    // contacted about this plot recently" (design brief 3.4 #2) -- never
-    // blocks the call log, which has already been saved by the time this shows.
-    const [coOwnerWarning, setCoOwnerWarning] = useState(null);
-    // STAGE 12 FIX: lets a co-owner link (design brief 3.3, "navigable")
-    // jump to that person's own card even if it is filtered out or
-    // collapsed right now -- clears filters, expands their card, then
-    // scrolls to it once it is present in the loaded mission list.
-    const [scrollTargetId, setScrollTargetId] = useState(null);
+export default function RecoveryPortal() {
+  const { user } = useAuth();
+  const [queue, setQueue] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sel, setSel] = useState(null);      // selected client row
+  const [notes, setNotes] = useState([]);
+  const [picked, setPicked] = useState(null); // picked tag def
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = viewMode === 'ACTION'
-                ? await recoveryService.getMissionQueue()
-                : await recoveryService.getRecoverySchedule();
-            setMissions(data);
-        } catch { /* silent */ }
-        finally { setLoading(false); }
-    }, [viewMode]);
+  const load = useCallback(function () {
+    Promise.all([
+      recoveryService.getQueue(), recoveryService.getTags(), recoveryService.getStats()
+    ]).then(function (r) {
+      setQueue(r[0].data || []);
+      setTags(r[1].data || []);
+      setStats(r[2].data || null);
+    }).catch(function (e) { setMsg('load failed: ' + (e.message || e)); });
+  }, []);
+  useEffect(function () { load(); }, [load]);
 
-    useEffect(() => { loadData(); }, [loadData]);
+  const open = function (c) {
+    setSel(c); setPicked(null); setText(''); setMsg(null);
+    recoveryService.getNotes(c.id).then(function (r) { setNotes(r.data || []); });
+  };
 
-    // STAGE 12 FIX: once the mission list contains the co-owner we just
-    // navigated to, scroll their card into view. Runs again whenever
-    // missions reloads (e.g. after switching to ALL TARGETS) until found.
-    useEffect(() => {
-        if (!scrollTargetId) return;
-        const el = document.getElementById('recovery-card-' + scrollTargetId);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setScrollTargetId(null);
-        }
-    }, [missions, scrollTargetId]);
+  const save = function () {
+    if (!picked || !sel) return;
+    setBusy(true); setMsg(null);
+    recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })
+      .then(function () { setSel(null); load(); })
+      .catch(function (e) {
+        setBusy(false);
+        setMsg((e.response && e.response.data && e.response.data.error) || 'save failed');
+      });
+  };
 
-    const filteredMissions = useMemo(() => {
-        let list = missions;
-        if (searchTerm.trim()) {
-            const t = searchTerm.toLowerCase();
-            list = list.filter(m =>
-                m.ownerName.toLowerCase().includes(t) ||
-                m.phoneNumber.includes(t) ||
-                m.plots.some(p => p.plotNumber.toLowerCase().includes(t))
-            );
-        }
-        if (statusFilter === 'RECEIVABLES') list = list.filter(m => m.hasReceivablePlots);
-        if (statusFilter === 'ACTIVE')  list = list.filter(m => !m.hasReceivablePlots);
-        return list;
-    }, [missions, searchTerm, statusFilter]);
+  const term = search.toLowerCase().replace(/\s+/g, '');
+  const rows = queue.filter(function (c) {
+    if (!term) return true;
+    var hay = [c.name, c.nin, c.phone, c.lastTag, c.entryType].join(' ').toLowerCase().replace(/\s+/g, '');
+    return hay.indexOf(term) >= 0;
+  });
 
-    const totalActiveOwed  = missions.filter(m => !m.hasReceivablePlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
-    const totalReceivableOwed = missions.filter(m =>  m.hasReceivablePlots).reduce((s, m) => s + Number(m.totalDemand || 0), 0);
-    const totalStorageFees = missions.reduce((s, m) => s + Number(m.totalStorageFees || 0), 0);
+  return (
+    <div className={styles.cockpit}>
+      <header className={styles.topbar}>
+        <h1 className={styles.title}>RECOVERY COCKPIT</h1>
+        <div className={styles.counts}>
+          <div className={styles.count}><span>{stats ? stats.dueNow : '-'}</span><label>DUE NOW</label></div>
+          <div className={styles.count}><span>{stats ? stats.callsToday : '-'}</span><label>CALLS TODAY</label></div>
+          <div className={styles.count}><span>{stats ? stats.callsThisMonth : '-'}</span><label>THIS MONTH</label></div>
+          <div className={styles.count}><span>{stats ? stats.locked : '-'}</span><label>LOCKED</label></div>
+          <div className={styles.count}><span>{stats ? stats.siteVisits : '-'}</span><label>SITE VISITS</label></div>
+        </div>
+      </header>
 
-    const handleLogCall = async () => {
-        if (!callModal.mission || !callModal.ownerId) return;
-        setCommitting(true);
-        try {
-            const result = await recoveryService.logRecoveryCall(callModal.mission.projectId, callModal.ownerId, logContent);
-            setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' });
-            setLogContent('');
-            // STAGE 11 FIX: purely informational -- the call was already
-            // logged successfully by this point regardless of this value.
-            setCoOwnerWarning(result && result.coOwnerWarning ? result.coOwnerWarning : null);
-            loadData();
-        } catch { /* silent */ }
-        finally { setCommitting(false); }
-    };
+      <div className={styles.searchRow}>
+        <FiSearch />
+        <input
+          placeholder="search name / NIN / phone / tag (e.g. needs site visit)"
+          value={search}
+          onChange={function (e) { setSearch(e.target.value); }}
+        />
+      </div>
 
-    // STAGE 10 FIX: caller now passes ownerId/ownerName from the card that
-    // triggered this modal, so a joint call is attributed to the actual
-    // person on that card -- never silently defaulted to a co-owner -- and
-    // pre-fills with THAT owner's own last note, not a shared one.
-    const openCallModal = (e, plot, ownerId, ownerName) => {
-        e.stopPropagation();
-        const lastNote = plot.ownerLastContactNote ? plot.ownerLastContactNote : '';
-        setCallModal({ open: true, mission: plot, ownerId, ownerName });
-        setLogContent(lastNote);
-    };
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr><th>#</th><th>CLIENT</th><th>PHONE</th><th>TYPE</th><th>LAST OUTCOME</th><th>LAST CONTACT</th><th></th></tr>
+          </thead>
+          <tbody>
+            {rows.map(function (c, i) {
+              return (
+                <tr key={c.id} className={styles.row} onClick={function () { open(c); }}>
+                  <td className={styles.num}>{i + 1}</td>
+                  <td>
+                    <span className={styles.cname}>{c.name}</span>
+                    <span className={styles.nin}>{c.nin}</span>
+                  </td>
+                  <td className={styles.mono}>{c.phone}</td>
+                  <td>
+                    {c.entryType
+                      ? <span className={styles['badge' + (ENTRY_TONE[String(c.entryType).toUpperCase()] || 0)]}>{c.entryType}</span>
+                      : <span className={styles.badge0}>-</span>}
+                  </td>
+                  <td>
+                    {c.lastTag
+                      ? <span className={c.lastTone === 'POSITIVE' ? styles.chipPos : styles.chipNeg}>{c.lastTag}</span>
+                      : <span className={styles.chipNone}>no contact</span>}
+                  </td>
+                  <td className={styles.mono}>{fmtWhen(c.lastContactedAt)}</td>
+                  <td><button className={styles.openBtn}><FiPhone /> open</button></td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan="7" className={styles.empty}>queue clear - everyone cooled down or contacted</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-    // STAGE 12 FIX: co-owner link handler (design brief 3.3). Switches to
-    // ALL TARGETS so a locked/cooling-down co-owner is not hidden by the
-    // DUE FOR CALL filter, clears search/status filters that could hide
-    // their card, expands their card, and queues the scroll-to for the
-    // effect above.
-    const handleGoToCoOwner = (e, coOwnerId) => {
-        e.stopPropagation();
-        setSearchTerm('');
-        setStatusFilter('ALL');
-        setViewMode('FORECAST');
-        setExpandedId(coOwnerId);
-        setScrollTargetId(coOwnerId);
-    };
-
-    return (
-        <div className={styles.container}>
-
-            {/* HEADER */}
-            <header className={styles.pageHeader}>
-                <div className={styles.headerLeft}>
-                    <h1 className={styles.pageTitle}>Call Recovery</h1>
-                    <p className={styles.pageSubtitle}>Log client calls and record payments</p>
-                </div>
-                <div className={styles.headerRight}>
-                    <div className={styles.modeSwitch}>
-                        <button
-                            className={viewMode === 'ACTION' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => setViewMode('ACTION')}
-                        >
-                            <FiList aria-hidden="true" /> DUE FOR CALL
-                        </button>
-                        <button
-                            className={viewMode === 'FORECAST' ? styles.modeActive : styles.modeInactive}
-                            onClick={() => setViewMode('FORECAST')}
-                        >
-                            <FiCalendar aria-hidden="true" /> ALL TARGETS
-                        </button>
-                    </div>
-                </div>
+      {sel && (
+        <div className={styles.overlay} onClick={function () { setSel(null); }}>
+          <div className={styles.drawer} onClick={function (e) { e.stopPropagation(); }}>
+            <header className={styles.drawerHead}>
+              <div>
+                <h2>{sel.name}</h2>
+                <span className={styles.nin}>{sel.nin}</span>
+                <span className={styles.mono}>{sel.phone}</span>
+              </div>
+              <button className={styles.closeBtn} onClick={function () { setSel(null); }}><FiX /></button>
             </header>
 
-            {/* FINANCIAL HUD */}
-            <div className={styles.finHUD}>
-                <div className={styles.finHUDCard}>
-                    <label>ACTIVE TITLES OWED</label>
-                    <strong>UGX {fmt(totalActiveOwed)}</strong>
-                </div>
-                <div className={styles.finHUDCard}>
-                    <label>RECEIVABLES TOTAL OWED</label>
-                    <strong>UGX {fmt(totalReceivableOwed)}</strong>
-                </div>
-                <div className={styles.finHUDCard}>
-                    <label>STORAGE FEES</label>
-                    <strong>UGX {fmt(totalStorageFees)}</strong>
-                </div>
-            </div>
-
-            {/* STAGE 11: soft, dismissible co-owner-recently-contacted notice
-                (design brief 3.4 #2) -- purely informational, call is already
-                logged by the time this can appear. */}
-            {coOwnerWarning && (
-                <div className={styles.coOwnerWarningBanner} role="status">
-                    <span>{coOwnerWarning}</span>
-                    <button
-                        type="button"
-                        className={styles.coOwnerWarningDismiss}
-                        onClick={() => setCoOwnerWarning(null)}
-                        aria-label="Dismiss notice"
-                    >
-                        &times;
-                    </button>
-                </div>
+            {sel.locked && (
+              <div className={styles.lockBanner}>
+                <FiAlertTriangle /> cool-down active - read only (14-day / 2-call rule)
+              </div>
             )}
 
-            {/* FILTER BAR */}
-            <div className={styles.filterBar}>
-                <div className={styles.searchInner}>
-                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                    <input
-                        className={styles.searchInput}
-                        type="search"
-                        placeholder="Search owner name, plot ID, phone..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        aria-label="Search recovery missions"
-                    />
-                </div>
-                <div className={styles.filterPills} role="group" aria-label="Filter missions">
-                    {['ALL', 'ACTIVE', 'RECEIVABLES'].map(f => (
-                        <button
-                            key={f}
-                            className={`${styles.filterPill} ${statusFilter === f ? styles.filterPillActive : ''}`}
-                            onClick={() => setStatusFilter(f)}
-                            aria-pressed={statusFilter === f}
-                        >
-                            {f}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* BADGE LEGEND */}
-            <div className={styles.legend} aria-label="Payment health legend">
-                {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                    <span key={k} className={styles.legendItem}>
-                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 4px ${c}` }} />
-                        {BADGE_LABELS[k]}
-                    </span>
-                ))}
-            </div>
-
-            {/* MISSION LIST */}
-            {loading ? (
-                <div className={styles.emptyState} role="status">
-                    <div className={styles.loadingSpinner} aria-hidden="true" />
-                    <span>LOADING RECOVERY QUEUE...</span>
-                </div>
-            ) : filteredMissions.length === 0 ? (
-                <div className={styles.emptyState} role="status">
-                    <FiActivity className={styles.emptyIcon} aria-hidden="true" />
-                    <span>{searchTerm ? `NO MISSIONS MATCH "${searchTerm.toUpperCase()}"` : 'NO MISSIONS IN QUEUE'}</span>
-                </div>
-            ) : (
-                <div className={styles.missionGrid}>
-                    {filteredMissions.map(m => {
-                        const isExpanded = expandedId === m.clientId;
-                        const badgeColor = BADGE_COLORS[m.plots[0]?.paymentHealthBadge] || '#ef4444';
-                        return (
-                            <div
-                                key={m.clientId}
-                                id={'recovery-card-' + m.clientId}
-                                className={`${styles.missionCard} ${m.hasReceivablePlots ? styles.cardReceivable : ''}`}
-                            >
-                                {/* CARD HEADER */}
-                                <div
-                                    className={styles.cardHeader}
-                                    onClick={() => setExpandedId(isExpanded ? null : m.clientId)}
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-expanded={isExpanded}
-                                    aria-label={`${m.ownerName} — ${isExpanded ? 'collapse' : 'expand'}`}
-                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : m.clientId); } }}
-                                >
-                                    {/* ROW 1: Plot ID + Balance */}
-                                    <div className={styles.cardTopRow}>
-                                        <div className={styles.cardTopRowLeft}>
-                                            <span
-                                                style={{ width: 9, height: 9, borderRadius: '50%', background: badgeColor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 5px ${badgeColor}` }}
-                                                title={BADGE_LABELS[m.plots[0]?.paymentHealthBadge]}
-                                            />
-                                            <span className={styles.plotId}>
-                                                {m.plots.map(p => p.plotNumber).join(' / ')}
-                                            </span>
-                                            {m.hasReceivablePlots && (
-                                                <span className={styles.receivablePill}>RECEIVABLES</span>
-                                            )}
-                                        </div>
-                                        <div className={styles.balanceLine}>
-                                            <span className={styles.balanceLabel}>TOTAL OWED</span>
-                                            <span className={`${styles.balanceVal} ${m.hasReceivablePlots ? styles.balanceRed : ''}`}>
-                                                UGX {fmt(m.totalDemand)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* ROW 2: Owner + Phone + Actions */}
-                                    <div className={styles.cardMain}>
-                                        <div className={styles.ownerPhoneBlock}>
-                                            <span className={styles.ownerLine}>{m.ownerName}</span>
-                                            <span className={styles.phoneLine}>{m.phoneNumber}</span>
-                                        </div>
-                                        <div className={styles.cardSideActions}>
-                                            <button
-                                                className={styles.logCallBtnSmall}
-                                                disabled={m.isLocked}
-                                                onClick={e => openCallModal(e, m.plots[0], m.clientId, m.ownerName)}
-                                                aria-label={m.isLocked ? 'Call locked' : `Log call for ${m.ownerName}`}
-                                            >
-                                                <FiPhoneCall aria-hidden="true" />
-                                                {m.isLocked ? 'LOCKED' : 'LOG CALL'}
-                                            </button>
-                                            {isExpanded
-                                                ? <FiChevronUp  className={styles.expandIcon} aria-hidden="true" />
-                                                : <FiChevronDown className={styles.expandIcon} aria-hidden="true" />
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* EXPANDED BODY */}
-                                {isExpanded && (
-                                    <div className={styles.cardBody}>
-                                        <div className={styles.timingRow}>
-                                            <FiClock aria-hidden="true" />
-                                            <span className={styles.timingItem}>Last contact: <strong>{m.lastContactDate}</strong></span>
-                                            <span className={styles.timingItem}>Next due: <strong>{m.nextCallDue}</strong></span>
-                                            <span className={styles.timingItem}>This month: <strong>{m.monthlyCallCount}/2</strong></span>
-                                        </div>
-
-                                        {m.plots.map(p => {
-                                            // CORRECT MATH:
-                                            // totalValue  = the true plot cost (totalCost from DTO, same as originalDebt for receivable)
-                                            // amtPaid     = what has been paid so far
-                                            // storageFees = accumulated fees (receivable only)
-                                            // amountOwed  = totalValue + storageFees - amtPaid
-                                            // 4-Pocket Math: AMOUNT OWED = (PLOT VALUE + STORAGE FEES) - PAID
-                                            const totalValue  = Number(p.totalCost || 0);
-                                            const amtPaid     = Number(p.amountPaid || 0);
-                                            const storageFees = p.isReceivable ? Number(p.storageFeesAccumulated || 0) : 0;
-                                            const amountOwed  = Math.max(0, totalValue + storageFees - amtPaid);
-
-                                            return (
-                                            <div key={p.projectId} className={styles.plotSubCard}>
-                                                <div className={styles.plotSubCardHeader}>
-                                                    <strong className={styles.plotSubCardTitle}>{p.plotNumber}</strong>
-                                                </div>
-
-                                                {/* STAGE 12 FIX: SOLO/JOINT badge + navigable co-owner links
-                                                    (design brief 3.3). The backend has supplied
-                                                    p.ownershipType / p.coOwners since Stage 10, and the CSS
-                                                    for this row has existed since Stage 10 too -- this was
-                                                    the missing piece that actually renders it. */}
-                                                <div className={styles.ownershipRow}>
-                                                    <span className={p.ownershipType === 'JOINT' ? styles.jointBadge : styles.soloBadge}>
-                                                        {p.ownershipType}
-                                                    </span>
-                                                    {p.ownershipType === 'JOINT' && p.coOwners && p.coOwners.length > 0 && (
-                                                        <>
-                                                            <span className={styles.jointOwnersLabel}>WITH:</span>
-                                                            {p.coOwners.map((co, i) => (
-                                                                <React.Fragment key={co.clientId}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className={styles.coOwnerLink}
-                                                                        onClick={e => handleGoToCoOwner(e, co.clientId)}
-                                                                    >
-                                                                        {co.fullName}
-                                                                    </button>
-                                                                    {i < p.coOwners.length - 1 && (
-                                                                        <span className={styles.jointOwnersLabel}>,</span>
-                                                                    )}
-                                                                </React.Fragment>
-                                                            ))}
-                                                        </>
-                                                    )}
-                                                </div>
-
-                                                {/* STAGE 12 FIX: THIS owner's own reach status for this
-                                                    project, separate from the general note below -- on a
-                                                    JOINT plot the general note can belong to a co-owner's
-                                                    call and must never be mistaken for this owner having
-                                                    been personally reached (design brief 3.3). */}
-                                                <div className={styles.ownerContactLine}>
-                                                    YOU last reached: <strong>{p.ownerLastContactDate || 'NEVER'}</strong>
-                                                </div>
-                                                {p.ownerLastContactNote && (
-                                                    <div className={styles.interactionNote}>
-                                                        <span className={styles.interactionNoteLabel}>YOUR LAST NOTE WITH THIS OWNER</span>
-                                                        <p className={styles.interactionNoteText}>{p.ownerLastContactNote}</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Last interaction note — notebook style */}
-                                                {p.lastInteractionNote && p.lastInteractionNote !== 'NO PRIOR CONTACT' && (
-                                                    <div className={styles.interactionNote}>
-                                                        {/* STAGE 12 FIX: on a JOINT plot this note can belong
-                                                            to a co-owner's call, not this card-owner's --
-                                                            relabeled so it is never confused with the
-                                                            YOUR LAST NOTE WITH THIS OWNER block above. */}
-                                                        <span className={styles.interactionNoteLabel}>
-                                                            {p.ownershipType === 'JOINT' ? 'MOST RECENT NOTE (ANY OWNER)' : 'LAST CONTACT NOTE'}
-                                                        </span>
-                                                        <p className={styles.interactionNoteText}>{p.lastInteractionNote}</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Financial breakdown */}
-                                                <div className={styles.finBreakdown}>
-                                                    <div className={styles.finRow}>
-                                                        <span className={styles.finLabel}>PLOT VALUE</span>
-                                                        <span className={styles.finValWhite}>UGX {fmt(totalValue)}</span>
-                                                    </div>
-                                                    {p.isReceivable && storageFees > 0 && (
-                                                        <div className={styles.finRow}>
-                                                            <span className={styles.finLabel}>+ STORAGE FEES</span>
-                                                            <span className={styles.finValOrange}>UGX {fmt(storageFees)}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className={styles.finRow}>
-                                                        <span className={styles.finLabel} style={{color:"#22c55e"}}>PAID</span>
-                                                        <span className={styles.finValGreen}>UGX {fmt(amtPaid)}</span>
-                                                    </div>
-                                                    <div className={styles.finRowTotal}>
-                                                        <span className={styles.finLabelTotal}>AMOUNT OWED</span>
-                                                        <span className={styles.finValRed}>UGX {fmt(amountOwed)}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className={styles.expandedActions}>
-                                                    <button
-                                                        className={styles.folderBtn}
-                                                        onClick={() => navigate(`/folder/${p.projectId}`)}
-                                                    >
-                                                        OPEN FOLDER
-                                                    </button>
-                                                    {canRecordPayment && (
-                                                        <button
-                                                            className={styles.payBtn}
-                                                            onClick={() => navigate(`/folder/${p.projectId}?action=pay`)}
-                                                        >
-                                                            <FiDollarSign aria-hidden="true" /> RECORD PAYMENT
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* LOG CALL MODAL — textarea pre-filled with last note */}
-            <HardwareModal
-                isOpen={callModal.open}
-                onClose={() => { setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' }); setLogContent(''); }}
-                title={callModal.mission ? `LOG CALL — ${callModal.mission.plotNumber} (${callModal.ownerName || 'owner'})` : 'LOG CALL'}
-            >
-                <div className={modalStyles.modalField}>
-                    <label className={modalStyles.modalLabel}>INTERACTION NOTES</label>
-                    <textarea
-                        className={modalStyles.modalTextarea}
-                        value={logContent}
-                        onChange={e => setLogContent(e.target.value)}
-                        placeholder="e.g. Client confirmed payment by Friday, awaiting bank transfer..."
-                        autoFocus
-                    />
-                </div>
-                <div className={modalStyles.modalFooter}>
-                    <button
-                        type="button"
-                        className={modalStyles.modalBtnSecondary}
-                        onClick={() => { setCallModal({ open: false, mission: null, ownerId: null, ownerName: '' }); setLogContent(''); }}
-                    >
-                        CANCEL
+            <div className={styles.tagwall}>
+              <label className={styles.wallLabel}>POSITIVE</label>
+              <div className={styles.wallRow}>
+                {tags.filter(function (t) { return t.tone === 'POSITIVE'; }).map(function (t) {
+                  return (
+                    <button key={t.tag}
+                      className={(styles.tagPos) + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')}
+                      disabled={sel.locked && t.countsAsAttempt}
+                      onClick={function () { setPicked(t); }}>
+                      {t.tag}
                     </button>
-                    <HardwareButton onClick={handleLogCall} loading={committing} icon={FiSave}>
-                        SAVE LOG
-                    </HardwareButton>
-                </div>
-            </HardwareModal>
+                  );
+                })}
+              </div>
+              <label className={styles.wallLabel}>NEGATIVE</label>
+              <div className={styles.wallRow}>
+                {tags.filter(function (t) { return t.tone === 'NEGATIVE'; }).map(function (t) {
+                  return (
+                    <button key={t.tag}
+                      className={(styles.tagNeg) + (picked && picked.tag === t.tag ? ' ' + styles.tagOn : '')}
+                      disabled={sel.locked && t.countsAsAttempt}
+                      onClick={function () { setPicked(t); }}>
+                      {t.tag.indexOf('site visit') >= 0 ? <FiMapPin /> : (t.countsAsAttempt ? <FiPhone /> : <FiClock />)} {t.tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <input className={styles.noteInput}
+              placeholder="optional detail (rare)"
+              value={text}
+              onChange={function (e) { setText(e.target.value); }} />
+
+            {msg && <div className={styles.err}>{msg}</div>}
+
+            <div className={styles.drawerActions}>
+              <button className={styles.saveBtn} disabled={!picked || busy} onClick={save}>
+                {busy ? 'saving...' : 'log outcome'}
+              </button>
+            </div>
+
+            <div className={styles.history}>
+              {notes.map(function (n) {
+                return (
+                  <div key={n.id} className={styles.histRow}>
+                    <span className={n.tone === 'POSITIVE' ? styles.chipPos : styles.chipNeg}>{n.tag}</span>
+                    <span className={styles.histMeta}>{n.author || 'system'} - {fmtWhen(n.createdAt)}</span>
+                    {n.text && <span className={styles.histText}>{n.text}</span>}
+                  </div>
+                );
+              })}
+              {notes.length === 0 && <div className={styles.empty}>no notes yet</div>}
+            </div>
+          </div>
         </div>
-    );
-};
-
-export default RecoveryPortal;
+      )}
+    </div>
+  );
+}
