@@ -54,81 +54,27 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(">>> [EXPENSES] Seeded default presets: Office, Fieldwork, Land Office");
     }
 
-    // Wipe ALL sample rows first so re-runs never duplicate.
+    // fix50: full demo reset -- wipes ALL business rows on every boot so
+    // each deploy restarts with exactly the seeded records (no duplicates).
+    // users / expense_presets / stage_templates are kept (login + config).
     private void purgeSampleData() {
-        String idsSql =
-            "SELECT lp.id FROM land_projects lp " +
-            "WHERE lp.district = 'SAMPLE DATA' " +
-            "OR lp.id IN (SELECT lt.id FROM land_titles lt WHERE lt.plot_number LIKE 'SAMPLE-%') " +
-            "OR lp.id IN (SELECT pp.project_id FROM project_proprietors pp JOIN clients c ON c.id = pp.client_id WHERE c.national_id LIKE 'SMPL-%')";
         String[] stmts = {
-            "DELETE FROM payment_records WHERE project_id IN (" + idsSql + ")",
-            "DELETE FROM follow_up_logs WHERE project_id IN (" + idsSql + ")",
-            "DELETE FROM project_stages WHERE project_id IN (" + idsSql + ")",
-            "DELETE FROM project_proprietors WHERE project_id IN (" + idsSql + ")",
-            "DELETE FROM land_projects WHERE id IN (" + idsSql + ")",
-            "DELETE FROM land_titles WHERE plot_number LIKE 'SAMPLE-%'",
-            "DELETE FROM clients WHERE national_id LIKE 'SMPL-%'",
+            "DELETE FROM project_documents",
+            "DELETE FROM payment_records",
+            "DELETE FROM follow_up_logs",
+            "DELETE FROM project_stages",
+            "DELETE FROM project_proprietors",
+            "DELETE FROM land_projects",
+            "DELETE FROM land_titles",
+            "DELETE FROM clients",
+            "DELETE FROM audit_logs",
         };
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
-            for (String s : stmts) { try { st.execute(s); } catch (Exception e) {} }
-            System.out.println(">>> [SAMPLE] Old sample data purged.");
-        } catch (Exception e) { System.err.println(">>> [SAMPLE] purge warning: " + e.getMessage()); }
-    }
-
-    private java.util.UUID trySeed(String label, java.util.concurrent.Callable<java.util.UUID> s) {
-        try { return s.call(); } catch (Exception e) { System.err.println(">>> [SAMPLE] " + label + " failed: " + e.getMessage()); return null; }
-    }
-
-    private void seedSampleProjects() {
-        purgeSampleData();
-        java.util.List<StageTemplate> master = stageTemplateService.getActiveTemplate();
-        java.util.Map<String, String> idByName = new java.util.HashMap<>();
-        for (StageTemplate t : master) idByName.put(t.getStageName(), t.getId().toString());
-        String FW="Field Work", DP="Deed Plan", LCI="LC Inspection", DLB="District Land Board Approval",
-               TASD="Tax Assessment and Stamp Duty", REG="Registration and Title Issuance";
-        java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
-        ids.add(trySeed("101", () -> seedOne("SAMPLE-101", false,false,false, null,null,null, "2026-05-04", 4000000L,2000000L,0,0,
-            new String[][]{{"JOHN SSERUGO","SMPL-1001","0772100100"}}, new String[]{FW,DP,LCI}, null, null,
-            new String[]{"WAKISO","KYADONDO","NAKAWA EAST","BUKOTO","KIIWA","0.5 acres"}, "Sample: fresh folder, paying well.", idByName)));
-        ids.add(trySeed("102", () -> seedOne("SAMPLE-102", false,false,false, null,null,null, "2026-07-10", 6000000L,0L,0,0,
-            new String[][]{{"MARY NAKATO","SMPL-1002","0772100200"}}, new String[]{FW}, null, null,
-            new String[]{"MPIGI","MPIGI COUNTY","MPIGI TOWN","CENTRAL","KIZUNGU","1 acre"}, "Sample: folder, no payment yet.", idByName)));
-        ids.add(trySeed("103", () -> seedOne("SAMPLE-103", false,false,false, null,null,null, "2026-02-02", 9000000L,6000000L,0,0,
-            new String[][]{{"PETER OPOK","SMPL-1003","0772100300"}}, new String[]{FW,DP,LCI,DLB,TASD}, new String[]{REG}, null,
-            new String[]{"MUKONO","MUKONO COUNTY","KATABI","BULANGA","NAGOGBE","2 acres"}, "Sample: ready for titling.", idByName)));
-        ids.add(trySeed("104", () -> seedOne("SAMPLE-104", false,true,false, "SMPL-T-104","2026-06-15","KBL-77", "2026-06-01", 15000000L,11000000L,0,0,
-            new String[][]{{"GRACE ACHENG","SMPL-1004","0772100400"}}, new String[]{FW,DP,LCI,DLB}, null, null,
-            new String[]{"KAMPALA","KAMPALA CENTRAL","MAKINDYE","KABALAGALA","GABA","0.25 acres"}, "Sample: new title in processing.", idByName)));
-        ids.add(trySeed("105", () -> seedOne("SAMPLE-105", true,false,false, "SMPL-T-105","2025-12-01","EBB-12", "2025-11-01", 20000000L,20000000L,0,0,
-            new String[][]{{"DAVID KIGONGO","SMPL-1005","0772100500"}}, new String[]{FW,DP,LCI,DLB,TASD,REG}, null, null,
-            new String[]{"WAKISO","ENTEBBE","ENTEBBE TOWN","KATABI","LUGALA","0.3 acres"}, "Sample: legacy fully paid.", idByName)));
-        ids.add(trySeed("106", () -> seedOne("SAMPLE-106", true,false,false, "SMPL-T-106","2025-06-20","MSK-3", "2025-05-02", 25000000L,25000000L,0,0,
-            new String[][]{{"SARAH NANSUBU","SMPL-1006","0772100600"}}, new String[]{FW,DP,LCI,DLB,TASD,REG}, null, "RELEASE",
-            new String[]{"MASAKA","MASAKA CENTRAL","MASAKA MUNICIPAL","KIMAANYA","KABOGA","1.5 acres"}, "Sample: released legacy.", idByName)));
-        ids.add(trySeed("107", () -> seedOne("SAMPLE-107", true,false,true, "SMPL-T-107","2025-09-10","MBR-9", "2025-08-01", 12000000L,2000000L,50000,50000,
-            new String[][]{{"JAMES TURYAHEREZA","SMPL-1007","0772100700"}}, new String[]{FW,DP}, null, null,
-            new String[]{"MBARARA","MBARARA COUNTY","MBARARA TOWN","KAKIIKA","NYAMITUKURA","0.8 acres"}, "Sample: receivable, fees accruing.", idByName)));
-        ids.add(trySeed("108", () -> seedOne("SAMPLE-108", false,true,true, "SMPL-T-108","2026-02-14","JIN-41", "2026-02-01", 10000000L,3000000L,50000,50000,
-            new String[][]{{"RACHEL NABIRYE","SMPL-1008","0772100800"}}, new String[]{FW,DP,LCI}, null, null,
-            new String[]{"JINJA","JINJA COUNTY","JINJA MUNICIPAL","WALUKUBA","MPUMUDDE","0.4 acres"}, "Sample: receivable, paying recently.", idByName)));
-        ids.add(trySeed("109", () -> seedOne("SAMPLE-109", false,false,false, null,null,null, "2026-01-15", 30000000L,3000000L,0,0,
-            new String[][]{{"SAMUEL KIBUKA","SMPL-1091","0772100901"},{"JOYCE NAKALEMA","SMPL-1092","0772100902"},{"BRIAN MUWANGA","SMPL-1093","0772100903"}},
-            new String[]{FW}, null, null,
-            new String[]{"KAYUNGA","KAYUNGA COUNTY","KAYUNGA TOWN","BUKOMBE","NAJJA","5 acres"}, "Sample: joint, critical arrears.", idByName)));
-        ids.add(trySeed("110", () -> seedOne("SAMPLE-110", true,false,false, "SMPL-T-110","2026-01-25","LWR-5", "2026-01-05", 18000000L,16200000L,0,0,
-            new String[][]{{"HENRY SSEMMAMBWA","SMPL-1100","0772101000"}}, new String[]{FW,DP,LCI,DLB,TASD}, null, null,
-            new String[]{"LUWERO","LUWERO COUNTY","LUWERO MUNICIPAL","BAMUNU","ZIWA","3 acres"}, "Sample: nearly paid legacy.", idByName)));
-        int[] days = { 5, -1, 20, 3, 40, 200, 45, 12, 60, 25 };
-        try (Connection conn = dataSource.getConnection()) {
-            for (int i = 0; i < days.length && i < ids.size(); i++) {
-                if (ids.get(i) == null || days[i] < 0) continue;
-                java.sql.Timestamp ts = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(days[i]));
-                try (java.sql.PreparedStatement u1 = conn.prepareStatement("UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) { u1.setTimestamp(1, ts); u1.setObject(2, ids.get(i)); u1.executeUpdate(); }
-                try (java.sql.PreparedStatement u2 = conn.prepareStatement("UPDATE payment_records SET timestamp = ? WHERE project_id = ?")) { u2.setTimestamp(1, ts); u2.setObject(2, ids.get(i)); u2.executeUpdate(); }
+            for (String s : stmts) {
+                try { st.execute(s); } catch (Exception e) { System.err.println(">>> [RESET] skip: " + e.getMessage()); }
             }
-        } catch (Exception e) { System.err.println(">>> [SAMPLE] backdate warning: " + e.getMessage()); }
-        System.out.println(">>> [SAMPLE] Seeded " + ids.stream().filter(java.util.Objects::nonNull).count() + " sample projects.");
+            System.out.println(">>> [RESET] Full demo wipe complete (users/presets/templates kept).");
+        } catch (Exception e) { System.err.println(">>> [RESET] wipe warning: " + e.getMessage()); }
     }
 
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
