@@ -25,7 +25,6 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import BackToTopButton from '../../components/common/BackToTopButton';
-import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
@@ -476,7 +475,6 @@ const FolderPage = () => {
                 <section className={styles.hwPanel} aria-label="Plot Details" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="PLOT DETAILS" isOpen={drawers.overview} onClick={() => toggleDrawer('overview')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.overview ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                         {isEditing ? (<>
                             {!project.landTitle && (<div className={styles.convertRow}>
                                 <button type="button" className={`${styles.payTypeBtn} ${buffer.convertToTitle ? styles.payTypeBtnActive : ''}`}
@@ -512,7 +510,6 @@ const FolderPage = () => {
                 <section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                         <StageChecklistPanel projectId={id} canEdit={isEditing && canEdit} canRemove={isDirector} toast={toast} />
                     </div></div>
                 </section>
@@ -520,7 +517,6 @@ const FolderPage = () => {
                     <section className={styles.hwPanel} aria-label="Balance Summary">
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
                         <div className={`${styles.panelBody} ${drawers.balance ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                             {isEditing ? (<div className={styles.inputGrid3}>
                                 <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({ ...buffer, totalCost: v })} />
                                 <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({ ...buffer, initialPayment: v })} />
@@ -541,7 +537,6 @@ const FolderPage = () => {
                     <section className={styles.hwPanel} aria-label="Receivables and Portfolio" id="receivable-controls">
                         <DrawerHeader label="RECEIVABLES & PORTFOLIO" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} count={portfolio.length || undefined} />
                         <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                             {canMoney && (<div className={styles.inputGrid3}>
                                 <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label htmlFor="freezeDeadline">FREEZE DEADLINE</label></div>
@@ -574,7 +569,6 @@ const FolderPage = () => {
                     <section className={styles.hwPanel} aria-label="Payment History" id="paymentHistorySection">
                         <DrawerHeader label="PAYMENT HISTORY" isOpen={drawers.history} onClick={() => toggleDrawer('history')} icon={FiActivity} count={paymentCount} />
                         <div className={`${styles.panelBody} ${drawers.history ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                             {paymentCount === 0 ? (<div className={styles.emptyState}><FiDollarSign className={styles.emptyIcon} aria-hidden="true" /><span>NO PAYMENTS RECORDED YET</span></div>) : (
                                 <div className={styles.paymentList}>{payments.map((pay, i) => (<div key={pay.id || i} id={'payment-' + pay.id} className={styles.paymentRow}>
                                     <div className={styles.payRowLeft}><div className={styles.payAmount}>UGX {fmt(pay.amountPaid)}</div>
@@ -588,7 +582,6 @@ const FolderPage = () => {
                     <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                             {canLog && <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({ open: true, id: null, content: '' })}>+ ADD NOTE</button>}
                             {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
                                 <div className={styles.notebookTimeline}>{binder.notes.map((log, i) => (<article key={i} className={styles.ruledNote}>
@@ -605,7 +598,6 @@ const FolderPage = () => {
                 <section className={styles.hwPanel} aria-label="Owners" style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={project.proprietors.length} />
                     <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                         <div className={styles.ownersGrid2}>
                             {isEditing ? buffer.owners.map((o, idx) => (<div key={idx} className={styles.ownerEditCard}>
                                 <SmartInput label={'LEGAL NAME #' + (idx + 1)} value={o.fullName} showCaps required error={fieldErrors['owner_' + idx + '_name']} onChange={e => handleOwnerChange(idx, 'fullName', e.target.value)} />
@@ -628,7 +620,6 @@ const FolderPage = () => {
                 <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span>
                             {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ INGEST NEW SCANS</button>}</div>) : (<>
                             <div className={styles.compactVault}>{binder.documents.map((doc, idx) => (<div key={idx} className={styles.docTag}>

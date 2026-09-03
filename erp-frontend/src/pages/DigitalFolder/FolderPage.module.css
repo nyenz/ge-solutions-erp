@@ -2899,3 +2899,29 @@
 .portfolioTable td{border-bottom:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
 .textBadge{font-size:var(--fs-meta);font-weight:700;letter-spacing:1px;}
 .emptyState span{font-family:'Inter',sans-serif;font-size:var(--fs-meta);font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.5px;}
+
+/* FS-UNIFY v5 — exact CollapsibleSection/Intake parity */
+.container{--btn-height:clamp(32px,4vw,38px);--btn-px:clamp(10px,1.4vw,16px);--btn-font:clamp(8px,0.85vw,10px);--input-radius:6px;}
+.hwPanel{
+  background:linear-gradient(135deg,#3a5a5c 0%,#2a4a4c 50%,#213E40 100%);
+  border:1px solid rgba(238,140,58,0.2);border-radius:10px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.25);
+  transition:border-color .3s ease,box-shadow .3s ease;
+}
+.hwPanel:hover{border-color:#EE8C3A;box-shadow:0 8px 32px rgba(0,0,0,0.3);}
+.hwPanel::before,.hwPanel::after{content:none;}
+.drawerHeader{background:#162a2c;border-bottom:1.5px solid transparent;border-radius:9px 9px 0 0;padding:clamp(8px,1.1vw,12px) clamp(10px,1.4vw,16px);}
+.drawerHeader[aria-expanded="true"]{border-bottom-color:#EE8C3A;}
+.drawerTitle{font-family:'Cinzel',serif;font-size:clamp(10px,1.3vw,13px);font-weight:700;color:#EE8C3A;letter-spacing:2px;text-transform:uppercase;}
+.drawerHeader:hover .drawerTitle{color:#fff;}
+.drawerIcon{color:#EE8C3A;filter:drop-shadow(0 0 4px rgba(238,140,58,0.4));font-size:clamp(12px,1.4vw,16px);}
+.chevron{color:rgba(255,255,255,0.4);font-size:14px;}
+.chevron.rotated{color:#EE8C3A;}
+.panelInner{position:relative;background:transparent;padding:clamp(10px,1.4vw,16px);display:flex;flex-direction:column;gap:clamp(7px,1.1vw,14px);}
+.specItem{border-left:none;padding:0;}
+.currencyTag,.autoCalcBadge{background:none;border:none;box-shadow:none;color:rgba(255,255,255,0.35);font-size:var(--fs-meta);font-weight:700;letter-spacing:0.5px;padding:0;text-transform:uppercase;}
+.drawerCount{background:none;border:none;color:rgba(255,255,255,0.4);font-size:var(--fs-meta);padding:0;}
+.idPlate h1{font-size:var(--fs-h1);letter-spacing:2px;}
+.tabBtn{padding:clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px);}
+.unlockMasterBtn,.btnPrimary{box-shadow:0 4px 12px rgba(238,140,58,0.3);}
+.unlockMasterBtn:hover,.btnPrimary:hover{background:#d97a2b;border-color:#d97a2b;color:#fff;box-shadow:0 4px 12px rgba(238,140,58,0.3);}

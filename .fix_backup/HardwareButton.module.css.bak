@@ -19,7 +19,11 @@
     white-space: nowrap;
 }
 
-.primary { background: var(--orange, #EE8C3A); color: #fff; box-shadow: 0 4px 12px rgba(238,140,58,0.3); }
+.primary {
+    background: var(--orange);
+    color: var(--navy);
+    box-shadow: 0 8px 25px rgba(238, 140, 58, 0.3);
+}
 
 .glass {
     background: rgba(255, 255, 255, 0.1);
@@ -32,9 +36,14 @@
     color: white;
 }
 
-.btn:hover:not(:disabled) { transform: none; }
+.btn:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.03);
+}
 
-.primary:hover { background: #d97a2b; box-shadow: 0 4px 12px rgba(238,140,58,0.3); }
+.primary:hover {
+    background: #f59a4a;
+    box-shadow: 0 12px 30px rgba(238, 140, 58, 0.5);
+}
 
 .glass:hover {
     background: rgba(255, 255, 255, 0.15);
