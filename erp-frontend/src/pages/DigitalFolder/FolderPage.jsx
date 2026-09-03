@@ -227,7 +227,7 @@ const FolderPage = () => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
-    const TABS = ['OVERVIEW', 'FINANCIALS', 'NOTES', 'OWNERS', 'DOCUMENTS'];
+    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
@@ -444,13 +444,14 @@ const FolderPage = () => {
                 <div className={styles.idPlate}>
                     <h1>{project.landTitle?.plotNumber || '#' + project.projectIndex || 'UNTITLED'}</h1>
                     <div className={styles.metaLine}>
-                        {project.projectIndex && <span className={`${styles.metaTag} ${styles.tagBlue}`}>PROJECT #{project.projectIndex}</span>}
+                        
                         {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>
                             : <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>IN RECEIVABLES</span>
                             : amountPaid >= totalValue ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>FULLY PAID</span>
                             : <span className={`${styles.textBadge} ${styles.badgeActive}`}>ACTIVE</span>}
                         {project.landTitle?.isReleased && <span className={`${styles.textBadge} ${styles.badgeTitled}`}>RELEASED</span>}
+                        {project.isLegacy && <span className={`${styles.textBadge} ${styles.badgeLegacy}`}>LEGACY</span>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
@@ -479,8 +480,8 @@ const FolderPage = () => {
 <CornerDecor hideTop />
                         {isEditing ? (<>
                             {!project.landTitle && (<div className={styles.convertRow}>
-                                <button type="button" className={`${styles.payTypeBtn} ${buffer.convertToTitle ? styles.payTypeBtnActive : ''}`}
-                                    onClick={() => touchedSetBuffer(p => ({ ...p, convertToTitle: !p.convertToTitle }))}><FiCheckCircle aria-hidden="true" /> CONVERT TO TITLE</button>
+                                <button type="button" className={`${styles.convertBtn} ${buffer.convertToTitle ? styles.convertBtnActive : ''}`}
+                                    onClick={() => touchedSetBuffer(p => ({ ...p, convertToTitle: !p.convertToTitle }))}><FiCheckCircle aria-hidden="true" /> {buffer.convertToTitle ? 'CONVERT TO FOLDER' : 'CONVERT TO TITLE'}</button>
                                 <span className={styles.inputHint}>Unlocks Plot ID, Tenure and Title ID fields</span>
                             </div>)}
                             <div className={styles.inputGrid3}>
@@ -584,24 +585,6 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
-                <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
-                    <section className={styles.hwPanel} aria-label="Notes and Call Log">
-                        <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
-                        <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
-                            {canLog && <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({ open: true, id: null, content: '' })}>+ ADD NOTE</button>}
-                            {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
-                                <div className={styles.notebookTimeline}>{binder.notes.map((log, i) => (<article key={i} className={styles.ruledNote}>
-                                    <div className={styles.noteMeta}><time className={styles.noteTime}>{new Date(log.timestamp).toLocaleDateString()}</time><span className={styles.noteAuthor}>by {log.recordedBy}</span>
-                                        {isEditing && canEdit && (<div className={styles.actionBlock}>
-                                            <button type="button" className={styles.iconBtn} onClick={() => setNoteModal({ open: true, id: log.id, content: log.notes })}><FiEdit3 className={styles.editIcon} aria-hidden="true" /></button>
-                                            <button type="button" className={styles.iconBtn} onClick={() => handleDeleteNote(log.id)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>
-                                        </div>)}</div>
-                                    <p className={styles.noteContent}>{log.notes}</p>
-                                </article>))}</div>)}
-                        </div></div>
-                    </section>
-                </div>
                 <section className={styles.hwPanel} aria-label="Owners" style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={project.proprietors.length} />
                     <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -639,6 +622,24 @@ const FolderPage = () => {
                             {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ INGEST MORE SCANS</button>}
                         </>)}
                     </div></div>
+                <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+                    <section className={styles.hwPanel} aria-label="Notes and Call Log">
+                        <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
+                        <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+<CornerDecor hideTop />
+                            {canLog && <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({ open: true, id: null, content: '' })}>+ ADD NOTE</button>}
+                            {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
+                                <div className={styles.notebookTimeline}>{binder.notes.map((log, i) => (<article key={i} className={styles.ruledNote}>
+                                    <div className={styles.noteMeta}><time className={styles.noteTime}>{new Date(log.timestamp).toLocaleDateString()}</time><span className={styles.noteAuthor}>by {log.recordedBy}</span>
+                                        {isEditing && canEdit && (<div className={styles.actionBlock}>
+                                            <button type="button" className={styles.iconBtn} onClick={() => setNoteModal({ open: true, id: log.id, content: log.notes })}><FiEdit3 className={styles.editIcon} aria-hidden="true" /></button>
+                                            <button type="button" className={styles.iconBtn} onClick={() => handleDeleteNote(log.id)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>
+                                        </div>)}</div>
+                                    <p className={styles.noteContent}>{log.notes}</p>
+                                </article>))}</div>)}
+                        </div></div>
+                    </section>
+                </div>
                 </section>
             </main>
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}

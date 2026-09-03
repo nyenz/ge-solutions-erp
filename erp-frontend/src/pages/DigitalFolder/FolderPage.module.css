@@ -2925,3 +2925,17 @@
 .tabBtn{padding:clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px);}
 .unlockMasterBtn,.btnPrimary{box-shadow:0 4px 12px rgba(238,140,58,0.3);}
 .unlockMasterBtn:hover,.btnPrimary:hover{background:#d97a2b;border-color:#d97a2b;color:#fff;box-shadow:0 4px 12px rgba(238,140,58,0.3);}
+
+/* FS-UNIFY v6 — feedback pass */
+.bodyOpen{overflow:visible;}
+.capsBadge{background:none;border:none;box-shadow:none;border-radius:0;color:rgba(255,255,255,0.35);font-size:8px;font-weight:700;letter-spacing:0.5px;padding:0;}
+.convertBtn{display:flex;align-items:center;gap:5px;background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px);border-radius:6px;font-family:'Inter',sans-serif;font-weight:900;font-size:var(--fs-btn);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s ease;white-space:nowrap;}
+.convertBtn:hover{background:rgba(238,140,58,0.12);color:#EE8C3A;border-color:#EE8C3A;}
+.convertBtnActive,.convertBtnActive:hover{background:#EE8C3A;color:#1a2e30;border-color:#EE8C3A;box-shadow:0 0 14px rgba(238,140,58,0.4);}
+.badgeActive{color:#213E40;}
+.badgeLegacy{color:#64748b;}
+.selectValue{font-size:var(--input-font);font-weight:600;}
+.selectDropdown{position:absolute;z-index:600;margin-top:4px;max-height:240px;overflow:auto;background:#ffffff;border:1.5px solid rgba(238,140,58,0.3);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.25);list-style:none;padding:0;}
+.selectOption{color:#213E40;font-family:'Inter',sans-serif;font-weight:600;font-size:var(--input-font);padding:8px var(--input-px);cursor:pointer;}
+.selectOption:hover{background:rgba(238,140,58,0.12);}
+.selectOptionActive,.selectOptionActive:hover{background:#EE8C3A;color:#1a2e30;}

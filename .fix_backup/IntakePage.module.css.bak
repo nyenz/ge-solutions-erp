@@ -144,22 +144,3 @@
     .actions { width: 100%; } .actions .btn { flex: 1; justify-content: center; }
     .bottomBar { flex-wrap: wrap; }
 }
-
-/* INTAKE-PORT v1 — app-default close X (verbatim from HardwareModal) */
-.xBtn{
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.5);
-    font-size: clamp(16px, 2vw, 20px);
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: clamp(28px, 3.5vw, 36px);
-    height: clamp(28px, 3.5vw, 36px);
-    border-radius: 8px;
-    flex-shrink: 0;
-    margin-left: 12px;
-}
-.xBtn:hover{transform:rotate(90deg);}

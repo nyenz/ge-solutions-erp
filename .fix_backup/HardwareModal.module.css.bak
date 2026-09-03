@@ -318,8 +318,3 @@
     .modalFooter { flex-direction: column-reverse; }
     .modalBtnPrimary, .modalBtnSecondary { width: 100%; justify-content: center; }
 }
-
-/* INTAKE-PORT v1 — white Intake inputs + proportional buttons in all modals */
-.modalInput,.modalTextarea{font-family:'Inter',sans-serif;font-weight:600;border:1.5px solid rgba(238,140,58,0.3);background:#ffffff;color:#213E40;border-radius:6px;font-size:clamp(11px,1.05vw,13px);padding:clamp(9px,1.2vw,13px);}
-.modalInput::placeholder,.modalTextarea::placeholder{color:#9aa8a6;}
-.modalBtnPrimary,.modalBtnSecondary{height:var(--btn-height,clamp(32px,4vw,38px));padding:0 clamp(10px,1.4vw,16px);font-family:'Inter',sans-serif;font-weight:900;font-size:var(--btn-font,clamp(8px,0.85vw,10px));letter-spacing:1.5px;text-transform:uppercase;border-radius:6px;}
