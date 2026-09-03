@@ -598,7 +598,8 @@ const FolderPage = () => {
                                 <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
                                 <SmartInput label="NIN" value={o.nationalId} required onChange={e => handleOwnerChange(idx,'nationalId',e.target.value)} onBlur={e => handleNinBlurCheck(idx, e.target.value)} id={`owner_${idx}_nin`} />
                                 <SmartInput label="PHONE" value={o.phone} onChange={e => handleOwnerChange(idx,'phone',e.target.value)} id={`owner_${idx}_phone`} />
-                                <SmartInput label="EMAIL" value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} onCommit={val => handleEmailCommit(idx,val)} id={`owner_${idx}_email`} />
+                                <SmartInput label="EMAIL" value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} id={`owner_${idx}_email`} />
+                                <SmartInput label="ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
                             </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>
                                 <h2 className={styles.ownerName}>{p.fullName}</h2>
                                 <div className={styles.infoColumns}>
@@ -640,9 +641,7 @@ const FolderPage = () => {
                 
                 </section>
 
-<div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
-                    
-                </div>
+
             <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
 <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
