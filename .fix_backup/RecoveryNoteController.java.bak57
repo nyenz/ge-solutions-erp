@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 /**
@@ -20,7 +21,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/recovery")
 @RequiredArgsConstructor
-@SuppressWarnings("unchecked")
 public class RecoveryNoteController {
 
     private final ClientRepository clientRepo;
