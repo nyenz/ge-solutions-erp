@@ -2776,7 +2776,7 @@
 .printStatement table{width:100%;border-collapse:collapse}
 .printStatement td,.printStatement th{border-bottom:1px solid #ccc;padding:4px 6px;text-align:left}}
 
-/* FS-UNIFY v2 — Intake tone alignment (section headers, fields, tabs) */
+
 .drawerHeader{border-bottom:1px solid rgba(238,140,58,.55);}
 .drawerTitle{font-family:'Cinzel',serif;color:var(--fs-orange);letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
 .drawerIcon{color:var(--fs-orange);}
@@ -2797,3 +2797,22 @@
 .panelInner{background:transparent;}
 .stageName{color:#fff;}
 .stageCost{color:var(--fs-muted);}
+
+/* FS-UNIFY v3 — tokens ported verbatim from IntakePage.module.css at runtime */
+:root{--fs-orange:#EE8C3A;--fs-green:#1a2e30;--fs-red:#ef4444;--fs-cream:#fff;--fs-dark:#122a28;--fs-muted:rgba(255,255,255,.6);--fs-line:rgba(255,255,255,.08);}
+.drawerHeader{border-bottom:1px solid #EE8C3A;}
+.drawerTitle{font-family:'Cinzel',serif;color:#EE8C3A;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.drawerIcon,.chevron{color:#EE8C3A;}
+.specLabel{color:var(--fs-muted);letter-spacing:1.5px;text-transform:uppercase;}
+.specValue{color:#EE8C3A;font-family:'Space Mono',monospace;}
+.hwInput,.selectTrigger{background:#fff;color:#122a28;border:1.5px solid #c8d6d7;border-radius:8px;}
+.hwInput::placeholder{color:#9aa8a6;}
+.selectValue{color:#122a28;}
+.inputLabelRow label{color:rgba(255,255,255,.85);letter-spacing:1.2px;text-transform:uppercase;font-size:10px;font-weight:700;}
+.reqStar,.currencyTag{color:#EE8C3A;}
+.tabBtn{background:#1a2e30;color:#fff;border:1px solid rgba(255,255,255,.12);}
+.tabBtnActive{background:#EE8C3A;color:#1a2e30;border-color:#EE8C3A;}
+.ctrlBtnPay{background:#1a2e30;color:#fff;border:1px solid rgba(255,255,255,.18);}
+.unlockMasterBtn{background:#EE8C3A;color:#1a2e30;}
+.btnPrimary{background:#EE8C3A;color:#1a2e30;}
+.btnDanger{background:transparent;color:#ef4444;border:1.5px solid #ef4444;}

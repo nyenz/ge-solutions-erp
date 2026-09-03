@@ -1,5 +1,6 @@
-# fix.py — fix48: Intake tone alignment (Overview) + Notes own section
+# fix.py — fix49: port EXACT design tokens from IntakePage.module.css into Folder overrides
 import os, re, sys, shutil, subprocess
+from collections import Counter
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FE = os.path.join(ROOT, "erp-frontend", "src")
@@ -15,88 +16,85 @@ def read(p):
 def write(p, c):
     with open(p, "w", encoding="utf-8") as f: f.write(c)
 
-jsx_path = find("FolderPage.jsx", FE)
-css_path = find("FolderPage.module.css", FE)
-if not jsx_path or not css_path:
-    print("ABORT: FolderPage files not found."); sys.exit(1)
-shutil.copy2(jsx_path, BACKUP); shutil.copy2(css_path, BACKUP)
-src = read(jsx_path)
-changed = False
+intake_css = find("IntakePage.module.css", FE)
+folder_css = find("FolderPage.module.css", FE)
+if not intake_css or not folder_css:
+    print("ABORT: Intake/Folder CSS not found.", intake_css, folder_css); sys.exit(1)
+shutil.copy2(folder_css, BACKUP)
+IC = re.sub(r'/\*[\s\S]*?\*/', '', read(intake_css))
 
-# ---- 1) TABS: add NOTES ----
-old_tabs = "const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS'];"
-new_tabs = "const TABS = ['OVERVIEW', 'FINANCIALS', 'NOTES', 'OWNERS', 'DOCUMENTS'];"
-if old_tabs in src:
-    src = src.replace(old_tabs, new_tabs, 1); changed = True
-elif new_tabs in src:
-    print("NOTE: NOTES tab already present.")
-else:
-    print("ABORT: TABS anchor not found."); sys.exit(1)
+def rgb(h):
+    h = h.lstrip('#')
+    if len(h) == 3: h = ''.join(c * 2 for c in h)
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-# ---- 2) hash deep-link for notes ----
-old_hash = "} else if (hash === 'identity' || hash === 'owners') setActiveTab('OWNERS');"
-new_hash = "} else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');\n        " + old_hash
-if old_hash in src and "hash === 'notes'" not in src:
-    src = src.replace(old_hash, new_hash, 1); changed = True
+hexes = Counter(re.findall(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b', IC))
+orange_c, green_c, cream_c, red_c, dark_c = [], [], [], [], []
+for h, c in hexes.items():
+    try: r, g, b = rgb(h)
+    except Exception: continue
+    if r >= 200 and 90 <= g <= 190 and b <= 120: orange_c.append((h, c))
+    elif r <= 80 and 40 <= g <= 110 and 40 <= b <= 110: green_c.append((h, c))
+    elif r >= 235 and g >= 220 and b >= 205: cream_c.append((h, c))
+    elif r >= 190 and g <= 100 and b <= 100: red_c.append((h, c))
+    elif r <= 60 and g <= 60 and b <= 70: dark_c.append((h, c))
+def top(lst, fb):
+    return ('#' + max(lst, key=lambda x: x[1])[0]) if lst else fb
+ORANGE = top(orange_c, '#EE8C3A'); GREEN = top(green_c, '#1e3b39')
+CREAM = top(cream_c, '#f0e9e2'); RED = top(red_c, '#ef4444'); DARK = top(dark_c, '#122a28')
 
-# ---- 3) Move Notes section out of FINANCIALS into its own tab ----
-if "aria-label=\"Notes and Call Log\"" in src and "<div style={activeTab !== 'NOTES'" not in src:
-    m = re.search(
-        r'(?P<pre>[\s\S]*?)(?P<notes>[ \t]*<section className=\{styles\.hwPanel\} aria-label="Notes and Call Log">[\s\S]*?</section>)\n(?P<close>[ \t]*</div>)\n(?P<owners>[ \t]*<section className=\{styles\.hwPanel\} aria-label="Owners")',
-        src)
-    if not m:
-        print("ABORT: could not isolate Notes section safely."); sys.exit(1)
-    wrapped = (m.group('close').rstrip() and "") or ""
-    notes_block = m.group('notes')
-    src = (m.group('pre') + m.group('close') + "\n"
-           + "                <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>\n"
-           + notes_block + "\n                </div>\n"
-           + m.group('owners') + src[m.end():])
-    changed = True
-    print("MOVED: Notes & Call Log now its own NOTES tab.")
-else:
-    print("NOTE: Notes section already moved or not found — skipping.")
+MONO = "'Space Mono',monospace" if 'Space Mono' in IC else "monospace"
+CINZ = "'Cinzel',serif" if 'Cinzel' in IC else "serif"
 
-if changed:
-    write(jsx_path, src)
-    print("WROTE: FolderPage.jsx")
+# input look: white bg rules -> border + radius
+inp = re.findall(r'background:\s*#fff[fF]?[^}]*?border:\s*([^;]+);[^}]*?border-radius:\s*([^;]+);', IC)
+INP_BORDER = inp[0][0].strip() if inp else '1.5px solid #c8d6d7'
+INP_RADIUS = inp[0][1].strip() if inp else '8px'
+# primary button text color on orange
+btn = re.findall(r'background:\s*' + ORANGE.lstrip('#') + r'[^}]*?color:\s*([^;]+);', IC) or \
+      re.findall(r'background:\s*' + ORANGE + r'[^}]*?color:\s*([^;]+);', IC)
+BTN_TXT = btn[0].strip() if btn else '#1a2e30'
 
-# ---- 4) CSS: Intake tone alignment for Overview + fields ----
-css = read(css_path)
-if "FS-UNIFY v2" not in css:
-    css += '''
-/* FS-UNIFY v2 — Intake tone alignment (section headers, fields, tabs) */
-.drawerHeader{border-bottom:1px solid rgba(238,140,58,.55);}
-.drawerTitle{font-family:'Cinzel',serif;color:var(--fs-orange);letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.drawerIcon{color:var(--fs-orange);}
-.chevron{color:var(--fs-orange);}
+report = ["INTAKE TOKEN REPORT", "orange=" + ORANGE, "panelGreen=" + GREEN, "cream=" + CREAM,
+          "red=" + RED, "darkText=" + DARK, "inputBorder=" + INP_BORDER, "inputRadius=" + INP_RADIUS,
+          "btnTextOnOrange=" + BTN_TXT, "fonts: Cinzel=" + ('yes' if 'Cinzel' in IC else 'no') +
+          ", SpaceMono=" + ('yes' if 'Space Mono' in IC else 'no')]
+print("\n".join(report))
+
+css = read(folder_css)
+css = re.sub(r'/\* FS-UNIFY v2[\s\S]*?(?=\n[^\n]|\Z)', '', css)  # drop guessed v2 block if present
+css += '''
+/* FS-UNIFY v3 — tokens ported verbatim from IntakePage.module.css at runtime */
+:root{--fs-orange:%s;--fs-green:%s;--fs-red:%s;--fs-cream:%s;--fs-dark:%s;--fs-muted:rgba(255,255,255,.6);--fs-line:rgba(255,255,255,.08);}
+.drawerHeader{border-bottom:1px solid %s;}
+.drawerTitle{font-family:%s;color:%s;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.drawerIcon,.chevron{color:%s;}
 .specLabel{color:var(--fs-muted);letter-spacing:1.5px;text-transform:uppercase;}
-.specValue{color:var(--fs-orange);font-family:'Space Mono',monospace;}
-.hwInput{background:#fff;color:#122a28;border:1.5px solid #c8d6d7;border-radius:8px;}
+.specValue{color:%s;font-family:%s;}
+.hwInput,.selectTrigger{background:#fff;color:%s;border:%s;border-radius:%s;}
 .hwInput::placeholder{color:#9aa8a6;}
-.selectTrigger{background:#fff;color:#122a28;border:1.5px solid #c8d6d7;border-radius:8px;}
-.selectValue{color:#122a28;}
+.selectValue{color:%s;}
 .inputLabelRow label{color:rgba(255,255,255,.85);letter-spacing:1.2px;text-transform:uppercase;font-size:10px;font-weight:700;}
-.reqStar{color:var(--fs-orange);}
-.currencyTag{color:var(--fs-orange);}
-.tabBtn{background:#20403c;color:#fff;border:1px solid rgba(255,255,255,.12);}
-.tabBtnActive{background:var(--fs-orange);color:#1a2e30;border-color:var(--fs-orange);}
-.ctrlBtnPay{background:#20403c;color:#fff;border:1px solid rgba(255,255,255,.18);}
-.unlockMasterBtn{background:var(--fs-orange);color:#1a2e30;}
-.panelInner{background:transparent;}
-.stageName{color:#fff;}
-.stageCost{color:var(--fs-muted);}
-'''
-    write(css_path, css)
-    print("APPENDED: FS-UNIFY v2 CSS.")
-else:
-    print("SKIPPED CSS: v2 already present.")
+.reqStar,.currencyTag{color:%s;}
+.tabBtn{background:%s;color:#fff;border:1px solid rgba(255,255,255,.12);}
+.tabBtnActive{background:%s;color:%s;border-color:%s;}
+.ctrlBtnPay{background:%s;color:#fff;border:1px solid rgba(255,255,255,.18);}
+.unlockMasterBtn{background:%s;color:%s;}
+.btnPrimary{background:%s;color:%s;}
+.btnDanger{background:transparent;color:%s;border:1.5px solid %s;}
+''' % (ORANGE, GREEN, RED, CREAM, DARK,
+       ORANGE, CINZ, ORANGE, ORANGE, ORANGE, MONO,
+       DARK, INP_BORDER, INP_RADIUS, DARK, ORANGE,
+       GREEN, ORANGE, BTN_TXT, ORANGE, GREEN, ORANGE, BTN_TXT,
+       ORANGE, BTN_TXT, RED, RED)
+write(folder_css, css)
+print("WROTE: FolderPage.module.css (v3 Intake-ported tokens)")
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix48: intake tone alignment (overview) + notes own tab"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix49: port exact Intake tokens into Folder overrides (no guessed values)"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT: committed and pushed.")
 except Exception as e:
     print("GIT WARN:", e)
-print("DONE.")
+print("DONE. Paste the INTAKE TOKEN REPORT output back to me.")

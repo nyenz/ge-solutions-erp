@@ -2775,3 +2775,25 @@
 @media print{.printStatement{display:block;font-family:'Space Mono',monospace;font-size:11px;color:#000;margin:12px 0}
 .printStatement table{width:100%;border-collapse:collapse}
 .printStatement td,.printStatement th{border-bottom:1px solid #ccc;padding:4px 6px;text-align:left}}
+
+/* FS-UNIFY v2 — Intake tone alignment (section headers, fields, tabs) */
+.drawerHeader{border-bottom:1px solid rgba(238,140,58,.55);}
+.drawerTitle{font-family:'Cinzel',serif;color:var(--fs-orange);letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.drawerIcon{color:var(--fs-orange);}
+.chevron{color:var(--fs-orange);}
+.specLabel{color:var(--fs-muted);letter-spacing:1.5px;text-transform:uppercase;}
+.specValue{color:var(--fs-orange);font-family:'Space Mono',monospace;}
+.hwInput{background:#fff;color:#122a28;border:1.5px solid #c8d6d7;border-radius:8px;}
+.hwInput::placeholder{color:#9aa8a6;}
+.selectTrigger{background:#fff;color:#122a28;border:1.5px solid #c8d6d7;border-radius:8px;}
+.selectValue{color:#122a28;}
+.inputLabelRow label{color:rgba(255,255,255,.85);letter-spacing:1.2px;text-transform:uppercase;font-size:10px;font-weight:700;}
+.reqStar{color:var(--fs-orange);}
+.currencyTag{color:var(--fs-orange);}
+.tabBtn{background:#20403c;color:#fff;border:1px solid rgba(255,255,255,.12);}
+.tabBtnActive{background:var(--fs-orange);color:#1a2e30;border-color:var(--fs-orange);}
+.ctrlBtnPay{background:#20403c;color:#fff;border:1px solid rgba(255,255,255,.18);}
+.unlockMasterBtn{background:var(--fs-orange);color:#1a2e30;}
+.panelInner{background:transparent;}
+.stageName{color:#fff;}
+.stageCost{color:var(--fs-muted);}
