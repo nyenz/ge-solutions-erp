@@ -2939,3 +2939,21 @@
 .selectOption{color:#213E40;font-family:'Inter',sans-serif;font-weight:600;font-size:var(--input-font);padding:8px var(--input-px);cursor:pointer;}
 .selectOption:hover{background:rgba(238,140,58,0.12);}
 .selectOptionActive,.selectOptionActive:hover{background:#EE8C3A;color:#1a2e30;}
+
+/* FS-UNIFY v7 — tokens fix, curved bottoms, badge chips, red owed, X anim */
+.container{--fs-green:#10b981;--fs-red:#ef4444;}
+.hwPanel{border-radius:10px !important;}
+.drawerHeader[aria-expanded="false"]{border-radius:9px;}
+.statRed label,.statRed strong{color:var(--fs-red) !important;}
+.textBadge{background:rgba(238,140,58,0.10);border:1px solid rgba(238,140,58,0.35);border-radius:999px;padding:3px 9px;font-family:'Inter',sans-serif;}
+.badgeBacklog{color:#EE8C3A;background:rgba(238,140,58,0.10);border-color:rgba(238,140,58,0.35);}
+.badgeTitled{color:#10b981;background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.35);}
+.badgeRecv{color:#ef4444;background:rgba(239,68,68,0.10);border-color:rgba(239,68,68,0.35);}
+.badgeActive{color:#213E40;background:rgba(33,62,64,0.10);border-color:rgba(33,62,64,0.35);}
+.badgeLegacy{color:#64748b;background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.35);}
+.badgePaused{color:#06b6d4;background:rgba(6,182,212,0.10);border-color:rgba(6,182,212,0.35);}
+.ownerPortfolio{margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;}
+.confirmBox{position:relative;}
+@keyframes xPop{from{transform:rotate(0)}to{transform:rotate(90deg)}}
+.confirmClose{position:absolute;top:10px;right:10px;background:rgba(239,68,68,0.12);border:1.5px solid rgba(239,68,68,0.45);color:#ef4444;border-radius:8px;padding:6px;cursor:pointer;transition:all .2s;display:inline-flex;}
+.confirmClose:hover{background:#ef4444;color:#fff;animation:xPop .2s ease forwards;}

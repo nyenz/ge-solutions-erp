@@ -123,6 +123,7 @@ const ConfirmModal = ({ state, onAnswer }) => {
     if (!state.open || typeof document === 'undefined') return null;
     const isDanger = state.variant === 'danger';
     return createPortal(<div className={styles.confirmOverlay} role="dialog" aria-modal="true"><div className={styles.confirmBox}>
+        <button type="button" className={styles.confirmClose} onClick={() => onAnswer(false)} aria-label="Close"><FiX aria-hidden="true" /></button>
         <div className={`${styles.confirmHeader} ${isDanger ? styles.confirmHeaderDanger : styles.confirmHeaderWarn}`}>
             {isDanger ? <FiAlertOctagon className={styles.confirmIcon} aria-hidden="true" /> : <FiAlertTriangle className={styles.confirmIcon} aria-hidden="true" />}
             <span className={styles.confirmTitle}>{state.title}</span></div>
@@ -452,6 +453,8 @@ const FolderPage = () => {
                             : <span className={`${styles.textBadge} ${styles.badgeActive}`}>ACTIVE</span>}
                         {project.landTitle?.isReleased && <span className={`${styles.textBadge} ${styles.badgeTitled}`}>RELEASED</span>}
                         {project.isLegacy && <span className={`${styles.textBadge} ${styles.badgeLegacy}`}>LEGACY</span>}
+                        {project.storagePaused && <span className={`${styles.textBadge} ${styles.badgePaused}`}>STORAGE PAUSED</span>}
+                        {project.negotiationDeadline && <span className={`${styles.textBadge} ${styles.badgePaused}`}>NEGOTIATION</span>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
@@ -510,13 +513,15 @@ const FolderPage = () => {
                         </>)}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
+                {!project.landTitle && !buffer.convertToTitle && (
+<section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
                         <StageChecklistPanel projectId={id} canEdit={isEditing && canEdit} canRemove={isDirector} toast={toast} />
                     </div></div>
                 </section>
+                )}
                 <div className={styles.financialsStack} style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Balance Summary">
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
@@ -531,11 +536,11 @@ const FolderPage = () => {
                                 <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label><strong style={{ color: 'var(--fs-red)' }}>UGX {fmt(storageFees)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
-                                <div className={styles.statBox}><label>AMOUNT OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
                             </div>) : (<div className={styles.moneyStatsRow}>
                                 <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
-                                <div className={styles.statBox}><label>AMOUNT OWED</label><strong>UGX {fmt(activeAmountOwed)}</strong></div>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label><strong>UGX {fmt(activeAmountOwed)}</strong></div>
                             </div>)}
                         </div></div>
                     </section>
@@ -552,7 +557,7 @@ const FolderPage = () => {
                             </div>)}
                             <div className={styles.recvActionRow}>
                                 {!isReceivable
-                                    ? canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>ADD TO RECEIVABLES</HardwareButton>
+                                    ? canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>
                                     : canMoney && (<>
                                         <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
                                         <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
@@ -604,6 +609,19 @@ const FolderPage = () => {
                                     <div className={styles.infoRow}><FiShield aria-hidden="true" /><span>{p.nationalId || '---'}</span></div>
                                     <div className={styles.infoRow}><FiMapPin aria-hidden="true" /><span>{p.homeAddress || '---'}</span></div>
                                 </div>
+                                {(portfolio.filter(r => r.sharedOwner === p.fullName).length > 0) && (
+                                    <div className={styles.ownerPortfolio}>
+                                        <h3 className={styles.sectionTitle}>OTHER PROJECTS</h3>
+                                        <table className={styles.portfolioTable}><tbody>
+                                            {portfolio.filter(r => r.sharedOwner === p.fullName).map((r, k) => (
+                                                <tr key={k} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
+                                                    onKeyDown={ev => { if (ev.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
+                                                    <td>#{r.index}</td><td>{r.plot || '—'}</td>
+                                                    <td>{r.receivable ? 'RECEIVABLE' : r.titled ? 'TITLED' : 'BACKLOG'}</td>
+                                                </tr>))}
+                                        </tbody></table>
+                                    </div>)}
+                                </div>
                             </div>))}
                         </div>
                     </div></div>
@@ -613,16 +631,18 @@ const FolderPage = () => {
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span>
-                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ INGEST NEW SCANS</button>}</div>) : (<>
+                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
                             <div className={styles.compactVault}>{binder.documents.map((doc, idx) => (<div key={idx} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
                                 <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)}>{doc.fileName}</button>
                                 {isEditing && canEdit && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
                             </div>))}</div>
-                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ INGEST MORE SCANS</button>}
+                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}
                         </>)}
                     </div></div>
-                <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+                
+                </section>
+<div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -640,7 +660,6 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
-                </section>
             </main>
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value = ''; }} />

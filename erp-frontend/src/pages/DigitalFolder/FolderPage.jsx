@@ -642,6 +642,7 @@ const FolderPage = () => {
                     </div></div>
                 
                 </section>
+
 <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />

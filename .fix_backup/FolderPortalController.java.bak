@@ -75,7 +75,8 @@ public class FolderPortalController {
     public Map<String, Object> enter(@PathVariable UUID id) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
         p.setReceivable(true);
-        if (p.getReceivableStartDate() == null) p.setReceivableStartDate(LocalDateTime.now());
+        p.setReceivableStartDate(LocalDateTime.now());
+        p.setReceivableMonthsBilled(0);
         BigDecimal owed = (p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO)
                 .add(p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO)
                 .subtract(p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
