@@ -42,7 +42,6 @@ public class FolderPortalController {
         m.put("startDate", p.getReceivableStartDate());
         m.put("backlog", p.getLandTitle() == null);
         m.put("problem", p.isProblem());
-        m.put("problem", p.isProblem());
         return m;
     }
 
