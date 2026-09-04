@@ -36,17 +36,6 @@ public class Client {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Builder.Default
-    @Column(name = "monthly_contact_count")
-    private int monthlyContactCount = 0;
-
-    @Column(name = "last_contacted_at")
-    private LocalDateTime lastContactedAt;
-
-    @Builder.Default
-    @Column(name = "reliability_score")
-    private double reliabilityScore = 50.0;
-
     @Column(name = "full_name", nullable = false)
     private String fullName;
 

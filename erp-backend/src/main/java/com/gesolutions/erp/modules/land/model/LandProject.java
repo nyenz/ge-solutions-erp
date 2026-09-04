@@ -182,10 +182,6 @@ public class LandProject {
     private boolean problem = false;
 
     @Builder.Default
-    @Column(name = "is_problem", nullable = false)
-    private boolean problem = false;
-
-    @Builder.Default
     @Column(name = "current_stage_index", nullable = false)
     private Integer currentStageIndex = 1;
 
