@@ -1,60 +1,94 @@
-# fix.py -- fix65: line-based removal of the two remaining duplicate blocks
-import re, subprocess
+# fix.py -- fix66: GENERIC duplicate-declaration remover (delete-only, self-verifying).
+# Deletes any repeated field or repeated method signature in backend main sources,
+# keeping the FIRST copy. Cannot re-add anything. Retires old fix files.
+import os, re, subprocess, shutil
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
-BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
+SRC = ROOT / "erp-backend" / "src" / "main"
 
-def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def write(p, s): p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
+FIELD = re.compile(r'^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?[\w.<>\[\]]+\s+([A-Za-z_$][\w$]*)\s*(?:=|;)')
+METHOD = re.compile(r'^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?[\w.<>\[\],\s]+?\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)\s*(?:throws[^{]*)?\{')
+KEYWORDS = {"if","for","while","switch","return","new","catch","super","this"}
 
-# ---------- LandProject.java : dedupe `private boolean problem` ----------
-lp = BE / "modules" / "land" / "model" / "LandProject.java"
-lines = read(lp).split("\n")
-idxs = [i for i, l in enumerate(lines) if re.search(r"\bprivate\s+boolean\s+problem\b", l)]
-print("LandProject 'problem' declarations found:", len(idxs))
-if len(idxs) > 1:
+def clean(path):
+    lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
+    seen_f, seen_m = set(), set()
     rm = set()
-    for i in idxs[1:]:                      # keep FIRST, delete the rest
-        rm.add(i)                           # the declaration line
-        j = i - 1
-        while j >= 0 and lines[j].strip().startswith("@"):
-            rm.add(j); j -= 1               # its @Builder.Default / @Column annotations
-        if j >= 0 and lines[j].strip() == "":
-            rm.add(j)                       # blank line above
-    lines = [l for i, l in enumerate(lines) if i not in rm]
-    write(lp, "\n".join(lines))
-    print("OK  LandProject ->", sum(1 for l in lines if re.search(r"\bprivate\s+boolean\s+problem\b", l)), "copy")
+    i = 0
+    while i < len(lines):
+        l = lines[i]
+        mf, mm = FIELD.match(l), METHOD.match(l)
+        if mf and mf.group(1) not in KEYWORDS:
+            name = mf.group(1)
+            if name in seen_f:
+                # duplicate field: delete it + its annotations + trailing blank
+                rm.add(i)
+                j = i - 1
+                while j >= 0 and lines[j].strip().startswith("@"):
+                    rm.add(j); j -= 1
+                if i + 1 < len(lines) and lines[i+1].strip() == "": rm.add(i+1)
+            else:
+                seen_f.add(name)
+        elif mm and mm.group(1) not in KEYWORDS:
+            sig = mm.group(1) + "(" + re.sub(r"\s+", " ", mm.group(2)).strip() + ")"
+            if sig in seen_m:
+                # duplicate method: delete annotations + brace-balanced body
+                j = i - 1
+                while j >= 0 and lines[j].strip().startswith("@"):
+                    rm.add(j); j -= 1
+                rm.add(i)
+                depth = lines[i].count("{") - lines[i].count("}")
+                k = i + 1
+                while k < len(lines) and depth > 0:
+                    depth += lines[k].count("{") - lines[k].count("}")
+                    rm.add(k); k += 1
+                if k < len(lines) and lines[k].strip() == "": rm.add(k)
+            else:
+                seen_m.add(sig)
+        i += 1
+    if rm:
+        out = [l for idx, l in enumerate(lines) if idx not in rm]
+        path.write_text("\n".join(out), encoding="utf-8", newline="")
+        return len(rm)
+    return 0
 
-# ---------- FolderPortalController.java : dedupe toggleProblem ----------
-fpc = BE / "modules" / "land" / "controller" / "FolderPortalController.java"
-lines = read(fpc).split("\n")
-sigs = [i for i, l in enumerate(lines) if "public Map<String, Object> toggleProblem(" in l]
-print("toggleProblem signatures found:", len(sigs))
-if len(sigs) > 1:
-    rm = set()
-    for si in sigs[1:]:                     # keep FIRST, delete the rest
-        start = si
-        j = si - 1
-        while j >= 0 and lines[j].strip().startswith("@"):
-            start = j; j -= 1               # @PostMapping/@PreAuthorize/@Transactional
-        depth = 0; started = False; k = si  # brace-balance to the closing }
-        while k < len(lines):
-            depth += lines[k].count("{") - lines[k].count("}")
-            if "{" in lines[k]: started = True
-            if started and depth == 0: break
-            k += 1
-        rm.update(range(start, min(k + 1, len(lines))))
-        if k + 1 < len(lines) and lines[k+1].strip() == "": rm.add(k+1)
-    lines = [l for i, l in enumerate(lines) if i not in rm]
-    write(fpc, "\n".join(lines))
-    print("OK  toggleProblem ->", sum(1 for l in lines if "public Map<String, Object> toggleProblem(" in l), "copy")
+total = 0
+for r, d, fs in os.walk(SRC):
+    for f in fs:
+        if f.endswith(".java"):
+            n = clean(Path(r) / f)
+            if n: print("cleaned", f, "->", n, "lines removed"); total += n
+print("TOTAL lines removed:", total)
 
-# ---------- git ----------
-try:
-    subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-    subprocess.run(["git","commit","-m","fix65: remove duplicate problem field + toggleProblem method"],cwd=ROOT,check=True)
-    subprocess.run(["git","push"],cwd=ROOT,check=True)
-    print("GIT pushed")
-except Exception as e:
-    print("GIT WARN", e)
-print("DONE - both counts must read 1; the 12 problems then collapse to 0.")
+# verify: re-scan for any remaining dupes
+bad = 0
+for r, d, fs in os.walk(SRC):
+    for f in fs:
+        if f.endswith(".java"):
+            lines = (Path(r)/f).read_text(encoding="utf-8", errors="replace").split("\n")
+            sf, sm = set(), set()
+            for l in lines:
+                mf, mm = FIELD.match(l), METHOD.match(l)
+                if mf and mf.group(1) not in KEYWORDS:
+                    if mf.group(1) in sf: print("STILL DUP field", mf.group(1), "in", f); bad += 1
+                    sf.add(mf.group(1))
+                elif mm and mm.group(1) not in KEYWORDS:
+                    sig = mm.group(1)+"("+re.sub(r"\s+"," ",mm.group(2)).strip()+")"
+                    if sig in sm: print("STILL DUP method", sig, "in", f); bad += 1
+                    sm.add(sig)
+print("VERIFY:", "CLEAN" if bad == 0 else str(bad)+" dupes remain (do NOT push, paste this)")
+
+# retire old fix files so the loop ends
+for p in ROOT.glob("fix*.py"):
+    if p.name != "fix.py":
+        shutil.move(str(p), str(p) + ".done"); print("retired", p.name)
+
+if bad == 0:
+    try:
+        subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
+        subprocess.run(["git","commit","-m","fix66: remove all duplicate field/method declarations"],cwd=ROOT,check=True)
+        subprocess.run(["git","push"],cwd=ROOT,check=True)
+        print("GIT pushed")
+    except Exception as e:
+        print("GIT WARN", e)
+print("DONE")

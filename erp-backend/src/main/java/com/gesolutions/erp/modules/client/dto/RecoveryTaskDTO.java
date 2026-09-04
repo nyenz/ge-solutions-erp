@@ -65,7 +65,6 @@ public class RecoveryTaskDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CoOwnerRef {
-        private UUID clientId;
         private String fullName;
     }
 }
