@@ -41,6 +41,7 @@ public class FolderPortalController {
         m.put("deadline", p.getNegotiationDeadline());
         m.put("startDate", p.getReceivableStartDate());
         m.put("backlog", p.getLandTitle() == null);
+        m.put("problem", p.isProblem());
         return m;
     }
 
@@ -107,6 +108,17 @@ public class FolderPortalController {
         p.setReceivable(false);
         p.setStatus("ACTIVE");
         projectRepository.save(p);
+        return receivable(id);
+    }
+
+    @PostMapping("/{id}/toggle-problem")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> toggleProblem(@PathVariable UUID id) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        p.setProblem(!p.isProblem());
+        projectRepository.save(p);
+        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ".");
         return receivable(id);
     }
 

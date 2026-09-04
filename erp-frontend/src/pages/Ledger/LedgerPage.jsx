@@ -238,7 +238,7 @@ const LedgerPage = () => {
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
     const FILTERS = [
-        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'BACKLOG' },
+        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING' },
         { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
         { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
         { key: 'PAID', label: 'PAID' },
