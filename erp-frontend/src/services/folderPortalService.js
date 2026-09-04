@@ -131,6 +131,6 @@ export const folderPortalService = {
   enter:    (id) => api.post(`/land/portal/${id}/receivable/enter`).then(r => r.data),
   exit: (id, action) => api.post(`/land/portal/${id}/receivable/exit`, { action }).then(r => r.data),
   settings: (id, payload) => api.post(`/land/portal/${id}/receivable/settings`, payload).then(r => r.data),
-  toggleProblem: (id) => api.post(`/land/portal/${id}/toggle-problem`).then(r => r.data),
+  toggleProblem: (id, note) => api.post(`/land/portal/${id}/toggle-problem`, null, { params: note ? { note } : {} }).then(r => r.data),
 };
 export default folderPortalService;

@@ -1,199 +1,110 @@
-# fix.py -- FULL-FILE repair: rewrite FolderPortalController.java + dedupe LandProject.problem
+# fix.py -- fix67: financials restructure, grouped related projects, release/problem naming+note, note color
 import re, subprocess, shutil
 from pathlib import Path
-
 ROOT = Path(__file__).resolve().parent
-BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
+FE = ROOT / "erp-frontend" / "src"
+fp = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
+cssp = FE / "pages" / "DigitalFolder" / "FolderPage.module.css"
 
-CONTROLLER = '''package com.gesolutions.erp.modules.land.controller;
+def read(p): return p.read_text(encoding="utf-8", errors="replace")
+def write(p, s): p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
+results = []
 
-import com.gesolutions.erp.modules.land.model.LandProject;
-import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
-import com.gesolutions.erp.common.audit.AuditService;
-import com.gesolutions.erp.common.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+s = read(fp)
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
+# ---- 1) AMOUNT OWED color: green when 0, red when >0 (both branches) ----
+old_owed = '<div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label>'
+new_owed = '<div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label>'
+if old_owed in s:
+    s = s.replace(old_owed, new_owed); results.append("OK amountOwed color logic")
 
-@RestController
-@RequestMapping("/api/v1/land/portal")
-@RequiredArgsConstructor
-public class FolderPortalController {
+# ---- 2) Move storage/settings INTO balance summary, gated on isReceivable ----
+# Wrap the existing canMoney settings grid so it only shows when receivable.
+old_set = "{canMoney && (<div className={styles.inputGrid3}>"
+new_set = "{isReceivable && canMoney && (<div className={styles.storageBlock}><h3 className={styles.sectionTitle}>STORAGE & FEES</h3><div className={styles.inputGrid3}>"
+if old_set in s:
+    s = s.replace(old_set, new_set, 1)
+    # close the extra wrapper div after the settings inputGrid3 closes
+    s = s.replace(new_set + "\n                                <CurrencyInput label=\"MONTHLY STORAGE RATE\"", new_set + "\n                                <CurrencyInput label=\"MONTHLY STORAGE RATE\"", 1)
+    results.append("OK storage block gated (open)")
+# find the closing of that inputGrid3 (the </div> right before recvActionRow) and add one more </div>
+s = s.replace("</div>)}\n                            <div className={styles.recvActionRow}>", "</div></div>)}\n                            <div className={styles.recvActionRow}>", 1)
 
-    private final LandProjectRepository projectRepository;
-    private final AuditService auditService;
+# ---- 3) Related projects grouped by owner ----
+old_rel = """<h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
+                        {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
+                            <table className={styles.portfolioTable}>
+                                <thead><tr><th>#</th><th>PLOT</th><th>OWNER</th><th>STATUS</th></tr></thead>
+                                <tbody>{portfolio.map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
+                                    onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
+                                    <td>#{r.index}</td><td>{r.plot || '—'}</td><td>{r.sharedOwner}</td>
+                                    <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
+                                </tr>))}</tbody>
+                            </table>)}"""
+new_rel = """<h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
+                        {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
+                            [...new Set(portfolio.map(r => r.sharedOwner))].map(owner => (
+                                <div key={owner} className={styles.ownerRelGroup}>
+                                    <h4 className={styles.ownerRelName}>{owner}</h4>
+                                    <table className={styles.portfolioTable}>
+                                        <thead><tr><th>#</th><th>PLOT</th><th>STATUS</th></tr></thead>
+                                        <tbody>{portfolio.filter(r => r.sharedOwner === owner).map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
+                                            onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
+                                            <td>#{r.index}</td><td>{r.plot || '—'}</td>
+                                            <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
+                                        </tr>))}</tbody>
+                                    </table>
+                                </div>)))}"""
+if old_rel in s:
+    s = s.replace(old_rel, new_rel, 1); results.append("OK related projects grouped by owner")
 
-    private String op() {
-        var a = SecurityContextHolder.getContext().getAuthentication();
-        return a != null ? a.getName() : "SYSTEM";
-    }
+# ---- 4) RELEASE + PROBLEM button naming/state ----
+old_btns = """{canMoney && project.landTitle && !project.landTitle.isReleased && <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> PROBLEM</button>}"""
+new_btns = """{canMoney && project.landTitle && (project.landTitle.isReleased
+                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled><FiCheckCircle aria-hidden="true" /> RELEASED</button>
+                            : <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>)}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'PROBLEM ✓' : 'PROBLEM'}</button>}"""
+if old_btns in s:
+    s = s.replace(old_btns, new_btns, 1); results.append("OK release/problem naming+state")
 
-    @GetMapping("/{id}/receivable")
-    @Transactional(readOnly = true)
-    public Map<String, Object> receivable(@PathVariable UUID id) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        Map<String, Object> m = new HashMap<>();
-        m.put("receivable", p.isReceivable());
-        m.put("actual", p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO);
-        m.put("storage", p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO);
-        m.put("paid", p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
-        m.put("total", p.receivableTotalOwed());
-        m.put("rate", p.getStorageFeeOverride());
-        m.put("deadline", p.getNegotiationDeadline());
-        m.put("startDate", p.getReceivableStartDate());
-        m.put("backlog", p.getLandTitle() == null);
-        m.put("problem", p.isProblem());
-        return m;
-    }
+# ---- 5) PROBLEM toggle takes a note ----
+old_toggle = "const handleToggleProblem = async () => { const was = project.problem; try { await folderPortalService.toggleProblem(id); await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };"
+new_toggle = "const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };"
+if old_toggle in s:
+    s = s.replace(old_toggle, new_toggle, 1); results.append("OK problem takes note")
 
-    @GetMapping("/{id}/portfolio")
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> portfolio(@PathVariable UUID id) {
-        LandProject current = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        List<Map<String, Object>> out = new ArrayList<>();
-        if (current.getProprietors() == null) return out;
-        for (LandProject other : projectRepository.findAll()) {
-            if (other.getId().equals(id) || other.getProprietors() == null) continue;
-            for (var owner : current.getProprietors()) {
-                if (other.getProprietors().stream().anyMatch(c -> c.getId().equals(owner.getId()))) {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("projectId", other.getId());
-                    m.put("index", other.getProjectIndex());
-                    m.put("plot", other.getLandTitle() != null ? other.getLandTitle().getPlotNumber() : null);
-                    m.put("titled", other.getLandTitle() != null);
-                    m.put("receivable", other.isReceivable());
-                    m.put("sharedOwner", owner.getFullName());
-                    out.add(m);
-                    break;
-                }
-            }
-        }
-        return out;
-    }
+write(fp, s)
 
-    @PostMapping("/{id}/receivable/enter")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
-    @Transactional
-    public Map<String, Object> enter(@PathVariable UUID id) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        p.setReceivable(true);
-        p.setReceivableStartDate(LocalDateTime.now());
-        p.setReceivableMonthsBilled(0);
-        BigDecimal owed = (p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO)
-                .add(p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO)
-                .subtract(p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
-        p.setOriginalDebt(owed.max(BigDecimal.ZERO));
-        p.setStatus("RECEIVABLE");
-        projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables.");
-        return receivable(id);
-    }
+# ---- service: toggleProblem accepts note param ----
+svc = FE / "services" / "folderPortalService.js"
+sv = read(svc)
+old_svc = "toggleProblem: (id) => api.post(`/land/portal/${id}/toggle-problem`).then(r => r.data),"
+new_svc = "toggleProblem: (id, note) => api.post(`/land/portal/${id}/toggle-problem`, null, { params: note ? { note } : {} }).then(r => r.data),"
+if old_svc in sv:
+    write(svc, sv.replace(old_svc, new_svc, 1)); results.append("OK service note param")
 
-    @PostMapping("/{id}/receivable/exit")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
-    @Transactional
-    public Map<String, Object> exit(@PathVariable UUID id, @RequestBody Map<String, String> body) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        String action = body.getOrDefault("action", "SET_ASIDE");
-        BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
-        if ("WAIVE".equals(action)) {
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ".");
-            p.setStorageFeesAccumulated(BigDecimal.ZERO);
-        } else if ("CAPITALIZE".equals(action)) {
-            p.setTotalCost((p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO).add(fees));
-            p.setStorageFeesAccumulated(BigDecimal.ZERO);
-            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees + " into total cost on #" + p.getProjectIndex() + ".");
-        } else {
-            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (fees UGX " + fees + " retained, billing stopped).");
-        }
-        p.setReceivable(false);
-        p.setStatus("ACTIVE");
-        projectRepository.save(p);
-        return receivable(id);
-    }
+# ---- CSS: note textarea light + grouped related + released done ----
+c = read(cssp)
+if "FS-UNIFY v11" not in c:
+    c += """
+/* FS-UNIFY v11 -- note contrast, grouped related projects, released state */
+.modalTextarea,.modalInput{background:#ffffff !important;color:#1a2e30 !important;border:1.5px solid rgba(238,140,58,0.3) !important;}
+.modalTextarea::placeholder,.modalInput::placeholder{color:#9aa8a6 !important;}
+.ownerRelGroup{margin-bottom:clamp(10px,1.3vw,14px);}
+.ownerRelName{font-family:'Cinzel',serif;color:#fff;font-size:clamp(11px,1.2vw,14px);letter-spacing:1px;margin:0 0 6px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:4px;}
+.releaseBtnDone{background:#10b981;border-color:#10b981;color:#fff;opacity:0.9;cursor:default;}
+.storageBlock{margin-bottom:clamp(8px,1vw,12px);padding:clamp(8px,1vw,12px);background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:8px;}
+"""
+    write(cssp, c); results.append("OK css v11")
 
-    @PostMapping("/{id}/toggle-problem")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
-    @Transactional
-    public Map<String, Object> toggleProblem(@PathVariable UUID id) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        p.setProblem(!p.isProblem());
-        projectRepository.save(p);
-        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ".");
-        return receivable(id);
-    }
+for r in results: print(r)
 
-    @PostMapping("/{id}/receivable/settings")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
-    @Transactional
-    public Map<String, Object> settings(@PathVariable UUID id, @RequestBody Map<String, String> body) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        if (body.containsKey("rate")) {
-            p.setStorageFeeOverride(body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate")));
-        }
-        if (body.containsKey("deadline")) {
-            p.setNegotiationDeadline(body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline")));
-        }
-        projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex() + ".");
-        return receivable(id);
-    }
-}
-'''
-
-# ---- 1) overwrite controller with the complete known-good file ----
-ctrl = BE / "modules" / "land" / "controller" / "FolderPortalController.java"
-ctrl.write_text(CONTROLLER, encoding="utf-8", newline="\n")
-print("WROTE full FolderPortalController.java (single toggleProblem)")
-
-# ---- 2) dedupe LandProject.problem (adjacent-block regex, keep first) ----
-lp = BE / "modules" / "land" / "model" / "LandProject.java"
-s = lp.read_text(encoding="utf-8", errors="replace")
-block = r'(@Builder\.Default\s*@Column\(name\s*=\s*"is_problem"[^)]*\)\s*private\s+boolean\s+problem\s*=\s*false;)'
-s2 = re.sub(block + r'(\s*' + block + r')+', r'\1', s)
-if s2 != s:
-    lp.write_text(s2, encoding="utf-8", newline="\n")
-    print("OK  LandProject.problem collapsed to 1")
-else:
-    # streaming fallback: keep first, drop later decls + their annotations
-    lines = s.split("\n"); out = []; seen = False
-    for line in lines:
-        if re.match(r'^\s*private\s+boolean\s+problem\b', line):
-            if seen:
-                j = len(out) - 1
-                while j >= 0 and out[j].strip().startswith("@"): out.pop(); j -= 1
-                if out and out[-1].strip() == "": out.pop()
-                continue
-            seen = True
-        out.append(line)
-    lp.write_text("\n".join(out), encoding="utf-8", newline="\n")
-    print("OK  LandProject.problem streaming dedupe")
-
-# ---- verify ----
-bad = 0
-c = lp.read_text(encoding="utf-8", errors="replace")
-n = len(re.findall(r'private\s+boolean\s+problem\b', c))
-print("LandProject problem count =", n); bad += (n != 1)
-c = ctrl.read_text(encoding="utf-8", errors="replace")
-n = c.count("public Map<String, Object> toggleProblem(")
-print("toggleProblem count =", n); bad += (n != 1)
-print("VERIFY:", "CLEAN" if bad == 0 else "STILL BAD - do not push")
-
-for p in ROOT.glob("fix*.py"):
-    if p.name != "fix.py": shutil.move(str(p), str(p) + ".done"); print("retired", p.name)
-
-if bad == 0:
-    try:
-        subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-        subprocess.run(["git","commit","-m","FULL-FILE: rewrite FolderPortalController + dedupe LandProject.problem"],cwd=ROOT,check=True)
-        subprocess.run(["git","push"],cwd=ROOT,check=True)
-        print("GIT pushed")
-    except Exception as e:
-        print("GIT WARN", e)
+try:
+    subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
+    subprocess.run(["git","commit","-m","fix67: financials restructure, grouped related, release/problem naming+note, note contrast"],cwd=ROOT,check=True)
+    subprocess.run(["git","push"],cwd=ROOT,check=True)
+    print("GIT pushed")
+except Exception as e:
+    print("GIT WARN", e)
 print("DONE")

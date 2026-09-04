@@ -357,7 +357,7 @@ const FolderPage = () => {
         finally { setCommitting(false); }
     };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
-    const handleToggleProblem = async () => { const was = project.problem; try { await folderPortalService.toggleProblem(id); await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
@@ -486,8 +486,10 @@ const FolderPage = () => {
                     {!isEditing && (<div className={styles.ctrlGroup}>
                         <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>
                         {canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> PAYMENT</button>}
-                        {canMoney && project.landTitle && !project.landTitle.isReleased && <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>}
-                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> PROBLEM</button>}
+                        {canMoney && project.landTitle && (project.landTitle.isReleased
+                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled><FiCheckCircle aria-hidden="true" /> RELEASED</button>
+                            : <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>)}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'PROBLEM ✓' : 'PROBLEM'}</button>}
                         {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
@@ -563,11 +565,11 @@ const FolderPage = () => {
                                 <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label><strong style={{ color: 'var(--fs-red)' }}>UGX {fmt(storageFees)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
-                                <div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
+                                <div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
                             </div>) : (<div className={styles.moneyStatsRow}>
                                 <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
-                                <div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label><strong>UGX {fmt(activeAmountOwed)}</strong></div>
+                                <div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label><strong>UGX {fmt(activeAmountOwed)}</strong></div>
                             </div>)}
                         </div></div>
                     </section>
@@ -575,13 +577,13 @@ const FolderPage = () => {
                         <DrawerHeader label="RECEIVABLES & PORTFOLIO" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} count={portfolio.length || undefined} />
                         <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                            {canMoney && (<div className={styles.inputGrid3}>
+                            {isReceivable && canMoney && (<div className={styles.storageBlock}><h3 className={styles.sectionTitle}>STORAGE & FEES</h3><div className={styles.inputGrid3}>
                                 <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label htmlFor="freezeDeadline">FREEZE DEADLINE</label></div>
                                     <input id="freezeDeadline" type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} /></div>
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
                                     <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE SETTINGS</HardwareButton></div>
-                            </div>)}
+                            </div></div>)}
                             <div className={styles.recvActionRow}>
                                 {!isReceivable
                                     ? canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>
@@ -651,14 +653,18 @@ const FolderPage = () => {
                         </div>
                         <h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
                         {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
-                            <table className={styles.portfolioTable}>
-                                <thead><tr><th>#</th><th>PLOT</th><th>OWNER</th><th>STATUS</th></tr></thead>
-                                <tbody>{portfolio.map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
-                                    onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
-                                    <td>#{r.index}</td><td>{r.plot || '—'}</td><td>{r.sharedOwner}</td>
-                                    <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
-                                </tr>))}</tbody>
-                            </table>)}
+                            [...new Set(portfolio.map(r => r.sharedOwner))].map(owner => (
+                                <div key={owner} className={styles.ownerRelGroup}>
+                                    <h4 className={styles.ownerRelName}>{owner}</h4>
+                                    <table className={styles.portfolioTable}>
+                                        <thead><tr><th>#</th><th>PLOT</th><th>STATUS</th></tr></thead>
+                                        <tbody>{portfolio.filter(r => r.sharedOwner === owner).map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
+                                            onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
+                                            <td>#{r.index}</td><td>{r.plot || '—'}</td>
+                                            <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
+                                        </tr>))}</tbody>
+                                    </table>
+                                </div>)))}
                     </div></div>
                 </section>
                 <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
