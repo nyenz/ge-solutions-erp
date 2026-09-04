@@ -1,111 +1,81 @@
-# fix.py -- fix62: patch 2 duplicate-declaration compile errors
-# 1) LandProject.java has the 'problem' field declared twice
-# 2) FolderPortalController.java has toggleProblem(UUID) declared twice
+# fix.py -- FINAL: streaming dedupe of the two remaining duplicate blocks
+# (adopts the proven single-pass pop-from-output approach + regex safety pass)
 import re, subprocess, shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BACKEND = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 
-def read(p):
-    return p.read_text(encoding="utf-8", errors="replace")
-
-def write(p, s):
-    p.write_text(s, encoding="utf-8", newline="\n")
-
+def read(p): return p.read_text(encoding="utf-8", errors="replace")
+def write(p, s): p.write_text(s, encoding="utf-8", newline="\n")
 results = {}
 
-# ---------- FIX 1: LandProject.java duplicate 'problem' field ----------
-lp_path = BACKEND / "modules" / "land" / "model" / "LandProject.java"
-lines = read(lp_path).split("\n")
-
-FIELD_START = re.compile(r'^\s*private\s+boolean\s+problem\b')
-out = []
-seen_field = False
-i = 0
-while i < len(lines):
-    line = lines[i]
-    if FIELD_START.match(line):
-        if seen_field:
-            # duplicate -- strip trailing annotations already pushed to out
+# ---------- LandProject.java : duplicate 'problem' field ----------
+lp = BACKEND / "modules" / "land" / "model" / "LandProject.java"
+lines = read(lp).split("\n")
+FIELD = re.compile(r'^\s*private\s+boolean\s+problem\b')
+out, seen = [], False
+for line in lines:
+    if FIELD.match(line):
+        if seen:
             j = len(out) - 1
-            while j >= 0 and out[j].strip().startswith("@"):
-                out.pop()
-                j -= 1
-            if out and out[-1].strip() == "":
-                out.pop()
-            i += 1
+            while j >= 0 and out[j].strip().startswith("@"): out.pop(); j -= 1
+            if out and out[-1].strip() == "": out.pop()
             continue
-        else:
-            seen_field = True
+        seen = True
     out.append(line)
-    i += 1
+s = "\n".join(out)
+# safety pass: regex-remove any 2nd+ full block, whitespace-tolerant
+block = re.compile(r'(@Builder\.Default\s*@Column\(name\s*=\s*"is_problem"[^)]*\)\s*private\s+boolean\s+problem\s*=\s*false;)')
+ms = list(block.finditer(s))
+if len(ms) > 1:
+    for m in reversed(ms[1:]): s = s[:m.start()] + s[m.end():]
+write(lp, s)
+results["LandProject.problem"] = "remaining=" + str(len(block.findall(s)))
 
-if seen_field:
-    write(lp_path, "\n".join(out))
-    remaining = len(re.findall(r'^\s*private\s+boolean\s+problem\b', "\n".join(out), re.MULTILINE))
-    results["LandProject.problem field dedupe"] = f"OK (remaining declarations: {remaining})"
-else:
-    results["LandProject.problem field dedupe"] = "MISSING (field not found)"
-
-# ---------- FIX 2: FolderPortalController.java duplicate toggleProblem method ----------
-fp_path = BACKEND / "modules" / "land" / "controller" / "FolderPortalController.java"
-lines = read(fp_path).split("\n")
-
-METHOD_START = re.compile(r'public\s+Map<String,\s*Object>\s+toggleProblem\(')
-out = []
-seen_method = False
+# ---------- FolderPortalController.java : duplicate toggleProblem ----------
+fp = BACKEND / "modules" / "land" / "controller" / "FolderPortalController.java"
+lines = read(fp).split("\n")
+METHOD = re.compile(r'public\s+Map<String,\s*Object>\s+toggleProblem\(')
+out, seen = [], False
 i = 0
 while i < len(lines):
     line = lines[i]
-    if METHOD_START.search(line):
-        if seen_method:
-            # remove preceding annotation lines (@PostMapping, @PreAuthorize, @Transactional)
+    if METHOD.search(line):
+        if seen:
             j = len(out) - 1
-            while j >= 0 and out[j].strip().startswith("@"):
-                out.pop()
-                j -= 1
-            if out and out[-1].strip() == "":
-                out.pop()
-            # remove method body via brace balance
+            while j >= 0 and out[j].strip().startswith("@"): out.pop(); j -= 1
+            if out and out[-1].strip() == "": out.pop()
             depth = line.count("{") - line.count("}")
             i += 1
             while i < len(lines) and depth > 0:
                 depth += lines[i].count("{") - lines[i].count("}")
                 i += 1
-            if i < len(lines) and lines[i].strip() == "":
-                i += 1
+            if i < len(lines) and lines[i].strip() == "": i += 1
             continue
-        else:
-            seen_method = True
+        seen = True
     out.append(line)
     i += 1
+s = "\n".join(out)
+write(fp, s)
+results["FolderPortalController.toggleProblem"] = "remaining=" + str(len(METHOD.findall(s)))
 
-if seen_method:
-    write(fp_path, "\n".join(out))
-    remaining = len(re.findall(r'public\s+Map<String,\s*Object>\s+toggleProblem\(', "\n".join(out)))
-    results["FolderPortalController.toggleProblem dedupe"] = f"OK (remaining declarations: {remaining})"
-else:
-    results["FolderPortalController.toggleProblem dedupe"] = "MISSING (method not found)"
-
-# ---------- REPORT ----------
+# ---------- report + verify ----------
+bad = 0
 for k, v in results.items():
-    print(f"{v}: {k}")
-
-bad = sum(1 for v in results.values() if v.startswith("MISSING"))
+    print(v, ":", k)
+    if not v.endswith("remaining=1"): bad += 1
 print("VERIFY:", "CLEAN" if bad == 0 else f"{bad} issue(s) remain (do NOT push, paste this)")
 
-# retire old fix files
 for p in ROOT.glob("fix*.py"):
     if p.name != "fix.py":
-        shutil.move(str(p), str(p) + ".done")
-        print("retired", p.name)
+        shutil.move(str(p), str(p) + ".done"); print("retired", p.name)
 
 if bad == 0:
     try:
-        subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-        subprocess.run(["git", "commit", "-m", "fix62: resolve duplicate problem field + duplicate toggleProblem method"], cwd=ROOT, check=True)
-        subprocess.run(["git", "push"], cwd=ROOT, check=True)
+        subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
+        subprocess.run(["git","commit","-m","FINAL: dedupe problem field + toggleProblem method"],cwd=ROOT,check=True)
+        subprocess.run(["git","push"],cwd=ROOT,check=True)
         print("GIT pushed")
     except Exception as e:
         print("GIT WARN", e)
