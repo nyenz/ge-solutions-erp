@@ -1,5 +1,4 @@
-// PATH: erp-frontend/src/components/layout/Header.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMenu, FiBell, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,43 +7,52 @@ import styles from './Header.module.css';
 
 /**
  * GOLDEN SEED — SYSTEM STATUS HEADER
- * ERP Standard compliant:
- * - clamp() on all fluid sizes
- * - DM Sans 900 / Space Mono 700-900 / Cinzel 700+ — no system fonts
- * - All icon-only buttons have aria-label
- * - All icons aria-hidden="true"
- * - notificationGroup is <button> not <div>
- * - activeSensor class defined
- * - try/catch on recoveryService
- * - focus-visible on all interactive elements
+ * Optimized for performance and accurate role mapping.
  */
 const Header = ({ onToggle }) => {
     const { user, logout } = useAuth();
-    const navigate         = useNavigate();
+    const navigate = useNavigate();
     const [staleCount, setStaleCount] = useState(0);
 
-    const isRoot      = user?.isRoot;
-    const displayRole = isRoot ? 'ROOT OWNER' : 'SYSTEM MANAGER';
-    const initials    = user?.username?.charAt(0).toUpperCase() || 'A';
+    // Accurately map backend roles to clean display titles
+    const displayRole = useMemo(() => {
+        if (!user) return 'STAFF';
+        if (user.isRoot) return 'FOUNDER';
+        const roleMap = {
+            'ROLE_ADMIN': 'ADMIN',
+            'ROLE_DIRECTOR': 'DIRECTOR',
+            'ROLE_MANAGER': 'MANAGER',
+            'ROLE_SECRETARY': 'SECRETARY'
+        };
+        return roleMap[user.role] || 'STAFF';
+    }, [user]);
+
+    const initials = user?.username?.charAt(0).toUpperCase() || 'A';
+
+    // Safely fetch the recovery bell count
+    const fetchStaleCount = useCallback(async () => {
+        try {
+            const count = await recoveryService.getTaskCount();
+            setStaleCount(count ?? 0);
+        } catch {
+            // Silently fail — badge just stays at 0 if API is unreachable
+        }
+    }, []);
 
     useEffect(() => {
-        const updateSensor = async () => {
-            try {
-                const count = await recoveryService.getTaskCount();
-                setStaleCount(count ?? 0);
-            } catch {
-                // Non-fatal — badge simply stays at 0
-            }
-        };
-        updateSensor();
-        const interval = setInterval(updateSensor, 300000);
+        fetchStaleCount();
+        const interval = setInterval(fetchStaleCount, 300000); // 5 minutes
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchStaleCount]);
+
+    const handleBellClick = useCallback(() => navigate('/recovery'), [navigate]);
+    const handleLogout = useCallback(() => logout(), [logout]);
 
     return (
         <header className={styles.header}>
             <div className={styles.headerLeft}>
                 <button
+                    type="button"
                     className={styles.sidebarToggle}
                     onClick={onToggle}
                     aria-label="Toggle sidebar navigation"
@@ -62,10 +70,10 @@ const Header = ({ onToggle }) => {
             </div>
 
             <div className={styles.headerRight}>
-                {/* Recovery mission sensor — navigates to /recovery */}
                 <button
+                    type="button"
                     className={`${styles.notificationGroup} ${staleCount > 0 ? styles.activeSensor : ''}`}
-                    onClick={() => navigate('/recovery')}
+                    onClick={handleBellClick}
                     aria-label={staleCount > 0
                         ? `${staleCount} recovery mission${staleCount > 1 ? 's' : ''} pending`
                         : 'Open recovery missions'
@@ -88,8 +96,9 @@ const Header = ({ onToggle }) => {
                 </div>
 
                 <button
+                    type="button"
                     className={styles.logoutTrigger}
-                    onClick={logout}
+                    onClick={handleLogout}
                     aria-label="Sign out of session"
                 >
                     <FiLogOut aria-hidden="true" />

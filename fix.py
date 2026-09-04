@@ -1,122 +1,136 @@
-# fix.py -- fix68: simple STORAGE FEES section, freeze button flow, totals, constructor injection
-import re, subprocess
+# fix.py -- Header optimization and role inconsistency fix
+import os
+import subprocess
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent
-FE = ROOT / "erp-frontend" / "src"
-BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
-def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def write(p, s): p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
-res = []
+TARGET = ROOT / "erp-frontend" / "src" / "components" / "layout" / "Header.jsx"
 
-fp = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-s = read(fp)
+NEW_CODE = r"""import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiMenu, FiBell, FiLogOut } from 'react-icons/fi';
+import { useAuth } from '../../hooks/useAuth';
+import recoveryService from '../../services/recoveryService';
+import styles from './Header.module.css';
 
-NEW_SECTION = '''<section className={styles.hwPanel} aria-label="Storage Fees" id="receivable-controls">
-                    <DrawerHeader label="STORAGE FEES" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} />
-                    <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
-<CornerDecor hideTop />
-                        {!isReceivable ? (
-                            <div className={styles.recvActionRow}>
-                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>}
-                                <span className={styles.inputHint}>Storage fees apply only after a project is moved to receivables.</span>
-                            </div>
-                        ) : (<>
-                            <div className={styles.moneyStatsRow}>
-                                <div className={`${styles.statBox} ${styles.statRed}`}><label>STORAGE FEES</label><strong>UGX {fmt(storageFees)}</strong></div>
-                                <div className={styles.statBox}><label>COMBINED TOTAL</label><strong>UGX {fmt(totalValue + storageFees)}</strong></div>
-                                <div className={`${styles.statBox} ${styles.statRed}`}><label>TOTAL OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
-                            </div>
-                            {canMoney && (<div className={styles.storageBlock}>
-                                <div className={styles.inputGrid3}>
-                                    <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
-                                    <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
-                                        <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE RATE</HardwareButton></div>
-                                </div>
-                                <div className={styles.recvActionRow}>
-                                    {project.negotiationDeadline ? (<>
-                                        <span className={styles.frozenChip}>FROZEN UNTIL {String(project.negotiationDeadline).slice(0, 10)}</span>
-                                        <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> UNFREEZE</button>
-                                    </>) : freezeOpen ? (<>
-                                        <input type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} />
-                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>CONFIRM FREEZE</HardwareButton>
-                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
-                                    </>) : (
-                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> FREEZE FEES</button>
-                                    )}
-                                </div>
-                            </div>)}
-                            <div className={styles.recvActionRow}>
-                                {canMoney && (<>
-                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
-                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
-                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE</button>
-                                </>)}
-                            </div>
-                        </>)}
-                    </div></div>
-                </section>'''
+/**
+ * GOLDEN SEED — SYSTEM STATUS HEADER
+ * Optimized for performance and accurate role mapping.
+ */
+const Header = ({ onToggle }) => {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [staleCount, setStaleCount] = useState(0);
 
-# ---- replace the whole Receivables & Portfolio section via depth scan ----
-marker = 'aria-label="Receivables and Portfolio"'
-i = s.find(marker)
-if i != -1:
-    start = s.rfind("<section", 0, i)
-    depth = 0; k = start; end = -1
-    while k < len(s):
-        no = s.find("<section", k); nc = s.find("</section>", k)
-        if nc == -1: break
-        if no != -1 and no < nc: depth += 1; k = no + 8
-        else:
-            depth -= 1; k = nc + 10
-            if depth == 0: end = k; break
-    if end != -1:
-        s = s[:start] + NEW_SECTION + s[end:]
-        res.append("OK storage-fees section replaced")
-else:
-    res.append("MISS section marker")
+    // Accurately map backend roles to clean display titles
+    const displayRole = useMemo(() => {
+        if (!user) return 'STAFF';
+        if (user.isRoot) return 'FOUNDER';
+        const roleMap = {
+            'ROLE_ADMIN': 'ADMIN',
+            'ROLE_DIRECTOR': 'DIRECTOR',
+            'ROLE_MANAGER': 'MANAGER',
+            'ROLE_SECRETARY': 'SECRETARY'
+        };
+        return roleMap[user.role] || 'STAFF';
+    }, [user]);
 
-# ---- add freezeOpen state + handleUnfreeze ----
-if "const [freezeOpen, setFreezeOpen]" not in s:
-    s = s.replace("const [recvBusy, setRecvBusy] = useState(false);",
-                  "const [recvBusy, setRecvBusy] = useState(false);\n    const [freezeOpen, setFreezeOpen] = useState(false);", 1)
-    res.append("OK freezeOpen state")
-if "const handleUnfreeze" not in s:
-    s = s.replace("const handleRelease = async () => {",
-                  "const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };\n    const handleRelease = async () => {", 1)
-    res.append("OK handleUnfreeze")
-write(fp, s)
+    const initials = user?.username?.charAt(0).toUpperCase() || 'A';
 
-# ---- CSS frozenChip ----
-cssp = FE / "pages" / "DigitalFolder" / "FolderPage.module.css"
-c = read(cssp)
-if ".frozenChip" not in c:
-    c += "\n.frozenChip{display:inline-flex;align-items:center;gap:5px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.4);color:#06b6d4;border-radius:999px;padding:4px 12px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;}\n"
-    write(cssp, c); res.append("OK frozenChip css")
+    // Safely fetch the recovery bell count
+    const fetchStaleCount = useCallback(async () => {
+        try {
+            const count = await recoveryService.getTaskCount();
+            setStaleCount(count ?? 0);
+        } catch {
+            // Silently fail — badge just stays at 0 if API is unreachable
+        }
+    }, []);
 
-# ---- RecoveryNoteController: @Autowired(required=false) -> final constructor injection ----
-rc = BE / "modules" / "client" / "controller" / "RecoveryNoteController.java"
-lines = read(rc).split("\n")
-out = []; i = 0; changed = False
-while i < len(lines):
-    l = lines[i]
-    if re.match(r'^\s*@org\.springframework\.beans\.factory\.annotation\.Autowired\(required = false\)\s*$', l):
-        # skip annotation; make next field final
-        if i + 1 < len(lines) and re.match(r'^\s*private\s+', lines[i+1]) and " final " not in lines[i+1]:
-            lines[i+1] = lines[i+1].replace("private ", "private final ", 1)
-            changed = True
-        i += 1; continue
-    out.append(l); i += 1
-if changed:
-    write(rc, "\n".join(out)); res.append("OK constructor injection")
-else:
-    res.append("skip injection (already final or pattern absent)")
+    useEffect(() => {
+        fetchStaleCount();
+        const interval = setInterval(fetchStaleCount, 300000); // 5 minutes
+        return () => clearInterval(interval);
+    }, [fetchStaleCount]);
 
-for r in res: print(r)
+    const handleBellClick = useCallback(() => navigate('/recovery'), [navigate]);
+    const handleLogout = useCallback(() => logout(), [logout]);
+
+    return (
+        <header className={styles.header}>
+            <div className={styles.headerLeft}>
+                <button
+                    type="button"
+                    className={styles.sidebarToggle}
+                    onClick={onToggle}
+                    aria-label="Toggle sidebar navigation"
+                >
+                    <FiMenu aria-hidden="true" />
+                </button>
+
+                <div className={styles.logoSection} aria-label="Golden Seed ERP">
+                    <div className={styles.logoSmallPulse} aria-hidden="true">
+                        <div className={styles.pulseInner}>🌱</div>
+                        <div className={styles.pulseRing} />
+                    </div>
+                    <span className={styles.brandName}>GOLDEN SEED</span>
+                </div>
+            </div>
+
+            <div className={styles.headerRight}>
+                <button
+                    type="button"
+                    className={`${styles.notificationGroup} ${staleCount > 0 ? styles.activeSensor : ''}`}
+                    onClick={handleBellClick}
+                    aria-label={staleCount > 0
+                        ? `${staleCount} recovery mission${staleCount > 1 ? 's' : ''} pending`
+                        : 'Open recovery missions'
+                    }
+                >
+                    <FiBell className={styles.bellIcon} aria-hidden="true" />
+                    {staleCount > 0 && (
+                        <span className={styles.badge} aria-hidden="true">
+                            {staleCount > 99 ? '99+' : staleCount}
+                        </span>
+                    )}
+                </button>
+
+                <div className={styles.userCard} aria-label={`Logged in as ${user?.username}, ${displayRole}`}>
+                    <div className={styles.avatar} aria-hidden="true">{initials}</div>
+                    <div className={styles.userMeta}>
+                        <span className={styles.userName}>{user?.username}</span>
+                        <span className={styles.roleTag}>{displayRole}</span>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    className={styles.logoutTrigger}
+                    onClick={handleLogout}
+                    aria-label="Sign out of session"
+                >
+                    <FiLogOut aria-hidden="true" />
+                </button>
+            </div>
+        </header>
+    );
+};
+
+export default Header;
+"""
+
+print("Updating Header.jsx...")
+os.makedirs(os.path.dirname(TARGET), exist_ok=True)
+TARGET.write_text(NEW_CODE, encoding="utf-8", newline="\n")
+print("OK: Header.jsx optimized and saved.")
+
+print("Committing and pushing to GitHub...")
 try:
-    subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-    subprocess.run(["git","commit","-m","fix68: STORAGE FEES section + freeze button flow + totals + constructor injection"],cwd=ROOT,check=True)
-    subprocess.run(["git","push"],cwd=ROOT,check=True)
-    print("GIT pushed")
+    subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix69: optimize Header.jsx and fix role inconsistencies"], cwd=ROOT, check=True)
+    subprocess.run(["git", "push"], cwd=ROOT, check=True)
+    print("OK: GIT pushed successfully.")
 except Exception as e:
-    print("GIT WARN", e)
+    print("GIT WARN:", e)
+
 print("DONE")
