@@ -6,6 +6,7 @@ const recoveryService = {
   getLocked: () => api.get('/recovery/locked'),
   getTags:   () => api.get('/recovery/tags'),
   getStats:  () => api.get('/recovery/stats'),
+  getTaskCount: () => api.get('/recovery/stats').then(r => r.data.dueNow),
   getNotes:  (clientId) => api.get('/recovery/clients/' + clientId + '/notes'),
   logNote:   (payload) => api.post('/recovery/notes', payload),
 };

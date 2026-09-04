@@ -85,8 +85,8 @@ public class RecoveryNoteController {
         for (Object p : projects) {
             Boolean leg = readBool(p, "isLegacy", "getIsLegacy", "getLegacy");
             if (Boolean.TRUE.equals(leg)) return "Legacy Title";
-            Boolean ta = readBool(p, "getTitleAtIntake", "isTitleAtIntake");
-            if (Boolean.TRUE.equals(ta)) return "New Title";
+            Object title = call(p, "getLandTitle");
+            if (title != null) return "New Title";
         }
         return projects.isEmpty() ? null : "New Folder";
     }
@@ -94,8 +94,10 @@ public class RecoveryNoteController {
         if (projects.isEmpty()) return false;
         for (Object p : projects) {
             if (Boolean.TRUE.equals(readBool(p, "isLegacy", "getIsLegacy", "getLegacy"))) return true;
-            Number bal = readNum(p, "getBalance", "getAmountOwed", "getOutstandingBalance");
-            if (bal != null) { if (bal.doubleValue() > 0) return true; else continue; }
+            Number act = readNum(p, "activeTotalOwed");
+            Number rec = readNum(p, "receivableTotalOwed");
+            double owed = Math.max(act == null ? 0 : act.doubleValue(), rec == null ? 0 : rec.doubleValue());
+            if (owed > 0) return true;
             Number sf = readNum(p, "getMonthlyStorageFee");
             if (sf != null && sf.doubleValue() > 0) return true;
             Object st = call(p, "getStages");
@@ -293,7 +295,7 @@ public class RecoveryNoteController {
         String who = auth == null ? "system" : auth.getName();
         for (Method m : auditService.getClass().getMethods()) {
             String name = m.getName();
-            if (!(name.equals("log") || name.equals("record") || name.equals("write"))) continue;
+            if (!(name.equals("log") || name.equals("record") || name.equals("write") || name.equals("logAction"))) continue;
             try {
                 Class<?>[] pt = m.getParameterTypes();
                 if (pt.length == 2 && pt[0] == String.class && pt[1] == String.class)
