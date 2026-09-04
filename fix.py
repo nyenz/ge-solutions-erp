@@ -1,93 +1,127 @@
-# fix.py -- fix66: GENERIC duplicate-declaration remover (delete-only, self-verifying).
-# Deletes any repeated field or repeated method signature in backend main sources,
-# keeping the FIRST copy. Cannot re-add anything. Retires old fix files.
-import os, re, subprocess, shutil
+# fix.py -- fix61: patch 3 compile errors
+# 1) RecoveryTaskDTO.CoOwnerRef missing clientId field (RecoveryController.java line 163)
+# 2) FolderPortalController.java has toggleProblem(UUID) declared twice
+# 3) LandProject.java has the 'problem' field declared twice
+import re, subprocess, shutil
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent
-SRC = ROOT / "erp-backend" / "src" / "main"
+BACKEND = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 
-FIELD = re.compile(r'^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?[\w.<>\[\]]+\s+([A-Za-z_$][\w$]*)\s*(?:=|;)')
-METHOD = re.compile(r'^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?[\w.<>\[\],\s]+?\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)\s*(?:throws[^{]*)?\{')
-KEYWORDS = {"if","for","while","switch","return","new","catch","super","this"}
+def read(p):
+    return p.read_text(encoding="utf-8", errors="replace")
 
-def clean(path):
-    lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
-    seen_f, seen_m = set(), set()
-    rm = set()
-    i = 0
-    while i < len(lines):
-        l = lines[i]
-        mf, mm = FIELD.match(l), METHOD.match(l)
-        if mf and mf.group(1) not in KEYWORDS:
-            name = mf.group(1)
-            if name in seen_f:
-                # duplicate field: delete it + its annotations + trailing blank
-                rm.add(i)
-                j = i - 1
-                while j >= 0 and lines[j].strip().startswith("@"):
-                    rm.add(j); j -= 1
-                if i + 1 < len(lines) and lines[i+1].strip() == "": rm.add(i+1)
-            else:
-                seen_f.add(name)
-        elif mm and mm.group(1) not in KEYWORDS:
-            sig = mm.group(1) + "(" + re.sub(r"\s+", " ", mm.group(2)).strip() + ")"
-            if sig in seen_m:
-                # duplicate method: delete annotations + brace-balanced body
-                j = i - 1
-                while j >= 0 and lines[j].strip().startswith("@"):
-                    rm.add(j); j -= 1
-                rm.add(i)
-                depth = lines[i].count("{") - lines[i].count("}")
-                k = i + 1
-                while k < len(lines) and depth > 0:
-                    depth += lines[k].count("{") - lines[k].count("}")
-                    rm.add(k); k += 1
-                if k < len(lines) and lines[k].strip() == "": rm.add(k)
-            else:
-                seen_m.add(sig)
-        i += 1
-    if rm:
-        out = [l for idx, l in enumerate(lines) if idx not in rm]
-        path.write_text("\n".join(out), encoding="utf-8", newline="")
-        return len(rm)
-    return 0
+def write(p, s):
+    p.write_text(s, encoding="utf-8", newline="\n")
 
-total = 0
-for r, d, fs in os.walk(SRC):
-    for f in fs:
-        if f.endswith(".java"):
-            n = clean(Path(r) / f)
-            if n: print("cleaned", f, "->", n, "lines removed"); total += n
-print("TOTAL lines removed:", total)
+results = {}
 
-# verify: re-scan for any remaining dupes
-bad = 0
-for r, d, fs in os.walk(SRC):
-    for f in fs:
-        if f.endswith(".java"):
-            lines = (Path(r)/f).read_text(encoding="utf-8", errors="replace").split("\n")
-            sf, sm = set(), set()
-            for l in lines:
-                mf, mm = FIELD.match(l), METHOD.match(l)
-                if mf and mf.group(1) not in KEYWORDS:
-                    if mf.group(1) in sf: print("STILL DUP field", mf.group(1), "in", f); bad += 1
-                    sf.add(mf.group(1))
-                elif mm and mm.group(1) not in KEYWORDS:
-                    sig = mm.group(1)+"("+re.sub(r"\s+"," ",mm.group(2)).strip()+")"
-                    if sig in sm: print("STILL DUP method", sig, "in", f); bad += 1
-                    sm.add(sig)
-print("VERIFY:", "CLEAN" if bad == 0 else str(bad)+" dupes remain (do NOT push, paste this)")
+# ---------- FIX 1: RecoveryTaskDTO.CoOwnerRef needs clientId ----------
+dto_path = BACKEND / "modules" / "client" / "dto" / "RecoveryTaskDTO.java"
+s = read(dto_path)
+old = "public static class CoOwnerRef {\n        private String fullName;"
+new = "public static class CoOwnerRef {\n        private java.util.UUID clientId;\n        private String fullName;"
+if old in s:
+    s = s.replace(old, new, 1)
+    write(dto_path, s)
+    results["RecoveryTaskDTO.CoOwnerRef.clientId"] = "OK"
+elif "private java.util.UUID clientId;" in s or "private UUID clientId;" in s:
+    results["RecoveryTaskDTO.CoOwnerRef.clientId"] = "OK (already present)"
+else:
+    results["RecoveryTaskDTO.CoOwnerRef.clientId"] = "MISSING (pattern not found, paste file back)"
 
-# retire old fix files so the loop ends
+# ---------- FIX 2: LandProject.java duplicate 'problem' field ----------
+lp_path = BACKEND / "modules" / "land" / "model" / "LandProject.java"
+lines = read(lp_path).split("\n")
+
+FIELD_START = re.compile(r'^\s*private\s+boolean\s+problem\b')
+out = []
+seen_field = False
+i = 0
+while i < len(lines):
+    line = lines[i]
+    if FIELD_START.match(line):
+        if seen_field:
+            # duplicate -- strip trailing annotations already pushed to out
+            j = len(out) - 1
+            while j >= 0 and out[j].strip().startswith("@"):
+                out.pop()
+                j -= 1
+            if out and out[-1].strip() == "":
+                out.pop()
+            i += 1
+            continue
+        else:
+            seen_field = True
+    out.append(line)
+    i += 1
+
+if seen_field:
+    write(lp_path, "\n".join(out))
+    # count how many 'private boolean problem' remain
+    remaining = len(re.findall(r'^\s*private\s+boolean\s+problem\b', "\n".join(out), re.MULTILINE))
+    results["LandProject.problem field dedupe"] = f"OK (remaining declarations: {remaining})"
+else:
+    results["LandProject.problem field dedupe"] = "MISSING (field not found)"
+
+# ---------- FIX 3: FolderPortalController.java duplicate toggleProblem method ----------
+fp_path = BACKEND / "modules" / "land" / "controller" / "FolderPortalController.java"
+lines = read(fp_path).split("\n")
+
+METHOD_START = re.compile(r'public\s+Map<String,\s*Object>\s+toggleProblem\(')
+out = []
+seen_method = False
+i = 0
+while i < len(lines):
+    line = lines[i]
+    if METHOD_START.search(line):
+        if seen_method:
+            # remove preceding annotation lines (@PostMapping, @PreAuthorize, @Transactional)
+            j = len(out) - 1
+            while j >= 0 and out[j].strip().startswith("@"):
+                out.pop()
+                j -= 1
+            if out and out[-1].strip() == "":
+                out.pop()
+            # remove method body via brace balance
+            depth = line.count("{") - line.count("}")
+            i += 1
+            while i < len(lines) and depth > 0:
+                depth += lines[i].count("{") - lines[i].count("}")
+                i += 1
+            if i < len(lines) and lines[i].strip() == "":
+                i += 1
+            continue
+        else:
+            seen_method = True
+    out.append(line)
+    i += 1
+
+if seen_method:
+    write(fp_path, "\n".join(out))
+    remaining = len(re.findall(r'public\s+Map<String,\s*Object>\s+toggleProblem\(', "\n".join(out)))
+    results["FolderPortalController.toggleProblem dedupe"] = f"OK (remaining declarations: {remaining})"
+else:
+    results["FolderPortalController.toggleProblem dedupe"] = "MISSING (method not found)"
+
+# ---------- REPORT ----------
+for k, v in results.items():
+    print(f"{v}: {k}")
+
+bad = sum(1 for v in results.values() if v.startswith("MISSING"))
+print("VERIFY:", "CLEAN" if bad == 0 else f"{bad} issue(s) remain (do NOT push, paste this)")
+
+# retire old fix files
 for p in ROOT.glob("fix*.py"):
     if p.name != "fix.py":
-        shutil.move(str(p), str(p) + ".done"); print("retired", p.name)
+        shutil.move(str(p), str(p) + ".done")
+        print("retired", p.name)
 
 if bad == 0:
     try:
-        subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-        subprocess.run(["git","commit","-m","fix66: remove all duplicate field/method declarations"],cwd=ROOT,check=True)
-        subprocess.run(["git","push"],cwd=ROOT,check=True)
+        subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
+        subprocess.run(["git", "commit", "-m", "fix61: resolve CoOwnerRef.clientId missing + duplicate problem field + duplicate toggleProblem method"], cwd=ROOT, check=True)
+        subprocess.run(["git", "push"], cwd=ROOT, check=True)
         print("GIT pushed")
     except Exception as e:
         print("GIT WARN", e)
