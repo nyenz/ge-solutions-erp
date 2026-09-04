@@ -1,108 +1,120 @@
-# fix.py -- fix67: financials restructure, grouped related projects, release/problem naming+note, note color
-import re, subprocess, shutil
+# fix.py -- fix68: simple STORAGE FEES section, freeze button flow, totals, constructor injection
+import re, subprocess
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FE = ROOT / "erp-frontend" / "src"
-fp = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-cssp = FE / "pages" / "DigitalFolder" / "FolderPage.module.css"
-
+BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 def read(p): return p.read_text(encoding="utf-8", errors="replace")
 def write(p, s): p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
-results = []
+res = []
 
+fp = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
 s = read(fp)
 
-# ---- 1) AMOUNT OWED color: green when 0, red when >0 (both branches) ----
-old_owed = '<div className={`${styles.statBox} ${styles.statRed}`}><label>AMOUNT OWED</label>'
-new_owed = '<div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label>'
-if old_owed in s:
-    s = s.replace(old_owed, new_owed); results.append("OK amountOwed color logic")
+NEW_SECTION = '''<section className={styles.hwPanel} aria-label="Storage Fees" id="receivable-controls">
+                    <DrawerHeader label="STORAGE FEES" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} />
+                    <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+<CornerDecor hideTop />
+                        {!isReceivable ? (
+                            <div className={styles.recvActionRow}>
+                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>}
+                                <span className={styles.inputHint}>Storage fees apply only after a project is moved to receivables.</span>
+                            </div>
+                        ) : (<>
+                            <div className={styles.moneyStatsRow}>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>STORAGE FEES</label><strong>UGX {fmt(storageFees)}</strong></div>
+                                <div className={styles.statBox}><label>COMBINED TOTAL</label><strong>UGX {fmt(totalValue + storageFees)}</strong></div>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>TOTAL OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
+                            </div>
+                            {canMoney && (<div className={styles.storageBlock}>
+                                <div className={styles.inputGrid3}>
+                                    <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
+                                    <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
+                                        <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE RATE</HardwareButton></div>
+                                </div>
+                                <div className={styles.recvActionRow}>
+                                    {project.negotiationDeadline ? (<>
+                                        <span className={styles.frozenChip}>FROZEN UNTIL {String(project.negotiationDeadline).slice(0, 10)}</span>
+                                        <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> UNFREEZE</button>
+                                    </>) : freezeOpen ? (<>
+                                        <input type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} />
+                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>CONFIRM FREEZE</HardwareButton>
+                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
+                                    </>) : (
+                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> FREEZE FEES</button>
+                                    )}
+                                </div>
+                            </div>)}
+                            <div className={styles.recvActionRow}>
+                                {canMoney && (<>
+                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
+                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
+                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE</button>
+                                </>)}
+                            </div>
+                        </>)}
+                    </div></div>
+                </section>'''
 
-# ---- 2) Move storage/settings INTO balance summary, gated on isReceivable ----
-# Wrap the existing canMoney settings grid so it only shows when receivable.
-old_set = "{canMoney && (<div className={styles.inputGrid3}>"
-new_set = "{isReceivable && canMoney && (<div className={styles.storageBlock}><h3 className={styles.sectionTitle}>STORAGE & FEES</h3><div className={styles.inputGrid3}>"
-if old_set in s:
-    s = s.replace(old_set, new_set, 1)
-    # close the extra wrapper div after the settings inputGrid3 closes
-    s = s.replace(new_set + "\n                                <CurrencyInput label=\"MONTHLY STORAGE RATE\"", new_set + "\n                                <CurrencyInput label=\"MONTHLY STORAGE RATE\"", 1)
-    results.append("OK storage block gated (open)")
-# find the closing of that inputGrid3 (the </div> right before recvActionRow) and add one more </div>
-s = s.replace("</div>)}\n                            <div className={styles.recvActionRow}>", "</div></div>)}\n                            <div className={styles.recvActionRow}>", 1)
+# ---- replace the whole Receivables & Portfolio section via depth scan ----
+marker = 'aria-label="Receivables and Portfolio"'
+i = s.find(marker)
+if i != -1:
+    start = s.rfind("<section", 0, i)
+    depth = 0; k = start; end = -1
+    while k < len(s):
+        no = s.find("<section", k); nc = s.find("</section>", k)
+        if nc == -1: break
+        if no != -1 and no < nc: depth += 1; k = no + 8
+        else:
+            depth -= 1; k = nc + 10
+            if depth == 0: end = k; break
+    if end != -1:
+        s = s[:start] + NEW_SECTION + s[end:]
+        res.append("OK storage-fees section replaced")
+else:
+    res.append("MISS section marker")
 
-# ---- 3) Related projects grouped by owner ----
-old_rel = """<h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
-                        {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
-                            <table className={styles.portfolioTable}>
-                                <thead><tr><th>#</th><th>PLOT</th><th>OWNER</th><th>STATUS</th></tr></thead>
-                                <tbody>{portfolio.map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
-                                    onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
-                                    <td>#{r.index}</td><td>{r.plot || '—'}</td><td>{r.sharedOwner}</td>
-                                    <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
-                                </tr>))}</tbody>
-                            </table>)}"""
-new_rel = """<h3 className={styles.sectionTitle}>RELATED PROJECTS</h3>
-                        {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO RELATED PROJECTS FOR THESE OWNERS</span></div>) : (
-                            [...new Set(portfolio.map(r => r.sharedOwner))].map(owner => (
-                                <div key={owner} className={styles.ownerRelGroup}>
-                                    <h4 className={styles.ownerRelName}>{owner}</h4>
-                                    <table className={styles.portfolioTable}>
-                                        <thead><tr><th>#</th><th>PLOT</th><th>STATUS</th></tr></thead>
-                                        <tbody>{portfolio.filter(r => r.sharedOwner === owner).map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
-                                            onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
-                                            <td>#{r.index}</td><td>{r.plot || '—'}</td>
-                                            <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
-                                        </tr>))}</tbody>
-                                    </table>
-                                </div>)))}"""
-if old_rel in s:
-    s = s.replace(old_rel, new_rel, 1); results.append("OK related projects grouped by owner")
-
-# ---- 4) RELEASE + PROBLEM button naming/state ----
-old_btns = """{canMoney && project.landTitle && !project.landTitle.isReleased && <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>}
-                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> PROBLEM</button>}"""
-new_btns = """{canMoney && project.landTitle && (project.landTitle.isReleased
-                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled><FiCheckCircle aria-hidden="true" /> RELEASED</button>
-                            : <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>)}
-                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'PROBLEM ✓' : 'PROBLEM'}</button>}"""
-if old_btns in s:
-    s = s.replace(old_btns, new_btns, 1); results.append("OK release/problem naming+state")
-
-# ---- 5) PROBLEM toggle takes a note ----
-old_toggle = "const handleToggleProblem = async () => { const was = project.problem; try { await folderPortalService.toggleProblem(id); await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };"
-new_toggle = "const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };"
-if old_toggle in s:
-    s = s.replace(old_toggle, new_toggle, 1); results.append("OK problem takes note")
-
+# ---- add freezeOpen state + handleUnfreeze ----
+if "const [freezeOpen, setFreezeOpen]" not in s:
+    s = s.replace("const [recvBusy, setRecvBusy] = useState(false);",
+                  "const [recvBusy, setRecvBusy] = useState(false);\n    const [freezeOpen, setFreezeOpen] = useState(false);", 1)
+    res.append("OK freezeOpen state")
+if "const handleUnfreeze" not in s:
+    s = s.replace("const handleRelease = async () => {",
+                  "const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };\n    const handleRelease = async () => {", 1)
+    res.append("OK handleUnfreeze")
 write(fp, s)
 
-# ---- service: toggleProblem accepts note param ----
-svc = FE / "services" / "folderPortalService.js"
-sv = read(svc)
-old_svc = "toggleProblem: (id) => api.post(`/land/portal/${id}/toggle-problem`).then(r => r.data),"
-new_svc = "toggleProblem: (id, note) => api.post(`/land/portal/${id}/toggle-problem`, null, { params: note ? { note } : {} }).then(r => r.data),"
-if old_svc in sv:
-    write(svc, sv.replace(old_svc, new_svc, 1)); results.append("OK service note param")
-
-# ---- CSS: note textarea light + grouped related + released done ----
+# ---- CSS frozenChip ----
+cssp = FE / "pages" / "DigitalFolder" / "FolderPage.module.css"
 c = read(cssp)
-if "FS-UNIFY v11" not in c:
-    c += """
-/* FS-UNIFY v11 -- note contrast, grouped related projects, released state */
-.modalTextarea,.modalInput{background:#ffffff !important;color:#1a2e30 !important;border:1.5px solid rgba(238,140,58,0.3) !important;}
-.modalTextarea::placeholder,.modalInput::placeholder{color:#9aa8a6 !important;}
-.ownerRelGroup{margin-bottom:clamp(10px,1.3vw,14px);}
-.ownerRelName{font-family:'Cinzel',serif;color:#fff;font-size:clamp(11px,1.2vw,14px);letter-spacing:1px;margin:0 0 6px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:4px;}
-.releaseBtnDone{background:#10b981;border-color:#10b981;color:#fff;opacity:0.9;cursor:default;}
-.storageBlock{margin-bottom:clamp(8px,1vw,12px);padding:clamp(8px,1vw,12px);background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:8px;}
-"""
-    write(cssp, c); results.append("OK css v11")
+if ".frozenChip" not in c:
+    c += "\n.frozenChip{display:inline-flex;align-items:center;gap:5px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.4);color:#06b6d4;border-radius:999px;padding:4px 12px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;}\n"
+    write(cssp, c); res.append("OK frozenChip css")
 
-for r in results: print(r)
+# ---- RecoveryNoteController: @Autowired(required=false) -> final constructor injection ----
+rc = BE / "modules" / "client" / "controller" / "RecoveryNoteController.java"
+lines = read(rc).split("\n")
+out = []; i = 0; changed = False
+while i < len(lines):
+    l = lines[i]
+    if re.match(r'^\s*@org\.springframework\.beans\.factory\.annotation\.Autowired\(required = false\)\s*$', l):
+        # skip annotation; make next field final
+        if i + 1 < len(lines) and re.match(r'^\s*private\s+', lines[i+1]) and " final " not in lines[i+1]:
+            lines[i+1] = lines[i+1].replace("private ", "private final ", 1)
+            changed = True
+        i += 1; continue
+    out.append(l); i += 1
+if changed:
+    write(rc, "\n".join(out)); res.append("OK constructor injection")
+else:
+    res.append("skip injection (already final or pattern absent)")
 
+for r in res: print(r)
 try:
     subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-    subprocess.run(["git","commit","-m","fix67: financials restructure, grouped related, release/problem naming+note, note contrast"],cwd=ROOT,check=True)
+    subprocess.run(["git","commit","-m","fix68: STORAGE FEES section + freeze button flow + totals + constructor injection"],cwd=ROOT,check=True)
     subprocess.run(["git","push"],cwd=ROOT,check=True)
     print("GIT pushed")
 except Exception as e:

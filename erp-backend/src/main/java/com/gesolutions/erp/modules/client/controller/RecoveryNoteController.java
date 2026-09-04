@@ -28,12 +28,9 @@ public class RecoveryNoteController {
 
     private final ClientRepository clientRepo;
     private final RecoveryNoteRepository noteRepo;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private UserRepository userRepo;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepo;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.gesolutions.erp.common.audit.AuditService auditService;
+    private final UserRepository userRepo;
+    private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepo;
+    private final com.gesolutions.erp.common.audit.AuditService auditService;
 
     private static final String[][] TAGS = {
         {"committed to pay",   "POSITIVE", "true"},

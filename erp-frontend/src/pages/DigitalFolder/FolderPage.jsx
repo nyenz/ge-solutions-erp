@@ -222,6 +222,7 @@ const FolderPage = () => {
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
+    const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
     const [activeTab, setActiveTab] = useState(() => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
@@ -356,6 +357,7 @@ const FolderPage = () => {
         } catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
         finally { setCommitting(false); }
     };
+    const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
     const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
@@ -573,39 +575,50 @@ const FolderPage = () => {
                             </div>)}
                         </div></div>
                     </section>
-                    <section className={styles.hwPanel} aria-label="Receivables and Portfolio" id="receivable-controls">
-                        <DrawerHeader label="RECEIVABLES & PORTFOLIO" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} count={portfolio.length || undefined} />
-                        <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+                    <section className={styles.hwPanel} aria-label="Storage Fees" id="receivable-controls">
+                    <DrawerHeader label="STORAGE FEES" isOpen={drawers.recv} onClick={() => toggleDrawer('recv')} icon={FiAlertOctagon} />
+                    <div className={`${styles.panelBody} ${drawers.recv ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                            {isReceivable && canMoney && (<div className={styles.storageBlock}><h3 className={styles.sectionTitle}>STORAGE & FEES</h3><div className={styles.inputGrid3}>
-                                <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
-                                <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label htmlFor="freezeDeadline">FREEZE DEADLINE</label></div>
-                                    <input id="freezeDeadline" type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} /></div>
-                                <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
-                                    <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE SETTINGS</HardwareButton></div>
-                            </div></div>)}
+                        {!isReceivable ? (
                             <div className={styles.recvActionRow}>
-                                {!isReceivable
-                                    ? canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>
-                                    : canMoney && (<>
-                                        <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
-                                        <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
-                                        <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE</button>
-                                    </>)}
+                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>}
+                                <span className={styles.inputHint}>Storage fees apply only after a project is moved to receivables.</span>
                             </div>
-                            <h3 className={styles.sectionTitle}>OWNER PORTFOLIO</h3>
-                            {portfolio.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO OTHER PROJECTS FOR THESE OWNERS</span></div>) : (
-                                <table className={styles.portfolioTable}>
-                                    <thead><tr><th>#</th><th>PLOT</th><th>SHARED OWNER</th><th>STATUS</th></tr></thead>
-                                    <tbody>{portfolio.map((r, i) => (<tr key={i} onClick={() => navigate('/land/projects/' + r.projectId)} tabIndex={0}
-                                        onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectId); }}>
-                                        <td>{r.index}</td><td>{r.plot || '—'}</td><td>{r.sharedOwner}</td>
-                                        <td>{r.receivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>RECEIVABLE</span> : r.titled ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span> : <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>}</td>
-                                    </tr>))}</tbody>
-                                </table>
-                            )}
-                        </div></div>
-                    </section>
+                        ) : (<>
+                            <div className={styles.moneyStatsRow}>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>STORAGE FEES</label><strong>UGX {fmt(storageFees)}</strong></div>
+                                <div className={styles.statBox}><label>COMBINED TOTAL</label><strong>UGX {fmt(totalValue + storageFees)}</strong></div>
+                                <div className={`${styles.statBox} ${styles.statRed}`}><label>TOTAL OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
+                            </div>
+                            {canMoney && (<div className={styles.storageBlock}>
+                                <div className={styles.inputGrid3}>
+                                    <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
+                                    <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
+                                        <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE RATE</HardwareButton></div>
+                                </div>
+                                <div className={styles.recvActionRow}>
+                                    {project.negotiationDeadline ? (<>
+                                        <span className={styles.frozenChip}>FROZEN UNTIL {String(project.negotiationDeadline).slice(0, 10)}</span>
+                                        <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> UNFREEZE</button>
+                                    </>) : freezeOpen ? (<>
+                                        <input type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} />
+                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>CONFIRM FREEZE</HardwareButton>
+                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
+                                    </>) : (
+                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> FREEZE FEES</button>
+                                    )}
+                                </div>
+                            </div>)}
+                            <div className={styles.recvActionRow}>
+                                {canMoney && (<>
+                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
+                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
+                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE</button>
+                                </>)}
+                            </div>
+                        </>)}
+                    </div></div>
+                </section>
                     <section className={styles.hwPanel} aria-label="Payment History" id="paymentHistorySection">
                         <DrawerHeader label="PAYMENT HISTORY" isOpen={drawers.history} onClick={() => toggleDrawer('history')} icon={FiActivity} count={paymentCount} />
                         <div className={`${styles.panelBody} ${drawers.history ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
