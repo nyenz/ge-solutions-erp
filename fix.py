@@ -1,56 +1,73 @@
-# fix.py -- fix60: dedupe problem put, app-wide CANCEL cleanup, verify related projects.
-import os, re, sys, subprocess
+# fix.py -- fix61: collapse duplicate insertions left by double-run of fix59
+import os, subprocess
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FE = ROOT / "erp-frontend" / "src"
 BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 
 def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def write(p, s):
-    p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
+def collapse(path, block, label):
+    s = read(path)
+    if block + block in s:
+        path.write_text(s.replace(block + block, block, 1), encoding="utf-8", newline="\n")
+        print("OK   collapsed:", label)
+    else:
+        print("skip (single or absent):", label)
 
-fpc = BE / "modules" / "land" / "controller" / "FolderPortalController.java"
+P = """    @Builder.Default
+    @Column(name = "is_problem", nullable = false)
+    private boolean problem = false;
+"""
+M = """    @PostMapping("/{id}/toggle-problem")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> toggleProblem(@PathVariable UUID id) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        p.setProblem(!p.isProblem());
+        projectRepository.save(p);
+        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ".");
+        return receivable(id);
+    }
 
-# ---- 1) dedupe duplicated problem put ----
-s = read(fpc)
-s2 = re.sub(r'm\.put\("problem", p\.isProblem\(\)\);\s*m\.put\("problem", p\.isProblem\(\)\);',
-            'm.put("problem", p.isProblem());', s)
-if s2 != s: write(fpc, s2); print("OK   dedupe problem put")
-else: print("MISS dedupe problem put (already single)")
+"""
+T = "  toggleProblem: (id) => api.post(`/land/portal/${id}/toggle-problem`).then(r => r.data),\n"
+B = """    const lastPay = project?.lastPaymentDate ? new Date(project.lastPaymentDate) : null;
+    const daysSincePay = lastPay ? Math.floor((Date.now() - lastPay.getTime()) / 86400000) : null;
+    const statusBadge = isReceivable ? ['RECEIVABLE', 'badgeRecv']
+        : project.landTitle?.isReleased ? ['RELEASED', 'badgeReleased']
+        : (totalValue > 0 && amountPaid >= totalValue) ? ['PAID', 'badgePaid']
+        : !project.landTitle ? ['PROCESSING', 'badgeProcessing']
+        : (daysSincePay === null || daysSincePay > 30) ? ['CRITICAL', 'badgeCritical']
+        : ['ACTIVE', 'badgeActive'];
+"""
+H = """    const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
+    const handleToggleProblem = async () => { const was = project.problem; try { await folderPortalService.toggleProblem(id); await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+"""
+U = """                        {canMoney && project.landTitle && !project.landTitle.isReleased && <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> PROBLEM</button>}
+"""
 
-# ---- 2) app-wide: remove CANCEL buttons that sit beside an X (design rule) ----
-removed = 0
-for r, d, fs in os.walk(FE):
-    for f in fs:
-        if f.endswith(".jsx"):
-            p = Path(r) / f; s = read(p)
-            # modalBtnSecondary single-line CANCEL buttons
-            s2 = re.sub(r"[ \t]*<button[^>]*modalBtnSecondary[^>]*>[^<]*(?:<[^>]*>[^<]*)*CANCEL</button>\n", "", s)
-            # confirm-modal CANCEL button
-            s2 = re.sub(r"[ \t]*<button[^>]*confirmCancelBtn[^>]*>[^<]*(?:<[^>]*>[^<]*)*CANCEL</button>\n", "", s2)
-            if s2 != s: write(p, s2); removed += 1; print("OK   CANCEL removed:", f)
-print("files cleaned of redundant CANCEL:", removed)
-
-# ---- 3) verify RELATED PROJECTS present in FolderPage ----
+collapse(BE / "modules" / "land" / "model" / "LandProject.java", P, "LandProject.problem field")
+collapse(BE / "modules" / "land" / "controller" / "FolderPortalController.java", M, "toggleProblem method")
+collapse(FE / "services" / "folderPortalService.js", T, "service toggleProblem line")
 fp = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-s = read(fp)
-print("OK   RELATED PROJECTS present" if "RELATED PROJECTS" in s else "MISS RELATED PROJECTS (re-run fix59)")
-print("OK   statusBadge present" if "statusBadge" in s else "MISS statusBadge (re-run fix59)")
+collapse(fp, B, "statusBadge consts")
+collapse(fp, H, "release/problem handlers")
+collapse(fp, U, "RELEASE/PROBLEM buttons")
 
-# ---- 4) addendum note ----
-add = ROOT / "LLM_CONTEXT_ADDENDUM.md"
-if add.exists():
-    a = read(add)
-    if "fix60" not in a:
-        a += "\n- fix60 (2026-09-03): dedupe FolderPortalController problem put; app-wide removal of CANCEL buttons that sit beside the animated X (design rule: X is the closer); verified one-word badges + RELATED PROJECTS on Folder page.\n"
-        write(add, a); print("OK   addendum updated")
+# build gate
+esb = ROOT / "erp-frontend" / "node_modules" / ".bin" / "esbuild"
+if esb.exists():
+    chk = subprocess.run([str(esb), str(fp), "--loader:.jsx=jsx", "--outfile=" + str(ROOT / ".jsx_check.js")], capture_output=True, text=True)
+    print("esbuild:", "OK" if chk.returncode == 0 else chk.stderr[:1200])
+    if chk.returncode != 0:
+        print("ABORT push - JSX broken"); raise SystemExit(1)
 
-# ---- git ----
 try:
-    subprocess.run(["git","add","-A"],cwd=ROOT,check=True)
-    subprocess.run(["git","commit","-m","fix60: dedupe problem put, app-wide CANCEL cleanup"],cwd=ROOT,check=True)
-    subprocess.run(["git","push"],cwd=ROOT,check=True)
+    subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix61: collapse duplicate insertions from double-run fix59"], cwd=ROOT, check=True)
+    subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:
     print("GIT WARN", e)
-print("DONE")
+print("DONE - after push, the test-file red squiggles should clear once the IDE rebuilds (they were cascades of the two duplicates).")
