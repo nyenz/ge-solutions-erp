@@ -37,13 +37,18 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
     @Override
     public void run(String... args) {
-        System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
-        runSchemaMigrations();
-        seedRootUser();
-        stageTemplateService.seedDefaultStagesIfEmpty();
-        seedScenarioDataOnce();
-        seedDefaultExpensePresets();
-        System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
+        try {
+            System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
+            runSchemaMigrations();
+            seedRootUser();
+            stageTemplateService.seedDefaultStagesIfEmpty();
+            seedScenarioDataOnce();
+            seedDefaultExpensePresets();
+            System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
+        } catch (Exception e) {
+            System.err.println(">>> [BOOT] FATAL STARTUP ERROR: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     public void seedDefaultExpensePresets() {
         if (expensePresetRepository.count() > 0) return;
@@ -65,7 +70,7 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println(">>> [SCENARIO] Scenario dataset seeded (28 projects).");
         } catch (Exception e) { System.err.println(">>> [SCENARIO] seed fault: " + e.getMessage()); }
     }
-    private void purgeAll(Connection conn) {
+    private void purgeAll(Connection conn) throws java.sql.SQLException {
         String[] stmts = {
             "DELETE FROM notification_reads", "DELETE FROM notifications", "DELETE FROM recovery_notes",
             "DELETE FROM payment_records", "DELETE FROM follow_up_logs", "DELETE FROM project_documents",

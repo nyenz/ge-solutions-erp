@@ -123,8 +123,12 @@ public class SystemAdminController {
         }
 
         // Reseed the root admin account so nobody gets locked out
-        dataInitializer.seedRootUser();
-        System.out.println(">>> [WIPE] OK: admin_root reseeded");
+        try {
+            dataInitializer.seedRootUser();
+            System.out.println(">>> [WIPE] OK: admin_root reseeded");
+        } catch (Exception e) {
+            System.err.println(">>> [WIPE] WARNING: admin_root reseed failed: " + e.getMessage());
+        }
 
         // Reseed the default stage template checklist
         stageTemplateService.seedDefaultStagesIfEmpty();
