@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
         runSchemaMigrations();
         seedRootUser();
         stageTemplateService.seedDefaultStagesIfEmpty();
-        seedSampleProjectsOnlyIfEmpty();
+        seedSampleProjects();
         seedDefaultExpensePresets();
         System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
@@ -77,11 +77,7 @@ public class DataInitializer implements CommandLineRunner {
         try { return s.call(); } catch (Exception e) { System.err.println(">>> [SAMPLE] " + label + " failed: " + e.getMessage()); return null; }
     }
 
-    public void seedSampleProjectsOnlyIfEmpty() {
-        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement(); java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM land_projects")) {
-            rs.next();
-            if (rs.getInt(1) > 0) { System.out.println(">>> [SAMPLE] Real data present -- skipping demo seed."); return; }
-        } catch (Exception e) { System.err.println(">>> [SAMPLE] count check failed, skipping seed: " + e.getMessage()); return; }
+    private void seedSampleProjects() {
         purgeSampleData();
         java.util.List<StageTemplate> master = stageTemplateService.getActiveTemplate();
         java.util.Map<String, String> idByName = new java.util.HashMap<>();

@@ -2,15 +2,6 @@
 package com.gesolutions.erp.modules.land.service;
 
 import com.gesolutions.erp.common.audit.AuditService;
-import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
-import java.util.Optional;
-import java.time.LocalDate;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +20,6 @@ public class ReceivableSchedulerService {
 
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
-    private final NotificationService notificationService;
-    private final RecoveryNoteRepository recoveryNoteRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final ClientRepository clientRepo;
 
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
@@ -116,43 +103,6 @@ public class ReceivableSchedulerService {
                 "SYSTEM: Plot " + plot.getLandTitle().getPlotNumber()
                 + " auto-flagged as RECEIVABLE after 365 days of no payment. "
                 + "Debt frozen at: UGX " + outstanding);
-        }
-    }
-
-    private String ownerLabel(LandProject plot) {
-        if (plot.getProprietors() != null && !plot.getProprietors().isEmpty()) {
-            for (Client c : plot.getProprietors()) return c.getFullName();
-        }
-        return plot.getProjectIndex() != null ? ("project #" + plot.getProjectIndex()) : "untitled project";
-    }
-    @Scheduled(cron = "0 0 7 * * *")
-    @Transactional
-    public void dailyNotificationSweep() {
-        LocalDateTime now = LocalDateTime.now();
-        for (RecoveryNote n : recoveryNoteRepository.findOverduePromises(LocalDate.now())) {
-            Client c = n.getClient();
-            boolean paidSince = false;
-            for (LandProject p : projectRepository.findAll()) {
-                if (p.getProprietors() == null || !p.getProprietors().contains(c)) continue;
-                for (PaymentRecord pay : paymentRecordRepository.findByProjectIdOrderByTimestampDesc(p.getId())) {
-                    if (pay.getTimestamp().isAfter(n.getCreatedAt())) { paidSince = true; break; }
-                }
-                if (paidSince) break;
-            }
-            if (!paidSince) {
-                notificationService.emit("PROMISE_DUE", "CRITICAL",
-                    c.getFullName() + " promised to pay by " + n.getPromiseDate() + " but no payment arrived.",
-                    "NOTE", n.getId(), "ROLE_MANAGER");
-            }
-        }
-        for (Client c : clientRepo.findAll()) {
-            Optional<RecoveryNote> last = recoveryNoteRepository.findFirstByClientOrderByCreatedAtDesc(c);
-            if (!last.isPresent() || !last.get().isCountsAsAttempt()) continue;
-            if (last.get().getCreatedAt().isAfter(now.minusDays(14))) continue;
-            if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2) continue;
-            if (notificationService.existsToday("COOLDOWN_EXPIRED", c.getId())) continue;
-            notificationService.emitRaw("COOLDOWN_EXPIRED", "INFO", c.getFullName() + " is callable again - cooldown expired.", "CLIENT", c.getId(), "ROLE_SECRETARY");
-            notificationService.emitRaw("COOLDOWN_EXPIRED_M", "INFO", c.getFullName() + " is callable again - cooldown expired.", "CLIENT", c.getId(), "ROLE_MANAGER");
         }
     }
 }

@@ -40,7 +40,6 @@ public class DashboardController {
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final ExpenseRepository expenseRepository;
-    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
@@ -57,10 +56,7 @@ public class DashboardController {
 
         long totalPlots = allPlots.size();
         long plotsGrowth = allPlots.stream()
-                .filter(p -> {
-                    if (p.getLandTitle() != null && p.getLandTitle().getCreatedAt() != null) return p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo);
-                    return p.getProjectStartDate() != null && p.getProjectStartDate().isAfter(sevenDaysAgo.toLocalDate());
-                })
+                .filter(p -> p.getLandTitle().getCreatedAt().isAfter(sevenDaysAgo))
                 .count();
 
         // STAGE 11 FIX: DASHBOARD_STALE_COUNT_PRIMARY_OWNER_BUG.
@@ -88,18 +84,17 @@ public class DashboardController {
                         (keepFirst, ignored) -> keepFirst))
                 .values().stream()
                 .filter(owner -> {
-                    java.time.LocalDateTime monthStart = java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay();
-                    if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(owner, monthStart) >= 2) return false;
-                    java.util.Optional<com.gesolutions.erp.modules.client.model.RecoveryNote> last = recoveryNoteRepository.findFirstByClientOrderByCreatedAtDesc(owner);
-                    if (!last.isPresent()) return true;
-                    java.time.LocalDate eligible = last.get().getCreatedAt().toLocalDate().plusDays(14);
+                    if (owner.shouldResetMonthlyCounter()) owner.setMonthlyContactCount(0);
+                    if (owner.getMonthlyContactCount() >= 2) return false;
+                    if (owner.getLastContactedAt() == null) return true;
+                    java.time.LocalDate eligible = owner.getLastContactedAt().toLocalDate().plusDays(14);
                     return !java.time.LocalDate.now().isBefore(eligible);
                 })
                 .count();
 
         long readyForRelease = allPlots.stream()
                 .filter(p -> p.getAmountPaid().compareTo(p.getTotalCost()) >= 0)
-                .filter(p -> p.getLandTitle() != null && !p.getLandTitle().isReleased())
+                .filter(p -> !p.getLandTitle().isReleased())
                 .count();
 
         long uniqueBoxes = allPlots.stream()

@@ -109,4 +109,9 @@ public class StageTemplateController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteStage(@PathVariable UUID id) {
+        stageTemplateService.deleteTemplateStage(id);
+        return ResponseEntity.noContent().build();
+    }
 }

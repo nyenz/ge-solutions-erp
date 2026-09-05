@@ -1,37 +1,37 @@
 package com.gesolutions.erp.modules.client.controller;
-
+import com.gesolutions.erp.modules.auth.model.User;
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.model.RecoveryNote;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.auth.repository.UserRepository;
+import com.gesolutions.erp.modules.land.model.FollowUpLog;
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
+import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
+import com.gesolutions.erp.common.audit.AuditService;
+import com.gesolutions.erp.modules.notification.service.NotificationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import lombok.RequiredArgsConstructor;
-import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-
-/**
- * RECOVERY CALL COCKPIT v2 (fix56).
- * Cards + priority, exact Intake entry badges, receivable-only queue,
- * locked tray, audit writes, 2-14 server side. Numbers only - no money.
- */
 @RestController
-@RequestMapping("/api/recovery")
+@RequestMapping("/api/v1/recovery")
 @RequiredArgsConstructor
-@SuppressWarnings({"unchecked","rawtypes"})
+@PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
 public class RecoveryNoteController {
-
     private final ClientRepository clientRepo;
     private final RecoveryNoteRepository noteRepo;
     private final UserRepository userRepo;
-    private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepo;
-    private final com.gesolutions.erp.common.audit.AuditService auditService;
-
+    private final LandProjectRepository projectRepo;
+    private final FollowUpRepository followUpRepo;
+    private final AuditService auditService;
+    private final NotificationService notificationService;
     private static final String[][] TAGS = {
         {"committed to pay",   "POSITIVE", "true"},
         {"answered call",      "POSITIVE", "true"},
@@ -42,87 +42,45 @@ public class RecoveryNoteController {
         {"needs site visit",   "NEGATIVE", "false"},
         {"failed to pay",      "NEGATIVE", "false"}
     };
-
-    private static String[] tagDef(String tag) {
-        for (String[] t : TAGS) if (t[0].equals(tag)) return t;
-        return null;
-    }
-
-    // ---------- reflection helpers (compile-safe across model versions) ----------
-    private static Object call(Object o, String m) {
-        try { return o.getClass().getMethod(m).invoke(o); } catch (Exception e) { return null; }
-    }
-    private static Boolean readBool(Object o, String... c) {
-        for (String s : c) { Object v = call(o, s); if (v instanceof Boolean) return (Boolean) v; }
-        return null;
-    }
-    private static Number readNum(Object o, String... c) {
-        for (String s : c) { Object v = call(o, s); if (v instanceof Number) return (Number) v; }
-        return null;
-    }
-    private static String readStr(Object o, String... c) {
-        for (String s : c) { Object v = call(o, s); if (v != null) return String.valueOf(v); }
-        return null;
-    }
-
-    private List<Object> allProjects() {
-        if (projectRepo == null) return List.of();
-        try { return (List<Object>) projectRepo.getClass().getMethod("findAll").invoke(projectRepo); }
-        catch (Exception e) { return List.of(); }
-    }
-    private List<Object> projectsOf(Client c) {
-        List<Object> out = new ArrayList<>();
-        for (Object p : allProjects()) {
-            Object props = call(p, "getProprietors");
-            if (props instanceof Collection && ((Collection) props).contains(c)) out.add(p);
+    private static String[] tagDef(String tag) { for (String[] t : TAGS) if (t[0].equals(tag)) return t; return null; }
+    private List<LandProject> projectsOf(Client c) {
+        List<LandProject> out = new ArrayList<>();
+        for (LandProject p : projectRepo.findAll()) {
+            if (p.getProprietors() != null && p.getProprietors().contains(c)) out.add(p);
         }
         return out;
     }
-    private String entryTypeOf(List<Object> projects) {
-        for (Object p : projects) {
-            Boolean leg = readBool(p, "isLegacy", "getIsLegacy", "getLegacy");
-            if (Boolean.TRUE.equals(leg)) return "Legacy Title";
-            Object title = call(p, "getLandTitle");
-            if (title != null) return "New Title";
+    private String entryTypeOf(List<LandProject> ps) {
+        for (LandProject p : ps) {
+            if (p.isLegacy()) return "Legacy Title";
+            if (p.getLandTitle() != null) return "New Title";
         }
-        return projects.isEmpty() ? null : "New Folder";
+        return ps.isEmpty() ? null : "New Folder";
     }
-    private boolean qualifies(List<Object> projects) {
-        if (projects.isEmpty()) return false;
-        for (Object p : projects) {
-            if (Boolean.TRUE.equals(readBool(p, "isLegacy", "getIsLegacy", "getLegacy"))) return true;
-            Number act = readNum(p, "activeTotalOwed");
-            Number rec = readNum(p, "receivableTotalOwed");
-            double owed = Math.max(act == null ? 0 : act.doubleValue(), rec == null ? 0 : rec.doubleValue());
+    private boolean qualifies(List<LandProject> ps) {
+        if (ps.isEmpty()) return false;
+        for (LandProject p : ps) {
+            if (p.isLegacy()) return true;
+            double owed = Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue());
             if (owed > 0) return true;
-            Number sf = readNum(p, "getMonthlyStorageFee");
-            if (sf != null && sf.doubleValue() > 0) return true;
-            Object st = call(p, "getStages");
-            if (st instanceof Collection) {
-                for (Object s : (Collection) st)
-                    if (!Boolean.TRUE.equals(readBool(s, "isCompleted", "getIsCompleted", "getCompleted"))) return true;
-                continue;
+            if (p.getStages() != null) {
+                for (var s : p.getStages()) if (!s.isCompleted()) return true;
             }
             return true;
         }
         return false;
     }
-
     private boolean locked(Client c, LocalDateTime now) {
-        LocalDateTime unlock = now.minusDays(14);
         LocalDateTime last = c.getLastContactedAt();
-        if (last != null && last.isAfter(unlock)) return true;
-        return noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(
-            c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2;
+        if (last != null && last.isAfter(now.minusDays(14))) return true;
+        return noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2;
     }
     private LocalDateTime nextUnlock(Client c, LocalDateTime now) {
         LocalDateTime a = null;
         LocalDateTime last = c.getLastContactedAt();
         if (last != null && last.isAfter(now.minusDays(14))) a = last.plusDays(14);
-        long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(
-            c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
-        LocalDateTime b = attempts >= 2
-            ? LocalDate.now().withDayOfMonth(1).plusMonths(1).atStartOfDay() : null;
+        long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
+        LocalDateTime b = attempts >= 2 ? LocalDate.now().withDayOfMonth(1).plusMonths(1).atStartOfDay() : null;
         if (a == null) return b; if (b == null) return a;
         return a.isAfter(b) ? a : b;
     }
@@ -134,65 +92,47 @@ public class RecoveryNoteController {
         }
         return n;
     }
-
-    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<Object> projects) {
+    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", c.getId());
-        m.put("name", c.getFullName());
-        m.put("nin", c.getNationalId());
-        m.put("phone", c.getPhoneNumber());
-        m.put("entryType", entryTypeOf(projects));
-        List<String> idx = new ArrayList<>();
-        for (Object p : projects) { String i = readStr(p, "getProjectIndex", "getIndex"); if (i != null) idx.add(i); }
-        m.put("indexes", idx);
-        String district = null, village = null;
-        if (!projects.isEmpty()) {
-            district = readStr(projects.get(0), "getDistrict");
-            village = readStr(projects.get(0), "getVillage");
-        }
-        m.put("district", district); m.put("village", village);
+        m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId());
+        m.put("phone", c.getPhoneNumber()); m.put("entryType", entryTypeOf(ps));
+        List<String> idx = new ArrayList<>(); List<String> pids = new ArrayList<>();
+        for (LandProject p : ps) { if (p.getProjectIndex() != null) idx.add(p.getProjectIndex()); pids.add(p.getId().toString()); }
+        m.put("indexes", idx); m.put("projectIds", pids);
+        m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
+        m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
         m.put("lastContactedAt", c.getLastContactedAt());
         boolean lock = locked(c, now);
         m.put("locked", lock);
         m.put("nextUnlock", lock ? nextUnlock(c, now).toString() : null);
-        long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(
-            c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
-        m.put("attemptsThisMonth", attempts);
-        noteRepo.findFirstByClientOrderByCreatedAtDesc(c).ifPresent(n -> {
-            m.put("lastTag", n.getTag()); m.put("lastTone", n.getTone());
-        });
-        // priority: P1 failed-to-pay streak or legacy; P2 stale/neg-streak/site-visit; P3 rest
+        m.put("attemptsThisMonth", noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()));
+        noteRepo.findFirstByClientOrderByCreatedAtDesc(c).ifPresent(n -> { m.put("lastTag", n.getTag()); m.put("lastTone", n.getTone()); });
         String lastTag = (String) m.get("lastTag");
-        boolean legacy = "Legacy Title".equals(m.get("entryType"));
-        long days = c.getLastContactedAt() == null ? 999
-            : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
+        long days = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
         int priority = 3;
-        if ("failed to pay".equals(lastTag) || legacy) priority = 1;
+        if ("failed to pay".equals(lastTag) || "Legacy Title".equals(m.get("entryType"))) priority = 1;
         else if (days > 30 || negStreak(c) >= 2 || "needs site visit".equals(lastTag)) priority = 2;
         m.put("priority", priority);
         return m;
     }
-
     @GetMapping("/tags")
     public List<Map<String, Object>> tags() {
         List<Map<String, Object>> out = new ArrayList<>();
         for (String[] t : TAGS) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("tag", t[0]); m.put("tone", t[1]);
-            m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
+            m.put("tag", t[0]); m.put("tone", t[1]); m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
             out.add(m);
         }
         return out;
     }
-
     @GetMapping("/queue")
     public List<Map<String, Object>> queue() {
         LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> out = new ArrayList<>();
         for (Client c : clientRepo.findAll()) {
-            List<Object> projects = projectsOf(c);
-            if (locked(c, now) || !qualifies(projects)) continue;
-            out.add(clientDto(c, now, projects));
+            List<LandProject> ps = projectsOf(c);
+            if (locked(c, now) || !qualifies(ps)) continue;
+            out.add(clientDto(c, now, ps));
         }
         out.sort((x, y) -> {
             int p = Integer.compare((int) x.get("priority"), (int) y.get("priority"));
@@ -205,27 +145,26 @@ public class RecoveryNoteController {
         });
         return out;
     }
-
     @GetMapping("/locked")
     public List<Map<String, Object>> lockedList() {
         LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> out = new ArrayList<>();
         for (Client c : clientRepo.findAll()) {
-            List<Object> projects = projectsOf(c);
-            if (!locked(c, now) || !qualifies(projects)) continue;
-            out.add(clientDto(c, now, projects));
+            List<LandProject> ps = projectsOf(c);
+            if (!locked(c, now) || !qualifies(ps)) continue;
+            out.add(clientDto(c, now, ps));
         }
         return out;
     }
-
     @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     public Map<String, Object> stats() {
         LocalDateTime now = LocalDateTime.now();
         long due = 0, lock = 0, site = 0, p1 = 0;
         for (Client c : clientRepo.findAll()) {
-            List<Object> projects = projectsOf(c);
-            if (!qualifies(projects)) continue;
-            Map<String, Object> d = clientDto(c, now, projects);
+            List<LandProject> ps = projectsOf(c);
+            if (!qualifies(ps)) continue;
+            Map<String, Object> d = clientDto(c, now, ps);
             if (Boolean.TRUE.equals(d.get("locked"))) lock++; else due++;
             if ("needs site visit".equals(d.get("lastTag"))) site++;
             if ((int) d.get("priority") == 1) p1++;
@@ -233,28 +172,35 @@ public class RecoveryNoteController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("dueNow", due); m.put("locked", lock); m.put("siteVisits", site); m.put("p1", p1);
         m.put("callsToday", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(LocalDate.now().atStartOfDay()));
-        m.put("callsThisMonth", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(
-            LocalDate.now().withDayOfMonth(1).atStartOfDay()));
+        m.put("callsThisMonth", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(LocalDate.now().withDayOfMonth(1).atStartOfDay()));
         return m;
     }
-
     @GetMapping("/clients/{id}/notes")
     public List<Map<String, Object>> notes(@PathVariable UUID id) {
         return clientRepo.findById(id).map(c -> {
             List<Map<String, Object>> out = new ArrayList<>();
             for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", n.getId()); m.put("tag", n.getTag());
-                m.put("tone", n.getTone()); m.put("text", n.getText());
-                m.put("countsAsAttempt", n.isCountsAsAttempt());
-                m.put("createdAt", n.getCreatedAt());
+                m.put("id", n.getId()); m.put("tag", n.getTag()); m.put("tone", n.getTone());
+                m.put("text", n.getText()); m.put("countsAsAttempt", n.isCountsAsAttempt());
+                m.put("createdAt", n.getCreatedAt()); m.put("source", "RECOVERY");
                 m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
                 out.add(m);
             }
+            for (LandProject p : projectsOf(c)) {
+                for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
+                    m.put("text", log.getNotes()); m.put("countsAsAttempt", false);
+                    m.put("createdAt", log.getTimestamp()); m.put("source", "FOLDER");
+                    m.put("author", log.getRecordedBy());
+                    out.add(m);
+                }
+            }
+            out.sort((a, b) -> ((LocalDateTime) b.get("createdAt")).compareTo((LocalDateTime) a.get("createdAt")));
             return out;
         }).orElse(List.of());
     }
-
     @PostMapping("/notes")
     public ResponseEntity<?> log(@RequestBody Map<String, String> body, Authentication auth) {
         String tag = body.get("tag");
@@ -265,41 +211,86 @@ public class RecoveryNoteController {
         LocalDateTime now = LocalDateTime.now();
         boolean attempt = Boolean.parseBoolean(def[2]);
         if (attempt && locked(c, now))
-            return ResponseEntity.status(409).body(Map.of(
-                "error", "Cool-down active: 14-day interval or 2-call monthly limit"));
-        com.gesolutions.erp.modules.auth.model.User author = null;
-        if (userRepo != null && auth != null) {
-            try {
-                Object temp = userRepo.getClass().getMethod("findByUsername", String.class)
-                    .invoke(userRepo, auth.getName());
-                if (temp instanceof Optional) author = ((Optional<com.gesolutions.erp.modules.auth.model.User>) temp).orElse(null);
-                else author = (com.gesolutions.erp.modules.auth.model.User) temp;
-            } catch (Exception ignored) { }
+            return ResponseEntity.status(409).body(Map.of("error", "Cool-down active: 14-day interval or 2-call monthly limit"));
+        User author = userRepo.findByUsername(auth.getName()).orElse(null);
+        LocalDate promise = null;
+        if (body.get("promiseDate") != null && !body.get("promiseDate").isBlank()) {
+            try { promise = LocalDate.parse(body.get("promiseDate")); } catch (Exception ignored) {}
         }
         RecoveryNote n = RecoveryNote.builder()
-            .client(c).author(author).tag(def[0]).tone(def[1])
-            .countsAsAttempt(attempt)
+            .client(c).author(author).tag(def[0]).tone(def[1]).countsAsAttempt(attempt)
             .text(body.get("text") == null || body.get("text").isBlank() ? null : body.get("text").trim())
+            .promiseDate(promise)
             .build();
         noteRepo.save(n);
-        if (attempt) { c.setLastContactedAt(now); clientRepo.save(c); }
-        audit(auth, def[0], c.getNationalId());
-        return ResponseEntity.ok(Map.of("ok", true, "id", n.getId()));
-    }
-
-    private void audit(Authentication auth, String tag, String nin) {
-        if (auditService == null) return;
-        String who = auth == null ? "system" : auth.getName();
-        for (Method m : auditService.getClass().getMethods()) {
-            String name = m.getName();
-            if (!(name.equals("log") || name.equals("record") || name.equals("write") || name.equals("logAction"))) continue;
-            try {
-                Class<?>[] pt = m.getParameterTypes();
-                if (pt.length == 2 && pt[0] == String.class && pt[1] == String.class)
-                    { m.invoke(auditService, who, "RECOVERY_NOTE: " + tag + " (NIN " + nin + ")"); return; }
-                if (pt.length == 3 && pt[0] == String.class && pt[1] == String.class && pt[2] == String.class)
-                    { m.invoke(auditService, who, "RECOVERY_NOTE", tag + " (NIN " + nin + ")"); return; }
-            } catch (Exception ignored) { }
+        if (attempt) c.setLastContactedAt(now);
+        double delta = 0;
+        if ("POSITIVE".equals(def[1]) && attempt) delta = 1.5;
+        if ("failed to pay".equals(tag)) delta = -10;
+        if ("not picking up".equals(tag) || "phone off".equals(tag) || "rings, no answer".equals(tag)) delta = -2;
+        if (delta != 0) {
+            double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
+            c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
         }
+        clientRepo.save(c);
+        auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + tag + " (NIN " + c.getNationalId() + ")");
+        long monthAttempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
+        if (attempt && monthAttempts == 2 && author != null) {
+            notificationService.emitRaw("MONTHLY_LIMIT", "INFO", c.getFullName() + ": 2nd call this month. Next callable 1st of next month.", "CLIENT", c.getId(), author.getRole().name());
+        }
+        if (negStreak(c) >= 2) {
+            notificationService.emit("NEG_STREAK_2", "WARN", c.getFullName() + ": 2 negative contacts in a row - suggest site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
+        }
+        if ("failed to pay".equals(tag)) {
+            boolean priorPromise = noteRepo.findByClientOrderByCreatedAtDesc(c).stream().anyMatch(x -> "committed to pay".equals(x.getTag()) && !x.getId().equals(n.getId()));
+            if (priorPromise) {
+                notificationService.emit("FAILED_AFTER_PROMISE", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
+                notificationService.emit("FAILED_AFTER_PROMISE_M", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            }
+        }
+        if ("NEGATIVE".equals(def[1]) && c.getReliabilityScore() != null && c.getReliabilityScore() < 40) {
+            notificationService.emit("RELIABILITY_LOW", "WARN", c.getFullName() + " reliability below 40 after negative contact.", "CLIENT", c.getId(), "ROLE_MANAGER");
+        }
+        if ("needs site visit".equals(tag)) {
+            notificationService.emit("SITE_VISIT_TAGGED", "INFO", c.getFullName() + " needs a site visit.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
+        }
+        String warning = null;
+        LocalDateTime window = now.minusDays(3);
+        for (LandProject p : projectsOf(c)) {
+            for (Client co : p.getProprietors()) {
+                if (co.getId().equals(c.getId())) continue;
+                for (RecoveryNote other : noteRepo.findByClientOrderByCreatedAtDesc(co)) {
+                    if (other.isCountsAsAttempt() && other.getCreatedAt().isAfter(window)) {
+                        warning = co.getFullName() + " was already contacted about this plot on " + other.getCreatedAt().toLocalDate() + ".";
+                        break;
+                    }
+                }
+                if (warning != null) break;
+            }
+            if (warning != null) break;
+        }
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("ok", true); resp.put("id", n.getId());
+        if (warning != null) resp.put("coOwnerWarning", warning);
+        return ResponseEntity.ok(resp);
+    }
+    @DeleteMapping("/notes/{id}")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
+        RecoveryNote n = noteRepo.findById(id).orElse(null);
+        if (n == null) return ResponseEntity.ok(Map.of("ok", true));
+        Client c = n.getClient();
+        boolean wasAttempt = n.isCountsAsAttempt();
+        noteRepo.delete(n);
+        if (wasAttempt && c != null) {
+            LocalDateTime newest = null;
+            for (RecoveryNote r : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
+                if (r.isCountsAsAttempt()) { newest = r.getCreatedAt(); break; }
+            }
+            c.setLastContactedAt(newest);
+            clientRepo.save(c);
+        }
+        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tap-tag: " + n.getTag());
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 }

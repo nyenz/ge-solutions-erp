@@ -221,6 +221,7 @@ const FolderPage = () => {
     const [ninMismatch, setNinMismatch] = useState(null);
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
+  const [recoveryChips, setRecoveryChips] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
     const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
@@ -318,6 +319,14 @@ const FolderPage = () => {
         } catch { setLoadError(true); } finally { setLoading(false); }
     }, [id, isEditing]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
+  useEffect(() => {
+    if (!binder?.project?.proprietors) return;
+    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
+      .then(lists => {
+        const all = lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
+        setRecoveryChips(all);
+      });
+  }, [binder]);
     useEffect(() => {
         if (!binder?.project) return;
         setRateFee(Number(binder.project.storageFeeOverride) > 0 ? String(binder.project.storageFeeOverride) : '');
@@ -473,7 +482,7 @@ const FolderPage = () => {
                     <h1>{project.landTitle?.plotNumber || '#' + project.projectIndex || 'UNTITLED'}</h1>
                     <div className={styles.metaLine}>
                         
-                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>
+                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>PROCESSING</span>
                             : <span className={`${styles.textBadge} ${styles.badgeTitled}`}>TITLED</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`}>IN RECEIVABLES</span>
                             : amountPaid >= totalValue ? <span className={`${styles.textBadge} ${styles.badgeTitled}`}>FULLY PAID</span>
