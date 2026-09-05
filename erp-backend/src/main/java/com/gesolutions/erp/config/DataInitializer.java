@@ -212,7 +212,7 @@ public class DataInitializer implements CommandLineRunner {
         return saved.getId();
     }
     // ---------- schema migrations (unchanged) ----------
-    private void runSchemaMigrations() {
+    private void runSchemaMigrations() throws Exception {
         String[] migrations = {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
@@ -247,9 +247,9 @@ public class DataInitializer implements CommandLineRunner {
         };
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             for (String sql : migrations) { try { stmt.execute(sql); } catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); } }
-        } catch (Exception e) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage()); }
+        } catch (Throwable t) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + t.getMessage()); }
     }
-    public void seedRootUser() {
+    public void seedRootUser() throws Exception {
         String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
         String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
