@@ -40,6 +40,7 @@ public class LandService {
     private final StageTemplateService stageTemplateService;
     private final ProjectStageRepository projectStageRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -162,9 +163,6 @@ public class LandService {
             projectRepository.save(project);
         }
 
-        if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
-            notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
-        }
         auditService.logAction("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + plotLabel(project)
@@ -386,7 +384,6 @@ public class LandService {
 
         String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
         String receivableNote = startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "";
-        notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
         auditService.logAction("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
             + plotOrIndex + receivableNote);

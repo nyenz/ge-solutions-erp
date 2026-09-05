@@ -222,6 +222,7 @@ const FolderPage = () => {
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
   const [recoveryChips, setRecoveryChips] = useState([]);
+  const [recoveryChips, setRecoveryChips] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
     const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
@@ -717,17 +718,6 @@ const FolderPage = () => {
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-            {recoveryChips.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
-                {recoveryChips.map((n, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
                             {canLog && <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({ open: true, id: null, content: '' })}>+ ADD NOTE</button>}
                             {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
                                 <div className={styles.notebookTimeline}>{binder.notes.map((log, i) => (<article key={i} className={styles.ruledNote}>

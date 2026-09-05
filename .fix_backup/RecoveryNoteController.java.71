@@ -1,177 +1,4 @@
-# fix.py -- fix71: dedupe double-applied blocks, finish missed patches, valid controller
-import os, shutil, subprocess
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent
-BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
-FE = ROOT / "erp-frontend" / "src"
-BAK = ROOT / ".fix_backup"
-def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def backup(p):
-    try:
-        os.makedirs(BAK, exist_ok=True)
-        if p.exists() and not (BAK / (p.name + ".71")).exists(): shutil.copy2(p, BAK / (p.name + ".71"))
-    except Exception as e: print("BAK WARN", e)
-def save(p, s):
-    backup(p); p.write_text(s, encoding="utf-8", newline="\n")
-def dedup(p, doubled, single, label):
-    s = read(p)
-    if doubled in s: save(p, s.replace(doubled, single)); print("OK dedup", label)
-    else: print("skip dedup", label)
-def patch(p, old, new, label):
-    s = read(p)
-    if old in s: save(p, s.replace(old, new, 1)); print("OK", label)
-    else: print("MISSING", label)
-def rep_all(p, old, new, label):
-    s = read(p)
-    if old in s: save(p, s.replace(old, new)); print("OK", label)
-    else: print("MISSING", label)
-def insert_before_line(p, marker, text, label):
-    s = read(p)
-    i = s.find(marker)
-    if i < 0: print("MISSING", label); return
-    ls = s.rfind("\n", 0, i) + 1
-    save(p, s[:ls] + text + s[ls:]); print("OK", label)
-def insert_after_line(p, marker, text, label):
-    s = read(p)
-    i = s.find(marker)
-    if i < 0: print("MISSING", label); return
-    le = s.find("\n", i)
-    if le < 0: le = len(s)
-    save(p, s[:le + 1] + text + s[le + 1:]); print("OK", label)
-
-FP = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-RPX = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
-DC = BE / "modules" / "land" / "controller" / "DashboardController.java"
-LS = BE / "modules" / "land" / "service" / "LandService.java"
-RS = BE / "modules" / "land" / "service" / "ReceivableSchedulerService.java"
-RP = BE / "modules" / "land" / "service" / "ReportService.java"
-RNC = BE / "modules" / "client" / "controller" / "RecoveryNoteController.java"
-
-# ---- 1) remove blocks that were inserted twice by the double run ----
-S_FP_STATE = "  const [recoveryChips, setRecoveryChips] = useState([]);\n"
-dedup(FP, S_FP_STATE + S_FP_STATE, S_FP_STATE, "FP chips state")
-E_FP = """  useEffect(() => {
-    if (!binder?.project) return;
-    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
-      .then(lists => setRecoveryChips(lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20)));
-  }, [binder]);
-"""
-dedup(FP, E_FP + E_FP, E_FP, "FP chips effect")
-I_RPX = "import { useAuth } from '../../hooks/useAuth';\n"
-dedup(RPX, I_RPX + I_RPX, I_RPX, "RPX useAuth import")
-B_RPX = """  const [promise, setPromise] = useState('');
-  const [coWarn, setCoWarn] = useState(null);
-  const { user } = useAuth();
-  const canManage = user?.isRoot || ['ROLE_ADMIN','ROLE_DIRECTOR','ROLE_MANAGER'].includes(user?.role);
-"""
-dedup(RPX, B_RPX + B_RPX, B_RPX, "RPX states")
-C2 = """            <div className={styles.cardMetaRow}>
-              <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
-              {c.recvState && <span className={c.recvState.indexOf('PAYING') >= 0 ? styles.recvPaying : c.recvState.indexOf('LEGACY') >= 0 ? styles.recvLegacy : styles.recvSilent}>{c.recvState}</span>}
-            </div>
-"""
-dedup(RPX, C2 + C2, C2, "RPX badge chip")
-P_RPX = """          {picked && picked.tag === 'committed to pay' && (
-            <div className={modalStyles.modalField}>
-              <label className={modalStyles.modalLabel}>PROMISED PAYMENT DATE</label>
-              <input type="date" className={modalStyles.modalInput} value={promise} onChange={(e) => setPromise(e.target.value)} aria-label="Promised payment date" />
-            </div>
-          )}
-"""
-dedup(RPX, P_RPX + P_RPX, P_RPX, "RPX promise input")
-D_RPX = """                {canManage && n.source !== 'FOLDER' && (
-                  <button type="button" className={styles.histDelete} aria-label="Delete note"
-                    onClick={() => { if (window.confirm('Delete this tap-tag? The cooldown clock will recompute.')) recoveryService.deleteNote(n.id).then(() => { load(); open(sel); toast('Note deleted.', 'warn'); }); }}>
-                    <FiX aria-hidden="true" />
-                  </button>
-                )}
-"""
-dedup(RPX, D_RPX + D_RPX, D_RPX, "RPX delete btn")
-C_RPX = """      {coWarn && (
-        <div className={styles.coWarnBanner} role="status">
-          <span>{coWarn}</span>
-          <button type="button" className={styles.coWarnDismiss} onClick={() => setCoWarn(null)} aria-label="Dismiss notice">&times;</button>
-        </div>
-      )}
-"""
-dedup(RPX, C_RPX + C_RPX, C_RPX, "RPX co-owner banner")
-L_DC = "    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;\n"
-dedup(DC, L_DC + L_DC, L_DC, "DC field")
-L_LS = "    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;\n"
-dedup(LS, L_LS + L_LS, L_LS, "LS field")
-E_RS = """import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
-import java.util.Optional;
-import java.time.LocalDate;
-"""
-dedup(RS, E_RS + E_RS, E_RS, "RS imports")
-F_RS = """    private final NotificationService notificationService;
-    private final RecoveryNoteRepository recoveryNoteRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final ClientRepository clientRepo;
-"""
-dedup(RS, F_RS + F_RS, F_RS, "RS fields")
-
-# ---- 2) finish patches that never landed (whitespace-proof anchors) ----
-if "RECOVERY CALL LOG" not in read(FP):
-    insert_before_line(FP, "{canLog && <button type=\"button\" className={styles.addNoteBtn}", """            {recoveryChips.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
-                {recoveryChips.map((n, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-""", "FP chips render")
-else: print("skip FP chips render (present)")
-if "OPEN FOLDER" not in read(RPX):
-    insert_before_line(RPX, "className={styles.openBtn}", """            {(c.projectIds || []).length > 0 && (
-              <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); window.location.href = '/folder/' + c.projectIds[0] + '#finance'; }}>
-                <FiFolderPlus aria-hidden="true" /> OPEN FOLDER
-              </button>
-            )}
-""", "RPX folder link")
-else: print("skip RPX folder link (present)")
-rep_all(RS, "+ plot.getLandTitle().getPlotNumber()", "+ ownerLabel(plot)", "RS owner labels")
-if "STORAGE_FEE_APPLIED\", \"INFO\".replace('XX','XX')" not in read(RS) and "ownerLabel(plot) + \".\", \"PROJECT\"" not in read(RS):
-    insert_after_line(RS, '+ " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());',
-        '            notificationService.emit("STORAGE_FEE_APPLIED", "INFO", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId(), "ROLE_DIRECTOR");\n', "RS T7")
-insert_after_line(RS, '"Debt frozen at: UGX " + outstanding);',
-    '            notificationService.emit("AUTO_RECEIVABLE_365", "WARN", ownerLabel(plot) + " auto-flagged RECEIVABLE after 365 days silent.", "PROJECT", plot.getId(), "ROLE_DIRECTOR");\n', "RS T8")
-patch(RP, "plotNumber = proj.get().getLandTitle().getPlotNumber();",
-"plotNumber = (proj.get().getLandTitle() != null && proj.get().getLandTitle().getPlotNumber() != null) ? proj.get().getLandTitle().getPlotNumber() : proj.get().getProprietors().stream().findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse(proj.get().getProjectIndex() != null ? proj.get().getProjectIndex() : \"---\");", "RP revenue null-safe")
-s = read(RP)
-if "[TAP-TAG]" not in s:
-    idx = s.find('TIMESTAMP,OPERATOR,PLOT_ID,NOTE_SNIPPET')
-    ret = s.find('return csv.toString().getBytes();', idx)
-    if idx >= 0 and ret >= 0:
-        ls = s.rfind("\n", 0, ret) + 1
-        save(RP, s[:ls] + """        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findAll()) {
-            csv.append(n.getCreatedAt()).append(CSV_DIVIDER)
-                    .append(n.getAuthor() != null ? n.getAuthor().getUsername() : "SYSTEM").append(CSV_DIVIDER)
-                    .append("CLIENT:").append(n.getClient() != null ? n.getClient().getFullName() : "---").append(CSV_DIVIDER)
-                    .append("[TAP-TAG] ").append(n.getTag()).append(n.getText() != null ? " - " + n.getText() : "")
-                    .append(NEW_LINE);
-        }
-""" + s[ls:]); print("OK RP throughput merge")
-    else: print("MISSING RP throughput merge")
-else: print("skip RP throughput merge (present)")
-patch(LS, 'auditService.logAction("PAYMENT_RECORDED",',
-'if ("RECEIVABLE_PARTIAL".equals(paymentType)) {\n            notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");\n        }\n        auditService.logAction("PAYMENT_RECORDED",', "LS T10")
-patch(LS, 'auditService.logAction("INTAKE",',
-'notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");\n        auditService.logAction("INTAKE",', "LS T11")
-
-# ---- 3) rewrite Recovery controller with valid Java (no bad casts) ----
-write = lambda p, s: (backup(p), p.write_text(s, encoding="utf-8", newline="\n"), print("WROTE", p.name))
-write(RNC, """package com.gesolutions.erp.modules.client.controller;
+package com.gesolutions.erp.modules.client.controller;
 import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.modules.client.model.Client;
@@ -237,11 +64,7 @@ public class RecoveryNoteController {
             double owed = Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue());
             if (owed > 0) return true;
             if (p.getStages() != null) {
-                for (Object s : p.getStages()) {
-                    if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) {
-                        if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true;
-                    }
-                }
+                for (var s : p.getStages()) if (!s.isCompleted()) return true;
             }
             return true;
         }
@@ -258,8 +81,7 @@ public class RecoveryNoteController {
         if (last != null && last.isAfter(now.minusDays(14))) a = last.plusDays(14);
         long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
         LocalDateTime b = attempts >= 2 ? LocalDate.now().withDayOfMonth(1).plusMonths(1).atStartOfDay() : null;
-        if (a == null) return b;
-        if (b == null) return a;
+        if (a == null) return b; if (b == null) return a;
         return a.isAfter(b) ? a : b;
     }
     private int negStreak(Client c) {
@@ -323,8 +145,7 @@ public class RecoveryNoteController {
         List<Map<String, Object>> out = new ArrayList<>();
         for (String[] t : TAGS) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("tag", t[0]); m.put("tone", t[1]);
-            m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
+            m.put("tag", t[0]); m.put("tone", t[1]); m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
             out.add(m);
         }
         return out;
@@ -339,15 +160,12 @@ public class RecoveryNoteController {
             out.add(clientDto(c, now, ps));
         }
         out.sort((x, y) -> {
-            Integer px = (Integer) x.get("priority");
-            Integer py = (Integer) y.get("priority");
-            int p = px.compareTo(py);
+            int p = Integer.compare((int) x.get("priority"), (int) y.get("priority"));
             if (p != 0) return p;
             LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
             LocalDateTime b = (LocalDateTime) y.get("lastContactedAt");
             if (a == null && b == null) return 0;
-            if (a == null) return -1;
-            if (b == null) return 1;
+            if (a == null) return -1; if (b == null) return 1;
             return a.compareTo(b);
         });
         return out;
@@ -374,7 +192,7 @@ public class RecoveryNoteController {
             Map<String, Object> d = clientDto(c, now, ps);
             if (Boolean.TRUE.equals(d.get("locked"))) lock++; else due++;
             if ("needs site visit".equals(d.get("lastTag"))) site++;
-            if (Integer.valueOf(1).equals(d.get("priority"))) p1++;
+            if ((int) d.get("priority") == 1) p1++;
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("dueNow", due); m.put("locked", lock); m.put("siteVisits", site); m.put("p1", p1);
@@ -388,9 +206,8 @@ public class RecoveryNoteController {
             List<Map<String, Object>> out = new ArrayList<>();
             for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", n.getId()); m.put("tag", n.getTag());
-                m.put("tone", n.getTone()); m.put("text", n.getText());
-                m.put("countsAsAttempt", n.isCountsAsAttempt());
+                m.put("id", n.getId()); m.put("tag", n.getTag()); m.put("tone", n.getTone());
+                m.put("text", n.getText()); m.put("countsAsAttempt", n.isCountsAsAttempt());
                 m.put("createdAt", n.getCreatedAt()); m.put("source", "RECOVERY");
                 m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
                 out.add(m);
@@ -502,14 +319,3 @@ public class RecoveryNoteController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 }
-""")
-
-# ---- 4) git ----
-try:
-    subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix71: dedupe double-applied blocks, finish missed patches, valid controller casts"], cwd=ROOT, check=True)
-    subprocess.run(["git", "push"], cwd=ROOT, check=True)
-    print("GIT pushed")
-except Exception as e:
-    print("GIT WARN", e)
-print("DONE")

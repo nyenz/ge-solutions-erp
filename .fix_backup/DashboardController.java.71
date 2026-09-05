@@ -41,6 +41,7 @@ public class DashboardController {
     private final PaymentRecordRepository paymentRecordRepository;
     private final ExpenseRepository expenseRepository;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
+    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {

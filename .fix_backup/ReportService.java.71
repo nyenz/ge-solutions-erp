@@ -113,13 +113,6 @@ public class ReportService {
                .append("\"").append(log.getNotes()).append("\"")
                .append(NEW_LINE);
         }
-        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findAll()) {
-            csv.append(n.getCreatedAt()).append(CSV_DIVIDER)
-                    .append(n.getAuthor() != null ? n.getAuthor().getUsername() : "SYSTEM").append(CSV_DIVIDER)
-                    .append("CLIENT:").append(n.getClient() != null ? n.getClient().getFullName() : "---").append(CSV_DIVIDER)
-                    .append("[TAP-TAG] ").append(n.getTag()).append(n.getText() != null ? " - " + n.getText() : "")
-                    .append(NEW_LINE);
-        }
         return csv.toString().getBytes();
     }
 
@@ -221,7 +214,7 @@ public class ReportService {
             try {
                 java.util.Optional<LandProject> proj = projectRepository.findById(pay.getProjectId());
                 if (proj.isPresent()) {
-                    plotNumber = (proj.get().getLandTitle() != null && proj.get().getLandTitle().getPlotNumber() != null) ? proj.get().getLandTitle().getPlotNumber() : proj.get().getProprietors().stream().findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse(proj.get().getProjectIndex() != null ? proj.get().getProjectIndex() : "---");
+                    plotNumber = proj.get().getLandTitle().getPlotNumber();
                     ownerName = proj.get().getProprietors().stream()
                         .findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse("---");
                 }

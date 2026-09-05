@@ -209,11 +209,6 @@ export default function RecoveryPortal() {
                   : <span className={styles.chipNone}>NO CONTACT YET</span>}
                 <span className={styles.mono}>{fmtDT(c.lastContactedAt)}</span>
               </div>
-            {(c.projectIds || []).length > 0 && (
-              <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); window.location.href = '/folder/' + c.projectIds[0] + '#finance'; }}>
-                <FiFolderPlus aria-hidden="true" /> OPEN FOLDER
-              </button>
-            )}
               <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); open(c); }}>
                 <FiPhone aria-hidden="true" /> OPEN CALL LOG
               </button>

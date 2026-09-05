@@ -64,7 +64,11 @@ public class RecoveryNoteController {
             double owed = Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue());
             if (owed > 0) return true;
             if (p.getStages() != null) {
-                for (var s : p.getStages()) if (!s.isCompleted()) return true;
+                for (Object s : p.getStages()) {
+                    if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) {
+                        if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true;
+                    }
+                }
             }
             return true;
         }
@@ -81,7 +85,8 @@ public class RecoveryNoteController {
         if (last != null && last.isAfter(now.minusDays(14))) a = last.plusDays(14);
         long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
         LocalDateTime b = attempts >= 2 ? LocalDate.now().withDayOfMonth(1).plusMonths(1).atStartOfDay() : null;
-        if (a == null) return b; if (b == null) return a;
+        if (a == null) return b;
+        if (b == null) return a;
         return a.isAfter(b) ? a : b;
     }
     private int negStreak(Client c) {
@@ -145,7 +150,8 @@ public class RecoveryNoteController {
         List<Map<String, Object>> out = new ArrayList<>();
         for (String[] t : TAGS) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("tag", t[0]); m.put("tone", t[1]); m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
+            m.put("tag", t[0]); m.put("tone", t[1]);
+            m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
             out.add(m);
         }
         return out;
@@ -160,12 +166,15 @@ public class RecoveryNoteController {
             out.add(clientDto(c, now, ps));
         }
         out.sort((x, y) -> {
-            int p = Integer.compare((int) x.get("priority"), (int) y.get("priority"));
+            Integer px = (Integer) x.get("priority");
+            Integer py = (Integer) y.get("priority");
+            int p = px.compareTo(py);
             if (p != 0) return p;
             LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
             LocalDateTime b = (LocalDateTime) y.get("lastContactedAt");
             if (a == null && b == null) return 0;
-            if (a == null) return -1; if (b == null) return 1;
+            if (a == null) return -1;
+            if (b == null) return 1;
             return a.compareTo(b);
         });
         return out;
@@ -192,7 +201,7 @@ public class RecoveryNoteController {
             Map<String, Object> d = clientDto(c, now, ps);
             if (Boolean.TRUE.equals(d.get("locked"))) lock++; else due++;
             if ("needs site visit".equals(d.get("lastTag"))) site++;
-            if ((int) d.get("priority") == 1) p1++;
+            if (Integer.valueOf(1).equals(d.get("priority"))) p1++;
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("dueNow", due); m.put("locked", lock); m.put("siteVisits", site); m.put("p1", p1);
@@ -206,8 +215,9 @@ public class RecoveryNoteController {
             List<Map<String, Object>> out = new ArrayList<>();
             for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", n.getId()); m.put("tag", n.getTag()); m.put("tone", n.getTone());
-                m.put("text", n.getText()); m.put("countsAsAttempt", n.isCountsAsAttempt());
+                m.put("id", n.getId()); m.put("tag", n.getTag());
+                m.put("tone", n.getTone()); m.put("text", n.getText());
+                m.put("countsAsAttempt", n.isCountsAsAttempt());
                 m.put("createdAt", n.getCreatedAt()); m.put("source", "RECOVERY");
                 m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
                 out.add(m);
