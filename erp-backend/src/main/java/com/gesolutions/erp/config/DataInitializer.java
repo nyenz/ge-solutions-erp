@@ -1,5 +1,4 @@
 package com.gesolutions.erp.config;
-import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.model.RecoveryNote;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;

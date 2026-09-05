@@ -89,8 +89,11 @@ public class SystemAdminController {
         System.out.println(">>> [WIPE] ================================================");
 
         String tableList = String.join(", ", TABLES_TO_WIPE);
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
             stmt.execute("TRUNCATE TABLE " + tableList + " RESTART IDENTITY CASCADE");
             System.out.println(">>> [WIPE] OK: All business tables truncated -- " + tableList);
         } catch (Exception e) {
@@ -99,15 +102,24 @@ public class SystemAdminController {
                 "wiped", false,
                 "message", "Wipe failed: " + e.getMessage()
             ));
+        } finally {
+            if (stmt != null) try { stmt.close(); } catch (Exception ignored) {}
+            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
         }
 
         // Reset the project index counter back to 000/A
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
+        Connection conn2 = null;
+        Statement stmt2 = null;
+        try {
+            conn2 = dataSource.getConnection();
+            stmt2 = conn2.createStatement();
+            stmt2.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
             System.out.println(">>> [WIPE] OK: project_index_counter reset to 000/A");
         } catch (Exception e) {
             System.err.println(">>> [WIPE] WARNING: Could not reset project_index_counter: " + e.getMessage());
+        } finally {
+            if (stmt2 != null) try { stmt2.close(); } catch (Exception ignored) {}
+            if (conn2 != null) try { conn2.close(); } catch (Exception ignored) {}
         }
 
         // Reseed the root admin account so nobody gets locked out
