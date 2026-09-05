@@ -1,20 +1,30 @@
-# fix.py -- fix74: resolve unhandled compiler exceptions in DataInitializer and SystemAdminController
-import subprocess
+# fix.py -- fix69: resolve VS Code Java compiler try-with-resources close() bugs and unhandled startup exceptions
+import re, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 
-def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def write(p, s): p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
+def read(p): 
+    return p.read_text(encoding="utf-8", errors="replace")
+
+def write(p, s): 
+    with open(p, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(s)
+    print("WROTE", p.name)
 
 res = []
 
-# --- 1. DataInitializer.java ---
+# ─── 1. DataInitializer.java ────────────────────────────────────────────────
 di = BE / "config" / "DataInitializer.java"
 s = read(di)
 
-# 1a. Wrap run() in try-catch to prevent Spring Boot startup crash on seed failure
+# Remove unused Client import if present
+if "import com.gesolutions.erp.modules.client.model.Client;\n" in s:
+    s = s.replace("import com.gesolutions.erp.modules.client.model.Client;\n", "")
+    res.append("OK removed unused Client import")
+
+# Wrap run() body in try-catch to handle any startup exceptions
 old_run = """    @Override
     public void run(String... args) {
         System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
@@ -48,67 +58,91 @@ if old_run in s:
 else:
     res.append("MISS run() block")
 
-# 1b. Fix purgeAll() missing throws SQLException
-old_purgeall = """    private void purgeAll(Connection conn) {
-        String[] stmts = {
-            "DELETE FROM notification_reads", "DELETE FROM notifications", "DELETE FROM recovery_notes",
-            "DELETE FROM payment_records", "DELETE FROM follow_up_logs", "DELETE FROM project_documents",
-            "DELETE FROM project_stages", "DELETE FROM project_proprietors", "DELETE FROM land_projects",
-            "DELETE FROM land_titles", "DELETE FROM clients", "DELETE FROM audit_logs",
-            "UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1"
-        };
-        try (Statement st = conn.createStatement()) { for (String s : stmts) { try { st.execute(s); } catch (Exception e) { System.err.println(">>> [SCENARIO] purge skip: " + e.getMessage()); } } }
-    }"""
+# Fix runSchemaMigrations try-with-resources
+old_schema = """        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
+            for (String sql : migrations) { try { stmt.execute(sql); } catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); } }
+        } catch (Throwable t) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + t.getMessage()); }"""
 
-new_purgeall = """    private void purgeAll(Connection conn) throws java.sql.SQLException {
-        String[] stmts = {
-            "DELETE FROM notification_reads", "DELETE FROM notifications", "DELETE FROM recovery_notes",
-            "DELETE FROM payment_records", "DELETE FROM follow_up_logs", "DELETE FROM project_documents",
-            "DELETE FROM project_stages", "DELETE FROM project_proprietors", "DELETE FROM land_projects",
-            "DELETE FROM land_titles", "DELETE FROM clients", "DELETE FROM audit_logs",
-            "UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1"
-        };
-        try (Statement st = conn.createStatement()) { for (String s : stmts) { try { st.execute(s); } catch (Exception e) { System.err.println(">>> [SCENARIO] purge skip: " + e.getMessage()); } } }
-    }"""
+new_schema = """        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
+            for (String sql : migrations) { 
+                try { 
+                    stmt.execute(sql); 
+                } catch (Exception e) { 
+                    System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); 
+                } 
+            }
+        } catch (Throwable t) { 
+            System.err.println(">>> [DB_SCHEMA] Migration warning: " + t.getMessage()); 
+        } finally {
+            if (stmt != null) try { stmt.close(); } catch (Exception ignored) {}
+            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
+        }"""
 
-if old_purgeall in s:
-    s = s.replace(old_purgeall, new_purgeall)
-    res.append("OK added throws SQLException to purgeAll()")
+if old_schema in s:
+    s = s.replace(old_schema, new_schema)
+    res.append("OK fixed runSchemaMigrations try-with-resources")
 else:
-    res.append("MISS purgeAll block")
+    res.append("MISS runSchemaMigrations block")
 
 write(di, s)
 
-# --- 2. SystemAdminController.java ---
+# ─── 2. SystemAdminController.java ──────────────────────────────────────────
 sa = BE / "modules" / "admin" / "controller" / "SystemAdminController.java"
 s2 = read(sa)
 
-# 2a. Wrap seedRootUser() in try-catch to handle its declared 'throws Exception'
-old_reseed = """        // Reseed the root admin account so nobody gets locked out
-        dataInitializer.seedRootUser();
-        System.out.println(">>> [WIPE] OK: admin_root reseeded");"""
-
-new_reseed = """        // Reseed the root admin account so nobody gets locked out
+old_wipe = """        Connection conn = null;
+        Statement stmt = null;
         try {
-            dataInitializer.seedRootUser();
-            System.out.println(">>> [WIPE] OK: admin_root reseeded");
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
+            stmt.execute("TRUNCATE TABLE " + tableList + " RESTART IDENTITY CASCADE");
+            System.out.println(">>> [WIPE] OK: All business tables truncated -- " + tableList);
         } catch (Exception e) {
-            System.err.println(">>> [WIPE] WARNING: admin_root reseed failed: " + e.getMessage());
+            System.err.println(">>> [WIPE] FATAL: Truncate failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of(
+                "wiped", false,
+                "message", "Wipe failed: " + e.getMessage()
+            ));
+        } finally {
+            if (stmt != null) try { stmt.close(); } catch (Exception ignored) {}
+            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
         }"""
 
-if old_reseed in s2:
-    s2 = s2.replace(old_reseed, new_reseed)
-    res.append("OK wrapped seedRootUser() in try-catch")
+if old_wipe in s2:
+    res.append("OK wipeAllData try-with-resources already fixed")
 else:
-    res.append("MISS seedRootUser reseed block")
+    res.append("MISS wipeAllData block")
 
-write(sa, s2)
+old_reset = """        // Reset the project index counter back to 000/A
+        Connection conn2 = null;
+        Statement stmt2 = null;
+        try {
+            conn2 = dataSource.getConnection();
+            stmt2 = conn2.createStatement();
+            stmt2.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
+            System.out.println(">>> [WIPE] OK: project_index_counter reset to 000/A");
+        } catch (Exception e) {
+            System.err.println(">>> [WIPE] WARNING: Could not reset project_index_counter: " + e.getMessage());
+        } finally {
+            if (stmt2 != null) try { stmt2.close(); } catch (Exception ignored) {}
+            if (conn2 != null) try { conn2.close(); } catch (Exception ignored) {}
+        }"""
 
-for r in res: print(r)
+if old_reset in s2:
+    res.append("OK resetCounter try-with-resources already fixed")
+else:
+    res.append("MISS resetCounter block")
+
+for r in res: 
+    print(r)
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix74: resolve unhandled compiler exceptions in DataInitializer and SystemAdminController"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix69: resolve VS Code Java compiler try-with-resources close() bugs and unhandled startup exceptions"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

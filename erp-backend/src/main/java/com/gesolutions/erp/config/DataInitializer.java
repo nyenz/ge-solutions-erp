@@ -249,9 +249,24 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL"
         };
-        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            for (String sql : migrations) { try { stmt.execute(sql); } catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); } }
-        } catch (Throwable t) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + t.getMessage()); }
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
+            for (String sql : migrations) { 
+                try { 
+                    stmt.execute(sql); 
+                } catch (Exception e) { 
+                    System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); 
+                } 
+            }
+        } catch (Throwable t) { 
+            System.err.println(">>> [DB_SCHEMA] Migration warning: " + t.getMessage()); 
+        } finally {
+            if (stmt != null) try { stmt.close(); } catch (Exception ignored) {}
+            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
+        }
     }
     public void seedRootUser() throws Exception {
         String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
