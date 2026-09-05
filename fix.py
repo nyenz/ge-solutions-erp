@@ -1,513 +1,284 @@
-# fix.py -- fix71: dedupe double-applied blocks, finish missed patches, valid controller
-import os, shutil, subprocess
+# fix.py -- fix72: one-time 28-project scenario dataset (wipe once, seed once, never again)
+import os, subprocess
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
-FE = ROOT / "erp-frontend" / "src"
-BAK = ROOT / ".fix_backup"
 def read(p): return p.read_text(encoding="utf-8", errors="replace")
-def backup(p):
-    try:
-        os.makedirs(BAK, exist_ok=True)
-        if p.exists() and not (BAK / (p.name + ".71")).exists(): shutil.copy2(p, BAK / (p.name + ".71"))
-    except Exception as e: print("BAK WARN", e)
-def save(p, s):
-    backup(p); p.write_text(s, encoding="utf-8", newline="\n")
-def dedup(p, doubled, single, label):
-    s = read(p)
-    if doubled in s: save(p, s.replace(doubled, single)); print("OK dedup", label)
-    else: print("skip dedup", label)
-def patch(p, old, new, label):
-    s = read(p)
-    if old in s: save(p, s.replace(old, new, 1)); print("OK", label)
-    else: print("MISSING", label)
-def rep_all(p, old, new, label):
-    s = read(p)
-    if old in s: save(p, s.replace(old, new)); print("OK", label)
-    else: print("MISSING", label)
-def insert_before_line(p, marker, text, label):
-    s = read(p)
-    i = s.find(marker)
-    if i < 0: print("MISSING", label); return
-    ls = s.rfind("\n", 0, i) + 1
-    save(p, s[:ls] + text + s[ls:]); print("OK", label)
-def insert_after_line(p, marker, text, label):
-    s = read(p)
-    i = s.find(marker)
-    if i < 0: print("MISSING", label); return
-    le = s.find("\n", i)
-    if le < 0: le = len(s)
-    save(p, s[:le + 1] + text + s[le + 1:]); print("OK", label)
+def write(p, s):
+    d = os.path.dirname(p)
+    if d: os.makedirs(d, exist_ok=True)
+    p.write_text(s, encoding="utf-8", newline="\n"); print("WROTE", p.name)
 
-FP = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-RPX = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
-DC = BE / "modules" / "land" / "controller" / "DashboardController.java"
-LS = BE / "modules" / "land" / "service" / "LandService.java"
-RS = BE / "modules" / "land" / "service" / "ReceivableSchedulerService.java"
-RP = BE / "modules" / "land" / "service" / "ReportService.java"
-RNC = BE / "modules" / "client" / "controller" / "RecoveryNoteController.java"
-
-# ---- 1) remove blocks that were inserted twice by the double run ----
-S_FP_STATE = "  const [recoveryChips, setRecoveryChips] = useState([]);\n"
-dedup(FP, S_FP_STATE + S_FP_STATE, S_FP_STATE, "FP chips state")
-E_FP = """  useEffect(() => {
-    if (!binder?.project) return;
-    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
-      .then(lists => setRecoveryChips(lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20)));
-  }, [binder]);
-"""
-dedup(FP, E_FP + E_FP, E_FP, "FP chips effect")
-I_RPX = "import { useAuth } from '../../hooks/useAuth';\n"
-dedup(RPX, I_RPX + I_RPX, I_RPX, "RPX useAuth import")
-B_RPX = """  const [promise, setPromise] = useState('');
-  const [coWarn, setCoWarn] = useState(null);
-  const { user } = useAuth();
-  const canManage = user?.isRoot || ['ROLE_ADMIN','ROLE_DIRECTOR','ROLE_MANAGER'].includes(user?.role);
-"""
-dedup(RPX, B_RPX + B_RPX, B_RPX, "RPX states")
-C2 = """            <div className={styles.cardMetaRow}>
-              <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
-              {c.recvState && <span className={c.recvState.indexOf('PAYING') >= 0 ? styles.recvPaying : c.recvState.indexOf('LEGACY') >= 0 ? styles.recvLegacy : styles.recvSilent}>{c.recvState}</span>}
-            </div>
-"""
-dedup(RPX, C2 + C2, C2, "RPX badge chip")
-P_RPX = """          {picked && picked.tag === 'committed to pay' && (
-            <div className={modalStyles.modalField}>
-              <label className={modalStyles.modalLabel}>PROMISED PAYMENT DATE</label>
-              <input type="date" className={modalStyles.modalInput} value={promise} onChange={(e) => setPromise(e.target.value)} aria-label="Promised payment date" />
-            </div>
-          )}
-"""
-dedup(RPX, P_RPX + P_RPX, P_RPX, "RPX promise input")
-D_RPX = """                {canManage && n.source !== 'FOLDER' && (
-                  <button type="button" className={styles.histDelete} aria-label="Delete note"
-                    onClick={() => { if (window.confirm('Delete this tap-tag? The cooldown clock will recompute.')) recoveryService.deleteNote(n.id).then(() => { load(); open(sel); toast('Note deleted.', 'warn'); }); }}>
-                    <FiX aria-hidden="true" />
-                  </button>
-                )}
-"""
-dedup(RPX, D_RPX + D_RPX, D_RPX, "RPX delete btn")
-C_RPX = """      {coWarn && (
-        <div className={styles.coWarnBanner} role="status">
-          <span>{coWarn}</span>
-          <button type="button" className={styles.coWarnDismiss} onClick={() => setCoWarn(null)} aria-label="Dismiss notice">&times;</button>
-        </div>
-      )}
-"""
-dedup(RPX, C_RPX + C_RPX, C_RPX, "RPX co-owner banner")
-L_DC = "    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;\n"
-dedup(DC, L_DC + L_DC, L_DC, "DC field")
-L_LS = "    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;\n"
-dedup(LS, L_LS + L_LS, L_LS, "LS field")
-E_RS = """import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
-import java.util.Optional;
-import java.time.LocalDate;
-"""
-dedup(RS, E_RS + E_RS, E_RS, "RS imports")
-F_RS = """    private final NotificationService notificationService;
-    private final RecoveryNoteRepository recoveryNoteRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final ClientRepository clientRepo;
-"""
-dedup(RS, F_RS + F_RS, F_RS, "RS fields")
-
-# ---- 2) finish patches that never landed (whitespace-proof anchors) ----
-if "RECOVERY CALL LOG" not in read(FP):
-    insert_before_line(FP, "{canLog && <button type=\"button\" className={styles.addNoteBtn}", """            {recoveryChips.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
-                {recoveryChips.map((n, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-""", "FP chips render")
-else: print("skip FP chips render (present)")
-if "OPEN FOLDER" not in read(RPX):
-    insert_before_line(RPX, "className={styles.openBtn}", """            {(c.projectIds || []).length > 0 && (
-              <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); window.location.href = '/folder/' + c.projectIds[0] + '#finance'; }}>
-                <FiFolderPlus aria-hidden="true" /> OPEN FOLDER
-              </button>
-            )}
-""", "RPX folder link")
-else: print("skip RPX folder link (present)")
-rep_all(RS, "+ plot.getLandTitle().getPlotNumber()", "+ ownerLabel(plot)", "RS owner labels")
-if "STORAGE_FEE_APPLIED\", \"INFO\".replace('XX','XX')" not in read(RS) and "ownerLabel(plot) + \".\", \"PROJECT\"" not in read(RS):
-    insert_after_line(RS, '+ " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());',
-        '            notificationService.emit("STORAGE_FEE_APPLIED", "INFO", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId(), "ROLE_DIRECTOR");\n', "RS T7")
-insert_after_line(RS, '"Debt frozen at: UGX " + outstanding);',
-    '            notificationService.emit("AUTO_RECEIVABLE_365", "WARN", ownerLabel(plot) + " auto-flagged RECEIVABLE after 365 days silent.", "PROJECT", plot.getId(), "ROLE_DIRECTOR");\n', "RS T8")
-patch(RP, "plotNumber = proj.get().getLandTitle().getPlotNumber();",
-"plotNumber = (proj.get().getLandTitle() != null && proj.get().getLandTitle().getPlotNumber() != null) ? proj.get().getLandTitle().getPlotNumber() : proj.get().getProprietors().stream().findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse(proj.get().getProjectIndex() != null ? proj.get().getProjectIndex() : \"---\");", "RP revenue null-safe")
-s = read(RP)
-if "[TAP-TAG]" not in s:
-    idx = s.find('TIMESTAMP,OPERATOR,PLOT_ID,NOTE_SNIPPET')
-    ret = s.find('return csv.toString().getBytes();', idx)
-    if idx >= 0 and ret >= 0:
-        ls = s.rfind("\n", 0, ret) + 1
-        save(RP, s[:ls] + """        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findAll()) {
-            csv.append(n.getCreatedAt()).append(CSV_DIVIDER)
-                    .append(n.getAuthor() != null ? n.getAuthor().getUsername() : "SYSTEM").append(CSV_DIVIDER)
-                    .append("CLIENT:").append(n.getClient() != null ? n.getClient().getFullName() : "---").append(CSV_DIVIDER)
-                    .append("[TAP-TAG] ").append(n.getTag()).append(n.getText() != null ? " - " + n.getText() : "")
-                    .append(NEW_LINE);
-        }
-""" + s[ls:]); print("OK RP throughput merge")
-    else: print("MISSING RP throughput merge")
-else: print("skip RP throughput merge (present)")
-patch(LS, 'auditService.logAction("PAYMENT_RECORDED",',
-'if ("RECEIVABLE_PARTIAL".equals(paymentType)) {\n            notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");\n        }\n        auditService.logAction("PAYMENT_RECORDED",', "LS T10")
-patch(LS, 'auditService.logAction("INTAKE",',
-'notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");\n        auditService.logAction("INTAKE",', "LS T11")
-
-# ---- 3) rewrite Recovery controller with valid Java (no bad casts) ----
-write = lambda p, s: (backup(p), p.write_text(s, encoding="utf-8", newline="\n"), print("WROTE", p.name))
-write(RNC, """package com.gesolutions.erp.modules.client.controller;
-import com.gesolutions.erp.modules.auth.model.User;
-import com.gesolutions.erp.modules.auth.repository.UserRepository;
+DI = BE / "config" / "DataInitializer.java"
+write(DI, """package com.gesolutions.erp.config;
 import com.gesolutions.erp.modules.client.model.Client;
 import com.gesolutions.erp.modules.client.model.RecoveryNote;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
+import com.gesolutions.erp.modules.finance.model.ExpensePreset;
+import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
+import com.gesolutions.erp.modules.land.dto.LandEntryRequest;
 import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.model.StageTemplate;
 import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
-import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
-import com.gesolutions.erp.common.audit.AuditService;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
+import com.gesolutions.erp.modules.land.service.LandService;
+import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
-@RestController
-@RequestMapping("/api/v1/recovery")
+@Component
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
-public class RecoveryNoteController {
-    private final ClientRepository clientRepo;
-    private final RecoveryNoteRepository noteRepo;
-    private final UserRepository userRepo;
-    private final LandProjectRepository projectRepo;
-    private final FollowUpRepository followUpRepo;
-    private final AuditService auditService;
-    private final NotificationService notificationService;
-    private static final String[][] TAGS = {
-        {"committed to pay",   "POSITIVE", "true"},
-        {"answered call",      "POSITIVE", "true"},
-        {"not picking up",     "NEGATIVE", "true"},
-        {"not going through",  "NEGATIVE", "true"},
-        {"rings, no answer",   "NEGATIVE", "true"},
-        {"phone off",          "NEGATIVE", "true"},
-        {"needs site visit",   "NEGATIVE", "false"},
-        {"failed to pay",      "NEGATIVE", "false"}
-    };
-    private static String[] tagDef(String tag) { for (String[] t : TAGS) if (t[0].equals(tag)) return t; return null; }
-    private List<LandProject> projectsOf(Client c) {
-        List<LandProject> out = new ArrayList<>();
-        for (LandProject p : projectRepo.findAll()) {
-            if (p.getProprietors() != null && p.getProprietors().contains(c)) out.add(p);
-        }
-        return out;
+public class DataInitializer implements CommandLineRunner {
+    private final PasswordEncoder passwordEncoder;
+    private final DataSource dataSource;
+    private final StageTemplateService stageTemplateService;
+    private final ExpensePresetRepository expensePresetRepository;
+    private final LandService landService;
+    private final ClientRepository clientRepository;
+    private final RecoveryNoteRepository recoveryNoteRepository;
+    private final FollowUpRepository followUpRepository;
+    @Value("${ADMIN_EMAIL}") private String adminEmail;
+    @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
+    @Override
+    public void run(String... args) {
+        System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
+        runSchemaMigrations();
+        seedRootUser();
+        stageTemplateService.seedDefaultStagesIfEmpty();
+        seedScenarioDataOnce();
+        seedDefaultExpensePresets();
+        System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
     }
-    private String entryTypeOf(List<LandProject> ps) {
-        for (LandProject p : ps) {
-            if (p.isLegacy()) return "Legacy Title";
-            if (p.getLandTitle() != null) return "New Title";
-        }
-        return ps.isEmpty() ? null : "New Folder";
+    public void seedDefaultExpensePresets() {
+        if (expensePresetRepository.count() > 0) return;
+        String[] defaults = { "Office", "Fieldwork", "Land Office" };
+        for (String name : defaults) expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
     }
-    private boolean qualifies(List<LandProject> ps) {
-        if (ps.isEmpty()) return false;
-        for (LandProject p : ps) {
-            if (p.isLegacy()) return true;
-            double owed = Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue());
-            if (owed > 0) return true;
-            if (p.getStages() != null) {
-                for (Object s : p.getStages()) {
-                    if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) {
-                        if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true;
-                    }
-                }
+    // ---------- ONE-TIME SCENARIO SEED (wipe once, seed once, never again) ----------
+    public void seedScenarioDataOnce() {
+        try (Connection conn = dataSource.getConnection()) {
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TABLE IF NOT EXISTS scenario_seed_flag (id INTEGER PRIMARY KEY, seeded_at TIMESTAMP NOT NULL DEFAULT now())");
             }
-            return true;
-        }
-        return false;
+            boolean seeded;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM scenario_seed_flag"); java.sql.ResultSet rs = ps.executeQuery()) { rs.next(); seeded = rs.getInt(1) > 0; }
+            if (seeded) { System.out.println(">>> [SCENARIO] Already seeded -- skipping."); return; }
+            purgeAll(conn);
+            seedScenarios();
+            try (Statement st = conn.createStatement()) { st.execute("INSERT INTO scenario_seed_flag (id) VALUES (1)"); }
+            System.out.println(">>> [SCENARIO] Scenario dataset seeded (28 projects).");
+        } catch (Exception e) { System.err.println(">>> [SCENARIO] seed fault: " + e.getMessage()); }
     }
-    private boolean locked(Client c, LocalDateTime now) {
-        LocalDateTime last = c.getLastContactedAt();
-        if (last != null && last.isAfter(now.minusDays(14))) return true;
-        return noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2;
+    private void purgeAll(Connection conn) {
+        String[] stmts = {
+            "DELETE FROM notification_reads", "DELETE FROM notifications", "DELETE FROM recovery_notes",
+            "DELETE FROM payment_records", "DELETE FROM follow_up_logs", "DELETE FROM project_documents",
+            "DELETE FROM project_stages", "DELETE FROM project_proprietors", "DELETE FROM land_projects",
+            "DELETE FROM land_titles", "DELETE FROM clients", "DELETE FROM audit_logs",
+            "UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1"
+        };
+        try (Statement st = conn.createStatement()) { for (String s : stmts) { try { st.execute(s); } catch (Exception e) { System.err.println(">>> [SCENARIO] purge skip: " + e.getMessage()); } } }
     }
-    private LocalDateTime nextUnlock(Client c, LocalDateTime now) {
-        LocalDateTime a = null;
-        LocalDateTime last = c.getLastContactedAt();
-        if (last != null && last.isAfter(now.minusDays(14))) a = last.plusDays(14);
-        long attempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
-        LocalDateTime b = attempts >= 2 ? LocalDate.now().withDayOfMonth(1).plusMonths(1).atStartOfDay() : null;
-        if (a == null) return b;
-        if (b == null) return a;
-        return a.isAfter(b) ? a : b;
+    private String d(int daysAgo) { return LocalDate.now().minusDays(daysAgo).toString(); }
+    private void flag(UUID pid, String sql) {
+        try (Connection conn = dataSource.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement("UPDATE land_projects SET " + sql + " WHERE id = ?")) { ps.setObject(1, pid); ps.executeUpdate(); } catch (Exception e) { System.err.println(">>> [SCENARIO] flag fault: " + e.getMessage()); }
     }
-    private int negStreak(Client c) {
-        int n = 0;
-        for (RecoveryNote note : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
-            if ("NEGATIVE".equals(note.getTone()) && note.isCountsAsAttempt()) n++;
-            else break;
-        }
-        return n;
+    private void backdatePayment(UUID pid, int daysAgo, long amount, String type) {
+        try (Connection conn = dataSource.getConnection()) {
+            java.sql.Timestamp ts = java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(daysAgo));
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) { ps.setTimestamp(1, ts); ps.setObject(2, pid); ps.executeUpdate(); }
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO payment_records (id, project_id, amount_paid, payment_type, recorded_by, notes, timestamp, balance_after) VALUES (?, ?, ?, ?, 'SYSTEM', 'Scenario seed', ?, 0)")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setBigDecimal(3, java.math.BigDecimal.valueOf(amount)); ps.setString(4, type); ps.setTimestamp(5, ts); ps.executeUpdate(); }
+        } catch (Exception e) { System.err.println(">>> [SCENARIO] payment fault: " + e.getMessage()); }
     }
-    private String payBadge(List<LandProject> ps) {
-        LocalDateTime newest = null;
-        for (LandProject p : ps) {
-            if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
-        }
-        if (newest == null) return "RED";
-        long days = ChronoUnit.DAYS.between(newest, LocalDateTime.now());
-        if (days <= 14) return "GREEN";
-        if (days <= 30) return "YELLOW";
-        return "RED";
+    private void doc(UUID pid, String type, String name) {
+        try (Connection conn = dataSource.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO project_documents (id, project_id, file_name, file_type, file_path, internal_notes, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, 'Scenario doc', 'SYSTEM', now())")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setString(3, name); ps.setString(4, type); ps.setString(5, "https://res.cloudinary.com/dfd115bnz/raw/upload/v1/ge_solutions/demo/" + name); ps.executeUpdate(); } catch (Exception e) { System.err.println(">>> [SCENARIO] doc fault: " + e.getMessage()); }
     }
-    private String recvState(List<LandProject> ps) {
-        boolean recv = false, legacy = false, paying = false;
-        for (LandProject p : ps) {
-            if (p.isLegacy()) legacy = true;
-            if (p.isReceivable()) {
-                recv = true;
-                if (p.getLastPaymentDate() != null && ChronoUnit.DAYS.between(p.getLastPaymentDate(), LocalDateTime.now()) <= 90) paying = true;
+    private void fup(UUID pid, String text, int daysAgo) {
+        followUpRepository.save(FollowUpLog.builder().projectId(pid).notes(text).recordedBy("SYSTEM").timestamp(LocalDateTime.now().minusDays(daysAgo)).build());
+    }
+    private void note(String nin, String tag, String tone, boolean attempt, int daysAgo, String text, Integer promiseInDays) {
+        clientRepository.findByNationalId(nin).ifPresent(c -> recoveryNoteRepository.save(RecoveryNote.builder().client(c).author(null).tag(tag).tone(tone).countsAsAttempt(attempt).text(text).promiseDate(promiseInDays == null ? null : LocalDate.now().plusDays(promiseInDays)).createdAt(LocalDateTime.now().minusDays(daysAgo)).build()));
+    }
+    private void touchClient(String nin, int daysAgo, Double reliability) {
+        clientRepository.findByNationalId(nin).ifPresent(c -> { c.setLastContactedAt(LocalDateTime.now().minusDays(daysAgo)); if (reliability != null) c.setReliabilityScore(reliability); clientRepository.save(c); });
+    }
+    private void seedScenarios() throws Exception {
+        List<StageTemplate> master = stageTemplateService.getActiveTemplate();
+        Map<String, String> idByName = new HashMap<>();
+        for (StageTemplate t : master) idByName.put(t.getStageName(), t.getId().toString());
+        String FW = "Field Work", DP = "Deed Plan", LCI = "LC Inspection", DLB = "District Land Board Approval", TASD = "Tax Assessment and Stamp Duty", REG = "Registration and Title Issuance";
+        String[] ALL = { FW, DP, LCI, DLB, TASD, REG };
+        Map<String, UUID> S = new HashMap<>();
+        // INTAKE + LEDGER coverage
+        S.put("s1", seedOne(null, false, false, false, null, null, "B-101", d(40), 3500000, 0, 0, 0, new String[][] { { "MUGISHA JOHN", "CM900000000001", "0772000001" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "WAKISO", "BUSIRO", "KIRA", "NAJJA", "KIWAFU", "Residential" }, "New folder, field work started", idByName));
+        S.put("s2", seedOne(null, false, false, false, null, null, "B-102", d(60), 4200000, 2100000, 0, 0, new String[][] { { "NAKATO SARAH", "CM900000000002", "0772000002" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "KAWEMPE", "BUKOTO", "KISALOSALO", "Mixed Use" }, null, idByName));
+        S.put("s3", seedOne(null, false, false, false, null, null, "B-103", d(90), 3800000, 380000, 0, 0, new String[][] { { "SSEKANDI ROBERT", "CM900000000003", "0772000003" }, { "ACHEN GRACE", "CM900000000004", "0772000004" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "MUKONO", "MUKONO", "MUKONO TOWN", "KIKOOZA", "NAMAVE", "Industrial" }, "Joint owners, critical progress", idByName));
+        S.put("s4", seedOne(null, false, false, false, null, null, "B-104", d(30), 5000000, 1250000, 0, 0, new String[][] { { "OTIM PETER", "CM900000000005", "0772000005" } }, new String[] { FW, "Survey Camp Verification" }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "GULU", "GULU", "LAROO", "LAROO WARD", "BARDEGE", "Residential" }, "Custom stage added", idByName));
+        S.put("s5", seedOne("P-201", false, true, false, "T2026-201", d(50), "B-105", d(70), 4500000, 3150000, 0, 0, new String[][] { { "OKELLO JAMES", "CM900000000006", "0772000006" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "JINJA", "JINJA", "CENTRAL", "MPUMUDDE", "KAGUMBA", "Commercial" }, null, idByName));
+        S.put("s6", seedOne("P-202", false, true, false, "T2026-202", d(45), "B-106", d(80), 4800000, 4800000, 0, 0, new String[][] { { "NAMBATYA FATUMA", "CM900000000007", "0772000007" }, { "TUMWINE ALEX", "CM900000000008", "0772000008" } }, ALL, null, null, new String[] { "MBARARA", "MBARARA", "MBARARA CITY", "KAKOBA", "BUHIMBA", "Residential" }, "Fully paid, awaiting release", idByName));
+        S.put("s7", seedOne("P-203", false, true, false, "T2026-203", d(40), "B-107", d(85), 5200000, 5200000, 0, 0, new String[][] { { "ADONGO MARY", "CM900000000009", "0772000009" } }, ALL, null, "RELEASE", new String[] { "LIRA", "LIRA", "LIRA CITY", "OJWINA", "ADYEL", "Residential" }, "Released to client", idByName));
+        S.put("s8", seedOne("L1985-301", true, true, false, "L1985-301", "1985-06-15", "B-108", d(400), 3500000, 1750000, 0, 0, new String[][] { { "BYARUHANGA CHARLES", "CM900000000010", "0772000010" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "MASAKA", "MASAKA", "MASAKA CITY", "KIMAANYA", "KYESIGA", "Residential" }, "Legacy, 400 days silent, auto-receivable candidate", idByName));
+        S.put("s9", seedOne("L1990-302", true, true, false, "L1990-302", "1990-03-20", "B-109", d(300), 4000000, 800000, 0, 0, new String[][] { { "OPIYO SAMUEL", "CM900000000011", "0772000011" }, { "AKELLO JANET", "CM900000000012", "0772000012" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "MBALE", "MBALE", "MBALE CITY", "INDUSTRIAL", "WANALE", "Industrial" }, "Legacy joint", idByName));
+        // RECEIVABLE family
+        S.put("s10", seedOne("P-301", false, true, true, "T2026-301", d(350), "B-110", d(360), 4500000, 900000, 50000, 50000, new String[][] { { "MUKASA DAVID", "CM900000000013", "0772000013" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "ARUA", "ARUA", "RIVER OLI", "ANYAFIO", "Residential" }, "Receivable, silent", idByName));
+        S.put("s11", seedOne("P-302", false, true, true, "T2026-302", d(320), "B-111", d(330), 5000000, 750000, 50000, 50000, new String[][] { { "NAMBI CHRISTINE", "CM900000000014", "0772000014" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "NEBBI", "NEBBI", "NEBBI TOWN", "PAIDHA", "PANYIMUR", "Agricultural" }, "Receivable, paying", idByName));
+        S.put("s12", seedOne("P-303", false, true, true, "T2026-303", d(300), "B-112", d(310), 3800000, 380000, 50000, 50000, new String[][] { { "OKIROR JOSEPH", "CM900000000015", "0772000015" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "SOROTI", "SOROTI", "SOROTI CITY", "GWERI", "ARAPAI", "Agricultural" }, "Receivable frozen (negotiation)", idByName));
+        S.put("s13", seedOne("P-304", false, true, true, "T2026-304", d(290), "B-113", d(300), 4200000, 420000, 50000, 50000, new String[][] { { "ALUPO SUSAN", "CM900000000016", "0772000016" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "TORORO", "TORORO", "TORORO TOWN", "MOLO", "KADAMA", "Residential" }, "Receivable, deadline passed", idByName));
+        S.put("s14", seedOne("P-305", false, true, false, "T2026-305", d(100), "B-114", d(120), 4700000, 2350000, 0, 0, new String[][] { { "ODONG MOSES", "CM900000000017", "0772000017" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "HOIMA", "HOIMA", "HOIMA CITY", "BUJUMBURA", "KASINGO", "Residential" }, "Problem flag", idByName));
+        S.put("s15", seedOne("P-306", false, true, true, "T2026-306", d(280), "B-115", d(290), 6000000, 3000000, 75000, 75000, new String[][] { { "ATIM REBECCA", "CM900000000018", "0772000018" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "ARUA", "ARUA CITY", "RIVER OLI", "ANYAFIO", "Commercial" }, "Custom storage rate 75k", idByName));
+        // RECOVERY + NOTES coverage
+        S.put("s16", seedOne("P-401", false, true, false, "T2026-401", d(90), "B-116", d(120), 4300000, 2150000, 0, 0, new String[][] { { "KABAGAMBE FRANCIS", "CM900000000019", "0772000019" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "BUSHENYI", "BUSHENYI", "BUSHENYI TOWN", "KAKOBA", "ISHAKA", "Residential" }, null, idByName));
+        S.put("s17", seedOne("P-402", false, true, false, "T2026-402", d(95), "B-117", d(130), 4600000, 2300000, 0, 0, new String[][] { { "NAKIMERA DIANA", "CM900000000020", "0772000020" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "RAKAI", "RAKAI", "RAKAI TOWN", "KALISIZO", "KYOTERA", "Agricultural" }, null, idByName));
+        S.put("s18", seedOne("P-403", false, true, false, "T2026-403", d(88), "B-118", d(140), 5800000, 2900000, 0, 0, new String[][] { { "MWESIGYE PATRICK", "CM900000000021", "0772000021" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KABAROLE", "KABAROLE", "FORT PORTAL", "KARAMBI", "KISIMBA", "Residential" }, null, idByName));
+        S.put("s19", seedOne("P-404", false, true, false, "T2026-404", d(85), "B-119", d(150), 5200000, 2600000, 0, 0, new String[][] { { "ATWIJUKA MARTIN", "CM900000000022", "0772000022" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "SHEEMA", "SHEEMA", "SHEEMA TOWN", "KITAGATA", "KAZINGA", "Mixed Use" }, null, idByName));
+        S.put("s20", seedOne("P-405", false, true, false, "T2026-405", d(80), "B-120", d(160), 4800000, 2400000, 0, 0, new String[][] { { "NSUBUGA RONALD", "CM900000000023", "0772000023" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "LUWEERO", "LUWEERO", "LUWEERO TOWN", "BAMUNANIKA", "WOBULENZI", "Residential" }, null, idByName));
+        S.put("s21", seedOne("P-406", false, true, false, "T2026-406", d(75), "B-121", d(170), 4100000, 2050000, 0, 0, new String[][] { { "ADONG SHARON", "CM900000000024", "0772000024" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "MAKINDYE", "KIBULI", "KIBULI", "Residential" }, null, idByName));
+        S.put("s22", seedOne("P-407", false, true, false, "T2026-407", d(70), "B-122", d(180), 5300000, 2650000, 0, 0, new String[][] { { "OCHOLA BRIAN", "CM900000000025", "0772000025" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "JINJA", "JINJA", "CENTRAL", "MPUMUDDE", "KAGUMBA", "Commercial" }, null, idByName));
+        S.put("s23", seedOne("P-408", false, true, false, "T2026-408", d(65), "B-123", d(190), 3900000, 1950000, 0, 0, new String[][] { { "AKELLO GRACE", "CM900000000026", "0772000026" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "GULU", "GULU", "LAROO", "LAROO WARD", "BARDEGE", "Residential" }, null, idByName));
+        S.put("s24", seedOne("P-409", false, true, false, "T2026-409", d(60), "B-124", d(200), 4400000, 2200000, 0, 0, new String[][] { { "OPIO DANIEL", "CM900000000027", "0772000027" }, { "AUMA JUDITH", "CM900000000028", "0772000028" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "WAKISO", "BUSIRO", "KIRA", "NAJJA", "KIWAFU", "Residential" }, "Joint - co-owner warning demo", idByName));
+        S.put("s25", seedOne("P-410", false, true, false, "T2026-410", d(55), "B-125", d(210), 4900000, 2450000, 0, 0, new String[][] { { "OKOT SIMON", "CM900000000029", "0772000029" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KITGUM", "KITGUM", "KITGUM TOWN", "PANDONGO", "PAIMOL", "Agricultural" }, null, idByName));
+        S.put("s26", seedOne("P-411", false, true, false, "T2026-411", d(50), "B-126", d(220), 4000000, 2000000, 0, 0, new String[][] { { "NAMUYANJA RITA", "CM900000000030", "0772000030" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "MUKONO", "MUKONO", "MUKONO TOWN", "KIKOOZA", "NAMAVE", "Industrial" }, null, idByName));
+        S.put("s27", seedOne(null, false, false, false, null, null, "B-127", d(0), 3600000, 900000, 0, 0, new String[][] { { "KAGWA PETER", "CM900000000031", "0772000031" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "KAWEMPE", "BUKOTO", "KISALOSALO", "Mixed Use" }, "Intake today", idByName));
+        S.put("s28", seedOne("P-412", false, true, false, "T2026-412", d(45), "B-128", d(230), 5100000, 3570000, 0, 0, new String[][] { { "NABIRYE MARY", "CM900000000032", "0772000032" } }, new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG }, null, new String[] { "KAMPALA", "KAMPALA", "NAKAWA", "BUGOLOBI", "BUGOLOBI", "Residential" }, "Documents demo", idByName));
+        // payments + badges
+        backdatePayment(S.get("s2"), 5, 1000000, "STANDARD");
+        backdatePayment(S.get("s3"), 60, 380000, "STANDARD");
+        backdatePayment(S.get("s5"), 20, 900000, "STANDARD");
+        backdatePayment(S.get("s8"), 400, 500000, "STANDARD");
+        backdatePayment(S.get("s10"), 300, 400000, "STANDARD");
+        backdatePayment(S.get("s11"), 5, 500000, "RECEIVABLE_PARTIAL");
+        // folder flags
+        flag(S.get("s12"), "storage_paused = true, negotiation_deadline = now() + interval '30 days'");
+        flag(S.get("s13"), "negotiation_deadline = now() - interval '5 days'");
+        flag(S.get("s14"), "is_problem = true");
+        flag(S.get("s15"), "storage_fee_override = 75000");
+        // documents
+        doc(S.get("s28"), "DEED_PLAN", "demo-deed-plan.pdf");
+        doc(S.get("s28"), "NIN_SCAN", "demo-nin-scan.jpg");
+        // folder notes
+        fup(S.get("s1"), "Client visited office, asked about stage timeline", 2);
+        fup(S.get("s10"), "Called about storage fees, requested statement", 12);
+        fup(S.get("s24"), "Co-owner AUMA asked to be contacted separately", 1);
+        // recovery histories
+        note("CM900000000019", "answered call", "POSITIVE", true, 3, "Will pay after harvest", null);
+        touchClient("CM900000000019", 3, 80.0);
+        note("CM900000000020", "answered call", "POSITIVE", true, 1, "First contact this month", null);
+        note("CM900000000020", "committed to pay", "POSITIVE", true, 0, "Promised Friday", null);
+        touchClient("CM900000000020", 0, 85.0);
+        note("CM900000000021", "answered call", "POSITIVE", true, 20, null, null);
+        note("CM900000000021", "failed to pay", "NEGATIVE", false, 18, "Did not honour promise", null);
+        touchClient("CM900000000021", 20, 60.0);
+        note("CM900000000022", "committed to pay", "POSITIVE", true, 10, "Promise date passed", -1);
+        touchClient("CM900000000022", 10, 70.0);
+        note("CM900000000023", "committed to pay", "POSITIVE", true, 5, "Future promise", 7);
+        touchClient("CM900000000023", 5, 75.0);
+        note("CM900000000024", "not picking up", "NEGATIVE", true, 20, null, null);
+        note("CM900000000024", "phone off", "NEGATIVE", true, 16, null, null);
+        touchClient("CM900000000024", 16, 55.0);
+        note("CM900000000025", "answered call", "POSITIVE", true, 35, null, null);
+        note("CM900000000025", "needs site visit", "NEGATIVE", false, 20, "Boundary dispute", null);
+        touchClient("CM900000000025", 35, 65.0);
+        note("CM900000000026", "answered call", "POSITIVE", true, 45, null, null);
+        touchClient("CM900000000026", 45, 70.0);
+        note("CM900000000027", "answered call", "POSITIVE", true, 1, "Reached OPIO only", null);
+        touchClient("CM900000000027", 1, 80.0);
+        note("CM900000000029", "committed to pay", "POSITIVE", true, 30, "Old promise", -20);
+        note("CM900000000029", "failed to pay", "NEGATIVE", false, 18, "Broke promise", null);
+        touchClient("CM900000000029", 30, 35.0);
+        note("CM900000000030", "not picking up", "NEGATIVE", true, 20, null, null);
+        touchClient("CM900000000030", 20, 35.0);
+    }
+    private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
+            String titleId, String titleDate, String block, String startDate, long cost, long paid, long initFee, long monthlyFee,
+            String[][] owners, String[] done, String[] open, String release, String[] loc, String note,
+            java.util.Map<String, String> idByName) throws Exception {
+        LandEntryRequest.LandEntryRequestBuilder b = LandEntryRequest.builder()
+                .district(loc[0]).county(loc[1]).subCounty(loc[2]).parish(loc[3]).village(loc[4]).area(loc[5])
+                .tenure("FREEHOLD").projectStartDate(java.time.LocalDate.parse(startDate))
+                .totalCost(java.math.BigDecimal.valueOf(cost)).initialPayment(java.math.BigDecimal.valueOf(paid))
+                .isLegacy(legacy).titleAtIntake(titleAtIntake).isStartAsReceivable(receivable);
+        if (plot != null) b.plotNumber(plot);
+        if (titleId != null) b.titleId(titleId);
+        if (block != null) b.blockRoad(block);
+        if (titleDate != null) b.titleIssueDate(java.time.LocalDate.parse(titleDate));
+        if (receivable) { b.initialStorageFee(java.math.BigDecimal.valueOf(initFee > 0 ? initFee : 50000)); b.monthlyStorageFee(java.math.BigDecimal.valueOf(monthlyFee > 0 ? monthlyFee : 50000)); }
+        java.util.List<LandEntryRequest.OwnerRequest> os = new java.util.ArrayList<>();
+        for (String[] o : owners) os.add(LandEntryRequest.OwnerRequest.builder().fullName(o[0]).nationalId(o[1]).phone(o[2]).build());
+        b.owners(os);
+        java.util.List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> ss = new java.util.ArrayList<>();
+        for (String s : done) { String t = idByName.get(s); ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder().stageTemplateId(t).stageName(s).isCustom(t == null).isCompleted(true).build()); }
+        if (open != null) for (String s : open) { String t = idByName.get(s); ss.add(com.gesolutions.erp.modules.land.dto.ProjectStageRequest.builder().stageTemplateId(t).stageName(s).isCustom(t == null).isCompleted(false).build()); }
+        b.selectedStages(ss);
+        if (note != null) b.notes(java.util.List.of(LandEntryRequest.NoteRequest.builder().content(note).build()));
+        LandProject saved = landService.atomicIntake(b.build(), null);
+        if ("RELEASE".equals(release)) { try { landService.authorizeRelease(saved.getId(), "Scenario release"); } catch (Exception e) {} }
+        return saved.getId();
+    }
+    // ---------- schema migrations (unchanged) ----------
+    private void runSchemaMigrations() {
+        String[] migrations = {
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_start_override TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS backlog_months_billed INTEGER NOT NULL DEFAULT 0",
+            "CREATE TABLE IF NOT EXISTS project_index_counter (id INTEGER PRIMARY KEY, current_number INTEGER NOT NULL DEFAULT 0, current_letter VARCHAR(4) NOT NULL DEFAULT 'A')",
+            "INSERT INTO project_index_counter (id, current_number, current_letter) VALUES (1, 0, 'A') ON CONFLICT (id) DO NOTHING",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS project_start_date DATE",
+            "ALTER TABLE land_titles ADD COLUMN IF NOT EXISTS title_issue_date DATE",
+            "ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_phone_number_key",
+            "UPDATE clients SET national_id = NULL WHERE national_id = ''",
+            "UPDATE clients SET national_id = 'LEGACY-' || id::text WHERE national_id IS NULL",
+            "ALTER TABLE clients ALTER COLUMN national_id SET NOT NULL",
+            "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_clients_national_id') THEN ALTER TABLE clients ADD CONSTRAINT uq_clients_national_id UNIQUE (national_id); END IF; END $$",
+            "CREATE TABLE IF NOT EXISTS expense_presets (id UUID PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, created_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS sub_county VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS parish VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
+            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL"
+        };
+        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
+            for (String sql : migrations) { try { stmt.execute(sql); } catch (Exception e) { System.out.println(">>> [DB_SCHEMA] Skipped: " + e.getMessage()); } }
+        } catch (Exception e) { System.err.println(">>> [DB_SCHEMA] Migration warning: " + e.getMessage()); }
+    }
+    public void seedRootUser() {
+        String email = (adminEmail != null && !adminEmail.isBlank()) ? adminEmail : "test@gesolutions.com";
+        String rawPassword = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        try (Connection conn = dataSource.getConnection()) {
+            boolean exists = false;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) { ps.setString(1, "admin_root"); try (java.sql.ResultSet rs = ps.executeQuery()) { if (rs.next()) exists = rs.getInt(1) > 0; } }
+            if (!exists) {
+                try (java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO users (id, username, email, password, role, is_root, is_active, must_change_password, session_version) VALUES (?, 'admin_root', ?, ?, 'ROLE_ADMIN', true, true, true, 0)")) { ps.setObject(1, java.util.UUID.randomUUID()); ps.setString(2, email); ps.setString(3, encodedPassword); ps.executeUpdate(); }
             }
-        }
-        if (legacy) return "LEGACY";
-        if (recv) return paying ? "RECEIVABLE - PAYING" : "RECEIVABLE - SILENT";
-        return "";
-    }
-    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId());
-        m.put("phone", c.getPhoneNumber()); m.put("entryType", entryTypeOf(ps));
-        List<String> idx = new ArrayList<>(); List<String> pids = new ArrayList<>();
-        for (LandProject p : ps) { if (p.getProjectIndex() != null) idx.add(p.getProjectIndex()); pids.add(p.getId().toString()); }
-        m.put("indexes", idx); m.put("projectIds", pids);
-        m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
-        m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
-        m.put("lastContactedAt", c.getLastContactedAt());
-        m.put("payBadge", payBadge(ps)); m.put("recvState", recvState(ps));
-        boolean lock = locked(c, now);
-        m.put("locked", lock);
-        m.put("nextUnlock", lock ? nextUnlock(c, now).toString() : null);
-        m.put("attemptsThisMonth", noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()));
-        noteRepo.findFirstByClientOrderByCreatedAtDesc(c).ifPresent(n -> { m.put("lastTag", n.getTag()); m.put("lastTone", n.getTone()); });
-        String lastTag = (String) m.get("lastTag");
-        long days = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
-        int priority = 3;
-        if ("failed to pay".equals(lastTag) || "Legacy Title".equals(m.get("entryType"))) priority = 1;
-        else if (days > 30 || negStreak(c) >= 2 || "needs site visit".equals(lastTag)) priority = 2;
-        m.put("priority", priority);
-        return m;
-    }
-    @GetMapping("/tags")
-    public List<Map<String, Object>> tags() {
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (String[] t : TAGS) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("tag", t[0]); m.put("tone", t[1]);
-            m.put("countsAsAttempt", Boolean.parseBoolean(t[2]));
-            out.add(m);
-        }
-        return out;
-    }
-    @GetMapping("/queue")
-    public List<Map<String, Object>> queue() {
-        LocalDateTime now = LocalDateTime.now();
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
-            if (locked(c, now) || !qualifies(ps)) continue;
-            out.add(clientDto(c, now, ps));
-        }
-        out.sort((x, y) -> {
-            Integer px = (Integer) x.get("priority");
-            Integer py = (Integer) y.get("priority");
-            int p = px.compareTo(py);
-            if (p != 0) return p;
-            LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
-            LocalDateTime b = (LocalDateTime) y.get("lastContactedAt");
-            if (a == null && b == null) return 0;
-            if (a == null) return -1;
-            if (b == null) return 1;
-            return a.compareTo(b);
-        });
-        return out;
-    }
-    @GetMapping("/locked")
-    public List<Map<String, Object>> lockedList() {
-        LocalDateTime now = LocalDateTime.now();
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
-            if (!locked(c, now) || !qualifies(ps)) continue;
-            out.add(clientDto(c, now, ps));
-        }
-        return out;
-    }
-    @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
-    public Map<String, Object> stats() {
-        LocalDateTime now = LocalDateTime.now();
-        long due = 0, lock = 0, site = 0, p1 = 0;
-        for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
-            if (!qualifies(ps)) continue;
-            Map<String, Object> d = clientDto(c, now, ps);
-            if (Boolean.TRUE.equals(d.get("locked"))) lock++; else due++;
-            if ("needs site visit".equals(d.get("lastTag"))) site++;
-            if (Integer.valueOf(1).equals(d.get("priority"))) p1++;
-        }
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("dueNow", due); m.put("locked", lock); m.put("siteVisits", site); m.put("p1", p1);
-        m.put("callsToday", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(LocalDate.now().atStartOfDay()));
-        m.put("callsThisMonth", noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(LocalDate.now().withDayOfMonth(1).atStartOfDay()));
-        return m;
-    }
-    @GetMapping("/clients/{id}/notes")
-    public List<Map<String, Object>> notes(@PathVariable UUID id) {
-        return clientRepo.findById(id).map(c -> {
-            List<Map<String, Object>> out = new ArrayList<>();
-            for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", n.getId()); m.put("tag", n.getTag());
-                m.put("tone", n.getTone()); m.put("text", n.getText());
-                m.put("countsAsAttempt", n.isCountsAsAttempt());
-                m.put("createdAt", n.getCreatedAt()); m.put("source", "RECOVERY");
-                m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
-                out.add(m);
-            }
-            for (LandProject p : projectsOf(c)) {
-                for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
-                    m.put("text", log.getNotes()); m.put("countsAsAttempt", false);
-                    m.put("createdAt", log.getTimestamp()); m.put("source", "FOLDER");
-                    m.put("author", log.getRecordedBy());
-                    out.add(m);
-                }
-            }
-            out.sort((a, b) -> ((LocalDateTime) b.get("createdAt")).compareTo((LocalDateTime) a.get("createdAt")));
-            return out;
-        }).orElse(List.of());
-    }
-    @PostMapping("/notes")
-    public ResponseEntity<?> log(@RequestBody Map<String, String> body, Authentication auth) {
-        String tag = body.get("tag");
-        String[] def = tagDef(tag);
-        if (def == null) return ResponseEntity.badRequest().body(Map.of("error", "Unknown tag"));
-        Client c = clientRepo.findById(UUID.fromString(body.get("clientId")))
-            .orElseThrow(() -> new RuntimeException("Client not found"));
-        LocalDateTime now = LocalDateTime.now();
-        boolean attempt = Boolean.parseBoolean(def[2]);
-        if (attempt && locked(c, now))
-            return ResponseEntity.status(409).body(Map.of("error", "Cool-down active: 14-day interval or 2-call monthly limit"));
-        User author = userRepo.findByUsername(auth.getName()).orElse(null);
-        LocalDate promise = null;
-        if (body.get("promiseDate") != null && !body.get("promiseDate").isBlank()) {
-            try { promise = LocalDate.parse(body.get("promiseDate")); } catch (Exception ignored) {}
-        }
-        RecoveryNote n = RecoveryNote.builder()
-            .client(c).author(author).tag(def[0]).tone(def[1]).countsAsAttempt(attempt)
-            .text(body.get("text") == null || body.get("text").isBlank() ? null : body.get("text").trim())
-            .promiseDate(promise)
-            .build();
-        noteRepo.save(n);
-        if (attempt) c.setLastContactedAt(now);
-        double delta = 0;
-        if ("POSITIVE".equals(def[1]) && attempt) delta = 1.5;
-        if ("failed to pay".equals(tag)) delta = -10;
-        if ("not picking up".equals(tag) || "phone off".equals(tag) || "rings, no answer".equals(tag)) delta = -2;
-        if (delta != 0) {
-            double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
-            c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
-        }
-        clientRepo.save(c);
-        auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + tag + " (NIN " + c.getNationalId() + ")");
-        long monthAttempts = noteRepo.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay());
-        if (attempt && monthAttempts == 2 && author != null) {
-            notificationService.emitRaw("MONTHLY_LIMIT", "INFO", c.getFullName() + ": 2nd call this month. Next callable 1st of next month.", "CLIENT", c.getId(), author.getRole().name());
-        }
-        if (negStreak(c) >= 2) {
-            notificationService.emit("NEG_STREAK_2", "WARN", c.getFullName() + ": 2 negative contacts in a row - suggest site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
-        }
-        if ("failed to pay".equals(tag)) {
-            boolean priorPromise = noteRepo.findByClientOrderByCreatedAtDesc(c).stream().anyMatch(x -> "committed to pay".equals(x.getTag()) && !x.getId().equals(n.getId()));
-            if (priorPromise) {
-                notificationService.emit("FAILED_AFTER_PROMISE", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
-                notificationService.emit("FAILED_AFTER_PROMISE_M", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_MANAGER");
-            }
-        }
-        if ("NEGATIVE".equals(def[1]) && c.getReliabilityScore() != null && c.getReliabilityScore() < 40) {
-            notificationService.emit("RELIABILITY_LOW", "WARN", c.getFullName() + " reliability below 40 after negative contact.", "CLIENT", c.getId(), "ROLE_MANAGER");
-        }
-        if ("needs site visit".equals(tag)) {
-            notificationService.emit("SITE_VISIT_TAGGED", "INFO", c.getFullName() + " needs a site visit.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
-        }
-        String warning = null;
-        LocalDateTime window = now.minusDays(3);
-        for (LandProject p : projectsOf(c)) {
-            for (Client co : p.getProprietors()) {
-                if (co.getId().equals(c.getId())) continue;
-                for (RecoveryNote other : noteRepo.findByClientOrderByCreatedAtDesc(co)) {
-                    if (other.isCountsAsAttempt() && other.getCreatedAt().isAfter(window)) {
-                        warning = co.getFullName() + " was already contacted about this plot on " + other.getCreatedAt().toLocalDate() + ".";
-                        break;
-                    }
-                }
-                if (warning != null) break;
-            }
-            if (warning != null) break;
-        }
-        Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("ok", true); resp.put("id", n.getId());
-        if (warning != null) resp.put("coOwnerWarning", warning);
-        return ResponseEntity.ok(resp);
-    }
-    @DeleteMapping("/notes/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
-    public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
-        RecoveryNote n = noteRepo.findById(id).orElse(null);
-        if (n == null) return ResponseEntity.ok(Map.of("ok", true));
-        Client c = n.getClient();
-        boolean wasAttempt = n.isCountsAsAttempt();
-        noteRepo.delete(n);
-        if (wasAttempt && c != null) {
-            LocalDateTime newest = null;
-            for (RecoveryNote r : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
-                if (r.isCountsAsAttempt()) { newest = r.getCreatedAt(); break; }
-            }
-            c.setLastContactedAt(newest);
-            clientRepo.save(c);
-        }
-        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tap-tag: " + n.getTag());
-        return ResponseEntity.ok(Map.of("ok", true));
+        } catch (Exception e) { System.err.println(">>> [REGISTRY] seed fault:"); e.printStackTrace(); }
     }
 }
 """)
 
-# ---- 4) git ----
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix71: dedupe double-applied blocks, finish missed patches, valid controller casts"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix72: one-time 28-project scenario dataset"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:
