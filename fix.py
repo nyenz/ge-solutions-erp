@@ -1,4 +1,4 @@
-# fix.py -- fix70 (corrected): recovery + notes + notifications unification batch
+# fix.py -- fix70: recovery + notes + notifications unification batch
 import os, shutil, subprocess
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
@@ -218,7 +218,7 @@ public class NotificationController {
 }
 """)
 
-# ---------- RecoveryNote entity + repo ----------
+# ---------- RecoveryNote entity + repo (M8 promise date) ----------
 write(BE / "modules" / "client" / "model" / "RecoveryNote.java",
 """package com.gesolutions.erp.modules.client.model;
 import com.gesolutions.erp.modules.auth.model.User;
@@ -372,6 +372,30 @@ public class RecoveryNoteController {
         }
         return n;
     }
+    private String payBadge(List<LandProject> ps) {
+        LocalDateTime newest = null;
+        for (LandProject p : ps) {
+            if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
+        }
+        if (newest == null) return "RED";
+        long days = ChronoUnit.DAYS.between(newest, LocalDateTime.now());
+        if (days <= 14) return "GREEN";
+        if (days <= 30) return "YELLOW";
+        return "RED";
+    }
+    private String recvState(List<LandProject> ps) {
+        boolean recv = false, legacy = false, paying = false;
+        for (LandProject p : ps) {
+            if (p.isLegacy()) legacy = true;
+            if (p.isReceivable()) {
+                recv = true;
+                if (p.getLastPaymentDate() != null && ChronoUnit.DAYS.between(p.getLastPaymentDate(), LocalDateTime.now()) <= 90) paying = true;
+            }
+        }
+        if (legacy) return "LEGACY";
+        if (recv) return paying ? "RECEIVABLE - PAYING" : "RECEIVABLE - SILENT";
+        return "";
+    }
     private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId());
@@ -382,6 +406,7 @@ public class RecoveryNoteController {
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
         m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
         m.put("lastContactedAt", c.getLastContactedAt());
+        m.put("payBadge", payBadge(ps)); m.put("recvState", recvState(ps));
         boolean lock = locked(c, now);
         m.put("locked", lock);
         m.put("nextUnlock", lock ? nextUnlock(c, now).toString() : null);
@@ -613,7 +638,7 @@ patch(DC, """        long readyForRelease = allPlots.stream()
                 .filter(p -> p.getLandTitle() != null && !p.getLandTitle().isReleased())
                 .count();""", "DC readyForRelease null-safe")
 
-# ---------- Q5: scheduler NPE + T7/T8 + daily sweep (T1/T5) ----------
+# ---------- Q5: scheduler NPE (owner name) + T7/T8 + daily sweep T1/T5 ----------
 RS = BE / "modules" / "land" / "service" / "ReceivableSchedulerService.java"
 patch(RS, "import com.gesolutions.erp.common.audit.AuditService;\n",
 "import com.gesolutions.erp.common.audit.AuditService;\nimport com.gesolutions.erp.modules.client.model.Client;\nimport com.gesolutions.erp.modules.client.model.RecoveryNote;\nimport com.gesolutions.erp.modules.client.repository.ClientRepository;\nimport com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;\nimport com.gesolutions.erp.modules.land.model.PaymentRecord;\nimport com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;\nimport com.gesolutions.erp.modules.notification.service.NotificationService;\nimport java.util.Optional;\nimport java.time.LocalDate;\n", "RS imports")
@@ -631,7 +656,11 @@ patch(RS, """            auditService.logAction("AUTO_RECEIVABLE",
 patch(RS, """                    "Debt frozen at: UGX " + outstanding);""",
 """                    "Debt frozen at: UGX " + outstanding);
             notificationService.emit("AUTO_RECEIVABLE_365", "WARN", ownerLabel(plot) + " auto-flagged RECEIVABLE after 365 days silent.", "PROJECT", plot.getId(), "ROLE_DIRECTOR");""", "RS T8")
-SWEEP = """
+s = read(RS)
+if "dailyNotificationSweep" not in s:
+    t = s.rstrip()
+    if t.endswith("}"):
+        t = t[:-1] + """
     private String ownerLabel(LandProject plot) {
         if (plot.getProprietors() != null && !plot.getProprietors().isEmpty()) {
             for (Client c : plot.getProprietors()) return c.getFullName();
@@ -670,26 +699,44 @@ SWEEP = """
     }
 }
 """
-s = read(RS)
-if "dailyNotificationSweep" not in s:
-    t = s.rstrip()
-    if t.endswith("}"):
-        save(RS, t[:-1] + SWEEP)
-        print("OK RS sweep")
-    else:
-        print("MISSING RS closing brace")
-else:
-    print("skip RS sweep (already present)")
+        save(RS, t); print("OK RS sweep")
+    else: print("MISSING RS closing brace")
+else: print("skip RS sweep (already present)")
 
-# ---------- Q5: ReportService NPE ----------
+# ---------- Q5 + M5: ReportService NPE + throughput merge ----------
 RP = BE / "modules" / "land" / "service" / "ReportService.java"
+patch(RP, "    private final PaymentRecordRepository paymentRecordRepository;\n",
+"    private final PaymentRecordRepository paymentRecordRepository;\n    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;\n", "RP inject noteRepo")
 patch(RP, """                if (proj.isPresent()) {
                         plotNumber = proj.get().getLandTitle().getPlotNumber();""",
 """                if (proj.isPresent()) {
                         if (proj.get().getLandTitle() != null && proj.get().getLandTitle().getPlotNumber() != null) plotNumber = proj.get().getLandTitle().getPlotNumber();
                         else plotNumber = proj.get().getProprietors().stream().findFirst().map(com.gesolutions.erp.modules.client.model.Client::getFullName).orElse(proj.get().getProjectIndex() != null ? proj.get().getProjectIndex() : "---");""", "RP revenue null-safe")
+patch(RP, """        for (FollowUpLog log : logs) {
+            csv.append(log.getTimestamp()).append(CSV_DIVIDER)
+                    .append(log.getRecordedBy()).append(CSV_DIVIDER)
+                    .append(log.getProjectId()).append(CSV_DIVIDER)
+                    .append("\\"").append(log.getNotes()).append("\\"")
+                    .append(NEW_LINE);
+        }
+        return csv.toString().getBytes();""",
+"""        for (FollowUpLog log : logs) {
+            csv.append(log.getTimestamp()).append(CSV_DIVIDER)
+                    .append(log.getRecordedBy()).append(CSV_DIVIDER)
+                    .append(log.getProjectId()).append(CSV_DIVIDER)
+                    .append("\\"").append(log.getNotes()).append("\\"")
+                    .append(NEW_LINE);
+        }
+        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findAll()) {
+            csv.append(n.getCreatedAt()).append(CSV_DIVIDER)
+                    .append(n.getAuthor() != null ? n.getAuthor().getUsername() : "SYSTEM").append(CSV_DIVIDER)
+                    .append("CLIENT:").append(n.getClient() != null ? n.getClient().getFullName() : "---").append(CSV_DIVIDER)
+                    .append("\\"[TAP-TAG] ").append(n.getTag()).append(n.getText() != null ? " - " + n.getText() : "").append("\\"")
+                    .append(NEW_LINE);
+        }
+        return csv.toString().getBytes();""", "RP throughput merge")
 
-# ---------- T10/T11 + T9: LandService emits ----------
+# ---------- T10/T11: LandService emits ----------
 LS = BE / "modules" / "land" / "service" / "LandService.java"
 patch(LS, "    private final ProjectStageRepository projectStageRepository;\n",
 "    private final ProjectStageRepository projectStageRepository;\n    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;\n", "LS inject notif")
@@ -705,11 +752,6 @@ patch(LS, """        auditService.logAction("INTAKE",
 """        notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
         auditService.logAction("INTAKE",
                 "Operator [" + getCurrentOperator() + "] ingested binder: """, "LS T11")
-patch(LS, """            auditService.logAction("NEGOTIATION_DEADLINE_SET",""",
-"""            if (deadline.isAfter(java.time.LocalDateTime.now().minusDays(3)) && deadline.isBefore(java.time.LocalDateTime.now().plusDays(4))) {
-                notificationService.emit("NEGOTIATION_DEADLINE", "WARN", "Negotiation deadline for " + plotLabel(project) + " is within 3 days.", "PROJECT", projectId, "ROLE_MANAGER");
-            }
-            auditService.logAction("NEGOTIATION_DEADLINE_SET",""", "LS T9")
 
 # ---------- frontend services ----------
 write(FE / "services" / "recoveryService.js",
@@ -745,54 +787,7 @@ export const folderPortalService = {
 export default folderPortalService;
 """)
 
-# ---------- cockpit OPEN FOLDER deep-link ----------
-RPX = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
-patch(RPX, """            <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); open(c); }}>
-              <FiPhone aria-hidden="true" /> OPEN CALL LOG
-            </button>""",
-"""            {(c.projectIds || []).length > 0 && (
-              <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); window.location.href = '/folder/' + c.projectIds[0] + '#finance'; }}>
-                <FiFolderPlus aria-hidden="true" /> OPEN FOLDER
-              </button>
-            )}
-            <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); open(c); }}>
-              <FiPhone aria-hidden="true" /> OPEN CALL LOG
-            </button>""", "cockpit folder link")
-
-# ---------- FolderPage: PROCESSING tag + recovery chips in NOTES ----------
-FP = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
-patch(FP, "{isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>",
-"{isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>PROCESSING</span>", "folder tag rename")
-patch(FP, "  const [portfolio, setPortfolio] = useState([]);\n",
-"  const [portfolio, setPortfolio] = useState([]);\n  const [recoveryChips, setRecoveryChips] = useState([]);\n", "folder chips state")
-patch(FP, "  useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);\n",
-"""  useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
-  useEffect(() => {
-    if (!binder?.project?.proprietors) return;
-    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
-      .then(lists => {
-        const all = lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
-        setRecoveryChips(all);
-      });
-  }, [binder]);
-""", "folder chips fetch")
-patch(FP, """            <CornerDecor hideTop />
-            {canLog && <button type="button" className={styles.addNoteBtn}""",
-"""            <CornerDecor hideTop />
-            {recoveryChips.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
-                {recoveryChips.map((n, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {canLog && <button type="button" className={styles.addNoteBtn}""", "folder chips render")
-
-# ---------- Q4: Header bell dropdown ----------
+# ---------- Q4: Header bell dropdown with notification summary lines ----------
 write(FE / "components" / "layout" / "Header.jsx",
 """import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -931,10 +926,336 @@ if ".notifWrap" not in h:
 """
     write(HCSS, h)
 
+# ---------- RecoveryPortal: folder deep-link, badge dot, recv-state chip, delete note, promise date, co-owner banner ----------
+RPX = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
+patch(RPX, "import styles from './RecoveryPortal.module.css';",
+"import styles from './RecoveryPortal.module.css';\nimport { useAuth } from '../../hooks/useAuth';", "RPX useAuth import")
+patch(RPX, "  const [text, setText] = useState('');\n",
+"  const [text, setText] = useState('');\n  const [promise, setPromise] = useState('');\n  const [coWarn, setCoWarn] = useState(null);\n  const { user } = useAuth();\n  const canManage = user?.isRoot || ['ROLE_ADMIN','ROLE_DIRECTOR','ROLE_MANAGER'].includes(user?.role);\n", "RPX states")
+patch(RPX, "    recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })\n      .then(() => { setSel(null); toast('Outcome logged.', 'success'); load(); })",
+"    recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text, promiseDate: promise || null })\n      .then((r) => { setSel(null); setPromise(''); toast('Outcome logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(); })", "RPX save promise+warning")
+patch(RPX, "            {(c.indexes || []).length > 0 && (<div className={styles.mono}>#{c.indexes.join(' #')}</div>)}",
+"""            {(c.indexes || []).length > 0 && (<div className={styles.mono}>#{c.indexes.join(' #')}</div>)}
+            <div className={styles.cardMetaRow}>
+              <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
+              {c.recvState && <span className={c.recvState.indexOf('PAYING') >= 0 ? styles.recvPaying : c.recvState.indexOf('LEGACY') >= 0 ? styles.recvLegacy : styles.recvSilent}>{c.recvState}</span>}
+            </div>""", "RPX badge+chip")
+patch(RPX, """            <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); open(c); }}>
+              <FiPhone aria-hidden="true" /> OPEN CALL LOG
+            </button>""",
+"""            {(c.projectIds || []).length > 0 && (
+              <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); window.location.href = '/folder/' + c.projectIds[0] + '#finance'; }}>
+                <FiFolderPlus aria-hidden="true" /> OPEN FOLDER
+              </button>
+            )}
+            <button type="button" className={styles.openBtn} onClick={(e) => { e.stopPropagation(); open(c); }}>
+              <FiPhone aria-hidden="true" /> OPEN CALL LOG
+            </button>""", "RPX folder link")
+patch(RPX, """          <div className={modalStyles.modalField}>
+            <label className={modalStyles.modalLabel}>OPTIONAL DETAIL (RARE)</label>""",
+"""          {picked && picked.tag === 'committed to pay' && (
+            <div className={modalStyles.modalField}>
+              <label className={modalStyles.modalLabel}>PROMISED PAYMENT DATE</label>
+              <input type="date" className={modalStyles.modalInput} value={promise} onChange={(e) => setPromise(e.target.value)} aria-label="Promised payment date" />
+            </div>
+          )}
+          <div className={modalStyles.modalField}>
+            <label className={modalStyles.modalLabel}>OPTIONAL DETAIL (RARE)</label>""", "RPX promise input")
+patch(RPX, """                <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtDT(n.createdAt)}</span>
+                {n.text && <span className={styles.histText}>{n.text}</span>}""",
+"""                <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtDT(n.createdAt)}</span>
+                {n.text && <span className={styles.histText}>{n.text}</span>}
+                {canManage && n.source !== 'FOLDER' && (
+                  <button type="button" className={styles.histDelete} aria-label="Delete note"
+                    onClick={() => { if (window.confirm('Delete this tap-tag? The cooldown clock will recompute.')) recoveryService.deleteNote(n.id).then(() => { load(); open(sel); toast('Note deleted.', 'warn'); }); }}>
+                    <FiX aria-hidden="true" />
+                  </button>
+                )}""", "RPX delete note")
+patch(RPX, "      <BackToTopButton />",
+"""      {coWarn && (
+        <div className={styles.coWarnBanner} role="status">
+          <span>{coWarn}</span>
+          <button type="button" className={styles.coWarnDismiss} onClick={() => setCoWarn(null)} aria-label="Dismiss notice">&times;</button>
+        </div>
+      )}
+      <BackToTopButton />""", "RPX co-owner banner")
+RCSS = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
+r = read(RCSS)
+if ".cardMetaRow" not in r:
+    r += """
+/* fix70: payment dot row + subtle receivable state chips */
+.cardMetaRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.recvPaying, .recvSilent, .recvLegacy { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.recvPaying { color: #34d399; background: rgba(16,185,129,0.10); border-color: rgba(16,185,129,0.35); }
+.recvSilent { color: #fca5a5; background: rgba(239,68,68,0.10); border-color: rgba(239,68,68,0.35); }
+.recvLegacy { color: #cbd5e1; background: rgba(100,116,139,0.12); border-color: rgba(100,116,139,0.35); }
+.histDelete { background: transparent; border: none; color: rgba(239,68,68,0.6); cursor: pointer; padding: 2px 4px; font-size: 12px; margin-left: auto; }
+.histDelete:hover { color: #ef4444; }
+.coWarnBanner { position: fixed; bottom: clamp(70px, 10vh, 110px); right: clamp(16px, 2vw, 28px); z-index: 99998; display: flex; align-items: center; gap: 10px; background: rgba(238,140,58,0.14); border: 1px solid rgba(238,140,58,0.45); border-radius: 8px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); max-width: min(420px, 90vw); }
+.coWarnDismiss { background: none; border: none; color: rgba(255,255,255,0.6); font-size: 16px; cursor: pointer; }
+.coWarnDismiss:hover { color: #fff; }
+"""
+    write(RCSS, r)
+
+# ---------- FolderPage: PROCESSING tag, payment dot, recovery chips in NOTES ----------
+FP = FE / "pages" / "DigitalFolder" / "FolderPage.jsx"
+patch(FP, "{isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>BACKLOG</span>",
+"{isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`}>PROCESSING</span>", "FP tag rename")
+patch(FP, "  const [portfolio, setPortfolio] = useState([]);\n",
+"  const [portfolio, setPortfolio] = useState([]);\n  const [recoveryChips, setRecoveryChips] = useState([]);\n", "FP chips state")
+patch(FP, "  useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);\n",
+"""  useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
+  useEffect(() => {
+    if (!binder?.project?.proprietors) return;
+    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
+      .then(lists => setRecoveryChips(lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20)));
+  }, [binder]);
+""", "FP chips fetch")
+patch(FP, """            <CornerDecor hideTop />
+            {canLog && <button type="button" className={styles.addNoteBtn}""",
+"""            <CornerDecor hideTop />
+            {recoveryChips.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
+                {recoveryChips.map((n, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
+                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
+                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {canLog && <button type="button" className={styles.addNoteBtn}""", "FP chips render")
+
+# ---------- Q6: SettingsPage rebuild ----------
+write(FE / "pages" / "settings" / "SettingsPage.jsx",
+"""import React, { useState, useEffect, useCallback } from 'react';
+import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { useAuth } from '../../hooks/useAuth';
+import settingsService from '../../services/settingsService';
+import landService from '../../services/landService';
+import HardwareInput from '../../components/common/HardwareInput';
+import HardwareSelect from '../../components/common/HardwareSelect';
+import HardwareModal from '../../components/common/HardwareModal';
+import HardwareButton from '../../components/common/HardwareButton';
+import BackToTopButton from '../../components/common/BackToTopButton';
+import styles from './SettingsPage.module.css';
+const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
+const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
+const SettingsPage = () => {
+  const { user } = useAuth();
+  const isRoot = !!user?.isRoot;
+  const [toasts, setToasts] = useState([]);
+  const toast = useCallback((message, type = 'info') => {
+    const id = Date.now() + Math.random();
+    setToasts(p => [...p, { id, message, type }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
+  }, []);
+  const [oldPw, setOldPw] = useState(''); const [newPw, setNewPw] = useState('');
+  const [showOld, setShowOld] = useState(false); const [showNew, setShowNew] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
+  const [ops, setOps] = useState([]); const [opsLoading, setOpsLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newOp, setNewOp] = useState({ username: '', email: '', role: 'ROLE_MANAGER' });
+  const [reveal, setReveal] = useState(null);
+  const [rankMenu, setRankMenu] = useState(null);
+  const [wipeText, setWipeText] = useState('');
+  const [wiping, setWiping] = useState(false);
+  const [deleted, setDeleted] = useState([]); const [delLoading, setDelLoading] = useState(false);
+  const loadOps = useCallback(async () => {
+    if (!isRoot) return;
+    setOpsLoading(true);
+    try { setOps(await settingsService.getAllOperators()); } catch (e) { toast(e.message, 'error'); }
+    finally { setOpsLoading(false); }
+  }, [isRoot, toast]);
+  const loadDeleted = useCallback(async () => {
+    if (!isRoot) return;
+    setDelLoading(true);
+    try { setDeleted(await landService.getDeletedProjects()); } catch { setDeleted([]); }
+    finally { setDelLoading(false); }
+  }, [isRoot]);
+  useEffect(() => { loadOps(); loadDeleted(); }, [loadOps, loadDeleted]);
+  const changePw = async () => {
+    setSavingPw(true);
+    try { await settingsService.changePersonalPassword(oldPw, newPw); toast('Security key updated.', 'success'); setOldPw(''); setNewPw(''); }
+    catch (e) { toast(e.message, 'error'); }
+    finally { setSavingPw(false); }
+  };
+  const createOp = async () => {
+    try {
+      const res = await settingsService.registerManager(newOp);
+      setAddOpen(false); setReveal({ username: res.username, key: res.temporaryPassword });
+      setNewOp({ username: '', email: '', role: 'ROLE_MANAGER' });
+      loadOps();
+    } catch (e) { toast(e.message, 'error'); }
+  };
+  const wipe = async () => {
+    setWiping(true);
+    try { const r = await settingsService.wipeAllData(); toast(r.message || 'System wiped.', 'warn'); }
+    catch (e) { toast(e.message, 'error'); }
+    finally { setWiping(false); setWipeText(''); }
+  };
+  const rankClass = (r) => r === 'ROLE_ADMIN' ? styles.rankAdmin : r === 'ROLE_MANAGER' ? styles.rankManager : r === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankAdmin;
+  return (
+    <div className={styles.container}>
+      {typeof document !== 'undefined' && createPortal(
+        <div className={styles.toastContainer} role="region" aria-label="Notifications" aria-live="polite">
+          {toasts.map(t => (<div key={t.id} className={`${styles.toast} ${styles['toast_' + t.type]}`} role="alert">
+            <span className={styles.toastIcon}>{TOAST_ICONS[t.type]}</span>
+            <span className={styles.toastMsg}>{t.message}</span>
+            <button className={styles.toastClose} onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} aria-label="Dismiss"><FiX aria-hidden="true" /></button>
+          </div>))}
+        </div>, document.body)}
+      <header className={styles.pageHeader}>
+        <div className={styles.pageHeaderLeft}>
+          <h1 className={styles.title}>Settings</h1>
+          <p className={styles.subtitle}>Security, governance and danger zone</p>
+        </div>
+        {user?.mustChangePassword && (<div className={`${styles.handbrakeBadge} ${styles.blink}`}><FiLock aria-hidden="true" /> CHANGE YOUR PASSWORD TO UNLOCK THE SYSTEM</div>)}
+      </header>
+      <div className={styles.workstationGrid}>
+        <div className={styles.hwPanel}>
+          <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiKey className={styles.drawerIcon} aria-hidden="true" /> PERSONAL SECURITY</div></div>
+          <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+            <div className={styles.securityAlert}><FiShield aria-hidden="true" /><span>Minimum 8 characters, one uppercase letter and one number. Changing your key unlocks full access.</span></div>
+            <div className={styles.dualRow}>
+              <div className={styles.eyeInpWrap}>
+                <HardwareInput label="CURRENT KEY" type={showOld ? 'text' : 'password'} value={oldPw} onChange={e => setOldPw(e.target.value)} />
+                <button type="button" className={styles.eyeBtn} onClick={() => setShowOld(s => !s)} aria-label="Toggle current key visibility">{showOld ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}</button>
+              </div>
+              <div className={styles.eyeInpWrap}>
+                <HardwareInput label="NEW KEY" type={showNew ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)} />
+                <button type="button" className={styles.eyeBtn} onClick={() => setShowNew(s => !s)} aria-label="Toggle new key visibility">{showNew ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}</button>
+              </div>
+            </div>
+            <div className={styles.submitRow}>
+              <button type="button" className={styles.commitBtn} onClick={changePw} disabled={savingPw || !oldPw || !newPw}><FiKey aria-hidden="true" /> COMMIT NEW KEY</button>
+            </div>
+          </div></div>
+        </div>
+        {isRoot && (
+          <div className={styles.hwPanel}>
+            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiShield className={styles.drawerIcon} aria-hidden="true" /> STAFF GOVERNANCE</div></div>
+            <div className={styles.panelBody} style={{ maxHeight: 4000 }}><div className={styles.panelInner}>
+              <div className={styles.ledgerActions}>
+                <button type="button" className={styles.addOpBtn} onClick={() => setAddOpen(true)}><FiUserPlus aria-hidden="true" /> PROVISION OPERATOR</button>
+              </div>
+              <div className={styles.statusLegend}>
+                <span className={styles.legendDot} style={{ background: '#10b981' }} /><span className={styles.legendText}>ACTIVE</span>
+                <span className={styles.legendSep} />
+                <span className={styles.legendDot} style={{ background: '#ef4444' }} /><span className={styles.legendText}>SUSPENDED</span>
+              </div>
+              <div className={styles.staffStream}>
+                {opsLoading && <p className={styles.hint}>SYNCING REGISTRY...</p>}
+                {!opsLoading && ops.map(op => (
+                  <div key={op.username} className={`${styles.opCard} ${!op.active ? styles.cardDimmed : ''}`}>
+                    <div className={styles.opHeader}>
+                      <div className={styles.opAvatar}>{(op.username || '?').charAt(0).toUpperCase()}<span className={`${styles.statusDot} ${op.active ? styles.dotGreen : styles.dotRed}`} /></div>
+                      <div className={styles.opInfo}>
+                        <strong>{op.username}{op.root ? ' (ROOT)' : ''}</strong>
+                        <span className={rankClass(op.role)}>{(op.role || '').replace('ROLE_', '')}</span>
+                      </div>
+                      <div className={styles.opActions}>
+                        <div className={styles.rankMenuWrapper}>
+                          <button type="button" className={styles.rankBtn} disabled={op.root} onClick={() => setRankMenu(rankMenu === op.username ? null : op.username)} aria-label="Change rank"><FiShield aria-hidden="true" /></button>
+                          {rankMenu === op.username && (
+                            <div className={styles.rankMenu}>
+                              {RANKS.map(rk => (
+                                <div key={rk} className={`${styles.rankMenuItem} ${op.role === rk ? styles.rankMenuItemActive : ''}`}
+                                  onClick={async () => { setRankMenu(null); try { await settingsService.updateOperatorRole(op.username, rk); toast('Rank updated.', 'success'); loadOps(); } catch (e) { toast(e.message, 'error'); } }}>
+                                  {rk.replace('ROLE_', '')}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} disabled={op.root}
+                          onClick={async () => { try { await settingsService.toggleOperator(op.username, !op.active); toast(op.active ? 'Operator suspended.' : 'Operator activated.', 'warn'); loadOps(); } catch (e) { toast(e.message, 'error'); } }}
+                          aria-label={op.active ? 'Suspend operator' : 'Activate operator'}>
+                          <FiPower aria-hidden="true" />
+                        </button>
+                        <button type="button" className={styles.resetTrigger} disabled={op.root}
+                          onClick={async () => { try { const key = await settingsService.resetOperatorKey(op.username); setReveal({ username: op.username, key }); } catch (e) { toast(e.message, 'error'); } }}
+                          aria-label="Reset security key">
+                          <FiRotateCcw aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className={styles.opDetails}><p><FiInfo aria-hidden="true" /> {op.email || 'no email on file'}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div></div>
+          </div>
+        )}
+        {isRoot && (
+          <div className={`${styles.hwPanel} ${styles.dangerPanel}`}>
+            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiAlertTriangle className={styles.drawerIcon} aria-hidden="true" /> DANGER ZONE</div></div>
+            <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+              <div className={styles.wipeField}>
+                <HardwareInput label={'TYPE "WIPE-EVERYTHING" TO ARM'} value={wipeText} onChange={e => setWipeText(e.target.value)} />
+              </div>
+              <button type="button" className={styles.wipeBtn} disabled={wipeText !== 'WIPE-EVERYTHING' || wiping} onClick={wipe}>
+                <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : 'WIPE ALL BUSINESS DATA'}
+              </button>
+            </div></div>
+          </div>
+        )}
+        {isRoot && (
+          <div className={styles.hwPanel}>
+            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiRotateCcw className={styles.drawerIcon} aria-hidden="true" /> RECENTLY DELETED PLOTS</div></div>
+            <div className={styles.panelBody} style={{ maxHeight: 3000 }}><div className={styles.panelInner}>
+              {delLoading && <p className={styles.hint}>SYNCING...</p>}
+              {!delLoading && deleted.length === 0 && <p className={styles.hint}>NO DELETED PLOTS.</p>}
+              {!delLoading && deleted.map(p => (
+                <div key={p.id} className={styles.opCard} style={{ marginBottom: 8 }}>
+                  <div className={styles.opHeader}>
+                    <div className={styles.opInfo}>
+                      <strong>#{p.projectIndex || '---'} {p.landTitle ? p.landTitle.plotNumber : ''}</strong>
+                      <span className={styles.rankManager}>{p.district || '---'}</span>
+                    </div>
+                    <button type="button" className={styles.commitBtn} onClick={async () => { try { await landService.restoreProject(p.id); toast('Plot restored.', 'success'); loadDeleted(); } catch { toast('Restore failed.', 'error'); } }}>
+                      <FiRotateCcw aria-hidden="true" /> RESTORE
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div></div>
+          </div>
+        )}
+      </div>
+      <HardwareModal isOpen={addOpen} onClose={() => setAddOpen(false)} title="PROVISION OPERATOR">
+        <div className={styles.modalBody}>
+          <HardwareInput label="USERNAME" value={newOp.username} onChange={e => setNewOp({ ...newOp, username: e.target.value })} required />
+          <HardwareInput label="EMAIL" type="email" value={newOp.email} onChange={e => setNewOp({ ...newOp, email: e.target.value })} required />
+          <div className={styles.selectWrap}>
+            <HardwareSelect label="RANK" options={RANKS} value={newOp.role} onChange={v => setNewOp({ ...newOp, role: v })} />
+          </div>
+        </div>
+        <div className={styles.modalCenter}>
+          <HardwareButton onClick={createOp} icon={FiUserPlus} disabled={!newOp.username || !newOp.email}>CREATE</HardwareButton>
+        </div>
+      </HardwareModal>
+      <HardwareModal isOpen={!!reveal} onClose={() => setReveal(null)} title="TEMPORARY SECURITY KEY">
+        <div className={styles.revealBox}>
+          <FiAlertTriangle className={styles.warningIcon} aria-hidden="true" />
+          <p className={styles.revealHint}>HAND THIS KEY TO {reveal ? reveal.username.toUpperCase() : ''}. THEY MUST CHANGE IT AT FIRST LOGIN.</p>
+          <div className={styles.serial}>{reveal ? reveal.key : ''}</div>
+          <p className={styles.revealDisclaimer}>THIS KEY IS SHOWN ONCE ONLY.</p>
+        </div>
+      </HardwareModal>
+      <BackToTopButton />
+    </div>
+  );
+};
+export default SettingsPage;
+""")
+
 # ---------- git ----------
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix70: recovery+notes+notifications unification, NPE fixes, data-safe seeding, bell dropdown"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix70: recovery+notes+notifications unification, NPE fixes, data-safe seeding, bell dropdown, settings rebuild"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

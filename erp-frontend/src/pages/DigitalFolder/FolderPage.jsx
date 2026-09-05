@@ -222,6 +222,7 @@ const FolderPage = () => {
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
   const [recoveryChips, setRecoveryChips] = useState([]);
+  const [recoveryChips, setRecoveryChips] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
     const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
@@ -319,6 +320,11 @@ const FolderPage = () => {
         } catch { setLoadError(true); } finally { setLoading(false); }
     }, [id, isEditing]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
+  useEffect(() => {
+    if (!binder?.project?.proprietors) return;
+    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
+      .then(lists => setRecoveryChips(lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20)));
+  }, [binder]);
   useEffect(() => {
     if (!binder?.project?.proprietors) return;
     Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))

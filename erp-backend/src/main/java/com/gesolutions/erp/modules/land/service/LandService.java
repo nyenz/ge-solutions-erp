@@ -40,6 +40,7 @@ public class LandService {
     private final StageTemplateService stageTemplateService;
     private final ProjectStageRepository projectStageRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {

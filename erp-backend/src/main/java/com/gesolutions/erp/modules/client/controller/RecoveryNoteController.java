@@ -92,6 +92,30 @@ public class RecoveryNoteController {
         }
         return n;
     }
+    private String payBadge(List<LandProject> ps) {
+        LocalDateTime newest = null;
+        for (LandProject p : ps) {
+            if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
+        }
+        if (newest == null) return "RED";
+        long days = ChronoUnit.DAYS.between(newest, LocalDateTime.now());
+        if (days <= 14) return "GREEN";
+        if (days <= 30) return "YELLOW";
+        return "RED";
+    }
+    private String recvState(List<LandProject> ps) {
+        boolean recv = false, legacy = false, paying = false;
+        for (LandProject p : ps) {
+            if (p.isLegacy()) legacy = true;
+            if (p.isReceivable()) {
+                recv = true;
+                if (p.getLastPaymentDate() != null && ChronoUnit.DAYS.between(p.getLastPaymentDate(), LocalDateTime.now()) <= 90) paying = true;
+            }
+        }
+        if (legacy) return "LEGACY";
+        if (recv) return paying ? "RECEIVABLE - PAYING" : "RECEIVABLE - SILENT";
+        return "";
+    }
     private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId());
@@ -102,6 +126,7 @@ public class RecoveryNoteController {
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
         m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
         m.put("lastContactedAt", c.getLastContactedAt());
+        m.put("payBadge", payBadge(ps)); m.put("recvState", recvState(ps));
         boolean lock = locked(c, now);
         m.put("locked", lock);
         m.put("nextUnlock", lock ? nextUnlock(c, now).toString() : null);

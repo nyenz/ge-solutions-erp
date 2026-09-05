@@ -33,7 +33,6 @@ public class ReportService {
     private final FollowUpRepository followUpRepository;
     private final AuditService auditService;
     private final PaymentRecordRepository paymentRecordRepository;
-    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
     private static final String CSV_DIVIDER = ",";
     private static final String NEW_LINE = "\n";

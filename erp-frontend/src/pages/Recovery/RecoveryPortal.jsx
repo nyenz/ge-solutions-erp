@@ -9,6 +9,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './RecoveryPortal.module.css';
+import { useAuth } from '../../hooks/useAuth';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 // EXACT Intake entry labels - one source of truth across pages
@@ -60,6 +61,10 @@ export default function RecoveryPortal() {
   const [notes, setNotes] = useState([]);
   const [picked, setPicked] = useState(null);
   const [text, setText] = useState('');
+  const [promise, setPromise] = useState('');
+  const [coWarn, setCoWarn] = useState(null);
+  const { user } = useAuth();
+  const canManage = user?.isRoot || ['ROLE_ADMIN','ROLE_DIRECTOR','ROLE_MANAGER'].includes(user?.role);
   const [busy, setBusy] = useState(false);
   const [toasts, setToasts] = useState([]);
   const collapsedOnce = React.useRef(false);
@@ -109,8 +114,8 @@ export default function RecoveryPortal() {
   const save = () => {
     if (!picked || !sel) return;
     setBusy(true);
-    recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })
-      .then(() => { setSel(null); toast('Outcome logged.', 'success'); load(); })
+    recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text, promiseDate: promise || null })
+      .then((r) => { setSel(null); setPromise(''); toast('Outcome logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(); })
       .catch((e) => {
         setBusy(false);
         toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error');
@@ -193,6 +198,10 @@ export default function RecoveryPortal() {
               <div className={styles.nin}>{c.nin}</div>
               <div className={styles.mono}>{c.phone}</div>
               {(c.indexes || []).length > 0 && (<div className={styles.mono}>#{c.indexes.join(' #')}</div>)}
+            <div className={styles.cardMetaRow}>
+              <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
+              {c.recvState && <span className={c.recvState.indexOf('PAYING') >= 0 ? styles.recvPaying : c.recvState.indexOf('LEGACY') >= 0 ? styles.recvLegacy : styles.recvSilent}>{c.recvState}</span>}
+            </div>
               {c.district && (<div className={styles.loc}>{c.district}{c.village ? ' - ' + c.village : ''}</div>)}
               <div className={styles.cardFoot}>
                 {c.lastTag
@@ -277,6 +286,12 @@ export default function RecoveryPortal() {
               ))}
             </div>
           </div>
+          {picked && picked.tag === 'committed to pay' && (
+            <div className={modalStyles.modalField}>
+              <label className={modalStyles.modalLabel}>PROMISED PAYMENT DATE</label>
+              <input type="date" className={modalStyles.modalInput} value={promise} onChange={(e) => setPromise(e.target.value)} aria-label="Promised payment date" />
+            </div>
+          )}
           <div className={modalStyles.modalField}>
             <label className={modalStyles.modalLabel}>OPTIONAL DETAIL (RARE)</label>
             <input type="text" className={modalStyles.modalInput} value={text}
@@ -289,6 +304,12 @@ export default function RecoveryPortal() {
                 <span className={n.tone === 'POSITIVE' ? styles.chipPos : styles.chipNeg}>{n.tag}</span>
                 <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtDT(n.createdAt)}</span>
                 {n.text && <span className={styles.histText}>{n.text}</span>}
+                {canManage && n.source !== 'FOLDER' && (
+                  <button type="button" className={styles.histDelete} aria-label="Delete note"
+                    onClick={() => { if (window.confirm('Delete this tap-tag? The cooldown clock will recompute.')) recoveryService.deleteNote(n.id).then(() => { load(); open(sel); toast('Note deleted.', 'warn'); }); }}>
+                    <FiX aria-hidden="true" />
+                  </button>
+                )}
               </div>
             ))}
             {notes.length === 0 && (<div className={styles.trayEmpty}>NO CALLS LOGGED YET.</div>)}
@@ -302,6 +323,12 @@ export default function RecoveryPortal() {
         </>)}
       </HardwareModal>
 
+      {coWarn && (
+        <div className={styles.coWarnBanner} role="status">
+          <span>{coWarn}</span>
+          <button type="button" className={styles.coWarnDismiss} onClick={() => setCoWarn(null)} aria-label="Dismiss notice">&times;</button>
+        </div>
+      )}
       <BackToTopButton />
 
       {typeof document !== 'undefined' && ReactDOM.createPortal(
