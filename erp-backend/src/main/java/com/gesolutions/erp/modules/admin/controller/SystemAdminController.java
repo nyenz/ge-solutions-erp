@@ -141,6 +141,12 @@ public class SystemAdminController {
         // Reseed the default expense presets (Office, Fieldwork, Land Office)
         dataInitializer.seedDefaultExpensePresets();
         System.out.println(">>> [WIPE] OK: default expense presets reseeded");
+        try {
+            dataInitializer.seedScenarioDataOnce();
+            System.out.println(">>> [WIPE] OK: scenario dataset reseeded after wipe");
+        } catch (Exception e) {
+            System.err.println(">>> [WIPE] scenario reseed warning: " + e.getMessage());
+        }
 
         // Reseed scenario data (flag was cleared by the truncate above)
         try {
