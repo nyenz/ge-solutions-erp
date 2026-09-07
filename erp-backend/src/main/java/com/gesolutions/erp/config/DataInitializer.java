@@ -252,7 +252,8 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS village VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
-            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL"
+            "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
+            "ALTER TABLE notifications DROP COLUMN IF EXISTS is_read"
         };
         Connection conn = null;
         Statement stmt = null;
