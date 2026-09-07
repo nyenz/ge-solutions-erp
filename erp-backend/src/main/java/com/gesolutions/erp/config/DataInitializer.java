@@ -44,7 +44,6 @@ public class DataInitializer implements CommandLineRunner {
             seedRootUser();
             stageTemplateService.seedDefaultStagesIfEmpty();
             seedScenarioDataOnce();
-            seedNotificationsIfEmpty();
                         seedDefaultExpensePresets();
             System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
         } catch (Exception e) {
