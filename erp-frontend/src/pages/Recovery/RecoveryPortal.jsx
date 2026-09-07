@@ -87,6 +87,11 @@ export default function RecoveryPortal() {
           </button>
         ))}
       </div>
+      <div className={styles.dotLegend} aria-label="Payment dot legend">
+        <span><i style={{ background: '#22c55e' }} /> paid in last 14 days</span>
+        <span><i style={{ background: '#f59e0b' }} /> paid 15-30 days ago</span>
+        <span><i style={{ background: '#ef4444' }} /> over 30 days or never</span>
+      </div>
       {loading ? (
         <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
       ) : (

@@ -173,7 +173,7 @@
 .coWarnDismiss { background: none; border: none; color: rgba(255,255,255,0.6); font-size: 16px; cursor: pointer; }
 .coWarnDismiss:hover { color: #fff; }
 
-.stickyTabs { position: sticky; top: 64px; z-index: 40; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 8px 0; background: var(--bg, #f4efe8); }
+.stickyTabs { position: sticky; top: 0; z-index: 200; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 10px clamp(12px, 2vw, 24px); background: #f4efe8; margin-left: clamp(-12px, -2vw, -24px); margin-right: clamp(-12px, -2vw, -24px); border-bottom: 1px solid rgba(26, 46, 48, 0.08); }
 .stickyTabs::-webkit-scrollbar { display: none; }
 .qTab { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); padding: 8px 14px; border-radius: 6px; font-weight: 900; font-size: 10px; letter-spacing: 1.5px; cursor: pointer; white-space: nowrap; font-family: 'Inter',sans-serif; }
 .qTabActive { background: var(--orange) !important; color: #1a2e30 !important; border-color: var(--orange) !important; }
@@ -191,3 +191,12 @@
 .rowActions { display: flex; gap: 10px; align-items: center; }
 .projLine { display: flex; gap: 6px; flex-wrap: wrap; }
 .projLink { font-family: 'Space Mono',monospace; font-size: 11px; font-weight: 700; color: var(--orange); text-decoration: underline; display: inline-flex; gap: 4px; align-items: center; }
+
+.dotLegend { display: flex; gap: clamp(10px, 1.4vw, 16px); flex-wrap: wrap; align-items: center; padding: 8px 2px 2px; }
+.dotLegend span { display: inline-flex; align-items: center; gap: 6px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.9vw, 10px); font-weight: 700; color: rgba(26, 46, 48, 0.55); text-transform: uppercase; letter-spacing: 0.6px; }
+.dotLegend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+/* fix82: unified type scale - 3 text sizes + HUD display number only */
+.cname { font-size: clamp(13px, 1.6vw, 16px); }
+.nin, .mono, .loc, .coLine, .attemptLine, .histText, .lockBanner, .projLink { font-size: clamp(10px, 1.1vw, 12px); }
+.callPos, .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .wallLabel, .histMeta, .qTab, .countCard label { font-size: clamp(8px, 0.9vw, 10px); }
+.countCard strong { font-size: clamp(15px, 1.8vw, 21px); }
