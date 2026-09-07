@@ -216,3 +216,13 @@
 .nin, .mono, .callPos { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); }
 .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .coLine, .loc, .attemptLine, .lockBanner, .histMeta, .histText, .projLink { font-family: 'DM Sans', sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
 .reason { text-transform: uppercase; letter-spacing: 0.6px; font-size: clamp(9px, 0.95vw, 11px); }
+
+/* fix86: ledger-format pay dots + compact card body grid */
+.payDotGreen, .payDotYellow, .payDotRed { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.payDotGreen { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+.payDotYellow { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
+.payDotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+.dotLegend i { width: 8px; height: 8px; }
+.rowBody { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 20px; align-items: center; }
+.rowActions { grid-column: 1 / -1; }
+.lockBanner { grid-column: 1 / -1; }

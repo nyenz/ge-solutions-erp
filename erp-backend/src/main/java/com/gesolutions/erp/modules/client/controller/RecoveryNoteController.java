@@ -191,12 +191,12 @@ public class RecoveryNoteController {
         LocalDateTime now = LocalDateTime.now();
         Map<UUID, List<RecoveryNote>> nm = noteMap();
         Map<UUID, List<LandProject>> pm = projMap();
-        long callsToday = 0, succMonth = 0, missMonth = 0, longest = 0; String longestName = "-";
+        long callsToday = 0, succMonth = 0, missMonth = 0, longest = 0, allDue = 0; String longestName = "-";
         for (Client c : clientRepo.findAll()) {
             List<RecoveryNote> ns = notesOf(nm, c.getId());
             for (RecoveryNote n : ns) {
                 if (!n.getCreatedAt().isAfter(now.minusDays(30))) break;
-                if (n.getCreatedAt().toLocalDate().equals(now.toLocalDate()) && "POSITIVE".equals(n.getTone())) callsToday++;
+                if (n.getCreatedAt().toLocalDate().equals(now.toLocalDate()) && n.isCountsAsAttempt()) callsToday++;
                 if ("POSITIVE".equals(n.getTone())) succMonth++;
                 if ("NEGATIVE".equals(n.getTone())) missMonth++;
             }
@@ -204,12 +204,13 @@ public class RecoveryNoteController {
             if (!qualifies(ps)) continue;
             String st = state(c, now, ps, ns);
             if (st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED")) {
+                allDue++;
                 long d = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
                 if (d > longest) { longest = d; longestName = c.getFullName(); }
             }
         }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("dueNow", queueCounts().get("ALL"));
+        m.put("dueNow", allDue);
         m.put("callsToday", callsToday); m.put("callsMonth", succMonth);
         m.put("missMonth", missMonth); m.put("longestWait", longest == 999 ? "NEW" : longest + "d");
         m.put("longestName", longestName);
@@ -219,6 +220,7 @@ public class RecoveryNoteController {
     public List<Map<String, Object>> lockedList() { return queue("LOCKED"); }
     @GetMapping("/clients/{id}/notes")
     public List<Map<String, Object>> notes(@PathVariable UUID id) {
+        Map<UUID, List<LandProject>> pm = projMap();
         return clientRepo.findById(id).map(c -> {
             List<Map<String, Object>> out = new ArrayList<>();
             for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
@@ -229,7 +231,7 @@ public class RecoveryNoteController {
                 m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
                 out.add(m);
             }
-            for (LandProject p : projMap().getOrDefault(c.getId(), List.of())) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
+            for (LandProject p : pm.getOrDefault(c.getId(), List.of())) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
                 m.put("text", log.getNotes()); m.put("countsAsAttempt", false);

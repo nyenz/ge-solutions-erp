@@ -23,6 +23,8 @@ public class ReceivableSchedulerService {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepo;
+    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
             
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
@@ -120,6 +122,37 @@ public class ReceivableSchedulerService {
     @Scheduled(cron = "0 0 7 * * *")
     @Transactional
     public void dailyNotificationSweep() {
-        return; // fix79: old cooldown/promise loop disabled by new 30-day recovery engine
+        return; // old promise/cooldown loops stay disabled
+    }
+    @Scheduled(cron = "0 0 7 * * *")
+    @Transactional
+    public void unlockSweep() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime yesterday = now.minusDays(1);
+        for (com.gesolutions.erp.modules.client.model.Client c : clientRepo.findAll()) {
+            boolean lockedYesterday = lockedAt(c, yesterday) != null;
+            boolean lockedToday = lockedAt(c, now) != null;
+            if (lockedYesterday && !lockedToday) {
+                notificationService.emitRaw("UNLOCK", "INFO", c.getFullName() + " is callable again.", "CLIENT", c.getId(), "ROLE_SECRETARY");
+                notificationService.emitRaw("UNLOCK_M", "INFO", c.getFullName() + " is callable again.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            }
+        }
+    }
+    private java.time.LocalDate lockedAt(com.gesolutions.erp.modules.client.model.Client c, java.time.LocalDateTime now) {
+        java.time.LocalDate unlock = null;
+        java.time.LocalDateTime pay = null;
+        for (LandProject p : projectRepository.findAll()) {
+            if (p.getProprietors() == null) continue;
+            boolean mine = p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()));
+            if (!mine) continue;
+            if (p.getLastPaymentDate() != null && (pay == null || p.getLastPaymentDate().isAfter(pay))) pay = p.getLastPaymentDate();
+        }
+        if (pay != null && pay.plusDays(30).isAfter(now)) unlock = pay.plusDays(30).toLocalDate();
+        java.time.LocalDateTime second = null; int count = 0;
+        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findByClientOrderByCreatedAtDesc(c)) {
+            if ("POSITIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) { count++; if (count == 2) second = n.getCreatedAt(); }
+        }
+        if (second != null) { java.time.LocalDate u2 = second.plusDays(30).toLocalDate(); if (unlock == null || u2.isAfter(unlock)) unlock = u2; }
+        return unlock;
     }
 }

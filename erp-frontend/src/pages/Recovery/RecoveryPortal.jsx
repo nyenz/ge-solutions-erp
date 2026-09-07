@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { FiSearch, FiX, FiPhone, FiMapPin, FiClock, FiChevronDown, FiChevronUp, FiUser, FiFolderPlus, FiFilePlus, FiArchive } from 'react-icons/fi';
+import { FiSearch, FiX, FiPhone, FiMapPin, FiClock, FiChevronDown, FiChevronUp, FiUser, FiFolderPlus } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
+import { useAuth } from '../../hooks/useAuth';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
@@ -15,11 +16,6 @@ const TABS = [
   { key: 'LOCKED', label: 'LOCKED' },
 ];
 function fmtD(s) { if (!s) return 'NEVER'; const d = new Date(s); const p = (x) => String(x).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); }
-function Badge({ type }) {
-  const cls = type === 'Legacy Title' ? styles.badgeLegacy : type === 'New Title' ? styles.badgeTitle : styles.badgeFolder;
-  const Icon = type === 'Legacy Title' ? FiArchive : type === 'New Title' ? FiFilePlus : FiFolderPlus;
-  return <span className={cls}><Icon size={11} aria-hidden="true" /> {type}</span>;
-}
 export default function RecoveryPortal() {
   const [tab, setTab] = useState('ALL');
   const [counts, setCounts] = useState(null);
@@ -37,6 +33,8 @@ export default function RecoveryPortal() {
   const [busy, setBusy] = useState(false);
   const [toasts, setToasts] = useState([]);
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
+  const { user } = useAuth();
+  const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
   const load = useCallback(() => {
     setLoading(rows.length === 0);
     Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
@@ -88,9 +86,9 @@ export default function RecoveryPortal() {
         ))}
       </div>
       <div className={styles.dotLegend} aria-label="Payment dot legend">
-        <span><i style={{ background: '#22c55e' }} /> paid in last 14 days</span>
-        <span><i style={{ background: '#f59e0b' }} /> paid 15-30 days ago</span>
-        <span><i style={{ background: '#ef4444' }} /> over 30 days or never</span>
+        <span><i className={styles.payDotGreen} /> Recent payment</span>
+        <span><i className={styles.payDotYellow} /> Payment 2-4 weeks ago</span>
+        <span><i className={styles.payDotRed} /> No recent payment</span>
       </div>
       {loading && rows.length === 0 ? (
         <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
@@ -161,6 +159,12 @@ export default function RecoveryPortal() {
                 <span className={n.tone === 'POSITIVE' ? styles.chipPos : n.tone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{n.tag}</span>
                 <span className={styles.histMeta}>{n.author || 'SYSTEM'} - {fmtD(n.createdAt)}</span>
                 {n.text && <span className={styles.histText}>{n.text}</span>}
+                {canManage && n.source === 'RECOVERY' && n.tag !== 'payment received' && (
+                  <button type="button" className={styles.histDelete} aria-label="Delete note"
+                    onClick={() => recoveryService.deleteNote(n.id).then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(); })}>
+                    <FiX aria-hidden="true" />
+                  </button>
+                )}
               </div>
             ))}
             {notes.length === 0 && (<div className={styles.trayEmpty}>NO CALLS LOGGED YET.</div>)}

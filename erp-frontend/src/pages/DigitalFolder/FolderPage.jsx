@@ -717,7 +717,7 @@ const FolderPage = () => {
                 {recoveryChips.map((n, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
                     <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.noteAuthor}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
+                    <span className={styles.recvChipMeta}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
                   </div>
                 ))}
               </div>
