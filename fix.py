@@ -1,41 +1,50 @@
-# fix.py -- fix79: resolve unreachable statement in ReceivableSchedulerService
+# fix.py -- fix80: clean up unused imports and fields (VS Code warnings)
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-RS = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp" / "modules" / "land" / "service" / "ReceivableSchedulerService.java"
+BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 
-s = RS.read_text(encoding="utf-8", errors="replace")
+def read(p): return p.read_text(encoding="utf-8", errors="replace")
+def write(p, s):
+    with open(p, 'w', encoding='utf-8', newline='\n') as f: f.write(s)
+    print("WROTE", p.name)
 
-marker = "continue; // fix78"
-if marker in s:
-    idx = s.find(marker)
-    
-    # Find the start of the method containing the broken patch
-    method_start = s.rfind("public ", 0, idx)
-    if method_start == -1:
-        method_start = s.rfind("private ", 0, idx)
-    
-    brace_start = s.find("{", method_start)
-    
-    # Find the matching closing brace for the method
-    count = 1
-    i = brace_start + 1
-    while count > 0 and i < len(s):
-        if s[i] == '{': count += 1
-        elif s[i] == '}': count -= 1
-        i += 1
-        
-    # Gut the method body to fix the unreachable statement error
-    new_method_body = s[:brace_start+1] + "\n        return; // fix79: old cooldown/promise loop disabled by new 30-day recovery engine\n    " + s[i-1:]
-    RS.write_text(new_method_body, encoding="utf-8", newline="\n")
-    print("OK gutted old scheduled method to fix unreachable statement")
-else:
-    print("SKIP marker not found (already fixed or different format)")
+# --- 1. DataInitializer.java ---
+di = BE / "config" / "DataInitializer.java"
+s = read(di)
+s = s.replace("private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;\n", "")
+s = s.replace("private final NotificationService notificationService;\n", "")
+write(di, s)
+print("OK cleaned DataInitializer")
 
+# --- 2. ReceivableSchedulerService.java ---
+rs = BE / "modules" / "land" / "service" / "ReceivableSchedulerService.java"
+s2 = read(rs)
+
+lines_to_remove = [
+    "import com.gesolutions.erp.modules.client.model.RecoveryNote;",
+    "import com.gesolutions.erp.modules.land.model.PaymentRecord;",
+    "import java.util.Optional;",
+    "import java.time.LocalDate;",
+    "private final RecoveryNoteRepository recoveryNoteRepository;",
+    "private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;",
+    "private final PaymentRecordRepository paymentRecordRepository;",
+    "private final com.gesolutions.erp.modules.land.repository.PaymentRecordRepository paymentRecordRepository;",
+    "private final ClientRepository clientRepo;",
+    "private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepo;"
+]
+
+for line in lines_to_remove:
+    s2 = s2.replace(line + "\n", "")
+
+write(rs, s2)
+print("OK cleaned ReceivableSchedulerService")
+
+# --- GIT PUSH ---
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix79: resolve unreachable statement in ReceivableSchedulerService"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix80: clean up unused imports and fields to resolve VS Code warnings"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

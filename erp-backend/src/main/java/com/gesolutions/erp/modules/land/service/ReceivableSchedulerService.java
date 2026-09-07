@@ -3,14 +3,10 @@ package com.gesolutions.erp.modules.land.service;
 
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
-import java.util.Optional;
-import java.time.LocalDate;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,10 +26,7 @@ public class ReceivableSchedulerService {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
-    private final RecoveryNoteRepository recoveryNoteRepository;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final ClientRepository clientRepo;
-
+            
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
     // Runs every day at midnight
