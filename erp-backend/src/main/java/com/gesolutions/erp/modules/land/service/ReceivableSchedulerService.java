@@ -3,9 +3,6 @@ package com.gesolutions.erp.modules.land.service;
 
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.model.Client;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
-import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
