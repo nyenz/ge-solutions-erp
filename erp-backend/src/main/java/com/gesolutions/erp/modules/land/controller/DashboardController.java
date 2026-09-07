@@ -71,7 +71,7 @@ public class DashboardController {
         // (3.4): both must report the same definition of "stale" -- unique
         // Client IDs, deduped across every plot they co-own, each independently
         // eligible under their own cooldown/monthly-count state -- matching
-        // RecoveryController.buildOwnerTasks's eligibility rule exactly.
+        // RecoveryNoteController locked()/qualifies() rule exactly (live /recovery/stats).
         long staleCalls = allPlots.stream()
                 .filter(p -> {
                     java.math.BigDecimal bal = p.isReceivable()
@@ -90,10 +90,9 @@ public class DashboardController {
                 .filter(owner -> {
                     java.time.LocalDateTime monthStart = java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay();
                     if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(owner, monthStart) >= 2) return false;
-                    java.util.Optional<com.gesolutions.erp.modules.client.model.RecoveryNote> last = recoveryNoteRepository.findFirstByClientOrderByCreatedAtDesc(owner);
-                    if (!last.isPresent()) return true;
-                    java.time.LocalDate eligible = last.get().getCreatedAt().toLocalDate().plusDays(14);
-                    return !java.time.LocalDate.now().isBefore(eligible);
+                    java.time.LocalDateTime lastContact = owner.getLastContactedAt();
+                    if (lastContact != null && lastContact.isAfter(java.time.LocalDateTime.now().minusDays(14))) return false;
+                    return true;
                 })
                 .count();
 

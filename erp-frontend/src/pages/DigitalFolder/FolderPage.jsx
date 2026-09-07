@@ -224,6 +224,7 @@ const FolderPage = () => {
   const [recoveryChips, setRecoveryChips] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
     const [freezeOpen, setFreezeOpen] = useState(false);
+    const [problemModal, setProblemModal] = useState({ open: false, note: '' });
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
     const [activeTab, setActiveTab] = useState(() => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
@@ -328,7 +329,7 @@ const FolderPage = () => {
     if (!binder?.project?.proprietors) return;
     Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
       .then(lists => {
-        const all = lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
+        const all = lists.flat().filter(n => n.source === 'RECOVERY').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
         setRecoveryChips(all);
       });
   }, [binder]);
@@ -373,7 +374,8 @@ const FolderPage = () => {
     };
     const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
-    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+    const handleToggleProblem = async () => { const was = project.problem; if (!was) { setProblemModal({ open: true, note: '' }); return; } try { await folderPortalService.toggleProblem(id, ''); await loadFolderData(); toast('Problem flag removed.', 'info'); } catch { toast('FLAG FAILED', 'error'); } };
+    const confirmProblemFlag = async () => { const note = problemModal.note; setProblemModal({ open: false, note: '' }); try { await folderPortalService.toggleProblem(id, ''); if (note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast('Flagged as PROBLEM.', 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
@@ -455,14 +457,6 @@ const FolderPage = () => {
     const activeAmountOwed = Math.max(0, totalValue - amountPaid);
     const amountOwed = isReceivable ? receivableAmountOwed : activeAmountOwed;
     const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
-    const lastPay = project?.lastPaymentDate ? new Date(project.lastPaymentDate) : null;
-    const daysSincePay = lastPay ? Math.floor((Date.now() - lastPay.getTime()) / 86400000) : null;
-    const statusBadge = isReceivable ? ['RECEIVABLE', 'badgeRecv']
-        : project.landTitle?.isReleased ? ['RELEASED', 'badgeReleased']
-        : (totalValue > 0 && amountPaid >= totalValue) ? ['PAID', 'badgePaid']
-        : !project.landTitle ? ['PROCESSING', 'badgeProcessing']
-        : (daysSincePay === null || daysSincePay > 30) ? ['CRITICAL', 'badgeCritical']
-        : ['ACTIVE', 'badgeActive'];
 
     return (
         <div className={styles.container}>
@@ -765,6 +759,12 @@ const FolderPage = () => {
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
+            </HardwareModal>
+            <HardwareModal isOpen={problemModal.open} onClose={() => setProblemModal({ open: false, note: '' })} title="FLAG AS PROBLEM">
+            <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>DESCRIBE THE PROBLEM (OPTIONAL)</label><textarea className={modalStyles.modalTextarea} value={problemModal.note} onChange={e => setProblemModal(p => ({ ...p, note: e.target.value }))} placeholder="e.g. Boundary dispute reported by neighbour..." aria-label="Problem description" /></div>
+            <div className={modalStyles.modalFooter}>
+            <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmProblemFlag}><FiAlertTriangle aria-hidden="true" /> CONFIRM FLAG</button>
+            </div>
             </HardwareModal>
             <BackToTopButton />
         </div>

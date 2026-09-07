@@ -90,7 +90,7 @@ public class ReceivableSchedulerService {
                 + ownerLabel(plot)
                 + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
                 + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());
-            notificationService.emit("STORAGE_FEE_APPLIED", "INFO", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId(), "ROLE_DIRECTOR");
+            if (!notificationService.existsToday("STORAGE_FEE_APPLIED", plot.getId())) notificationService.emitRaw("STORAGE_FEE_APPLIED", "INFO", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId(), "ROLE_DIRECTOR");
         }
     }
 
@@ -135,16 +135,16 @@ public class ReceivableSchedulerService {
             Client c = n.getClient();
             boolean paidSince = false;
             for (LandProject p : projectRepository.findAll()) {
-                if (p.getProprietors() == null || !p.getProprietors().contains(c)) continue;
+                if (p.getProprietors() == null || !p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()))) continue;
                 for (PaymentRecord pay : paymentRecordRepository.findByProjectIdOrderByTimestampDesc(p.getId())) {
                     if (pay.getTimestamp().isAfter(n.getCreatedAt())) { paidSince = true; break; }
                 }
                 if (paidSince) break;
             }
             if (!paidSince) {
-                notificationService.emit("PROMISE_DUE", "CRITICAL",
-                    c.getFullName() + " promised to pay by " + n.getPromiseDate() + " but no payment arrived.",
-                    "NOTE", n.getId(), "ROLE_MANAGER");
+                if (!notificationService.existsToday("PROMISE_DUE", n.getId())) notificationService.emitRaw("PROMISE_DUE", "CRITICAL",
+                c.getFullName() + " promised to pay by " + n.getPromiseDate() + " but no payment arrived.",
+                "NOTE", n.getId(), "ROLE_MANAGER");
             }
         }
         for (Client c : clientRepo.findAll()) {

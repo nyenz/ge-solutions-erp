@@ -46,7 +46,7 @@ public class RecoveryNoteController {
     private List<LandProject> projectsOf(Client c) {
         List<LandProject> out = new ArrayList<>();
         for (LandProject p : projectRepo.findAll()) {
-            if (p.getProprietors() != null && p.getProprietors().contains(c)) out.add(p);
+            if (p.getProprietors() != null && p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()))) out.add(p);
         }
         return out;
     }
@@ -70,7 +70,6 @@ public class RecoveryNoteController {
                     }
                 }
             }
-            return true;
         }
         return false;
     }
@@ -274,20 +273,20 @@ public class RecoveryNoteController {
             notificationService.emitRaw("MONTHLY_LIMIT", "INFO", c.getFullName() + ": 2nd call this month. Next callable 1st of next month.", "CLIENT", c.getId(), author.getRole().name());
         }
         if (negStreak(c) >= 2) {
-            notificationService.emit("NEG_STREAK_2", "WARN", c.getFullName() + ": 2 negative contacts in a row - suggest site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            if (!notificationService.existsToday("NEG_STREAK_2", c.getId())) notificationService.emitRaw("NEG_STREAK_2", "WARN", c.getFullName() + ": 2 negative contacts in a row - suggest site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
         }
         if ("failed to pay".equals(tag)) {
             boolean priorPromise = noteRepo.findByClientOrderByCreatedAtDesc(c).stream().anyMatch(x -> "committed to pay".equals(x.getTag()) && !x.getId().equals(n.getId()));
             if (priorPromise) {
-                notificationService.emit("FAILED_AFTER_PROMISE", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
-                notificationService.emit("FAILED_AFTER_PROMISE_M", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_MANAGER");
+                notificationService.emitRaw("FAILED_AFTER_PROMISE", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
+                notificationService.emitRaw("FAILED_AFTER_PROMISE_M", "CRITICAL", c.getFullName() + " failed to pay after committing. Escalate.", "CLIENT", c.getId(), "ROLE_MANAGER");
             }
         }
         if ("NEGATIVE".equals(def[1]) && c.getReliabilityScore() != null && c.getReliabilityScore() < 40) {
-            notificationService.emit("RELIABILITY_LOW", "WARN", c.getFullName() + " reliability below 40 after negative contact.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            if (!notificationService.existsToday("RELIABILITY_LOW", c.getId())) notificationService.emitRaw("RELIABILITY_LOW", "WARN", c.getFullName() + " reliability below 40 after negative contact.", "CLIENT", c.getId(), "ROLE_MANAGER");
         }
         if ("needs site visit".equals(tag)) {
-            notificationService.emit("SITE_VISIT_TAGGED", "INFO", c.getFullName() + " needs a site visit.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
+            if (!notificationService.existsToday("SITE_VISIT_TAGGED", c.getId())) notificationService.emitRaw("SITE_VISIT_TAGGED", "INFO", c.getFullName() + " needs a site visit.", "CLIENT", c.getId(), "ROLE_DIRECTOR");
         }
         String warning = null;
         LocalDateTime window = now.minusDays(3);

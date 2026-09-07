@@ -33,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ClientRepository clientRepository;
     private final RecoveryNoteRepository recoveryNoteRepository;
     private final FollowUpRepository followUpRepository;
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     @Value("${ADMIN_EMAIL}") private String adminEmail;
     @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
     @Override
@@ -43,6 +44,7 @@ public class DataInitializer implements CommandLineRunner {
             seedRootUser();
             stageTemplateService.seedDefaultStagesIfEmpty();
             seedScenarioDataOnce();
+            seedNotificationsIfEmpty();
                         seedDefaultExpensePresets();
             System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
         } catch (Exception e) {

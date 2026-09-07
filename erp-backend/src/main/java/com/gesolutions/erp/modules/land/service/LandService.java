@@ -762,7 +762,7 @@ public class LandService {
             // Auto-pause fees while negotiating
             project.setStoragePaused(true);
             if (deadline.isAfter(java.time.LocalDateTime.now().minusDays(3)) && deadline.isBefore(java.time.LocalDateTime.now().plusDays(4))) {
-                notificationService.emit("NEGOTIATION_DEADLINE", "WARN", "Negotiation deadline for " + plotLabel(project) + " is within 3 days.", "PROJECT", projectId, "ROLE_MANAGER");
+                notificationService.emitRaw("NEGOTIATION_DEADLINE", "WARN", "Negotiation deadline for " + plotLabel(project) + " is within 3 days.", "PROJECT", projectId, "ROLE_MANAGER");
             }
             auditService.logAction("NEGOTIATION_DEADLINE_SET",
                 "Operator [" + getCurrentOperator() + "] set negotiation deadline to " + deadlineStr
