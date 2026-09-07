@@ -130,31 +130,6 @@ public class ReceivableSchedulerService {
     @Scheduled(cron = "0 0 7 * * *")
     @Transactional
     public void dailyNotificationSweep() {
-        LocalDateTime now = LocalDateTime.now();
-        for (RecoveryNote n : java.util.Collections.<RecoveryNote>emptyList()) {
-            Client c = n.getClient();
-            boolean paidSince = false;
-            for (LandProject p : projectRepository.findAll()) {
-                if (p.getProprietors() == null || !p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()))) continue;
-                for (PaymentRecord pay : paymentRecordRepository.findByProjectIdOrderByTimestampDesc(p.getId())) {
-                    if (pay.getTimestamp().isAfter(n.getCreatedAt())) { paidSince = true; break; }
-                }
-                if (paidSince) break;
-            }
-            if (!paidSince) {
-                if (!notificationService.existsToday("PROMISE_DUE", n.getId())) notificationService.emitRaw("PROMISE_DUE", "CRITICAL",
-                c.getFullName() + " promised to pay by " + n.getPromiseDate() + " but no payment arrived.",
-                "NOTE", n.getId(), "ROLE_MANAGER");
-            }
-        }
-        for (Client c : clientRepo.findAll()) {
-            Optional<RecoveryNote> last = recoveryNoteRepository.findFirstByClientOrderByCreatedAtDesc(c);
-            if (!last.isPresent() || !last.get().isCountsAsAttempt()) continue;
-            continue; // fix78: old 14-day cooldown alert removed (lock rule changed)
-            if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2) continue;
-            if (notificationService.existsToday("COOLDOWN_EXPIRED", c.getId())) continue;
-            notificationService.emitRaw("COOLDOWN_EXPIRED", "INFO", c.getFullName() + " is callable again - cooldown expired.", "CLIENT", c.getId(), "ROLE_SECRETARY");
-            notificationService.emitRaw("COOLDOWN_EXPIRED_M", "INFO", c.getFullName() + " is callable again - cooldown expired.", "CLIENT", c.getId(), "ROLE_MANAGER");
-        }
+        return; // fix79: old cooldown/promise loop disabled by new 30-day recovery engine
     }
 }
