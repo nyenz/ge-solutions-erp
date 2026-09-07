@@ -55,10 +55,6 @@ public class RecoveryNoteController {
     private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
     private List<LandProject> projectsOf(Map<UUID, List<LandProject>> pm, UUID id) { return pm.getOrDefault(id, List.of()); }
 
-    private String entryTypeOf(List<LandProject> ps) {
-        for (LandProject p : ps) { if (p.isLegacy()) return "Legacy Title"; if (p.getLandTitle() != null) return "New Title"; }
-        return ps.isEmpty() ? null : "New Folder";
-    }
     private boolean qualifies(List<LandProject> ps) {
         if (ps.isEmpty()) return false;
         for (LandProject p : ps) {
