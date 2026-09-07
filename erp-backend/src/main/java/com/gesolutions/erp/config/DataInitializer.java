@@ -63,7 +63,12 @@ public class DataInitializer implements CommandLineRunner {
             }
             boolean seeded;
             try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM scenario_seed_flag"); java.sql.ResultSet rs = ps.executeQuery()) { rs.next(); seeded = rs.getInt(1) > 0; }
-            if (seeded) { System.out.println(">>> [SCENARIO] Already seeded -- skipping."); return; }
+            if (seeded) {
+                int projectRows = 0;
+                try (java.sql.PreparedStatement ps2 = conn.prepareStatement("SELECT COUNT(*) FROM land_projects"); java.sql.ResultSet rs2 = ps2.executeQuery()) { rs2.next(); projectRows = rs2.getInt(1); }
+                if (projectRows > 0) { System.out.println(">>> [SCENARIO] Already seeded -- skipping."); return; }
+                System.out.println(">>> [SCENARIO] Flag set but ledger empty -- self-heal re-seed.");
+            }
             purgeAll(conn);
             seedScenarios();
             try (Statement st = conn.createStatement()) { st.execute("INSERT INTO scenario_seed_flag (id) VALUES (1)"); }
