@@ -131,7 +131,7 @@ public class ReceivableSchedulerService {
     @Transactional
     public void dailyNotificationSweep() {
         LocalDateTime now = LocalDateTime.now();
-        for (RecoveryNote n : recoveryNoteRepository.findOverduePromises(LocalDate.now())) {
+        for (RecoveryNote n : java.util.Collections.<RecoveryNote>emptyList()) {
             Client c = n.getClient();
             boolean paidSince = false;
             for (LandProject p : projectRepository.findAll()) {
@@ -150,7 +150,7 @@ public class ReceivableSchedulerService {
         for (Client c : clientRepo.findAll()) {
             Optional<RecoveryNote> last = recoveryNoteRepository.findFirstByClientOrderByCreatedAtDesc(c);
             if (!last.isPresent() || !last.get().isCountsAsAttempt()) continue;
-            if (last.get().getCreatedAt().isAfter(now.minusDays(14))) continue;
+            continue; // fix78: old 14-day cooldown alert removed (lock rule changed)
             if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(c, LocalDate.now().withDayOfMonth(1).atStartOfDay()) >= 2) continue;
             if (notificationService.existsToday("COOLDOWN_EXPIRED", c.getId())) continue;
             notificationService.emitRaw("COOLDOWN_EXPIRED", "INFO", c.getFullName() + " is callable again - cooldown expired.", "CLIENT", c.getId(), "ROLE_SECRETARY");

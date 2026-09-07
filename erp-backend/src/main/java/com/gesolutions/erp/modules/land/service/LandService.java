@@ -40,6 +40,7 @@ public class LandService {
     private final StageTemplateService stageTemplateService;
     private final ProjectStageRepository projectStageRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
+    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -164,6 +165,13 @@ public class LandService {
 
         if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
             notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
+        }
+        if (project.getProprietors() != null) {
+            for (com.gesolutions.erp.modules.client.model.Client owner : project.getProprietors()) {
+                recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
+                    .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
+                    .text("Paid UGX " + amount + " on " + java.time.LocalDate.now()).build());
+            }
         }
         auditService.logAction("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
