@@ -45,12 +45,15 @@ public class SystemAdminController {
     // resolves foreign-key order automatically, so list order doesn't matter.
     private static final String[] TABLES_TO_WIPE = {
         "audit_logs",
+        "notification_reads",
         "notifications",
+        "recovery_notes",
         "payment_records",
         "payment_schedules",
         "follow_up_logs",
         "project_documents",
         "project_stages",
+        "project_proprietors",
         "land_titles",
         "land_projects",
         "clients",
@@ -58,6 +61,7 @@ public class SystemAdminController {
         "expenses",
         "expense_presets",
         "stage_templates",
+        "scenario_seed_flag",
         "users"
     };
 
@@ -137,6 +141,14 @@ public class SystemAdminController {
         // Reseed the default expense presets (Office, Fieldwork, Land Office)
         dataInitializer.seedDefaultExpensePresets();
         System.out.println(">>> [WIPE] OK: default expense presets reseeded");
+
+        // Reseed scenario data (flag was cleared by the truncate above)
+        try {
+            dataInitializer.seedScenarioDataOnce();
+            System.out.println(">>> [WIPE] OK: scenario data reseeded");
+        } catch (Exception e) {
+            System.err.println(">>> [WIPE] WARNING: scenario reseed failed: " + e.getMessage());
+        }
 
         // Purge every uploaded file from Cloudinary storage too
         fileStorageService.deleteAllFiles();
