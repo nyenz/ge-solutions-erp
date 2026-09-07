@@ -39,13 +39,22 @@ public class RecoveryNoteController {
         {"wrong number",    "NEGATIVE", "true"}
     };
     private static String[] tagDef(String tag) { for (String[] t : TAGS) if (t[0].equals(tag)) return t; return null; }
-    private List<LandProject> projectsOf(Client c) {
-        List<LandProject> out = new ArrayList<>();
-        for (LandProject p : projectRepo.findAll()) {
-            if (p.getProprietors() != null && p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()))) out.add(p);
-        }
-        return out;
+
+    // ---- one-pass caches per request (fix83 speed) ----
+    private Map<UUID, List<RecoveryNote>> noteMap() {
+        Map<UUID, List<RecoveryNote>> m = new HashMap<>();
+        for (RecoveryNote n : noteRepo.findAll()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);
+        for (List<RecoveryNote> l : m.values()) l.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        return m;
     }
+    private Map<UUID, List<LandProject>> projMap() {
+        Map<UUID, List<LandProject>> m = new HashMap<>();
+        for (LandProject p : projectRepo.findAll()) if (p.getProprietors() != null) for (Client o : p.getProprietors()) m.computeIfAbsent(o.getId(), k -> new ArrayList<>()).add(p);
+        return m;
+    }
+    private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
+    private List<LandProject> projectsOf(Map<UUID, List<LandProject>> pm, UUID id) { return pm.getOrDefault(id, List.of()); }
+
     private String entryTypeOf(List<LandProject> ps) {
         for (LandProject p : ps) { if (p.isLegacy()) return "Legacy Title"; if (p.getLandTitle() != null) return "New Title"; }
         return ps.isEmpty() ? null : "New Folder";
@@ -72,51 +81,39 @@ public class RecoveryNoteController {
         for (LandProject p : ps) if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
         return newest;
     }
-    private List<RecoveryNote> succ30(Client c, LocalDateTime now) {
-        List<RecoveryNote> out = new ArrayList<>();
-        for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) if ("POSITIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) out.add(n);
-        return out;
-    }
-    private long miss30(Client c, LocalDateTime now) {
-        long n = 0;
-        for (RecoveryNote x : noteRepo.findByClientOrderByCreatedAtDesc(c)) if ("NEGATIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++;
-        return n;
-    }
-    private LocalDate lockedUntil(Client c, LocalDateTime now, List<LandProject> ps) {
+    private int succ30(List<RecoveryNote> ns, LocalDateTime now) { int n = 0; for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
+    private long miss30(List<RecoveryNote> ns, LocalDateTime now) { long n = 0; for (RecoveryNote x : ns) if ("NEGATIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
+    private LocalDate lockedUntil(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
         LocalDate unlock = null;
         LocalDateTime pay = lastPayment(ps);
         if (pay != null && pay.plusDays(30).isAfter(now)) unlock = pay.plusDays(30).toLocalDate();
-        List<RecoveryNote> succ = succ30(c, now);
-        if (succ.size() >= 2) {
-            LocalDate u2 = succ.get(1).getCreatedAt().plusDays(30).toLocalDate();
-            if (unlock == null || u2.isAfter(unlock)) unlock = u2;
-        }
+        int count = 0; LocalDateTime second = null;
+        for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) { count++; if (count == 2) second = x.getCreatedAt(); }
+        if (second != null) { LocalDate u2 = second.plusDays(30).toLocalDate(); if (unlock == null || u2.isAfter(unlock)) unlock = u2; }
         return unlock;
     }
-    private boolean siteVisit(Client c, LocalDateTime now) { return miss30(c, now) >= 2 && succ30(c, now).isEmpty(); }
-    private String state(Client c, LocalDateTime now, List<LandProject> ps) {
-        if (lockedUntil(c, now, ps) != null) return "LOCKED";
-        if (siteVisit(c, now)) return "SITE";
-        Optional<RecoveryNote> last = noteRepo.findFirstByClientOrderByCreatedAtDesc(c);
-        if (!last.isPresent()) return "NEW";
-        if ("POSITIVE".equals(last.get().getTone())) return "CONTACTED";
-        if ("NEGATIVE".equals(last.get().getTone())) return "MISSED";
+    private boolean siteVisit(List<RecoveryNote> ns, LocalDateTime now) { return miss30(ns, now) >= 2 && succ30(ns, now) == 0; }
+    private String state(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
+        if (lockedUntil(c, now, ps, ns) != null) return "LOCKED";
+        if (siteVisit(ns, now)) return "SITE";
+        if (ns.isEmpty()) return "NEW";
+        if ("POSITIVE".equals(ns.get(0).getTone())) return "CONTACTED";
+        if ("NEGATIVE".equals(ns.get(0).getTone())) return "MISSED";
         return "NEW";
     }
-    private long dayMiss(Client c, LocalDateTime now) {
+    private long dayMiss(List<RecoveryNote> ns, LocalDateTime now) {
         LocalDateTime oldest = null;
-        for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) if ("NEGATIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) oldest = n.getCreatedAt();
+        for (RecoveryNote n : ns) if ("NEGATIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) oldest = n.getCreatedAt();
         if (oldest == null) return 0;
         return Math.min(30, ChronoUnit.DAYS.between(oldest, now));
     }
-    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps) {
+    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
         Map<String, Object> m = new LinkedHashMap<>();
-        String st = state(c, now, ps);
-        LocalDate unlock = lockedUntil(c, now, ps);
+        String st = state(c, now, ps, ns);
+        LocalDate unlock = lockedUntil(c, now, ps, ns);
         LocalDateTime pay = lastPayment(ps);
         long days = c.getLastContactedAt() == null ? -1 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
         m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId()); m.put("phone", c.getPhoneNumber());
-        m.put("entryType", entryTypeOf(ps));
         List<String> idx = new ArrayList<>(); List<String> pids = new ArrayList<>(); List<String> co = new ArrayList<>();
         for (LandProject p : ps) {
             if (p.getProjectIndex() != null) idx.add(p.getProjectIndex());
@@ -129,9 +126,9 @@ public class RecoveryNoteController {
         m.put("lastContactedAt", c.getLastContactedAt());
         m.put("payBadge", payBadge(ps));
         m.put("state", st); m.put("unlock", unlock == null ? null : unlock.toString());
-        m.put("dayMiss", (st.equals("MISSED") || st.equals("SITE")) ? dayMiss(c, now) : 0);
-        m.put("calls30", succ30(c, now).size()); m.put("miss30", miss30(c, now));
-        noteRepo.findFirstByClientOrderByCreatedAtDesc(c).ifPresent(n -> { m.put("lastTag", n.getTag()); m.put("lastTone", n.getTone()); });
+        m.put("dayMiss", (st.equals("MISSED") || st.equals("SITE")) ? dayMiss(ns, now) : 0);
+        m.put("calls30", succ30(ns, now)); m.put("miss30", miss30(ns, now));
+        if (!ns.isEmpty()) { m.put("lastTag", ns.get(0).getTag()); m.put("lastTone", ns.get(0).getTone()); }
         String reason;
         if (st.equals("LOCKED")) reason = (pay != null && pay.plusDays(30).isAfter(now)) ? "paid " + pay.toLocalDate() + " - rest until " + unlock : "2 good calls - rest until " + unlock;
         else if (st.equals("SITE")) reason = "missed twice - plan a visit";
@@ -150,11 +147,14 @@ public class RecoveryNoteController {
     @GetMapping("/queues")
     public Map<String, Object> queueCounts() {
         LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
         long all = 0, con = 0, mis = 0, site = 0, lock = 0;
         for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
+            List<LandProject> ps = projectsOf(pm, c.getId());
             if (!qualifies(ps)) continue;
-            String st = state(c, now, ps);
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            String st = state(c, now, ps, ns);
             if (st.equals("LOCKED")) lock++;
             else if (st.equals("SITE")) site++;
             else { all++; if (st.equals("CONTACTED")) con++; if (st.equals("MISSED")) mis++; }
@@ -166,14 +166,17 @@ public class RecoveryNoteController {
     @GetMapping("/queue")
     public List<Map<String, Object>> queue(@RequestParam(defaultValue = "ALL") String queue) {
         LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
         List<Map<String, Object>> out = new ArrayList<>();
         for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
+            List<LandProject> ps = projectsOf(pm, c.getId());
             if (!qualifies(ps)) continue;
-            String st = state(c, now, ps);
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            String st = state(c, now, ps, ns);
             boolean inAll = st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED");
             if (queue.equals("ALL") ? !inAll : !st.equals(queue)) continue;
-            out.add(clientDto(c, now, ps));
+            out.add(clientDto(c, now, ps, ns));
         }
         out.sort((x, y) -> {
             LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
@@ -190,17 +193,20 @@ public class RecoveryNoteController {
     @GetMapping("/stats")
     public Map<String, Object> stats() {
         LocalDateTime now = LocalDateTime.now();
-        long callsToday = noteRepo.countByCountsAsAttemptTrueAndCreatedAtAfter(now.toLocalDate().atStartOfDay());
-        long succMonth = 0, missMonth = 0, longest = 0; String longestName = "-";
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        long callsToday = 0, succMonth = 0, missMonth = 0, longest = 0; String longestName = "-";
         for (Client c : clientRepo.findAll()) {
-            List<LandProject> ps = projectsOf(c);
-            if (!qualifies(ps)) continue;
-            for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            for (RecoveryNote n : ns) {
                 if (!n.getCreatedAt().isAfter(now.minusDays(30))) break;
+                if (n.getCreatedAt().toLocalDate().equals(now.toLocalDate()) && "POSITIVE".equals(n.getTone())) callsToday++;
                 if ("POSITIVE".equals(n.getTone())) succMonth++;
                 if ("NEGATIVE".equals(n.getTone())) missMonth++;
             }
-            String st = state(c, now, ps);
+            List<LandProject> ps = projectsOf(pm, c.getId());
+            if (!qualifies(ps)) continue;
+            String st = state(c, now, ps, ns);
             if (st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED")) {
                 long d = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
                 if (d > longest) { longest = d; longestName = c.getFullName(); }
@@ -227,7 +233,7 @@ public class RecoveryNoteController {
                 m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
                 out.add(m);
             }
-            for (LandProject p : projectsOf(c)) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
+            for (LandProject p : projMap().getOrDefault(c.getId(), List.of())) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
                 m.put("text", log.getNotes()); m.put("countsAsAttempt", false);
@@ -244,10 +250,13 @@ public class RecoveryNoteController {
         if (def == null) return ResponseEntity.badRequest().body(Map.of("error", "Unknown tag"));
         Client c = clientRepo.findById(UUID.fromString(body.get("clientId"))).orElseThrow(() -> new RuntimeException("Client not found"));
         LocalDateTime now = LocalDateTime.now();
-        List<LandProject> ps = projectsOf(c);
-        LocalDate unlock = lockedUntil(c, now, ps);
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        List<LandProject> ps = projectsOf(pm, c.getId());
+        List<RecoveryNote> ns = notesOf(nm, c.getId());
+        LocalDate unlock = lockedUntil(c, now, ps, ns);
         if (unlock != null) return ResponseEntity.status(409).body(Map.of("error", "Resting until " + unlock));
-        boolean wasSite = siteVisit(c, now);
+        boolean wasSite = siteVisit(ns, now);
         User author = userRepo.findByUsername(auth.getName()).orElse(null);
         RecoveryNote n = RecoveryNote.builder().client(c).author(author).tag(def[0]).tone(def[1]).countsAsAttempt(true)
             .text(body.get("text") == null || body.get("text").isBlank() ? null : body.get("text").trim()).build();
@@ -258,21 +267,19 @@ public class RecoveryNoteController {
         c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
         clientRepo.save(c);
         auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
-        if ("POSITIVE".equals(def[1]) && succ30(c, now).size() == 2) {
-            LocalDate u = lockedUntil(c, now, ps);
+        List<RecoveryNote> fresh = notesOf(noteMap(), c.getId());
+        if ("POSITIVE".equals(def[1]) && succ30(fresh, now) == 2) {
+            LocalDate u = lockedUntil(c, now, ps, fresh);
             notificationService.emitRaw("LOCKED", "INFO", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId(), author == null ? "ROLE_MANAGER" : author.getRole().name());
         }
-        if (!wasSite && siteVisit(c, now)) {
+        if (!wasSite && siteVisit(fresh, now)) {
             notificationService.emitRaw("SITE_VISIT_AUTO", "WARN", c.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
-        }
-        if ("NEGATIVE".equals(def[1]) && c.getReliabilityScore() < 40 && !notificationService.existsToday("RELIABILITY_LOW", c.getId())) {
-            notificationService.emitRaw("RELIABILITY_LOW", "WARN", c.getFullName() + " reliability below 40 after missed calls.", "CLIENT", c.getId(), "ROLE_MANAGER");
         }
         String warning = null;
         LocalDateTime window = now.minusDays(3);
         for (LandProject p : ps) for (Client co : p.getProprietors()) {
             if (co.getId().equals(c.getId())) continue;
-            for (RecoveryNote other : noteRepo.findByClientOrderByCreatedAtDesc(co)) {
+            for (RecoveryNote other : notesOf(nm, co.getId())) {
                 if (other.isCountsAsAttempt() && other.getCreatedAt().isAfter(window)) { warning = co.getFullName() + " was already contacted about this plot on " + other.getCreatedAt().toLocalDate() + "."; break; }
             }
             if (warning != null) break;

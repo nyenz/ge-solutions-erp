@@ -1,8 +1,9 @@
-# fix.py -- fix82: recovery type scale, invisible sticky filter bar, payment dot legend
+# fix.py -- fix83: recovery perf + clean cards + standard search + ledger fonts + transparent filter bar
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 FE = ROOT / "erp-frontend" / "src"
 
 def read(p): return p.read_text(encoding="utf-8", errors="replace")
@@ -14,51 +15,367 @@ def patch(p, old, new, label):
     if old in s: write(p, s.replace(old, new, 1)); print("OK", label)
     else: print("MISSING", label)
 
-cssp = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
+# ---------- 1. Backend: single-pass data loading (speed) ----------
+write(BE / "modules" / "client" / "controller" / "RecoveryNoteController.java",
+"""package com.gesolutions.erp.modules.client.controller;
+import com.gesolutions.erp.modules.auth.model.User;
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
+import com.gesolutions.erp.modules.client.model.Client;
+import com.gesolutions.erp.modules.client.model.RecoveryNote;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
+import com.gesolutions.erp.modules.land.model.FollowUpLog;
+import com.gesolutions.erp.modules.land.model.LandProject;
+import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
+import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
+import com.gesolutions.erp.common.audit.AuditService;
+import com.gesolutions.erp.modules.notification.service.NotificationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+@RestController
+@RequestMapping("/api/v1/recovery")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
+public class RecoveryNoteController {
+    private final ClientRepository clientRepo;
+    private final RecoveryNoteRepository noteRepo;
+    private final UserRepository userRepo;
+    private final LandProjectRepository projectRepo;
+    private final FollowUpRepository followUpRepo;
+    private final AuditService auditService;
+    private final NotificationService notificationService;
+    private static final String[][] TAGS = {
+        {"answered call",   "POSITIVE", "true"},
+        {"not picking up",  "NEGATIVE", "true"},
+        {"not going through","NEGATIVE", "true"},
+        {"wrong number",    "NEGATIVE", "true"}
+    };
+    private static String[] tagDef(String tag) { for (String[] t : TAGS) if (t[0].equals(tag)) return t; return null; }
+
+    // ---- one-pass caches per request (fix83 speed) ----
+    private Map<UUID, List<RecoveryNote>> noteMap() {
+        Map<UUID, List<RecoveryNote>> m = new HashMap<>();
+        for (RecoveryNote n : noteRepo.findAll()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);
+        for (List<RecoveryNote> l : m.values()) l.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        return m;
+    }
+    private Map<UUID, List<LandProject>> projMap() {
+        Map<UUID, List<LandProject>> m = new HashMap<>();
+        for (LandProject p : projectRepo.findAll()) if (p.getProprietors() != null) for (Client o : p.getProprietors()) m.computeIfAbsent(o.getId(), k -> new ArrayList<>()).add(p);
+        return m;
+    }
+    private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
+    private List<LandProject> projectsOf(Map<UUID, List<LandProject>> pm, UUID id) { return pm.getOrDefault(id, List.of()); }
+
+    private String entryTypeOf(List<LandProject> ps) {
+        for (LandProject p : ps) { if (p.isLegacy()) return "Legacy Title"; if (p.getLandTitle() != null) return "New Title"; }
+        return ps.isEmpty() ? null : "New Folder";
+    }
+    private boolean qualifies(List<LandProject> ps) {
+        if (ps.isEmpty()) return false;
+        for (LandProject p : ps) {
+            if (p.isLegacy()) return true;
+            if (Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue()) > 0) return true;
+            if (p.getStages() != null) { for (Object s : p.getStages()) { if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) { if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true; } } }
+            return true;
+        }
+        return false;
+    }
+    private String payBadge(List<LandProject> ps) {
+        LocalDateTime newest = null;
+        for (LandProject p : ps) if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
+        if (newest == null) return "RED";
+        long d = ChronoUnit.DAYS.between(newest, LocalDateTime.now());
+        return d <= 14 ? "GREEN" : d <= 30 ? "YELLOW" : "RED";
+    }
+    private LocalDateTime lastPayment(List<LandProject> ps) {
+        LocalDateTime newest = null;
+        for (LandProject p : ps) if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
+        return newest;
+    }
+    private int succ30(List<RecoveryNote> ns, LocalDateTime now) { int n = 0; for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
+    private long miss30(List<RecoveryNote> ns, LocalDateTime now) { long n = 0; for (RecoveryNote x : ns) if ("NEGATIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
+    private LocalDate lockedUntil(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
+        LocalDate unlock = null;
+        LocalDateTime pay = lastPayment(ps);
+        if (pay != null && pay.plusDays(30).isAfter(now)) unlock = pay.plusDays(30).toLocalDate();
+        int count = 0; LocalDateTime second = null;
+        for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) { count++; if (count == 2) second = x.getCreatedAt(); }
+        if (second != null) { LocalDate u2 = second.plusDays(30).toLocalDate(); if (unlock == null || u2.isAfter(unlock)) unlock = u2; }
+        return unlock;
+    }
+    private boolean siteVisit(List<RecoveryNote> ns, LocalDateTime now) { return miss30(ns, now) >= 2 && succ30(ns, now) == 0; }
+    private String state(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
+        if (lockedUntil(c, now, ps, ns) != null) return "LOCKED";
+        if (siteVisit(ns, now)) return "SITE";
+        if (ns.isEmpty()) return "NEW";
+        if ("POSITIVE".equals(ns.get(0).getTone())) return "CONTACTED";
+        if ("NEGATIVE".equals(ns.get(0).getTone())) return "MISSED";
+        return "NEW";
+    }
+    private long dayMiss(List<RecoveryNote> ns, LocalDateTime now) {
+        LocalDateTime oldest = null;
+        for (RecoveryNote n : ns) if ("NEGATIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) oldest = n.getCreatedAt();
+        if (oldest == null) return 0;
+        return Math.min(30, ChronoUnit.DAYS.between(oldest, now));
+    }
+    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        String st = state(c, now, ps, ns);
+        LocalDate unlock = lockedUntil(c, now, ps, ns);
+        LocalDateTime pay = lastPayment(ps);
+        long days = c.getLastContactedAt() == null ? -1 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
+        m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId()); m.put("phone", c.getPhoneNumber());
+        List<String> idx = new ArrayList<>(); List<String> pids = new ArrayList<>(); List<String> co = new ArrayList<>();
+        for (LandProject p : ps) {
+            if (p.getProjectIndex() != null) idx.add(p.getProjectIndex());
+            pids.add(p.getId().toString());
+            if (p.getProprietors() != null) for (Client o : p.getProprietors()) if (!o.getId().equals(c.getId()) && !co.contains(o.getFullName())) co.add(o.getFullName());
+        }
+        m.put("indexes", idx); m.put("projectIds", pids); m.put("coNames", co);
+        m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
+        m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
+        m.put("lastContactedAt", c.getLastContactedAt());
+        m.put("payBadge", payBadge(ps));
+        m.put("state", st); m.put("unlock", unlock == null ? null : unlock.toString());
+        m.put("dayMiss", (st.equals("MISSED") || st.equals("SITE")) ? dayMiss(ns, now) : 0);
+        m.put("calls30", succ30(ns, now)); m.put("miss30", miss30(ns, now));
+        if (!ns.isEmpty()) { m.put("lastTag", ns.get(0).getTag()); m.put("lastTone", ns.get(0).getTone()); }
+        String reason;
+        if (st.equals("LOCKED")) reason = (pay != null && pay.plusDays(30).isAfter(now)) ? "paid " + pay.toLocalDate() + " - rest until " + unlock : "2 good calls - rest until " + unlock;
+        else if (st.equals("SITE")) reason = "missed twice - plan a visit";
+        else if (st.equals("MISSED")) reason = "missed " + days + " days ago";
+        else if (st.equals("CONTACTED")) reason = "spoke " + days + " days ago";
+        else reason = days < 0 ? "never called" : "waiting " + days + " days";
+        m.put("reason", reason);
+        return m;
+    }
+    @GetMapping("/tags")
+    public List<Map<String, Object>> tags() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String[] t : TAGS) { Map<String, Object> m = new LinkedHashMap<>(); m.put("tag", t[0]); m.put("tone", t[1]); m.put("countsAsAttempt", Boolean.parseBoolean(t[2])); out.add(m); }
+        return out;
+    }
+    @GetMapping("/queues")
+    public Map<String, Object> queueCounts() {
+        LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        long all = 0, con = 0, mis = 0, site = 0, lock = 0;
+        for (Client c : clientRepo.findAll()) {
+            List<LandProject> ps = projectsOf(pm, c.getId());
+            if (!qualifies(ps)) continue;
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            String st = state(c, now, ps, ns);
+            if (st.equals("LOCKED")) lock++;
+            else if (st.equals("SITE")) site++;
+            else { all++; if (st.equals("CONTACTED")) con++; if (st.equals("MISSED")) mis++; }
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ALL", all); m.put("CONTACTED", con); m.put("MISSED", mis); m.put("SITE", site); m.put("LOCKED", lock);
+        return m;
+    }
+    @GetMapping("/queue")
+    public List<Map<String, Object>> queue(@RequestParam(defaultValue = "ALL") String queue) {
+        LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Client c : clientRepo.findAll()) {
+            List<LandProject> ps = projectsOf(pm, c.getId());
+            if (!qualifies(ps)) continue;
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            String st = state(c, now, ps, ns);
+            boolean inAll = st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED");
+            if (queue.equals("ALL") ? !inAll : !st.equals(queue)) continue;
+            out.add(clientDto(c, now, ps, ns));
+        }
+        out.sort((x, y) -> {
+            LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");
+            LocalDateTime b = (LocalDateTime) y.get("lastContactedAt");
+            if (a == null && b == null) return 0;
+            if (a == null) return -1;
+            if (b == null) return 1;
+            return a.compareTo(b);
+        });
+        int total = out.size(), pos = 1;
+        for (Map<String, Object> d : out) { d.put("position", pos++); d.put("queueTotal", total); }
+        return out;
+    }
+    @GetMapping("/stats")
+    public Map<String, Object> stats() {
+        LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        long callsToday = 0, succMonth = 0, missMonth = 0, longest = 0; String longestName = "-";
+        for (Client c : clientRepo.findAll()) {
+            List<RecoveryNote> ns = notesOf(nm, c.getId());
+            for (RecoveryNote n : ns) {
+                if (!n.getCreatedAt().isAfter(now.minusDays(30))) break;
+                if (n.getCreatedAt().toLocalDate().equals(now.toLocalDate()) && "POSITIVE".equals(n.getTone())) callsToday++;
+                if ("POSITIVE".equals(n.getTone())) succMonth++;
+                if ("NEGATIVE".equals(n.getTone())) missMonth++;
+            }
+            List<LandProject> ps = projectsOf(pm, c.getId());
+            if (!qualifies(ps)) continue;
+            String st = state(c, now, ps, ns);
+            if (st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED")) {
+                long d = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
+                if (d > longest) { longest = d; longestName = c.getFullName(); }
+            }
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("dueNow", queueCounts().get("ALL"));
+        m.put("callsToday", callsToday); m.put("callsMonth", succMonth);
+        m.put("missMonth", missMonth); m.put("longestWait", longest == 999 ? "NEW" : longest + "d");
+        m.put("longestName", longestName);
+        return m;
+    }
+    @GetMapping("/locked")
+    public List<Map<String, Object>> lockedList() { return queue("LOCKED"); }
+    @GetMapping("/clients/{id}/notes")
+    public List<Map<String, Object>> notes(@PathVariable UUID id) {
+        return clientRepo.findById(id).map(c -> {
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", n.getId()); m.put("tag", n.getTag()); m.put("tone", n.getTone());
+                m.put("text", n.getText()); m.put("countsAsAttempt", n.isCountsAsAttempt());
+                m.put("createdAt", n.getCreatedAt()); m.put("source", "RECOVERY");
+                m.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
+                out.add(m);
+            }
+            for (LandProject p : projMap().getOrDefault(c.getId(), List.of())) for (FollowUpLog log : followUpRepo.findByProjectIdOrderByTimestampDesc(p.getId())) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", log.getId()); m.put("tag", "FOLDER NOTE"); m.put("tone", "INFO");
+                m.put("text", log.getNotes()); m.put("countsAsAttempt", false);
+                m.put("createdAt", log.getTimestamp()); m.put("source", "FOLDER"); m.put("author", log.getRecordedBy());
+                out.add(m);
+            }
+            out.sort((a, b) -> ((LocalDateTime) b.get("createdAt")).compareTo((LocalDateTime) a.get("createdAt")));
+            return out;
+        }).orElse(List.of());
+    }
+    @PostMapping("/notes")
+    public ResponseEntity<?> log(@RequestBody Map<String, String> body, Authentication auth) {
+        String[] def = tagDef(body.get("tag"));
+        if (def == null) return ResponseEntity.badRequest().body(Map.of("error", "Unknown tag"));
+        Client c = clientRepo.findById(UUID.fromString(body.get("clientId"))).orElseThrow(() -> new RuntimeException("Client not found"));
+        LocalDateTime now = LocalDateTime.now();
+        Map<UUID, List<RecoveryNote>> nm = noteMap();
+        Map<UUID, List<LandProject>> pm = projMap();
+        List<LandProject> ps = projectsOf(pm, c.getId());
+        List<RecoveryNote> ns = notesOf(nm, c.getId());
+        LocalDate unlock = lockedUntil(c, now, ps, ns);
+        if (unlock != null) return ResponseEntity.status(409).body(Map.of("error", "Resting until " + unlock));
+        boolean wasSite = siteVisit(ns, now);
+        User author = userRepo.findByUsername(auth.getName()).orElse(null);
+        RecoveryNote n = RecoveryNote.builder().client(c).author(author).tag(def[0]).tone(def[1]).countsAsAttempt(true)
+            .text(body.get("text") == null || body.get("text").isBlank() ? null : body.get("text").trim()).build();
+        noteRepo.save(n);
+        c.setLastContactedAt(now);
+        double delta = "POSITIVE".equals(def[1]) ? 1.5 : -2;
+        double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
+        c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
+        clientRepo.save(c);
+        auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
+        List<RecoveryNote> fresh = notesOf(noteMap(), c.getId());
+        if ("POSITIVE".equals(def[1]) && succ30(fresh, now) == 2) {
+            LocalDate u = lockedUntil(c, now, ps, fresh);
+            notificationService.emitRaw("LOCKED", "INFO", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId(), author == null ? "ROLE_MANAGER" : author.getRole().name());
+        }
+        if (!wasSite && siteVisit(fresh, now)) {
+            notificationService.emitRaw("SITE_VISIT_AUTO", "WARN", c.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
+        }
+        String warning = null;
+        LocalDateTime window = now.minusDays(3);
+        for (LandProject p : ps) for (Client co : p.getProprietors()) {
+            if (co.getId().equals(c.getId())) continue;
+            for (RecoveryNote other : notesOf(nm, co.getId())) {
+                if (other.isCountsAsAttempt() && other.getCreatedAt().isAfter(window)) { warning = co.getFullName() + " was already contacted about this plot on " + other.getCreatedAt().toLocalDate() + "."; break; }
+            }
+            if (warning != null) break;
+        }
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("ok", true); resp.put("id", n.getId());
+        if (warning != null) resp.put("coOwnerWarning", warning);
+        return ResponseEntity.ok(resp);
+    }
+    @DeleteMapping("/notes/{id}")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
+        RecoveryNote n = noteRepo.findById(id).orElse(null);
+        if (n == null) return ResponseEntity.ok(Map.of("ok", true));
+        Client c = n.getClient();
+        noteRepo.delete(n);
+        if (c != null) {
+            LocalDateTime newest = null;
+            for (RecoveryNote r : noteRepo.findByClientOrderByCreatedAtDesc(c)) if (r.isCountsAsAttempt()) { newest = r.getCreatedAt(); break; }
+            c.setLastContactedAt(newest);
+            clientRepo.save(c);
+        }
+        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag());
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+}
+""")
+
+# ---------- 2. Frontend JSX: remove redundant badges + no full-page spinner ----------
 jsxp = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
+patch(jsxp, """                  <div className={styles.rowBody}>
+                    <Badge type={c.entryType} />
+                    <span className={styles.nin}>{c.nin}</span>""",
+"""                  <div className={styles.rowBody}>
+                    <span className={styles.nin}>{c.nin}</span>""", "remove card badge")
+patch(jsxp, """          <div className={styles.metaRow}><Badge type={sel.entryType} /><span className={styles.nin}>{sel.nin}</span><span className={styles.mono}>{sel.phone}</span></div>""",
+"""          <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span className={styles.mono}>{sel.phone}</span></div>""", "remove modal badge")
+patch(jsxp, "  const load = useCallback(() => {\n    setLoading(true);",
+"  const load = useCallback(() => {\n    setLoading(rows.length === 0);", "no spinner on refresh")
+patch(jsxp, """      {loading ? (
+        <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
+      ) : (
+        <div className={styles.list}>""",
+"""      {loading && rows.length === 0 ? (
+        <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
+      ) : (
+        <div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>""", "list stays visible while refreshing")
 
-# 1. Filter bar: page-colour bg (looks invisible), stick at very top, full-bleed so cards hide behind it
-patch(cssp,
-".stickyTabs { position: sticky; top: 64px; z-index: 40; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 8px 0; background: var(--bg, #f4efe8); }",
-".stickyTabs { position: sticky; top: 0; z-index: 200; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 10px clamp(12px, 2vw, 24px); background: #f4efe8; margin-left: clamp(-12px, -2vw, -24px); margin-right: clamp(-12px, -2vw, -24px); border-bottom: 1px solid rgba(26, 46, 48, 0.08); }",
-"sticky bar invisible + top + full-bleed")
-
-# 2. Unified type scale + dot legend styles
+# ---------- 3. CSS: standard search, transparent filter bar, boxed scrolling list, Ledger fonts ----------
+cssp = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
 s = read(cssp)
-if ".dotLegend" not in s:
+if "fix83" not in s:
     s += """
-.dotLegend { display: flex; gap: clamp(10px, 1.4vw, 16px); flex-wrap: wrap; align-items: center; padding: 8px 2px 2px; }
-.dotLegend span { display: inline-flex; align-items: center; gap: 6px; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.9vw, 10px); font-weight: 700; color: rgba(26, 46, 48, 0.55); text-transform: uppercase; letter-spacing: 0.6px; }
-.dotLegend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-/* fix82: unified type scale - 3 text sizes + HUD display number only */
-.cname { font-size: clamp(13px, 1.6vw, 16px); }
-.nin, .mono, .loc, .coLine, .attemptLine, .histText, .lockBanner, .projLink { font-size: clamp(10px, 1.1vw, 12px); }
-.callPos, .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .wallLabel, .histMeta, .qTab, .countCard label { font-size: clamp(8px, 0.9vw, 10px); }
-.countCard strong { font-size: clamp(15px, 1.8vw, 21px); }
+/* fix83: standard search width, transparent sticky bar, boxed scrolling list, Ledger type scale */
+.controls .searchInner, .searchInner { width: min(100%, clamp(220px, 38vw, 420px)); max-width: none; }
+.stickyTabs { background: transparent; border-bottom: none; }
+.list { max-height: calc(100vh - 240px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.5) transparent; padding-right: 4px; }
+.list::-webkit-scrollbar { width: 4px; }
+.list::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.5); border-radius: 4px; }
+.refreshing { opacity: 0.55; }
+.dotLegend span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(26,46,48,0.65); }
+.qTab { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
+.countCard label { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px); letter-spacing: 1px; }
+.countCard strong { font-family: 'Space Mono', monospace; font-size: clamp(15px, 1.8vw, 21px); }
+.cname { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: 0.3px; }
+.nin, .mono, .callPos { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); }
+.reason, .dayChip, .chipPos, .chipNeg, .chipNone, .coLine, .loc, .attemptLine, .lockBanner, .histMeta, .histText, .projLink { font-family: 'DM Sans', sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
+.reason { text-transform: uppercase; letter-spacing: 0.6px; font-size: clamp(9px, 0.95vw, 11px); }
 """
     write(cssp, s)
-    print("OK type scale + legend css")
+    print("OK fix83 css")
 else:
-    print("SKIP legend css already present")
-
-# 3. Payment dot legend row (not sticky, scrolls away)
-patch(jsxp,
-"""        ))}
-      </div>
-      {loading ? (""",
-"""        ))}
-      </div>
-      <div className={styles.dotLegend} aria-label="Payment dot legend">
-        <span><i style={{ background: '#22c55e' }} /> paid in last 14 days</span>
-        <span><i style={{ background: '#f59e0b' }} /> paid 15-30 days ago</span>
-        <span><i style={{ background: '#ef4444' }} /> over 30 days or never</span>
-      </div>
-      {loading ? (""",
-"dot legend row under filters")
+    print("SKIP fix83 css already present")
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix82: recovery type scale, invisible sticky filter bar, payment dot legend"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix83: recovery perf single-pass loading, clean cards, standard search, ledger fonts, transparent filter bar"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

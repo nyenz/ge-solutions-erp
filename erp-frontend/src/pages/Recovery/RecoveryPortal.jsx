@@ -38,7 +38,7 @@ export default function RecoveryPortal() {
   const [toasts, setToasts] = useState([]);
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
   const load = useCallback(() => {
-    setLoading(true);
+    setLoading(rows.length === 0);
     Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
       .then((r) => {
         setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
@@ -92,10 +92,10 @@ export default function RecoveryPortal() {
         <span><i style={{ background: '#f59e0b' }} /> paid 15-30 days ago</span>
         <span><i style={{ background: '#ef4444' }} /> over 30 days or never</span>
       </div>
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
       ) : (
-        <div className={styles.list}>
+        <div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>
           {rowsF.map((c) => {
             const isOpen = openId === c.id;
             return (
@@ -111,7 +111,6 @@ export default function RecoveryPortal() {
                 </button>
                 {isOpen && (
                   <div className={styles.rowBody}>
-                    <Badge type={c.entryType} />
                     <span className={styles.nin}>{c.nin}</span>
                     <span className={styles.mono}>{c.phone}</span>
                     <div className={styles.projLine}>
@@ -135,7 +134,7 @@ export default function RecoveryPortal() {
       )}
       <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'}>
         {sel && (<>
-          <div className={styles.metaRow}><Badge type={sel.entryType} /><span className={styles.nin}>{sel.nin}</span><span className={styles.mono}>{sel.phone}</span></div>
+          <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span className={styles.mono}>{sel.phone}</span></div>
           {sel.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
           <div className={styles.tagwall}>
             <label className={styles.wallLabel}>CALL (WE SPOKE)</label>

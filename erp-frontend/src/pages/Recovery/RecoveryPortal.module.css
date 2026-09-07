@@ -200,3 +200,19 @@
 .nin, .mono, .loc, .coLine, .attemptLine, .histText, .lockBanner, .projLink { font-size: clamp(10px, 1.1vw, 12px); }
 .callPos, .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .wallLabel, .histMeta, .qTab, .countCard label { font-size: clamp(8px, 0.9vw, 10px); }
 .countCard strong { font-size: clamp(15px, 1.8vw, 21px); }
+
+/* fix83: standard search width, transparent sticky bar, boxed scrolling list, Ledger type scale */
+.controls .searchInner, .searchInner { width: min(100%, clamp(220px, 38vw, 420px)); max-width: none; }
+.stickyTabs { background: transparent; border-bottom: none; }
+.list { max-height: calc(100vh - 240px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.5) transparent; padding-right: 4px; }
+.list::-webkit-scrollbar { width: 4px; }
+.list::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.5); border-radius: 4px; }
+.refreshing { opacity: 0.55; }
+.dotLegend span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(26,46,48,0.65); }
+.qTab { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
+.countCard label { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px); letter-spacing: 1px; }
+.countCard strong { font-family: 'Space Mono', monospace; font-size: clamp(15px, 1.8vw, 21px); }
+.cname { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: 0.3px; }
+.nin, .mono, .callPos { font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); }
+.reason, .dayChip, .chipPos, .chipNeg, .chipNone, .coLine, .loc, .attemptLine, .lockBanner, .histMeta, .histText, .projLink { font-family: 'DM Sans', sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 700; }
+.reason { text-transform: uppercase; letter-spacing: 0.6px; font-size: clamp(9px, 0.95vw, 11px); }
