@@ -111,12 +111,25 @@ public class RecoveryNoteController {
         long days = c.getLastContactedAt() == null ? -1 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
         m.put("id", c.getId()); m.put("name", c.getFullName()); m.put("nin", c.getNationalId()); m.put("phone", c.getPhoneNumber());
         List<String> idx = new ArrayList<>(); List<String> pids = new ArrayList<>(); List<String> co = new ArrayList<>();
+        List<Map<String, Object>> cos = new ArrayList<>();
+        List<UUID> seen = new ArrayList<>();
         for (LandProject p : ps) {
             if (p.getProjectIndex() != null) idx.add(p.getProjectIndex());
             pids.add(p.getId().toString());
-            if (p.getProprietors() != null) for (Client o : p.getProprietors()) if (!o.getId().equals(c.getId()) && !co.contains(o.getFullName())) co.add(o.getFullName());
+            if (p.getProprietors() != null) for (Client o : p.getProprietors()) {
+                if (o.getId().equals(c.getId()) || seen.contains(o.getId())) continue;
+                seen.add(o.getId());
+                co.add(o.getFullName());
+                List<LandProject> ops = projectsOf(pm, o.getId());
+                List<RecoveryNote> ons = notesOf(nm, o.getId());
+                Map<String, Object> cm = new LinkedHashMap<>();
+                cm.put("id", o.getId()); cm.put("name", o.getFullName()); cm.put("projects", ops.size());
+                cm.put("state", state(o, now, ops, ons));
+                cos.add(cm);
+            }
         }
         m.put("indexes", idx); m.put("projectIds", pids); m.put("coNames", co);
+        m.put("coOwners", cos); m.put("projectCount", ps.size());
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
         m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
         m.put("lastContactedAt", c.getLastContactedAt());

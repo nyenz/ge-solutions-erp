@@ -43,13 +43,28 @@ export default function RecoveryPortal() {
         setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
         const list = r[1].data || r[1];
         setRows(list);
-        setOpenId(list.length ? list[0].id : null);
+        if (pendingOpen.current) {
+          const hit = list.find((x) => x.id === pendingOpen.current);
+          pendingOpen.current = null;
+          if (hit) {
+            setOpenId(hit.id);
+            setTimeout(() => { const el = document.getElementById('rc-' + hit.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
+          } else setOpenId(list.length ? list[0].id : null);
+        } else {
+          setOpenId(list.length ? list[0].id : null);
+        }
         loadedOnce.current = true;
         setLoading(false);
       }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });
   }, [tab, toast]);
   useEffect(() => { load(); }, [load]);
   const open = (c) => { setSel(c); setPicked(null); setText(''); recoveryService.getNotes(c.id).then((r) => setNotes(r.data || [])); };
+  const pendingOpen = useRef(null);
+  const jump = (co) => {
+    const target = co.state === 'LOCKED' ? 'LOCKED' : co.state === 'SITE' ? 'SITE' : 'ALL';
+    pendingOpen.current = co.id;
+    if (target !== tab) setTab(target); else load();
+  };
   const save = () => {
     if (!picked || !sel) return;
     setBusy(true);
@@ -88,11 +103,11 @@ export default function RecoveryPortal() {
           ))}
         </div>
       </div>
+      </div>
       <div className={styles.dotLegend} aria-label="Payment dot legend">
         <span><i className={styles.payDotGreen} /> Recent payment</span>
         <span><i className={styles.payDotYellow} /> Payment 2-4 weeks ago</span>
         <span><i className={styles.payDotRed} /> No recent payment</span>
-      </div>
       </div>
       {loading && rows.length === 0 ? (
         <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
@@ -101,7 +116,7 @@ export default function RecoveryPortal() {
           {rowsF.map((c) => {
             const isOpen = openId === c.id;
             return (
-              <article key={c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
+              <article key={c.id} id={'rc-' + c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
                   <span className={styles.callPos}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                   <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
@@ -113,19 +128,39 @@ export default function RecoveryPortal() {
                 </button>
                 {isOpen && (
                   <div className={styles.rowBody}>
-                    <span className={styles.nin}>{c.nin}</span>
-                    <span className={styles.mono}>{c.phone}</span>
-                    <span className={styles.projLine}>
-                      {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()}>#{c.indexes[i] || pid}</a>))}
+                    <span className={styles.secBlock}>
+                      <label className={styles.secLabel}>CONTACT</label>
+                      <span className={styles.nin}>{c.nin}</span>
+                      <span className={styles.mono}>{c.phone}</span>
+                      {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.village ? ' - ' + c.village : ''}</span>)}
                     </span>
-                    {c.coNames && c.coNames.length > 0 && (<span className={styles.coLine}><FiUser aria-hidden="true" /> Joint with: {c.coNames.join(', ')}</span>)}
-                    {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.village ? ' - ' + c.village : ''}</span>)}
-                    <span className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</span>
-                    {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
+                    <span className={styles.secBlock}>
+                      <label className={styles.secLabel}>PROJECTS ({c.projectCount || (c.projectIds || []).length})</label>
+                      <span className={styles.projLine}>
+                        {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()}>#{c.indexes[i] || pid}</a>))}
+                      </span>
+                      {(c.coOwners || []).length > 0 && (
+                        <span className={styles.coLine}>
+                          <FiUser aria-hidden="true" /> Joint with:
+                          {(c.coOwners || []).map((co) => (
+                            <button key={co.id} type="button" className={styles.coChip} onClick={(e) => { e.stopPropagation(); jump(co); }}>
+                              {co.name} ({co.projects})
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                    <span className={styles.secBlock}>
+                      <label className={styles.secLabel}>CALL STATUS</label>
+                      <span className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</span>
+                      {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
+                    </span>
                     <span className={styles.rowActions}>
                       <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> OPEN CALL LOG</button>
-                      {(c.projectIds || []).length > 0 && (<a className={styles.cardBtnLink} href={'/folder/' + c.projectIds[0]}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</a>)}
+                      {(c.projectIds || []).length > 0 && (<button type="button" className={styles.cardBtn2} onClick={() => { window.location.href = '/folder/' + c.projectIds[0]; }}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</button>)}
                     </span>
+                    <span className={styles.decorBl} aria-hidden="true" />
+                    <span className={styles.decorBr} aria-hidden="true" />
                   </div>
                 )}
               </article>

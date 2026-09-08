@@ -345,3 +345,23 @@
   .rowHead { flex-wrap: wrap; gap: 6px 8px; }
   .rowBody { grid-template-columns: 1fr; }
 }
+
+/* fix95: rail respects content margins on every screen */
+.stickyRail { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+/* fix95: Intake-referenced card themes */
+.rowCard { position: relative; border-bottom: 1.5px solid rgba(238, 140, 58, 0.25); }
+.rowOpen .rowHead { border-bottom: 1.5px solid var(--orange); }
+.rowBody { position: relative; display: flex; flex-direction: column; grid-template-columns: none; gap: 10px; padding: 10px 14px 20px; background: rgba(0, 0, 0, 0.16); }
+.secBlock { display: flex; flex-direction: column; gap: 4px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 6px; padding: 8px 10px; }
+.secLabel { font-family: 'DM Sans', sans-serif; font-size: clamp(7px, 0.8vw, 9px); font-weight: 900; letter-spacing: 2px; color: var(--orange); text-transform: uppercase; }
+.decorBl, .decorBr { position: absolute; bottom: 6px; width: 14px; height: 14px; pointer-events: none; }
+.decorBl { left: 8px; border-left: 1.5px solid rgba(238, 140, 58, 0.5); border-bottom: 1.5px solid rgba(238, 140, 58, 0.5); }
+.decorBr { right: 8px; border-right: 1.5px solid rgba(238, 140, 58, 0.5); border-bottom: 1.5px solid rgba(238, 140, 58, 0.5); }
+.cardBtn { height: clamp(30px, 3.6vw, 36px); }
+.cardBtn2 { display: inline-flex; align-items: center; gap: 6px; height: clamp(30px, 3.6vw, 36px); padding: 0 clamp(12px, 1.5vw, 17px); margin-left: auto; background: rgba(255, 255, 255, 0.06); border: 1.5px solid rgba(255, 255, 255, 0.18); color: rgba(255, 255, 255, 0.85); border-radius: 6px; font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+.cardBtn2:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.cardBtn2:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.coChip { background: rgba(6, 182, 212, 0.10); border: 1px solid rgba(6, 182, 212, 0.35); color: #67e8f9; border-radius: 999px; padding: 2px 9px; font-family: 'DM Sans', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 0.5px; cursor: pointer; transition: all 0.2s; }
+.coChip:hover { background: rgba(6, 182, 212, 0.2); color: #a5f3fc; }
+.coChip:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+@media (max-width: 640px) { .rowActions { flex-wrap: wrap; } .cardBtn2 { margin-left: 0; } }
