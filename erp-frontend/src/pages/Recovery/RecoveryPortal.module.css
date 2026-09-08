@@ -419,3 +419,16 @@
 .decorBr::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; right: -3px; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
 .secBlock { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.08); }
 .rowBody { background: transparent; }
+
+/* fix101: alignment lock + left one-line header + tones + Intake button proportions */
+.stickyRail { margin: 0 !important; padding: 0 !important; }
+.stickyTabs { margin: 0 !important; padding: 4px 0 !important; }
+.tabSearch { margin: 0; }
+.list, .rowCard { margin-left: 0; margin-right: 0; }
+.cardHeadLeft { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left; }
+.cname { text-align: left; }
+.rowHead { background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%); text-align: left; }
+.rowOpen .rowHead { background: #162a2c; }
+.rowActions { justify-content: flex-start; gap: 8px; }
+.cardBtn, .cardBtn2 { height: clamp(34px, 4vw, 40px); padding: 0 clamp(12px, 1.5vw, 18px); font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
+.cardBtn2 { margin-left: 0; }

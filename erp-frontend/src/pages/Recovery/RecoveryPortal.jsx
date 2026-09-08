@@ -117,9 +117,9 @@ export default function RecoveryPortal() {
             const isOpen = openId === c.id;
             return (
               <article key={c.id} id={'rc-' + c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
-                <span className={styles.pinsTop} aria-hidden="true"><i /><i /><i /><i /></span>
+                {isOpen && (<span className={styles.pinsTop} aria-hidden="true"><i /><i /><i /><i /></span>)}
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
-                  <span className={styles.headerLeft}>
+                  <span className={styles.cardHeadLeft}>
                     <FiPhoneCall className={styles.headIcon} aria-hidden="true" />
                     <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
                   </span>
@@ -167,9 +167,11 @@ export default function RecoveryPortal() {
                     </span>
                   </div>
                 )}
-                <span className={styles.pinsBottom} aria-hidden="true"><i /><i /><i /><i /></span>
-                <span className={styles.decorBl} aria-hidden="true" />
-                <span className={styles.decorBr} aria-hidden="true" />
+                {isOpen && (<>
+                  <span className={styles.pinsBottom} aria-hidden="true"><i /><i /><i /><i /></span>
+                  <span className={styles.decorBl} aria-hidden="true" />
+                  <span className={styles.decorBr} aria-hidden="true" />
+                </>)}
               </article>
             );
           })}
