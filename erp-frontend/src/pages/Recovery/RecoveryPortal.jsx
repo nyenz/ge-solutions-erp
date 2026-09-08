@@ -71,14 +71,12 @@ export default function RecoveryPortal() {
         <div className={styles.countCard}><label>LONGEST WAIT</label><strong>{stats ? stats.longestWait : '-'}</strong></div>
         <div className={styles.countCard}><label>MONTH'S MISS</label><strong>{stats ? stats.missMonth : '-'}</strong></div>
       </div>
-      <div className={styles.controls}>
-        <div className={styles.searchInner}>
+      <div className={styles.stickyTabs} role="tablist" aria-label="Recovery queues">
+        <div className={styles.tabSearch}>
           <FiSearch className={styles.searchIcon} aria-hidden="true" />
           <input type="search" className={styles.searchInput} placeholder="Search name, NIN, phone, index..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search recovery queue" autoComplete="off" />
           {search && (<button type="button" className={styles.searchClearBtn} onClick={() => setSearch('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>)}
         </div>
-      </div>
-      <div className={styles.stickyTabs} role="tablist" aria-label="Recovery queues">
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} className={`${styles.qTab} ${tab === t.key ? styles.qTabActive : ''}`} onClick={() => setTab(t.key)}>
             {t.label} ({counts ? counts[t.key] : '-'})
@@ -119,8 +117,8 @@ export default function RecoveryPortal() {
                     <div className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</div>
                     {c.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)}.</div>)}
                     <div className={styles.rowActions}>
-                      <HardwareButton type="button" icon={FiPhone} onClick={() => open(c)} disabled={c.state === 'LOCKED'}>OPEN CALL LOG</HardwareButton>
-                      {(c.projectIds || []).length > 0 && (<a className={styles.projLink} href={'/folder/' + c.projectIds[0]}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</a>)}
+                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> OPEN CALL LOG</button>
+                      {(c.projectIds || []).length > 0 && (<a className={styles.cardBtnLink} href={'/folder/' + c.projectIds[0]}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</a>)}
                     </div>
                   </div>
                 )}
