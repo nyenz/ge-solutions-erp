@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { FiSearch, FiX, FiPhone, FiMapPin, FiClock, FiChevronDown, FiChevronUp, FiUser, FiFolderPlus } from 'react-icons/fi';
+import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { useAuth } from '../../hooks/useAuth';
 import HardwareModal from '../../components/common/HardwareModal';
@@ -117,14 +117,20 @@ export default function RecoveryPortal() {
             const isOpen = openId === c.id;
             return (
               <article key={c.id} id={'rc-' + c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
+                <span className={styles.pinsTop} aria-hidden="true"><i /><i /><i /><i /></span>
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
-                  <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
-                  <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
-                  <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
-                  {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
-                  {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
-                  <span className={styles.reason}>{c.reason}</span>
-                  {isOpen ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}
+                  <span className={styles.headerLeft}>
+                    <FiPhoneCall className={styles.headIcon} aria-hidden="true" />
+                    <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
+                  </span>
+                  <span className={styles.headerRight}>
+                    <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
+                    <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
+                    {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
+                    {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
+                    <span className={styles.reason}>{c.reason}</span>
+                    <FiChevronDown className={`${styles.chev} ${isOpen ? styles.chevOpen : ''}`} aria-hidden="true" />
+                  </span>
                 </button>
                 {isOpen && (
                   <div className={styles.rowBody}>

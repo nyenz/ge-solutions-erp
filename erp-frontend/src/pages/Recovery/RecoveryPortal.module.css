@@ -393,3 +393,29 @@
 .qp_MISSED { color: #fca5a5; }
 .qp_SITE { color: #fcd34d; }
 .qp_LOCKED { color: #c4b5fd; }
+
+/* fix100: Intake-exact header, tones, decs, hover */
+.rowCard { background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%); border: 1px solid rgba(238, 140, 58, 0.2); border-radius: 10px; overflow: visible; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+.rowCard:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transform: none; }
+.rowHead { background: #162a2c; border-radius: 9px; padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px); border-bottom: 1.5px solid transparent; transition: border-bottom-color 0.25s ease, border-radius 0.25s ease; }
+.rowHead:hover { background: #162a2c; }
+.rowHead:hover .cname { color: #fff; }
+.rowOpen .rowHead { border-radius: 9px 9px 0 0; border-bottom-color: var(--orange); }
+.rowHead:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+.headerLeft { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: var(--orange); }
+.headIcon { color: var(--orange); filter: drop-shadow(0 0 4px rgba(238, 140, 58, 0.4)); font-size: clamp(12px, 1.4vw, 16px); flex-shrink: 0; }
+.cname { font-family: 'Cinzel', serif; font-size: clamp(10px, 1.3vw, 13px); font-weight: 700; color: var(--orange); letter-spacing: 2px; text-transform: uppercase; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.18s ease; }
+.headerRight { display: flex; align-items: center; gap: clamp(6px, 1vw, 12px); flex-shrink: 0; }
+.chev { color: rgba(255, 255, 255, 0.4); font-size: 14px; transition: transform 0.2s ease, color 0.2s ease; flex-shrink: 0; }
+.chevOpen { transform: rotate(180deg); color: var(--orange); }
+.pinsTop, .pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 20; }
+.pinsTop { top: -3px; }
+.pinsBottom { bottom: -3px; }
+.pinsTop i, .pinsBottom i { width: 4px; height: 4px; border-radius: 50%; background: var(--orange); opacity: 0.75; box-shadow: 0 0 6px rgba(238, 140, 58, 0.6); }
+.decorBl, .decorBr { position: absolute; width: 16px; height: 16px; border: 1.5px solid var(--orange); opacity: 0.6; }
+.decorBl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+.decorBl::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; left: -3px; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
+.decorBr { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+.decorBr::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; right: -3px; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
+.secBlock { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.08); }
+.rowBody { background: transparent; }
