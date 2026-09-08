@@ -226,3 +226,6 @@
 .rowBody { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 20px; align-items: center; }
 .rowActions { grid-column: 1 / -1; }
 .lockBanner { grid-column: 1 / -1; }
+
+/* fix87: attempt line reads on one full-width row */
+.attemptLine { grid-column: 1 / -1; }

@@ -205,7 +205,13 @@ public class RecoveryNoteController {
             String st = state(c, now, ps, ns);
             if (st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED")) {
                 allDue++;
-                long d = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
+                long d;
+                if (c.getLastContactedAt() != null) d = ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
+                else {
+                    java.time.LocalDate oldest = null;
+                    for (LandProject p : ps) if (p.getProjectStartDate() != null && (oldest == null || p.getProjectStartDate().isBefore(oldest))) oldest = p.getProjectStartDate();
+                    d = oldest == null ? 0 : ChronoUnit.DAYS.between(oldest, now);
+                }
                 if (d > longest) { longest = d; longestName = c.getFullName(); }
             }
         }

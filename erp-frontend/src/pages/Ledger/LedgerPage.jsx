@@ -401,7 +401,7 @@ const LedgerPage = () => {
                                                     </span>
                                                     <span className={styles.stageDots}>
                                                         {stages.map((s, si) => (
-                                                            <span key={s.id || si} className={`${styles.stageDot} ${s.done ? styles.stageDotDone : si === curStageIdx ? styles.stageDotCurrent : ''}`} />
+                                                            <span key={s.id || si} className={`${styles.stageDot} ${s.done ? (stages.every(x => x.done) ? styles.stageDotDone : styles.stageDotPart) : si === curStageIdx ? styles.stageDotCurrent : ''}`} />
                                                         ))}
                                                     </span>
                                                 </div>

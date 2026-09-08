@@ -179,3 +179,7 @@
 
 .tagProcessing{color:#EE8C3A;}
 .tagActive{color:#34d399;}
+
+/* fix87: dots show how close the folder is to finishing */
+.stageDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
+.stageDotCurrent { background: transparent; border: 1px solid var(--orange); box-shadow: none; }
