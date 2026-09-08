@@ -183,3 +183,6 @@
 /* fix87: dots show how close the folder is to finishing */
 .stageDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
 .stageDotCurrent { background: transparent; border: 1px solid var(--orange); box-shadow: none; }
+
+/* fix88: standard vertical rhythm - legend breathes before the table */
+.legendRow { margin-bottom: clamp(10px, 1.2vw, 14px); }

@@ -1,66 +1,51 @@
-# fix.py -- fix87: longest-wait real days, attempt line full width, ledger dots completion colours
+# fix.py -- fix88: unify legend style, badge standard, and vertical rhythm with Ledger reference
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-BE = ROOT / "erp-backend" / "src" / "main" / "java" / "com" / "gesolutions" / "erp"
 FE = ROOT / "erp-frontend" / "src"
 
 def read(p): return p.read_text(encoding="utf-8", errors="replace")
 def write(p, s):
     with open(p, 'w', encoding='utf-8', newline='\n') as f: f.write(s)
     print("WROTE", p.name)
-def patch(p, old, new, label):
-    s = read(p)
-    if old in s: write(p, s.replace(old, new, 1)); print("OK", label)
-    else: print("MISSING", label)
 
-# ---------- 1. Backend: longest wait = real days (project start when never called) ----------
-rc = BE / "modules" / "client" / "controller" / "RecoveryNoteController.java"
-patch(rc, """                long d = c.getLastContactedAt() == null ? 999 : ChronoUnit.DAYS.between(c.getLastContactedAt(), now);""",
-"""                long d;
-                if (c.getLastContactedAt() != null) d = ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
-                else {
-                    java.time.LocalDate oldest = null;
-                    for (LandProject p : ps) if (p.getProjectStartDate() != null && (oldest == null || p.getProjectStartDate().isBefore(oldest))) oldest = p.getProjectStartDate();
-                    d = oldest == null ? 0 : ChronoUnit.DAYS.between(oldest, now);
-                }""", "longest wait real days")
-patch(rc, """        m.put("longestWait", longest == 999 ? "NEW" : longest + "d");""",
-"""        m.put("longestWait", longest + "d");""", "longest wait label")
-
-# ---------- 2. Recovery CSS: attempt line spans full card width ----------
-cssp = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
-s = read(cssp)
-if ".attemptLine { grid-column" not in s:
+# 1. Recovery page: legend + badges + HUD labels match Ledger standard
+rc = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
+s = read(rc)
+if "fix88" not in s:
     s += """
-/* fix87: attempt line reads on one full-width row */
-.attemptLine { grid-column: 1 / -1; }
+/* fix88: dot legend matches Ledger .legendItem exactly (sentence case, plain spacing) */
+.dotLegend span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: normal; text-transform: none; color: rgba(26, 46, 48, 0.6); }
+/* fix88: outcome badges use the app-wide underline badge standard (same family/size as Ledger textBadge) */
+.chipPos, .chipNeg, .chipNone { background: none; border: none; border-bottom: 1px solid currentColor; border-radius: 0; padding: 2px 0; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; }
+.chipPos { color: #34d399; }
+.chipNeg { color: #fca5a5; }
+.chipNone { color: rgba(255, 255, 255, 0.5); }
+/* fix88: HUD tile labels match Ledger statLabel rhythm */
+.countCard label { letter-spacing: 2px; color: rgba(255, 255, 255, 0.4); }
 """
-    write(cssp, s)
-    print("OK attempt line span")
+    write(rc, s)
+    print("OK recovery legend/badge/label unification")
 else:
-    print("SKIP attempt line already spanned")
+    print("SKIP recovery css already has fix88")
 
-# ---------- 3. Ledger stage dots: completion-based colours ----------
-lj = FE / "pages" / "Ledger" / "LedgerPage.jsx"
-patch(lj, "s.done ? styles.stageDotDone : si === curStageIdx ? styles.stageDotCurrent : ''",
-"s.done ? (stages.every(x => x.done) ? styles.stageDotDone : styles.stageDotPart) : si === curStageIdx ? styles.stageDotCurrent : ''", "ledger dots completion logic")
-lcss = FE / "pages" / "Ledger" / "LedgerPage.module.css"
-c2 = read(lcss)
-if "stageDotPart" not in c2:
-    c2 += """
-/* fix87: dots show how close the folder is to finishing */
-.stageDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
-.stageDotCurrent { background: transparent; border: 1px solid var(--orange); box-shadow: none; }
+# 2. Ledger page: standard gap between legend row and table
+lc = FE / "pages" / "Ledger" / "LedgerPage.module.css"
+s2 = read(lc)
+if "fix88" not in s2:
+    s2 += """
+/* fix88: standard vertical rhythm - legend breathes before the table */
+.legendRow { margin-bottom: clamp(10px, 1.2vw, 14px); }
 """
-    write(lcss, c2)
-    print("OK ledger dot css")
+    write(lc, s2)
+    print("OK ledger rhythm")
 else:
-    print("SKIP ledger dot css already present")
+    print("SKIP ledger css already has fix88")
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix87: longest-wait real days, attempt line full width, ledger dots completion colours"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix88: unify legend style, badge standard, and vertical rhythm with Ledger reference"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

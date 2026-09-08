@@ -229,3 +229,13 @@
 
 /* fix87: attempt line reads on one full-width row */
 .attemptLine { grid-column: 1 / -1; }
+
+/* fix88: dot legend matches Ledger .legendItem exactly (sentence case, plain spacing) */
+.dotLegend span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: normal; text-transform: none; color: rgba(26, 46, 48, 0.6); }
+/* fix88: outcome badges use the app-wide underline badge standard (same family/size as Ledger textBadge) */
+.chipPos, .chipNeg, .chipNone { background: none; border: none; border-bottom: 1px solid currentColor; border-radius: 0; padding: 2px 0; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; }
+.chipPos { color: #34d399; }
+.chipNeg { color: #fca5a5; }
+.chipNone { color: rgba(255, 255, 255, 0.5); }
+/* fix88: HUD tile labels match Ledger statLabel rhythm */
+.countCard label { letter-spacing: 2px; color: rgba(255, 255, 255, 0.4); }
