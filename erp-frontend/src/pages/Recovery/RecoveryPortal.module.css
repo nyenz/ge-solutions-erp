@@ -365,3 +365,10 @@
 .coChip:hover { background: rgba(6, 182, 212, 0.2); color: #a5f3fc; }
 .coChip:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 @media (max-width: 640px) { .rowActions { flex-wrap: wrap; } .cardBtn2 { margin-left: 0; } }
+
+/* fix98: expanded card sections full-width, left-aligned (kill leftover grid centering) */
+.rowBody { display: flex !important; flex-direction: column !important; align-items: stretch !important; grid-template-columns: none !important; }
+.rowBody > * { width: 100%; box-sizing: border-box; }
+.secBlock { width: 100%; box-sizing: border-box; align-items: flex-start; }
+.secBlock > * { max-width: 100%; }
+.rowActions { width: 100%; }
