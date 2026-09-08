@@ -209,7 +209,11 @@ public class RecoveryNoteController {
                 if (c.getLastContactedAt() != null) d = ChronoUnit.DAYS.between(c.getLastContactedAt(), now);
                 else {
                     java.time.LocalDate oldest = null;
-                    for (LandProject p : ps) if (p.getProjectStartDate() != null && (oldest == null || p.getProjectStartDate().isBefore(oldest))) oldest = p.getProjectStartDate();
+                    for (LandProject p : ps) {
+                        java.time.LocalDate cand = p.getProjectStartDate();
+                        if (cand == null && p.getLandTitle() != null) cand = p.getLandTitle().getProjectStartDate() != null ? p.getLandTitle().getProjectStartDate() : p.getLandTitle().getTitleIssueDate();
+                        if (cand != null && (oldest == null || cand.isBefore(oldest))) oldest = cand;
+                    }
                     d = oldest == null ? 0 : ChronoUnit.DAYS.between(oldest, now);
                 }
                 if (d > longest) { longest = d; longestName = c.getFullName(); }

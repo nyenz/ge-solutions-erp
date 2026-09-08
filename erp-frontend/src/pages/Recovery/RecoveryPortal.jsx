@@ -99,8 +99,8 @@ export default function RecoveryPortal() {
             return (
               <article key={c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
-                  <span className={styles.callPos}>{tab} #{c.position}/{c.queueTotal}</span>
-                  <span className={styles.cname}>{c.name}</span>
+                  <span className={styles.callPos}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
+                  <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
                   <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
                   <span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag || 'no contact yet'}</span>
                   {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}

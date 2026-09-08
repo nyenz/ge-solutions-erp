@@ -239,3 +239,9 @@
 .chipNone { color: rgba(255, 255, 255, 0.5); }
 /* fix88: HUD tile labels match Ledger statLabel rhythm */
 .countCard label { letter-spacing: 2px; color: rgba(255, 255, 255, 0.4); }
+
+/* fix89: rows can never collapse to empty bars in any tab */
+.rowCard { min-height: 46px; }
+.rowHead { min-height: 46px; font-size: 12px; }
+.rowHead .cname { font-size: clamp(13px, 1.6vw, 16px); font-weight: 900; color: #ffffff; }
+.rowHead .callPos, .rowHead .chipPos, .rowHead .chipNeg, .rowHead .chipNone, .rowHead .reason, .rowHead .dayChip { font-size: clamp(8px, 0.9vw, 10px); }
