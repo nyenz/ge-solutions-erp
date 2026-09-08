@@ -319,3 +319,12 @@
 .histSection .histDelete { color: #b91c1c; }
 .histRow { border-bottom: 1px solid #eeeeee; padding: 6px 0; }
 .histRow:last-child { border-bottom: none; }
+
+/* fix93: ONE scrollbar only - page scroll moves the cards; rail pins search+tabs+legend */
+.stickyRail { position: sticky; top: 0; z-index: 200; background: transparent; margin-left: clamp(-12px, -2vw, -24px); margin-right: clamp(-12px, -2vw, -24px); padding-left: clamp(12px, 2vw, 24px); padding-right: clamp(12px, 2vw, 24px); }
+.stickyTabs { position: static; padding: 4px 0; gap: 8px; align-items: center; background: transparent; border-bottom: none; }
+.dotLegend { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; gap: 14px; }
+.dotLegend::-webkit-scrollbar { display: none; }
+.list { max-height: none !important; overflow: visible !important; margin-top: 2px; gap: 8px; }
+.list::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.countsHUD { margin-bottom: 4px; }
