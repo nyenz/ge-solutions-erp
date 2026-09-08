@@ -499,3 +499,21 @@
   letter-spacing: 1.5px;
   border-radius: 6px;
 }
+
+/* fix106: Intake ADD OWNER button proportions, thick mono phone + co-owner, phone hover */
+.cardBtn, .cardBtn2 {
+  height: clamp(30px, 3.6vw, 36px);
+  padding: 0 clamp(9px, 1.2vw, 13px);
+  font-size: clamp(8px, 0.85vw, 10px);
+  letter-spacing: 1.5px;
+  border-radius: 6px;
+  gap: 6px;
+}
+.monoRow { display: flex; align-items: center; gap: 6px; }
+.monoRow svg { color: rgba(255, 255, 255, 0.5); font-size: 12px; flex-shrink: 0; }
+.mono {
+  font-family: 'Space Mono', monospace; font-weight: 900; letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.85); transition: color 0.18s ease; cursor: default;
+}
+.mono:hover { color: #ffffff; }
+.coChip { font-family: 'Space Mono', monospace; font-weight: 900; letter-spacing: 1px; }

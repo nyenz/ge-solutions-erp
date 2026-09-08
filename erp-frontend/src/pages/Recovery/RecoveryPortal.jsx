@@ -136,8 +136,8 @@ export default function RecoveryPortal() {
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>CONTACT</label>
                       <span className={styles.nin}>{c.nin}</span>
-                      <span className={styles.mono}>{c.phone}</span>
-                      {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.village ? ' - ' + c.village : ''}</span>)}
+                      <span className={styles.monoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.mono}>{c.phone}</span></span>
+                      {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.subCounty ? ' - ' + c.subCounty : ''}{c.village ? ' - ' + c.village : ''}</span>)}
                     </span>
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>PROJECTS ({c.projectCount || (c.projectIds || []).length})</label>
@@ -161,7 +161,7 @@ export default function RecoveryPortal() {
                       {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
                     </span>
                     <span className={styles.rowActions}>
-                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> OPEN CALL LOG</button>
+                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> CALL LOG</button>
                       {(c.projectIds || []).length > 0 && (<button type="button" className={styles.cardBtn2} onClick={() => { window.location.href = '/folder/' + c.projectIds[0]; }}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</button>)}
                     </span>
                   </div>

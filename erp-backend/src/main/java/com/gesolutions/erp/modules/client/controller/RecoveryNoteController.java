@@ -131,6 +131,7 @@ public class RecoveryNoteController {
         m.put("indexes", idx); m.put("projectIds", pids); m.put("coNames", co);
         m.put("coOwners", cos); m.put("projectCount", ps.size());
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
+        m.put("subCounty", ps.isEmpty() ? null : ps.get(0).getSubCounty());
         m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
         m.put("lastContactedAt", c.getLastContactedAt());
         m.put("payBadge", payBadge(ps));
