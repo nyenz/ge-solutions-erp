@@ -118,7 +118,7 @@ export default function RecoveryPortal() {
             return (
               <article key={c.id} id={'rc-' + c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
-                  <span className={styles.callPos}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
+                  <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                   <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
                   <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
                   {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
@@ -159,10 +159,11 @@ export default function RecoveryPortal() {
                       <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> OPEN CALL LOG</button>
                       {(c.projectIds || []).length > 0 && (<button type="button" className={styles.cardBtn2} onClick={() => { window.location.href = '/folder/' + c.projectIds[0]; }}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</button>)}
                     </span>
-                    <span className={styles.decorBl} aria-hidden="true" />
-                    <span className={styles.decorBr} aria-hidden="true" />
                   </div>
                 )}
+                <span className={styles.pinsBottom} aria-hidden="true"><i /><i /><i /><i /></span>
+                <span className={styles.decorBl} aria-hidden="true" />
+                <span className={styles.decorBr} aria-hidden="true" />
               </article>
             );
           })}

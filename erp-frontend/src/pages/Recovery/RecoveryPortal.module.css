@@ -372,3 +372,24 @@
 .secBlock { width: 100%; box-sizing: border-box; align-items: flex-start; }
 .secBlock > * { max-width: 100%; }
 .rowActions { width: 100%; }
+
+/* fix99: Intake-matched tones, hover, pins+corner deco, plain colored position badges, aligned rail */
+.stickyRail, .countsHUD, .list { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; width: 100%; }
+.rowCard { background: linear-gradient(160deg, #1c3335 0%, #213E40 100%); transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+.rowCard:hover { border-color: rgba(238, 140, 58, 0.5); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
+.rowHead { background: rgba(0, 0, 0, 0.22); }
+.rowHead:hover { background: rgba(0, 0, 0, 0.3); }
+.rowOpen .rowHead { background: rgba(0, 0, 0, 0.28); border-bottom: 1.5px solid var(--orange); }
+.rowBody { background: transparent; }
+.secBlock { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+.pinsBottom { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; }
+.pinsBottom i { width: 4px; height: 4px; border-radius: 50%; background: var(--orange); opacity: 0.7; box-shadow: 0 0 4px rgba(238, 140, 58, 0.6); }
+.decorBl, .decorBr { position: absolute; bottom: 6px; width: 14px; height: 14px; pointer-events: none; opacity: 0.6; }
+.decorBl { left: 8px; border-left: 1.5px solid var(--orange); border-bottom: 1.5px solid var(--orange); border-right: none; border-top: none; }
+.decorBr { right: 8px; border-right: 1.5px solid var(--orange); border-bottom: 1.5px solid var(--orange); border-left: none; border-top: none; }
+.callPos { background: none !important; border: none !important; padding: 0 !important; border-radius: 0; font-family: 'Space Mono', monospace; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1px; text-transform: uppercase; }
+.qp_ALL { color: #67e8f9; }
+.qp_CONTACTED { color: #34d399; }
+.qp_MISSED { color: #fca5a5; }
+.qp_SITE { color: #fcd34d; }
+.qp_LOCKED { color: #c4b5fd; }
