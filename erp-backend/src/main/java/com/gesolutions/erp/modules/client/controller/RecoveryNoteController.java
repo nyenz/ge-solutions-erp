@@ -103,7 +103,7 @@ public class RecoveryNoteController {
         if (oldest == null) return 0;
         return Math.min(30, ChronoUnit.DAYS.between(oldest, now));
     }
-    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
+    private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns, Map<UUID, List<LandProject>> pm, Map<UUID, List<RecoveryNote>> nm) {
         Map<String, Object> m = new LinkedHashMap<>();
         String st = state(c, now, ps, ns);
         LocalDate unlock = lockedUntil(c, now, ps, ns);
@@ -185,7 +185,7 @@ public class RecoveryNoteController {
             String st = state(c, now, ps, ns);
             boolean inAll = st.equals("NEW") || st.equals("CONTACTED") || st.equals("MISSED");
             if (queue.equals("ALL") ? !inAll : !st.equals(queue)) continue;
-            out.add(clientDto(c, now, ps, ns));
+            out.add(clientDto(c, now, ps, ns, pm, nm));
         }
         out.sort((x, y) -> {
             LocalDateTime a = (LocalDateTime) x.get("lastContactedAt");

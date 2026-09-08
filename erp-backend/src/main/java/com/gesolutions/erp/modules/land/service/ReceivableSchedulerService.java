@@ -23,9 +23,7 @@ public class ReceivableSchedulerService {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
-    private final com.gesolutions.erp.modules.client.repository.ClientRepository clientRepo;
-    private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
-            
+                    
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
     // Runs every day at midnight
