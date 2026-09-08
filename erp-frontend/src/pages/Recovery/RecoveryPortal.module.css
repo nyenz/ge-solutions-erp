@@ -268,3 +268,35 @@
 .cardBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .cardBtnLink { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 6px; background: none; border: none; color: var(--orange); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; text-decoration: underline; cursor: pointer; }
 .cardBtnLink:hover { color: #f0a050; }
+
+/* fix91: final Ledger/Intake lock-in */
+.countsHUD { margin-bottom: 8px; }
+.stickyTabs { padding: 6px clamp(12px, 2vw, 24px); gap: 8px; align-items: center; }
+.tabSearch { position: relative; width: clamp(200px, 30vw, 380px); flex-shrink: 0; margin-right: 6px; }
+.tabSearch .searchIcon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: rgba(26, 46, 48, 0.4); }
+.tabSearch .searchInput { width: 100%; padding: 8px 30px; border-radius: 6px; border: 1.5px solid rgba(26, 46, 48, 0.15); background: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; color: #1a2e30; }
+.tabSearch .searchInput:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: var(--orange); }
+.tabSearch .searchClearBtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(26, 46, 48, 0.4); cursor: pointer; }
+.qTab { padding: 8px 14px; border-radius: 6px; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
+.dotLegend { padding: 4px 2px 6px; gap: 14px; }
+.dotLegend span { gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: normal; text-transform: none; color: rgba(26, 46, 48, 0.6); }
+.dotLegend i { width: 8px; height: 8px; box-shadow: none !important; }
+.list { gap: 8px; margin-top: 2px; }
+.rowCard { min-height: 40px; }
+.rowHead { padding: 8px 14px; min-height: 40px; font-size: 12px; }
+.rowHead .cname { font-size: clamp(13px, 1.6vw, 16px); font-weight: 900; color: #ffffff; }
+.rowBody { padding: 8px 14px 10px; gap: 6px 20px; }
+.rowActions { display: flex; align-items: center; gap: 12px; grid-column: 1 / -1; margin-top: 4px; }
+.attemptLine { grid-column: 1 / -1; }
+.lockBanner { grid-column: 1 / -1; }
+.cardBtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: none; background: var(--orange); color: #1a2e30; font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; cursor: pointer; transition: background 0.2s; }
+.cardBtn:hover:not(:disabled) { background: #f0a050; }
+.cardBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cardBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cardBtnLink { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; margin-left: auto; border-radius: 6px; background: none; border: none; color: var(--orange); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; text-decoration: underline; cursor: pointer; transition: color 0.2s; }
+.cardBtnLink:hover { color: #f0a050; }
+.payDotGreen, .payDotYellow, .payDotRed { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.payDotGreen { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+.payDotYellow { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
+.payDotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+.refreshing { opacity: 0.55; }

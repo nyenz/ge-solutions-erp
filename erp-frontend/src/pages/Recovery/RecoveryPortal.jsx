@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { FiSearch, FiX, FiPhone, FiMapPin, FiClock, FiChevronDown, FiChevronUp, FiUser, FiFolderPlus } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
@@ -32,17 +32,19 @@ export default function RecoveryPortal() {
   const [coWarn, setCoWarn] = useState(null);
   const [busy, setBusy] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
+  const loadedOnce = useRef(false);
   const { user } = useAuth();
   const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
+  const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
   const load = useCallback(() => {
-    setLoading(rows.length === 0);
+    setLoading(!loadedOnce.current);
     Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
       .then((r) => {
         setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
         const list = r[1].data || r[1];
         setRows(list);
         setOpenId(list.length ? list[0].id : null);
+        loadedOnce.current = true;
         setLoading(false);
       }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });
   }, [tab, toast]);
@@ -56,7 +58,7 @@ export default function RecoveryPortal() {
       .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
-  const rowsF = rows.filter((c) => !term || [c.name, c.nin, c.phone, c.lastTag, c.entryType, c.district, c.village, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
+  const rowsF = rows.filter((c) => !term || [c.name, c.nin, c.phone, c.lastTag, c.district, c.village, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
@@ -99,7 +101,7 @@ export default function RecoveryPortal() {
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
                   <span className={styles.callPos}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                   <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
-                  <span title={'Payment health: ' + c.payBadge} style={{ width: 8, height: 8, borderRadius: '50%', background: c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444', boxShadow: '0 0 4px ' + (c.payBadge === 'GREEN' ? '#22c55e' : c.payBadge === 'YELLOW' ? '#f59e0b' : '#ef4444') }} />
+                  <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
                   <span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag || 'no contact yet'}</span>
                   {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
                   <span className={styles.reason}>{c.reason}</span>
@@ -109,17 +111,17 @@ export default function RecoveryPortal() {
                   <div className={styles.rowBody}>
                     <span className={styles.nin}>{c.nin}</span>
                     <span className={styles.mono}>{c.phone}</span>
-                    <div className={styles.projLine}>
+                    <span className={styles.projLine}>
                       {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()}>#{c.indexes[i] || pid}</a>))}
-                    </div>
-                    {c.coNames && c.coNames.length > 0 && (<div className={styles.coLine}><FiUser aria-hidden="true" /> Joint with: {c.coNames.join(', ')}</div>)}
-                    {c.district && (<div className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.village ? ' - ' + c.village : ''}</div>)}
-                    <div className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</div>
-                    {c.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)}.</div>)}
-                    <div className={styles.rowActions}>
+                    </span>
+                    {c.coNames && c.coNames.length > 0 && (<span className={styles.coLine}><FiUser aria-hidden="true" /> Joint with: {c.coNames.join(', ')}</span>)}
+                    {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.village ? ' - ' + c.village : ''}</span>)}
+                    <span className={styles.attemptLine}><FiClock aria-hidden="true" /> Good calls this 30 days: {c.calls30}/2 - Misses: {c.miss30}</span>
+                    {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
+                    <span className={styles.rowActions}>
                       <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> OPEN CALL LOG</button>
                       {(c.projectIds || []).length > 0 && (<a className={styles.cardBtnLink} href={'/folder/' + c.projectIds[0]}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</a>)}
-                    </div>
+                    </span>
                   </div>
                 )}
               </article>
