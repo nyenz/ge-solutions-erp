@@ -328,3 +328,20 @@
 .list { max-height: none !important; overflow: visible !important; margin-top: 2px; gap: 8px; }
 .list::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .countsHUD { margin-bottom: 4px; }
+
+/* fix94: dot legend one line + horizontal scroll on ALL screen sizes */
+.dotLegend { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.dotLegend::-webkit-scrollbar { display: none; }
+.dotLegend span { white-space: nowrap; flex-shrink: 0; }
+/* pill row scrolls horizontally inside the rail */
+.tabRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
+.tabRow::-webkit-scrollbar { display: none; }
+/* mobile: search on its own line, filters on their own line */
+@media (max-width: 640px) {
+  .stickyTabs { flex-direction: column; align-items: stretch; gap: 6px; }
+  .tabSearch { width: 100%; margin-right: 0; flex: none; }
+  .tabRow { width: 100%; flex: none; }
+  .countsHUD { grid-template-columns: repeat(2, 1fr); }
+  .rowHead { flex-wrap: wrap; gap: 6px 8px; }
+  .rowBody { grid-template-columns: 1fr; }
+}

@@ -80,11 +80,13 @@ export default function RecoveryPortal() {
           <input type="search" className={styles.searchInput} placeholder="Search name, NIN, phone, index..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search recovery queue" autoComplete="off" />
           {search && (<button type="button" className={styles.searchClearBtn} onClick={() => setSearch('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>)}
         </div>
-        {TABS.map((t) => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} className={`${styles.qTab} ${tab === t.key ? styles.qTabActive : ''}`} onClick={() => setTab(t.key)}>
-            {t.label} ({counts ? counts[t.key] : '-'})
-          </button>
-        ))}
+        <div className={styles.tabRow}>
+          {TABS.map((t) => (
+            <button key={t.key} role="tab" aria-selected={tab === t.key} className={`${styles.qTab} ${tab === t.key ? styles.qTabActive : ''}`} onClick={() => setTab(t.key)}>
+              {t.label} ({counts ? counts[t.key] : '-'})
+            </button>
+          ))}
+        </div>
       </div>
       <div className={styles.dotLegend} aria-label="Payment dot legend">
         <span><i className={styles.payDotGreen} /> Recent payment</span>
@@ -104,7 +106,7 @@ export default function RecoveryPortal() {
                   <span className={styles.callPos}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                   <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
                   <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
-                  <span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag || 'no contact yet'}</span>
+                  {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
                   {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
                   <span className={styles.reason}>{c.reason}</span>
                   {isOpen ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}

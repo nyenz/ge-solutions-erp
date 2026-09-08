@@ -327,3 +327,20 @@
 /* fix92: popup keeps scrolling but shows no scrollbar */
 .modalBody, [class*="modalBody"] { scrollbar-width: none; }
 .modalBody::-webkit-scrollbar, [class*="modalBody"]::-webkit-scrollbar { display: none; }
+
+/* fix94: popup text fields stay readable in every state */
+.modalInput, .modalTextarea, [class*="modalInput"], [class*="modalTextarea"] {
+  color: rgba(255, 255, 255, 0.95) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.95) !important;
+  caret-color: #ffffff;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.modalInput:focus, .modalTextarea:focus, [class*="modalInput"]:focus, [class*="modalTextarea"]:focus {
+  color: rgba(255, 255, 255, 0.95) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+.modalInput:-webkit-autofill, .modalTextarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(33, 62, 64, 0.99) inset;
+  -webkit-text-fill-color: #ffffff !important;
+}
