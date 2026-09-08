@@ -73,6 +73,7 @@ export default function RecoveryPortal() {
         <div className={styles.countCard}><label>LONGEST WAIT</label><strong>{stats ? stats.longestWait : '-'}</strong></div>
         <div className={styles.countCard}><label>MONTH'S MISS</label><strong>{stats ? stats.missMonth : '-'}</strong></div>
       </div>
+      <div className={styles.stickyRail}>
       <div className={styles.stickyTabs} role="tablist" aria-label="Recovery queues">
         <div className={styles.tabSearch}>
           <FiSearch className={styles.searchIcon} aria-hidden="true" />
@@ -89,6 +90,7 @@ export default function RecoveryPortal() {
         <span><i className={styles.payDotGreen} /> Recent payment</span>
         <span><i className={styles.payDotYellow} /> Payment 2-4 weeks ago</span>
         <span><i className={styles.payDotRed} /> No recent payment</span>
+      </div>
       </div>
       {loading && rows.length === 0 ? (
         <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>

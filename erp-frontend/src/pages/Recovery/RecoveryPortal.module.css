@@ -300,3 +300,22 @@
 .payDotYellow { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
 .payDotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
 .refreshing { opacity: 0.55; }
+
+/* fix92: tight rhythm + Ledger-exact rail alignment + sticky scrollable legend + white history */
+.countsHUD { margin-bottom: 4px; }
+.stickyRail { position: sticky; top: 0; z-index: 200; background: transparent; margin-left: clamp(-12px, -2vw, -24px); margin-right: clamp(-12px, -2vw, -24px); padding-left: clamp(12px, 2vw, 24px); padding-right: clamp(12px, 2vw, 24px); }
+.stickyTabs { position: static; padding: 4px 0; gap: 8px; align-items: center; }
+.dotLegend { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; gap: 14px; }
+.dotLegend::-webkit-scrollbar { display: none; }
+.list { margin-top: 0; }
+.rowHead svg { background: none; border: none; box-shadow: none; }
+.histSection { background: #ffffff; border: 1px solid #cccccc; border-radius: 6px; padding: 10px 12px; }
+.histSection .wallLabel { color: rgba(26, 46, 48, 0.6); }
+.histSection .histMeta { color: #64748b; }
+.histSection .histText { color: #333333; }
+.histSection .chipPos { color: #047857; }
+.histSection .chipNeg { color: #b91c1c; }
+.histSection .chipNone { color: #64748b; }
+.histSection .histDelete { color: #b91c1c; }
+.histRow { border-bottom: 1px solid #eeeeee; padding: 6px 0; }
+.histRow:last-child { border-bottom: none; }
