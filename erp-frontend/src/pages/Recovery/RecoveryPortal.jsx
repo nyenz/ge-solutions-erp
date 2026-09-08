@@ -117,7 +117,6 @@ export default function RecoveryPortal() {
             const isOpen = openId === c.id;
             return (
               <article key={c.id} id={'rc-' + c.id} className={`${styles.rowCard} ${isOpen ? styles.rowOpen : ''}`}>
-                {isOpen && (<span className={styles.pinsTop} aria-hidden="true"><i /><i /><i /><i /></span>)}
                 <button type="button" className={styles.rowHead} onClick={() => setOpenId(isOpen ? null : c.id)} aria-expanded={isOpen}>
                   <span className={styles.cardHeadLeft}>
                     <FiPhoneCall className={styles.headIcon} aria-hidden="true" />

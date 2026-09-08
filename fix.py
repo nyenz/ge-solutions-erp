@@ -1,4 +1,4 @@
-# fix.py -- fix101: left-aligned one-line card header, rail margin lock, left grouped Intake-proportion buttons, deco only when open, tone fix
+# fix.py -- fix102: left-align page title, indent legend, remove top pins, brighter card text on darker wells, tighter vertical rhythm
 import subprocess
 from pathlib import Path
 
@@ -16,56 +16,40 @@ def patch(p, old, new, label):
 
 jsxp = FE / "pages" / "Recovery" / "RecoveryPortal.jsx"
 
-# 1. Card header gets its own row-layout class (icon + name, one line, left)
-patch(jsxp, """                  <span className={styles.headerLeft}>
-                    <FiPhoneCall className={styles.headIcon} aria-hidden="true" />
-                    <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
-                  </span>""",
-"""                  <span className={styles.cardHeadLeft}>
-                    <FiPhoneCall className={styles.headIcon} aria-hidden="true" />
-                    <span className={styles.cname}>{c.name || c.nin || 'UNKNOWN CLIENT'}</span>
-                  </span>""", "card header row class")
+# 1. Remove top pins from cards entirely
+patch(jsxp, "                {isOpen && (<span className={styles.pinsTop} aria-hidden=\"true\"><i /><i /><i /><i /></span>)}\n", "", "remove pinsTop")
 
-# 2. Top pins only when expanded
-patch(jsxp, "                <span className={styles.pinsTop} aria-hidden=\"true\"><i /><i /><i /><i /></span>",
-"                {isOpen && (<span className={styles.pinsTop} aria-hidden=\"true\"><i /><i /><i /><i /></span>)}", "pinsTop only when open")
-
-# 3. Bottom pins + corner brackets only when expanded
-patch(jsxp, """                <span className={styles.pinsBottom} aria-hidden="true"><i /><i /><i /><i /></span>
-                <span className={styles.decorBl} aria-hidden="true" />
-                <span className={styles.decorBr} aria-hidden="true" />""",
-"""                {isOpen && (<>
-                  <span className={styles.pinsBottom} aria-hidden="true"><i /><i /><i /><i /></span>
-                  <span className={styles.decorBl} aria-hidden="true" />
-                  <span className={styles.decorBr} aria-hidden="true" />
-                </>)}""", "bottom deco only when open")
-
-# 4. CSS: alignment lock, left-aligned header, tones, Intake button proportions
+# 2. CSS: title left, legend indent, top pins hidden, brighter text on darker wells, tighter rhythm
 cssp = FE / "pages" / "Recovery" / "RecoveryPortal.module.css"
 s = read(cssp)
-if "fix101" not in s:
+if "fix102" not in s:
     s += """
-/* fix101: alignment lock + left one-line header + tones + Intake button proportions */
-.stickyRail { margin: 0 !important; padding: 0 !important; }
-.stickyTabs { margin: 0 !important; padding: 4px 0 !important; }
-.tabSearch { margin: 0; }
-.list, .rowCard { margin-left: 0; margin-right: 0; }
-.cardHeadLeft { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left; }
-.cname { text-align: left; }
-.rowHead { background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%); text-align: left; }
-.rowOpen .rowHead { background: #162a2c; }
-.rowActions { justify-content: flex-start; gap: 8px; }
-.cardBtn, .cardBtn2 { height: clamp(34px, 4vw, 40px); padding: 0 clamp(12px, 1.5vw, 18px); font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
-.cardBtn2 { margin-left: 0; }
+/* fix102: left title, legend indent, no top pins, brighter card text, tighter rhythm */
+.pageHeader { justify-content: flex-start; margin-bottom: clamp(6px, 1vw, 10px); }
+.pageHeader .headerLeft { text-align: left; align-items: flex-start; }
+.pageHeader .title, .pageHeader .subtitle { text-align: left; margin: 0; }
+.dotLegend { padding-left: clamp(6px, 1vw, 12px); }
+.pinsTop { display: none !important; }
+.countsHUD { margin-bottom: clamp(6px, 1vw, 10px); }
+.stickyTabs { padding: 2px 0; }
+.list { margin-top: 0; gap: 6px; }
+.secBlock { background: rgba(0, 0, 0, 0.22); border-color: rgba(255, 255, 255, 0.10); }
+.mono { color: rgba(255, 255, 255, 0.85); }
+.loc { color: rgba(255, 255, 255, 0.8); }
+.coLine { color: rgba(255, 255, 255, 0.85); }
+.attemptLine { color: rgba(255, 255, 255, 0.85); }
+.secLabel { color: #ffb46b; }
+.nin { color: #ffb46b; }
+.lockBanner { color: #fde68a; }
 """
     write(cssp, s)
-    print("OK fix101 css")
+    print("OK fix102 css")
 else:
-    print("SKIP fix101 css already present")
+    print("SKIP fix102 css already present")
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "fix101: left-aligned one-line card header, rail margin lock, left grouped Intake-proportion buttons, deco only when open, tone fix"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "fix102: left-align page title, indent legend, remove top pins, brighter card text on darker wells, tighter vertical rhythm"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:
