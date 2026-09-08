@@ -1,5 +1,9 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java
 package com.gesolutions.erp.modules.land.service;
+import java.time.LocalDate;
+import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
+import com.gesolutions.erp.modules.client.repository.ClientRepository;
+import com.gesolutions.erp.modules.client.model.RecoveryNote;
 
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.model.Client;
@@ -23,6 +27,8 @@ public class ReceivableSchedulerService {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final ClientRepository clientRepo;
+    private final RecoveryNoteRepository recoveryNoteRepository;
                     
     private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
 
