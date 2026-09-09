@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/v1/land/portal")
+@RequestMapping("/api/v1/land/portal/{id}")
 @RequiredArgsConstructor
 public class FolderPortalController {
 
@@ -27,7 +27,7 @@ public class FolderPortalController {
         return a != null ? a.getName() : "SYSTEM";
     }
 
-    @GetMapping("/{id}/receivable")
+    @GetMapping("/receivable")
     @Transactional(readOnly = true)
     public Map<String, Object> receivable(@PathVariable UUID id) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
@@ -45,7 +45,7 @@ public class FolderPortalController {
         return m;
     }
 
-    @GetMapping("/{id}/portfolio")
+    @GetMapping("/portfolio")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> portfolio(@PathVariable UUID id) {
         LandProject current = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
@@ -70,7 +70,7 @@ public class FolderPortalController {
         return out;
     }
 
-    @PostMapping("/{id}/receivable/enter")
+    @PostMapping("/receivable/enter")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
     public Map<String, Object> enter(@PathVariable UUID id) {
@@ -88,7 +88,7 @@ public class FolderPortalController {
         return receivable(id);
     }
 
-    @PostMapping("/{id}/receivable/exit")
+    @PostMapping("/receivable/exit")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
     public Map<String, Object> exit(@PathVariable UUID id, @RequestBody Map<String, String> body) {
@@ -111,7 +111,7 @@ public class FolderPortalController {
         return receivable(id);
     }
 
-    @PostMapping("/{id}/toggle-problem")
+    @PostMapping("/toggle-problem")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
     public Map<String, Object> toggleProblem(@PathVariable UUID id) {
@@ -122,7 +122,7 @@ public class FolderPortalController {
         return receivable(id);
     }
 
-    @PostMapping("/{id}/receivable/settings")
+    @PostMapping("/receivable/settings")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
     public Map<String, Object> settings(@PathVariable UUID id, @RequestBody Map<String, String> body) {
