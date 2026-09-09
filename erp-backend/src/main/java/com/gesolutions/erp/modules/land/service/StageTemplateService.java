@@ -143,6 +143,25 @@ public class StageTemplateService {
             + " stage(s) to project: " + projectId);
         return created;
     }
+@Transactional
+@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+public List<ProjectStage> reorderProjectStages(UUID projectId, List<UUID> orderedIds) {
+List<ProjectStage> stages = projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
+if (orderedIds == null || orderedIds.isEmpty()) return stages;
+java.util.Map<UUID, ProjectStage> byId = new java.util.LinkedHashMap<>();
+for (ProjectStage st : stages) byId.put(st.getId(), st);
+List<ProjectStage> toSave = new java.util.ArrayList<>();
+int order = 0;
+for (UUID id : orderedIds) {
+ProjectStage st = byId.remove(id);
+if (st != null) { st.setDisplayOrder(order++); toSave.add(st); }
+}
+for (ProjectStage st : byId.values()) { st.setDisplayOrder(order++); toSave.add(st); }
+projectStageRepository.saveAll(toSave);
+auditService.logAction("PROJECT_STAGES_REORDERED",
+"Operator [" + getCurrentOperator() + "] reordered stages on project: " + projectId);
+return projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
+}
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")

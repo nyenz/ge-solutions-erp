@@ -85,6 +85,12 @@ public class StageTemplateController {
             @PathVariable UUID projectId, @RequestBody List<ProjectStageRequest> requests) {
         return ResponseEntity.ok(stageTemplateService.attachStagesToProject(projectId, requests));
     }
+@PutMapping("/land/projects/{projectId}/stages/reorder")
+public ResponseEntity<List<ProjectStage>> reorderProjectStages(
+@PathVariable UUID projectId, @RequestBody List<String> orderedIds) {
+List<UUID> ids = orderedIds.stream().map(UUID::fromString).toList();
+return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, ids));
+}
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")

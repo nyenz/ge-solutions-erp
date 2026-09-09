@@ -3043,3 +3043,15 @@
 .insertRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed rgba(238,140,58,0.45); border-radius: 7px; background: rgba(238,140,58,0.05); flex-wrap: wrap; }
 .insertInput { flex: 1; min-width: 140px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #fff; padding: 7px 9px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
 .insertInput:focus { outline: none; border-color: #EE8C3A; }
+
+/* fix117: Intake/Recovery button tones + panel heading glow + header-aware scroll-top */
+.drawerTitle { text-shadow: 0 0 12px rgba(238,140,58,0.45); }
+.sectionTitle { text-shadow: 0 0 10px rgba(238,140,58,0.4); }
+.plusBtn { background: transparent; border: 1px solid var(--orange-border, rgba(238,140,58,0.28)); color: var(--fs-orange, #EE8C3A); width: clamp(24px,2.8vw,30px); height: clamp(24px,2.8vw,30px); border-radius: var(--radius-sm,6px); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s, color .2s, border-color .2s; font-size: 12px; flex-shrink: 0; }
+.plusBtn:hover { background: var(--fs-orange, #EE8C3A); color: #1a2e30; border-color: var(--fs-orange, #EE8C3A); }
+.iconBtnDanger { background: transparent; border: none; color: var(--fs-red, #ef4444); width: clamp(24px,2.8vw,30px); height: clamp(24px,2.8vw,30px); border-radius: var(--radius-sm,6px); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s; font-size: 13px; flex-shrink: 0; }
+.iconBtnDanger:hover { background: rgba(239,68,68,0.14); }
+.stageListTop { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+.scrollTopBtn { position: fixed; right: clamp(14px,2vw,24px); bottom: clamp(14px,2vw,24px); z-index: 400; width: clamp(38px,4.5vw,46px); height: clamp(38px,4.5vw,46px); border-radius: 50%; background: #EE8C3A; color: #1a2e30; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 3px 14px rgba(238,140,58,0.45); transition: background .2s, transform .2s; }
+.scrollTopBtn:hover { background: #f0a050; transform: translateY(-2px); }
+.scrollTopBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }

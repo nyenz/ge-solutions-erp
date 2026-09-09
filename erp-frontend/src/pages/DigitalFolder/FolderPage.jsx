@@ -11,7 +11,7 @@ import {
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
     FiDollarSign, FiActivity, FiHome, FiArchive,
-FiPlus, FiFolderPlus
+FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -142,6 +142,9 @@ const fmt = (n) => Number(n || 0).toLocaleString();
    Rows = the project's attached stages, done stages pre-ticked.
    No money, no notes, no modal: tick to complete, plus to insert below,
    trash to remove. Nothing can be added after the last stage. */
+/* STAGE CHECKLIST - Intake mirror (fix117): Intake/Recovery button tones,
+   first stage auto-ticked, first & last stages locked from delete,
+   RESTORE DEFAULTS like Intake, insert-below never after the last stage. */
 const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,8 +153,16 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const [insertAfterId, setInsertAfterId] = useState(null);
     const [insertAfterName, setInsertAfterName] = useState('');
     const [saving, setSaving] = useState(false);
+    const autoTicked = useRef(false);
     const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
     useEffect(() => { loadStages(); }, [loadStages]);
+    useEffect(() => {
+        if (!canEdit || autoTicked.current || loading || !stages.length) return;
+        autoTicked.current = true;
+        if (!stages[0].isCompleted) {
+            stageTemplateService.toggleStageCompletion(projectId, stages[0].id, true).then(loadStages).catch(() => {});
+        }
+    }, [stages, loading, canEdit, projectId, loadStages]);
     const openInsertBelow = (stage) => { setInsertAfterId(stage.id); setInsertAfterName(stage.stageName); setNewStageName(''); setAddingStage(true); };
     const cancelInsert = () => { setAddingStage(false); setNewStageName(''); setInsertAfterId(null); setInsertAfterName(''); };
     const handleAddStage = async () => {
@@ -169,14 +180,28 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
                 await stageTemplateService.reorderProjectStages(projectId, ordered);
             }
             await loadStages(); cancelInsert(); toast && toast('Stage inserted.', 'success');
-        } catch { toast && toast('Failed to insert stage', 'error'); } finally { setSaving(false); }
+        } catch { await loadStages(); cancelInsert(); toast && toast('Stage saved but position update failed - refresh to view.', 'error'); } finally { setSaving(false); }
     };
     const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch { toast && toast('Failed to update stage', 'error'); } };
     const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed.', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
+    const handleRestoreDefaults = async () => {
+        setSaving(true);
+        try {
+            const tpls = await stageTemplateService.getTemplate() || [];
+            await Promise.all(stages.map(s => stageTemplateService.removeStage(projectId, s.id)));
+            await stageTemplateService.attachStages(projectId, tpls.map((t, i) => ({ stageTemplateId: t.id, isCustom: false, cost: 0, isCompleted: i === 0 })));
+            autoTicked.current = true;
+            await loadStages(); cancelInsert(); toast && toast('Default stages restored.', 'success');
+        } catch { await loadStages(); toast && toast('Failed to restore defaults', 'error'); } finally { setSaving(false); }
+    };
     if (loading) return null;
     return (<div className={styles.stageList}>
+        {canEdit && (<div className={styles.stageListTop}>
+            <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving}><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>
+        </div>)}
         {stages.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
         {stages.map((stage, i) => {
+            const isFirst = i === 0;
             const isLast = i === stages.length - 1;
             return (<React.Fragment key={stage.id}>
                 <label className={`${styles.stageItem} ${stage.isCompleted ? styles.stageItemChecked : ''}`}>
@@ -187,7 +212,7 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
                         {canEdit && !isLast && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
                             aria-label={`Insert stage below ${stage.stageName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(stage); }}><FiPlus size={12} /></button>)}
-                        {canRemove && (<button type="button" className={styles.iconBtnDanger} title="Remove stage"
+                        {canRemove && !isFirst && !isLast && (<button type="button" className={styles.iconBtnDanger} title="Remove stage"
                             aria-label={`Remove ${stage.stageName}`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(stage.id); }}><FiTrash2 size={12} /></button>)}
                     </span>
@@ -256,6 +281,12 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const touchedSetBuffer = React.useCallback((updater) => { touchedRef.current = true; setBuffer(updater); }, []);
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(!committing && isEditing);
     const lastActiveRef = useRef(Date.now());
+const [showTopBtn, setShowTopBtn] = useState(false);
+useEffect(() => {
+    const onScroll = () => { const h = document.querySelector('[class*="terminalHeader"]'); setShowTopBtn(!!h && h.getBoundingClientRect().bottom < 0); };
+    window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+}, []);
     useEffect(() => {
         const mark = () => { lastActiveRef.current = Date.now(); };
         window.addEventListener('click', mark); window.addEventListener('keydown', mark);
@@ -761,7 +792,7 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
             </HardwareModal>
-            <BackToTopButton />
+{showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top to edit or save"><FiArrowUp aria-hidden="true" /></button>)}
         </div>
     );
 };
