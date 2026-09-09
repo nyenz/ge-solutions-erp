@@ -3016,3 +3016,11 @@
 .insertCtx { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); color: #EE8C3A; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
 .tabWrap { display: block; }
 @media print { .tabWrap { display: block !important; } }
+
+/* fix113: middle-insert plus button + insert position line + print-safe tab wrapper */
+.plusBtn { background: transparent; border: 1px solid rgba(238,140,58,0.3); color: #EE8C3A; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px 6px; border-radius: 4px; transition: all 0.2s; font-size: 12px; flex-shrink: 0; }
+.plusBtn:hover { background: rgba(238,140,58,0.12); border-color: #EE8C3A; }
+.plusBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 1px; }
+.insertCtx { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); color: #EE8C3A; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+.tabWrap { display: block; }
+@media print { .tabWrap { display: block !important; } }
