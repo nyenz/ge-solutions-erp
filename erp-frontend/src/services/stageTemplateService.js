@@ -71,7 +71,11 @@ const stageTemplateService = {
         return response.data;
     },
 
-    removeStage: async (projectId, stageId) => {
+    reorderProjectStages: async (projectId, orderedIds) => {
+const response = await api.put(`/land/projects/${projectId}/stages/reorder`, orderedIds);
+return response.data;
+},
+removeStage: async (projectId, stageId) => {
         await api.delete(`/land/projects/${projectId}/stages/${stageId}`);
     },
     deleteTemplateStage: async (id) => {
