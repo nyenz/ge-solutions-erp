@@ -10,7 +10,8 @@ import {
     FiPhoneCall, FiMail, FiMapPin, FiShield,
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
-    FiDollarSign, FiActivity, FiHome, FiArchive
+    FiDollarSign, FiActivity, FiHome, FiArchive,
+FiPlus, FiFolderPlus
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -143,9 +144,10 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const [checkedTemplates, setCheckedTemplates] = useState({}); const [customName, setCustomName] = useState('');
     const [customCost, setCustomCost] = useState(''); const [editingId, setEditingId] = useState(null);
     const [editCost, setEditCost] = useState(''); const [editNotes, setEditNotes] = useState(''); const [saving, setSaving] = useState(false);
+const [insertAfterId, setInsertAfterId] = useState(null); const [insertAfterName, setInsertAfterName] = useState('');
     const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
     useEffect(() => { loadStages(); }, [loadStages]);
-    const openAddModal = async () => { try { setTemplates(await stageTemplateService.getTemplate() || []); } catch { setTemplates([]); } setCheckedTemplates({}); setCustomName(''); setCustomCost(''); setAddModalOpen(true); };
+    const openAddModal = async (afterId, afterName) => { try { setTemplates(await stageTemplateService.getTemplate() || []); } catch { setTemplates([]); } setCheckedTemplates({}); setCustomName(''); setCustomCost(''); setInsertAfterId(afterId || null); setInsertAfterName(afterName || ''); setAddModalOpen(true); };
     const handleAttach = async () => {
         const requests = [];
         templates.forEach(t => { if (checkedTemplates[t.id]) requests.push({ stageTemplateId: t.id, cost: t.defaultCost, isCustom: false }); });
@@ -210,6 +212,7 @@ const FolderPage = () => {
     const canEdit = isManager;    // edit record, stages, docs, payments
     const canMoney = isDirector;  // receivable money actions
     const canLog = true;          // any operator may log notes/calls
+const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans without edit mode; delete still needs edit
 
     const [binder, setBinder] = useState(null);
     const [buffer, setBuffer] = useState(null);
@@ -235,7 +238,7 @@ const FolderPage = () => {
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
-    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, docs: true, stagesPanel: true });
+    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, related: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const firstInputRef = useRef(null);
@@ -640,7 +643,8 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
-                <section className={styles.hwPanel} aria-label="Owners" style={activeTab !== 'OWNERS' ? {display:'none'} : {}}>
+                <div className={styles.tabWrap} style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
+<section className={styles.hwPanel} aria-label="Owners">
                     <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={project.proprietors.length} />
                     <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <div className={styles.ownersGrid2}>
@@ -693,7 +697,7 @@ const FolderPage = () => {
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span>
-                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
+                            {canUploadDocs && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
                             <div className={styles.compactVault}>{binder.documents.map((doc, idx) => (<div key={idx} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
                                 <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)}>{doc.fileName}</button>
@@ -706,7 +710,7 @@ const FolderPage = () => {
                 </section>
 
 
-            <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+            <div className={styles.tabWrap} style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
 <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
