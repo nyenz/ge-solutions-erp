@@ -259,3 +259,11 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 
+
+/* fix110: modal footer buttons match the card CALL LOG button scale */
+[class*="modalFooter"] button {
+  height: clamp(30px, 3.6vw, 36px) !important;
+  padding: 0 clamp(9px, 1.2vw, 13px) !important;
+  font-size: clamp(8px, 0.85vw, 10px) !important;
+  letter-spacing: 1.5px !important;
+}

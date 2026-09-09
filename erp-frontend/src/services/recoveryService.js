@@ -2,7 +2,7 @@ import api from '../api/axios';
 // RECOVERY COCKPIT v2 - cards, priority, locked tray, numbers-only
 const recoveryService = {
   getQueue:  (q) => api.get('/recovery/queue', { params: { queue: q || 'ALL' } }),
-getQueues: () => api.get('/recovery/queues'),
+getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   getLocked: () => api.get('/recovery/locked'),
   getTags:   () => api.get('/recovery/tags'),
   getStats:  () => api.get('/recovery/stats'),

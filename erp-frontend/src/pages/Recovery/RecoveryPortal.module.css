@@ -542,3 +542,14 @@
   text-transform: none;
   color: rgba(26, 46, 48, 0.6);
 }
+
+/* fix110: contact number and joint-owner name share identical type + cyan glow */
+.mono, .coChip {
+  font-family: 'Space Mono', monospace;
+  font-weight: 900;
+  font-size: clamp(11px, 1.2vw, 14px);
+  letter-spacing: 1px;
+  color: #67e8f9;
+  text-shadow: 0 0 6px rgba(103, 232, 249, 0.45);
+}
+.mono:hover, .coChip:hover { color: #ffffff; text-shadow: 0 0 6px rgba(255, 255, 255, 0.45); }

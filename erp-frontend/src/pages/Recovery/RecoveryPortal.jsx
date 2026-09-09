@@ -36,8 +36,8 @@ export default function RecoveryPortal() {
   const { user } = useAuth();
   const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
-  const load = useCallback(() => {
-    setLoading(!loadedOnce.current);
+  const load = useCallback((silent) => {
+    if (!silent) setLoading(!loadedOnce.current);
     Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
       .then((r) => {
         setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
@@ -58,18 +58,24 @@ export default function RecoveryPortal() {
       }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });
   }, [tab, toast]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      recoveryService.getQueues(search).then((r) => setCounts(r.data || r)).catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [search]);
   const open = (c) => { setSel(c); setPicked(null); setText(''); recoveryService.getNotes(c.id).then((r) => setNotes(r.data || [])); };
   const pendingOpen = useRef(null);
   const jump = (co) => {
     const target = co.state === 'LOCKED' ? 'LOCKED' : co.state === 'SITE' ? 'SITE' : 'ALL';
     pendingOpen.current = co.id;
-    if (target !== tab) setTab(target); else load();
+    if (target !== tab) setTab(target); else load(true);
   };
   const save = () => {
     if (!picked || !sel) return;
     setBusy(true);
     recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })
-      .then((r) => { setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(); })
+      .then((r) => { setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
       .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
@@ -208,7 +214,7 @@ export default function RecoveryPortal() {
                 {n.text && <span className={styles.histText}>{n.text}</span>}
                 {canManage && n.source === 'RECOVERY' && n.tag !== 'payment received' && (
                   <button type="button" className={styles.histDelete} aria-label="Delete note"
-                    onClick={() => recoveryService.deleteNote(n.id).then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(); })}>
+                    onClick={() => recoveryService.deleteNote(n.id).then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(true); })}>
                     <FiX aria-hidden="true" />
                   </button>
                 )}

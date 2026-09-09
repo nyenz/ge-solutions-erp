@@ -155,14 +155,16 @@ public class RecoveryNoteController {
         return out;
     }
     @GetMapping("/queues")
-    public Map<String, Object> queueCounts() {
+    public Map<String, Object> queueCounts(@RequestParam(required = false) String q) {
         LocalDateTime now = LocalDateTime.now();
         Map<UUID, List<RecoveryNote>> nm = noteMap();
         Map<UUID, List<LandProject>> pm = projMap();
+        String term = q == null ? "" : q.toLowerCase().replaceAll("\\s+", "");
         long all = 0, con = 0, mis = 0, site = 0, lock = 0;
         for (Client c : clientRepo.findAll()) {
             List<LandProject> ps = projectsOf(pm, c.getId());
             if (!qualifies(ps)) continue;
+            if (!term.isEmpty() && !matchesTerm(c, ps, term)) continue;
             List<RecoveryNote> ns = notesOf(nm, c.getId());
             String st = state(c, now, ps, ns);
             if (st.equals("LOCKED")) lock++;
@@ -172,6 +174,19 @@ public class RecoveryNoteController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("ALL", all); m.put("CONTACTED", con); m.put("MISSED", mis); m.put("SITE", site); m.put("LOCKED", lock);
         return m;
+    }
+    private boolean matchesTerm(Client c, List<LandProject> ps, String term) {
+        StringBuilder hay = new StringBuilder();
+        if (c.getFullName() != null) hay.append(c.getFullName()).append(' ');
+        if (c.getNationalId() != null) hay.append(c.getNationalId()).append(' ');
+        if (c.getPhoneNumber() != null) hay.append(c.getPhoneNumber()).append(' ');
+        for (LandProject p : ps) {
+            if (p.getProjectIndex() != null) hay.append(p.getProjectIndex()).append(' ');
+            if (p.getDistrict() != null) hay.append(p.getDistrict()).append(' ');
+            if (p.getSubCounty() != null) hay.append(p.getSubCounty()).append(' ');
+            if (p.getVillage() != null) hay.append(p.getVillage()).append(' ');
+        }
+        return hay.toString().toLowerCase().replaceAll("\\s+", "").contains(term);
     }
     @GetMapping("/queue")
     public List<Map<String, Object>> queue(@RequestParam(defaultValue = "ALL") String queue) {
