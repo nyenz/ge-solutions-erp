@@ -528,3 +528,17 @@
   letter-spacing: 0.4px;
   color: #67e8f9;
 }
+
+/* fix108: no underlines anywhere on Recovery + legend matches Ledger Inter 700 exactly */
+.projLink, .cardBtnLink, .chipPos, .chipNeg, .chipNone, .coChip, .mono, .nin, .loc, .coLine, .attemptLine, .reason, .dayChip {
+  text-decoration: none !important;
+  border-bottom: none !important;
+}
+.dotLegend span {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: rgba(26, 46, 48, 0.6);
+}

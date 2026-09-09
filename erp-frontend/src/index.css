@@ -258,13 +258,4 @@ input[type="search"]::-webkit-search-results-decoration {
     }
 }
 
-/* fix92: back-to-top arrow is a plain glyph pinned bottom-right */
-[class*="backToTop"], [class*="BackToTop"], [class*="toTop"] {
-  position: fixed !important;
-  right: clamp(12px, 2vw, 24px) !important;
-  bottom: clamp(12px, 2vw, 24px) !important;
-  left: auto !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
+
