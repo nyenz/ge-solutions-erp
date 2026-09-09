@@ -160,7 +160,7 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
         if (!canEdit || autoTicked.current || loading || !stages.length) return;
         autoTicked.current = true;
         if (!stages[0].isCompleted) {
-            stageTemplateService.toggleStageCompletion(projectId, stages[0].id, true).then(loadStages).catch(() => {});
+            stageTemplateService.toggleStageCompletion(projectId, stages[0].id, true).then(loadStages).catch(err => toast && toast('AUTO-TICK FAILED (HTTP ' + (err.response?.status || 'network') + ')', 'error', 6000));
         }
     }, [stages, loading, canEdit, projectId, loadStages]);
     const openInsertBelow = (stage) => { setInsertAfterId(stage.id); setInsertAfterName(stage.stageName); setNewStageName(''); setAddingStage(true); };
@@ -177,12 +177,12 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
                 const currentIds = stages.map(s => s.id);
                 const idx = currentIds.indexOf(insertAfterId);
                 const ordered = idx >= 0 ? [...currentIds.slice(0, idx + 1), ...createdIds, ...currentIds.slice(idx + 1)] : [...currentIds, ...createdIds];
-                await stageTemplateService.reorderProjectStages(projectId, ordered);
+            try { await stageTemplateService.reorderProjectStages(projectId, ordered); } catch { await stageTemplateService.reorderProjectStages(projectId, ordered); }
             }
             await loadStages(); cancelInsert(); toast && toast('Stage inserted.', 'success');
-        } catch { await loadStages(); cancelInsert(); toast && toast('Stage saved but position update failed - refresh to view.', 'error'); } finally { setSaving(false); }
+} catch (err) { await loadStages(); cancelInsert(); toast && toast('POSITION UPDATE FAILED (HTTP ' + (err.response?.status || 'network') + ') - stage added at the end.', 'error', 9000); } finally { setSaving(false); }
     };
-    const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch { toast && toast('Failed to update stage', 'error'); } };
+    const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); } };
     const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed.', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
     const handleRestoreDefaults = async () => {
         setSaving(true);
