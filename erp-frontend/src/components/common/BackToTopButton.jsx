@@ -19,7 +19,7 @@ function currentY() {
 export default function BackToTopButton() {
   const [show, setShow] = useState(false);
   useEffect(() => {
-    const onScroll = () => setShow(currentY() > 240);
+    const onScroll = () => setShow(currentY() > 300);
     document.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
     onScroll();

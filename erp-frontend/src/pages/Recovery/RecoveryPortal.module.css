@@ -553,3 +553,13 @@
   text-shadow: 0 0 6px rgba(103, 232, 249, 0.45);
 }
 .mono:hover, .coChip:hover { color: #ffffff; text-shadow: 0 0 6px rgba(255, 255, 255, 0.45); }
+
+/* fix111: joint-owner count matches the "Joint with:" label style */
+.coCount {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(10px, 1.05vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: none;
+}

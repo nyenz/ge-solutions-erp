@@ -155,7 +155,7 @@ export default function RecoveryPortal() {
                           <FiUser aria-hidden="true" /> Joint with:
                           {(c.coOwners || []).map((co) => (
                             <button key={co.id} type="button" className={styles.coChip} onClick={(e) => { e.stopPropagation(); jump(co); }}>
-                              {co.name} ({co.projects})
+                              {co.name} <span className={styles.coCount}>({co.projects})</span>
                             </button>
                           ))}
                         </span>
