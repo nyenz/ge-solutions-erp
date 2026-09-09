@@ -142,8 +142,8 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const [stages, setStages] = useState([]); const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true); const [addModalOpen, setAddModalOpen] = useState(false);
     const [checkedTemplates, setCheckedTemplates] = useState({}); const [customName, setCustomName] = useState('');
-    const [customCost, setCustomCost] = useState(''); const [editingId, setEditingId] = useState(null);
-    const [editCost, setEditCost] = useState(''); const [editNotes, setEditNotes] = useState(''); const [saving, setSaving] = useState(false);
+const [customCost, setCustomCost] = useState('');
+const [saving, setSaving] = useState(false);
 const [insertAfterId, setInsertAfterId] = useState(null); const [insertAfterName, setInsertAfterName] = useState('');
     const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
     useEffect(() => { loadStages(); }, [loadStages]);
@@ -166,35 +166,26 @@ if (idx >= 0) ordered = [...currentIds.slice(0, idx + 1), ...createdIds, ...curr
 }
 await stageTemplateService.reorderProjectStages(projectId, ordered);
 }
-await loadStages(); setAddModalOpen(false); toast && toast(insertAfterId ? 'Stage(s) inserted under ' + insertAfterName : 'Stage(s) added at end', 'success');
+await loadStages(); setAddModalOpen(false); toast && toast(insertAfterId ? 'Stage(s) inserted under ' + insertAfterName : 'Stage(s) inserted', 'success');
 }
         catch { toast && toast('Failed to add stage(s)', 'error'); } finally { setSaving(false); }
     };
     const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch { toast && toast('Failed to update stage', 'error'); } };
-    const saveEdit = async (stageId) => { try { await stageTemplateService.updateStageCost(projectId, stageId, Number(editCost) || 0, editNotes); setEditingId(null); await loadStages(); toast && toast('Stage updated', 'success'); } catch { toast && toast('Failed to save stage', 'error'); } };
     const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
     if (loading) return null;
     return (<div style={{ marginTop: 4 }}>
         {stages.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
-        {stages.map(stage => (<div key={stage.id} className={`${styles.stageRow} ${stage.isCompleted ? styles.stageRowDone : ''}`}>
+        {stages.map((stage, sIdx) => (<div key={stage.id} className={`${styles.stageRow} ${stage.isCompleted ? styles.stageRowDone : ''}`}>
             <input type="checkbox" checked={!!stage.isCompleted} onChange={() => handleToggleComplete(stage)} disabled={!canEdit}
                 aria-label={`Mark ${stage.stageName} complete`} style={{ width: 18, height: 18, flexShrink: 0, accentColor: 'var(--fs-orange)' }} />
             <div style={{ flex: 1, minWidth: 0 }}>
                 <strong className={`${styles.stageName} ${stage.isCompleted ? styles.stageNameDone : ''}`}>{stage.stageName}</strong>
-                {editingId === stage.id ? (<div className={styles.stageEditRow}>
-                    <input type="number" value={editCost} onChange={e => setEditCost(e.target.value)} placeholder="Cost" className={styles.dtInput} aria-label="Stage cost" />
-                    <input type="text" value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Notes" className={styles.dtInput} aria-label="Stage notes" />
-                    <HardwareButton type="button" onClick={() => saveEdit(stage.id)} icon={FiSave}>SAVE</HardwareButton>
-                    <button type="button" className={styles.ghostBtn} onClick={() => setEditingId(null)}><FiX aria-hidden="true" /> CANCEL</button>
-                </div>) : (<div className={styles.stageCost}>UGX {fmt(stage.cost)}</div>)}
             </div>
-            {canEdit && editingId !== stage.id && (<div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-<button type="button" className={styles.plusBtn} title="Insert stage below" aria-label={`Insert stage below ${stage.stageName}`} onClick={() => openAddModal(stage.id, stage.stageName)}><FiPlus /></button>
-                <button type="button" className={styles.iconBtn2} aria-label="Edit stage" onClick={() => { setEditingId(stage.id); setEditCost(String(stage.cost || 0)); setEditNotes(stage.notes || ''); }}><FiEdit3 /></button>
+            {canEdit && (<div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+{sIdx < stages.length - 1 && <button type="button" className={styles.plusBtn} title="Insert stage below" aria-label={`Insert stage below ${stage.stageName}`} onClick={() => openAddModal(stage.id, stage.stageName)}><FiPlus /></button>}
                 {canRemove && <button type="button" className={styles.iconBtnDanger} aria-label="Remove stage" onClick={() => handleRemove(stage.id)}><FiTrash2 /></button>}
             </div>)}
         </div>))}
-        {canEdit && <button type="button" className={styles.addStageBtn} onClick={() => openAddModal(null, '')}>+ ADD STAGE (AT END)</button>}
         <HardwareModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title={insertAfterId ? 'INSERT STAGE(S) UNDER: ' + insertAfterName : 'ADD STAGE(S)'}>
 {insertAfterId && (<div style={{ marginBottom: 10 }}><span className={styles.insertCtx}>INSERT POSITION: DIRECTLY UNDER {insertAfterName} (MIDDLE INSERT, NOT AT END)</span></div>)}
             <div style={{ marginBottom: 14 }}>
@@ -581,7 +572,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                        <StageChecklistPanel projectId={id} canEdit={isEditing && canEdit} canRemove={isDirector} toast={toast} />
+                        <StageChecklistPanel projectId={id} canEdit={canEdit} canRemove={isDirector} toast={toast} />
                     </div></div>
                 </section>
                 )}
