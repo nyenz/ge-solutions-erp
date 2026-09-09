@@ -41,6 +41,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         { path: '/land/new',      label: 'NEW PROJECT', icon: <FiPlusSquare aria-hidden="true" />, access: true },
         { path: '/land/projects', label: 'LEDGER',    icon: <FiLayers     aria-hidden="true" />, access: true },
         { path: '/recovery',      label: 'RECOVERY',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },
+        { path: '/clients',      label: 'CLIENTS',  icon: <FiUsers  aria-hidden="true" />, access: true },
         { path: '/payments',      label: 'PAYMENTS',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },
         { path: '/financials',    label: 'EXPENSES', icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess },
         { path: '/reports',       label: 'REPORTS',   icon: <FiBarChart2  aria-hidden="true" />, access: hasHighLevelAccess },

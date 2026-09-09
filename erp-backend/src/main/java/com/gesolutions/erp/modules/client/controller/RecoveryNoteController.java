@@ -342,4 +342,59 @@ public class RecoveryNoteController {
         auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag());
         return ResponseEntity.ok(Map.of("ok", true));
     }
+@GetMapping("/clients/ledger")
+@PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
+public java.util.List<java.util.Map<String, Object>> clientLedger() {
+java.util.Map<java.util.UUID, java.util.List<com.gesolutions.erp.modules.land.model.LandProject>> pm = new java.util.HashMap<>();
+for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
+if (p.getProprietors() == null) continue;
+for (com.gesolutions.erp.modules.client.model.Client o : p.getProprietors()) {
+if (o == null || o.getId() == null) continue;
+pm.computeIfAbsent(o.getId(), k -> new java.util.ArrayList<>()).add(p);
+}
+}
+java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+for (com.gesolutions.erp.modules.client.model.Client c : clientRepo.findAll()) {
+java.util.List<com.gesolutions.erp.modules.land.model.LandProject> ps = pm.getOrDefault(c.getId(), java.util.List.of());
+java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+m.put("id", c.getId());
+m.put("name", c.getFullName());
+m.put("nin", c.getNationalId());
+m.put("phone", c.getPhoneNumber());
+m.put("email", c.getEmail());
+m.put("reliability", c.getReliabilityScore());
+m.put("lastContact", c.getLastContactedAt() == null ? null : c.getLastContactedAt().toString());
+java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
+java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
+java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
+java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
+for (com.gesolutions.erp.modules.land.model.LandProject p : ps) {
+java.math.BigDecimal o = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
+owed = owed.add(o);
+paid = paid.add(p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid());
+storage = storage.add(p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated());
+java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+row.put("projectId", p.getId());
+row.put("plot", p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null ? p.getLandTitle().getPlotNumber() : p.getProjectIndex());
+row.put("district", p.getDistrict());
+row.put("receivable", p.isReceivable());
+row.put("titled", p.getLandTitle() != null);
+row.put("legacy", p.isLegacy());
+row.put("owed", o);
+plots.add(row);
+}
+m.put("plots", plots);
+m.put("plotCount", ps.size());
+m.put("owed", owed);
+m.put("paid", paid);
+m.put("storage", storage);
+java.util.List<com.gesolutions.erp.modules.client.model.RecoveryNote> ns = noteRepo.findByClientOrderByCreatedAtDesc(c);
+m.put("lastTag", ns.isEmpty() ? null : ns.get(0).getTag());
+m.put("lastTone", ns.isEmpty() ? null : ns.get(0).getTone());
+out.add(m);
+}
+out.sort((a, b) -> String.valueOf(a.get("name")).compareToIgnoreCase(String.valueOf(b.get("name"))));
+return out;
+}
 }
