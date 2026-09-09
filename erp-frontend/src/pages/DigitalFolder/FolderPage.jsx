@@ -10,8 +10,7 @@ import {
     FiPhoneCall, FiMail, FiMapPin, FiShield,
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
-    FiDollarSign, FiActivity, FiHome, FiArchive,
-FiPlus, FiFolderPlus
+    FiDollarSign, FiActivity, FiHome, FiArchive
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -144,10 +143,9 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const [checkedTemplates, setCheckedTemplates] = useState({}); const [customName, setCustomName] = useState('');
     const [customCost, setCustomCost] = useState(''); const [editingId, setEditingId] = useState(null);
     const [editCost, setEditCost] = useState(''); const [editNotes, setEditNotes] = useState(''); const [saving, setSaving] = useState(false);
-const [insertAfterId, setInsertAfterId] = useState(null); const [insertAfterName, setInsertAfterName] = useState('');
     const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
     useEffect(() => { loadStages(); }, [loadStages]);
-    const openAddModal = async (afterId, afterName) => { try { setTemplates(await stageTemplateService.getTemplate() || []); } catch { setTemplates([]); } setCheckedTemplates({}); setCustomName(''); setCustomCost(''); setInsertAfterId(afterId || null); setInsertAfterName(afterName || ''); setAddModalOpen(true); };
+    const openAddModal = async () => { try { setTemplates(await stageTemplateService.getTemplate() || []); } catch { setTemplates([]); } setCheckedTemplates({}); setCustomName(''); setCustomCost(''); setAddModalOpen(true); };
     const handleAttach = async () => {
         const requests = [];
         templates.forEach(t => { if (checkedTemplates[t.id]) requests.push({ stageTemplateId: t.id, cost: t.defaultCost, isCustom: false }); });
@@ -212,7 +210,6 @@ const FolderPage = () => {
     const canEdit = isManager;    // edit record, stages, docs, payments
     const canMoney = isDirector;  // receivable money actions
     const canLog = true;          // any operator may log notes/calls
-const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans without edit mode; delete still needs edit
 
     const [binder, setBinder] = useState(null);
     const [buffer, setBuffer] = useState(null);
@@ -225,9 +222,9 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const [payments, setPayments] = useState([]);
     const [portfolio, setPortfolio] = useState([]);
   const [recoveryChips, setRecoveryChips] = useState([]);
+  const [recoveryChips, setRecoveryChips] = useState([]);
     const [recvBusy, setRecvBusy] = useState(false);
     const [freezeOpen, setFreezeOpen] = useState(false);
-    const [problemModal, setProblemModal] = useState({ open: false, note: '' });
     const [rateFee, setRateFee] = useState(''); const [rateDeadline, setRateDeadline] = useState('');
     const [activeTab, setActiveTab] = useState(() => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
@@ -238,7 +235,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
-    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, related: true, docs: true, stagesPanel: true });
+    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const firstInputRef = useRef(null);
@@ -332,7 +329,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     if (!binder?.project?.proprietors) return;
     Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
       .then(lists => {
-        const all = lists.flat().filter(n => n.source === 'RECOVERY').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
+        const all = lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
         setRecoveryChips(all);
       });
   }, [binder]);
@@ -377,8 +374,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     };
     const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
-    const handleToggleProblem = async () => { const was = project.problem; if (!was) { setProblemModal({ open: true, note: '' }); return; } try { await folderPortalService.toggleProblem(id, ''); await loadFolderData(); toast('Problem flag removed.', 'info'); } catch { toast('FLAG FAILED', 'error'); } };
-    const confirmProblemFlag = async () => { const note = problemModal.note; setProblemModal({ open: false, note: '' }); try { await folderPortalService.toggleProblem(id, ''); if (note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast('Flagged as PROBLEM.', 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
@@ -460,6 +456,14 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const activeAmountOwed = Math.max(0, totalValue - amountPaid);
     const amountOwed = isReceivable ? receivableAmountOwed : activeAmountOwed;
     const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
+    const lastPay = project?.lastPaymentDate ? new Date(project.lastPaymentDate) : null;
+    const daysSincePay = lastPay ? Math.floor((Date.now() - lastPay.getTime()) / 86400000) : null;
+    const statusBadge = isReceivable ? ['RECEIVABLE', 'badgeRecv']
+        : project.landTitle?.isReleased ? ['RELEASED', 'badgeReleased']
+        : (totalValue > 0 && amountPaid >= totalValue) ? ['PAID', 'badgePaid']
+        : !project.landTitle ? ['PROCESSING', 'badgeProcessing']
+        : (daysSincePay === null || daysSincePay > 30) ? ['CRITICAL', 'badgeCritical']
+        : ['ACTIVE', 'badgeActive'];
 
     return (
         <div className={styles.container}>
@@ -643,8 +647,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
                         </div></div>
                     </section>
                 </div>
-                <div className={styles.tabWrap} style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
-<section className={styles.hwPanel} aria-label="Owners">
+                <section className={styles.hwPanel} aria-label="Owners" style={activeTab !== 'OWNERS' ? {display:'none'} : {}}>
                     <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={project.proprietors.length} />
                     <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <div className={styles.ownersGrid2}>
@@ -697,7 +700,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span>
-                            {canUploadDocs && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
+                            {isEditing && canEdit && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
                             <div className={styles.compactVault}>{binder.documents.map((doc, idx) => (<div key={idx} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
                                 <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)}>{doc.fileName}</button>
@@ -710,22 +713,11 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
                 </section>
 
 
-            <div className={styles.tabWrap} style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+            <div style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
 <section className={styles.hwPanel} aria-label="Notes and Call Log">
                         <DrawerHeader label="NOTES & CALL LOG" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-            {recoveryChips.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <h3 className={styles.sectionTitle}>RECOVERY CALL LOG</h3>
-                {recoveryChips.map((n, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                    <span className={n.tone === 'POSITIVE' ? styles.badgeTitled : n.tone === 'NEGATIVE' ? styles.badgeRecv : styles.badgeLegacy}>{n.tag}</span>
-                    <span className={styles.recvChipMeta}>{n.author || 'SYSTEM'} - {new Date(n.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
                             {canLog && <button type="button" className={styles.addNoteBtn} onClick={() => setNoteModal({ open: true, id: null, content: '' })}>+ ADD NOTE</button>}
                             {noteCount === 0 ? (<div className={styles.emptyState}><FiInfo className={styles.emptyIcon} aria-hidden="true" /><span>NO NOTES LOGGED YET</span></div>) : (
                                 <div className={styles.notebookTimeline}>{binder.notes.map((log, i) => (<article key={i} className={styles.ruledNote}>
@@ -763,12 +755,6 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
-            </HardwareModal>
-            <HardwareModal isOpen={problemModal.open} onClose={() => setProblemModal({ open: false, note: '' })} title="FLAG AS PROBLEM">
-            <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>DESCRIBE THE PROBLEM (OPTIONAL)</label><textarea className={modalStyles.modalTextarea} value={problemModal.note} onChange={e => setProblemModal(p => ({ ...p, note: e.target.value }))} placeholder="e.g. Boundary dispute reported by neighbour..." aria-label="Problem description" /></div>
-            <div className={modalStyles.modalFooter}>
-            <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmProblemFlag}><FiAlertTriangle aria-hidden="true" /> CONFIRM FLAG</button>
-            </div>
             </HardwareModal>
             <BackToTopButton />
         </div>

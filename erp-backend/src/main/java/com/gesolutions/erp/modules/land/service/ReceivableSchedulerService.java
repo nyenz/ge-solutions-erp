@@ -1,9 +1,7 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/service/ReceivableSchedulerService.java
 package com.gesolutions.erp.modules.land.service;
-import java.time.LocalDate;
 import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
 import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
 
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.model.Client;
