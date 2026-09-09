@@ -138,67 +138,71 @@ const ConfirmModal = ({ state, onAnswer }) => {
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 /* STAGE CHECKLIST — restyled to Intake/Ledger family (no inline styles) */
+/* STAGE CHECKLIST - mirrors the Intake page stages panel (fix116).
+   Rows = the project's attached stages, done stages pre-ticked.
+   No money, no notes, no modal: tick to complete, plus to insert below,
+   trash to remove. Nothing can be added after the last stage. */
 const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
-    const [stages, setStages] = useState([]); const [templates, setTemplates] = useState([]);
-    const [loading, setLoading] = useState(true); const [addModalOpen, setAddModalOpen] = useState(false);
-    const [checkedTemplates, setCheckedTemplates] = useState({}); const [customName, setCustomName] = useState('');
-const [customCost, setCustomCost] = useState('');
-const [saving, setSaving] = useState(false);
-const [insertAfterId, setInsertAfterId] = useState(null); const [insertAfterName, setInsertAfterName] = useState('');
+    const [stages, setStages] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [addingStage, setAddingStage] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [insertAfterId, setInsertAfterId] = useState(null);
+    const [insertAfterName, setInsertAfterName] = useState('');
+    const [saving, setSaving] = useState(false);
     const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
     useEffect(() => { loadStages(); }, [loadStages]);
-    const openAddModal = async (afterId, afterName) => { try { setTemplates(await stageTemplateService.getTemplate() || []); } catch { setTemplates([]); } setCheckedTemplates({}); setCustomName(''); setCustomCost(''); setInsertAfterId(afterId || null); setInsertAfterName(afterName || ''); setAddModalOpen(true); };
-    const handleAttach = async () => {
-        const requests = [];
-        templates.forEach(t => { if (checkedTemplates[t.id]) requests.push({ stageTemplateId: t.id, cost: t.defaultCost, isCustom: false }); });
-        if (customName.trim()) requests.push({ stageName: customName.trim(), cost: Number(customCost) || 0, isCustom: true });
-        if (!requests.length) { toast && toast('Select at least one stage', 'error'); return; }
+    const openInsertBelow = (stage) => { setInsertAfterId(stage.id); setInsertAfterName(stage.stageName); setNewStageName(''); setAddingStage(true); };
+    const cancelInsert = () => { setAddingStage(false); setNewStageName(''); setInsertAfterId(null); setInsertAfterName(''); };
+    const handleAddStage = async () => {
+        const name = newStageName.trim();
+        if (!name) { toast && toast('Enter a stage name first.', 'error'); return; }
+        if (stages.some(s => (s.stageName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That stage is already on the list.', 'error'); return; }
         setSaving(true);
-try {
-const created = await stageTemplateService.attachStages(projectId, requests);
-const createdIds = (created || []).map(c => c.id).filter(Boolean);
-if (createdIds.length) {
-const currentIds = stages.map(s => s.id);
-let ordered = [...currentIds, ...createdIds];
-if (insertAfterId) {
-const idx = currentIds.indexOf(insertAfterId);
-if (idx >= 0) ordered = [...currentIds.slice(0, idx + 1), ...createdIds, ...currentIds.slice(idx + 1)];
-}
-await stageTemplateService.reorderProjectStages(projectId, ordered);
-}
-await loadStages(); setAddModalOpen(false); toast && toast(insertAfterId ? 'Stage(s) inserted under ' + insertAfterName : 'Stage(s) inserted', 'success');
-}
-        catch { toast && toast('Failed to add stage(s)', 'error'); } finally { setSaving(false); }
+        try {
+            const created = await stageTemplateService.attachStages(projectId, [{ stageName: name, cost: 0, isCustom: true }]);
+            const createdIds = (created || []).map(c => c.id).filter(Boolean);
+            if (createdIds.length && insertAfterId) {
+                const currentIds = stages.map(s => s.id);
+                const idx = currentIds.indexOf(insertAfterId);
+                const ordered = idx >= 0 ? [...currentIds.slice(0, idx + 1), ...createdIds, ...currentIds.slice(idx + 1)] : [...currentIds, ...createdIds];
+                await stageTemplateService.reorderProjectStages(projectId, ordered);
+            }
+            await loadStages(); cancelInsert(); toast && toast('Stage inserted.', 'success');
+        } catch { toast && toast('Failed to insert stage', 'error'); } finally { setSaving(false); }
     };
     const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch { toast && toast('Failed to update stage', 'error'); } };
-    const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
+    const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed.', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
     if (loading) return null;
-    return (<div style={{ marginTop: 4 }}>
+    return (<div className={styles.stageList}>
         {stages.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
-        {stages.map((stage, sIdx) => (<div key={stage.id} className={`${styles.stageRow} ${stage.isCompleted ? styles.stageRowDone : ''}`}>
-            <input type="checkbox" checked={!!stage.isCompleted} onChange={() => handleToggleComplete(stage)} disabled={!canEdit}
-                aria-label={`Mark ${stage.stageName} complete`} style={{ width: 18, height: 18, flexShrink: 0, accentColor: 'var(--fs-orange)' }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <strong className={`${styles.stageName} ${stage.isCompleted ? styles.stageNameDone : ''}`}>{stage.stageName}</strong>
-            </div>
-            {canEdit && (<div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-{sIdx < stages.length - 1 && <button type="button" className={styles.plusBtn} title="Insert stage below" aria-label={`Insert stage below ${stage.stageName}`} onClick={() => openAddModal(stage.id, stage.stageName)}><FiPlus /></button>}
-                {canRemove && <button type="button" className={styles.iconBtnDanger} aria-label="Remove stage" onClick={() => handleRemove(stage.id)}><FiTrash2 /></button>}
-            </div>)}
-        </div>))}
-        <HardwareModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title={insertAfterId ? 'INSERT STAGE(S) UNDER: ' + insertAfterName : 'ADD STAGE(S)'}>
-{insertAfterId && (<div style={{ marginBottom: 10 }}><span className={styles.insertCtx}>INSERT POSITION: DIRECTLY UNDER {insertAfterName} (MIDDLE INSERT, NOT AT END)</span></div>)}
-            <div style={{ marginBottom: 14 }}>
-                {templates.map(t => (<label key={t.id} className={styles.stageTplRow}>
-                    <input type="checkbox" checked={!!checkedTemplates[t.id]} onChange={e => setCheckedTemplates(prev => ({ ...prev, [t.id]: e.target.checked }))} style={{ width: 16, height: 16, accentColor: 'var(--fs-orange)' }} />
-                    <span style={{ flex: 1 }}>{t.stageName}</span>
-                </label>))}
-            </div>
-            <div className={modalStyles.modalField}><input type="text" value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Custom stage name" className={styles.dtInput} aria-label="Custom stage name" /></div>
-            <div className={modalStyles.modalFooter}>
-                <HardwareButton type="button" onClick={handleAttach} loading={saving} icon={FiCheckCircle}>ADD SELECTED</HardwareButton>
-            </div>
-        </HardwareModal>
+        {stages.map((stage, i) => {
+            const isLast = i === stages.length - 1;
+            return (<React.Fragment key={stage.id}>
+                <label className={`${styles.stageItem} ${stage.isCompleted ? styles.stageItemChecked : ''}`}>
+                    <input type="checkbox" className={styles.stageCheckbox} checked={!!stage.isCompleted} disabled={!canEdit}
+                        onChange={() => handleToggleComplete(stage)} aria-label={`Mark ${stage.stageName} complete`} />
+                    <span className={styles.stageItemName}>{stage.stageName}</span>
+                    <span className={styles.stageActions}>
+                        {canEdit && !isLast && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
+                            aria-label={`Insert stage below ${stage.stageName}`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(stage); }}><FiPlus size={12} /></button>)}
+                        {canRemove && (<button type="button" className={styles.iconBtnDanger} title="Remove stage"
+                            aria-label={`Remove ${stage.stageName}`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(stage.id); }}><FiTrash2 size={12} /></button>)}
+                    </span>
+                </label>
+                {addingStage && insertAfterId === stage.id && (<div className={styles.insertRow}>
+                    <span className={styles.insertCtx}>INSERT UNDER: {insertAfterName}</span>
+                    <input type="text" className={styles.insertInput} value={newStageName} autoFocus
+                        onChange={e => setNewStageName(e.target.value)} placeholder="New stage name"
+                        aria-label="New stage name"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddStage(); } if (e.key === 'Escape') cancelInsert(); }} />
+                    <HardwareButton type="button" onClick={handleAddStage} loading={saving} icon={FiCheckCircle}>ADD</HardwareButton>
+                    <button type="button" className={styles.ghostBtn} onClick={cancelInsert} aria-label="Cancel insert"><FiX aria-hidden="true" /></button>
+                </div>)}
+            </React.Fragment>);
+        })}
     </div>);
 };
 

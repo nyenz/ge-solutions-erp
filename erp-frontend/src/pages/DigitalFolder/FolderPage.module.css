@@ -3030,3 +3030,16 @@
 .plusBtn:hover { background: rgba(238,140,58,0.12); border-color: #EE8C3A; }
 .plusBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 1px; }
 .insertCtx { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); color: #EE8C3A; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+
+/* fix116: Intake-mirrored stage checklist rows */
+.stageList { display: flex; flex-direction: column; gap: 6px; }
+.stageItem { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px; cursor: pointer; transition: border-color 0.2s; }
+.stageItem:hover { border-color: rgba(238,140,58,0.35); }
+.stageItemChecked { background: rgba(238,140,58,0.06); border-color: rgba(238,140,58,0.3); }
+.stageItemChecked .stageItemName { text-decoration: line-through; color: var(--fs-muted); }
+.stageCheckbox { width: 15px; height: 15px; accent-color: #EE8C3A; cursor: pointer; flex-shrink: 0; }
+.stageItemName { font-weight: 700; color: #fff; font-size: clamp(11px, 1.1vw, 13px); letter-spacing: 0.5px; flex: 1; min-width: 0; }
+.stageActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.insertRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed rgba(238,140,58,0.45); border-radius: 7px; background: rgba(238,140,58,0.05); flex-wrap: wrap; }
+.insertInput { flex: 1; min-width: 140px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #fff; padding: 7px 9px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
+.insertInput:focus { outline: none; border-color: #EE8C3A; }
