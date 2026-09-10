@@ -1,11 +1,25 @@
-# fix.py -- Client Ledger page rebuilt to match Project Ledger 1:1
-# (padding, typography, decor pins/corners, sticky search + sticky table
-# header, directional scroll handoff, sortable columns, pagination
-# footer) -- columns rethought for what a CLIENT record actually needs
-# (contact health dot, plot list w/ status dots, contact info, status
-# tags, reliability, debt+progress money cell) instead of the old
-# generic column set. Backend endpoint (/recovery/clients/ledger)
-# already returns every field this needs -- no backend changes.
+# fix.py -- Client Ledger: dot/status rethink
+#
+# Problems this fixes:
+# 1. Three unrelated dot systems on one row (contact-recency dot, per-plot
+#    status dot, last-contact "tone" dot), only one of which was explained
+#    by the legend. Fix: tone dot is gone (plain colored text instead);
+#    plot-status dots get their own legend group, clearly separated from
+#    the contact-health legend.
+# 2. "Critical" meant two different things in the same row -- a plot in
+#    legal receivables (red dot) vs. a client's payment rate being
+#    critically low (red tag/row). Fix: receivables now render violet,
+#    everywhere (dot, row tint, status tag) -- red means payment-critical
+#    and nothing else on this page.
+# 3. STATUS column could stack up to 5 badges per client (RECEIVABLES,
+#    CRITICAL, PAID UP/ACTIVE/NO PLOTS, N TITLED, N FOLDER) -- redundant
+#    with the plot dots already showing per-plot status. Fix: exactly one
+#    status tag per row, in a fixed priority order (receivables > critical
+#    > no plots > paid up > active). Titled/folder counts now live only
+#    on the plot dots' hover breakdown.
+# 4. Multi-plot clients had no consistent story: same dot-per-plot code
+#    path now runs whether a client has 1 plot or 12, and hovering the
+#    dot row gives a one-line breakdown regardless of count.
 import subprocess
 from pathlib import Path
 
@@ -56,6 +70,18 @@ const getContactBadge = (c) => {
 };
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent contact', YELLOW: 'Contacted 2-4 weeks ago', RED: 'No recent contact' };
+
+// -- PLOT STATUS -- a SEPARATE dot language from the contact-health dot
+// above. Deliberately avoids red/green/amber overlap with anything else
+// on the row: TITLED (green) reuses "good" green on purpose, but
+// RECEIVABLE uses violet -- never red -- so it can never be mistaken for
+// the payment-critical badge, which is the only thing red means on this
+// page. One client can hold any mix of these across their plots; the
+// dot row below always renders one dot per plot, in plot order, so 1
+// plot and 12 plots use the exact same code path.
+const PLOT_STATUS_COLORS = { TITLED: '#10b981', PART: '#f59e0b', RECEIVABLE: '#a78bfa' };
+const PLOT_STATUS_LABELS = { TITLED: 'Titled', PART: 'In progress (folder)', RECEIVABLE: 'In receivables (legal)' };
+const plotStatusKey = (p) => (p.receivable ? 'RECEIVABLE' : p.titled ? 'TITLED' : 'PART');
 const PAGE_SIZE = 15;
 const ContactDot = ({ c }) => {
     const badge = getContactBadge(c);
@@ -263,10 +289,18 @@ const ClientLedgerPage = () => {
                             aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
                     ))}
                 </div>
-                <div className={styles.legendRow} aria-label="Contact health legend">
+                <div className={styles.legendRow} aria-label="Legend">
+                    <span className={styles.legendGroupLabel}>CONTACT</span>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
                             <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
+                        </span>
+                    ))}
+                    <span className={styles.legendDivider} aria-hidden="true" />
+                    <span className={styles.legendGroupLabel}>PLOTS</span>
+                    {Object.entries(PLOT_STATUS_COLORS).map(([k, c]) => (
+                        <span key={k} className={styles.legendItem}>
+                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {PLOT_STATUS_LABELS[k]}
                         </span>
                     ))}
                 </div>
@@ -337,6 +371,8 @@ const ClientLedgerPage = () => {
                                 const titledCount = (c.plots || []).filter(p => p.titled && !p.receivable).length;
                                 const folderCount = (c.plots || []).filter(p => !p.titled && !p.receivable).length;
                                 const plotNums = (c.plots || []).map(p => p.plot).filter(Boolean);
+                                // One plot or twelve: same summary, hover for the breakdown.
+                                const plotBreakdown = `${titledCount} titled · ${folderCount} in progress · ${recCount} in receivables`;
                                 return (
                                     <tr key={c.id} onClick={() => navigate(`/client/${c.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/client/${c.id}`); } }}
@@ -365,33 +401,38 @@ const ClientLedgerPage = () => {
                                                     <span className={styles.stageName} title={plotNums.join(' · ')}>
                                                         {plotNums.length === 1 ? plotNums[0] : `${plotNums[0]} +${plotNums.length - 1} more`}
                                                     </span>
-                                                    <span className={styles.stageDots}>
-                                                        {(c.plots || []).map((p, pi) => (
-                                                            <span key={p.projectId || pi}
-                                                                className={`${styles.stageDot} ${p.receivable ? styles.stageDotCritical : p.titled ? styles.stageDotDone : styles.stageDotPart}`}
-                                                                title={p.plot} />
-                                                        ))}
+                                                    <span className={styles.stageDots} title={plotBreakdown}>
+                                                        {(c.plots || []).map((p, pi) => {
+                                                            const key = plotStatusKey(p);
+                                                            return (
+                                                                <span key={p.projectId || pi}
+                                                                    className={`${styles.stageDot} ${key === 'RECEIVABLE' ? styles.stageDotReceivable : key === 'TITLED' ? styles.stageDotDone : styles.stageDotPart}`}
+                                                                    title={`${p.plot} — ${PLOT_STATUS_LABELS[key]}`} />
+                                                            );
+                                                        })}
                                                     </span>
                                                 </div>
                                             )}
                                         </td>
                                         <td>
+                                            {/* One status per row, in priority order -- legal receivables
+                                                outrank a low payment rate, which outranks the plain
+                                                paid/active split. Titled/folder counts already live on the
+                                                plot dots to the left, so they don't repeat here. */}
                                             <div className={styles.statusGroup}>
-                                                {hasReceivable && <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>}
-                                                {!hasReceivable && plotCount > 0 && owed <= 0 && <span className={styles.tagPaid}>PAID UP</span>}
-                                                {!hasReceivable && plotCount > 0 && owed > 0 && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {plotCount === 0 && <span className={styles.tagIdle}>NO PLOTS</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                                {titledCount > 0 && <span className={styles.tagMuted}>{titledCount} TITLED</span>}
-                                                {folderCount > 0 && <span className={styles.tagMuted}>{folderCount} FOLDER</span>}
+                                                {hasReceivable ? <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>
+                                                    : isCritical ? <span className={styles.tagCritical}>CRITICAL</span>
+                                                    : plotCount === 0 ? <span className={styles.tagIdle}>NO PLOTS</span>
+                                                    : owed <= 0 ? <span className={styles.tagPaid}>PAID UP</span>
+                                                    : <span className={styles.tagStandard}>ACTIVE</span>}
                                             </div>
                                         </td>
                                         <td>
                                             <div className={styles.stack}>
                                                 <span className={styles.ownerName}>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}</span>
                                                 {(c.lastTone === 'POSITIVE' || c.lastTone === 'NEGATIVE') && (
-                                                    <span className={styles.stackSub}>
-                                                        <span className={`${styles.toneDot} ${c.lastTone === 'NEGATIVE' ? styles.toneNeg : styles.tonePos}`} title={c.lastTag} /> {c.lastTag}
+                                                    <span className={`${styles.stackSub} ${c.lastTone === 'NEGATIVE' ? styles.toneTextNeg : styles.toneTextPos}`}>
+                                                        {c.lastTag}
                                                     </span>
                                                 )}
                                             </div>
@@ -446,7 +487,7 @@ CLIENT_LEDGER_CSS = r"""/* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage
    (status tags, tone dots) appended at the bottom. */
 .container {
     --orange:#EE8C3A; --orange-dim:rgba(238,140,58,0.18); --orange-border:rgba(238,140,58,0.28);
-    --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981;
+    --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981; --violet:#a78bfa;
     --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
@@ -493,6 +534,8 @@ CLIENT_LEDGER_CSS = r"""/* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage
 .legendRow::-webkit-scrollbar{display:none;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.legendGroupLabel{font-size:9px;font-weight:900;letter-spacing:1.5px;color:rgba(26,46,48,0.4);flex-shrink:0;}
+.legendDivider{width:1px;height:12px;background:rgba(26,46,48,0.18);flex-shrink:0;}
 .tablePanel{
     position:relative;
     background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
@@ -538,8 +581,8 @@ CLIENT_LEDGER_CSS = r"""/* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage
 .stageDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
 .stageDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
 .stageDotPart{background:var(--orange);box-shadow:0 0 4px var(--orange);}
-.stageDotCritical{background:var(--red);box-shadow:0 0 4px var(--red);}
-.rowReceivable{background:rgba(239,68,68,0.05);}
+.stageDotReceivable{background:var(--violet);box-shadow:0 0 4px var(--violet);}
+.rowReceivable{background:rgba(167,139,250,0.06);}
 .rowCritical{background:rgba(239,68,68,0.07);}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}
 .stack{display:flex;flex-direction:column;gap:2px;}
@@ -566,19 +609,24 @@ CLIENT_LEDGER_CSS = r"""/* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage
 .pageIndicator{color:rgba(255,255,255,0.6);font-size:10px;font-weight:800;letter-spacing:1px;}
 .recordCount{color:var(--orange);}
 
-/* -- client-specific status tags & tone dots -- same visual language
-   (no background/border, colored caps text) as the Project Ledger's
-   .tagReceivable/.tagPaid/.tagStandard/.tagCritical. */
-.tagReceivable,.tagPaid,.tagStandard,.tagCritical,.tagIdle,.tagMuted{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
-.tagReceivable{color:#fca5a5;}
+/* -- client-specific status tags -- same visual language (no
+   background/border, colored caps text) as the Project Ledger's
+   .tagReceivable/.tagPaid/.tagStandard/.tagCritical. Exactly one of
+   these renders per row (see statusGroup in the JSX), so their colors
+   never have to compete with each other. .tagReceivable is violet to
+   match the plot dots/row tint for the same concept -- red is reserved
+   for .tagCritical (payment) alone. */
+.tagReceivable,.tagPaid,.tagStandard,.tagCritical,.tagIdle{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
+.tagReceivable{color:var(--violet);}
 .tagPaid{color:#34d399;}
 .tagStandard{color:rgba(255,255,255,0.6);}
 .tagCritical{color:#ef4444;}
 .tagIdle{color:rgba(255,255,255,0.35);}
-.tagMuted{color:rgba(255,255,255,0.4);font-size:9px;font-weight:800;}
-.toneDot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.tonePos{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,0.7);}
-.toneNeg{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,0.7);}
+/* Last-contact tone: plain colored text, not a dot -- the contact-health
+   dot next to the client's name is the only dot this page uses for
+   "contact" meaning, so tone doesn't need its own competing dot. */
+.toneTextPos{color:#34d399;}
+.toneTextNeg{color:#f87171;}
 
 @media (max-width: 700px) {
     .ledgerTable{min-width:640px;}
@@ -592,7 +640,7 @@ write(CLCSS, CLIENT_LEDGER_CSS)
 
 try:
     subprocess.run(["git", "add", "-A"], cwd=ROOT, check=True)
-    subprocess.run(["git", "commit", "-m", "Rebuild Client Ledger to match Project Ledger design/scroll/pagination; rethink columns"], cwd=ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", "Client Ledger: one dot language per meaning, one status tag per row"], cwd=ROOT, check=True)
     subprocess.run(["git", "push"], cwd=ROOT, check=True)
     print("GIT pushed")
 except Exception as e:

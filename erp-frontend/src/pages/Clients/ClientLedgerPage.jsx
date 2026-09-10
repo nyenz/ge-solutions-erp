@@ -34,6 +34,18 @@ const getContactBadge = (c) => {
 };
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent contact', YELLOW: 'Contacted 2-4 weeks ago', RED: 'No recent contact' };
+
+// -- PLOT STATUS -- a SEPARATE dot language from the contact-health dot
+// above. Deliberately avoids red/green/amber overlap with anything else
+// on the row: TITLED (green) reuses "good" green on purpose, but
+// RECEIVABLE uses violet -- never red -- so it can never be mistaken for
+// the payment-critical badge, which is the only thing red means on this
+// page. One client can hold any mix of these across their plots; the
+// dot row below always renders one dot per plot, in plot order, so 1
+// plot and 12 plots use the exact same code path.
+const PLOT_STATUS_COLORS = { TITLED: '#10b981', PART: '#f59e0b', RECEIVABLE: '#a78bfa' };
+const PLOT_STATUS_LABELS = { TITLED: 'Titled', PART: 'In progress (folder)', RECEIVABLE: 'In receivables (legal)' };
+const plotStatusKey = (p) => (p.receivable ? 'RECEIVABLE' : p.titled ? 'TITLED' : 'PART');
 const PAGE_SIZE = 15;
 const ContactDot = ({ c }) => {
     const badge = getContactBadge(c);
@@ -241,10 +253,18 @@ const ClientLedgerPage = () => {
                             aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
                     ))}
                 </div>
-                <div className={styles.legendRow} aria-label="Contact health legend">
+                <div className={styles.legendRow} aria-label="Legend">
+                    <span className={styles.legendGroupLabel}>CONTACT</span>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
                             <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
+                        </span>
+                    ))}
+                    <span className={styles.legendDivider} aria-hidden="true" />
+                    <span className={styles.legendGroupLabel}>PLOTS</span>
+                    {Object.entries(PLOT_STATUS_COLORS).map(([k, c]) => (
+                        <span key={k} className={styles.legendItem}>
+                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {PLOT_STATUS_LABELS[k]}
                         </span>
                     ))}
                 </div>
@@ -315,6 +335,8 @@ const ClientLedgerPage = () => {
                                 const titledCount = (c.plots || []).filter(p => p.titled && !p.receivable).length;
                                 const folderCount = (c.plots || []).filter(p => !p.titled && !p.receivable).length;
                                 const plotNums = (c.plots || []).map(p => p.plot).filter(Boolean);
+                                // One plot or twelve: same summary, hover for the breakdown.
+                                const plotBreakdown = `${titledCount} titled · ${folderCount} in progress · ${recCount} in receivables`;
                                 return (
                                     <tr key={c.id} onClick={() => navigate(`/client/${c.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/client/${c.id}`); } }}
@@ -343,33 +365,38 @@ const ClientLedgerPage = () => {
                                                     <span className={styles.stageName} title={plotNums.join(' · ')}>
                                                         {plotNums.length === 1 ? plotNums[0] : `${plotNums[0]} +${plotNums.length - 1} more`}
                                                     </span>
-                                                    <span className={styles.stageDots}>
-                                                        {(c.plots || []).map((p, pi) => (
-                                                            <span key={p.projectId || pi}
-                                                                className={`${styles.stageDot} ${p.receivable ? styles.stageDotCritical : p.titled ? styles.stageDotDone : styles.stageDotPart}`}
-                                                                title={p.plot} />
-                                                        ))}
+                                                    <span className={styles.stageDots} title={plotBreakdown}>
+                                                        {(c.plots || []).map((p, pi) => {
+                                                            const key = plotStatusKey(p);
+                                                            return (
+                                                                <span key={p.projectId || pi}
+                                                                    className={`${styles.stageDot} ${key === 'RECEIVABLE' ? styles.stageDotReceivable : key === 'TITLED' ? styles.stageDotDone : styles.stageDotPart}`}
+                                                                    title={`${p.plot} — ${PLOT_STATUS_LABELS[key]}`} />
+                                                            );
+                                                        })}
                                                     </span>
                                                 </div>
                                             )}
                                         </td>
                                         <td>
+                                            {/* One status per row, in priority order -- legal receivables
+                                                outrank a low payment rate, which outranks the plain
+                                                paid/active split. Titled/folder counts already live on the
+                                                plot dots to the left, so they don't repeat here. */}
                                             <div className={styles.statusGroup}>
-                                                {hasReceivable && <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>}
-                                                {!hasReceivable && plotCount > 0 && owed <= 0 && <span className={styles.tagPaid}>PAID UP</span>}
-                                                {!hasReceivable && plotCount > 0 && owed > 0 && <span className={styles.tagStandard}>ACTIVE</span>}
-                                                {plotCount === 0 && <span className={styles.tagIdle}>NO PLOTS</span>}
-                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
-                                                {titledCount > 0 && <span className={styles.tagMuted}>{titledCount} TITLED</span>}
-                                                {folderCount > 0 && <span className={styles.tagMuted}>{folderCount} FOLDER</span>}
+                                                {hasReceivable ? <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>
+                                                    : isCritical ? <span className={styles.tagCritical}>CRITICAL</span>
+                                                    : plotCount === 0 ? <span className={styles.tagIdle}>NO PLOTS</span>
+                                                    : owed <= 0 ? <span className={styles.tagPaid}>PAID UP</span>
+                                                    : <span className={styles.tagStandard}>ACTIVE</span>}
                                             </div>
                                         </td>
                                         <td>
                                             <div className={styles.stack}>
                                                 <span className={styles.ownerName}>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}</span>
                                                 {(c.lastTone === 'POSITIVE' || c.lastTone === 'NEGATIVE') && (
-                                                    <span className={styles.stackSub}>
-                                                        <span className={`${styles.toneDot} ${c.lastTone === 'NEGATIVE' ? styles.toneNeg : styles.tonePos}`} title={c.lastTag} /> {c.lastTag}
+                                                    <span className={`${styles.stackSub} ${c.lastTone === 'NEGATIVE' ? styles.toneTextNeg : styles.toneTextPos}`}>
+                                                        {c.lastTag}
                                                     </span>
                                                 )}
                                             </div>

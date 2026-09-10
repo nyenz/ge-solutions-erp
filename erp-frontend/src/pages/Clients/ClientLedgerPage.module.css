@@ -5,7 +5,7 @@
    (status tags, tone dots) appended at the bottom. */
 .container {
     --orange:#EE8C3A; --orange-dim:rgba(238,140,58,0.18); --orange-border:rgba(238,140,58,0.28);
-    --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981;
+    --navy:#213E40; --navy-deep:#1a2e30; --red:#ef4444; --green:#10b981; --violet:#a78bfa;
     --fs-th: clamp(8px,0.85vw,10px); --fs-td: clamp(10px,1.05vw,12px);
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
@@ -52,6 +52,8 @@
 .legendRow::-webkit-scrollbar{display:none;}
 .legendItem{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(26,46,48,0.6);white-space:nowrap;flex-shrink:0;}
 .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.legendGroupLabel{font-size:9px;font-weight:900;letter-spacing:1.5px;color:rgba(26,46,48,0.4);flex-shrink:0;}
+.legendDivider{width:1px;height:12px;background:rgba(26,46,48,0.18);flex-shrink:0;}
 .tablePanel{
     position:relative;
     background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
@@ -97,8 +99,8 @@
 .stageDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
 .stageDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
 .stageDotPart{background:var(--orange);box-shadow:0 0 4px var(--orange);}
-.stageDotCritical{background:var(--red);box-shadow:0 0 4px var(--red);}
-.rowReceivable{background:rgba(239,68,68,0.05);}
+.stageDotReceivable{background:var(--violet);box-shadow:0 0 4px var(--violet);}
+.rowReceivable{background:rgba(167,139,250,0.06);}
 .rowCritical{background:rgba(239,68,68,0.07);}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}
 .stack{display:flex;flex-direction:column;gap:2px;}
@@ -125,19 +127,24 @@
 .pageIndicator{color:rgba(255,255,255,0.6);font-size:10px;font-weight:800;letter-spacing:1px;}
 .recordCount{color:var(--orange);}
 
-/* -- client-specific status tags & tone dots -- same visual language
-   (no background/border, colored caps text) as the Project Ledger's
-   .tagReceivable/.tagPaid/.tagStandard/.tagCritical. */
-.tagReceivable,.tagPaid,.tagStandard,.tagCritical,.tagIdle,.tagMuted{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
-.tagReceivable{color:#fca5a5;}
+/* -- client-specific status tags -- same visual language (no
+   background/border, colored caps text) as the Project Ledger's
+   .tagReceivable/.tagPaid/.tagStandard/.tagCritical. Exactly one of
+   these renders per row (see statusGroup in the JSX), so their colors
+   never have to compete with each other. .tagReceivable is violet to
+   match the plot dots/row tint for the same concept -- red is reserved
+   for .tagCritical (payment) alone. */
+.tagReceivable,.tagPaid,.tagStandard,.tagCritical,.tagIdle{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
+.tagReceivable{color:var(--violet);}
 .tagPaid{color:#34d399;}
 .tagStandard{color:rgba(255,255,255,0.6);}
 .tagCritical{color:#ef4444;}
 .tagIdle{color:rgba(255,255,255,0.35);}
-.tagMuted{color:rgba(255,255,255,0.4);font-size:9px;font-weight:800;}
-.toneDot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.tonePos{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,0.7);}
-.toneNeg{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,0.7);}
+/* Last-contact tone: plain colored text, not a dot -- the contact-health
+   dot next to the client's name is the only dot this page uses for
+   "contact" meaning, so tone doesn't need its own competing dot. */
+.toneTextPos{color:#34d399;}
+.toneTextNeg{color:#f87171;}
 
 @media (max-width: 700px) {
     .ledgerTable{min-width:640px;}
