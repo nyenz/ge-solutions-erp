@@ -25,7 +25,6 @@ import clientService from '../../services/clientService';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import ErrorMessage from '../../components/common/ErrorMessage';
-import BackToTopButton from '../../components/common/BackToTopButton';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -145,7 +144,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 /* STAGE CHECKLIST - Intake mirror (fix117): Intake/Recovery button tones,
    first stage auto-ticked, first & last stages locked from delete,
    RESTORE DEFAULTS like Intake, insert-below never after the last stage. */
-const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
+const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm }) => {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [addingStage, setAddingStage] = useState(false);
@@ -185,6 +184,7 @@ const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast }) => {
     const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); } };
     const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed.', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
     const handleRestoreDefaults = async () => {
+if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current stage list with the master checklist? Current ticks and custom stages will be lost.', 'warn'); if (!ok) return; }
         setSaving(true);
         try {
             const tpls = await stageTemplateService.getTemplate() || [];
@@ -363,11 +363,6 @@ useEffect(() => {
         } catch { setLoadError(true); } finally { setLoading(false); }
     }, [id, isEditing]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
-  useEffect(() => {
-    if (!binder?.project?.proprietors) return;
-    Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
-      .then(lists => setRecoveryChips(lists.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20)));
-  }, [binder]);
   useEffect(() => {
     if (!binder?.project?.proprietors) return;
     Promise.all(binder.project.proprietors.map(p => recoveryService.getNotes(p.id).catch(() => [])))
@@ -607,7 +602,7 @@ useEffect(() => {
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                        <StageChecklistPanel projectId={id} canEdit={canEdit} canRemove={isDirector} toast={toast} />
+                        <StageChecklistPanel projectId={id} canEdit={canEdit} canRemove={isDirector} toast={toast} confirm={confirm} />
                     </div></div>
                 </section>
                 )}

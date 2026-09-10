@@ -63,13 +63,6 @@ const stageTemplateService = {
         return response.data;
     },
 
-    updateStageCost: async (projectId, stageId, cost, notes) => {
-        const response = await api.patch(
-            `/land/projects/${projectId}/stages/${stageId}/cost`,
-            { cost, notes }
-        );
-        return response.data;
-    },
 
     reorderProjectStages: async (projectId, orderedIds) => {
 const response = await api.put(`/land/projects/${projectId}/stages/reorder`, orderedIds);

@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiUsers, FiSearch, FiX, FiPhoneCall, FiChevronDown, FiShield, FiMapPin } from 'react-icons/fi';
+import { FiUsers, FiSearch, FiX, FiPhoneCall, FiChevronDown, FiMail, FiMapPin } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import BackToTopButton from '../../components/common/BackToTopButton';
@@ -111,7 +111,7 @@ const ClientLedgerPage = () => {
                       </td>
                       {isDirector && <td><span className={`${styles.mono} ${Number(c.owed) > 0 ? styles.moneyRed : styles.moneyGreen}`}>{fmt(c.owed)}</span></td>}
                       {isDirector && <td><span className={styles.mono}>{fmt(c.paid)}</span></td>}
-                      <td>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}{c.lastTag ? <span className={`${styles.toneDot} ${c.lastTone === 'POSITIVE' ? styles.tonePos : styles.toneNeg}`} title={c.lastTag} /> : null}</td>
+                      <td>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}{(c.lastTone === 'POSITIVE' || c.lastTone === 'NEGATIVE') ? <span className={`${styles.toneDot} ${c.lastTone === 'NEGATIVE' ? styles.toneNeg : styles.tonePos}`} title={c.lastTag} /> : null}</td>
                       <td><span className={styles.mono}>{c.reliability != null ? Number(c.reliability).toFixed(0) : '---'}</span></td>
                       <td><FiChevronDown className={`${styles.chev} ${open ? styles.chevOpen : ''}`} aria-hidden="true" /></td>
                     </tr>
@@ -120,7 +120,7 @@ const ClientLedgerPage = () => {
                         <td colSpan={isDirector ? 10 : 8}>
                           <div className={styles.detailBox}>
                             <div className={styles.detailHead}>
-                              <span><FiShield aria-hidden="true" /> {c.email || 'no email'}</span>
+                              <span><FiMail aria-hidden="true" /> {c.email || 'no email'}</span>
                               <button type="button" className={styles.jumpBtn} onClick={e => { e.stopPropagation(); navigate('/recovery'); }}><FiPhoneCall aria-hidden="true" /> OPEN IN RECOVERY</button>
                             </div>
                             {(c.plots || []).length === 0 ? (<span className={styles.detailEmpty}>NO PLOTS REGISTERED FOR THIS CLIENT</span>) : (
