@@ -15,6 +15,8 @@ const matchesSearch = (c, term) => {
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
         c.name, c.nin, c.phone, c.email,
+        ...(c.plots || []).map(p => p.index),
+        ...(c.plots || []).map(p => p.index),
         ...(c.plots || []).map(p => p.plot),
         ...(c.plots || []).map(p => p.district),
     ];
@@ -310,7 +312,7 @@ const ClientLedgerPage = () => {
                                 const hasReceivable = (c.plots || []).some(p => p.receivable);
                                 const plotCount = c.plotCount || 0;
                                 const recCount = (c.plots || []).filter(p => p.receivable).length;
-                                const plotNums = (c.plots || []).map(p => p.plot).filter(Boolean);
+                                const plotNums = (c.plots || []).map(p => p.plot || p.index).filter(Boolean);
                                 const countyList = [...new Set((c.plots || []).map(p => p.district).filter(Boolean))];
                                 return (
                                     <tr key={c.id} onClick={() => navigate(`/client/${c.id}`)}

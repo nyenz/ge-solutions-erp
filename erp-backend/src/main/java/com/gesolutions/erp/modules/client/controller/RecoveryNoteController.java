@@ -380,7 +380,8 @@ paid = paid.add(p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmo
 storage = storage.add(p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated());
 java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
 row.put("projectId", p.getId());
-row.put("plot", p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null ? p.getLandTitle().getPlotNumber() : p.getProjectIndex());
+row.put("index", p.getProjectIndex());
+row.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
 row.put("district", p.getDistrict());
 row.put("receivable", p.isReceivable());
 row.put("titled", p.getLandTitle() != null);
@@ -435,13 +436,27 @@ java.math.BigDecimal s1 = p.getStorageFeesAccumulated() == null ? java.math.BigD
 owed = owed.add(o1); paid = paid.add(p1); storage = storage.add(s1);
 java.util.Map<String, Object> pm = new java.util.LinkedHashMap<>();
 pm.put("projectId", p.getId());
-pm.put("plot", p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null ? p.getLandTitle().getPlotNumber() : p.getProjectIndex());
+pm.put("index", p.getProjectIndex());
+pm.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
 pm.put("district", p.getDistrict());
 pm.put("receivable", p.isReceivable());
 pm.put("titled", p.getLandTitle() != null);
 pm.put("legacy", p.isLegacy());
 pm.put("owed", o1); pm.put("paid", p1); pm.put("storage", s1);
 pm.put("lastPayment", p.getLastPaymentDate() == null ? null : p.getLastPaymentDate().toString());
+java.util.Set<com.gesolutions.erp.modules.client.model.Client> owners = p.getProprietors();
+pm.put("ownershipType", owners != null && owners.size() > 1 ? "JOINT" : "SOLO");
+java.util.List<java.util.Map<String, Object>> coOwners = new java.util.ArrayList<>();
+if (owners != null) {
+for (com.gesolutions.erp.modules.client.model.Client co : owners) {
+if (co == null || co.getId() == null || id.equals(co.getId())) continue;
+java.util.Map<String, Object> cm = new java.util.LinkedHashMap<>();
+cm.put("clientId", co.getId());
+cm.put("fullName", co.getFullName());
+coOwners.add(cm);
+}
+}
+pm.put("coOwners", coOwners);
 plots.add(pm);
 }
 out.put("plots", plots);
