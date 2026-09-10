@@ -14,7 +14,12 @@ const clientService = {
         } catch {
             return { exists: false };
         }
-    }
+    },
+
+    // Client dossier "EDIT PORTFOLIO" action: contact-detail corrections
+    // only (name/phone/email/address). NIN and money figures are not sent
+    // here -- see ClientController.updateClient for why.
+    updateClient: (id, payload) => api.put('/clients/' + id, payload).then((response) => response.data),
 };
 
 export default clientService;
