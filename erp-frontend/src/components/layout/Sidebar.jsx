@@ -2,8 +2,8 @@
 import React, { useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-    FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
-    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown
+FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
+    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import styles from './Sidebar.module.css';

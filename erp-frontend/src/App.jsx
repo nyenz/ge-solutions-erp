@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth';
 
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
+import RouteErrorScreen from './components/common/RouteErrorScreen';
 
 import LoginPage      from './pages/login/LoginPage';
 import Dashboard      from './pages/Dashboard/Dashboard';
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
     {
         path: "/",
         element: <AppLayout />,
+        errorElement: <RouteErrorScreen />,
         children: [
             { index: true, element: <FallbackRoute /> },
             { path: "login", element: <LoginRoute /> },

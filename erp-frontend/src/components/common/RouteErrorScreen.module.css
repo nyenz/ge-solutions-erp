@@ -1,0 +1,53 @@
+/* PATH: erp-frontend/src/components/common/RouteErrorScreen.module.css */
+/* fix122: styled crash screen - app design language instead of router debug box */
+.wrap {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 30%, #213E40 0%, #1a2e30 70%);
+  padding: clamp(16px, 4vw, 40px);
+}
+.hud {
+  display: flex; gap: clamp(12px, 2vw, 20px); align-items: flex-start;
+  max-width: clamp(320px, 60vw, 560px); width: 100%;
+  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  padding: clamp(18px, 3vw, 30px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.iconBox {
+  color: #ef4444; font-size: clamp(22px, 3vw, 30px);
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5));
+}
+.body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(16px, 2.4vw, 22px);
+  color: #EE8C3A; letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(238, 140, 58, 0.45);
+}
+.msg {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(10px, 1.2vw, 13px);
+  color: #fca5a5; letter-spacing: 0.4px;
+  word-break: break-word;
+}
+.hint {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(9px, 1vw, 11px);
+  color: rgba(255, 255, 255, 0.55); letter-spacing: 0.6px;
+}
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.btn, .btnGhost {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 800; letter-spacing: 1.2px;
+  padding: 9px 14px; border-radius: 6px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.2s;
+}
+.btn { background: #EE8C3A; border: 1px solid #EE8C3A; color: #1a2e30; }
+.btn:hover { background: #f0a050; border-color: #f0a050; }
+.btnGhost { background: transparent; border: 1px solid rgba(238, 140, 58, 0.28); color: #EE8C3A; }
+.btnGhost:hover { background: rgba(238, 140, 58, 0.12); }
+.btn:focus-visible, .btnGhost:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
