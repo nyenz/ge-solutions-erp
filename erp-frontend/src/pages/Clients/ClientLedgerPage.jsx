@@ -16,7 +16,6 @@ const matchesSearch = (c, term) => {
     const fields = [
         c.name, c.nin, c.phone, c.email,
         ...(c.plots || []).map(p => p.index),
-        ...(c.plots || []).map(p => p.index),
         ...(c.plots || []).map(p => p.plot),
         ...(c.plots || []).map(p => p.district),
     ];

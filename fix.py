@@ -92,13 +92,24 @@ patch(
 )
 
 # ------------------------------------------------------- CLIENT LEDGER LIST --
-patch(
-    CLP,
-    "        ...(c.plots || []).map(p => p.plot),",
-    "        ...(c.plots || []).map(p => p.index),\n"
-    "        ...(c.plots || []).map(p => p.plot),",
-    "ClientLedger search includes index",
-)
+def ensure_ledger_search_index(p):
+    with open(p, "r", encoding="utf-8", errors="replace") as f:
+        s = f.read()
+    idx = "        ...(c.plots || []).map(p => p.index),\n"
+    plot = "        ...(c.plots || []).map(p => p.plot),\n"
+    while idx + idx in s:
+        s = s.replace(idx + idx, idx)
+    if idx not in s:
+        if plot not in s:
+            print("MISSING ClientLedger search includes index ->", p)
+            return
+        s = s.replace(plot, idx + plot, 1)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(s)
+    print("OK ClientLedger search includes index")
+
+
+ensure_ledger_search_index(CLP)
 
 patch(
     CLP,
