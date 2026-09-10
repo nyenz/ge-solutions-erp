@@ -9,6 +9,8 @@ import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
+import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
+import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class RecoveryNoteController {
     private final RecoveryNoteRepository noteRepo;
     private final UserRepository userRepo;
     private final LandProjectRepository projectRepo;
+    private final PaymentRecordRepository paymentRepo;
     private final FollowUpRepository followUpRepo;
     private final AuditService auditService;
     private final NotificationService notificationService;
@@ -369,6 +372,7 @@ java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
 java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
 java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
 java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
+java.util.List<java.util.UUID> pids = new java.util.ArrayList<>();
 for (com.gesolutions.erp.modules.land.model.LandProject p : ps) {
 java.math.BigDecimal o = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
 owed = owed.add(o);
@@ -383,9 +387,13 @@ row.put("titled", p.getLandTitle() != null);
 row.put("legacy", p.isLegacy());
 row.put("owed", o);
 plots.add(row);
+pids.add(p.getId());
 }
 m.put("plots", plots);
 m.put("plotCount", ps.size());
+java.time.LocalDateTime lastPaymentAt = pids.isEmpty() ? null
+    : paymentRepo.findTopByProjectIdInOrderByTimestampDesc(pids).map(PaymentRecord::getTimestamp).orElse(null);
+m.put("lastPaymentAt", lastPaymentAt == null ? null : lastPaymentAt.toString());
 m.put("owed", owed);
 m.put("paid", paid);
 m.put("storage", storage);

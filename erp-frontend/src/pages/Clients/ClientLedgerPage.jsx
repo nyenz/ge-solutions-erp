@@ -21,34 +21,22 @@ const matchesSearch = (c, term) => {
     return fields.some(f => f && String(f).toLowerCase().replace(/\s+/g, '').includes(t));
 };
 
-// -- CONTACT HEALTH BADGE -- mirrors the Project Ledger's payment-health
-// dot, but keyed off recency of the last recovery contact instead of the
-// last payment: GREEN = touched within 14 days, YELLOW = 2-4 weeks,
-// RED = over a month or never contacted.
-const getContactBadge = (c) => {
-    if (!c.lastContact) return 'RED';
-    const days = Math.floor((Date.now() - new Date(c.lastContact)) / 86400000);
+// -- PAYMENT HEALTH BADGE -- keyed off recency of the client's last
+// payment across all their plots (not last contact): GREEN = paid
+// within 14 days, YELLOW = paid 2-4 weeks ago, RED = over a month
+// since the last payment, or never paid at all.
+const getPaymentBadge = (c) => {
+    if (!c.lastPaymentAt) return 'RED';
+    const days = Math.floor((Date.now() - new Date(c.lastPaymentAt)) / 86400000);
     if (days <= 14) return 'GREEN';
     if (days <= 30) return 'YELLOW';
     return 'RED';
 };
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent contact', YELLOW: 'Contacted 2-4 weeks ago', RED: 'No recent contact' };
-
-// -- PLOT STATUS -- a SEPARATE dot language from the contact-health dot
-// above. Deliberately avoids red/green/amber overlap with anything else
-// on the row: TITLED (green) reuses "good" green on purpose, but
-// RECEIVABLE uses violet -- never red -- so it can never be mistaken for
-// the payment-critical badge, which is the only thing red means on this
-// page. One client can hold any mix of these across their plots; the
-// dot row below always renders one dot per plot, in plot order, so 1
-// plot and 12 plots use the exact same code path.
-const PLOT_STATUS_COLORS = { TITLED: '#10b981', PART: '#f59e0b', RECEIVABLE: '#a78bfa' };
-const PLOT_STATUS_LABELS = { TITLED: 'Titled', PART: 'In progress (folder)', RECEIVABLE: 'In receivables (legal)' };
-const plotStatusKey = (p) => (p.receivable ? 'RECEIVABLE' : p.titled ? 'TITLED' : 'PART');
+const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Paid 2-4 weeks ago', RED: 'No recent payment' };
 const PAGE_SIZE = 15;
-const ContactDot = ({ c }) => {
-    const badge = getContactBadge(c);
+const PaymentDot = ({ c }) => {
+    const badge = getPaymentBadge(c);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
         style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
             background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
@@ -254,17 +242,10 @@ const ClientLedgerPage = () => {
                     ))}
                 </div>
                 <div className={styles.legendRow} aria-label="Legend">
-                    <span className={styles.legendGroupLabel}>CONTACT</span>
+                    <span className={styles.legendGroupLabel}>PAYMENT</span>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
                             <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                    <span className={styles.legendDivider} aria-hidden="true" />
-                    <span className={styles.legendGroupLabel}>PLOTS</span>
-                    {Object.entries(PLOT_STATUS_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {PLOT_STATUS_LABELS[k]}
                         </span>
                     ))}
                 </div>
@@ -296,10 +277,7 @@ const ClientLedgerPage = () => {
                                     aria-sort={sortConfig.key === 'lastContact' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     LAST CONTACT {renderSortIcon('lastContact')}
                                 </th>
-                                <th onClick={() => handleSort('reliability')} className={styles.sortable}
-                                    aria-sort={sortConfig.key === 'reliability' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    RELIABILITY {renderSortIcon('reliability')}
-                                </th>
+                                <th>COUNTY</th>
                                 {isDirector && (
                                     <th onClick={() => handleSort('owed')} className={styles.sortable}
                                         aria-sort={sortConfig.key === 'owed' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
@@ -332,11 +310,8 @@ const ClientLedgerPage = () => {
                                 const hasReceivable = (c.plots || []).some(p => p.receivable);
                                 const plotCount = c.plotCount || 0;
                                 const recCount = (c.plots || []).filter(p => p.receivable).length;
-                                const titledCount = (c.plots || []).filter(p => p.titled && !p.receivable).length;
-                                const folderCount = (c.plots || []).filter(p => !p.titled && !p.receivable).length;
                                 const plotNums = (c.plots || []).map(p => p.plot).filter(Boolean);
-                                // One plot or twelve: same summary, hover for the breakdown.
-                                const plotBreakdown = `${titledCount} titled · ${folderCount} in progress · ${recCount} in receivables`;
+                                const countyList = [...new Set((c.plots || []).map(p => p.district).filter(Boolean))];
                                 return (
                                     <tr key={c.id} onClick={() => navigate(`/client/${c.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/client/${c.id}`); } }}
@@ -346,7 +321,7 @@ const ClientLedgerPage = () => {
                                         <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={styles.plotCell}>
                                             <div className={styles.indexRow}>
-                                                <ContactDot c={c} />
+                                                <PaymentDot c={c} />
                                                 <div className={styles.stack}>
                                                     <span className={styles.ownerName}>{c.name || '---'}</span>
                                                     <span className={styles.stackSub}>{c.nin || 'NO NIN'}</span>
@@ -362,19 +337,9 @@ const ClientLedgerPage = () => {
                                         <td className={styles.stageCell}>
                                             {plotNums.length === 0 ? <span className={styles.stackSub}>---</span> : (
                                                 <div className={styles.stack}>
-                                                    <span className={styles.stageName} title={plotNums.join(' · ')}>
-                                                        {plotNums.length === 1 ? plotNums[0] : `${plotNums[0]} +${plotNums.length - 1} more`}
-                                                    </span>
-                                                    <span className={styles.stageDots} title={plotBreakdown}>
-                                                        {(c.plots || []).map((p, pi) => {
-                                                            const key = plotStatusKey(p);
-                                                            return (
-                                                                <span key={p.projectId || pi}
-                                                                    className={`${styles.stageDot} ${key === 'RECEIVABLE' ? styles.stageDotReceivable : key === 'TITLED' ? styles.stageDotDone : styles.stageDotPart}`}
-                                                                    title={`${p.plot} — ${PLOT_STATUS_LABELS[key]}`} />
-                                                            );
-                                                        })}
-                                                    </span>
+                                                    {plotNums.map((num, pi) => (
+                                                        <span key={pi} className={styles.stageName}>{pi + 1}. {num}</span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </td>
@@ -401,7 +366,7 @@ const ClientLedgerPage = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className={styles.rowNum}>{c.reliability != null ? Number(c.reliability).toFixed(0) : '---'}</td>
+                                        <td>{countyList.length === 0 ? '---' : countyList.join(', ')}</td>
                                         {isDirector && (
                                             <td className={styles.moneyCell}>
                                                 <div className={styles.moneyRow}>

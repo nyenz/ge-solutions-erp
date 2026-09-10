@@ -8,11 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UUID> {
 
     List<PaymentRecord> findByProjectIdOrderByTimestampDesc(UUID projectId);
+
+    Optional<PaymentRecord> findTopByProjectIdInOrderByTimestampDesc(List<UUID> projectIds);
 
     @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM PaymentRecord p WHERE p.projectId = :projectId")
     BigDecimal sumPaymentsByProjectId(UUID projectId);
