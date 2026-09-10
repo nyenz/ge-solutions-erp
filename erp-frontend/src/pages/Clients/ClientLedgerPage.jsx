@@ -15,6 +15,12 @@ const FILTERS = [
   { key: 'PAID', label: 'PAID UP' },
   { key: 'NOPLOTS', label: 'NO PLOTS' },
 ];
+const LEGEND = [
+  { color: '#ef4444', label: 'In receivables' },
+  { color: '#22c55e', label: 'Paid up' },
+  { color: '#f59e0b', label: 'Folder stage' },
+  { color: '#94a3b8', label: 'No plots' },
+];
 
 const ClientLedgerPage = () => {
   const navigate = useNavigate();
@@ -55,41 +61,49 @@ const ClientLedgerPage = () => {
     });
   }, [rows, term, filter]);
 
+  const cols = isDirector ? 10 : 8;
+
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>Client Ledger</h1>
-          <p className={styles.subtitle}>Every client - identity, plots and live balance in one register</p>
+          <p className={styles.subtitle}>Every client — identity, plots and live balance in one register</p>
         </div>
       </header>
-      <div className={styles.searchBlock}>
-        <div className={styles.searchWrap}>
-          <FiSearch className={styles.searchIcon} aria-hidden="true" />
-          <input className={styles.searchInput} value={term} onChange={e => setTerm(e.target.value)} placeholder="Search name, NIN, phone or plot..." aria-label="Search clients" />
-          {term && <button type="button" className={styles.clearBtn} onClick={() => setTerm('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>}
+      <div className={styles.controlHub}>
+        <div className={styles.searchBlock}>
+          <div className={styles.searchInner}>
+            <FiSearch className={styles.searchIcon} aria-hidden="true" />
+            <input type="search" className={styles.searchInput} value={term} onChange={e => setTerm(e.target.value)}
+              placeholder="Search name, NIN, phone or plot..." aria-label="Search clients" autoComplete="off" />
+            {term && (<button type="button" className={styles.clearBtn} onClick={() => setTerm('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>)}
+          </div>
         </div>
         <div className={styles.filterRow}>
           {FILTERS.map(f => (<button key={f.key} type="button" className={`${styles.filterBtn} ${filter === f.key ? styles.filterBtnActive : ''}`} onClick={() => setFilter(f.key)}>{f.label}</button>))}
           <span className={styles.recordCount}>{filtered.length} CLIENT{filtered.length === 1 ? '' : 'S'}</span>
         </div>
+        <div className={styles.legendRow} aria-label="Client status legend">
+          {LEGEND.map(l => (<span key={l.label} className={styles.legendItem}><span className={styles.legendDot} style={{ background: l.color, boxShadow: `0 0 4px ${l.color}` }} /> {l.label}</span>))}
+        </div>
       </div>
-      {loading ? (<div className={styles.emptyState}><span>LOADING CLIENT REGISTER...</span></div>)
-        : loadError ? (<div className={styles.emptyState}><span>COULD NOT LOAD CLIENTS - REFRESH TO RETRY</span></div>)
-        : filtered.length === 0 ? (<div className={styles.emptyState}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><span>NO CLIENTS MATCH THIS VIEW</span></div>)
-        : (
-          <div className={styles.tableWrap}>
-            <table className={styles.ledgerTable}>
-              <thead>
-                <tr>
-                  <th>CLIENT</th><th>NIN</th><th>CONTACT</th><th>PLOTS</th><th>STATUS</th>
-                  {isDirector && <th>OWED (UGX)</th>}
-                  {isDirector && <th>PAID (UGX)</th>}
-                  <th>LAST CONTACT</th><th>RELIABILITY</th><th aria-label="expand" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(c => {
+      <div className={styles.tablePanel}>
+        <div className={styles.tableScroll}>
+          <table className={styles.ledgerTable}>
+            <thead>
+              <tr>
+                <th>Client</th><th>NIN</th><th>Contact</th><th>Plots</th><th>Status</th>
+                {isDirector && <th>Owed (UGX)</th>}
+                {isDirector && <th>Paid (UGX)</th>}
+                <th>Last contact</th><th>Reliability</th><th aria-label="Expand" />
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (<tr><td colSpan={cols} className={styles.emptyCell}>SYNCING CLIENT REGISTER...</td></tr>)
+                : loadError ? (<tr><td colSpan={cols} className={styles.emptyCell}>COULD NOT LOAD CLIENTS — REFRESH TO RETRY</td></tr>)
+                : filtered.length === 0 ? (<tr><td colSpan={cols} className={styles.emptyCell}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><div>NO CLIENTS MATCH THIS VIEW</div></td></tr>)
+                : filtered.map(c => {
                   const open = openId === c.id;
                   const recCount = (c.plots || []).filter(p => p.receivable).length;
                   const titledCount = (c.plots || []).filter(p => p.titled && !p.receivable).length;
@@ -117,7 +131,7 @@ const ClientLedgerPage = () => {
                     </tr>
                     {open && (
                       <tr className={styles.detailRow}>
-                        <td colSpan={isDirector ? 10 : 8}>
+                        <td colSpan={cols}>
                           <div className={styles.detailBox}>
                             <div className={styles.detailHead}>
                               <span><FiMail aria-hidden="true" /> {c.email || 'no email'}</span>
@@ -142,10 +156,10 @@ const ClientLedgerPage = () => {
                     )}
                   </React.Fragment>);
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <BackToTopButton />
     </div>
   );

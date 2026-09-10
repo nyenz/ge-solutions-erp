@@ -186,3 +186,5 @@
 
 /* fix88: standard vertical rhythm - legend breathes before the table */
 .legendRow { margin-bottom: clamp(10px, 1.2vw, 14px); }
+/* fix124: dot-definition legend sits a little inside, matching Recovery dotLegend indent */
+.legendRow { padding: 4px 0 2px clamp(6px, 1vw, 12px); }
