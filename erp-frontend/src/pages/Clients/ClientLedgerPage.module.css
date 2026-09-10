@@ -1,88 +1,101 @@
 /* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.module.css */
-/* fix124: exact visual clone of LedgerPage (post fix124 legend indent included) */
+/* fix125: verbatim Project Ledger tokens - fonts, padding, spacing, hover reactions, card furniture */
 .container {
   --orange: #EE8C3A; --orange-dim: rgba(238,140,58,0.18); --orange-border: rgba(238,140,58,0.28);
   --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --green: #10b981; --amber: #f59e0b;
   --panel-bg: linear-gradient(160deg,#1c3335 0%,#213E40 100%);
   --radius: 10px; --radius-sm: 6px;
-  --fs-h1: clamp(18px,2.5vw,24px); --fs-sub: clamp(9px,0.9vw,11px);
+  --fs-h1: clamp(18px,2.5vw,26px); --fs-sub: clamp(8px,0.85vw,10px);
   display: flex; flex-direction: column; gap: clamp(10px,1.5vw,18px);
   padding: clamp(16px,3vw,32px) clamp(14px,3vw,40px) 60px;
   min-height: 100vh; background: transparent; box-sizing: border-box;
 }
-/* glass page header - verbatim Ledger */
+/* glass page header - verbatim unified panel */
 .pageHeader {
-  display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap;
-  gap: clamp(8px,1.2vw,14px); margin: 0;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: clamp(10px,1.4vw,16px); margin-bottom: clamp(14px,2vw,24px);
   border-left: clamp(3px,0.4vw,5px) solid var(--orange);
   padding: clamp(10px,1.4vw,16px) clamp(16px,2.2vw,28px);
   background: rgba(255,255,255,0.62); border-radius: 0 12px 12px 0;
   backdrop-filter: blur(15px); box-shadow: 0 4px 15px rgba(0,0,0,0.07);
 }
 .headerLeft { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; text-align: left; }
-.title { font-family: 'Cinzel', serif; font-size: var(--fs-h1); color: #1a2e30; letter-spacing: 1px; margin: 0; }
-.subtitle { font-family: 'DM Sans', sans-serif; font-size: var(--fs-sub); font-weight: 700; color: rgba(26,46,48,0.6); letter-spacing: 0.6px; margin: 0; text-transform: uppercase; }
-.controlHub { display: flex; flex-direction: column; gap: 8px; }
-/* sticky white search - Ledger pattern */
-.searchBlock { position: sticky; top: 64px; z-index: 30; }
-.searchInner { position: relative; max-width: clamp(240px,32vw,420px); }
-.searchIcon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--orange); font-size: 13px; }
-.searchInput {
-  width: 100%; box-sizing: border-box;
-  background: #ffffff; border: 1px solid rgba(26,46,48,0.15); border-radius: 8px;
-  padding: 10px 34px 10px 32px;
-  font-family: 'DM Sans', sans-serif; font-size: 12px; color: #1a2e30;
+.title { font-family: 'Cinzel', serif; font-size: var(--fs-h1); color: #1a2e30; letter-spacing: 2px; margin: 0; }
+.subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.controlHub { display: flex; flex-direction: column; gap: clamp(6px,0.9vw,10px); }
+/* white search pill - verbatim Ledger searchWrap */
+.searchBlock { position: sticky; top: 64px; z-index: 30; padding: clamp(8px,1vw,12px) 0; }
+.searchWrap {
+  position: relative; display: flex; align-items: center;
+  background: #fff; border: 1.5px solid #c8d6d7; border-radius: var(--radius-sm);
+  height: clamp(36px,4.5vw,44px); max-width: clamp(300px,50vw,560px);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.searchInput:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: var(--orange); }
-.searchInput::placeholder { color: rgba(26,46,48,0.4); }
-.clearBtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(26,46,48,0.4); cursor: pointer; display: flex; }
+.searchWrap:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.searchIcon { position: absolute; left: 10px; color: var(--orange); font-size: 14px; flex-shrink: 0; }
+.searchInput {
+  background: transparent; border: none; outline: none; width: 100%; height: 100%;
+  box-sizing: border-box; color: #1a2e30;
+  padding: 0 clamp(10px,1.2vw,14px) 0 clamp(36px,4.5vw,44px);
+  font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: clamp(11px,1.1vw,13px);
+}
+.searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
+.clearBtn { position: absolute; right: 8px; background: none; border: none; color: rgba(26,46,48,0.35); cursor: pointer; display: flex; }
 .clearBtn:hover { color: #1a2e30; }
-/* filter chips - Ledger slate fill, orange active glow */
-.filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* filter chips - verbatim Ledger/Recovery filterBtn */
+.filterRow { display: flex; flex-wrap: wrap; gap: clamp(6px,0.9vw,10px); align-items: center; }
 .filterBtn {
-  background: rgba(26,46,48,0.55); color: #ffffff; border: 1px solid transparent;
-  border-radius: 6px; padding: 8px 14px;
+  background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85);
+  padding: clamp(7px,0.9vw,9px) clamp(12px,1.5vw,18px); border-radius: 6px;
   font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px,0.95vw,11px);
-  letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; white-space: nowrap;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
 }
 .filterBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
-.filterBtnActive { background: #EE8C3A !important; color: #1a2e30 !important; border-color: #EE8C3A !important; font-weight: 900 !important; box-shadow: 0 0 14px rgba(238,140,58,0.35); }
+.filterBtnActive { background: #EE8C3A !important; color: #1a2e30 !important; border-color: #EE8C3A !important; box-shadow: 0 0 14px rgba(238,140,58,0.4); }
 .filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.recordCount { margin-left: auto; color: var(--orange); font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
-/* legend row - Ledger rhythm INCLUDING the fix124 inside indent */
-.legendRow { display: flex; flex-wrap: nowrap; gap: 14px; padding: 4px 0 2px clamp(6px,1vw,12px); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+/* legend row - fix124 indent, flat 8px dots, Ledger type */
+.legendRow { display: flex; flex-wrap: nowrap; gap: 14px; padding: 4px 0 2px clamp(6px,1vw,12px); overflow-x: auto; scrollbar-width: none; }
 .legendRow::-webkit-scrollbar { display: none; }
-.legendItem { display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; color: rgba(26,46,48,0.6); white-space: nowrap; flex-shrink: 0; }
-.legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-/* dark table panel - Ledger treatment */
-.tablePanel { position: relative; background: var(--panel-bg); border: 1px solid var(--orange-border); border-radius: var(--radius); }
-.tableScroll { overflow-x: auto; border-radius: var(--radius); scrollbar-width: none; -ms-overflow-style: none; transform: translateZ(0); }
+.legendItem { display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(26,46,48,0.65); white-space: nowrap; flex-shrink: 0; }
+.legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; box-shadow: none; }
+/* dark table card with Ledger furniture: pins + bottom corner brackets */
+.tablePanel { position: relative; background: var(--panel-bg); border: 1.5px solid var(--orange-border); border-radius: var(--radius); }
+.pins { position: absolute; display: flex; gap: 7px; pointer-events: none; }
+.pinsTop { top: -3px; left: 50%; transform: translateX(-50%); }
+.pinsBottom { bottom: -3px; left: 50%; transform: translateX(-50%); }
+.pin { width: 3px; height: 5px; background: var(--orange); }
+.cornerBl, .cornerBr { position: absolute; width: clamp(10px,1.4vw,14px); height: clamp(10px,1.4vw,14px); border-bottom: 1.5px solid rgba(255,255,255,0.35); pointer-events: none; }
+.cornerBl { bottom: 8px; left: 8px; border-left: 1.5px solid rgba(255,255,255,0.35); border-radius: 0 0 0 6px; }
+.cornerBl::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; left: -3px; box-shadow: 0 0 6px rgba(255,255,255,0.4); }
+.cornerBr { bottom: 8px; right: 8px; border-right: 1.5px solid rgba(255,255,255,0.35); border-radius: 0 0 6px 0; }
+.cornerBr::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; right: -3px; box-shadow: 0 0 6px rgba(255,255,255,0.4); }
+.tableScroll { overflow-x: auto; border-radius: var(--radius); scrollbar-width: none; transform: translateZ(0); }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 760px; }
+/* table - verbatim Ledger .table metrics */
+.ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: clamp(11px,1.2vw,13px); min-width: 760px; }
 .ledgerTable thead th {
-  position: sticky; top: 0; z-index: 5;
-  background: #162a2c; color: var(--orange); text-align: left;
-  padding: clamp(9px,1.3vw,14px) clamp(12px,1.8vw,20px);
+  background: #162a2c; text-align: left;
+  padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px);
   font-family: 'DM Sans', sans-serif; font-size: clamp(8px,0.9vw,10px); font-weight: 900;
-  letter-spacing: 1.2px; text-transform: uppercase;
-  border-bottom: 3px solid var(--orange);
+  letter-spacing: 2px; color: var(--orange); text-transform: uppercase;
+  border-bottom: 3px solid var(--orange); white-space: nowrap;
 }
 .ledgerTable tbody td {
-  padding: clamp(9px,1.3vw,14px) clamp(12px,1.8vw,20px);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.85); font-family: 'DM Sans', sans-serif; font-size: 12px; vertical-align: middle;
+  padding: clamp(8px,1.1vw,12px) clamp(10px,1.5vw,16px);
+  border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle;
+  color: rgba(255,255,255,0.85); font-family: 'DM Sans', sans-serif;
 }
-.row { cursor: pointer; border-left: 3px solid transparent; transition: background 0.15s, border-left-color 0.1s; }
+.row { cursor: pointer; border-left: 3px solid transparent; transition: background 0.18s, border-left-color 0.18s; }
 .row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
 .row:focus-visible { background: rgba(238,140,58,0.07); outline: 2px solid var(--orange); outline-offset: -2px; }
 .rowOpen { background: rgba(238,140,58,0.09); border-left-color: var(--orange); }
-.clientName { font-weight: 800; color: #ffffff; letter-spacing: 0.4px; }
-.mono { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.4px; }
-.moneyRed { color: var(--red); font-weight: 700; }
-.moneyGreen { color: var(--green); font-weight: 700; }
+.clientName { display: block; font-weight: 900; color: #ffffff; font-size: clamp(12px,1.4vw,15px); letter-spacing: 0.4px; }
+.subLine { display: block; font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,11px); color: rgba(255,255,255,0.4); margin-top: 2px; }
+.mono { font-family: 'Space Mono', monospace; font-size: clamp(10px,1.1vw,12px); color: rgba(255,255,255,0.6); }
+.moneyRed { color: #fca5a5; font-weight: 900; }
+.moneyGreen { color: #22c55e; font-weight: 900; }
 .badgeCell { display: flex; gap: 4px; flex-wrap: wrap; }
-.textBadge { font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 800; letter-spacing: 0.8px; padding: 3px 6px; border-radius: 4px; }
+.textBadge { font-family: 'DM Sans', sans-serif; font-size: clamp(7px,0.85vw,9px); font-weight: 800; letter-spacing: 0.8px; padding: 3px 6px; border-radius: 4px; white-space: nowrap; }
 .badgeRecv { background: rgba(239,68,68,0.16); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
 .badgeTitled { background: rgba(16,185,129,0.14); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.35); }
 .badgeBacklog { background: rgba(245,158,11,0.14); color: #fcd34d; border: 1px solid rgba(245,158,11,0.35); }
@@ -90,37 +103,45 @@
 .toneDot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
 .tonePos { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.7); }
 .toneNeg { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.7); }
-.chev { color: var(--orange); transition: transform 0.2s; font-size: 14px; }
+.chev { color: var(--orange); transition: transform 0.3s ease; font-size: clamp(15px,1.8vw,20px); flex-shrink: 0; }
 .chevOpen { transform: rotate(180deg); }
-.emptyCell { text-align: center; padding: clamp(20px,4vw,40px) 16px; color: rgba(255,255,255,0.5); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 1.2px; }
-.emptyIcon { font-size: 26px; color: rgba(238,140,58,0.5); display: block; margin: 0 auto 10px; }
+/* empty / error - verbatim Ledger noRecords treatment */
+.noRecords {
+  text-align: center; padding: clamp(40px,6vw,70px) 20px;
+  color: rgba(255,255,255,0.22); font-family: 'Space Mono', monospace;
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+}
+.noRecordsIcon { display: block; margin: 0 auto 10px; font-size: clamp(30px,5vw,48px); opacity: 0.15; }
+/* footer bar - Ledger pagination rhythm */
+.tableFoot { display: flex; justify-content: space-between; align-items: center; padding: 10px clamp(10px,1.5vw,16px) 12px; border-top: 1px solid rgba(255,255,255,0.06); }
+.footCount { font-family: 'Space Mono', monospace; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
 /* expanded detail */
-.detailRow td { background: rgba(0,0,0,0.18); padding: 12px clamp(12px,1.8vw,20px); }
+.detailRow td { background: rgba(0,0,0,0.18); padding: clamp(10px,1.4vw,16px) clamp(10px,1.5vw,16px); }
 .detailBox { display: flex; flex-direction: column; gap: 10px; }
-.detailHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: 'DM Sans', sans-serif; font-size: 11px; color: rgba(255,255,255,0.6); }
+.detailHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: 'DM Sans', sans-serif; font-size: clamp(10px,1.1vw,12px); color: rgba(255,255,255,0.6); }
 .detailHead svg { color: var(--orange); margin-right: 6px; vertical-align: -2px; }
 .jumpBtn {
-  font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 800; letter-spacing: 1px;
-  padding: 7px 12px; border-radius: var(--radius-sm);
-  border: 1px solid var(--orange-border); background: transparent; color: var(--orange);
-  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif; font-size: clamp(8px,0.9vw,10px); font-weight: 900; letter-spacing: 1px;
+  padding: clamp(7px,0.9vw,10px) clamp(12px,1.4vw,16px); border-radius: var(--radius-sm);
+  border: 1.5px solid var(--orange-border); background: transparent; color: var(--orange);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; text-transform: uppercase;
 }
 .jumpBtn:hover { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
 .plotList { display: flex; flex-direction: column; gap: 6px; }
 .plotRow {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
   background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius-sm); padding: 9px 12px; cursor: pointer; transition: border-color 0.2s;
+  border-radius: var(--radius-sm); padding: clamp(8px,1.1vw,12px) clamp(10px,1.4vw,14px);
+  cursor: pointer; transition: border-color 0.2s, background 0.2s;
 }
-.plotRow:hover { border-color: var(--orange-border); }
-.plotName { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 12px; color: #fff; min-width: 90px; }
-.plotDistrict { font-size: 10px; color: rgba(255,255,255,0.55); display: inline-flex; align-items: center; gap: 4px; flex: 1; }
-.plotGo { margin-left: auto; font-size: 8px; font-weight: 800; letter-spacing: 1px; color: var(--orange); }
-.detailEmpty { font-size: 10px; letter-spacing: 1px; color: rgba(255,255,255,0.45); font-weight: 700; }
+.plotRow:hover { border-color: var(--orange-border); background: rgba(238,140,58,0.06); }
+.plotName { font-family: 'Space Mono', monospace; font-weight: 900; font-size: clamp(11px,1.2vw,13px); color: #fff; min-width: 90px; }
+.plotDistrict { font-size: clamp(9px,1vw,11px); color: rgba(255,255,255,0.55); display: inline-flex; align-items: center; gap: 4px; flex: 1; }
+.plotGo { margin-left: auto; font-size: clamp(7px,0.85vw,9px); font-weight: 900; letter-spacing: 1px; color: var(--orange); text-transform: uppercase; }
+.detailEmpty { font-size: clamp(9px,1vw,11px); letter-spacing: 1px; color: rgba(255,255,255,0.45); font-weight: 700; text-transform: uppercase; }
 @media (max-width: 700px) {
   .searchBlock { top: 56px; }
   .ledgerTable { min-width: 600px; }
   .ledgerTable thead th { font-size: 7px; letter-spacing: 1px; }
-  .ledgerTable tbody td { padding: 8px; }
   .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
 }

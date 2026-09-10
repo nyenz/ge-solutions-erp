@@ -17,7 +17,7 @@ const FILTERS = [
 ];
 const LEGEND = [
   { color: '#ef4444', label: 'In receivables' },
-  { color: '#22c55e', label: 'Paid up' },
+  { color: '#10b981', label: 'Paid up' },
   { color: '#f59e0b', label: 'Folder stage' },
   { color: '#94a3b8', label: 'No plots' },
 ];
@@ -32,14 +32,15 @@ const ClientLedgerPage = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [loadCode, setLoadCode] = useState('');
   const [term, setTerm] = useState('');
   const [filter, setFilter] = useState('ALL');
   const [openId, setOpenId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setRows(await recoveryService.getClientLedger() || []); setLoadError(false); }
-    catch { setLoadError(true); }
+    try { setRows(await recoveryService.getClientLedger() || []); setLoadError(false); setLoadCode(''); }
+    catch (err) { setLoadError(true); setLoadCode(err && err.response ? 'HTTP ' + err.response.status : 'NETWORK'); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -48,7 +49,7 @@ const ClientLedgerPage = () => {
     const t = term.toLowerCase().replace(/\s+/g, '');
     return rows.filter(c => {
       if (t) {
-        const hay = [c.name, c.nin, c.phone, ...(c.plots || []).map(p => String(p.plot))].join(' ').toLowerCase().replace(/\s+/g, '');
+        const hay = [c.name, c.nin, c.phone, c.email, ...(c.plots || []).map(p => String(p.plot))].join(' ').toLowerCase().replace(/\s+/g, '');
         if (hay.indexOf(t) < 0) return false;
       }
       const owed = Number(c.owed || 0);
@@ -73,7 +74,7 @@ const ClientLedgerPage = () => {
       </header>
       <div className={styles.controlHub}>
         <div className={styles.searchBlock}>
-          <div className={styles.searchInner}>
+          <div className={styles.searchWrap}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
             <input type="search" className={styles.searchInput} value={term} onChange={e => setTerm(e.target.value)}
               placeholder="Search name, NIN, phone or plot..." aria-label="Search clients" autoComplete="off" />
@@ -82,13 +83,16 @@ const ClientLedgerPage = () => {
         </div>
         <div className={styles.filterRow}>
           {FILTERS.map(f => (<button key={f.key} type="button" className={`${styles.filterBtn} ${filter === f.key ? styles.filterBtnActive : ''}`} onClick={() => setFilter(f.key)}>{f.label}</button>))}
-          <span className={styles.recordCount}>{filtered.length} CLIENT{filtered.length === 1 ? '' : 'S'}</span>
         </div>
         <div className={styles.legendRow} aria-label="Client status legend">
-          {LEGEND.map(l => (<span key={l.label} className={styles.legendItem}><span className={styles.legendDot} style={{ background: l.color, boxShadow: `0 0 4px ${l.color}` }} /> {l.label}</span>))}
+          {LEGEND.map(l => (<span key={l.label} className={styles.legendItem}><i className={styles.legendDot} style={{ background: l.color }} /> {l.label}</span>))}
         </div>
       </div>
       <div className={styles.tablePanel}>
+        <span className={`${styles.pins} ${styles.pinsTop}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
+        <span className={`${styles.pins} ${styles.pinsBottom}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
+        <span className={styles.cornerBl} aria-hidden="true" />
+        <span className={styles.cornerBr} aria-hidden="true" />
         <div className={styles.tableScroll}>
           <table className={styles.ledgerTable}>
             <thead>
@@ -100,9 +104,9 @@ const ClientLedgerPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (<tr><td colSpan={cols} className={styles.emptyCell}>SYNCING CLIENT REGISTER...</td></tr>)
-                : loadError ? (<tr><td colSpan={cols} className={styles.emptyCell}>COULD NOT LOAD CLIENTS — REFRESH TO RETRY</td></tr>)
-                : filtered.length === 0 ? (<tr><td colSpan={cols} className={styles.emptyCell}><FiUsers className={styles.emptyIcon} aria-hidden="true" /><div>NO CLIENTS MATCH THIS VIEW</div></td></tr>)
+              {loading ? (<tr><td colSpan={cols} className={styles.noRecords}>SYNCING CLIENT REGISTER...</td></tr>)
+                : loadError ? (<tr><td colSpan={cols} className={styles.noRecords}>COULD NOT LOAD CLIENTS {loadCode ? '(' + loadCode + ') ' : ''}— REFRESH TO RETRY</td></tr>)
+                : filtered.length === 0 ? (<tr><td colSpan={cols} className={styles.noRecords}><FiUsers className={styles.noRecordsIcon} aria-hidden="true" />NO CLIENTS MATCH THIS VIEW</td></tr>)
                 : filtered.map(c => {
                   const open = openId === c.id;
                   const recCount = (c.plots || []).filter(p => p.receivable).length;
@@ -111,7 +115,7 @@ const ClientLedgerPage = () => {
                   return (<React.Fragment key={c.id}>
                     <tr className={`${styles.row} ${open ? styles.rowOpen : ''}`} onClick={() => setOpenId(open ? null : c.id)} tabIndex={0}
                       onKeyDown={e => { if (e.key === 'Enter') setOpenId(open ? null : c.id); }}>
-                      <td><span className={styles.clientName}>{c.name}</span></td>
+                      <td><span className={styles.clientName}>{c.name}</span><span className={styles.subLine}>{c.email || 'no email'}</span></td>
                       <td><span className={styles.mono}>{c.nin || '---'}</span></td>
                       <td><span className={styles.mono}>{c.phone || '---'}</span></td>
                       <td>{c.plotCount || 0}</td>
@@ -159,6 +163,10 @@ const ClientLedgerPage = () => {
             </tbody>
           </table>
         </div>
+        <footer className={styles.tableFoot}>
+          <span className={styles.footCount}>SHOWING {filtered.length} OF {rows.length} CLIENTS</span>
+          <span className={styles.footCount}>CLIENT REGISTER</span>
+        </footer>
       </div>
       <BackToTopButton />
     </div>
