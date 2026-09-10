@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiUsers, FiSearch, FiX, FiPhoneCall, FiChevronDown, FiMail, FiMapPin } from 'react-icons/fi';
+import { FiUsers, FiSearch, FiX } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import BackToTopButton from '../../components/common/BackToTopButton';
@@ -21,21 +21,24 @@ const LEGEND = [
   { color: '#f59e0b', label: 'Folder stage' },
   { color: '#94a3b8', label: 'No plots' },
 ];
+const Pins = () => (<React.Fragment>
+  <span className={`${styles.pins} ${styles.pinsTop}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
+  <span className={`${styles.pins} ${styles.pinsBottom}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
+  <span className={styles.cornerBl} aria-hidden="true" />
+  <span className={styles.cornerBr} aria-hidden="true" />
+</React.Fragment>);
 
 const ClientLedgerPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const role = String(user?.role || '').toUpperCase();
-  const isRoot = !!user?.isRoot;
-  const isAdmin = isRoot || role === 'ROLE_ADMIN';
-  const isDirector = isAdmin || role === 'ROLE_DIRECTOR';
+  const isDirector = !!user?.isRoot || role === 'ROLE_ADMIN' || role === 'ROLE_DIRECTOR';
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [loadCode, setLoadCode] = useState('');
   const [term, setTerm] = useState('');
   const [filter, setFilter] = useState('ALL');
-  const [openId, setOpenId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,7 +72,7 @@ const ClientLedgerPage = () => {
       <header className={styles.pageHeader}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>Client Ledger</h1>
-          <p className={styles.subtitle}>Every client — identity, plots and live balance in one register</p>
+          <p className={styles.subtitle}>Every client — click a row for the full portfolio dossier</p>
         </div>
       </header>
       <div className={styles.controlHub}>
@@ -89,32 +92,30 @@ const ClientLedgerPage = () => {
         </div>
       </div>
       <div className={styles.tablePanel}>
-        <span className={`${styles.pins} ${styles.pinsTop}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
-        <span className={`${styles.pins} ${styles.pinsBottom}`} aria-hidden="true"><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /><i className={styles.pin} /></span>
-        <span className={styles.cornerBl} aria-hidden="true" />
-        <span className={styles.cornerBr} aria-hidden="true" />
+        <Pins />
         <div className={styles.tableScroll}>
           <table className={styles.ledgerTable}>
             <thead>
               <tr>
-                <th>Client</th><th>NIN</th><th>Contact</th><th>Plots</th><th>Status</th>
+                <th>#</th><th>Client</th><th>NIN</th><th>Contact</th><th>Plots</th><th>Status</th>
                 {isDirector && <th>Owed (UGX)</th>}
                 {isDirector && <th>Paid (UGX)</th>}
-                <th>Last contact</th><th>Reliability</th><th aria-label="Expand" />
+                <th>Last contact</th><th>Reliability</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (<tr><td colSpan={cols} className={styles.noRecords}>SYNCING CLIENT REGISTER...</td></tr>)
                 : loadError ? (<tr><td colSpan={cols} className={styles.noRecords}>COULD NOT LOAD CLIENTS {loadCode ? '(' + loadCode + ') ' : ''}— REFRESH TO RETRY</td></tr>)
                 : filtered.length === 0 ? (<tr><td colSpan={cols} className={styles.noRecords}><FiUsers className={styles.noRecordsIcon} aria-hidden="true" />NO CLIENTS MATCH THIS VIEW</td></tr>)
-                : filtered.map(c => {
-                  const open = openId === c.id;
+                : filtered.map((c, i) => {
                   const recCount = (c.plots || []).filter(p => p.receivable).length;
                   const titledCount = (c.plots || []).filter(p => p.titled && !p.receivable).length;
                   const folderCount = (c.plots || []).filter(p => !p.titled).length;
-                  return (<React.Fragment key={c.id}>
-                    <tr className={`${styles.row} ${open ? styles.rowOpen : ''}`} onClick={() => setOpenId(open ? null : c.id)} tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter') setOpenId(open ? null : c.id); }}>
+                  return (
+                    <tr key={c.id} className={styles.row} onClick={() => navigate('/client/' + c.id)} tabIndex={0}
+                      title="Click to open client portfolio"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/client/' + c.id); } }}>
+                      <td><span className={styles.mono}>{i + 1}</span></td>
                       <td><span className={styles.clientName}>{c.name}</span><span className={styles.subLine}>{c.email || 'no email'}</span></td>
                       <td><span className={styles.mono}>{c.nin || '---'}</span></td>
                       <td><span className={styles.mono}>{c.phone || '---'}</span></td>
@@ -131,41 +132,15 @@ const ClientLedgerPage = () => {
                       {isDirector && <td><span className={styles.mono}>{fmt(c.paid)}</span></td>}
                       <td>{c.lastContact ? String(c.lastContact).slice(0, 10) : 'NEVER'}{(c.lastTone === 'POSITIVE' || c.lastTone === 'NEGATIVE') ? <span className={`${styles.toneDot} ${c.lastTone === 'NEGATIVE' ? styles.toneNeg : styles.tonePos}`} title={c.lastTag} /> : null}</td>
                       <td><span className={styles.mono}>{c.reliability != null ? Number(c.reliability).toFixed(0) : '---'}</span></td>
-                      <td><FiChevronDown className={`${styles.chev} ${open ? styles.chevOpen : ''}`} aria-hidden="true" /></td>
                     </tr>
-                    {open && (
-                      <tr className={styles.detailRow}>
-                        <td colSpan={cols}>
-                          <div className={styles.detailBox}>
-                            <div className={styles.detailHead}>
-                              <span><FiMail aria-hidden="true" /> {c.email || 'no email'}</span>
-                              <button type="button" className={styles.jumpBtn} onClick={e => { e.stopPropagation(); navigate('/recovery'); }}><FiPhoneCall aria-hidden="true" /> OPEN IN RECOVERY</button>
-                            </div>
-                            {(c.plots || []).length === 0 ? (<span className={styles.detailEmpty}>NO PLOTS REGISTERED FOR THIS CLIENT</span>) : (
-                              <div className={styles.plotList}>
-                                {(c.plots || []).map((p, i) => (
-                                  <button key={i} type="button" className={styles.plotRow} onClick={e => { e.stopPropagation(); navigate('/folder/' + p.projectId); }}>
-                                    <span className={styles.plotName}>{p.plot || 'UNTITLED'}</span>
-                                    <span className={styles.plotDistrict}><FiMapPin aria-hidden="true" /> {p.district || '---'}</span>
-                                    <span className={`${styles.textBadge} ${p.receivable ? styles.badgeRecv : p.titled ? styles.badgeTitled : styles.badgeBacklog}`}>{p.receivable ? 'RECEIVABLE' : p.titled ? 'TITLED' : 'FOLDER'}</span>
-                                    {isDirector && <span className={`${styles.mono} ${Number(p.owed) > 0 ? styles.moneyRed : styles.moneyGreen}`}>{fmt(p.owed)}</span>}
-                                    <span className={styles.plotGo}>OPEN FOLDER</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>);
+                  );
                 })}
             </tbody>
           </table>
         </div>
         <footer className={styles.tableFoot}>
           <span className={styles.footCount}>SHOWING {filtered.length} OF {rows.length} CLIENTS</span>
-          <span className={styles.footCount}>CLIENT REGISTER</span>
+          <span className={styles.footCount}>CLICK A CLIENT FOR THE FULL PORTFOLIO</span>
         </footer>
       </div>
       <BackToTopButton />

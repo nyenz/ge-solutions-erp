@@ -15,6 +15,7 @@ import LedgerPage     from './pages/Ledger/LedgerPage';
 import FolderPage     from './pages/DigitalFolder/FolderPage';
 import RecoveryPortal from './pages/Recovery/RecoveryPortal';
 import ClientLedgerPage from './pages/Clients/ClientLedgerPage';
+import ClientPortfolioPage from './pages/Clients/ClientPortfolioPage';
 import PaymentsPage   from './pages/Payments/PaymentsPage';
 import ExpensesPage    from './pages/Financials/ExpensesPage';
 import ReportHub      from './pages/Reports/ReportHub';
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
             { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
             { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },
             { path: "clients", element: <ProtectedRoute><Shell><ClientLedgerPage /></Shell></ProtectedRoute> },
+            { path: "client/:id", element: <ProtectedRoute><Shell><ClientPortfolioPage /></Shell></ProtectedRoute> },
             { path: "payments", element: <ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute> },
             { path: "financials", element: <ProtectedRoute managerPlus><Shell><ExpensesPage /></Shell></ProtectedRoute> },
             { path: "reports", element: <ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute> },

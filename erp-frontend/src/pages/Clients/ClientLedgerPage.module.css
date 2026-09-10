@@ -1,5 +1,5 @@
 /* PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.module.css */
-/* fix125: verbatim Project Ledger tokens - fonts, padding, spacing, hover reactions, card furniture */
+/* fix126: redo - verbatim Project Ledger metrics, row click opens portfolio */
 .container {
   --orange: #EE8C3A; --orange-dim: rgba(238,140,58,0.18); --orange-border: rgba(238,140,58,0.28);
   --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --green: #10b981; --amber: #f59e0b;
@@ -10,7 +10,6 @@
   padding: clamp(16px,3vw,32px) clamp(14px,3vw,40px) 60px;
   min-height: 100vh; background: transparent; box-sizing: border-box;
 }
-/* glass page header - verbatim unified panel */
 .pageHeader {
   display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
   gap: clamp(10px,1.4vw,16px); margin-bottom: clamp(14px,2vw,24px);
@@ -23,7 +22,6 @@
 .title { font-family: 'Cinzel', serif; font-size: var(--fs-h1); color: #1a2e30; letter-spacing: 2px; margin: 0; }
 .subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
 .controlHub { display: flex; flex-direction: column; gap: clamp(6px,0.9vw,10px); }
-/* white search pill - verbatim Ledger searchWrap */
 .searchBlock { position: sticky; top: 64px; z-index: 30; padding: clamp(8px,1vw,12px) 0; }
 .searchWrap {
   position: relative; display: flex; align-items: center;
@@ -42,7 +40,6 @@
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn { position: absolute; right: 8px; background: none; border: none; color: rgba(26,46,48,0.35); cursor: pointer; display: flex; }
 .clearBtn:hover { color: #1a2e30; }
-/* filter chips - verbatim Ledger/Recovery filterBtn */
 .filterRow { display: flex; flex-wrap: wrap; gap: clamp(6px,0.9vw,10px); align-items: center; }
 .filterBtn {
   background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85);
@@ -53,12 +50,10 @@
 .filterBtn:hover { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
 .filterBtnActive { background: #EE8C3A !important; color: #1a2e30 !important; border-color: #EE8C3A !important; box-shadow: 0 0 14px rgba(238,140,58,0.4); }
 .filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-/* legend row - fix124 indent, flat 8px dots, Ledger type */
 .legendRow { display: flex; flex-wrap: nowrap; gap: 14px; padding: 4px 0 2px clamp(6px,1vw,12px); overflow-x: auto; scrollbar-width: none; }
 .legendRow::-webkit-scrollbar { display: none; }
 .legendItem { display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(26,46,48,0.65); white-space: nowrap; flex-shrink: 0; }
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; box-shadow: none; }
-/* dark table card with Ledger furniture: pins + bottom corner brackets */
 .tablePanel { position: relative; background: var(--panel-bg); border: 1.5px solid var(--orange-border); border-radius: var(--radius); }
 .pins { position: absolute; display: flex; gap: 7px; pointer-events: none; }
 .pinsTop { top: -3px; left: 50%; transform: translateX(-50%); }
@@ -71,7 +66,6 @@
 .cornerBr::after { content: ''; position: absolute; width: 5px; height: 5px; background: white; border-radius: 50%; bottom: -3px; right: -3px; box-shadow: 0 0 6px rgba(255,255,255,0.4); }
 .tableScroll { overflow-x: auto; border-radius: var(--radius); scrollbar-width: none; transform: translateZ(0); }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
-/* table - verbatim Ledger .table metrics */
 .ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: clamp(11px,1.2vw,13px); min-width: 760px; }
 .ledgerTable thead th {
   background: #162a2c; text-align: left;
@@ -88,7 +82,6 @@
 .row { cursor: pointer; border-left: 3px solid transparent; transition: background 0.18s, border-left-color 0.18s; }
 .row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
 .row:focus-visible { background: rgba(238,140,58,0.07); outline: 2px solid var(--orange); outline-offset: -2px; }
-.rowOpen { background: rgba(238,140,58,0.09); border-left-color: var(--orange); }
 .clientName { display: block; font-weight: 900; color: #ffffff; font-size: clamp(12px,1.4vw,15px); letter-spacing: 0.4px; }
 .subLine { display: block; font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,11px); color: rgba(255,255,255,0.4); margin-top: 2px; }
 .mono { font-family: 'Space Mono', monospace; font-size: clamp(10px,1.1vw,12px); color: rgba(255,255,255,0.6); }
@@ -103,42 +96,14 @@
 .toneDot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
 .tonePos { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.7); }
 .toneNeg { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.7); }
-.chev { color: var(--orange); transition: transform 0.3s ease; font-size: clamp(15px,1.8vw,20px); flex-shrink: 0; }
-.chevOpen { transform: rotate(180deg); }
-/* empty / error - verbatim Ledger noRecords treatment */
 .noRecords {
   text-align: center; padding: clamp(40px,6vw,70px) 20px;
   color: rgba(255,255,255,0.22); font-family: 'Space Mono', monospace;
   font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
 }
 .noRecordsIcon { display: block; margin: 0 auto 10px; font-size: clamp(30px,5vw,48px); opacity: 0.15; }
-/* footer bar - Ledger pagination rhythm */
 .tableFoot { display: flex; justify-content: space-between; align-items: center; padding: 10px clamp(10px,1.5vw,16px) 12px; border-top: 1px solid rgba(255,255,255,0.06); }
 .footCount { font-family: 'Space Mono', monospace; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
-/* expanded detail */
-.detailRow td { background: rgba(0,0,0,0.18); padding: clamp(10px,1.4vw,16px) clamp(10px,1.5vw,16px); }
-.detailBox { display: flex; flex-direction: column; gap: 10px; }
-.detailHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: 'DM Sans', sans-serif; font-size: clamp(10px,1.1vw,12px); color: rgba(255,255,255,0.6); }
-.detailHead svg { color: var(--orange); margin-right: 6px; vertical-align: -2px; }
-.jumpBtn {
-  font-family: 'DM Sans', sans-serif; font-size: clamp(8px,0.9vw,10px); font-weight: 900; letter-spacing: 1px;
-  padding: clamp(7px,0.9vw,10px) clamp(12px,1.4vw,16px); border-radius: var(--radius-sm);
-  border: 1.5px solid var(--orange-border); background: transparent; color: var(--orange);
-  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; text-transform: uppercase;
-}
-.jumpBtn:hover { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
-.plotList { display: flex; flex-direction: column; gap: 6px; }
-.plotRow {
-  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius-sm); padding: clamp(8px,1.1vw,12px) clamp(10px,1.4vw,14px);
-  cursor: pointer; transition: border-color 0.2s, background 0.2s;
-}
-.plotRow:hover { border-color: var(--orange-border); background: rgba(238,140,58,0.06); }
-.plotName { font-family: 'Space Mono', monospace; font-weight: 900; font-size: clamp(11px,1.2vw,13px); color: #fff; min-width: 90px; }
-.plotDistrict { font-size: clamp(9px,1vw,11px); color: rgba(255,255,255,0.55); display: inline-flex; align-items: center; gap: 4px; flex: 1; }
-.plotGo { margin-left: auto; font-size: clamp(7px,0.85vw,9px); font-weight: 900; letter-spacing: 1px; color: var(--orange); text-transform: uppercase; }
-.detailEmpty { font-size: clamp(9px,1vw,11px); letter-spacing: 1px; color: rgba(255,255,255,0.45); font-weight: 700; text-transform: uppercase; }
 @media (max-width: 700px) {
   .searchBlock { top: 56px; }
   .ledgerTable { min-width: 600px; }
