@@ -49,7 +49,7 @@
 /* -- PANEL -- the pins + corner-decor card every reference page uses -- */
 .panel {
   position: relative; isolation: isolate;
-  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  background: radial-gradient(120% 140% at 12% -10%, rgba(244,242,239,0.05), transparent 55%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
   padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px);
 }
@@ -62,8 +62,11 @@
 .pinsTop { top: -3px; } .pinsBottom { bottom: -3px; }
 .pin { width: 3px; height: 5px; background: var(--orange); border-radius: 1px; box-shadow: 0 0 5px rgba(238,140,58,0.4); }
 .decorBl, .decorBr { position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--orange); opacity: 0.55; pointer-events: none; z-index: 20; }
+.decorBl::after, .decorBr::after { content: ''; position: absolute; width: 4px; height: 4px; background: rgba(255,255,255,0.5); border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.4); }
 .decorBl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+.decorBl::after { bottom: -2px; left: -2px; }
 .decorBr { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+.decorBr::after { bottom: -2px; right: -2px; }
 
 /* -- IDENTITY GRID -- */
 .specGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: clamp(10px,1.4vw,18px); }
@@ -71,12 +74,14 @@
 .specLabel { font-size: clamp(8px,0.85vw,10px); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 5px; }
 .specValue { font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: #fff; overflow-wrap: anywhere; }
 .specMono { font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: var(--orange); }
+.specPhone { font-size: clamp(14px,1.6vw,18px); font-weight: 800; letter-spacing: 0.5px; }
 .editInput {
   font-family: 'Inter', sans-serif; font-weight: 600; font-size: clamp(11px,1.05vw,13px);
   border: 1.5px solid rgba(238,140,58,0.3); border-radius: 6px; background: #ffffff; color: var(--navy);
-  padding: clamp(6px,0.8vw,9px) clamp(8px,1vw,11px); width: 100%; box-sizing: border-box;
+  padding: clamp(9px,1.2vw,13px); width: 100%; box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
+.editInputPhone { font-size: clamp(14px,1.5vw,17px); font-weight: 700; }
 .editInput:hover { border-color: var(--orange); }
 .editInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(238,140,58,0.18); }
 .inputError { border-color: var(--red); box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
@@ -84,9 +89,13 @@
 /* -- MONEY STRIP -- */
 .moneyStrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: clamp(8px,1.2vw,14px); }
 .statCard {
-  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%); border: 1.5px solid rgba(255,255,255,0.1);
+  background: radial-gradient(130% 160% at 20% -20%, rgba(244,242,239,0.06), transparent 60%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  border: 1.5px solid rgba(255,255,255,0.1);
   border-radius: var(--radius); padding: clamp(10px,1.4vw,16px); display: flex; flex-direction: column; gap: 4px;
 }
+.statClickable { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; }
+.statClickable:hover { border-color: var(--orange); transform: translateY(-2px); }
+.statClickable:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .statCard label { font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .statCard strong { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.8vw,20px); font-weight: 800; color: #fff; }
 .statRed strong { color: #fca5a5; } .statRed { border-color: rgba(239,68,68,0.3); }
@@ -147,9 +156,9 @@
 .healthCell { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.75); }
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .dotGreen { background: #34d399; box-shadow: 0 0 4px #34d399; }
-.dotAmber { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
+.dotAmber { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
+.dotOrange { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
 .dotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
-.dotGrey { background: rgba(255,255,255,0.25); }
 
 /* -- CALL LOG -- */
 .noteList { display: flex; flex-direction: column; gap: 10px; }

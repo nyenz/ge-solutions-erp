@@ -56,7 +56,7 @@
 .legendDivider{width:1px;height:12px;background:rgba(26,46,48,0.18);flex-shrink:0;}
 .tablePanel{
     position:relative;
-    background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
+    background:radial-gradient(120% 140% at 12% -10%, rgba(244,242,239,0.05), transparent 55%),linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;
 }
 .decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}
 .decorBl::after,.decorBr::after{content:'';position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,0.4);}
@@ -106,7 +106,7 @@
 .stack{display:flex;flex-direction:column;gap:2px;}
 .stackSub{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);font-family:'Space Mono',monospace;}
 .ownerName{font-weight:800;color:#fff;}
-.ownerPhone{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.7);}
+.ownerPhone{font-family:'Space Mono',monospace;font-size:clamp(13px,1.3vw,15px);font-weight:700;color:rgba(255,255,255,0.92);}
 .statusGroup{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
 .moneyCell{min-width:150px;}
 .moneyRow{display:flex;justify-content:space-between;gap:8px;}

@@ -16,25 +16,26 @@ const matchesSearch = (c, term) => {
     const fields = [
         c.name, c.nin, c.phone, c.email,
         ...(c.plots || []).map(p => p.index),
-        ...(c.plots || []).map(p => p.plot),
-        ...(c.plots || []).map(p => p.district),
+        ...(c.plots || []).map(p => p.subCounty),
     ];
     return fields.some(f => f && String(f).toLowerCase().replace(/\s+/g, '').includes(t));
 };
 
-// -- PAYMENT HEALTH BADGE -- keyed off recency of the client's last
-// payment across all their plots (not last contact): GREEN = paid
-// within 14 days, YELLOW = paid 2-4 weeks ago, RED = over a month
-// since the last payment, or never paid at all.
+// -- RECENCY BADGE -- keyed off how long since the client's last
+// payment across all their plots (not last contact). Thresholds match
+// the Client Dossier's Health column exactly so the same client shows
+// the same color on both pages: GREEN = within this month, YELLOW =
+// about 2 months back, ORANGE = further back than that, RED = nothing
+// on record yet.
 const getPaymentBadge = (c) => {
     if (!c.lastPaymentAt) return 'RED';
     const days = Math.floor((Date.now() - new Date(c.lastPaymentAt)) / 86400000);
-    if (days <= 14) return 'GREEN';
-    if (days <= 30) return 'YELLOW';
-    return 'RED';
+    if (days <= 30) return 'GREEN';
+    if (days <= 60) return 'YELLOW';
+    return 'ORANGE';
 };
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Paid 2-4 weeks ago', RED: 'No recent payment' };
+const BADGE_COLORS = { GREEN: '#34d399', YELLOW: '#fbbf24', ORANGE: '#EE8C3A', RED: '#ef4444' };
+const BADGE_LABELS = { GREEN: 'Paid this month', YELLOW: 'Paid about 2 months back', ORANGE: 'Over 2 months since paying', RED: 'Nothing on record' };
 const PAGE_SIZE = 15;
 const PaymentDot = ({ c }) => {
     const badge = getPaymentBadge(c);
@@ -208,7 +209,7 @@ const ClientLedgerPage = () => {
     const FILTERS = [
         { key: 'ALL', label: 'ALL CLIENTS' }, { key: 'OWING', label: 'OWING' },
         { key: 'RECEIVABLES', label: 'IN RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
-        { key: 'PAID', label: 'PAID UP' }, { key: 'NOPLOTS', label: 'NO PLOTS' },
+        { key: 'PAID', label: 'PAID UP' }, { key: 'NOPLOTS', label: 'NO PROJECTS' },
     ];
 
     const cols = isDirector ? 8 : 7;
@@ -229,7 +230,7 @@ const ClientLedgerPage = () => {
             <div className={styles.controlHub}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchInner}>
-                        <input type="search" placeholder="Search name, NIN, phone, email or plot..." className={styles.searchInput}
+                        <input type="search" placeholder="Search name, NIN, phone, email or index..." className={styles.searchInput}
                             value={searchTerm} onChange={e => setSearchTerm(e.target.value)} aria-label="Search clients" autoComplete="off" />
                         <FiSearch className={styles.searchIcon} aria-hidden="true" />
                         {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
@@ -243,7 +244,7 @@ const ClientLedgerPage = () => {
                     ))}
                 </div>
                 <div className={styles.legendRow} aria-label="Legend">
-                    <span className={styles.legendGroupLabel}>PAYMENT</span>
+                    <span className={styles.legendGroupLabel}>RECENCY</span>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
                             <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
@@ -271,14 +272,14 @@ const ClientLedgerPage = () => {
                                 <th><FiPhone aria-hidden="true" /> CONTACT</th>
                                 <th onClick={() => handleSort('plotCount')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'plotCount' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiLayers aria-hidden="true" /> PLOTS {renderSortIcon('plotCount')}
+                                    <FiLayers aria-hidden="true" /> INDEX {renderSortIcon('plotCount')}
                                 </th>
                                 <th>STATUS</th>
                                 <th onClick={() => handleSort('lastContact')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'lastContact' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     LAST CONTACT {renderSortIcon('lastContact')}
                                 </th>
-                                <th>COUNTY</th>
+                                <th>SUB-COUNTY</th>
                                 {isDirector && (
                                     <th onClick={() => handleSort('owed')} className={styles.sortable}
                                         aria-sort={sortConfig.key === 'owed' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
@@ -311,8 +312,8 @@ const ClientLedgerPage = () => {
                                 const hasReceivable = (c.plots || []).some(p => p.receivable);
                                 const plotCount = c.plotCount || 0;
                                 const recCount = (c.plots || []).filter(p => p.receivable).length;
-                                const plotNums = (c.plots || []).map(p => p.plot || p.index).filter(Boolean);
-                                const countyList = [...new Set((c.plots || []).map(p => p.district).filter(Boolean))];
+                                const plotNums = (c.plots || []).map(p => p.index).filter(Boolean);
+                                const countyList = [...new Set((c.plots || []).map(p => p.subCounty).filter(Boolean))];
                                 return (
                                     <tr key={c.id} onClick={() => navigate(`/client/${c.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/client/${c.id}`); } }}
@@ -352,7 +353,7 @@ const ClientLedgerPage = () => {
                                             <div className={styles.statusGroup}>
                                                 {hasReceivable ? <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>
                                                     : isCritical ? <span className={styles.tagCritical}>CRITICAL</span>
-                                                    : plotCount === 0 ? <span className={styles.tagIdle}>NO PLOTS</span>
+                                                    : plotCount === 0 ? <span className={styles.tagIdle}>NO PROJECTS</span>
                                                     : owed <= 0 ? <span className={styles.tagPaid}>PAID UP</span>
                                                     : <span className={styles.tagStandard}>ACTIVE</span>}
                                             </div>

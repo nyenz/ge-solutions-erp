@@ -121,6 +121,8 @@ const ClientPortfolioPage = () => {
     finally { setSaving(false); }
   };
 
+  const scrollToSection = (elId) => { const el = document.getElementById(elId); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+
   const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK TO CLIENT LEDGER</button>);
 
   if (loading) return (<div className={styles.container}><div className={styles.noRecordsBig}>SYNCING CLIENT DOSSIER...</div></div>);
@@ -167,8 +169,8 @@ const ClientPortfolioPage = () => {
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiPhoneCall aria-hidden="true" /> PHONE</span>
             {isEditing
-              ? (<input className={`${styles.editInput} ${fieldErrors.phone ? styles.inputError : ''}`} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />)
-              : (<span className={styles.specMono}>{d.phone || '---'}</span>)}
+              ? (<input className={`${styles.editInput} ${styles.editInputPhone} ${fieldErrors.phone ? styles.inputError : ''}`} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />)
+              : (<span className={`${styles.specMono} ${styles.specPhone}`}>{d.phone || '---'}</span>)}
           </div>
           <div className={styles.specItem}>
             <span className={styles.specLabel}><FiMail aria-hidden="true" /> EMAIL</span>
@@ -188,14 +190,30 @@ const ClientPortfolioPage = () => {
 
       {isDirector && (
         <div className={styles.moneyStrip}>
-          <div className={`${styles.statCard} ${styles.statRed}`}><label>TOTAL OWED</label><strong>UGX {fmt(totals.owed)}</strong></div>
-          <div className={`${styles.statCard} ${styles.statGreen}`}><label>TOTAL PAID</label><strong>UGX {fmt(totals.paid)}</strong></div>
-          <div className={`${styles.statCard} ${styles.statAmber}`}><label>STORAGE FEES</label><strong>UGX {fmt(totals.storage)}</strong></div>
-          <div className={styles.statCard}><label>PROJECTS</label><strong>{totals.count}</strong><span className={styles.statNote}>{totals.solo} SOLO / {totals.joint} JOINT</span></div>
+          <div className={`${styles.statCard} ${styles.statRed} ${styles.statClickable}`} role="button" tabIndex={0}
+            onClick={() => scrollToSection('portfolio-panel')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
+            <label>TOTAL OWED</label><strong>UGX {fmt(totals.owed)}</strong>
+          </div>
+          <div className={`${styles.statCard} ${styles.statGreen} ${styles.statClickable}`} role="button" tabIndex={0}
+            onClick={() => scrollToSection('portfolio-panel')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
+            <label>TOTAL PAID</label><strong>UGX {fmt(totals.paid)}</strong>
+          </div>
+          <div className={`${styles.statCard} ${styles.statAmber} ${styles.statClickable}`} role="button" tabIndex={0}
+            onClick={() => scrollToSection('health-panel')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('health-panel'); } }}>
+            <label>STORAGE FEES</label><strong>UGX {fmt(totals.storage)}</strong>
+          </div>
+          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
+            onClick={() => scrollToSection('portfolio-panel')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
+            <label>PROJECTS</label><strong>{totals.count}</strong><span className={styles.statNote}>{totals.solo} SOLO / {totals.joint} JOINT</span>
+          </div>
         </div>
       )}
 
-      <section className={styles.panel}>
+      <section className={styles.panel} id="portfolio-panel">
         <Pins />
         <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
         <div className={styles.tableScroll}>
@@ -251,7 +269,7 @@ const ClientPortfolioPage = () => {
       </section>
 
       {isDirector && (
-        <section className={styles.panel}>
+        <section className={styles.panel} id="health-panel">
           <Pins />
           <h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2>
           <div className={styles.tableScroll}>
@@ -261,7 +279,7 @@ const ClientPortfolioPage = () => {
                 {plots.length === 0 ? (<tr><td colSpan={5} className={styles.noRecords}>NO PAYMENT RECORDS</td></tr>) :
                   plots.map((p, i) => {
                     const dd = dayDiff(p.lastPayment);
-                    const health = dd == null ? { c: styles.dotGrey, t: 'No payment yet' } : dd <= 30 ? { c: styles.dotGreen, t: 'Paid within 30 days' } : dd <= 90 ? { c: styles.dotAmber, t: 'Paid 1-3 months ago' } : { c: styles.dotRed, t: 'No recent payment' };
+                    const health = dd == null ? { c: styles.dotRed, t: 'Nothing received yet' } : dd <= 30 ? { c: styles.dotGreen, t: 'Paid this month' } : dd <= 60 ? { c: styles.dotAmber, t: 'Paid about 2 months ago' } : { c: styles.dotOrange, t: 'Over 2 months since paying' };
                     return (<tr key={p.projectId || i} className={styles.rowStatic}>
                       <td><IndexCell p={p} /></td>
                       <td><span className={styles.mono}>{fmt(p.paid)}</span></td>
