@@ -11,7 +11,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiPhoneCall, FiMail, FiMapPin, FiClock, FiCreditCard,
-  FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent,
+  FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent, FiAlertTriangle,
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
@@ -123,7 +123,7 @@ const ClientPortfolioPage = () => {
 
   const scrollToSection = (elId) => { const el = document.getElementById(elId); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
-  const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK TO CLIENT LEDGER</button>);
+  const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK</button>);
 
   if (loading) return (<div className={styles.container}><div className={styles.noRecordsBig}>SYNCING CLIENT DOSSIER...</div></div>);
   if (!d) return (<div className={styles.container}>
@@ -131,7 +131,10 @@ const ClientPortfolioPage = () => {
       <h1 className={styles.title}>Client Dossier</h1>
       <p className={styles.subtitle}>Full portfolio, money and call history</p>
     </div>{backBtn}</header>
-    <div className={styles.noRecordsBig}>COULD NOT LOAD DOSSIER {loadCode ? '(' + loadCode + ') ' : ''}- REFRESH TO RETRY</div>
+    <div className={styles.errorState}>
+      <FiAlertTriangle aria-hidden="true" /> COULD NOT LOAD DOSSIER{loadCode ? ' (' + loadCode + ')' : ''} --{' '}
+      <button type="button" className={styles.retryBtn} onClick={() => load()}>RETRY</button>
+    </div>
   </div>);
 
   const days = dayDiff(d.lastContact);
@@ -156,7 +159,8 @@ const ClientPortfolioPage = () => {
 
       <section className={styles.panel}>
         <Pins />
-        <h2 className={styles.panelTitle}><FiUsers aria-hidden="true" /> IDENTITY</h2>
+        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiUsers aria-hidden="true" /> IDENTITY</h2></div>
+        <div className={styles.panelBody}>
         {saveError && <div className={styles.errorBanner}>{saveError}</div>}
         <div className={styles.specGrid}>
           <div className={styles.specItem}>
@@ -185,6 +189,7 @@ const ClientPortfolioPage = () => {
               : (<span className={styles.specValue}>{d.address || '---'}</span>)}
           </div>
           <div className={styles.specItem}><span className={styles.specLabel}><FiClock aria-hidden="true" /> LAST CONTACT</span><span className={styles.specValue}>{d.lastContact ? String(d.lastContact).slice(0, 10) + (days != null ? ' (' + days + 'D AGO)' : '') : 'NEVER'}</span></div>
+        </div>
         </div>
       </section>
 
@@ -220,8 +225,11 @@ const ClientPortfolioPage = () => {
 
       <section className={styles.panel} id="portfolio-panel">
         <Pins />
-        <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
-        <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
+        <div className={styles.panelHeader}>
+          <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
+          <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
+        </div>
+        <div className={styles.panelBody}>
         <div className={styles.tableScroll}>
           <table className={styles.ledgerTable}>
             <thead><tr><th>Index</th><th>District</th><th>Ownership</th><th>Status</th>{isDirector && <th>Owed (UGX)</th>}{isDirector && <th>Paid (UGX)</th>}{isDirector && <th><FiPercent aria-hidden="true" /> Paid %</th>}<th /></tr></thead>
@@ -272,12 +280,14 @@ const ClientPortfolioPage = () => {
             </tbody>
           </table>
         </div>
+        </div>
       </section>
 
       {isDirector && (
         <section className={styles.panel} id="health-panel">
           <Pins />
-          <h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2>
+          <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2></div>
+          <div className={styles.panelBody}>
           <div className={styles.tableScroll}>
             <table className={styles.ledgerTable}>
               <thead><tr><th>Index</th><th>Paid (UGX)</th><th>Storage (UGX)</th><th>Last payment</th><th>Health</th></tr></thead>
@@ -297,12 +307,14 @@ const ClientPortfolioPage = () => {
               </tbody>
             </table>
           </div>
+          </div>
         </section>
       )}
 
       <section className={styles.panel}>
         <Pins />
-        <h2 className={styles.panelTitle}><FiPhoneCall aria-hidden="true" /> CALL LOG</h2>
+        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiPhoneCall aria-hidden="true" /> CALL LOG</h2></div>
+        <div className={styles.panelBody}>
         {(d.notes || []).length === 0 ? (<div className={styles.noRecords}>NO CALLS LOGGED FOR THIS CLIENT</div>) : (
           <div className={styles.noteList}>
             {(d.notes || []).map((n, i) => (
@@ -315,6 +327,7 @@ const ClientPortfolioPage = () => {
             ))}
           </div>
         )}
+        </div>
       </section>
       <BackToTopButton />
     </div>

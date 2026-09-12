@@ -28,164 +28,228 @@ def patch(rel, old, new, label):
         print('MISSING - ' + label + ' (target found ' + str(count) + ' times, expected 1, in ' + rel + ')')
 
 
-# ===========================================================================
-# FRONTEND: ClientLedgerPage.jsx
-# ===========================================================================
-LEDGER_JSX = 'erp-frontend/src/pages/Clients/ClientLedgerPage.jsx'
-
-# 1) Dot colors match the app's existing payment-dot precedent
-#    (RecoveryPortal's payDotGreen/payDotYellow/payDotRed: #22c55e /
-#    #f59e0b / #ef4444) instead of the emerald/amber tag colors fix61
-#    borrowed -- ORANGE stays the brand orange for the 4th ("plus") tier.
-patch(
-    LEDGER_JSX,
-    "const BADGE_COLORS = { GREEN: '#34d399', YELLOW: '#fbbf24', ORANGE: '#EE8C3A', RED: '#ef4444' };",
-    "const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', ORANGE: '#EE8C3A', RED: '#ef4444' };",
-    'ledger: dot colors match the app\'s existing payment-dot green/yellow/red',
-)
-
-# 2) Drop the "RECENCY" group label -- just the dots with their
-#    definitions, no header word above them.
-patch(
-    LEDGER_JSX,
-    """                <div className={styles.legendRow} aria-label="Legend">
-                    <span className={styles.legendGroupLabel}>RECENCY</span>
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (""",
-    """                <div className={styles.legendRow} aria-label="Legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (""",
-    'ledger: drop RECENCY legend label',
-)
-
-
-# ===========================================================================
-# FRONTEND: ClientLedgerPage.module.css
-# ===========================================================================
-LEDGER_CSS = 'erp-frontend/src/pages/Clients/ClientLedgerPage.module.css'
-
-# Replace the radial-gradient "light wash" hack from fix61 with the
-# Intake page's actual lighter panel gradient (CollapsibleSection.module.css
-# .section rule) so this reads like a real sibling of Intake, not an
-# approximation.
-patch(
-    LEDGER_CSS,
-    ".tablePanel{\n    position:relative;\n    background:radial-gradient(120% 140% at 12% -10%, rgba(244,242,239,0.05), transparent 55%),linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;\n}",
-    ".tablePanel{\n    position:relative;\n    background:linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;\n}",
-    'ledger CSS: lighter panel background matching Intake exactly',
-)
-
-
-# ===========================================================================
-# FRONTEND: ClientPortfolioPage.jsx
-# ===========================================================================
 DOSSIER_JSX = 'erp-frontend/src/pages/Clients/ClientPortfolioPage.jsx'
-
-# 1) Split "number of projects" from "project type" (ownership breakdown):
-#    PROJECTS card now shows only the count; OWNERSHIP is its own card.
-patch(
-    DOSSIER_JSX,
-    """          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
-            onClick={() => scrollToSection('portfolio-panel')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
-            <label>PROJECTS</label><strong>{totals.count}</strong><span className={styles.statNote}>{totals.solo} SOLO / {totals.joint} JOINT</span>
-          </div>
-        </div>
-      )}""",
-    """          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
-            onClick={() => scrollToSection('portfolio-panel')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
-            <label>PROJECTS</label><strong>{totals.count}</strong>
-          </div>
-          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
-            onClick={() => scrollToSection('portfolio-panel')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
-            <label>OWNERSHIP</label><strong className={styles.statTextValue}>{totals.solo} SOLO / {totals.joint} JOINT</strong>
-          </div>
-        </div>
-      )}""",
-    'dossier: PROJECTS count and OWNERSHIP breakdown are now separate cards',
-)
-
-# 2) The project count moves to a small badge in the Project Portfolio
-#    panel's own corner, instead of living inside the money-strip card.
-patch(
-    DOSSIER_JSX,
-    '      <section className={styles.panel} id="portfolio-panel">\n        <Pins />\n        <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>',
-    '      <section className={styles.panel} id="portfolio-panel">\n        <Pins />\n        <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? \'PROJECT\' : \'PROJECTS\'}</span>\n        <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>',
-    'dossier: project count badge in the panel corner',
-)
-
-
-# ===========================================================================
-# FRONTEND: ClientPortfolioPage.module.css
-# ===========================================================================
 DOSSIER_CSS = 'erp-frontend/src/pages/Clients/ClientPortfolioPage.module.css'
 
-# 1) Same Intake-matching lighter gradient on the main panels...
+# ===========================================================================
+# 1) Panel header/body split -- this is the actual structural piece Intake's
+#    CollapsibleSection has that the Dossier's plain <h2> panels didn't: a
+#    separate dark header bar, an orange bottom-border line separating it
+#    from the body, and a hover glow. Restructuring the CSS first, then the
+#    4 panels' JSX.
+# ===========================================================================
 patch(
     DOSSIER_CSS,
-    """.panel {
-  position: relative; isolation: isolate;
-  background: radial-gradient(120% 140% at 12% -10%, rgba(244,242,239,0.05), transparent 55%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
-  padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px);
-}""",
-    """.panel {
+    """/* -- PANEL -- the pins + corner-decor card every reference page uses -- */
+.panel {
   position: relative; isolation: isolate;
   background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
   padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px);
+}
+.panelTitle {
+  font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; margin: 0 0 clamp(10px,1.4vw,16px);
+  display: flex; align-items: center; gap: 8px;
+}
+.panelCornerBadge {
+  position: absolute; top: clamp(10px,1.4vw,16px); right: clamp(14px,1.8vw,20px);
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
+  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; z-index: 5;
 }""",
-    'dossier CSS: lighter panel background matching Intake exactly',
-)
-
-# 2) ...and on the money-strip stat cards, for the same reason.
-patch(
-    DOSSIER_CSS,
-    """.statCard {
-  background: radial-gradient(130% 160% at 20% -20%, rgba(244,242,239,0.06), transparent 60%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: var(--radius); padding: clamp(10px,1.4vw,16px); display: flex; flex-direction: column; gap: 4px;
-}""",
-    """.statCard {
+    """/* -- PANEL -- the pins + corner-decor card every reference page uses.
+   Header/body split, orange separator line and hover glow now match
+   Intake's CollapsibleSection exactly (dark #162a2c header bar, 1.5px
+   orange bottom border, whole-panel hover glow, title brightens on
+   header hover). -- */
+.panel {
+  position: relative; isolation: isolate;
   background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: var(--radius); padding: clamp(10px,1.4vw,16px); display: flex; flex-direction: column; gap: 4px;
+  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
+  padding: 0; transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.panel:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.panelHeader {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: clamp(10px,1.4vw,14px) clamp(14px,1.8vw,20px);
+  background: #162a2c; border-bottom: 1.5px solid var(--orange);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.panelBody { padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px); }
+.panelTitle {
+  font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; margin: 0;
+  display: flex; align-items: center; gap: 8px; transition: color 0.18s ease;
+}
+.panelHeader:hover .panelTitle { color: #fff; }
+.panelCornerBadge {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
+  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }""",
-    'dossier CSS: lighter stat-card background matching Intake exactly',
+    'CSS: panel header/body split + orange separator + hover glow (matches Intake)',
 )
 
-# 3) Text-value modifier for the new OWNERSHIP card (its value is a
-#    short phrase, not a number, so it needs a smaller size than the
-#    other cards' big figures).
+# IDENTITY panel
 patch(
-    DOSSIER_CSS,
-    '.statCard strong { font-family: \'Space Mono\', monospace; font-size: clamp(14px,1.8vw,20px); font-weight: 800; color: #fff; }',
-    '.statCard strong { font-family: \'Space Mono\', monospace; font-size: clamp(14px,1.8vw,20px); font-weight: 800; color: #fff; }\n.statTextValue { font-size: clamp(11px,1.3vw,15px); }',
-    'dossier CSS: smaller text-value style for the OWNERSHIP card',
+    DOSSIER_JSX,
+    """      <section className={styles.panel}>
+        <Pins />
+        <h2 className={styles.panelTitle}><FiUsers aria-hidden="true" /> IDENTITY</h2>
+        {saveError && <div className={styles.errorBanner}>{saveError}</div>}
+        <div className={styles.specGrid}>""",
+    """      <section className={styles.panel}>
+        <Pins />
+        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiUsers aria-hidden="true" /> IDENTITY</h2></div>
+        <div className={styles.panelBody}>
+        {saveError && <div className={styles.errorBanner}>{saveError}</div>}
+        <div className={styles.specGrid}>""",
+    'IDENTITY panel: header bar',
+)
+patch(
+    DOSSIER_JSX,
+    """        </div>
+      </section>
+
+      {isDirector && (
+        <div className={styles.moneyStrip}>""",
+    """        </div>
+        </div>
+      </section>
+
+      {isDirector && (
+        <div className={styles.moneyStrip}>""",
+    'IDENTITY panel: close body wrapper',
 )
 
-# 4) Corner badge style for the Project Portfolio panel's project count.
+# PROJECT PORTFOLIO panel
 patch(
-    DOSSIER_CSS,
-    '.panelTitle {\n  font-family: \'Cinzel\', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;\n  letter-spacing: 2px; text-transform: uppercase; margin: 0 0 clamp(10px,1.4vw,16px);\n  display: flex; align-items: center; gap: 8px;\n}',
-    '.panelTitle {\n  font-family: \'Cinzel\', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;\n  letter-spacing: 2px; text-transform: uppercase; margin: 0 0 clamp(10px,1.4vw,16px);\n  display: flex; align-items: center; gap: 8px;\n}\n.panelCornerBadge {\n  position: absolute; top: clamp(10px,1.4vw,16px); right: clamp(14px,1.8vw,20px);\n  font-family: \'Inter\', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;\n  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);\n  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; z-index: 5;\n}',
-    'dossier CSS: panel corner badge style',
+    DOSSIER_JSX,
+    """      <section className={styles.panel} id="portfolio-panel">
+        <Pins />
+        <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
+        <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
+        <div className={styles.tableScroll}>""",
+    """      <section className={styles.panel} id="portfolio-panel">
+        <Pins />
+        <div className={styles.panelHeader}>
+          <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
+          <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
+        </div>
+        <div className={styles.panelBody}>
+        <div className={styles.tableScroll}>""",
+    'PROJECT PORTFOLIO panel: header bar (badge moves into the header row)',
+)
+patch(
+    DOSSIER_JSX,
+    """          </table>
+        </div>
+      </section>
+
+      {isDirector && (
+        <section className={styles.panel} id="health-panel">
+          <Pins />
+          <h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2>
+          <div className={styles.tableScroll}>""",
+    """          </table>
+        </div>
+        </div>
+      </section>
+
+      {isDirector && (
+        <section className={styles.panel} id="health-panel">
+          <Pins />
+          <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2></div>
+          <div className={styles.panelBody}>
+          <div className={styles.tableScroll}>""",
+    'PROJECT PORTFOLIO panel: close body wrapper / PAYMENT HEALTH panel: header bar',
+)
+patch(
+    DOSSIER_JSX,
+    """            </table>
+          </div>
+        </section>
+      )}
+
+      <section className={styles.panel}>
+        <Pins />
+        <h2 className={styles.panelTitle}><FiPhoneCall aria-hidden="true" /> CALL LOG</h2>""",
+    """            </table>
+          </div>
+          </div>
+        </section>
+      )}
+
+      <section className={styles.panel}>
+        <Pins />
+        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiPhoneCall aria-hidden="true" /> CALL LOG</h2></div>
+        <div className={styles.panelBody}>""",
+    'PAYMENT HEALTH panel: close body wrapper / CALL LOG panel: header bar',
+)
+patch(
+    DOSSIER_JSX,
+    """          </div>
+        )}
+      </section>
+      <BackToTopButton />""",
+    """          </div>
+        )}
+        </div>
+      </section>
+      <BackToTopButton />""",
+    'CALL LOG panel: close body wrapper',
 )
 
-# 5) Dot colors match the app's existing payment-dot precedent (see
-#    the Ledger patch above) instead of the tag-green/amber this page
-#    was using.
+# ===========================================================================
+# 2) Back button: one word, not four.
+# ===========================================================================
+patch(
+    DOSSIER_JSX,
+    '<FiArrowLeft aria-hidden="true" /> BACK TO CLIENT LEDGER',
+    '<FiArrowLeft aria-hidden="true" /> BACK',
+    'back button is one word',
+)
+
+# ===========================================================================
+# 3) Load-error state gets the same warning treatment (icon + a real RETRY
+#    button that calls load() again) the Client Ledger already uses --
+#    instead of plain unstyled "REFRESH TO RETRY" text that just tells the
+#    person to hit their browser's refresh button.
+# ===========================================================================
+patch(
+    DOSSIER_JSX,
+    """import {
+  FiArrowLeft, FiPhoneCall, FiMail, FiMapPin, FiClock, FiCreditCard,
+  FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent,
+} from 'react-icons/fi';""",
+    """import {
+  FiArrowLeft, FiPhoneCall, FiMail, FiMapPin, FiClock, FiCreditCard,
+  FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent, FiAlertTriangle,
+} from 'react-icons/fi';""",
+    'import FiAlertTriangle',
+)
+patch(
+    DOSSIER_JSX,
+    "    <div className={styles.noRecordsBig}>COULD NOT LOAD DOSSIER {loadCode ? '(' + loadCode + ') ' : ''}- REFRESH TO RETRY</div>",
+    """    <div className={styles.errorState}>
+      <FiAlertTriangle aria-hidden="true" /> COULD NOT LOAD DOSSIER{loadCode ? ' (' + loadCode + ')' : ''} --{' '}
+      <button type="button" className={styles.retryBtn} onClick={() => load()}>RETRY</button>
+    </div>""",
+    'load-error state gets an icon + working RETRY button',
+)
 patch(
     DOSSIER_CSS,
-    """.dotGreen { background: #34d399; box-shadow: 0 0 4px #34d399; }
-.dotAmber { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
-.dotOrange { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
-.dotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }""",
-    """.dotGreen { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
-.dotAmber { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
-.dotOrange { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
-.dotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }""",
-    'dossier CSS: dot colors match the app\'s existing payment-dot green/yellow/red',
+    """/* -- EMPTY / LOADING -- */
+.noRecordsBig { padding: 60px 20px; text-align: center; color: rgba(255,255,255,0.5); font-weight: 800; letter-spacing: 1px; }
+.noRecords { text-align: center; padding: 24px !important; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px; }""",
+    """/* -- EMPTY / LOADING -- */
+.noRecordsBig { padding: 60px 20px; text-align: center; color: rgba(255,255,255,0.5); font-weight: 800; letter-spacing: 1px; }
+.noRecords { text-align: center; padding: 24px !important; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px; }
+.errorState { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 60px 20px; text-align: center; color: #fca5a5; font-weight: 800; letter-spacing: 1px; }
+.retryBtn { background: none; border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: inherit; transition: background 0.15s ease; }
+.retryBtn:hover { background: rgba(239,68,68,0.12); }""",
+    'CSS: errorState + retryBtn (matches Ledger\'s warning treatment)',
 )
 
 
@@ -195,10 +259,10 @@ patch(
 ADDENDUM = 'LLM_CONTEXT_ADDENDUM.md'
 patch(
     ADDENDUM,
-    "- fix61 (2026-09-11): Client Dossier + Client Ledger redesign batch. Backend now exposes real subCounty on both /clients/ledger and /clients/{id}/dossier (was showing District mislabeled as County) -- Ledger's column renamed COUNTY -> SUB-COUNTY and reads it. Both pages' payment-recency dot is now one shared 4-tier scheme: green = paid this month, amber/yellow = ~2 months back, orange = further back (\"plus\"), red = nothing on record yet -- matches the app's existing green/amber/orange/red attention-color rule; no dot description anywhere says the word \"payment\" anymore. Ledger's PLOTS column (and its NO PLOTS tag/filter label) renamed to INDEX / NO PROJECTS, and its row list + search now use project index only, no plot-number fallback. Phone number is bigger on both pages (view mode and the Dossier's edit input). Dossier's editInput padding now matches the app-wide modalInput token. Dossier's panel corner-decor now matches Ledger's exactly (added the missing ::after glow dot). Both pages' dark panels (and the Dossier's stat cards) got a very faint cream-tint radial wash layered under the existing navy gradient -- same low-opacity cream token Shell.module.css already uses, so it's a lighter read without a new color entering the palette. Dossier's money-strip stat cards are now clickable and smooth-scroll to the panel that explains that number (owed/paid/projects -> Project Portfolio, storage -> Payment Health).\n",
-    "- fix61 (2026-09-11): Client Dossier + Client Ledger redesign batch. Backend now exposes real subCounty on both /clients/ledger and /clients/{id}/dossier (was showing District mislabeled as County) -- Ledger's column renamed COUNTY -> SUB-COUNTY and reads it. Both pages' payment-recency dot is now one shared 4-tier scheme: green = paid this month, amber/yellow = ~2 months back, orange = further back (\"plus\"), red = nothing on record yet -- matches the app's existing green/amber/orange/red attention-color rule; no dot description anywhere says the word \"payment\" anymore. Ledger's PLOTS column (and its NO PLOTS tag/filter label) renamed to INDEX / NO PROJECTS, and its row list + search now use project index only, no plot-number fallback. Phone number is bigger on both pages (view mode and the Dossier's edit input). Dossier's editInput padding now matches the app-wide modalInput token. Dossier's panel corner-decor now matches Ledger's exactly (added the missing ::after glow dot). Both pages' dark panels (and the Dossier's stat cards) got a very faint cream-tint radial wash layered under the existing navy gradient -- same low-opacity cream token Shell.module.css already uses, so it's a lighter read without a new color entering the palette. Dossier's money-strip stat cards are now clickable and smooth-scroll to the panel that explains that number (owed/paid/projects -> Project Portfolio, storage -> Payment Health).\n"
     "- fix62 (2026-09-11): follow-up on fix61 per David's review. Dropped the standalone \"RECENCY\" legend label on the Client Ledger -- just the dots with their definitions now. Swapped both pages' recency/health dot colors to match the app's actual existing payment-dot precedent (RecoveryPortal's payDotGreen/Yellow/Red: #22c55e / #f59e0b / #ef4444) instead of fix61's tag-green/amber, which read wrong next to the rest of the app. Replaced fix61's radial-gradient \"light wash\" approximation on both pages' panels and the Dossier's stat cards with the Intake page's REAL lighter gradient (CollapsibleSection.module.css's linear-gradient(135deg,#3a5a5c,#2a4a4c,#213E40)) so they're now pixel-matched to Intake, not just a guess at \"lighter\". Dossier's PROJECTS money-strip card no longer mixes the raw count with the SOLO/JOINT breakdown -- count stays in PROJECTS, breakdown moved to its own new OWNERSHIP card; the project count also now shows as a small corner badge on the Project Portfolio panel itself.\n",
-    'addendum: log fix62',
+    "- fix62 (2026-09-11): follow-up on fix61 per David's review. Dropped the standalone \"RECENCY\" legend label on the Client Ledger -- just the dots with their definitions now. Swapped both pages' recency/health dot colors to match the app's actual existing payment-dot precedent (RecoveryPortal's payDotGreen/Yellow/Red: #22c55e / #f59e0b / #ef4444) instead of fix61's tag-green/amber, which read wrong next to the rest of the app. Replaced fix61's radial-gradient \"light wash\" approximation on both pages' panels and the Dossier's stat cards with the Intake page's REAL lighter gradient (CollapsibleSection.module.css's linear-gradient(135deg,#3a5a5c,#2a4a4c,#213E40)) so they're now pixel-matched to Intake, not just a guess at \"lighter\". Dossier's PROJECTS money-strip card no longer mixes the raw count with the SOLO/JOINT breakdown -- count stays in PROJECTS, breakdown moved to its own new OWNERSHIP card; the project count also now shows as a small corner badge on the Project Portfolio panel itself.\n"
+    "- fix63 (2026-09-13): Client Dossier's 4 panels (IDENTITY, PROJECT PORTFOLIO, PAYMENT HEALTH PER PROJECT, CALL LOG) now have the actual header/body split Intake's CollapsibleSection uses -- a dark #162a2c header bar carrying the title, a 1.5px orange bottom-border line separating it from the body, and a hover glow on the whole panel (border brightens, shadow deepens) with the title brightening to white on header hover. The Project Portfolio panel's count badge moved off absolute positioning and into that header row, next to the title, instead of floating in the corner. Back button is one word (\"BACK\") instead of \"BACK TO CLIENT LEDGER\". The Dossier's load-error screen (\"could not load dossier\") now matches the Client Ledger's existing warning treatment -- alert icon plus a real RETRY button that calls load() again -- instead of plain text telling the person to refresh their browser.\n",
+    'addendum: log fix63',
 )
 
 
@@ -210,5 +274,5 @@ def run(cmd):
     subprocess.run(cmd, cwd=ROOT, check=False)
 
 run(['git', 'add', '-A'])
-run(['git', 'commit', '-m', 'fix62: dot colors, drop RECENCY label, split projects/ownership, intake-style lighter panels'])
+run(['git', 'commit', '-m', 'fix63: intake-style panel headers/separator/hover on Dossier, styled load-error, one-word back button'])
 run(['git', 'push'])

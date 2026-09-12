@@ -46,23 +46,35 @@
 
 .errorBanner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px; margin: -4px 0 12px; }
 
-/* -- PANEL -- the pins + corner-decor card every reference page uses -- */
+/* -- PANEL -- the pins + corner-decor card every reference page uses.
+   Header/body split, orange separator line and hover glow now match
+   Intake's CollapsibleSection exactly (dark #162a2c header bar, 1.5px
+   orange bottom border, whole-panel hover glow, title brightens on
+   header hover). -- */
 .panel {
   position: relative; isolation: isolate;
   background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
-  padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px);
+  padding: 0; transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
+.panel:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.panelHeader {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: clamp(10px,1.4vw,14px) clamp(14px,1.8vw,20px);
+  background: #162a2c; border-bottom: 1.5px solid var(--orange);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.panelBody { padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px); }
 .panelTitle {
   font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase; margin: 0 0 clamp(10px,1.4vw,16px);
-  display: flex; align-items: center; gap: 8px;
+  letter-spacing: 2px; text-transform: uppercase; margin: 0;
+  display: flex; align-items: center; gap: 8px; transition: color 0.18s ease;
 }
+.panelHeader:hover .panelTitle { color: #fff; }
 .panelCornerBadge {
-  position: absolute; top: clamp(10px,1.4vw,16px); right: clamp(14px,1.8vw,20px);
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
   color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; z-index: 5;
+  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }
 .pinsTop, .pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 20; }
 .pinsTop { top: -3px; } .pinsBottom { bottom: -3px; }
@@ -177,6 +189,9 @@
 /* -- EMPTY / LOADING -- */
 .noRecordsBig { padding: 60px 20px; text-align: center; color: rgba(255,255,255,0.5); font-weight: 800; letter-spacing: 1px; }
 .noRecords { text-align: center; padding: 24px !important; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px; }
+.errorState { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 60px 20px; text-align: center; color: #fca5a5; font-weight: 800; letter-spacing: 1px; }
+.retryBtn { background: none; border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: inherit; transition: background 0.15s ease; }
+.retryBtn:hover { background: rgba(239,68,68,0.12); }
 
 @media (max-width: 700px) {
   .ledgerTable { min-width: 600px; }
