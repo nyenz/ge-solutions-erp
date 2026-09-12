@@ -49,7 +49,7 @@
 /* -- PANEL -- the pins + corner-decor card every reference page uses -- */
 .panel {
   position: relative; isolation: isolate;
-  background: radial-gradient(120% 140% at 12% -10%, rgba(244,242,239,0.05), transparent 55%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
   padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px);
 }
@@ -57,6 +57,12 @@
   font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;
   letter-spacing: 2px; text-transform: uppercase; margin: 0 0 clamp(10px,1.4vw,16px);
   display: flex; align-items: center; gap: 8px;
+}
+.panelCornerBadge {
+  position: absolute; top: clamp(10px,1.4vw,16px); right: clamp(14px,1.8vw,20px);
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
+  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; z-index: 5;
 }
 .pinsTop, .pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 20; }
 .pinsTop { top: -3px; } .pinsBottom { bottom: -3px; }
@@ -89,7 +95,7 @@
 /* -- MONEY STRIP -- */
 .moneyStrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: clamp(8px,1.2vw,14px); }
 .statCard {
-  background: radial-gradient(130% 160% at 20% -20%, rgba(244,242,239,0.06), transparent 60%), linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
   border: 1.5px solid rgba(255,255,255,0.1);
   border-radius: var(--radius); padding: clamp(10px,1.4vw,16px); display: flex; flex-direction: column; gap: 4px;
 }
@@ -98,6 +104,7 @@
 .statClickable:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .statCard label { font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .statCard strong { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.8vw,20px); font-weight: 800; color: #fff; }
+.statTextValue { font-size: clamp(11px,1.3vw,15px); }
 .statRed strong { color: #fca5a5; } .statRed { border-color: rgba(239,68,68,0.3); }
 .statGreen strong { color: #6ee7b7; } .statGreen { border-color: rgba(16,185,129,0.3); }
 .statAmber strong { color: #fbbf24; } .statAmber { border-color: rgba(238,140,58,0.35); }
@@ -155,8 +162,8 @@
 /* payment-health legend dots */
 .healthCell { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.75); }
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.dotGreen { background: #34d399; box-shadow: 0 0 4px #34d399; }
-.dotAmber { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
+.dotGreen { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+.dotAmber { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
 .dotOrange { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
 .dotRed { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
 

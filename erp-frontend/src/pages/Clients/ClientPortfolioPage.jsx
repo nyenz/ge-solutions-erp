@@ -208,13 +208,19 @@ const ClientPortfolioPage = () => {
           <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
-            <label>PROJECTS</label><strong>{totals.count}</strong><span className={styles.statNote}>{totals.solo} SOLO / {totals.joint} JOINT</span>
+            <label>PROJECTS</label><strong>{totals.count}</strong>
+          </div>
+          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
+            onClick={() => scrollToSection('portfolio-panel')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
+            <label>OWNERSHIP</label><strong className={styles.statTextValue}>{totals.solo} SOLO / {totals.joint} JOINT</strong>
           </div>
         </div>
       )}
 
       <section className={styles.panel} id="portfolio-panel">
         <Pins />
+        <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
         <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
         <div className={styles.tableScroll}>
           <table className={styles.ledgerTable}>

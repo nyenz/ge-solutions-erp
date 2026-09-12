@@ -34,7 +34,7 @@ const getPaymentBadge = (c) => {
     if (days <= 60) return 'YELLOW';
     return 'ORANGE';
 };
-const BADGE_COLORS = { GREEN: '#34d399', YELLOW: '#fbbf24', ORANGE: '#EE8C3A', RED: '#ef4444' };
+const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', ORANGE: '#EE8C3A', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Paid this month', YELLOW: 'Paid about 2 months back', ORANGE: 'Over 2 months since paying', RED: 'Nothing on record' };
 const PAGE_SIZE = 15;
 const PaymentDot = ({ c }) => {
@@ -244,7 +244,6 @@ const ClientLedgerPage = () => {
                     ))}
                 </div>
                 <div className={styles.legendRow} aria-label="Legend">
-                    <span className={styles.legendGroupLabel}>RECENCY</span>
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
                             <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
