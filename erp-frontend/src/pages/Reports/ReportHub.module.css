@@ -261,3 +261,10 @@
     .rptTitle { font-size: 11px; }
     .schemaColumns { font-size: 10px; }
 }
+
+/* ── EXPENSE ANALYSIS DRAWER ──────────────────────────────────────
+   .bodyOpen caps at 6000px and clips overflow, which is right for a
+   list of report rows but wrong here: the analysis is taller than the
+   cap on a busy month, and its category dropdown has to escape the
+   panel to be usable. This variant lifts both constraints. */
+.bodyOpenTall { max-height: none; opacity: 1; overflow: visible; }

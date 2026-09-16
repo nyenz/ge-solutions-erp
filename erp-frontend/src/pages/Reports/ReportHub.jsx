@@ -3,13 +3,14 @@ import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiBarChart2, FiMap, FiActivity, FiLayers,
-    FiShield, FiTrendingUp, FiLock, FiDownloadCloud,
+    FiShield, FiTrendingUp, FiTrendingDown, FiLock, FiDownloadCloud,
     FiChevronDown, FiCreditCard, FiDatabase, FiFileText,
     FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import reportService from '../../services/reportService';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import ExpenseAnalysis from './ExpenseAnalysis';
 import styles from './ReportHub.module.css';
 
 // ─── TOAST ────────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ const ReportHub = () => {
 
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
-    const [drawers,    setDrawers]    = useState({ finance: true, ops: true, system: false, p2: true });
+    const [drawers,    setDrawers]    = useState({ finance: true, ops: true, system: false, p2: true, expenses: false });
     const [expandedId, setExpandedId] = useState(null);
     const [status,     setStatus]     = useState({
         debt: false, map: false, perf: false,
@@ -259,6 +260,21 @@ const ReportHub = () => {
                         </div>
                     </div>
                 )}
+                {hasFinancialAccess && (
+                    <div className={styles.hwPanel}>
+                        <DrawerTitle label="EXPENSE ANALYSIS" isOpen={drawers.expenses} onClick={() => toggleDrawer('expenses')} icon={FiTrendingDown} />
+                        <div
+                            className={`${styles.panelBody} ${drawers.expenses ? styles.bodyOpenTall : styles.bodyClosed}`}
+                            aria-hidden={!drawers.expenses}
+                        >
+                            {/* Mounted only while open: the analysis fires three
+                                service calls on mount and on every period change,
+                                and a collapsed drawer should cost nothing. */}
+                            {drawers.expenses && <ExpenseAnalysis active={drawers.expenses} />}
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );

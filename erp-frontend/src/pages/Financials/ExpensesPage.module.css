@@ -1,282 +1,172 @@
 /* PATH: erp-frontend/src/pages/Financials/ExpensesPage.module.css */
-/* Table/header/filter-button styling intentionally mirrors LedgerPage.module.css
-   (the confirmed master reference) -- same tokens, same table treatment, same
-   filter-button spec. Spacing here stays compact for this page's denser layout;
-   only the visual language (colors, weights, borders, radii) is copied. */
-
+/* EXPENSES v3 -- rebuilt on the Client Dossier (ClientPortfolioPage) as the
+   reference, which is itself now pixel-matched to Payment Records. Every
+   token below is the dossier's: same container padding and gap rhythm, same
+   Inter stack, same frosted header, same button spec, same stat card, same
+   ledger table. The page no longer carries its own DM Sans / HardwarePanel /
+   84px-tile dialect. The Director analysis styles that used to live here
+   (period toggles, bars, time series, search filters, category dropdown)
+   moved out with the analysis itself -- see Reports/ExpenseAnalysis.module.css. */
 .container {
-    --orange:        #EE8C3A;
-    --orange-border: rgba(238, 140, 58, 0.28);
-    --navy:          #1a2e30;
-    --red:           #ef4444;
-    --green:         #10b981;
-    --amber:         #f59e0b;
-
-    --radius:    10px;
-    --radius-sm: 6px;
-
-    --fs-h1:  clamp(18px, 2.5vw, 24px);
-    --fs-sub: clamp(8px,  0.85vw, 10px);
-    --fs-th:  clamp(8px,  0.85vw, 10px);
-    --fs-td:  clamp(10px, 1.05vw, 12px);
-    --fs-tag: clamp(7px,  0.75vw, 9px);
-
-    max-width: 1400px;
-    width: 100%;
-    padding: clamp(14px, 2.5vh, 28px) clamp(12px, 2vw, 24px) clamp(24px, 3vw, 36px);
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
+  --orange: #EE8C3A; --orange-dim: rgba(238,140,58,0.18); --orange-border: rgba(238,140,58,0.28);
+  --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --green: #10b981; --amber: #f59e0b;
+  --radius: 10px; --radius-sm: 6px;
+  max-width: 1400px; width: 100%; margin: 0 auto;
+  padding: clamp(12px,2vh,22px) clamp(12px,2vw,24px) 28px;
+  font-family: 'Inter', sans-serif; color: #fff;
+  display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
+  box-sizing: border-box;
 }
 
+/* -- HEADER -- verbatim frosted-glass treatment from the dossier -- */
 .pageHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 24px);
-    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
-    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
-    background: rgba(255, 255, 255, 0.62);
-    border-radius: 0 12px 12px 0;
-    backdrop-filter: blur(15px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: clamp(8px,1.2vw,14px); border-left: clamp(3px,0.4vw,5px) solid var(--orange);
+  padding: clamp(8px,1.2vw,14px) clamp(14px,1.8vw,22px);
+  background: rgba(255,255,255,0.62); border-radius: 0 12px 12px 0;
+  backdrop-filter: blur(15px); box-shadow: 0 4px 15px rgba(0,0,0,0.07);
 }
-.headerLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.title { font-family: 'Cinzel', serif; color: #1a2e30; font-size: var(--fs-h1); font-weight: 700; margin: 0; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1; }
-.subtitle { color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.headerLeft { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.title { font-family: 'Cinzel', serif; color: var(--navy-deep); font-size: clamp(18px,2.5vw,24px); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; line-height: 1.1; margin: 0; }
+.subtitle { color: #64748b; font-size: clamp(9px,0.9vw,11px); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.headerActions { display: flex; align-items: center; gap: clamp(6px,0.9vw,10px); flex-wrap: wrap; }
 
-.headerActions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
-.refreshBtn, .analysisBtn, .analysisBtnActive {
-    display: flex; align-items: center; gap: 6px;
-    height: clamp(34px, 4vw, 40px);
-    padding: 0 clamp(12px, 1.5vw, 16px);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.9vw, 11px);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
+/* -- BUTTON SPEC -- identical to the dossier's .backBtn / .editBtn family.
+   Every button on this page is one of these three, so nothing here is
+   bigger or louder than its equivalent on the dossier. -- */
+.ghostBtn, .primaryBtn, .presetBtn, .presetBtnOther, .presetBtnNew {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
-.refreshBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }
-.refreshBtn:hover { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
-.analysisBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }
-.analysisBtn:hover { background: rgba(26,46,48,0.16); }
-.analysisBtnActive { background: var(--navy); border: 1.5px solid var(--navy); color: #fff; box-shadow: 0 3px 10px rgba(26,46,48,0.3); }
+.ghostBtn:hover, .presetBtn:hover, .presetBtnOther:hover {
+  background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange);
+}
+.primaryBtn, .presetBtnNew { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
+.primaryBtn:hover, .presetBtnNew:hover { background: #d97a2b; border-color: #d97a2b; }
+.ghostBtn:disabled, .primaryBtn:disabled { opacity: 0.5; cursor: wait; }
+.ghostBtn:focus-visible, .primaryBtn:focus-visible,
+.presetBtn:focus-visible, .presetBtnOther:focus-visible, .presetBtnNew:focus-visible {
+  outline: 2px solid var(--orange); outline-offset: 2px;
+}
+/* OTHER is the "not one of the tiles" escape hatch, so it stays dashed --
+   the one deliberate difference, and it is a border style, not a size. */
+.presetBtnOther { border-style: dashed; }
 
-/* The old .flashBanner lived here. It pushed the whole page down whenever a
-   message appeared, and it was this page's own third take on "tell the user
-   something" -- FolderPage and SettingsPage both used a floating toast. It
-   is gone; Feedback.jsx's ToastStack replaces it everywhere. */
+/* -- PANEL CORNER BADGE -- the dossier's, unchanged -- */
+.panelCornerBadge {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
+  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
+}
+
+/* -- MONEY STRIP -- the Payment Records / dossier stat card, same spec -- */
+.moneyStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: clamp(10px, 1.4vw, 16px);
+}
+.statCard {
+  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  border: 1.5px solid var(--orange-border);
+  border-radius: var(--radius);
+  padding: clamp(12px, 1.5vw, 18px);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.statCard label {
+  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);
+  font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);
+}
+.statCard strong {
+  font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px);
+  font-weight: 700; color: #fff; word-break: break-all;
+}
+.statNote {
+  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
+}
+.statAmber { border-color: rgba(238,140,58,0.55); }
+.statAmber label, .statAmber strong { color: var(--orange); }
+.statGreen { border-color: rgba(34,197,94,0.55); }
+.statGreen label, .statGreen strong { color: #22c55e; }
+
+/* -- PRESET ROW -- was a grid of 84px slabs, which made "log an expense"
+   the visually heaviest thing in the app. They are buttons now, flowing in
+   a wrapped row at the dossier's button size. -- */
+.presetRow { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(6px,0.9vw,10px); }
 
 /* Plain-English note at the top of a panel, for a rule that would otherwise
    only be discoverable by hovering something. */
 .panelHint {
-    display: flex; align-items: center; gap: 7px;
-    margin: 0 0 10px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 11px; font-weight: 600; line-height: 1.4;
-    color: rgba(244,242,239,0.62);
+  display: flex; align-items: center; gap: 7px; margin: 0;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px,1vw,11px); font-weight: 600; line-height: 1.4;
+  color: rgba(244,242,239,0.62);
 }
 .panelHint svg { color: var(--orange); flex-shrink: 0; }
-
-/* Search result count + the "there are more than this" flag. */
-.searchSummary {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 8px;
-    margin-top: 14px; padding: 9px 12px;
-    background: rgba(0,0,0,0.2);
-    border-radius: var(--radius-sm);
-    font-family: 'Space Mono', monospace;
-    font-size: 10px; font-weight: 900; letter-spacing: 1px;
-    text-transform: uppercase;
-    color: rgba(244,242,239,0.72);
-}
-.truncatedFlag { color: var(--amber); cursor: help; }
-.noNote { color: rgba(244,242,239,0.45); }
 
 /* Visually hidden, still read out by screen readers -- for the actions
    column header, which has no visible text. */
 .srOnly {
-    position: absolute; width: 1px; height: 1px;
-    padding: 0; margin: -1px; overflow: hidden;
-    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-.panelSpacer { margin-top: clamp(14px, 2vw, 20px); }
-
-/* -- PRESET GRID --------------------------------------------------- */
-.presetGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: clamp(10px, 1.4vw, 14px);
+/* -- TABLE -- the dossier's .ledgerTable, character for character -- */
+.tableScroll { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.tableScroll::-webkit-scrollbar { display: none; }
+.ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 680px; }
+.ledgerTable thead th {
+  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
+  border-bottom: 3px solid var(--orange); white-space: nowrap;
 }
-.presetTile, .presetTileOther, .presetTileNew {
-    height: clamp(64px, 8vw, 84px);
-    border-radius: var(--radius);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(11px, 1.1vw, 13px);
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    text-align: center;
-    padding: 8px;
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-.presetTile {
-    background: linear-gradient(160deg, var(--orange) 0%, #d97a28 100%);
-    /* CONTRAST RULE: white on #EE8C3A is 2.3:1 and fails. Navy is 6.1:1 --
-       and it is already what .periodBtnActive below uses on orange. */
-    color: #1a2e30;
-    border: none;
-    box-shadow: 0 4px 12px rgba(238,140,58,0.35);
-}
-.presetTile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(238,140,58,0.5); }
-.presetTileOther {
-    background: rgba(26,46,48,0.85);
-    color: #fff;
-    border: 1.5px dashed rgba(255,255,255,0.3);
-}
-.presetTileOther:hover { background: rgba(26,46,48,1); }
-.presetTileNew {
-    background: transparent;
-    color: var(--orange);
-    border: 1.5px dashed var(--orange-border);
-}
-.presetTileNew:hover { background: rgba(238,140,58,0.08); border-color: var(--orange); }
-
-/* -- AMOUNT INPUT (triggers native numeric keypad on mobile) ------ */
-.amountInput {
-    width: 100%;
-    height: 56px;
-    font-size: 28px;
-    font-weight: 900;
-    text-align: center;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid rgba(255,255,255,0.15);
-    background: rgba(0,0,0,0.25);
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    box-sizing: border-box;
-}
-.amountInput:focus { outline: none; border-color: var(--orange); }
-
-/* -- TABLE (recent entries + search results) -----------------------
-   Matches LedgerPage's table exactly: dark header bar, orange uppercase
-   labels, 3px orange bottom border, orange left-border on row hover. --- */
-.tableWrap { overflow-x: auto; margin-top: 10px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.15); }
-.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--fs-td); min-width: 640px; }
-.table thead th {
-    background: #162a2c;
-    text-align: left;
-    padding: clamp(9px, 1.2vw, 13px) clamp(10px, 1.5vw, 16px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: var(--fs-th);
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: var(--orange);
-    text-transform: uppercase;
-    border-bottom: 3px solid var(--orange);
-    white-space: nowrap;
-}
-.table tbody tr {
-    border-left: 3px solid transparent;
-    transition: background 0.18s, border-left-color 0.18s;
-}
-.table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-left-color: var(--orange);
-}
-.table tbody td {
-    padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.5vw, 16px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    vertical-align: middle;
-}
-.dateCell { white-space: nowrap; color: rgba(255,255,255,0.6); font-size: 11px; }
-.moneyCell { font-weight: 900; white-space: nowrap; }
+.ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
+.ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
+.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; color: #fff; font-size: clamp(10px,1.05vw,12px); }
+.ledgerTable tbody tr.row { transition: background 0.15s; border-left: 3px solid transparent; }
+.ledgerTable tbody tr.row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.mono { font-family: 'Space Mono', monospace; }
+.dateCell { white-space: nowrap; color: rgba(255,255,255,0.6); font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); }
+.moneyCell { font-family: 'Space Mono', monospace; font-weight: 700; white-space: nowrap; color: #fca5a5; }
 .metaCell { color: rgba(255,255,255,0.7); white-space: nowrap; }
-.notesCell { color: rgba(255,255,255,0.55); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notesCell { color: rgba(255,255,255,0.55); font-style: italic; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notesCell span { display: inline-block; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.noNote { color: rgba(244,242,239,0.45); font-style: normal; }
+
+/* .emptyCell sits INSIDE a dark panel already -- a card here would be a card
+   in a card, so only the text colour is set (cream, never white-on-cream). */
 .emptyCell {
-    text-align: center;
-    padding: clamp(20px, 4vw, 40px) 16px;
-    font-family: 'Space Mono', monospace;
-    /* CONTRAST RULE: white 30% on the dark HardwarePanel was 2.5:1. */
-    color: rgba(244,242,239,0.68);
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
+  text-align: center; padding: clamp(20px,4vw,40px) 16px;
+  font-family: 'Space Mono', monospace; color: rgba(244,242,239,0.68);
+  font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
 }
 
-.categoryTag {
-    display: inline-block;
-    background: rgba(238,140,58,0.15);
-    color: var(--orange);
-    border: 1px solid rgba(238,140,58,0.3);
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-}
-.editedBadge {
-    display: inline-block;
-    margin-left: 6px;
-    background: rgba(245,158,11,0.15);
-    color: var(--amber);
-    border: 1px solid rgba(245,158,11,0.3);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 0.4px;
-}
-/* Shown next to LOGGED BY when spentBy differs from recordedBy --
-   this is the "who actually spent the cash" fix. */
+/* -- one-word tags -- the dossier's .tag idiom: coloured text, no chip
+   background, so they never compete with the money figures -- */
+.categoryTag { font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--orange); }
+.editedBadge { margin-left: 8px; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--amber); cursor: help; }
 .spentByTag {
-    display: block;
-    margin-top: 3px;
-    /* CONTRAST RULE: white 40% on this panel was 2.9:1. */
-    color: rgba(244,242,239,0.66);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    white-space: normal;
-    cursor: help;
+  display: block; margin-top: 3px;
+  color: rgba(244,242,239,0.66); font-size: 9px; font-weight: 800;
+  letter-spacing: 1px; text-transform: uppercase; white-space: normal; cursor: help;
 }
 .lockedTag {
-    display: inline-flex; align-items: center; gap: 4px;
-    /* CONTRAST RULE: white 35% on this panel was 2.6:1. */
-    color: rgba(244,242,239,0.62);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+  color: rgba(244,242,239,0.62); font-size: 9px; font-weight: 800;
+  letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
 }
+
 .rowActions { display: flex; align-items: center; gap: 6px; }
 .editIconBtn, .deleteIconBtn {
-    width: 26px; height: 26px;
-    border-radius: 5px;
-    border: 1.5px solid transparent;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  width: 26px; height: 26px; border-radius: 5px; border: 1.5px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 /* PALETTE: this was blue (#3b82f6). Blue appears nowhere else in the app --
-   the palette is orange / navy / red / green / amber / violet / cyan. Edit
-   is an ordinary action, so it takes the app's ordinary accent. */
+   the palette is orange / navy / red / green / amber / violet / cyan. */
 .editIconBtn { background: rgba(238,140,58,0.15); color: var(--orange); }
 .editIconBtn:hover { background: rgba(238,140,58,0.3); border-color: var(--orange); }
 .deleteIconBtn { background: rgba(239,68,68,0.15); color: var(--red); }
@@ -286,202 +176,24 @@
 /* A row mid-delete dims so the click clearly registered. */
 .rowBusy { opacity: 0.45; pointer-events: none; }
 
-/* -- DIRECTOR ANALYSIS ----------------------------------------------
-   Period / bucket toggles now use the app's CONFIRMED STANDARD filter-
-   button spec (rectangular, radius-sm, exact dark/hover/active colors)
-   instead of the old ad-hoc orange pill. ---------------------------- */
-.periodRow { display: flex; gap: clamp(6px, 1vw, 10px); flex-wrap: wrap; margin-bottom: 14px; }
-.periodBtn, .periodBtnActive,
-.bucketBtn, .bucketBtnActive {
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.95vw, 11px);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
+/* -- AMOUNT INPUT (triggers native numeric keypad on mobile) -- */
+.amountInput {
+  width: 100%; height: 56px; font-size: 28px; font-weight: 900; text-align: center;
+  border-radius: var(--radius-sm); border: 1.5px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.25); color: #fff; font-family: 'Space Mono', monospace;
+  box-sizing: border-box;
 }
-.periodBtn:hover, .bucketBtn:hover {
-    background: rgba(238, 140, 58, 0.12);
-    color: #EE8C3A;
-    border-color: #EE8C3A;
-}
-.periodBtnActive, .bucketBtnActive {
-    background: #EE8C3A !important;
-    color: #1a2e30 !important;
-    border-color: #EE8C3A !important;
-    box-shadow: 0 0 14px rgba(238, 140, 58, 0.4);
-}
+.amountInput:focus { outline: none; border-color: var(--orange); }
 
-.totalBox {
-    background: rgba(0,0,0,0.2);
-    border-radius: var(--radius-sm);
-    padding: 14px 18px;
-    margin-bottom: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.totalBox label { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: rgba(244,242,239,0.72); text-transform: uppercase; }
-.totalBox strong { font-size: 24px; font-weight: 900; color: #fff; }
-
-.categoryBars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-.barRow { display: grid; grid-template-columns: 110px 1fr 110px; align-items: center; gap: 10px; }
-.barLabel { font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.barLabel span, .notesCell span {
-    display: inline-block; max-width: 100%; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
-}
-.barTrack { height: 14px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
-.barFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }
-.barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
-
-.sectionLabel {
-    display: block;
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    color: var(--orange);
-    text-transform: uppercase;
-    margin: 18px 0 10px;
-}
-
-.bucketRow { display: flex; gap: clamp(6px, 1vw, 10px); flex-wrap: wrap; margin-bottom: 12px; }
-
-.tsChart { display: flex; gap: 6px; overflow-x: auto; padding: 4px 4px 0; align-items: flex-end; min-height: 140px; }
-.tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; }
-.tsBarTrack { height: 110px; width: 100%; display: flex; align-items: flex-end; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
-.tsBarFill { width: 100%; background: linear-gradient(180deg, var(--orange) 0%, #d97a28 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
-/* CONTRAST RULE: white 45% at 8px was 3.1:1 -- far under the floor for
-   text this small. */
-.tsBarLabel { font-size: 8px; color: rgba(244,242,239,0.7); white-space: nowrap; }
-.tsBarWrap { cursor: help; }
-
-.searchDivider {
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    color: var(--orange);
-    text-transform: uppercase;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    padding-top: 14px;
-    margin-bottom: 10px;
-}
-.filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.filterInput {
-    height: 36px;
-    padding: 0 10px;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid rgba(255,255,255,0.15);
-    background: rgba(0,0,0,0.2);
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    min-width: 120px;
-}
-.filterInput:focus { outline: none; border-color: var(--orange); }
-
-/* -- CATEGORY DROPDOWN (filter row) ----------------------------------
-   Same visual language as the Intake page's themed dropdown (white
-   panel, orange border/accents, orange-filled hover, left-border-marked
-   selected row) but sized to sit flush in this compact filter row --
-   height/font intentionally match .filterInput, not Intake's spacing. */
-.categoryDropdown {
-    position: relative;
-    flex: 1 1 160px;
-    min-width: 120px;
-}
-.categoryDropdownBtn {
-    width: 100%;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid rgba(255,255,255,0.15);
-    background: rgba(0,0,0,0.2);
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    text-align: left;
-    text-transform: uppercase;
-    transition: border-color 0.2s;
-}
-.categoryDropdownBtn span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.categoryDropdownBtn:hover { border-color: var(--orange); }
-.categoryDropdownBtn svg { color: var(--orange); flex-shrink: 0; transition: transform 0.2s; }
-.categoryDropdownIconOpen { transform: rotate(180deg); }
-
-.categoryDropdownList {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    background: #ffffff;
-    border: 2px solid var(--orange);
-    border-radius: var(--radius-sm);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.25);
-    overflow: hidden;
-    max-height: 220px;
-    overflow-y: auto;
-    z-index: 300;
-    scrollbar-width: none;
-}
-.categoryDropdownList::-webkit-scrollbar { display: none; }
-.categoryDropdownOption {
-    padding: 9px 12px;
-    color: var(--navy);
-    font-size: 12px;
-    font-weight: 700;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: background 0.15s, color 0.15s;
-}
-.categoryDropdownOption:last-child { border-bottom: none; }
-.categoryDropdownOption:hover { background: var(--orange); color: #fff; }
-.categoryDropdownOptionActive { background: #f1f5f9; border-left: 4px solid var(--orange); }
-
-.searchBtn, .clearBtn {
-    display: flex; align-items: center; gap: 6px;
-    height: 36px;
-    padding: 0 14px;
-    border-radius: var(--radius-sm);
-    font-weight: 900;
-    font-size: 10px;
-    letter-spacing: 0.6px;
-    cursor: pointer;
-    border: none;
-}
-.searchBtn { background: var(--orange); color: #1a2e30; }
-.searchBtn:hover { background: #d97a28; box-shadow: 0 0 14px rgba(238,140,58,0.4); }
-.searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-.clearBtn { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(244,242,239,0.85); }
-.clearBtn:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
-.searchBtn:focus-visible, .clearBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-
-/* -- RESPONSIVE ------------------------------------------------------ */
-@media (max-width: 768px) {
-    .table { min-width: 560px; }
-    .barRow { grid-template-columns: 80px 1fr 80px; }
+/* -- RESPONSIVE -- same breakpoints the dossier uses -- */
+@media (max-width: 700px) {
+  .ledgerTable { min-width: 600px; }
+  .ledgerTable thead th { font-size: 7px; letter-spacing: 1px; }
+  .pageHeader { flex-direction: column; align-items: flex-start; gap: 12px; border-radius: 0; }
+  .headerActions { width: 100%; }
+  .ghostBtn { flex: 1; justify-content: center; }
 }
 @media (max-width: 480px) {
-    .presetGrid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-    .table thead th { padding: 8px; font-size: 8px; }
-    .table tbody td { padding: 7px 8px; }
-    .categoryDropdown { flex: 1 1 100%; }
+  .ledgerTable tbody td { padding: 8px; }
+  .presetRow { gap: 6px; }
 }

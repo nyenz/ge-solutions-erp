@@ -229,26 +229,31 @@ const ClientPortfolioPage = () => {
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>TOTAL OWED</label><strong>UGX {fmt(totals.owed)}</strong>
+            <span className={styles.statNote}>{totals.count} {totals.count === 1 ? 'project' : 'projects'}</span>
           </div>
           <div className={`${styles.statCard} ${styles.statGreen} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>TOTAL PAID</label><strong>UGX {fmt(totals.paid)}</strong>
+            <span className={styles.statNote}>{(Number(totals.owed) + Number(totals.paid)) > 0 ? Math.round((Number(totals.paid) / (Number(totals.owed) + Number(totals.paid))) * 100) : 0}% of billed</span>
           </div>
           <div className={`${styles.statCard} ${styles.statAmber} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('health-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('health-panel'); } }}>
             <label>STORAGE FEES</label><strong>UGX {fmt(totals.storage)}</strong>
+            <span className={styles.statNote}>receivables accrued</span>
           </div>
           <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>PROJECTS</label><strong>{totals.count}</strong>
+            <span className={styles.statNote}>in this portfolio</span>
           </div>
           <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>OWNERSHIP</label><strong className={styles.statTextValue}>{totals.solo} SOLO / {totals.joint} JOINT</strong>
+            <span className={styles.statNote}>tenure split</span>
           </div>
         </div>
       )}

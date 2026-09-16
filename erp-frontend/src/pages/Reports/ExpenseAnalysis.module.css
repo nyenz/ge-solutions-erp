@@ -1,0 +1,148 @@
+/* PATH: erp-frontend/src/pages/Reports/ExpenseAnalysis.module.css */
+/* The Director expense analysis, moved off the Expenses page and onto the
+   Report Hub. Styling follows the same reference chain as everything else in
+   this pass -- Payment Records -> Client Dossier -> here: Inter stack, the
+   dossier's button/tag/table idioms, and the Payments .sumCard for the total.
+   Nothing here is page chrome; it renders inside a Report Hub drawer. */
+.wrap {
+  --orange: #EE8C3A; --orange-border: rgba(238,140,58,0.28);
+  --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --amber: #f59e0b;
+  --radius: 10px; --radius-sm: 6px;
+  display: flex; flex-direction: column; gap: clamp(10px,1.4vw,16px);
+  padding: clamp(12px,1.6vw,18px);
+  font-family: 'Inter', sans-serif; color: #fff;
+}
+
+/* -- toggles -- the app's confirmed standard filter-button spec -- */
+.toggleRow { display: flex; gap: clamp(6px,0.9vw,10px); flex-wrap: wrap; }
+.toggleBtn, .toggleBtnActive {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease;
+}
+.toggleBtn:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
+.toggleBtnActive {
+  background: var(--orange); color: #1a2e30; border-color: var(--orange);
+  box-shadow: 0 0 12px rgba(238,140,58,0.35);
+}
+.toggleBtn:focus-visible, .toggleBtnActive:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* -- headline total -- the Payments summary card -- */
+.totalCard {
+  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
+  padding: clamp(12px,1.5vw,18px); display: flex; flex-direction: column; gap: 4px;
+}
+.totalCard label { font-size: clamp(7px,0.75vw,9px); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+.totalCard strong { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.6vw,18px); font-weight: 700; color: var(--orange); word-break: break-all; }
+
+.sectionLabel {
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 2px;
+  color: var(--orange); text-transform: uppercase; margin: clamp(4px,0.8vw,8px) 0 0;
+}
+
+/* -- category / staff bars -- */
+.bars { display: flex; flex-direction: column; gap: 10px; }
+.barRow { display: grid; grid-template-columns: 110px 1fr 110px; align-items: center; gap: 10px; }
+.barLabel { font-size: clamp(9px,0.95vw,11px); font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barLabel span { display: inline-block; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.barTrack { height: 12px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+.barFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }
+.barValue { font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); font-weight: 700; text-align: right; color: rgba(255,255,255,0.7); }
+
+/* -- spending over time -- */
+.tsChart { display: flex; gap: 6px; overflow-x: auto; padding: 4px 4px 0; align-items: flex-end; min-height: 140px; scrollbar-width: none; }
+.tsChart::-webkit-scrollbar { display: none; }
+.tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; cursor: help; }
+.tsBarTrack { height: 110px; width: 100%; display: flex; align-items: flex-end; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+.tsBarFill { width: 100%; background: linear-gradient(180deg, var(--orange) 0%, #d97a28 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
+/* CONTRAST RULE: white 45% at 8px was 3.1:1 -- far under the floor for
+   text this small. */
+.tsBarLabel { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(244,242,239,0.7); white-space: nowrap; }
+
+/* -- search -- */
+.divider { border-top: 1px solid rgba(255,255,255,0.1); padding-top: clamp(10px,1.4vw,14px); }
+.filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filterInput {
+  height: 34px; padding: 0 10px; border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); color: #fff;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px,1.05vw,12px); font-weight: 600; min-width: 120px;
+}
+.filterInput:focus { outline: none; border-color: var(--orange); }
+
+.categoryDropdown { position: relative; flex: 1 1 160px; min-width: 120px; }
+.categoryDropdownBtn {
+  width: 100%; height: 34px; padding: 0 10px; border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); color: #fff;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px,1.05vw,12px); font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-align: left; text-transform: uppercase; transition: border-color 0.2s;
+}
+.categoryDropdownBtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.categoryDropdownBtn:hover { border-color: var(--orange); }
+.categoryDropdownBtn svg { color: var(--orange); flex-shrink: 0; transition: transform 0.2s; }
+.categoryDropdownIconOpen { transform: rotate(180deg); }
+.categoryDropdownList {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: #ffffff; border: 2px solid var(--orange); border-radius: var(--radius-sm);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.25);
+  overflow: hidden; max-height: 220px; overflow-y: auto; z-index: 300; scrollbar-width: none;
+}
+.categoryDropdownList::-webkit-scrollbar { display: none; }
+.categoryDropdownOption {
+  padding: 9px 12px; color: var(--navy); font-size: 12px; font-weight: 700; background: #ffffff;
+  border-bottom: 1px solid #f1f5f9; cursor: pointer; text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+.categoryDropdownOption:last-child { border-bottom: none; }
+.categoryDropdownOption:hover { background: var(--orange); color: #fff; }
+.categoryDropdownOptionActive { background: #f1f5f9; border-left: 4px solid var(--orange); }
+
+.searchSummary {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding: 9px 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);
+  font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 900;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(244,242,239,0.72);
+}
+.truncatedFlag { color: var(--amber); cursor: help; }
+
+/* -- results table -- the dossier's ledger table -- */
+.tableScroll { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.tableScroll::-webkit-scrollbar { display: none; }
+.ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 680px; }
+.ledgerTable thead th {
+  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase; text-align: left;
+  padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
+  border-bottom: 3px solid var(--orange); white-space: nowrap;
+}
+.ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
+.ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
+.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; color: #fff; font-size: clamp(10px,1.05vw,12px); }
+.ledgerTable tbody tr { border-left: 3px solid transparent; transition: background 0.15s; }
+.ledgerTable tbody tr:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.dateCell { white-space: nowrap; font-family: 'Space Mono', monospace; color: rgba(255,255,255,0.6); font-size: clamp(9px,0.95vw,11px); }
+.moneyCell { font-family: 'Space Mono', monospace; font-weight: 700; white-space: nowrap; color: #fca5a5; }
+.metaCell { color: rgba(255,255,255,0.7); white-space: nowrap; }
+.notesCell { color: rgba(255,255,255,0.55); font-style: italic; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notesCell span { display: inline-block; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.noNote { color: rgba(244,242,239,0.45); font-style: normal; }
+.categoryTag { font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--orange); }
+
+/* CONTRAST RULE: this sits inside a dark drawer, so cream, not white 30%. */
+.emptyCell {
+  text-align: center; padding: clamp(18px,3vw,32px) 16px;
+  font-family: 'Space Mono', monospace; color: rgba(244,242,239,0.68);
+  font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .barRow { grid-template-columns: 80px 1fr 80px; }
+  .ledgerTable { min-width: 600px; }
+}
+@media (max-width: 480px) {
+  .categoryDropdown { flex: 1 1 100%; }
+  .ledgerTable thead th { font-size: 7px; letter-spacing: 1px; }
+}

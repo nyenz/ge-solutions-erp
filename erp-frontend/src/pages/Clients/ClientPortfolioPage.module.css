@@ -78,23 +78,55 @@
 .editInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(238,140,58,0.18); }
 .inputError { border-color: var(--red); box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
 
-/* -- MONEY STRIP -- */
-.moneyStrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: clamp(8px,1.2vw,14px); }
-.statCard {
-  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: var(--radius); padding: clamp(10px,1.4vw,16px); display: flex; flex-direction: column; gap: 4px;
+/* -- MONEY STRIP -- these are the Payment Records summary cards, lifted
+   verbatim: same navy gradient, same 1.5px orange hairline, same 10px
+   radius, same Space Mono figure, same muted third line. The old build
+   used the lighter #3a5a5c panel gradient and a white 10% border, which
+   made the dossier read as a different product to /payments. Colour
+   variants follow the Payments idiom too -- the accent colour lands on
+   the border, the label AND the figure, rather than a pastel value on a
+   near-invisible border. */
+.moneyStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: clamp(10px, 1.4vw, 16px);
 }
-.statClickable { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; }
-.statClickable:hover { border-color: var(--orange); transform: translateY(-2px); }
+.statCard {
+  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  border: 1.5px solid var(--orange-border);
+  border-radius: var(--radius);
+  padding: clamp(12px, 1.5vw, 18px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.statClickable { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.statClickable:hover { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(238,140,58,0.18); }
 .statClickable:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.statCard label { font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
-.statCard strong { font-family: 'Space Mono', monospace; font-size: clamp(14px,1.8vw,20px); font-weight: 800; color: #fff; }
-.statTextValue { font-size: clamp(11px,1.3vw,15px); }
-.statRed strong { color: #fca5a5; } .statRed { border-color: rgba(239,68,68,0.3); }
-.statGreen strong { color: #6ee7b7; } .statGreen { border-color: rgba(16,185,129,0.3); }
-.statAmber strong { color: #fbbf24; } .statAmber { border-color: rgba(238,140,58,0.35); }
-.statNote { font-size: clamp(7px,0.85vw,9px); font-weight: 900; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); text-transform: uppercase; }
+.statCard label {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(7px, 0.75vw, 9px);
+  font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+.statCard strong {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(11px, 1.1vw, 13px);
+  font-weight: 700; color: #fff; word-break: break-all;
+}
+.statTextValue { font-size: clamp(11px, 1.1vw, 13px); }
+.statRed   { border-color: rgba(239,68,68,0.55); }
+.statRed   label, .statRed   strong { color: #ef4444; }
+.statGreen { border-color: rgba(34,197,94,0.55); }
+.statGreen label, .statGreen strong { color: #22c55e; }
+.statAmber { border-color: rgba(238,140,58,0.55); }
+.statAmber label, .statAmber strong { color: var(--orange); }
+.statNote {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(7px, 0.75vw, 9px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
 
 /* -- TABLE -- */
 .tableScroll { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
