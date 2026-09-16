@@ -12,11 +12,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiPhoneCall, FiMail, FiMapPin, FiClock, FiCreditCard,
   FiUsers, FiUser, FiEdit3, FiSave, FiX, FiFolder, FiPercent, FiAlertTriangle,
+  FiArrowUp, FiArrowDown,
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import clientService from '../../services/clientService';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './ClientPortfolioPage.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -27,12 +30,26 @@ const isJoint = (p) => String(p.ownershipType || 'SOLO').toUpperCase() === 'JOIN
 const pctPaid = (p) => { const owed = Number(p.owed || 0); const paid = Number(p.paid || 0); const total = owed + paid; return total > 0 ? Math.min((paid / total) * 100, 100) : (p.titled ? 100 : 0); };
 const pctTone = (pct) => (pct >= 75 ? styles.tagGood : pct >= 25 ? styles.tagWarn : styles.tagBad);
 
-const Pins = () => (<React.Fragment>
-  <div className={styles.pinsTop} aria-hidden="true">{[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}</div>
-  <div className={styles.pinsBottom} aria-hidden="true">{[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}</div>
-  <span className={styles.decorBl} aria-hidden="true" />
-  <span className={styles.decorBr} aria-hidden="true" />
-</React.Fragment>);
+// Shared by both tables below -- sorts a list of plot rows by any column
+// key (numeric or text), ascending or descending.
+const sortPlots = (rows, key, direction) => {
+  if (!key) return rows;
+  const dir = direction === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    let aVal, bVal;
+    if (key === 'index') { aVal = a.index || ''; bVal = b.index || ''; }
+    else if (key === 'district') { aVal = a.district || ''; bVal = b.district || ''; }
+    else if (key === 'owed') { aVal = Number(a.owed || 0); bVal = Number(b.owed || 0); }
+    else if (key === 'paid') { aVal = Number(a.paid || 0); bVal = Number(b.paid || 0); }
+    else if (key === 'pct') { aVal = pctPaid(a); bVal = pctPaid(b); }
+    else if (key === 'storage') { aVal = Number(a.storage || 0); bVal = Number(b.storage || 0); }
+    else if (key === 'lastPayment') { aVal = a.lastPayment || ''; bVal = b.lastPayment || ''; }
+    else { aVal = a[key]; bVal = b[key]; }
+    if (aVal < bVal) return -1 * dir;
+    if (aVal > bVal) return 1 * dir;
+    return 0;
+  });
+};
 
 // -- IDENTIFIER CELL -- the project index is permanent from the day the
 // record is created (single-identity model, guide 8.2/8.3) and is now the
@@ -61,6 +78,19 @@ const ClientPortfolioPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError, setSaveError] = useState('');
+
+  // Project Portfolio table's sort state, and Payment Health's own
+  // (separate) one -- same click-header-to-sort idiom the Client Ledger
+  // already uses.
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
+  const handleSort = (key) => setSortConfig((prev) => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
+  const renderSortIcon = (key) => sortConfig.key !== key ? null
+    : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
+
+  const [healthSort, setHealthSort] = useState({ key: '', direction: 'asc' });
+  const handleHealthSort = (key) => setHealthSort((prev) => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
+  const renderHealthSortIcon = (key) => healthSort.key !== key ? null
+    : (healthSort.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,9 +125,11 @@ const ClientPortfolioPage = () => {
   // someone else's -- grouping SOLO first then JOINT keeps that visible at
   // a glance instead of burying joint ownership in a flat list.
   const groups = useMemo(() => ([
-    { key: 'SOLO', label: 'SOLO PROJECTS', rows: plots.filter((p) => !isJoint(p)) },
-    { key: 'JOINT', label: 'JOINT PROJECTS', rows: plots.filter(isJoint) },
-  ].filter((g) => g.rows.length > 0)), [plots]);
+    { key: 'SOLO', label: 'SOLO PROJECTS', rows: sortPlots(plots.filter((p) => !isJoint(p)), sortConfig.key, sortConfig.direction) },
+    { key: 'JOINT', label: 'JOINT PROJECTS', rows: sortPlots(plots.filter(isJoint), sortConfig.key, sortConfig.direction) },
+  ].filter((g) => g.rows.length > 0)), [plots, sortConfig]);
+
+  const healthRows = useMemo(() => sortPlots(plots, healthSort.key, healthSort.direction), [plots, healthSort]);
 
   const startEdit = () => {
     setForm({ name: d.name || '', phone: d.phone || '', email: d.email || '', address: d.address || '' });
@@ -157,10 +189,8 @@ const ClientPortfolioPage = () => {
         </div>
       </header>
 
-      <section className={styles.panel}>
-        <Pins />
-        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiUsers aria-hidden="true" /> IDENTITY</h2></div>
-        <div className={styles.panelBody}>
+      <CollapsibleSection icon={<FiUsers aria-hidden="true" />} title="IDENTITY">
+        <CornerDecor hideTop />
         {saveError && <div className={styles.errorBanner}>{saveError}</div>}
         <div className={styles.specGrid}>
           <div className={styles.specItem}>
@@ -190,8 +220,7 @@ const ClientPortfolioPage = () => {
           </div>
           <div className={styles.specItem}><span className={styles.specLabel}><FiClock aria-hidden="true" /> LAST CONTACT</span><span className={styles.specValue}>{d.lastContact ? String(d.lastContact).slice(0, 10) + (days != null ? ' (' + days + 'D AGO)' : '') : 'NEVER'}</span></div>
         </div>
-        </div>
-      </section>
+      </CollapsibleSection>
 
       {isDirector && (
         <div className={styles.moneyStrip}>
@@ -223,16 +252,21 @@ const ClientPortfolioPage = () => {
         </div>
       )}
 
-      <section className={styles.panel} id="portfolio-panel">
-        <Pins />
-        <div className={styles.panelHeader}>
-          <h2 className={styles.panelTitle}><FiFolder aria-hidden="true" /> PROJECT PORTFOLIO</h2>
-          <span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>
-        </div>
-        <div className={styles.panelBody}>
+      <div id="portfolio-panel">
+      <CollapsibleSection icon={<FiFolder aria-hidden="true" />} title="PROJECT PORTFOLIO"
+        right={<span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>}>
+        <CornerDecor hideTop />
         <div className={styles.tableScroll}>
           <table className={styles.ledgerTable}>
-            <thead><tr><th>Index</th><th>District</th><th>Ownership</th><th>Status</th>{isDirector && <th>Owed (UGX)</th>}{isDirector && <th>Paid (UGX)</th>}{isDirector && <th><FiPercent aria-hidden="true" /> Paid %</th>}<th /></tr></thead>
+            <thead><tr>
+              <th onClick={() => handleSort('index')} className={styles.sortable} aria-sort={sortConfig.key === 'index' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderSortIcon('index')}</th>
+              <th onClick={() => handleSort('district')} className={styles.sortable} aria-sort={sortConfig.key === 'district' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>District {renderSortIcon('district')}</th>
+              <th>Ownership</th><th>Status</th>
+              {isDirector && <th onClick={() => handleSort('owed')} className={styles.sortable} aria-sort={sortConfig.key === 'owed' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Owed (UGX) {renderSortIcon('owed')}</th>}
+              {isDirector && <th onClick={() => handleSort('paid')} className={styles.sortable} aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Paid (UGX) {renderSortIcon('paid')}</th>}
+              {isDirector && <th onClick={() => handleSort('pct')} className={styles.sortable} aria-sort={sortConfig.key === 'pct' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><FiPercent aria-hidden="true" /> Paid % {renderSortIcon('pct')}</th>}
+              <th />
+            </tr></thead>
             <tbody>
               {plots.length === 0 ? (<tr><td colSpan={cols} className={styles.noRecords}>NO PROJECTS REGISTERED</td></tr>) :
                 groups.map((g) => (
@@ -280,20 +314,25 @@ const ClientPortfolioPage = () => {
             </tbody>
           </table>
         </div>
-        </div>
-      </section>
+      </CollapsibleSection>
+      </div>
 
       {isDirector && (
-        <section className={styles.panel} id="health-panel">
-          <Pins />
-          <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiCreditCard aria-hidden="true" /> PAYMENT HEALTH PER PROJECT</h2></div>
-          <div className={styles.panelBody}>
+        <div id="health-panel">
+        <CollapsibleSection icon={<FiCreditCard aria-hidden="true" />} title="PAYMENT HEALTH PER PROJECT">
+          <CornerDecor hideTop />
           <div className={styles.tableScroll}>
             <table className={styles.ledgerTable}>
-              <thead><tr><th>Index</th><th>Paid (UGX)</th><th>Storage (UGX)</th><th>Last payment</th><th>Health</th></tr></thead>
+              <thead><tr>
+                <th onClick={() => handleHealthSort('index')} className={styles.sortable} aria-sort={healthSort.key === 'index' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderHealthSortIcon('index')}</th>
+                <th onClick={() => handleHealthSort('paid')} className={styles.sortable} aria-sort={healthSort.key === 'paid' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Paid (UGX) {renderHealthSortIcon('paid')}</th>
+                <th onClick={() => handleHealthSort('storage')} className={styles.sortable} aria-sort={healthSort.key === 'storage' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Storage (UGX) {renderHealthSortIcon('storage')}</th>
+                <th onClick={() => handleHealthSort('lastPayment')} className={styles.sortable} aria-sort={healthSort.key === 'lastPayment' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Last payment {renderHealthSortIcon('lastPayment')}</th>
+                <th>Health</th>
+              </tr></thead>
               <tbody>
-                {plots.length === 0 ? (<tr><td colSpan={5} className={styles.noRecords}>NO PAYMENT RECORDS</td></tr>) :
-                  plots.map((p, i) => {
+                {healthRows.length === 0 ? (<tr><td colSpan={5} className={styles.noRecords}>NO PAYMENT RECORDS</td></tr>) :
+                  healthRows.map((p, i) => {
                     const dd = dayDiff(p.lastPayment);
                     const health = dd == null ? { c: styles.dotRed, t: 'Nothing received yet' } : dd <= 30 ? { c: styles.dotGreen, t: 'Paid this month' } : dd <= 60 ? { c: styles.dotAmber, t: 'Paid about 2 months ago' } : { c: styles.dotOrange, t: 'Over 2 months since paying' };
                     return (<tr key={p.projectId || i} className={styles.rowStatic}>
@@ -307,14 +346,12 @@ const ClientPortfolioPage = () => {
               </tbody>
             </table>
           </div>
-          </div>
-        </section>
+        </CollapsibleSection>
+        </div>
       )}
 
-      <section className={styles.panel}>
-        <Pins />
-        <div className={styles.panelHeader}><h2 className={styles.panelTitle}><FiPhoneCall aria-hidden="true" /> CALL LOG</h2></div>
-        <div className={styles.panelBody}>
+      <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="CALL LOG">
+        <CornerDecor hideTop />
         {(d.notes || []).length === 0 ? (<div className={styles.noRecords}>NO CALLS LOGGED FOR THIS CLIENT</div>) : (
           <div className={styles.noteList}>
             {(d.notes || []).map((n, i) => (
@@ -327,8 +364,7 @@ const ClientPortfolioPage = () => {
             ))}
           </div>
         )}
-        </div>
-      </section>
+      </CollapsibleSection>
       <BackToTopButton />
     </div>
   );

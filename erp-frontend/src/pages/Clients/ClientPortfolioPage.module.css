@@ -13,7 +13,7 @@
   max-width: 1400px; width: 100%; margin: 0 auto;
   padding: clamp(12px,2vh,22px) clamp(12px,2vw,24px) 28px;
   font-family: 'Inter', sans-serif; color: #fff;
-  display: flex; flex-direction: column; gap: clamp(10px,1.5vw,16px);
+  display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
   box-sizing: border-box;
 }
 
@@ -46,45 +46,19 @@
 
 .errorBanner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px; margin: -4px 0 12px; }
 
-/* -- PANEL -- the pins + corner-decor card every reference page uses.
-   Header/body split, orange separator line and hover glow now match
-   Intake's CollapsibleSection exactly (dark #162a2c header bar, 1.5px
-   orange bottom border, whole-panel hover glow, title brightens on
-   header hover). -- */
-.panel {
-  position: relative; isolation: isolate;
-  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
-  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
-  padding: 0; transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.panel:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-.panelHeader {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: clamp(10px,1.4vw,14px) clamp(14px,1.8vw,20px);
-  background: #162a2c; border-bottom: 1.5px solid var(--orange);
-  border-radius: var(--radius) var(--radius) 0 0;
-}
-.panelBody { padding: clamp(14px,2vw,22px) clamp(14px,1.8vw,20px); }
-.panelTitle {
-  font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px,1.4vw,15px); font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase; margin: 0;
-  display: flex; align-items: center; gap: 8px; transition: color 0.18s ease;
-}
-.panelHeader:hover .panelTitle { color: #fff; }
+/* -- PANEL -- panels are now the shared CollapsibleSection + CornerDecor
+   components (see IDENTITY / PROJECT PORTFOLIO / etc in the JSX) instead
+   of a hand-copied approximation of Intake's panel -- so this page is
+   pixel-identical to Intake because it's literally the same component:
+   same header/body padding, same orange separator, same hover glow, and
+   now the same collapse arrow. CornerDecor's hideTop drops the top pins
+   (kept on the bottom) the same way Intake's own section bodies do.
+   Only the small corner badge this page adds stays local. -- */
 .panelCornerBadge {
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
   color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
   border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }
-.pinsTop, .pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 20; }
-.pinsTop { top: -3px; } .pinsBottom { bottom: -3px; }
-.pin { width: 3px; height: 5px; background: var(--orange); border-radius: 1px; box-shadow: 0 0 5px rgba(238,140,58,0.4); }
-.decorBl, .decorBr { position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--orange); opacity: 0.55; pointer-events: none; z-index: 20; }
-.decorBl::after, .decorBr::after { content: ''; position: absolute; width: 4px; height: 4px; background: rgba(255,255,255,0.5); border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.4); }
-.decorBl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
-.decorBl::after { bottom: -2px; left: -2px; }
-.decorBr { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
-.decorBr::after { bottom: -2px; right: -2px; }
 
 /* -- IDENTITY GRID -- */
 .specGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: clamp(10px,1.4vw,18px); }
@@ -133,6 +107,8 @@
 }
 .ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
 .ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
+.sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
+.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), #162a2c; color: #fff; }
 .ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; color: #fff; font-size: clamp(10px,1.05vw,12px); }
 .ledgerTable tbody tr.row { cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
 .ledgerTable tbody tr.row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
