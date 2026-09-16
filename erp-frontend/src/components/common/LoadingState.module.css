@@ -1,0 +1,101 @@
+/* PATH: erp-frontend/src/components/common/LoadingState.module.css */
+
+/* Tokens are declared locally on purpose. This component gets dropped into
+   pages whose .container token scope it is NOT inside -- the Dashboard boot
+   screen renders before .container exists at all -- so it can never rely on
+   a page's --orange / --panel-bg being in scope. */
+.shell {
+    --ls-panel-bg:     linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --ls-panel-border: rgba(238, 140, 58, 0.28);
+    --ls-orange:       #EE8C3A;
+    --ls-track:        rgba(238, 140, 58, 0.15);
+    --ls-text:         rgba(244, 242, 239, 0.72); /* 6.98:1 on #1c3335 */
+    --ls-radius:       10px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 1.4vw, 14px);
+    padding: clamp(40px, 6vw, 70px) 20px;
+    text-align: center;
+    grid-column: 1 / -1; /* harmless outside a grid, correct inside one */
+}
+
+/* Draws its own dark card -- never let a loading message touch the cream
+   circuit background. */
+.shellPanel {
+    background: var(--ls-panel-bg);
+    border: 1.5px solid var(--ls-panel-border);
+    border-radius: var(--ls-radius);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+}
+
+/* Already inside a dark panel -- no second card. */
+.shellBare {
+    background: none;
+    border: none;
+}
+
+.shellPage {
+    min-height: 60vh;
+}
+
+.label {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(9px, 0.95vw, 11px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ls-text);
+}
+
+.spinner {
+    width: clamp(28px, 3.6vw, 36px);
+    height: clamp(28px, 3.6vw, 36px);
+    border: 3px solid var(--ls-track);
+    border-top-color: var(--ls-orange);
+    border-radius: 50%;
+    animation: lsSpin 0.9s linear infinite;
+}
+
+.emptyIcon {
+    width: clamp(20px, 2.6vw, 26px);
+    height: clamp(20px, 2.6vw, 26px);
+    color: var(--ls-orange);
+    opacity: 0.8;
+}
+
+/* -- TABLE ROW VARIANT -- */
+.cell {
+    --ls-orange: #EE8C3A;
+    --ls-track:  rgba(238, 140, 58, 0.15);
+    --ls-text:   rgba(244, 242, 239, 0.72);
+    text-align: center;
+    padding: clamp(24px, 4vw, 34px) 16px !important;
+}
+
+.cellInner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.spinnerSm {
+    width: 15px;
+    height: 15px;
+    border: 2px solid var(--ls-track);
+    border-top-color: var(--ls-orange);
+    border-radius: 50%;
+    animation: lsSpin 0.9s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes lsSpin { to { transform: rotate(360deg); } }
+
+/* Respect the OS "reduce motion" setting -- the spinner stops turning but
+   stays visible, so the state still reads as "busy". */
+@media (prefers-reduced-motion: reduce) {
+    .spinner, .spinnerSm { animation: none; opacity: 0.85; }
+}

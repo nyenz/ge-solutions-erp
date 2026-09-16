@@ -11,6 +11,7 @@ import HardwareSelect from '../../components/common/HardwareSelect';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import styles from './AuditPage.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 
 const AuditPage = () => {
     const [logs,       setLogs]       = useState([]);
@@ -135,7 +136,7 @@ const AuditPage = () => {
 
             <div className={styles.timelineFrame}>
                 <div className={styles.timelineStream}>
-                    {loading && <div className={styles.loadingPulse} role="status">SYNCHRONIZING WITH BLACK BOX...</div>}
+                    {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
                     {!loading && logs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
                     {!loading && logs.map(log => (
                         <div

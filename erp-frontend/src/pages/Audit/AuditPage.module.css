@@ -245,7 +245,8 @@
     text-align: center;
     padding: clamp(28px,5vw,50px) 20px;
     font-family: 'Space Mono', monospace;
-    color: rgba(255,255,255,0.25);
+    /* CONTRAST RULE: white 25% on the navy timeline frame was 2.21:1. */
+    color: rgba(244,242,239,0.72);
     font-weight: 900;
     font-size: var(--fs-meta);
     letter-spacing: 2px;

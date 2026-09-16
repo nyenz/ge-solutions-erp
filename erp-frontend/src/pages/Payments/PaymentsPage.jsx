@@ -10,6 +10,7 @@ import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './PaymentsPage.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
@@ -154,12 +155,7 @@ const PaymentsPage = () => {
             </div>
 
             {loading ? (
-                <div className={styles.emptyState}>
-                    <div className={styles.emptyInner}>
-                        <div className={styles.loadingSpinner} />
-                        <span>Loading payments...</span>
-                    </div>
-                </div>
+                <LoadingState label="LOADING PAYMENTS..." />
             ) : (
                 <div>
                 <HardwarePanel variant="dark">

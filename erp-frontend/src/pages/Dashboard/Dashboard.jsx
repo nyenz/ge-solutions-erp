@@ -5,6 +5,7 @@ import landService from '../../services/landService';
 import RootTerminal from './RootTerminal';
 import ManagerTerminal from './ManagerTerminal';
 import styles from './Dashboard.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 import { FiRefreshCcw } from 'react-icons/fi';
 import ErrorMessage from '../../components/common/ErrorMessage';
 
@@ -31,9 +32,8 @@ const Dashboard = () => {
     useEffect(() => { syncCockpitData(); }, [syncCockpitData]);
 
     if (loading) return (
-        <div className={styles.bootScreen} role="status" aria-label="Loading dashboard">
-            <div className={styles.spinner} aria-hidden="true" />
-            <span className={styles.bootLabel}>Loading dashboard...</span>
+        <div className={styles.container}>
+            <LoadingState label="LOADING DASHBOARD..." size="page" />
         </div>
     );
 

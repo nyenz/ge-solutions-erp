@@ -2,18 +2,25 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,
-    FiBarChart2, FiX, FiSearch, FiClock, FiChevronDown
+    FiBarChart2, FiX, FiSearch, FiClock, FiChevronDown, FiLock, FiInfo
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import expenseService from '../../services/expenseService';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
+import BackToTopButton from '../../components/common/BackToTopButton';
+import { LoadingState, LoadingRow } from '../../components/common/LoadingState';
+import { Tooltip, IconButton, Term } from '../../components/common/Tooltip';
+import { GLOSSARY } from '../../components/common/glossary';
+import { useToasts, useConfirm } from '../../components/common/useFeedback';
+import { ToastStack, ConfirmDialog } from '../../components/common/Feedback';
 import styles from './ExpensesPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const EDIT_WINDOW_HOURS = 24;
+const SEARCH_LIMIT = 100;
 
 const isStillEditable = (createdAt) => {
     if (!createdAt) return false;
@@ -31,16 +38,22 @@ const ExpensesPage = () => {
     const { user } = useAuth();
     const isDirector = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
+    const { toasts, toast, dismissToast } = useToasts();
+    const { confirmState, confirm, handleAnswer } = useConfirm();
+
     const [presets, setPresets] = useState([]);
     const [recent, setRecent] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState(null);
 
-    const flash = (text, type = 'info') => {
-        setMessage({ text, type });
-        setTimeout(() => setMessage(null), 4000);
-    };
+    // F3: the 24h edit window used to be judged only at render time, so a row
+    // kept its edit button until someone reloaded the page. This tick makes
+    // the row flip to LOCKED on its own, within a minute of the window closing.
+    const [, setClockTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setClockTick(t => t + 1), 60 * 1000);
+        return () => clearInterval(id);
+    }, []);
 
     const loadAll = useCallback(async () => {
         setLoading(true);
@@ -54,11 +67,11 @@ const ExpensesPage = () => {
             setRecent(recentData || []);
             setCategories(categoryData || []);
         } catch {
-            flash('Could not load expenses. Check your connection.', 'error');
+            toast('Could not load expenses. Check your connection.', 'error');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -87,8 +100,8 @@ const ExpensesPage = () => {
     const closeLogModal = () => setLogModal({ open: false, presetName: '', isOther: false });
 
     const submitLog = async () => {
-        if (logModal.isOther && !logCategory.trim()) { flash('What is this expense for?', 'error'); return; }
-        if (!logAmount || Number(logAmount) <= 0) { flash('Enter an amount.', 'error'); return; }
+        if (logModal.isOther && !logCategory.trim()) { toast('What is this expense for?', 'error'); return; }
+        if (!logAmount || Number(logAmount) <= 0) { toast('Enter an amount.', 'error'); return; }
         setLogging(true);
         try {
             await expenseService.create({
@@ -99,9 +112,9 @@ const ExpensesPage = () => {
             });
             closeLogModal();
             await loadAll();
-            flash('Expense logged.', 'success');
+            toast('Expense logged.', 'success');
         } catch (err) {
-            flash(err.response?.data?.message || 'Could not log this expense.', 'error');
+            toast(err.response?.data?.message || 'Could not log this expense.', 'error');
         } finally {
             setLogging(false);
         }
@@ -113,16 +126,16 @@ const ExpensesPage = () => {
     const [savingPreset, setSavingPreset] = useState(false);
 
     const submitPreset = async () => {
-        if (!newPresetName.trim()) { flash('Enter a name for this preset.', 'error'); return; }
+        if (!newPresetName.trim()) { toast('Enter a name for this preset.', 'error'); return; }
         setSavingPreset(true);
         try {
             await expenseService.createPreset(newPresetName.trim());
             setPresetModal(false);
             setNewPresetName('');
             await loadAll();
-            flash('Preset added.', 'success');
+            toast('Preset added.', 'success');
         } catch (err) {
-            flash(err.response?.data?.message || 'Could not create this preset.', 'error');
+            toast(err.response?.data?.message || 'Could not create this preset.', 'error');
         } finally {
             setSavingPreset(false);
         }
@@ -145,7 +158,7 @@ const ExpensesPage = () => {
     };
 
     const submitEdit = async () => {
-        if (!editAmount || Number(editAmount) <= 0) { flash('Enter an amount.', 'error'); return; }
+        if (!editAmount || Number(editAmount) <= 0) { toast('Enter an amount.', 'error'); return; }
         setSaving(true);
         try {
             await expenseService.update(editModal.expense.id, {
@@ -156,22 +169,34 @@ const ExpensesPage = () => {
             });
             setEditModal({ open: false, expense: null });
             await loadAll();
-            flash('Expense updated.', 'success');
+            toast('Expense updated.', 'success');
         } catch (err) {
-            flash(err.response?.data?.message || 'Could not save this edit.', 'error');
+            toast(err.response?.data?.message || 'Could not save this edit.', 'error');
         } finally {
             setSaving(false);
         }
     };
 
+    // F2: deletingId guards against a double-click firing two deletes.
+    const [deletingId, setDeletingId] = useState(null);
+
     const handleDelete = async (expense) => {
-        if (!window.confirm(`Delete this ${expense.category} expense of UGX ${fmt(expense.amount)}? This cannot be undone.`)) return;
+        if (deletingId) return;
+        const ok = await confirm(
+            'DELETE EXPENSE',
+            `Delete the ${expense.category} entry of UGX ${fmt(expense.amount)}? This cannot be undone.`,
+            'danger',
+        );
+        if (!ok) return;
+        setDeletingId(expense.id);
         try {
             await expenseService.remove(expense.id);
             await loadAll();
-            flash('Entry deleted.', 'warn');
+            toast('Entry deleted.', 'warn');
         } catch {
-            flash('Could not delete this entry.', 'error');
+            toast('Could not delete this entry.', 'error');
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -202,17 +227,27 @@ const ExpensesPage = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // F1: the dropdown used to list PRESETS only, so anything logged through
+    // OTHER was unfilterable. The full category list was already being loaded
+    // for the datalist -- this just uses it.
+    const filterableCategories = useMemo(() => {
+        const names = new Set();
+        presets.forEach(p => p.name && names.add(p.name));
+        categories.forEach(c => c && names.add(c));
+        return [...names].sort((a, b) => a.localeCompare(b));
+    }, [presets, categories]);
+
     const loadSummary = useCallback(async (p) => {
         setSummaryLoading(true);
         try {
             const data = await expenseService.getSummary(p);
             setSummary(data || { total: 0, byCategory: {} });
         } catch {
-            flash('Could not load the analysis summary.', 'error');
+            toast('Could not load the analysis summary.', 'error');
         } finally {
             setSummaryLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     const loadByStaff = useCallback(async (p) => {
         setStaffLoading(true);
@@ -220,11 +255,11 @@ const ExpensesPage = () => {
             const data = await expenseService.getByStaff(p);
             setByStaff(data || {});
         } catch {
-            flash('Could not load the staff breakdown.', 'error');
+            toast('Could not load the staff breakdown.', 'error');
         } finally {
             setStaffLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     const loadSeries = useCallback(async (p, b) => {
         setSeriesLoading(true);
@@ -232,11 +267,11 @@ const ExpensesPage = () => {
             const data = await expenseService.getTimeSeries(p, undefined, undefined, b);
             setSeries(data || []);
         } catch {
-            flash('Could not load the spending trend.', 'error');
+            toast('Could not load the spending trend.', 'error');
         } finally {
             setSeriesLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         if (isDirector && analysisOpen) {
@@ -247,15 +282,27 @@ const ExpensesPage = () => {
     }, [isDirector, analysisOpen, period, bucket, loadSummary, loadByStaff, loadSeries]);
 
     const runSearch = async () => {
+        // F5: a min above a max used to just return an empty list, which reads
+        // as "no such expenses" rather than "your filter is impossible".
+        const min = filters.minAmount === '' ? null : Number(filters.minAmount);
+        const max = filters.maxAmount === '' ? null : Number(filters.maxAmount);
+        if (min !== null && max !== null && min > max) {
+            toast('Min UGX is higher than Max UGX -- nothing can match that.', 'error');
+            return;
+        }
+        if (filters.from && filters.to && filters.from > filters.to) {
+            toast('The From date is after the To date.', 'error');
+            return;
+        }
         setSearching(true);
         try {
             const cleanFilters = Object.fromEntries(
                 Object.entries(filters).filter(([, v]) => v !== '' && v !== null)
             );
-            const data = await expenseService.search(cleanFilters, 0, 100);
+            const data = await expenseService.search(cleanFilters, 0, SEARCH_LIMIT);
             setSearchResults(data.content || []);
         } catch {
-            flash('Search failed.', 'error');
+            toast('Search failed.', 'error');
         } finally {
             setSearching(false);
         }
@@ -265,6 +312,11 @@ const ExpensesPage = () => {
         setFilters({ from: '', to: '', category: '', recordedBy: '', spentBy: '', minAmount: '', maxAmount: '' });
         setSearchResults(null);
     };
+
+    const searchTotal = useMemo(
+        () => (searchResults || []).reduce((sum, e) => sum + Number(e.amount || 0), 0),
+        [searchResults],
+    );
 
     const maxCategoryAmount = useMemo(() => {
         const vals = Object.values(summary.byCategory || {});
@@ -288,51 +340,60 @@ const ExpensesPage = () => {
                     <p className={styles.subtitle}>Log any cash that leaves the office</p>
                 </div>
                 <div className={styles.headerActions}>
-                    <button className={styles.refreshBtn} onClick={loadAll} aria-label="Refresh">
-                        <FiRefreshCw size={13} /> REFRESH
-                    </button>
-                    {isDirector && (
-                        <button
-                            className={analysisOpen ? styles.analysisBtnActive : styles.analysisBtn}
-                            onClick={() => setAnalysisOpen(o => !o)}
-                        >
-                            <FiBarChart2 size={14} /> ANALYSIS
+                    <Tooltip label="Reload the presets and the last 24 hours of entries">
+                        <button className={styles.refreshBtn} onClick={loadAll} aria-label="Refresh expenses">
+                            <FiRefreshCw size={13} aria-hidden="true" /> REFRESH
                         </button>
+                    </Tooltip>
+                    {isDirector && (
+                        <Tooltip label="Directors only: totals by category, by staff, spending over time, and a full search">
+                            <button
+                                className={analysisOpen ? styles.analysisBtnActive : styles.analysisBtn}
+                                onClick={() => setAnalysisOpen(o => !o)}
+                                aria-expanded={analysisOpen}
+                            >
+                                <FiBarChart2 size={14} aria-hidden="true" /> ANALYSIS
+                            </button>
+                        </Tooltip>
                     )}
                 </div>
             </header>
 
-            {message && (
-                <div className={`${styles.flashBanner} ${styles['flash_' + message.type]}`}>
-                    {message.text}
-                </div>
-            )}
-
             {/* Shared autocomplete source for every "type it yourself" category field */}
             <datalist id="expense-categories">
-                {categories.map(c => <option key={c} value={c} />)}
+                {filterableCategories.map(c => <option key={c} value={c} />)}
             </datalist>
 
             {/* PRESET GRID -- ONE TAP LOGGING */}
             <HardwarePanel title="LOG AN EXPENSE" icon={FiTrendingDown}>
                 <div className={styles.presetGrid}>
                     {presets.map(p => (
-                        <button key={p.id} className={styles.presetTile} onClick={() => openLogModal(p.name)}>
-                            {p.name.toUpperCase()}
-                        </button>
+                        <Tooltip key={p.id} label={`Log a ${p.name} expense`}>
+                            <button className={styles.presetTile} onClick={() => openLogModal(p.name)}>
+                                {p.name.toUpperCase()}
+                            </button>
+                        </Tooltip>
                     ))}
-                    <button className={styles.presetTileOther} onClick={openOtherModal}>
-                        OTHER
-                    </button>
-                    <button className={styles.presetTileNew} onClick={() => setPresetModal(true)}>
-                        <FiPlus size={16} /> NEW PRESET
-                    </button>
+                    <Tooltip label="Anything with no tile -- you type what it was for">
+                        <button className={styles.presetTileOther} onClick={openOtherModal}>
+                            OTHER
+                        </button>
+                    </Tooltip>
+                    <Tooltip label="Add a new tile for a cost you log often">
+                        <button className={styles.presetTileNew} onClick={() => setPresetModal(true)}>
+                            <FiPlus size={16} aria-hidden="true" /> NEW PRESET
+                        </button>
+                    </Tooltip>
                 </div>
             </HardwarePanel>
 
             {/* RECENT ENTRIES -- EDITABLE WITHIN 24H */}
             <div className={styles.panelSpacer}>
                 <HardwarePanel title="RECENT ENTRIES (LAST 24H)" icon={FiClock}>
+                    <p className={styles.panelHint}>
+                        <FiInfo size={12} aria-hidden="true" />
+                        You can edit your own entries for {EDIT_WINDOW_HOURS} hours. After that they lock.
+                    </p>
                     <div className={styles.tableWrap}>
                         <table className={styles.table}>
                             <thead>
@@ -342,46 +403,67 @@ const ExpensesPage = () => {
                                     <th>AMOUNT</th>
                                     <th>LOGGED BY</th>
                                     <th>NOTE</th>
-                                    <th></th>
+                                    <th><span className={styles.srOnly}>Actions</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan="6" className={styles.emptyCell}>LOADING EXPENSES...</td></tr>
+                                    <LoadingRow colSpan={6} label="LOADING EXPENSES..." />
                                 ) : recent.length === 0 ? (
                                     <tr><td colSpan="6" className={styles.emptyCell}>NO EXPENSES LOGGED IN THE LAST 24 HOURS</td></tr>
                                 ) : recent.map(e => {
                                     const editable = isStillEditable(e.createdAt);
                                     return (
-                                        <tr key={e.id}>
+                                        <tr key={e.id} className={deletingId === e.id ? styles.rowBusy : undefined}>
                                             <td className={styles.dateCell}>
                                                 {new Date(e.createdAt).toLocaleString()}
                                             </td>
                                             <td>
-                                                <span className={styles.categoryTag}>{e.category}</span>
-                                                {e.editedAt && <span className={styles.editedBadge}>EDITED</span>}
+                                                <Tooltip label={GLOSSARY.CATEGORY}>
+                                                    <span className={styles.categoryTag}>{e.category}</span>
+                                                </Tooltip>
+                                                {e.editedAt && (
+                                                    <Tooltip label={GLOSSARY.EDITED}>
+                                                        <span className={styles.editedBadge}>EDITED</span>
+                                                    </Tooltip>
+                                                )}
                                             </td>
                                             <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>
                                             <td className={styles.metaCell}>
                                                 {e.recordedBy}
                                                 {e.spentBy && e.spentBy !== e.recordedBy && (
-                                                    <span className={styles.spentByTag}>SPENT: {e.spentBy}</span>
+                                                    <Tooltip label={GLOSSARY.SPENT_BY}>
+                                                        <span className={styles.spentByTag}>SPENT: {e.spentBy}</span>
+                                                    </Tooltip>
                                                 )}
                                             </td>
-                                            <td className={styles.notesCell} title={e.note}>{e.note || '---'}</td>
+                                            <td className={styles.notesCell}>
+                                                {e.note
+                                                    ? <Tooltip label={e.note}><span>{e.note}</span></Tooltip>
+                                                    : <span className={styles.noNote}>---</span>}
+                                            </td>
                                             <td>
                                                 <div className={styles.rowActions}>
                                                     {editable ? (
-                                                        <button className={styles.editIconBtn} onClick={() => openEdit(e)} title={`Editable for ${hoursLeft(e.createdAt)}h more`}>
-                                                            <FiEdit2 size={13} />
-                                                        </button>
+                                                        <IconButton
+                                                            tip={`Edit this entry -- ${hoursLeft(e.createdAt)}h left before it locks`}
+                                                            icon={FiEdit2}
+                                                            className={styles.editIconBtn}
+                                                            onClick={() => openEdit(e)}
+                                                        />
                                                     ) : (
-                                                        <span className={styles.lockedTag}>LOCKED</span>
+                                                        <Term tip={GLOSSARY.LOCKED} className={styles.lockedTag}>
+                                                            <FiLock size={10} aria-hidden="true" /> LOCKED
+                                                        </Term>
                                                     )}
                                                     {isDirector && (
-                                                        <button className={styles.deleteIconBtn} onClick={() => handleDelete(e)} title="Delete entry">
-                                                            <FiTrash2 size={13} />
-                                                        </button>
+                                                        <IconButton
+                                                            tip="Delete this entry permanently (Directors only)"
+                                                            icon={FiTrash2}
+                                                            className={styles.deleteIconBtn}
+                                                            onClick={() => handleDelete(e)}
+                                                            disabled={deletingId === e.id}
+                                                        />
                                                     )}
                                                 </div>
                                             </td>
@@ -399,173 +481,259 @@ const ExpensesPage = () => {
                 <div className={styles.panelSpacer}>
                     <HardwarePanel title="ANALYSIS" icon={FiBarChart2}>
                         <div className={styles.periodRow}>
-                            {['TODAY', 'WEEK', 'MONTH', 'YEAR'].map(p => (
-                                <button
-                                    key={p}
-                                    className={period === p ? styles.periodBtnActive : styles.periodBtn}
-                                    onClick={() => setPeriod(p)}
-                                >
-                                    {p}
-                                </button>
+                            {[
+                                ['TODAY', 'Since midnight today'],
+                                ['WEEK', 'The last 7 days'],
+                                ['MONTH', 'The last 30 days'],
+                                ['YEAR', 'The last 365 days'],
+                            ].map(([p, tip]) => (
+                                <Tooltip key={p} label={tip}>
+                                    <button
+                                        className={period === p ? styles.periodBtnActive : styles.periodBtn}
+                                        onClick={() => setPeriod(p)}
+                                        aria-pressed={period === p}
+                                    >
+                                        {p}
+                                    </button>
+                                </Tooltip>
                             ))}
                         </div>
 
                         <div className={styles.totalBox}>
                             <label>TOTAL SPENT ({period})</label>
-                            <strong>{summaryLoading ? '...' : `UGX ${fmt(summary.total)}`}</strong>
+                            {summaryLoading
+                                ? <LoadingState label="SYNCING TOTAL..." tone="bare" />
+                                : <strong>UGX {fmt(summary.total)}</strong>}
                         </div>
 
+                        <div className={styles.sectionLabel}>
+                            <Term tip="Every expense in this period, added up per category, biggest first.">BY CATEGORY</Term>
+                        </div>
                         <div className={styles.categoryBars}>
-                            {Object.entries(summary.byCategory || {}).map(([cat, amt]) => (
-                                <div key={cat} className={styles.barRow}>
-                                    <span className={styles.barLabel}>{cat}</span>
-                                    <div className={styles.barTrack}>
-                                        <div
-                                            className={styles.barFill}
-                                            style={{ width: maxCategoryAmount ? `${(Number(amt) / maxCategoryAmount) * 100}%` : '0%' }}
-                                        />
-                                    </div>
-                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>
-                                </div>
-                            ))}
-                            {!summaryLoading && Object.keys(summary.byCategory || {}).length === 0 && (
-                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                            {summaryLoading ? (
+                                <LoadingState label="SYNCING CATEGORIES..." tone="bare" />
+                            ) : (
+                                <>
+                                    {Object.entries(summary.byCategory || {}).map(([cat, amt]) => (
+                                        <div key={cat} className={styles.barRow}>
+                                            <span className={styles.barLabel} >
+                                                <Tooltip label={`${cat}: UGX ${fmt(amt)}`}><span>{cat}</span></Tooltip>
+                                            </span>
+                                            <div className={styles.barTrack}>
+                                                <div
+                                                    className={styles.barFill}
+                                                    style={{ width: maxCategoryAmount ? `${(Number(amt) / maxCategoryAmount) * 100}%` : '0%' }}
+                                                />
+                                            </div>
+                                            <span className={styles.barValue}>UGX {fmt(amt)}</span>
+                                        </div>
+                                    ))}
+                                    {Object.keys(summary.byCategory || {}).length === 0 && (
+                                        <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                                    )}
+                                </>
                             )}
                         </div>
 
-                        <div className={styles.sectionLabel}>BY STAFF (WHO SPENT IT)</div>
+                        <div className={styles.sectionLabel}>
+                            <Term tip={GLOSSARY.SPENT_BY}>BY STAFF (WHO SPENT IT)</Term>
+                        </div>
                         <div className={styles.categoryBars}>
-                            {Object.entries(byStaff || {}).map(([who, amt]) => (
-                                <div key={who} className={styles.barRow}>
-                                    <span className={styles.barLabel}>{who}</span>
-                                    <div className={styles.barTrack}>
-                                        <div
-                                            className={styles.barFill}
-                                            style={{ width: maxStaffAmount ? `${(Number(amt) / maxStaffAmount) * 100}%` : '0%' }}
-                                        />
-                                    </div>
-                                    <span className={styles.barValue}>UGX {fmt(amt)}</span>
-                                </div>
-                            ))}
-                            {!staffLoading && Object.keys(byStaff || {}).length === 0 && (
-                                <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                            {staffLoading ? (
+                                <LoadingState label="SYNCING STAFF BREAKDOWN..." tone="bare" />
+                            ) : (
+                                <>
+                                    {Object.entries(byStaff || {}).map(([who, amt]) => (
+                                        <div key={who} className={styles.barRow}>
+                                            <span className={styles.barLabel}>
+                                                <Tooltip label={`${who}: UGX ${fmt(amt)}`}><span>{who}</span></Tooltip>
+                                            </span>
+                                            <div className={styles.barTrack}>
+                                                <div
+                                                    className={styles.barFill}
+                                                    style={{ width: maxStaffAmount ? `${(Number(amt) / maxStaffAmount) * 100}%` : '0%' }}
+                                                />
+                                            </div>
+                                            <span className={styles.barValue}>UGX {fmt(amt)}</span>
+                                        </div>
+                                    ))}
+                                    {Object.keys(byStaff || {}).length === 0 && (
+                                        <div className={styles.emptyCell}>NO EXPENSES IN THIS PERIOD</div>
+                                    )}
+                                </>
                             )}
                         </div>
 
                         <div className={styles.sectionLabel}>SPENDING OVER TIME</div>
                         <div className={styles.bucketRow}>
-                            {['DAY', 'WEEK', 'MONTH'].map(b => (
-                                <button
-                                    key={b}
-                                    className={bucket === b ? styles.bucketBtnActive : styles.bucketBtn}
-                                    onClick={() => setBucket(b)}
-                                >
-                                    {b}
-                                </button>
+                            {[
+                                ['DAY', 'One bar per day'],
+                                ['WEEK', 'One bar per week'],
+                                ['MONTH', 'One bar per month'],
+                            ].map(([b, tip]) => (
+                                <Tooltip key={b} label={tip}>
+                                    <button
+                                        className={bucket === b ? styles.bucketBtnActive : styles.bucketBtn}
+                                        onClick={() => setBucket(b)}
+                                        aria-pressed={bucket === b}
+                                    >
+                                        {b}
+                                    </button>
+                                </Tooltip>
                             ))}
                         </div>
                         {seriesLoading ? (
-                            <div className={styles.emptyCell}>LOADING TREND...</div>
+                            <LoadingState label="LOADING TREND..." tone="bare" />
                         ) : series.length === 0 ? (
                             <div className={styles.emptyCell}>NO ACTIVITY IN THIS WINDOW</div>
                         ) : (
                             <div className={styles.tsChart}>
                                 {series.map(point => (
-                                    <div key={point.bucket} className={styles.tsBarWrap} title={`${point.bucket}: UGX ${fmt(point.total)}`}>
-                                        <div className={styles.tsBarTrack}>
-                                            <div
-                                                className={styles.tsBarFill}
-                                                style={{ height: maxSeriesAmount ? `${Math.max(2, (Number(point.total) / maxSeriesAmount) * 100)}%` : '2%' }}
-                                            />
+                                    <Tooltip key={point.bucket} label={`${point.bucket}: UGX ${fmt(point.total)}`}>
+                                        <div className={styles.tsBarWrap}>
+                                            <div className={styles.tsBarTrack}>
+                                                <div
+                                                    className={styles.tsBarFill}
+                                                    style={{ height: maxSeriesAmount ? `${Math.max(2, (Number(point.total) / maxSeriesAmount) * 100)}%` : '2%' }}
+                                                />
+                                            </div>
+                                            <span className={styles.tsBarLabel}>{point.bucket.slice(-5)}</span>
                                         </div>
-                                        <span className={styles.tsBarLabel}>{point.bucket.slice(-5)}</span>
-                                    </div>
+                                    </Tooltip>
                                 ))}
                             </div>
                         )}
 
                         <div className={styles.searchDivider}>SEARCH ALL EXPENSES</div>
                         <div className={styles.filterRow}>
-                            <input type="date" className={styles.filterInput} value={filters.from}
-                                onChange={e => setFilters({ ...filters, from: e.target.value })} title="From date" />
-                            <input type="date" className={styles.filterInput} value={filters.to}
-                                onChange={e => setFilters({ ...filters, to: e.target.value })} title="To date" />
+                            <Tooltip label="Only show expenses logged on or after this date">
+                                <input type="date" className={styles.filterInput} value={filters.from}
+                                    aria-label="From date"
+                                    onChange={e => setFilters({ ...filters, from: e.target.value })} />
+                            </Tooltip>
+                            <Tooltip label="Only show expenses logged on or before this date">
+                                <input type="date" className={styles.filterInput} value={filters.to}
+                                    aria-label="To date"
+                                    onChange={e => setFilters({ ...filters, to: e.target.value })} />
+                            </Tooltip>
                             <div className={styles.categoryDropdown} ref={categoryDropdownRef}>
-                                <button
-                                    type="button"
-                                    className={styles.categoryDropdownBtn}
-                                    onClick={() => setCategoryDropdownOpen(o => !o)}
-                                >
-                                    <span>{filters.category || 'ALL CATEGORIES'}</span>
-                                    <FiChevronDown className={categoryDropdownOpen ? styles.categoryDropdownIconOpen : ''} />
-                                </button>
+                                <Tooltip label="Every category ever used -- preset tiles and anything typed in under OTHER">
+                                    <button
+                                        type="button"
+                                        className={styles.categoryDropdownBtn}
+                                        onClick={() => setCategoryDropdownOpen(o => !o)}
+                                        aria-expanded={categoryDropdownOpen}
+                                    >
+                                        <span>{filters.category || 'ALL CATEGORIES'}</span>
+                                        <FiChevronDown className={categoryDropdownOpen ? styles.categoryDropdownIconOpen : ''} aria-hidden="true" />
+                                    </button>
+                                </Tooltip>
                                 {categoryDropdownOpen && (
-                                    <div className={styles.categoryDropdownList}>
+                                    <div className={styles.categoryDropdownList} role="listbox">
                                         <div
+                                            role="option"
+                                            aria-selected={!filters.category}
                                             className={`${styles.categoryDropdownOption} ${!filters.category ? styles.categoryDropdownOptionActive : ''}`}
                                             onClick={() => { setFilters({ ...filters, category: '' }); setCategoryDropdownOpen(false); }}
                                         >
                                             ALL CATEGORIES
                                         </div>
-                                        {presets.map(p => (
+                                        {filterableCategories.map(name => (
                                             <div
-                                                key={p.id}
-                                                className={`${styles.categoryDropdownOption} ${filters.category === p.name ? styles.categoryDropdownOptionActive : ''}`}
-                                                onClick={() => { setFilters({ ...filters, category: p.name }); setCategoryDropdownOpen(false); }}
+                                                key={name}
+                                                role="option"
+                                                aria-selected={filters.category === name}
+                                                className={`${styles.categoryDropdownOption} ${filters.category === name ? styles.categoryDropdownOptionActive : ''}`}
+                                                onClick={() => { setFilters({ ...filters, category: name }); setCategoryDropdownOpen(false); }}
                                             >
-                                                {p.name}
+                                                {name}
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                            <input type="text" className={styles.filterInput} placeholder="Logged by..."
-                                value={filters.recordedBy} onChange={e => setFilters({ ...filters, recordedBy: e.target.value })} />
-                            <input type="text" className={styles.filterInput} placeholder="Spent by..."
-                                value={filters.spentBy} onChange={e => setFilters({ ...filters, spentBy: e.target.value })} />
-                            <input type="number" className={styles.filterInput} placeholder="Min UGX"
-                                value={filters.minAmount} onChange={e => setFilters({ ...filters, minAmount: e.target.value })} />
-                            <input type="number" className={styles.filterInput} placeholder="Max UGX"
-                                value={filters.maxAmount} onChange={e => setFilters({ ...filters, maxAmount: e.target.value })} />
-                            <button className={styles.searchBtn} onClick={runSearch} disabled={searching}>
-                                <FiSearch size={13} /> {searching ? 'SEARCHING...' : 'SEARCH'}
-                            </button>
-                            {searchResults && (
-                                <button className={styles.clearBtn} onClick={clearSearch}>
-                                    <FiX size={13} /> CLEAR
+                            <Tooltip label="The staff member who typed the entry into the system">
+                                <input type="text" className={styles.filterInput} placeholder="Logged by..."
+                                    aria-label="Logged by"
+                                    value={filters.recordedBy} onChange={e => setFilters({ ...filters, recordedBy: e.target.value })} />
+                            </Tooltip>
+                            <Tooltip label={GLOSSARY.SPENT_BY}>
+                                <input type="text" className={styles.filterInput} placeholder="Spent by..."
+                                    aria-label="Spent by"
+                                    value={filters.spentBy} onChange={e => setFilters({ ...filters, spentBy: e.target.value })} />
+                            </Tooltip>
+                            <Tooltip label="Hide anything cheaper than this">
+                                <input type="number" className={styles.filterInput} placeholder="Min UGX"
+                                    aria-label="Minimum amount"
+                                    value={filters.minAmount} onChange={e => setFilters({ ...filters, minAmount: e.target.value })} />
+                            </Tooltip>
+                            <Tooltip label="Hide anything more expensive than this">
+                                <input type="number" className={styles.filterInput} placeholder="Max UGX"
+                                    aria-label="Maximum amount"
+                                    value={filters.maxAmount} onChange={e => setFilters({ ...filters, maxAmount: e.target.value })} />
+                            </Tooltip>
+                            <Tooltip label={`Search every expense ever logged (returns up to ${SEARCH_LIMIT} entries)`}>
+                                <button className={styles.searchBtn} onClick={runSearch} disabled={searching}>
+                                    <FiSearch size={13} aria-hidden="true" /> {searching ? 'SEARCHING...' : 'SEARCH'}
                                 </button>
+                            </Tooltip>
+                            {searchResults && (
+                                <Tooltip label="Reset every filter and hide these results">
+                                    <button className={styles.clearBtn} onClick={clearSearch}>
+                                        <FiX size={13} aria-hidden="true" /> CLEAR
+                                    </button>
+                                </Tooltip>
                             )}
                         </div>
 
                         {searchResults && (
-                            <div className={styles.tableWrap}>
-                                <table className={styles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th>DATE</th>
-                                            <th>CATEGORY</th>
-                                            <th>AMOUNT</th>
-                                            <th>LOGGED BY</th>
-                                            <th>SPENT BY</th>
-                                            <th>NOTE</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {searchResults.length === 0 ? (
-                                            <tr><td colSpan="6" className={styles.emptyCell}>NO RESULTS</td></tr>
-                                        ) : searchResults.map(e => (
-                                            <tr key={e.id}>
-                                                <td className={styles.dateCell}>{new Date(e.createdAt).toLocaleDateString()}</td>
-                                                <td><span className={styles.categoryTag}>{e.category}</span></td>
-                                                <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>
-                                                <td className={styles.metaCell}>{e.recordedBy}</td>
-                                                <td className={styles.metaCell}>{e.spentBy || e.recordedBy}</td>
-                                                <td className={styles.notesCell} title={e.note}>{e.note || '---'}</td>
+                            <>
+                                {/* F4: the old version silently stopped at 100 rows, so a
+                                    truncated list could be read as the whole truth. */}
+                                <div className={styles.searchSummary}>
+                                    <span>
+                                        {searchResults.length} {searchResults.length === 1 ? 'ENTRY' : 'ENTRIES'}
+                                        {' -- '}UGX {fmt(searchTotal)} TOTAL
+                                    </span>
+                                    {searchResults.length >= SEARCH_LIMIT && (
+                                        <Term tip={`Only the first ${SEARCH_LIMIT} matches are shown. Narrow the dates or the amount range to see the rest.`}>
+                                            <span className={styles.truncatedFlag}>SHOWING FIRST {SEARCH_LIMIT} ONLY</span>
+                                        </Term>
+                                    )}
+                                </div>
+                                <div className={styles.tableWrap}>
+                                    <table className={styles.table}>
+                                        <thead>
+                                            <tr>
+                                                <th>DATE</th>
+                                                <th>CATEGORY</th>
+                                                <th>AMOUNT</th>
+                                                <th>LOGGED BY</th>
+                                                <th>SPENT BY</th>
+                                                <th>NOTE</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {searchResults.length === 0 ? (
+                                                <tr><td colSpan="6" className={styles.emptyCell}>NO RESULTS</td></tr>
+                                            ) : searchResults.map(e => (
+                                                <tr key={e.id}>
+                                                    <td className={styles.dateCell}>{new Date(e.createdAt).toLocaleDateString()}</td>
+                                                    <td><span className={styles.categoryTag}>{e.category}</span></td>
+                                                    <td className={styles.moneyCell}>UGX {fmt(e.amount)}</td>
+                                                    <td className={styles.metaCell}>{e.recordedBy}</td>
+                                                    <td className={styles.metaCell}>{e.spentBy || e.recordedBy}</td>
+                                                    <td className={styles.notesCell}>
+                                                        {e.note
+                                                            ? <Tooltip label={e.note}><span>{e.note}</span></Tooltip>
+                                                            : <span className={styles.noNote}>---</span>}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
                         )}
                     </HardwarePanel>
                 </div>
@@ -704,6 +872,10 @@ const ExpensesPage = () => {
                     </HardwareButton>
                 </div>
             </HardwareModal>
+
+            <BackToTopButton />
+            <ToastStack toasts={toasts} onDismiss={dismissToast} />
+            <ConfirmDialog state={confirmState} onAnswer={handleAnswer} />
         </div>
     );
 };

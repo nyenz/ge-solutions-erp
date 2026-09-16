@@ -6,6 +6,7 @@ FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
     FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
+import { Tooltip } from '../common/Tooltip';
 import styles from './Sidebar.module.css';
 
 const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
@@ -37,16 +38,16 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
     const hasManagerAccess   = hasHighLevelAccess || user?.role === 'ROLE_MANAGER';
 
     const navItems = [
-        { path: '/dashboard',     label: 'DASHBOARD', icon: <FiGrid       aria-hidden="true" />, access: true },
-        { path: '/land/new',      label: 'NEW PROJECT', icon: <FiPlusSquare aria-hidden="true" />, access: true },
-        { path: '/land/projects', label: 'LEDGER',    icon: <FiLayers     aria-hidden="true" />, access: true },
-        { path: '/recovery',      label: 'RECOVERY',  icon: <FiPhoneCall  aria-hidden="true" />, access: true },
-        { path: '/clients',      label: 'CLIENTS',  icon: <FiUsers  aria-hidden="true" />, access: true },
-        { path: '/payments',      label: 'PAYMENTS',  icon: <FiDollarSign aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/financials',    label: 'EXPENSES', icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess },
-        { path: '/reports',       label: 'REPORTS',   icon: <FiBarChart2  aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/audit',         label: 'AUDIT',     icon: <FiShield     aria-hidden="true" />, access: hasHighLevelAccess },
-        { path: '/settings',      label: 'SETTINGS',  icon: <FiSettings   aria-hidden="true" />, access: true },
+        { path: '/dashboard',     label: 'DASHBOARD',   icon: <FiGrid         aria-hidden="true" />, access: true,                hint: 'Company-wide numbers at a glance' },
+        { path: '/land/new',      label: 'NEW PROJECT', icon: <FiPlusSquare   aria-hidden="true" />, access: true,                hint: 'Start a new folder, title, or legacy title' },
+        { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: true,                hint: 'Every project, searchable by stage, client and debt' },
+        { path: '/recovery',      label: 'RECOVERY',    icon: <FiPhoneCall    aria-hidden="true" />, access: true,                hint: 'Who to call about money owed, and who is due today' },
+        { path: '/clients',       label: 'CLIENTS',     icon: <FiUsers        aria-hidden="true" />, access: true,                hint: 'Client register and full dossiers' },
+        { path: '/payments',      label: 'PAYMENTS',    icon: <FiDollarSign   aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Every payment received, across all projects' },
+        { path: '/financials',    label: 'EXPENSES',    icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess,    hint: "The company's own costs -- not project costs" },
+        { path: '/reports',       label: 'REPORTS',     icon: <FiBarChart2    aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Exportable reports across the whole company' },
+        { path: '/audit',         label: 'AUDIT',       icon: <FiShield       aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Who did what, and when' },
+        { path: '/settings',      label: 'SETTINGS',    icon: <FiSettings     aria-hidden="true" />, access: true,                hint: 'Your password, staff accounts, deleted plots' },
     ];
 
     const handleLockedClick = (e, item) => {
@@ -74,17 +75,25 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                         {navItems.map(item => {
                             if (!item.access) return null;
                             const locked = isLocked && item.path !== '/settings';
+                            // Collapsed, these are nine unlabelled icons. Expanded, the
+                            // label is already on screen, so the tooltip explains what
+                            // the module is FOR instead of just repeating the name.
+                            const tip = locked
+                                ? item.label + ' -- locked until you change your password'
+                                : (isCollapsed ? item.label : item.hint);
                             return (
-                                <NavLink key={item.path} to={item.path}
-                                    aria-label={isCollapsed ? item.label : undefined}
-                                    aria-disabled={locked ? 'true' : undefined}
-                                    className={({ isActive }) =>
-                                        [styles.navItem, isActive ? styles.active : '', locked ? styles.navItemLocked : ''].filter(Boolean).join(' ')
-                                    }
-                                    onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>
-                                    <span className={styles.navIcon}>{item.icon}</span>
-                                    {!isCollapsed && <span className={styles.navText}>{item.label}</span>}
-                                </NavLink>
+                                <Tooltip key={item.path} label={tip} placement="bottom" block>
+                                    <NavLink to={item.path}
+                                        aria-label={isCollapsed ? item.label : undefined}
+                                        aria-disabled={locked ? 'true' : undefined}
+                                        className={({ isActive }) =>
+                                            [styles.navItem, isActive ? styles.active : '', locked ? styles.navItemLocked : ''].filter(Boolean).join(' ')
+                                        }
+                                        onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>
+                                        <span className={styles.navIcon}>{item.icon}</span>
+                                        {!isCollapsed && <span className={styles.navText}>{item.label}</span>}
+                                    </NavLink>
+                                </Tooltip>
                             );
                         })}
                     </div>

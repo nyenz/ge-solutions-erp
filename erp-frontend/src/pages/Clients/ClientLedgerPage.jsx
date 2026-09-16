@@ -3,12 +3,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers, FiSearch, FiPhone, FiUser, FiCreditCard, FiLayers,
-    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
+    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './ClientLedgerPage.module.css';
+import { LoadingRow } from '../../components/common/LoadingState';
 
 const matchesSearch = (c, term) => {
     if (!term) return true;
@@ -288,7 +289,7 @@ const ClientLedgerPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && (<tr><td colSpan={cols} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING CLIENT REGISTER...</td></tr>)}
+                            {loading && <LoadingRow colSpan={cols} label="SYNCING CLIENT REGISTER..." />}
                             {!loading && loadError && (
                                 <tr><td colSpan={cols} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> CLIENT SYNC FAULT{loadCode ? ` (${loadCode})` : ''} —{' '}

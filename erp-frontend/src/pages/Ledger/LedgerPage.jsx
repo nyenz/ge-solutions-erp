@@ -3,11 +3,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
-    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiClock, FiAlertTriangle, FiX
+    FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './LedgerPage.module.css';
+import { LoadingRow } from '../../components/common/LoadingState';
 
 const matchesSearch = (proj, term, stages) => {
     if (!term) return true;
@@ -331,7 +332,7 @@ const LedgerPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && (<tr><td colSpan={9} className={styles.loadingCell}><FiClock aria-hidden="true" /> SYNCING ARCHIVE...</td></tr>)}
+                            {loading && <LoadingRow colSpan={9} label="SYNCING ARCHIVE..." />}
                             {!loading && loadError && (
                                 <tr><td colSpan={9} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}

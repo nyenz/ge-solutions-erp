@@ -356,7 +356,8 @@
 .opDetails p { display: flex; align-items: center; gap: clamp(4px,0.5vw,6px); font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.45); font-size: var(--fs-meta); font-weight: 800; text-transform: uppercase; margin: 0; }
 .opDetails p svg { color: var(--orange); }
 
-.hint { font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.3); font-size: var(--fs-meta); font-weight: 800; text-align: center; padding: clamp(12px,1.8vw,20px); letter-spacing: 1px; text-transform: uppercase; margin: 0; display: flex; align-items: center; justify-content: center; gap: clamp(6px,0.8vw,9px); }
+/* CONTRAST RULE: white 30% on the navy panel was 2.5:1; cream 68% = 6.4:1. */
+.hint { font-family: 'DM Sans', sans-serif; color: rgba(244,242,239,0.68); font-size: var(--fs-meta); font-weight: 800; text-align: center; padding: clamp(12px,1.8vw,20px); letter-spacing: 1px; text-transform: uppercase; margin: 0; display: flex; align-items: center; justify-content: center; gap: clamp(6px,0.8vw,9px); }
 
 
 /* ── LOADING SPINNER ────────────────────────────────────────────── */

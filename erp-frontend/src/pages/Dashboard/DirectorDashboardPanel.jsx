@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiTrendingUp, FiUsers, FiClock, FiPlus, FiX } from 'react-icons/fi';
 import landService from '../../services/landService';
 import styles from './Dashboard.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
@@ -11,7 +12,7 @@ const PeriodCard = ({ data, loading }) => {
         return (
             <div className={styles.hwPanel}>
                 <div className={styles.panelInner}>
-                    <div className={styles.periodLoading}>SYNCING...</div>
+                    <LoadingState label="SYNCING..." tone="bare" />
                 </div>
             </div>
         );

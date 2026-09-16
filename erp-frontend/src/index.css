@@ -9,6 +9,31 @@
     --text-dark: #213E40;
     --glass-bg: rgba(33, 62, 64, 0.95);
     --glass-border: rgba(238, 140, 58, 0.3);
+
+    /* ===== CONTRAST RULE -- READ THIS BEFORE STYLING ANY NEW STATE =====
+       CircuitBackground paints the app CREAM. Page .container elements are
+       TRANSPARENT, so anything not inside a dark panel is sitting on cream.
+
+       Never do:
+         white text on a page container   (1.06:1 -- effectively invisible)
+         orange text on a page container  (2.22:1 -- fails even large-text)
+         white 25-30% on a navy panel     (2.21:1 -- fails)
+
+       Do:
+         on a dark panel -> --text-on-dark / --text-on-dark-soft
+         on cream        -> --text-on-light, or put a dark panel underneath
+
+       For loading / empty states, don't hand-roll it at all:
+         import { LoadingState, LoadingRow, EmptyState }
+             from '../../components/common/LoadingState';
+       ================================================================= */
+    --panel-surface:     linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --panel-surface-alt: #16292b;
+    --panel-edge:        rgba(238, 140, 58, 0.28);
+    --text-on-dark:      rgba(244, 242, 239, 0.82); /* 8.56:1 on #1c3335 */
+    --text-on-dark-soft: rgba(244, 242, 239, 0.72); /* 6.98:1 on #1c3335 */
+    --text-on-light:     #1a2e30;                   /* 13.9:1 on cream    */
+    --spinner-track:     rgba(238, 140, 58, 0.15);
 }
 
 * {

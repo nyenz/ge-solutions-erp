@@ -1,0 +1,136 @@
+/* PATH: erp-frontend/src/components/common/Feedback.module.css */
+/* Visual language copied verbatim from the FolderPage toast/confirm that was
+   already in the app, so nothing looks different -- it just stops being
+   copy-pasted per page. Everything renders through a portal into <body>, so
+   no page's CSS variables are in scope: all colours are literal. */
+
+/* -- TOASTS -- */
+.toastContainer {
+    position: fixed;
+    bottom: clamp(24px, 3vh, 40px);
+    right: clamp(16px, 2.5vw, 28px);
+    z-index: 99999;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    max-width: min(380px, 90vw);
+}
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(8px, 1.2vw, 12px);
+    padding: clamp(12px, 1.4vw, 16px) clamp(14px, 1.8vw, 20px);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+    animation: toastIn 0.25s ease-out;
+}
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(50px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+.toast_success { background: rgba(16,185,129,0.95);  border-left: 4px solid #059669; color: #fff; }
+.toast_error   { background: rgba(239,68,68,0.95);   border-left: 4px solid #b91c1c; color: #fff; }
+.toast_warn    { background: rgba(245,158,11,0.95);  border-left: 4px solid #b45309; color: #fff; }
+.toast_info    { background: rgba(6,182,212,0.95);   border-left: 4px solid #0369a1; color: #fff; }
+.toastIcon { font-size: clamp(14px, 1.6vw, 18px); flex-shrink: 0; margin-top: 1px; display: inline-flex; }
+.toastMsg {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(10px, 1.1vw, 12px);
+    font-weight: 700; line-height: 1.4; flex: 1; min-width: 0;
+}
+.toastClose {
+    background: transparent; border: none; color: inherit;
+    opacity: 0.6; cursor: pointer; padding: 2px;
+    font-size: clamp(13px, 1.4vw, 16px); flex-shrink: 0; line-height: 1;
+    display: inline-flex; transition: opacity 0.15s;
+}
+.toastClose:hover { opacity: 1; }
+
+/* -- CONFIRM DIALOG -- */
+.confirmOverlay {
+    position: fixed; inset: 0; z-index: 99998;
+    background: rgba(10, 20, 22, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: clamp(16px, 3vw, 32px);
+}
+.confirmBox {
+    position: relative;
+    background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
+    width: 100%;
+    max-width: clamp(300px, 50vw, 480px);
+    overflow: hidden;
+}
+.confirmClose {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(239,68,68,0.12); border: 1.5px solid rgba(239,68,68,0.45);
+    color: #ef4444; border-radius: 8px; padding: 6px; cursor: pointer;
+    transition: all .2s; display: inline-flex; z-index: 2;
+}
+.confirmClose:hover { background: #ef4444; color: #fff; }
+.confirmHeader {
+    display: flex; align-items: center; gap: clamp(8px, 1.2vw, 12px);
+    padding: clamp(12px, 1.6vw, 18px) clamp(46px, 5vw, 56px) clamp(12px, 1.6vw, 18px) clamp(16px, 2vw, 24px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.confirmHeaderWarn   { background: rgba(245,158,11,0.12); border-bottom-color: rgba(245,158,11,0.2); }
+.confirmHeaderDanger { background: rgba(239,68,68,0.12);  border-bottom-color: rgba(239,68,68,0.25); }
+.confirmIcon { font-size: clamp(18px, 2.2vw, 24px); flex-shrink: 0; }
+.confirmHeaderWarn   .confirmIcon { color: #f59e0b; }
+.confirmHeaderDanger .confirmIcon { color: #ef4444; }
+.confirmTitle {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+}
+.confirmHeaderWarn   .confirmTitle { color: #fcd34d; }
+.confirmHeaderDanger .confirmTitle { color: #fca5a5; }
+.confirmMessage {
+    padding: clamp(14px, 2vw, 22px) clamp(16px, 2vw, 24px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 600; line-height: 1.6;
+    /* CONTRAST RULE: cream 82% on this navy card = 8.56:1. */
+    color: rgba(244, 242, 239, 0.82);
+    margin: 0;
+}
+.confirmFooter {
+    display: flex; justify-content: flex-end; align-items: center;
+    gap: clamp(8px, 1.2vw, 12px);
+    padding: clamp(12px, 1.5vw, 16px) clamp(16px, 2vw, 24px);
+    background: rgba(0,0,0,0.15);
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.confirmCancelBtn, .confirmOkBtn {
+    display: inline-flex; align-items: center; gap: clamp(5px, 0.7vw, 7px);
+    padding: clamp(8px, 1vw, 11px) clamp(14px, 1.8vw, 20px);
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900; font-size: clamp(9px, 0.9vw, 11px);
+    text-transform: uppercase; letter-spacing: 1px;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.confirmCancelBtn {
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.18);
+    color: rgba(244,242,239,0.72);
+}
+.confirmCancelBtn:hover {
+    background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.35);
+}
+.confirmOkBtn { border: none; }
+/* CONTRAST RULE: navy text on orange/red, never white -- white on #EE8C3A
+   is 2.3:1. Navy #1a2e30 on orange is 6.1:1. */
+.confirmOkWarn   { background: #EE8C3A; color: #1a2e30; }
+.confirmOkWarn:hover   { background: #d97a28; box-shadow: 0 0 14px rgba(238,140,58,0.45); }
+.confirmOkDanger { background: #ef4444; color: #fff; }
+.confirmOkDanger:hover { background: #dc2626; box-shadow: 0 0 14px rgba(239,68,68,0.45); }
+.confirmCancelBtn:focus-visible, .confirmOkBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+}

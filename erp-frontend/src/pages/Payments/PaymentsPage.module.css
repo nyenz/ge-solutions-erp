@@ -313,7 +313,8 @@
 }
 .emptyInner {
     display: flex; flex-direction: column; align-items: center;
-    gap: 14px; color: rgba(255,255,255,0.25);
+    /* CONTRAST RULE: white 25% on navy was 2.21:1 -> cream 72% = 6.98:1. */
+    gap: 14px; color: rgba(244,242,239,0.72);
     font-family: 'Space Mono', monospace; font-size: var(--fs-meta);
     font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
 }

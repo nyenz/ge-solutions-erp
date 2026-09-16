@@ -64,24 +64,49 @@
     transition: all 0.2s;
 }
 .refreshBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }
-.refreshBtn:hover { background: var(--orange); color: #fff; border-color: var(--orange); }
+.refreshBtn:hover { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
 .analysisBtn { background: rgba(26,46,48,0.08); border: 1.5px solid rgba(26,46,48,0.2); color: #1a2e30; }
 .analysisBtn:hover { background: rgba(26,46,48,0.16); }
 .analysisBtnActive { background: var(--navy); border: 1.5px solid var(--navy); color: #fff; box-shadow: 0 3px 10px rgba(26,46,48,0.3); }
 
-.flashBanner {
-    padding: 10px 16px;
-    border-radius: var(--radius-sm);
-    font-weight: 800;
-    font-size: 12px;
-    margin-bottom: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+/* The old .flashBanner lived here. It pushed the whole page down whenever a
+   message appeared, and it was this page's own third take on "tell the user
+   something" -- FolderPage and SettingsPage both used a floating toast. It
+   is gone; Feedback.jsx's ToastStack replaces it everywhere. */
+
+/* Plain-English note at the top of a panel, for a rule that would otherwise
+   only be discoverable by hovering something. */
+.panelHint {
+    display: flex; align-items: center; gap: 7px;
+    margin: 0 0 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px; font-weight: 600; line-height: 1.4;
+    color: rgba(244,242,239,0.62);
 }
-.flash_success { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
-.flash_error   { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
-.flash_warn    { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-.flash_info    { background: rgba(255,255,255,0.1); color: #fff;    border: 1px solid rgba(255,255,255,0.2); }
+.panelHint svg { color: var(--orange); flex-shrink: 0; }
+
+/* Search result count + the "there are more than this" flag. */
+.searchSummary {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    margin-top: 14px; padding: 9px 12px;
+    background: rgba(0,0,0,0.2);
+    border-radius: var(--radius-sm);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; font-weight: 900; letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(244,242,239,0.72);
+}
+.truncatedFlag { color: var(--amber); cursor: help; }
+.noNote { color: rgba(244,242,239,0.45); }
+
+/* Visually hidden, still read out by screen readers -- for the actions
+   column header, which has no visible text. */
+.srOnly {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 
 .panelSpacer { margin-top: clamp(14px, 2vw, 20px); }
 
@@ -109,7 +134,9 @@
 }
 .presetTile {
     background: linear-gradient(160deg, var(--orange) 0%, #d97a28 100%);
-    color: #fff;
+    /* CONTRAST RULE: white on #EE8C3A is 2.3:1 and fails. Navy is 6.1:1 --
+       and it is already what .periodBtnActive below uses on orange. */
+    color: #1a2e30;
     border: none;
     box-shadow: 0 4px 12px rgba(238,140,58,0.35);
 }
@@ -182,7 +209,8 @@
     text-align: center;
     padding: clamp(20px, 4vw, 40px) 16px;
     font-family: 'Space Mono', monospace;
-    color: rgba(255,255,255,0.3);
+    /* CONTRAST RULE: white 30% on the dark HardwarePanel was 2.5:1. */
+    color: rgba(244,242,239,0.68);
     font-size: 11px;
     font-weight: 900;
     letter-spacing: 1.5px;
@@ -218,33 +246,45 @@
 .spentByTag {
     display: block;
     margin-top: 3px;
-    color: rgba(255,255,255,0.4);
+    /* CONTRAST RULE: white 40% on this panel was 2.9:1. */
+    color: rgba(244,242,239,0.66);
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 0.4px;
     text-transform: uppercase;
     white-space: normal;
+    cursor: help;
 }
 .lockedTag {
-    color: rgba(255,255,255,0.35);
+    display: inline-flex; align-items: center; gap: 4px;
+    /* CONTRAST RULE: white 35% on this panel was 2.6:1. */
+    color: rgba(244,242,239,0.62);
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 .rowActions { display: flex; align-items: center; gap: 6px; }
 .editIconBtn, .deleteIconBtn {
     width: 26px; height: 26px;
     border-radius: 5px;
-    border: none;
+    border: 1.5px solid transparent;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.editIconBtn { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.editIconBtn:hover { background: rgba(59,130,246,0.3); }
+/* PALETTE: this was blue (#3b82f6). Blue appears nowhere else in the app --
+   the palette is orange / navy / red / green / amber / violet / cyan. Edit
+   is an ordinary action, so it takes the app's ordinary accent. */
+.editIconBtn { background: rgba(238,140,58,0.15); color: var(--orange); }
+.editIconBtn:hover { background: rgba(238,140,58,0.3); border-color: var(--orange); }
 .deleteIconBtn { background: rgba(239,68,68,0.15); color: var(--red); }
-.deleteIconBtn:hover { background: rgba(239,68,68,0.3); }
+.deleteIconBtn:hover { background: rgba(239,68,68,0.3); border-color: var(--red); }
+.editIconBtn:disabled, .deleteIconBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.editIconBtn:focus-visible, .deleteIconBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+/* A row mid-delete dims so the click clearly registered. */
+.rowBusy { opacity: 0.45; pointer-events: none; }
 
 /* -- DIRECTOR ANALYSIS ----------------------------------------------
    Period / bucket toggles now use the app's CONFIRMED STANDARD filter-
@@ -287,17 +327,22 @@
     flex-direction: column;
     gap: 4px;
 }
-.totalBox label { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: rgba(255,255,255,0.5); text-transform: uppercase; }
+.totalBox label { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: rgba(244,242,239,0.72); text-transform: uppercase; }
 .totalBox strong { font-size: 24px; font-weight: 900; color: #fff; }
 
 .categoryBars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .barRow { display: grid; grid-template-columns: 110px 1fr 110px; align-items: center; gap: 10px; }
 .barLabel { font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barLabel span, .notesCell span {
+    display: inline-block; max-width: 100%; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+}
 .barTrack { height: 14px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
 .barFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }
 .barValue { font-size: 11px; font-weight: 800; text-align: right; color: rgba(255,255,255,0.7); }
 
 .sectionLabel {
+    display: block;
     font-size: 10px;
     font-weight: 900;
     letter-spacing: 1px;
@@ -312,7 +357,10 @@
 .tsBarWrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 32px; }
 .tsBarTrack { height: 110px; width: 100%; display: flex; align-items: flex-end; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
 .tsBarFill { width: 100%; background: linear-gradient(180deg, var(--orange) 0%, #d97a28 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
-.tsBarLabel { font-size: 8px; color: rgba(255,255,255,0.45); white-space: nowrap; }
+/* CONTRAST RULE: white 45% at 8px was 3.1:1 -- far under the floor for
+   text this small. */
+.tsBarLabel { font-size: 8px; color: rgba(244,242,239,0.7); white-space: nowrap; }
+.tsBarWrap { cursor: help; }
 
 .searchDivider {
     font-size: 10px;
@@ -419,11 +467,12 @@
     cursor: pointer;
     border: none;
 }
-.searchBtn { background: var(--orange); color: #fff; }
-.searchBtn:hover { background: #d97a28; }
+.searchBtn { background: var(--orange); color: #1a2e30; }
+.searchBtn:hover { background: #d97a28; box-shadow: 0 0 14px rgba(238,140,58,0.4); }
 .searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-.clearBtn { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
-.clearBtn:hover { background: rgba(255,255,255,0.18); }
+.clearBtn { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(244,242,239,0.85); }
+.clearBtn:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
+.searchBtn:focus-visible, .clearBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* -- RESPONSIVE ------------------------------------------------------ */
 @media (max-width: 768px) {

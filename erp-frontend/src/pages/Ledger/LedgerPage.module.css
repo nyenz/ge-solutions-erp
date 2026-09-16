@@ -168,7 +168,9 @@
 .velocityFill{height:100%;background:var(--orange);border-radius:3px;}
 .velocityFillCritical{background:var(--red);}
 .pctLabel{font-size:9px;color:rgba(255,255,255,0.5);font-weight:700;}
-.loadingCell,.errorCell,.emptyCell{text-align:center;padding:30px !important;color:rgba(255,255,255,0.5);font-weight:800;letter-spacing:1px;}
+/* CONTRAST RULE: these sit on the navy .tablePanel. White at 50% alpha was
+   2.26:1 against it -- under the 4.5:1 floor. Cream at 72% reads 6.98:1. */
+.loadingCell,.errorCell,.emptyCell{text-align:center;padding:30px !important;color:rgba(244,242,239,0.72);font-weight:800;letter-spacing:1px;}
 .retryBtn{background:none;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:800;}
 .pagination{display:flex;justify-content:space-between;align-items:center;padding:10px 4px 2px;}
 .pageBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:7px 14px;border-radius:6px;font-weight:900;font-size:10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:all .2s;}

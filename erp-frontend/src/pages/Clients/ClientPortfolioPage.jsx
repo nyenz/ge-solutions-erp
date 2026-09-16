@@ -21,6 +21,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './ClientPortfolioPage.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
@@ -157,7 +158,7 @@ const ClientPortfolioPage = () => {
 
   const backBtn = (<button type="button" className={styles.backBtn} onClick={() => navigate('/clients')}><FiArrowLeft aria-hidden="true" /> BACK</button>);
 
-  if (loading) return (<div className={styles.container}><div className={styles.noRecordsBig}>SYNCING CLIENT DOSSIER...</div></div>);
+  if (loading) return (<div className={styles.container}><LoadingState label="SYNCING CLIENT DOSSIER..." size="page" /></div>);
   if (!d) return (<div className={styles.container}>
     <header className={styles.pageHeader}><div className={styles.headerLeft}>
       <h1 className={styles.title}>Client Dossier</h1>

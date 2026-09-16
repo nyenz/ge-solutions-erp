@@ -7,6 +7,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './RecoveryPortal.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 const TABS = [
   { key: 'ALL', label: 'ALL DUE' },
@@ -116,7 +117,7 @@ export default function RecoveryPortal() {
         <span><i className={styles.payDotRed} /> No recent payment</span>
       </div>
       {loading && rows.length === 0 ? (
-        <div className={styles.emptyState} role="status"><div className={styles.loadingSpinner} aria-hidden="true" /><span>SYNCING RECOVERY QUEUE...</span></div>
+        <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
         <div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>
           {rowsF.map((c) => {

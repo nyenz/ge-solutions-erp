@@ -10,6 +10,7 @@ import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import styles from './SettingsPage.module.css';
+import { LoadingState } from '../../components/common/LoadingState';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
 const SettingsPage = () => {
@@ -116,7 +117,7 @@ const SettingsPage = () => {
                 <span className={styles.legendDot} style={{ background: '#ef4444' }} /><span className={styles.legendText}>SUSPENDED</span>
               </div>
               <div className={styles.staffStream}>
-                {opsLoading && <p className={styles.hint}>SYNCING REGISTRY...</p>}
+                {opsLoading && <LoadingState label="SYNCING REGISTRY..." tone="bare" />}
                 {!opsLoading && ops.map(op => (
                   <div key={op.username} className={`${styles.opCard} ${!op.active ? styles.cardDimmed : ''}`}>
                     <div className={styles.opHeader}>
@@ -175,7 +176,7 @@ const SettingsPage = () => {
           <div className={styles.hwPanel}>
             <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiRotateCcw className={styles.drawerIcon} aria-hidden="true" /> RECENTLY DELETED PLOTS</div></div>
             <div className={styles.panelBody} style={{ maxHeight: 3000 }}><div className={styles.panelInner}>
-              {delLoading && <p className={styles.hint}>SYNCING...</p>}
+              {delLoading && <LoadingState label="SYNCING DELETED PLOTS..." tone="bare" />}
               {!delLoading && deleted.length === 0 && <p className={styles.hint}>NO DELETED PLOTS.</p>}
               {!delLoading && deleted.map(p => (
                 <div key={p.id} className={styles.opCard} style={{ marginBottom: 8 }}>
