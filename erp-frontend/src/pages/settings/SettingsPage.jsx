@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePreferences } from '../../context/usePreferences';
 import settingsService from '../../services/settingsService';
 import landService from '../../services/landService';
 import HardwareInput from '../../components/common/HardwareInput';
@@ -13,8 +14,27 @@ import styles from './SettingsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
+
+/* Every option here is wired to real CSS in index.css -- see the note at the
+   top of context/PreferencesProvider.jsx for what each one moves. */
+const PREF_GROUPS = [
+  { key: 'theme', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',
+    options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },
+  { key: 'uiScale', label: 'Interface size', hint: 'Scales the whole app, not just text.',
+    options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
+  { key: 'statSize', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',
+    options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },
+  { key: 'tips', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
+    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },
+  { key: 'motion', label: 'Animation', hint: 'Turn off movement and fades across the app.',
+    options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },
+  { key: 'contrast', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
+    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },
+];
+
 const SettingsPage = () => {
   const { user } = useAuth();
+  const { prefs, setPref, resetPrefs } = usePreferences();
   const isRoot = !!user?.isRoot;
   const [toasts, setToasts] = useState([]);
   const toast = useCallback((message, type = 'info') => {
@@ -80,11 +100,41 @@ const SettingsPage = () => {
       <header className={styles.pageHeader}>
         <div className={styles.pageHeaderLeft}>
           <h1 className={styles.title}>Settings</h1>
-          <p className={styles.subtitle}>Security, governance and danger zone</p>
+          <p className={styles.subtitle}>Appearance, security, governance and the danger zone</p>
         </div>
         {user?.mustChangePassword && (<div className={`${styles.handbrakeBadge} ${styles.blink}`}><FiLock aria-hidden="true" /> CHANGE YOUR PASSWORD TO UNLOCK THE SYSTEM</div>)}
       </header>
       <div className={styles.workstationGrid}>
+        <div className={styles.hwPanel}>
+          <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiSliders className={styles.drawerIcon} aria-hidden="true" /> APPEARANCE</div></div>
+          <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+            <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
+            {PREF_GROUPS.map(group => (
+              <div key={group.key} className={styles.prefRow}>
+                <div className={styles.prefLabel}>
+                  <strong>{group.label}</strong>
+                  <span>{group.hint}</span>
+                </div>
+                <div className={styles.prefOptions} role="group" aria-label={group.label}>
+                  {group.options.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
+                      aria-pressed={prefs[group.key] === opt.value}
+                      onClick={() => setPref(group.key, opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className={styles.submitRow}>
+              <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
+            </div>
+          </div></div>
+        </div>
         <div className={styles.hwPanel}>
           <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiKey className={styles.drawerIcon} aria-hidden="true" /> PERSONAL SECURITY</div></div>
           <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>

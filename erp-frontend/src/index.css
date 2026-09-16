@@ -44,10 +44,10 @@
        The Dashboard deliberately does NOT use these; it has its own
        layout and was left alone.
        ============================================================== */
-    --stat-label:    clamp(9px,  0.95vw, 11px);
-    --stat-value:    clamp(17px, 2.0vw,  23px);
-    --stat-value-sm: clamp(13px, 1.5vw,  17px);
-    --stat-note:     clamp(8px,  0.85vw, 10px);
+    --stat-label:    clamp(8px,  0.85vw, 10px);
+    --stat-value:    clamp(13px, 1.45vw, 16.5px);
+    --stat-value-sm: clamp(11px, 1.2vw,  13px);
+    --stat-note:     clamp(7px,  0.8vw,  9px);
 }
 
 * {
@@ -306,3 +306,49 @@ input[type="search"]::-webkit-search-results-decoration {
   font-size: clamp(8px, 0.85vw, 10px) !important;
   letter-spacing: 1.5px !important;
 }
+
+/* ===== APPEARANCE PREFERENCES (fix69) ==============================
+   Written onto <html> by context/PreferencesProvider. Everything below
+   is the CSS half of a setting the user can actually change in
+   Settings -> Appearance. Nothing here is decorative.
+   ================================================================== */
+:root {
+    --ui-scale: 1;
+
+    /* The page background is built from these two in
+       CircuitBackground.module.css, which is what makes a dark page
+       theme possible at all without touching every panel. */
+    --bg-base: #F4F2EF;
+    --bg-rgb: 244, 242, 239;
+}
+
+/* PAGE THEME -- background and chrome only. Panels stay dark navy in
+   both themes: that palette is still hard-coded per page, and a half
+   inverted app is worse than a consistent one. Tokenising the panel
+   colours is the next step, and then this selector grows. */
+:root[data-theme="dark"] {
+    --bg-base: #16292b;
+    --bg-rgb: 22, 41, 43;
+    --text-on-light: #F4F2EF;
+}
+
+/* UI SIZE -- the app is laid out in px and clamp(), not rem, so a root
+   font-size would move almost nothing. zoom moves all of it, and #root
+   is the right place because the tooltip portal lives inside it. */
+#root { zoom: var(--ui-scale); }
+
+/* REDUCED MOTION -- the user's explicit choice, so !important is
+   correct here: it has to beat every page's local animation. */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* HIGH CONTRAST -- stronger row rules and panel edges. Helps most on the
+   cheap office monitors, which is where it was asked for. */
+:root[data-contrast="high"] table tbody td { border-bottom-color: rgba(255, 255, 255, 0.22) !important; }
+:root[data-contrast="high"] table tbody tr:hover { background: rgba(255, 255, 255, 0.10) !important; }

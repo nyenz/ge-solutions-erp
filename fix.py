@@ -1,116 +1,96 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GOLDEN SEED -- fix68
+GOLDEN SEED -- fix69
 =====================================================================
-SIX CHANGES, ONE PASS.
+1. REPORTS / ANALYSIS IS A LIGHT SURFACE NOW
+   Five stacked panels of controls rendered in navy was a wall of dark
+   from header to footer. The studio is now paper: cream workbench,
+   white controls with navy ink, light table body. The only dark things
+   left are the stat cards and the table header bar -- the two things
+   that should pull the eye.
 
-1. STAT BOXES READ BIGGER, EVERYWHERE
-   The summary cards were labelled at 7-9px and valued at 11-13px --
-   too small to scan a number off at arm's length, which is exactly
-   what those cards are for. There are now three global tokens in
-   index.css (--stat-label / --stat-value / --stat-note) and every
-   stat card in the app points at them: Payments, Client Dossier,
-   Client Ledger, Expenses, Recovery, Audit, and the new Report
-   Studio. Change the three numbers once and the whole app moves.
-   The Dashboard is deliberately left alone, as asked.
+2. REFRESH ON THE REPORTS HEADER
+   The studio caches its dataset locally, so the header button bumps a
+   token the studio listens for and re-pulls whatever dataset is loaded.
 
-2. ONE HEADER BUTTON FOR THE WHOLE APP
-   New shared component: components/common/HeaderButton.jsx. It is
-   the Payments refresh button's look at the Expenses button's size,
-   which is what the brief asked for. Rolled out to Payments,
-   Expenses, Project Ledger, Client Ledger, Recovery, Audit and the
-   Dossier. BELOW 640px IT COLLAPSES TO AN ICON -- page headers stack
-   on phones and a row of word-buttons is what forces the stack.
+3. NO DUPLICATION ON THE ANALYSIS TAB
+   The EXPENSE ANALYSIS drawer was the EXPENSES dataset with the
+   grouping pre-chosen -- the same numbers, two clicks away in the
+   builder. Gone. The canned CSV pillars stay on REPORTS. ANALYSIS is
+   now one thing: ask anything.
 
-3. NO MORE DOUBLE "NEW PRESET" ON EXPENSES
-   It sat in the header AND in the LOG AN EXPENSE panel. The panel is
-   where it belongs -- next to the tiles it creates -- so the header
-   copy is gone.
+4. DROPDOWNS INSTEAD OF CHIP WALLS
+   Forty column checkboxes laid out as chips filled a phone screen
+   before you reached anything else. Same include/exclude control,
+   folded into a dropdown. Dataset picker is a select too.
 
-4. REPORTS REBUILT AS REPORTS + ANALYSIS
-   Two tabs, and behind both of them a new Report Studio: pick a
-   dataset (Projects / Clients / Payments / Expenses), filter it as
-   narrow as one client or as broad as everything, include or exclude
-   any column, group it, measure it, and split it by a second field
-   to compare. Saved views, CSV export of whatever is on screen.
-   Role rules hold: restricted datasets and money columns are never
-   offered to a user without financial access.
+5. HOVER EXPLAINERS TIME OUT
+   They sat there as long as the pointer did. They now fade after six
+   seconds -- long enough to read twice, short enough to stop being
+   furniture. Also portalled into #root so they scale with the new UI
+   size setting.
 
-5. THE HOVER EXPLAINER IS QUIETER AND NO LONGER CLIPPED
-   It was a bordered navy card with an orange edge and a pointer --
-   a third panel-like object on a screen that already has two. Now:
-   no border, no pointer, translucent slab, Inter at normal weight.
-   And the clipping is fixed properly -- it used to clamp the bubble's
-   CENTRE to 80px from the edge, which is less than half its width,
-   so sidebar tooltips still ran off screen. It now measures itself
-   after render and nudges by exactly the overflow.
+6. STAT BOXES CAME DOWN A SIZE
+   fix68 overshot. The default scale is smaller, and it is now a
+   SETTING rather than a constant.
 
-Run:  python fix.py
+7. SETTINGS: A REAL APPEARANCE PANEL
+   New preferences system (context/PreferencesProvider) writing data
+   attributes and CSS variables onto <html>, so a preference reaches
+   every page without every page opting in. Six settings, all of them
+   actually wired: page theme (cream / slate dark), UI size, stat card
+   size, reduced motion, hover-explainer dwell or off, high-contrast
+   tables. Per-device in localStorage.
+
+8. FOLDER PAGE: OWNER NAMES OPEN THE DOSSIER
+   In the OWNERS tab and in RELATED PROJECTS, the owner name is now a
+   link to that client's portfolio. It was the one place in the app
+   holding a client name that did not go anywhere.
+
+9. AUDIT: DATE RANGE + CSV EXPORT
+   The log could be filtered by operator and action but not by when,
+   which is the first question anyone asks of an audit trail. Added a
+   from/to filter and an export of the current view.
+
+Run:  python fix.py     (from the repo root)
 Auto: git add -A / commit / push
 """
 
 import os
-import re
 import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FE = os.path.join(ROOT, 'erp-frontend', 'src')
-
 P = lambda *a: os.path.join(FE, *a)
 
-INDEX_CSS = P('index.css')
-TOOLTIP_JSX_PATH = P('components', 'common', 'Tooltip.jsx')
-TOOLTIP_CSS_PATH = P('components', 'common', 'Tooltip.module.css')
-HEADERBTN_JSX_PATH = P('components', 'common', 'HeaderButton.jsx')
-HEADERBTN_CSS_PATH = P('components', 'common', 'HeaderButton.module.css')
-
-PAYMENTS_JSX = P('pages', 'Payments', 'PaymentsPage.jsx')
-PAYMENTS_CSS = P('pages', 'Payments', 'PaymentsPage.module.css')
-EXPENSES_JSX = P('pages', 'Financials', 'ExpensesPage.jsx')
-EXPENSES_CSS = P('pages', 'Financials', 'ExpensesPage.module.css')
-PORTFOLIO_CSS = P('pages', 'Clients', 'ClientPortfolioPage.module.css')
-CLEDGER_JSX = P('pages', 'Clients', 'ClientLedgerPage.jsx')
-LEDGER_JSX = P('pages', 'Ledger', 'LedgerPage.jsx')
-RECOVERY_JSX = P('pages', 'Recovery', 'RecoveryPortal.jsx')
-RECOVERY_CSS = P('pages', 'Recovery', 'RecoveryPortal.module.css')
-AUDIT_JSX = P('pages', 'Audit', 'AuditPage.jsx')
-AUDIT_CSS = P('pages', 'Audit', 'AuditPage.module.css')
-REPORTDATA_PATH = P('pages', 'Reports', 'reportData.js')
-STUDIO_JSX_PATH = P('pages', 'Reports', 'ReportStudio.jsx')
-STUDIO_CSS_PATH = P('pages', 'Reports', 'ReportStudio.module.css')
-REPORTHUB_JSX_PATH = P('pages', 'Reports', 'ReportHub.jsx')
-REPORTHUB_CSS_PATH = P('pages', 'Reports', 'ReportHub.module.css')
-
-CHANGED = []
-SKIPPED = []
+CHANGED, SKIPPED = [], []
 
 
-def read(path):
-    with open(path, 'r', encoding='utf-8') as fh:
+def read(p):
+    with open(p, 'r', encoding='utf-8') as fh:
         return fh.read()
 
 
-def write(path, text, label):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as fh:
+def write(p, text, label):
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, 'w', encoding='utf-8') as fh:
         fh.write(text)
     if label not in CHANGED:
         CHANGED.append(label)
     print('  [write] ' + label)
 
 
-def require(path, label):
-    if not os.path.isfile(path):
-        print('  [MISS ] ' + label + ' -- not found')
+def require(p, label):
+    if not os.path.isfile(p):
+        print('  [MISS ] ' + label)
         SKIPPED.append(label)
         return False
     return True
 
 
 def swap(text, old, new, label):
-    """Exact-substring replace. Idempotent: a no-op if `new` is already in."""
     if new and new in text:
         print('  [ skip] ' + label + ' (already applied)')
         return text
@@ -122,13 +102,12 @@ def swap(text, old, new, label):
     return text.replace(old, new, 1)
 
 
-def resub(text, pattern, repl, label, count=1):
-    new, n = re.subn(pattern, repl, text, count=count)
-    if n == 0:
-        print('  [ skip] ' + label + ' (no match -- already applied or absent)')
-    else:
-        print('  [patch] ' + label)
-    return new
+def swap_all(text, old, new, label):
+    if old not in text:
+        print('  [ skip] ' + label + ' (nothing to replace)')
+        return text
+    print('  [patch] ' + label)
+    return text.replace(old, new)
 
 
 def append_block(text, marker, block, label):
@@ -144,7 +123,7 @@ def run(cmd):
     return subprocess.run(cmd, cwd=ROOT, check=False).returncode
 
 
-# ===================================================== EMBEDDED FILE BODIES
+# ============================================ EMBEDDED FILE BODIES
 
 TOOLTIP_JSX = r"""// PATH: erp-frontend/src/components/common/Tooltip.jsx
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId } from 'react';
@@ -182,13 +161,34 @@ import styles from './Tooltip.module.css';
  *    is what made it feel crowded. It is now a plain translucent slab --
  *    no border, no pointer, blurred backdrop, Inter at normal weight.
  */
-export const Tooltip = ({ label, children, placement = 'top', delay = 120, disabled = false, block = false }) => {
+// fix69: dwell and auto-dismiss come from the user's Appearance setting,
+// which the provider writes onto <html data-tips>. "off" means the explainer
+// never opens at all -- some people find it noise, and that is a fair call.
+const TIP_MODES = {
+    normal: { delay: 120, life: 6000 },
+    slow:   { delay: 500, life: 9000 },
+    off:    { delay: 0,   life: 0, disabled: true },
+};
+const tipMode = () => {
+    if (typeof document === 'undefined') return TIP_MODES.normal;
+    return TIP_MODES[document.documentElement.getAttribute('data-tips')] || TIP_MODES.normal;
+};
+
+// Portal target is #root, not <body>: the UI-size setting applies zoom to
+// #root, and a bubble outside it would render at 100% next to a page at 125%
+// and sit in the wrong place.
+const portalTarget = () => (typeof document === 'undefined'
+    ? null
+    : (document.getElementById('root') || document.body));
+
+export const Tooltip = ({ label, children, placement = 'top', delay, disabled = false, block = false }) => {
     const [open, setOpen] = useState(false);
     const [box, setBox] = useState({ top: 0, left: 0, place: placement });
     const [shift, setShift] = useState(0);
     const anchorRef = useRef(null);
     const bubbleRef = useRef(null);
     const timerRef = useRef(null);
+    const lifeRef = useRef(null);
     const tipId = useId();
 
     const measure = useCallback(() => {
@@ -220,18 +220,29 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
     }, [open, box, shift]);
 
     const show = useCallback(() => {
-        if (disabled || !label) return;
+        const mode = tipMode();
+        if (disabled || !label || mode.disabled) return;
         clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => { measure(); setOpen(true); }, delay);
+        clearTimeout(lifeRef.current);
+        timerRef.current = setTimeout(() => {
+            measure();
+            setOpen(true);
+            // Auto-dismiss: an explainer you have already read should not keep
+            // sitting on top of the row underneath it.
+            if (mode.life > 0) {
+                lifeRef.current = setTimeout(() => { setOpen(false); setShift(0); }, mode.life);
+            }
+        }, delay === undefined ? mode.delay : delay);
     }, [disabled, label, delay, measure]);
 
     const hide = useCallback(() => {
         clearTimeout(timerRef.current);
+        clearTimeout(lifeRef.current);
         setOpen(false);
         setShift(0);
     }, []);
 
-    useEffect(() => () => clearTimeout(timerRef.current), []);
+    useEffect(() => () => { clearTimeout(timerRef.current); clearTimeout(lifeRef.current); }, []);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -258,12 +269,12 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
                 onMouseLeave={hide}
                 onFocus={show}
                 onBlur={hide}
-                onTouchStart={() => { measure(); setOpen(o => !o); }}
+                onTouchStart={() => { if (tipMode().disabled) return; measure(); setOpen(o => !o); }}
                 aria-describedby={open ? tipId : undefined}
             >
                 {children}
             </span>
-            {open && typeof document !== 'undefined' && createPortal(
+            {open && portalTarget() && createPortal(
                 <div
                     ref={bubbleRef}
                     id={tipId}
@@ -277,7 +288,7 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
                 >
                     {label}
                 </div>,
-                document.body,
+                portalTarget(),
             )}
         </>
     );
@@ -318,669 +329,6 @@ export const Term = ({ children, tip, className }) => (
 export default Tooltip;
 """
 
-TOOLTIP_CSS = r"""/* PATH: erp-frontend/src/components/common/Tooltip.module.css */
-
-.anchor {
-    display: inline-flex;
-    align-items: center;
-    max-width: 100%;
-}
-
-/* The wrapper span becomes the layout box wherever it is inserted. Inside a
-   flex or grid parent that is harmless -- the browser blockifies flex and
-   grid items -- but inside an ordinary block parent (the sidebar nav) an
-   inline-flex span shrinks to its text, and would shrink the nav rows with
-   it. block makes the wrapper transparent to layout instead. */
-.anchorBlock {
-    display: block;
-    width: 100%;
-}
-
-/* fix68: was a bordered navy card -- orange 1.5px edge, 30px shadow, a
-   pointer triangle and DM Sans 600. Three panel-like objects on screen at
-   once (page panel, table, tooltip) is what made hovering feel congested.
-   This is deliberately not a panel: no border, no pointer, a translucent
-   slab that blurs whatever is under it and reads as a passing note.
-
-   The bubble is portalled to <body>, so it sits outside every page's
-   .container token scope -- every colour here has to be literal.
-   CONTRAST RULE: cream 90% over #121f22 at 86% opacity = 11.1:1. */
-.bubble {
-    position: fixed;
-    z-index: 100000;
-    max-width: min(300px, 78vw);
-    padding: 7px 11px;
-    border-radius: 7px;
-    background: rgba(18, 32, 34, 0.86);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
-    color: rgba(244, 242, 239, 0.9);
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 1.5;
-    letter-spacing: 0.1px;
-    text-align: left;
-    text-transform: none;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    pointer-events: none; /* never let the bubble eat the next hover */
-    animation: tipIn 0.12s ease-out;
-}
-
-@keyframes tipIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-/* Inline jargon -- the dotted underline is the affordance. Without it
-   nobody knows there is anything to hover over. */
-.term {
-    border-bottom: 1px dotted currentColor;
-    cursor: help;
-    outline: none;
-}
-.term:focus-visible {
-    outline: 2px solid #EE8C3A;
-    outline-offset: 2px;
-    border-radius: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .bubble { animation: none; }
-}
-"""
-
-HEADERBTN_JSX = r"""// PATH: erp-frontend/src/components/common/HeaderButton.jsx
-import React from 'react';
-import { Tooltip } from './Tooltip';
-import styles from './HeaderButton.module.css';
-
-/**
- * GOLDEN SEED -- THE PAGE HEADER BUTTON
- *
- * One button spec for every page header in the app. It is the Payment Records
- * refresh button's look -- translucent navy on the frosted header bar, thin
- * navy edge, orange on hover -- at the Expenses button's size, which is the
- * smaller of the two the app was shipping.
- *
- * Before this there were three dialects: Payments' 40px light button,
- * Expenses' 34px one, and the Dossier's dark navy pills. Same job, same
- * position on screen, three different sizes and two different colour schemes.
- *
- * ON SMALL SCREENS IT BECOMES AN ICON. Page headers stack on phones and a row
- * of word-buttons is the thing that forces the stack. Below 640px the label is
- * dropped and the button goes square -- the tooltip already carries the words,
- * and aria-label keeps it announced.
- *
- * Variants:
- *   (default) ghost   -- on the frosted white page header
- *   primary           -- the one affirmative action, orange filled
- *   danger            -- destructive
- *   onDark            -- same spec, for a header sitting on a dark panel
- */
-export const HeaderActions = ({ children, className = '' }) => (
-    <div className={`${styles.actions} ${className}`}>{children}</div>
-);
-
-export const HeaderButton = ({
-    icon: Icon,
-    label,
-    onClick,
-    tip,
-    variant = 'ghost',
-    busy = false,
-    disabled = false,
-    type = 'button',
-    ariaLabel,
-}) => (
-    <Tooltip label={tip || label}>
-        <button
-            type={type}
-            className={`${styles.btn} ${styles[variant] || ''}`}
-            onClick={onClick}
-            disabled={disabled || busy}
-            aria-label={ariaLabel || label}
-        >
-            {Icon && (
-                <span className={`${styles.icon} ${busy ? styles.spin : ''}`} aria-hidden="true">
-                    <Icon />
-                </span>
-            )}
-            <span className={styles.label}>{label}</span>
-        </button>
-    </Tooltip>
-);
-
-export default HeaderButton;
-"""
-
-HEADERBTN_CSS = r"""/* PATH: erp-frontend/src/components/common/HeaderButton.module.css */
-
-.actions {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 0.9vw, 10px);
-    flex-wrap: wrap;
-    flex-shrink: 0;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: clamp(30px, 3.4vw, 36px);
-    padding: 0 clamp(10px, 1.4vw, 16px);
-    border-radius: 6px;
-    font-family: 'Inter', sans-serif;
-    font-size: clamp(8px, 0.85vw, 10px);
-    font-weight: 900;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    /* CONTRAST RULE: #1a2e30 on the frosted header (cream at 62% white) is
-       13.4:1. On hover the fill goes orange and the text goes white, which
-       is 2.3:1 -- so hover keeps the navy text instead. */
-    background: rgba(26, 46, 48, 0.08);
-    border: 1.5px solid rgba(26, 46, 48, 0.2);
-    color: #1a2e30;
-}
-.btn:hover:not(:disabled) { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
-
-.primary { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-.primary:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; color: #1a2e30; }
-
-.danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #991b1b; }
-.danger:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; color: #fff; }
-
-/* Same spec, for a header that sits on a dark panel rather than the frosted bar. */
-.onDark { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.18); color: rgba(244, 242, 239, 0.85); }
-.onDark:hover:not(:disabled) { background: rgba(238, 140, 58, 0.14); border-color: #EE8C3A; color: #EE8C3A; }
-
-.icon { display: inline-flex; align-items: center; font-size: clamp(11px, 1.2vw, 13px); flex-shrink: 0; }
-.spin { animation: hbSpin 0.9s linear infinite; }
-@keyframes hbSpin { to { transform: rotate(360deg); } }
-
-/* Icon-only below 640px -- see the note in HeaderButton.jsx. */
-@media (max-width: 640px) {
-    .btn { width: 34px; min-width: 34px; height: 34px; padding: 0; gap: 0; }
-    .label { display: none; }
-    .icon { font-size: 15px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .spin { animation: none; }
-}
-"""
-
-REPORTDATA_JS = r"""// PATH: erp-frontend/src/pages/Reports/reportData.js
-/**
- * GOLDEN SEED -- THE REPORT STUDIO DATA LAYER
- *
- * The canned CSV pillars answer twelve fixed questions. This answers any
- * question, because the shape of the question is the user's to decide: pick a
- * dataset, filter it down as far as you like, choose which columns you want,
- * group it, measure it, compare one slice against another.
- *
- * It runs entirely in the browser on data the app already serves. There is no
- * new backend endpoint and no new query language to get wrong: four list
- * endpoints are pulled once, cached, and everything after that is local. That
- * also means a filter or a grouping is instant and costs nothing, which is the
- * only way an explore-it-yourself tool is usable at all.
- *
- * ROLE RULES ARE ENFORCED IN TWO PLACES, deliberately. The server already
- * refuses the financial endpoints to non-directors -- that is the real
- * boundary. What happens here is the second half: a dataset marked
- * `restricted` and a field marked `money` are never offered to a user without
- * financial access, so a manager is not shown a column that would just come
- * back empty or 403.
- *
- * ADDING A FIELD: add one entry to the dataset's `fields` array. Filters,
- * columns, grouping, measures, comparison and CSV all read from that array, so
- * nothing else needs touching.
- */
-import api from '../../api/axios';
-import landService from '../../services/landService';
-import recoveryService from '../../services/recoveryService';
-import expenseService from '../../services/expenseService';
-
-/* ── value helpers ───────────────────────────────────────────────── */
-export const num = (v) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-};
-export const fmtMoney = (v) => 'UGX ' + num(v).toLocaleString();
-export const fmtNum = (v) => num(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
-export const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '---');
-
-const daysSince = (v) => {
-    if (!v) return null;
-    const t = new Date(v).getTime();
-    if (!Number.isFinite(t)) return null;
-    return Math.floor((Date.now() - t) / 86400000);
-};
-const monthKey = (v) => {
-    if (!v) return '---';
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return '---';
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-};
-
-export const formatValue = (value, type) => {
-    if (value === null || value === undefined || value === '') return '---';
-    if (type === 'money') return fmtMoney(value);
-    if (type === 'number') return fmtNum(value);
-    if (type === 'percent') return fmtNum(value) + '%';
-    if (type === 'date') return fmtDate(value);
-    if (type === 'bool') return value ? 'YES' : 'NO';
-    return String(value);
-};
-
-const f = (key, label, type, get, extra) => ({ key, label, type, get, ...(extra || {}) });
-
-/* ── PROJECTS ────────────────────────────────────────────────────── */
-const projectFields = [
-    f('index', 'Project Index', 'text', p => p.projectIndex || ''),
-    f('plot', 'Plot Number', 'text', p => p.landTitle?.plotNumber || ''),
-    f('titleId', 'Title ID', 'text', p => p.landTitle?.titleId || ''),
-    f('tenure', 'Tenure', 'text', p => p.landTitle?.tenure || ''),
-    f('blockRoad', 'Block / Road', 'text', p => p.landTitle?.blockRoad || ''),
-    f('district', 'District', 'text', p => p.district || ''),
-    f('county', 'County', 'text', p => p.county || ''),
-    f('subCounty', 'Sub-County', 'text', p => p.subCounty || ''),
-    f('parish', 'Parish', 'text', p => p.parish || ''),
-    f('village', 'Village', 'text', p => p.village || ''),
-    f('area', 'Area', 'text', p => p.area || ''),
-    f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
-    f('ownerPhone', 'Owner Phone', 'text', p => p.proprietors?.[0]?.phoneNumber || ''),
-    f('ownerNin', 'Owner NIN', 'text', p => p.proprietors?.[0]?.nationalId || ''),
-    f('ownerAddress', 'Owner Address', 'text', p => p.proprietors?.[0]?.homeAddress || ''),
-    f('allOwners', 'All Owners', 'text', p => (p.proprietors || []).map(o => o.fullName).join(', ')),
-    f('ownerCount', 'Owner Count', 'number', p => (p.proprietors || []).length),
-    f('ownership', 'Ownership', 'text', p => ((p.proprietors || []).length > 1 ? 'JOINT' : 'SOLO')),
-    f('status', 'Status', 'text', p => p.status || ''),
-    f('stage', 'Stage Index', 'number', p => num(p.currentStageIndex)),
-    f('planType', 'Plan Type', 'text', p => p.planType || ''),
-    f('titled', 'Has Title', 'bool', p => !!p.landTitle),
-    f('released', 'Title Released', 'bool', p => !!p.landTitle?.isReleased),
-    f('legacy', 'Legacy', 'bool', p => !!p.isLegacy),
-    f('receivable', 'In Receivables', 'bool', p => !!p.isReceivable),
-    f('problem', 'Flagged Problem', 'bool', p => !!p.problem),
-    f('startDate', 'Project Start', 'date', p => p.projectStartDate || null),
-    f('lastPayment', 'Last Payment', 'date', p => p.lastPaymentDate || null),
-    f('daysSincePayment', 'Days Since Payment', 'number', p => daysSince(p.lastPaymentDate)),
-    f('receivableStart', 'Receivables Start', 'date', p => p.receivableStartDate || null),
-    f('totalCost', 'Total Cost', 'money', p => num(p.totalCost), { money: true }),
-    f('amountPaid', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
-    f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),
-    f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),
-    f('originalDebt', 'Original Debt', 'money', p => num(p.originalDebt), { money: true }),
-    f('installment', 'Weekly Installment', 'money', p => num(p.weeklyInstallment), { money: true }),
-    f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),
-];
-
-/* ── CLIENTS ─────────────────────────────────────────────────────── */
-const clientFields = [
-    f('name', 'Client Name', 'text', c => c.name || ''),
-    f('nin', 'NIN', 'text', c => c.nin || ''),
-    f('phone', 'Phone', 'text', c => c.phone || ''),
-    f('email', 'Email', 'text', c => c.email || ''),
-    f('plotCount', 'Projects', 'number', c => num(c.plotCount)),
-    f('districts', 'Districts', 'text', c => [...new Set((c.plots || []).map(p => p.district).filter(Boolean))].join(', ')),
-    f('receivables', 'Has Receivables', 'bool', c => (c.plots || []).some(p => p.receivable)),
-    f('lastContact', 'Last Contact', 'date', c => c.lastContact || null),
-    f('daysSinceContact', 'Days Since Contact', 'number', c => daysSince(c.lastContact)),
-    f('lastPaymentAt', 'Last Payment', 'date', c => c.lastPaymentAt || null),
-    f('daysSincePayment', 'Days Since Payment', 'number', c => daysSince(c.lastPaymentAt)),
-    f('lastTag', 'Last Call Tag', 'text', c => c.lastTag || ''),
-    f('lastTone', 'Last Call Tone', 'text', c => c.lastTone || ''),
-    f('owed', 'Total Owed', 'money', c => num(c.owed), { money: true }),
-    f('paid', 'Total Paid', 'money', c => num(c.paid), { money: true }),
-    f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),
-    f('billed', 'Total Billed', 'money', c => num(c.owed) + num(c.paid), { money: true }),
-    f('pctPaid', 'Percent Paid', 'percent', c => {
-        const total = num(c.owed) + num(c.paid);
-        return total > 0 ? Math.round((num(c.paid) / total) * 100) : 0;
-    }, { money: true }),
-];
-
-/* ── PAYMENTS ────────────────────────────────────────────────────── */
-const PAYMENT_TYPE_LABELS = {
-    STANDARD: 'Title Payment',
-    INITIAL_DEPOSIT: 'Initial Deposit',
-    RECEIVABLE_PARTIAL: 'Receivables Payment',
-};
-const paymentFields = [
-    f('date', 'Date', 'date', p => p.timestamp || null),
-    f('month', 'Month', 'text', p => monthKey(p.timestamp)),
-    f('year', 'Year', 'text', p => (p.timestamp ? String(new Date(p.timestamp).getFullYear()) : '---')),
-    f('plot', 'Plot', 'text', p => p.plotNumber || ''),
-    f('owner', 'Owner', 'text', p => p.ownerName || ''),
-    f('type', 'Payment Type', 'text', p => PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType || ''),
-    f('recordedBy', 'Recorded By', 'text', p => p.recordedBy || ''),
-    f('notes', 'Notes', 'text', p => p.notes || ''),
-    f('amount', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
-    f('balanceAfter', 'Balance After', 'money', p => num(p.balanceAfter), { money: true }),
-    f('daysAgo', 'Days Ago', 'number', p => daysSince(p.timestamp)),
-];
-
-/* ── EXPENSES ────────────────────────────────────────────────────── */
-const expenseFields = [
-    f('date', 'Date', 'date', e => e.createdAt || null),
-    f('month', 'Month', 'text', e => monthKey(e.createdAt)),
-    f('category', 'Category', 'text', e => e.category || ''),
-    f('recordedBy', 'Logged By', 'text', e => e.recordedBy || ''),
-    f('spentBy', 'Spent By', 'text', e => e.spentBy || e.recordedBy || ''),
-    f('note', 'Note', 'text', e => e.note || ''),
-    f('edited', 'Edited', 'bool', e => !!e.editedAt),
-    f('amount', 'Amount', 'money', e => num(e.amount), { money: true }),
-    f('daysAgo', 'Days Ago', 'number', e => daysSince(e.createdAt)),
-];
-
-/* ── dataset registry ────────────────────────────────────────────── */
-export const DATASETS = {
-    PROJECTS: {
-        key: 'PROJECTS',
-        label: 'Projects',
-        blurb: 'Every land project: location, owners, stage, and the money against it.',
-        restricted: false,
-        fields: projectFields,
-        defaultColumns: ['index', 'plot', 'district', 'owner', 'status', 'totalCost', 'amountPaid', 'balance'],
-        load: async () => {
-            // The ledger endpoint is paged. A report has to see all of it, not
-            // page one, so this walks until a short page comes back.
-            const out = [];
-            const SIZE = 200;
-            for (let page = 0; page < 60; page += 1) {
-                const data = await landService.getGlobalLedger(page, SIZE);
-                const rows = data?.content || [];
-                out.push(...rows);
-                if (rows.length < SIZE) break;
-            }
-            return out;
-        },
-    },
-    CLIENTS: {
-        key: 'CLIENTS',
-        label: 'Clients',
-        blurb: 'Every registered client with their portfolio totals and call history.',
-        restricted: false,
-        fields: clientFields,
-        defaultColumns: ['name', 'phone', 'plotCount', 'districts', 'owed', 'paid', 'lastContact'],
-        load: async () => (await recoveryService.getClientLedger()) || [],
-    },
-    PAYMENTS: {
-        key: 'PAYMENTS',
-        label: 'Payments',
-        blurb: 'Every cash payment ever recorded, with who recorded it.',
-        restricted: true,
-        fields: paymentFields,
-        defaultColumns: ['date', 'plot', 'owner', 'type', 'amount', 'recordedBy'],
-        load: async () => (await api.get('/recovery/payments/all')).data || [],
-    },
-    EXPENSES: {
-        key: 'EXPENSES',
-        label: 'Expenses',
-        blurb: 'Every shilling logged as leaving the office, by category and by staff.',
-        restricted: true,
-        fields: expenseFields,
-        defaultColumns: ['date', 'category', 'amount', 'recordedBy', 'spentBy'],
-        load: async () => {
-            const data = await expenseService.search({}, 0, 5000);
-            return data?.content || data || [];
-        },
-    },
-};
-
-export const datasetsFor = (canSeeMoney) =>
-    Object.values(DATASETS).filter(d => canSeeMoney || !d.restricted);
-
-export const fieldsFor = (dataset, canSeeMoney) =>
-    (dataset?.fields || []).filter(fld => canSeeMoney || !fld.money);
-
-export const fieldByKey = (dataset, key) => (dataset?.fields || []).find(fld => fld.key === key);
-
-/* ── filtering ───────────────────────────────────────────────────── */
-export const OPERATORS = {
-    text: [
-        { key: 'contains', label: 'contains', value: true },
-        { key: 'notContains', label: 'does not contain', value: true },
-        { key: 'is', label: 'is exactly', value: true },
-        { key: 'isNot', label: 'is not', value: true },
-        { key: 'startsWith', label: 'starts with', value: true },
-        { key: 'empty', label: 'is empty', value: false },
-        { key: 'notEmpty', label: 'is not empty', value: false },
-    ],
-    number: [
-        { key: 'eq', label: '=', value: true },
-        { key: 'ne', label: '!=', value: true },
-        { key: 'gt', label: '>', value: true },
-        { key: 'gte', label: '>=', value: true },
-        { key: 'lt', label: '<', value: true },
-        { key: 'lte', label: '<=', value: true },
-        { key: 'between', label: 'between', value: true, value2: true },
-    ],
-    date: [
-        { key: 'after', label: 'on or after', value: true, input: 'date' },
-        { key: 'before', label: 'on or before', value: true, input: 'date' },
-        { key: 'between', label: 'between', value: true, value2: true, input: 'date' },
-        { key: 'lastDays', label: 'in the last N days', value: true },
-        { key: 'empty', label: 'is empty (never)', value: false },
-        { key: 'notEmpty', label: 'is not empty', value: false },
-    ],
-    bool: [
-        { key: 'isTrue', label: 'is YES', value: false },
-        { key: 'isFalse', label: 'is NO', value: false },
-    ],
-};
-OPERATORS.money = OPERATORS.number;
-OPERATORS.percent = OPERATORS.number;
-
-export const operatorsFor = (type) => OPERATORS[type] || OPERATORS.text;
-
-const matchOne = (raw, type, op, v1, v2) => {
-    if (type === 'bool') {
-        if (op === 'isTrue') return !!raw;
-        if (op === 'isFalse') return !raw;
-        return true;
-    }
-    if (type === 'date') {
-        const has = raw !== null && raw !== undefined && raw !== '';
-        if (op === 'empty') return !has;
-        if (op === 'notEmpty') return has;
-        if (!has) return false;
-        const t = new Date(raw).getTime();
-        if (op === 'lastDays') {
-            const n = Number(v1);
-            if (!Number.isFinite(n)) return true;
-            return Date.now() - t <= n * 86400000;
-        }
-        const a = v1 ? new Date(v1 + 'T00:00:00').getTime() : null;
-        const b = v2 ? new Date(v2 + 'T23:59:59').getTime() : null;
-        if (op === 'after') return a === null || t >= a;
-        if (op === 'before') return a === null || t <= new Date(v1 + 'T23:59:59').getTime();
-        if (op === 'between') return (a === null || t >= a) && (b === null || t <= b);
-        return true;
-    }
-    if (type === 'number' || type === 'money' || type === 'percent') {
-        const n = num(raw);
-        const a = Number(v1);
-        const b = Number(v2);
-        if (op === 'between') {
-            if (Number.isFinite(a) && n < a) return false;
-            if (Number.isFinite(b) && n > b) return false;
-            return true;
-        }
-        if (!Number.isFinite(a)) return true;
-        if (op === 'eq') return n === a;
-        if (op === 'ne') return n !== a;
-        if (op === 'gt') return n > a;
-        if (op === 'gte') return n >= a;
-        if (op === 'lt') return n < a;
-        if (op === 'lte') return n <= a;
-        return true;
-    }
-    const s = String(raw === null || raw === undefined ? '' : raw).toLowerCase();
-    const q = String(v1 === null || v1 === undefined ? '' : v1).toLowerCase().trim();
-    if (op === 'empty') return s.trim() === '';
-    if (op === 'notEmpty') return s.trim() !== '';
-    if (!q) return true;
-    if (op === 'contains') return s.includes(q);
-    if (op === 'notContains') return !s.includes(q);
-    if (op === 'is') return s === q;
-    if (op === 'isNot') return s !== q;
-    if (op === 'startsWith') return s.startsWith(q);
-    return true;
-};
-
-/**
- * Conditions combine with AND by default; set `mode` to 'OR' for any-of.
- * `search` is a free-text sweep across every text field, so you can narrow
- * without having to know which column a name lives in.
- */
-export const applyFilters = (rows, dataset, conditions, mode = 'AND', search = '') => {
-    const active = (conditions || []).filter(c => c.field && c.op);
-    const q = (search || '').trim().toLowerCase();
-    const textFields = (dataset.fields || []).filter(fld => fld.type === 'text');
-
-    return rows.filter(row => {
-        if (q) {
-            const hit = textFields.some(fld => String(fld.get(row) || '').toLowerCase().includes(q));
-            if (!hit) return false;
-        }
-        if (active.length === 0) return true;
-        const results = active.map(c => {
-            const fld = fieldByKey(dataset, c.field);
-            if (!fld) return true;
-            return matchOne(fld.get(row), fld.type, c.op, c.value, c.value2);
-        });
-        return mode === 'OR' ? results.some(Boolean) : results.every(Boolean);
-    });
-};
-
-/* ── measures ────────────────────────────────────────────────────── */
-export const AGGREGATIONS = [
-    { key: 'count', label: 'Count of rows', needsField: false, type: 'number' },
-    { key: 'sum', label: 'Sum', needsField: true },
-    { key: 'avg', label: 'Average', needsField: true },
-    { key: 'min', label: 'Minimum', needsField: true },
-    { key: 'max', label: 'Maximum', needsField: true },
-    { key: 'distinct', label: 'Distinct values', needsField: true, type: 'number' },
-];
-
-const aggregate = (rows, agg, fld) => {
-    if (agg === 'count' || !fld) return rows.length;
-    if (agg === 'distinct') return new Set(rows.map(r => String(fld.get(r) ?? ''))).size;
-    const vals = rows.map(r => num(fld.get(r)));
-    if (vals.length === 0) return 0;
-    if (agg === 'sum') return vals.reduce((a, b) => a + b, 0);
-    if (agg === 'avg') return vals.reduce((a, b) => a + b, 0) / vals.length;
-    if (agg === 'min') return Math.min(...vals);
-    if (agg === 'max') return Math.max(...vals);
-    return 0;
-};
-
-export const measureType = (measure, dataset) => {
-    const def = AGGREGATIONS.find(a => a.key === measure.agg);
-    if (def && def.type) return def.type;
-    const fld = fieldByKey(dataset, measure.field);
-    if (!fld) return 'number';
-    return fld.type === 'percent' ? 'number' : fld.type;
-};
-
-export const measureLabel = (measure, dataset) => {
-    const def = AGGREGATIONS.find(a => a.key === measure.agg);
-    if (!def) return 'Value';
-    if (!def.needsField) return def.label;
-    const fld = fieldByKey(dataset, measure.field);
-    return def.label + ' of ' + (fld ? fld.label : '?');
-};
-
-/**
- * Group by one or two fields and run every measure over each bucket.
- * Two levels is the ceiling on purpose: a third turns a readable table into
- * a puzzle, and "compare" already covers the cross-tab case.
- */
-export const groupRows = (rows, dataset, groupKeys, measures) => {
-    const keys = (groupKeys || []).filter(Boolean).slice(0, 2);
-    const flds = keys.map(k => fieldByKey(dataset, k)).filter(Boolean);
-    const buckets = new Map();
-
-    rows.forEach(row => {
-        const path = flds.map(fld => {
-            const v = fld.get(row);
-            if (v === null || v === undefined || v === '') return '(none)';
-            if (fld.type === 'bool') return v ? 'YES' : 'NO';
-            if (fld.type === 'date') return fmtDate(v);
-            return String(v);
-        });
-        const id = path.join(' \u2023 ') || 'ALL';
-        if (!buckets.has(id)) buckets.set(id, { id, path, rows: [] });
-        buckets.get(id).rows.push(row);
-    });
-
-    return [...buckets.values()].map(b => ({
-        id: b.id,
-        path: b.path,
-        count: b.rows.length,
-        values: (measures || []).map(m => aggregate(b.rows, m.agg, fieldByKey(dataset, m.field))),
-        rows: b.rows,
-    }));
-};
-
-export const summarise = (rows, dataset, measures) =>
-    (measures || []).map(m => aggregate(rows, m.agg, fieldByKey(dataset, m.field)));
-
-/* ── CSV out ─────────────────────────────────────────────────────── */
-const csvCell = (v) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-};
-
-export const toCSV = (headers, matrix) =>
-    [headers.map(csvCell).join(','), ...matrix.map(r => r.map(csvCell).join(','))].join('\n');
-
-export const downloadCSV = (filename, csv) => {
-    // Excel reads a bare UTF-8 CSV as Latin-1 and mangles anything non-ASCII.
-    // The BOM is what tells it otherwise.
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-};
-
-/* ── saved views ─────────────────────────────────────────────────── */
-const VIEW_KEY = 'goldenseed.reportstudio.views.v1';
-
-export const loadViews = () => {
-    try {
-        return JSON.parse(window.localStorage.getItem(VIEW_KEY) || '[]');
-    } catch {
-        return [];
-    }
-};
-
-export const saveViews = (views) => {
-    try {
-        window.localStorage.setItem(VIEW_KEY, JSON.stringify(views));
-        return true;
-    } catch {
-        return false;
-    }
-};
-"""
-
 STUDIO_JSX = r"""// PATH: erp-frontend/src/pages/Reports/ReportStudio.jsx
 /**
  * GOLDEN SEED -- REPORT STUDIO
@@ -1004,7 +352,7 @@ STUDIO_JSX = r"""// PATH: erp-frontend/src/pages/Reports/ReportStudio.jsx
  * this just keeps a manager from being shown a money column that would come
  * back 403.
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     FiDatabase, FiFilter, FiColumns, FiBarChart2, FiDownloadCloud,
     FiPlus, FiX, FiRefreshCw, FiSave, FiTrash2, FiSearch, FiAlertCircle,
@@ -1025,7 +373,7 @@ const TABLE_LIMIT = 500;
 
 const newCondition = () => ({ uid: Math.random().toString(36).slice(2), field: '', op: '', value: '', value2: '' });
 
-const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
+const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 }) => {
     const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
     const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
     const dataset = DATASETS[datasetKey] || available[0];
@@ -1042,6 +390,16 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
     const [splitBy, setSplitBy] = useState('');
     const [measures, setMeasures] = useState([{ agg: 'count', field: '' }]);
     const [sort, setSort] = useState({ key: '', dir: 'desc' });
+    const [colMenuOpen, setColMenuOpen] = useState(false);
+    const colMenuRef = useRef(null);
+    useEffect(() => {
+        const onDown = (e) => {
+            if (colMenuRef.current && !colMenuRef.current.contains(e.target)) setColMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, []);
+
     const [views, setViews] = useState(() => loadViews());
     const [viewName, setViewName] = useState('');
 
@@ -1065,6 +423,14 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
     }, []);
 
     useEffect(() => { load(datasetKey); }, [datasetKey, load]);
+
+    // REFRESH in the page header bumps reloadToken. Skipped on first render --
+    // the effect above has already done the initial pull.
+    const firstRun = useRef(true);
+    useEffect(() => {
+        if (firstRun.current) { firstRun.current = false; return; }
+        load(datasetKey);
+    }, [reloadToken, datasetKey, load]);
 
     // Switching dataset invalidates every field reference, so the builder
     // resets to that dataset's sensible defaults rather than carrying over
@@ -1208,23 +574,23 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
                 title="DATA SOURCE"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
+                {/* A select, not a row of chips: four today, more later, and a
+                    wrapping chip row is the first thing to break on a phone. */}
                 <div className={styles.chipRow}>
-                    {available.map(ds => (
-                        <Tooltip key={ds.key} label={ds.blurb}>
-                            <button
-                                className={ds.key === datasetKey ? styles.chipActive : styles.chip}
-                                onClick={() => setDatasetKey(ds.key)}
-                                aria-pressed={ds.key === datasetKey}
-                            >
-                                {ds.label.toUpperCase()}
-                            </button>
-                        </Tooltip>
-                    ))}
-                    <Tooltip label="Pull this dataset again from the server">
-                        <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
-                            <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
-                        </button>
-                    </Tooltip>
+                    <label className={styles.picker}>
+                        <span className={styles.miniLabel}>Dataset</span>
+                        <select
+                            className={styles.select}
+                            value={datasetKey}
+                            onChange={e => setDatasetKey(e.target.value)}
+                            aria-label="Dataset"
+                        >
+                            {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
+                        </select>
+                    </label>
+                    <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
+                        <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
+                    </button>
                 </div>
                 <p className={styles.hint}>{dataset?.blurb}</p>
                 {!canSeeMoney && (
@@ -1374,22 +740,38 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
                 <p className={styles.hint}>
                     Only applies to the row-by-row table. Grouped results show your measures instead.
                 </p>
-                <div className={styles.chipRow}>
-                    {fields.map(fl => (
-                        <button
-                            key={fl.key}
-                            className={columns.includes(fl.key) ? styles.chipActive : styles.chip}
-                            onClick={() => toggleColumn(fl.key)}
-                            aria-pressed={columns.includes(fl.key)}
-                        >
-                            {fl.label}
-                        </button>
-                    ))}
-                </div>
-                <div className={styles.chipRow}>
-                    <button className={styles.chip} onClick={() => setColumns(fields.map(fl => fl.key))}>SELECT ALL</button>
-                    <button className={styles.chip} onClick={() => setColumns([])}>CLEAR</button>
-                    <button className={styles.chip} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
+                {/* Forty checkboxes laid out as chips filled most of a phone
+                    screen before you reached anything else. Same include /
+                    exclude control, folded into a dropdown. */}
+                <div className={styles.dropdown} ref={colMenuRef}>
+                    <button
+                        type="button"
+                        className={styles.dropdownBtn}
+                        onClick={() => setColMenuOpen(o => !o)}
+                        aria-expanded={colMenuOpen}
+                    >
+                        <span>{columns.length === 0 ? 'No columns picked' : `${columns.length} of ${fields.length} columns`}</span>
+                        <FiChevronDown className={colMenuOpen ? styles.dropdownIconOpen : ''} aria-hidden="true" />
+                    </button>
+                    {colMenuOpen && (
+                        <div className={styles.dropdownList}>
+                            <div className={styles.dropdownActions}>
+                                <button className={styles.miniBtn} onClick={() => setColumns(fields.map(fl => fl.key))}>ALL</button>
+                                <button className={styles.miniBtn} onClick={() => setColumns([])}>NONE</button>
+                                <button className={styles.miniBtn} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
+                            </div>
+                            {fields.map(fl => (
+                                <label key={fl.key} className={styles.dropdownOption}>
+                                    <input
+                                        type="checkbox"
+                                        checked={columns.includes(fl.key)}
+                                        onChange={() => toggleColumn(fl.key)}
+                                    />
+                                    {fl.label}
+                                </label>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </CollapsibleSection>
 
@@ -1589,16 +971,32 @@ export default ReportStudio;
 """
 
 STUDIO_CSS = r"""/* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css */
-/* Same reference chain as the rest of the app -- Payment Records -> Client
-   Dossier -> here. Panels are the shared CollapsibleSection, so only the
-   controls inside them are styled locally, and every control follows the
-   app's standard filter-button / input spec. */
+/* fix69 -- THE STUDIO IS A LIGHT SURFACE NOW.
+   Every other page in the app is a handful of dark panels floating on the
+   cream background, and that works because you look at each panel for a
+   second. The studio is the opposite: it is a workbench you sit at, with
+   five stacked panels of controls, and rendered dark it was a wall of navy
+   from header to footer with no light anywhere.
+   So: the workbench is paper (cream/white), the controls are white with navy
+   ink, and the only dark objects left are the ones that should draw the eye
+   -- the stat cards and the results table header. */
 .studio {
-  --orange: #EE8C3A; --orange-border: rgba(238,140,58,0.28);
-  --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --amber: #f59e0b;
+  --orange: #EE8C3A;
+  --orange-soft: rgba(238,140,58,0.12);
+  --navy: #213E40;
+  --navy-deep: #1a2e30;
+  --ink: #1a2e30;
+  --ink-soft: #5b6f70;
+  --paper: #faf8f5;
+  --paper-edge: #dfd9d1;
+  --red: #b91c1c;
   --radius: 10px; --radius-sm: 6px;
+
   display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
-  font-family: 'Inter', sans-serif; color: #fff;
+  font-family: 'Inter', sans-serif;
+  /* CONTRAST RULE: this block is light, so text here is INK, never cream.
+     Anything that needs to stay cream declares it locally. */
+  color: var(--ink);
 }
 
 .badge {
@@ -1609,96 +1007,142 @@ STUDIO_CSS = r"""/* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css
 
 .hint {
   display: flex; align-items: center; gap: 7px; margin: 0;
-  font-size: clamp(10px,1vw,11px); font-weight: 500; line-height: 1.5;
-  color: rgba(244,242,239,0.62);
+  font-size: clamp(10px,1vw,11.5px); font-weight: 500; line-height: 1.5;
+  color: var(--ink-soft);
 }
 .hint svg { color: var(--orange); flex-shrink: 0; }
 
 .error {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4);
-  color: #fca5a5; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px;
+  background: #fee2e2; border: 1px solid #fca5a5;
+  color: var(--red); font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 8px 12px;
 }
 
 .sectionLabel {
-  font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 2px;
-  color: var(--orange); text-transform: uppercase;
+  font-size: clamp(9px,0.9vw,11px); font-weight: 900; letter-spacing: 2px;
+  color: var(--navy-deep); text-transform: uppercase;
 }
 
-/* ── chips: the app's standard filter-button spec ─────────────────── */
-.chipRow { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(6px,0.9vw,10px); }
-.chip, .chipActive, .exportBtn {
-  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+/* ── controls ─────────────────────────────────────────────────────── */
+.chipRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+
+.chip, .chipActive, .exportBtn, .miniBtn {
+  font-family: 'Inter', sans-serif; font-weight: 900;
   text-transform: uppercase; letter-spacing: 1.5px;
-  padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
-  cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.18s ease;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
-.chip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
-.chipActive, .exportBtn { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
+.chip, .chipActive, .exportBtn {
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border: 1.5px solid var(--paper-edge);
+  background: #fff; color: var(--ink);
+}
+.chip:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
+.chipActive, .exportBtn { background: var(--orange); color: var(--navy-deep); border-color: var(--orange); }
 .chipActive:hover:not(:disabled), .exportBtn:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; }
 .chip:disabled, .chipActive:disabled, .exportBtn:disabled { opacity: 0.45; cursor: not-allowed; }
-.chip:focus-visible, .chipActive:focus-visible, .exportBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.chip:focus-visible, .chipActive:focus-visible, .exportBtn:focus-visible, .miniBtn:focus-visible {
+  outline: 2px solid var(--orange); outline-offset: 2px;
+}
+.miniBtn {
+  font-size: 9px; padding: 5px 10px; border: 1.5px solid var(--paper-edge);
+  background: #fff; color: var(--ink);
+}
+.miniBtn:hover { border-color: var(--orange); color: var(--orange); }
 
 .miniLabel {
   font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1.5px;
-  text-transform: uppercase; color: rgba(255,255,255,0.5);
+  text-transform: uppercase; color: var(--ink-soft);
 }
 
 /* ── saved views ──────────────────────────────────────────────────── */
 .viewBar { display: flex; flex-wrap: wrap; gap: clamp(6px,0.9vw,10px); align-items: center; }
 .viewChip {
-  display: inline-flex; align-items: center; gap: 2px;
-  border: 1.5px solid rgba(238,140,58,0.35); border-radius: var(--radius-sm); overflow: hidden;
+  display: inline-flex; align-items: center;
+  border: 1.5px solid rgba(238,140,58,0.5); border-radius: var(--radius-sm); overflow: hidden; background: #fff;
 }
 .viewChipName {
-  background: rgba(238,140,58,0.1); border: none; color: var(--orange);
+  background: transparent; border: none; color: #b45309;
   font-family: 'Inter', sans-serif; font-size: clamp(9px,0.95vw,11px); font-weight: 800;
   padding: 7px 12px; cursor: pointer; transition: background 0.15s;
 }
-.viewChipName:hover { background: rgba(238,140,58,0.22); }
+.viewChipName:hover { background: var(--orange-soft); }
 .viewChipDrop {
-  background: rgba(239,68,68,0.12); border: none; color: #fca5a5;
+  background: #fee2e2; border: none; color: var(--red);
   padding: 8px 9px; cursor: pointer; display: flex; align-items: center; transition: background 0.15s;
 }
-.viewChipDrop:hover { background: rgba(239,68,68,0.3); color: #fff; }
+.viewChipDrop:hover { background: #ef4444; color: #fff; }
 
 /* ── inputs ───────────────────────────────────────────────────────── */
 .input, .select {
-  height: 34px; padding: 0 10px; border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.22); color: #fff;
-  font-family: 'Inter', sans-serif; font-size: clamp(10px,1.05vw,12px); font-weight: 600;
-  min-width: 130px; flex: 1 1 140px; max-width: 100%;
+  height: 36px; padding: 0 10px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--paper-edge); background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 600;
+  min-width: 130px; flex: 1 1 150px; max-width: 100%;
 }
-.input:focus, .select:focus { outline: none; border-color: var(--orange); }
+.input::placeholder { color: rgba(26,46,48,0.38); font-weight: 500; }
+.input:focus, .select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
 .select { cursor: pointer; }
-/* The native menu paints on the OS surface, so options need their own
-   colours or they render dark-on-dark on some platforms. */
-.select option { background: #16292b; color: #fff; }
+.select option { background: #fff; color: var(--ink); }
 
-.condRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.condRow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  padding: 8px; 
+}
 .dropBtn {
-  height: 34px; width: 34px; flex: 0 0 34px; border-radius: var(--radius-sm);
-  background: rgba(239,68,68,0.14); border: 1.5px solid transparent; color: #fca5a5;
+  height: 36px; width: 36px; flex: 0 0 36px; border-radius: var(--radius-sm);
+  background: #fee2e2; border: 1.5px solid transparent; color: var(--red);
   display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s;
 }
-.dropBtn:hover { background: rgba(239,68,68,0.3); border-color: var(--red); color: #fff; }
+.dropBtn:hover { background: #ef4444; color: #fff; }
 
 .pickerGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: clamp(8px,1.2vw,14px); }
-.picker { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.picker { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 200px; }
+
+/* ── the columns dropdown ─────────────────────────────────────────── */
+.dropdown { position: relative; max-width: 420px; }
+.dropdownBtn {
+  width: 100%; height: 38px; padding: 0 12px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--paper-edge); background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 800;
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-transform: uppercase; transition: border-color 0.2s;
+}
+.dropdownBtn:hover { border-color: var(--orange); }
+.dropdownBtn svg { color: var(--orange); flex-shrink: 0; transition: transform 0.2s; }
+.dropdownIconOpen { transform: rotate(180deg); }
+.dropdownList {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 400;
+  background: #fff; border: 2px solid var(--orange); border-radius: var(--radius-sm);
+  box-shadow: 0 20px 44px rgba(26,46,48,0.28);
+  max-height: 320px; overflow-y: auto;
+}
+.dropdownActions {
+  display: flex; gap: 6px; padding: 8px 10px; position: sticky; top: 0;
+  background: #fff; border-bottom: 1px solid var(--paper-edge);
+}
+.dropdownOption {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; color: var(--ink); font-size: 12px; font-weight: 700;
+  border-bottom: 1px solid #f1eeea; cursor: pointer; text-transform: uppercase;
+}
+.dropdownOption:last-child { border-bottom: none; }
+.dropdownOption:hover { background: var(--orange-soft); }
+.dropdownOption input { accent-color: var(--orange); width: 15px; height: 15px; cursor: pointer; }
 
 /* ── free-text search ─────────────────────────────────────────────── */
 .searchRow {
   position: relative; display: flex; align-items: center;
-  background: #fff; border: 1.5px solid #c8d6d7; border-radius: var(--radius-sm);
-  height: clamp(36px,4.5vw,42px); transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  height: clamp(38px,4.5vw,44px); transition: border-color 0.2s, box-shadow 0.2s;
 }
-.searchRow:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.searchRow:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
 .searchIcon { position: absolute; left: 12px; color: var(--orange); font-size: 15px; pointer-events: none; }
 .searchInput {
   width: 100%; border: none; outline: none; background: transparent;
-  /* CONTRAST RULE: this input is white, so its text is navy, not cream. */
-  color: #1a2e30; padding: 0 36px 0 38px; height: 100%;
+  color: var(--ink); padding: 0 36px 0 38px; height: 100%;
   font-family: 'Inter', sans-serif; font-weight: 700; font-size: clamp(11px,1.1vw,13px);
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.35); }
@@ -1706,13 +1150,14 @@ STUDIO_CSS = r"""/* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css
   position: absolute; right: 8px; background: transparent; border: none; cursor: pointer;
   color: rgba(26,46,48,0.45); display: flex; align-items: center; padding: 5px; border-radius: 4px;
 }
-.searchClear:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
+.searchClear:hover { color: var(--ink); background: rgba(26,46,48,0.08); }
 
-/* ── stat strip -- the Payment Records card, same as everywhere ───── */
+/* ── stat strip -- kept dark on purpose: on a light workbench these are
+      the one thing that should pull the eye. ───────────────────────── */
 .statStrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: clamp(10px,1.4vw,16px); }
 .statCard {
   background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
+  border: 1.5px solid rgba(238,140,58,0.28); border-radius: var(--radius);
   padding: clamp(12px,1.5vw,18px); display: flex; flex-direction: column; gap: 4px;
 }
 .statCard label { font-size: var(--stat-label); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
@@ -1720,53 +1165,60 @@ STUDIO_CSS = r"""/* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css
 .statNote { font-size: var(--stat-note); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 
 /* ── chart ────────────────────────────────────────────────────────── */
-.chart { display: flex; flex-direction: column; gap: 8px; }
+.chart {
+  display: flex; flex-direction: column; gap: 9px;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius);
+  padding: clamp(12px,1.5vw,18px);
+}
 .chartRow { display: grid; grid-template-columns: minmax(90px, 190px) 1fr minmax(80px, 140px); align-items: center; gap: 10px; }
 .chartLabel {
-  font-size: clamp(9px,0.95vw,11px); font-weight: 800; color: rgba(255,255,255,0.82);
+  font-size: clamp(9px,0.95vw,11px); font-weight: 800; color: var(--ink);
   text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.chartTrack { height: 13px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+.chartTrack { height: 13px; background: #efe9e2; border-radius: 999px; overflow: hidden; }
 .chartFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }
-.chartValue { font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); font-weight: 700; text-align: right; color: rgba(255,255,255,0.75); }
+.chartValue { font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); font-weight: 700; text-align: right; color: var(--navy-deep); }
 
-/* ── table -- the Dossier ledger table ────────────────────────────── */
-.tableScroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
-.tableScroll::-webkit-scrollbar { height: 5px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 3px; }
+/* ── results table -- light body, navy header bar ─────────────────── */
+.tableScroll {
+  overflow-x: auto; background: #fff;
+  border: 1.5px solid var(--paper-edge); border-radius: var(--radius);
+  scrollbar-width: thin; scrollbar-color: var(--orange) transparent;
+}
+.tableScroll::-webkit-scrollbar { height: 6px; }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
 .table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
 .table thead th {
-  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  background: var(--navy); color: var(--orange);
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; text-align: left;
   padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
-  border-bottom: 3px solid var(--orange); white-space: nowrap;
-  position: sticky; top: 0; z-index: 2;
+  white-space: nowrap; position: sticky; top: 0; z-index: 2;
 }
-.table thead th:first-child { border-radius: 6px 0 0 0; }
-.table thead th:last-child { border-radius: 0 6px 0 0; }
 .sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
-.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), #162a2c; color: #fff; }
+.sortable:hover { background: #2c5052; color: #fff; }
 .table tbody td {
   padding: clamp(8px,1.1vw,12px) clamp(10px,1.5vw,16px);
-  border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle;
-  color: #fff; font-size: clamp(10px,1.05vw,12px);
+  border-bottom: 1px solid #f1eeea; vertical-align: middle;
+  color: var(--ink); font-size: clamp(11px,1.05vw,12.5px); font-weight: 500;
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .table tbody tr { border-left: 3px solid transparent; transition: background 0.15s; }
-.table tbody tr:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.table tbody tr:nth-child(even) { background: #fbf9f7; }
+.table tbody tr:hover { background: var(--orange-soft); border-left-color: var(--orange); }
 .mono { font-family: 'Space Mono', monospace; font-weight: 700; }
 .strong { font-weight: 800; }
 
-/* CONTRAST RULE: inside a dark panel already, so cream text, no second card. */
 .emptyCell {
   text-align: center; padding: clamp(20px,4vw,40px) 16px;
-  font-family: 'Space Mono', monospace; color: rgba(244,242,239,0.68);
+  font-family: 'Space Mono', monospace; color: var(--ink-soft);
   font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
 }
 
 @media (max-width: 640px) {
   .chartRow { grid-template-columns: minmax(70px, 110px) 1fr minmax(64px, 96px); }
-  .input, .select { flex: 1 1 100%; min-width: 0; }
+  .input, .select, .picker { flex: 1 1 100%; min-width: 0; }
+  .dropdown { max-width: none; }
   .table { min-width: 560px; }
 }
 """
@@ -1800,12 +1252,12 @@ import {
     FiBarChart2, FiMap, FiActivity, FiLayers,
     FiShield, FiTrendingUp, FiTrendingDown, FiLock, FiDownloadCloud,
     FiChevronDown, FiCreditCard, FiDatabase, FiFileText,
-    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo, FiSliders
+    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo, FiSliders, FiRefreshCw
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import reportService from '../../services/reportService';
 import BackToTopButton from '../../components/common/BackToTopButton';
-import ExpenseAnalysis from './ExpenseAnalysis';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import ReportStudio from './ReportStudio';
 import styles from './ReportHub.module.css';
 
@@ -1906,6 +1358,10 @@ const ReportHub = () => {
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
     const [tab, setTab] = useState('REPORTS');
+    // The studio caches its dataset in local state, so REFRESH in the page
+    // header has to reach it. Bumping this token is the signal; the studio
+    // re-pulls whichever dataset it is currently on.
+    const [reloadToken, setReloadToken] = useState(0);
     const [drawers, setDrawers] = useState({
         finance: true, ops: true, system: false, p2: true, studio: true,
         aStudio: true, expenses: false,
@@ -2018,6 +1474,11 @@ const ReportHub = () => {
                     <h1 className={styles.title}>Reports &amp; Analysis</h1>
                     <p className={styles.subtitle}>Canned exports, or build exactly the question you want to ask</p>
                 </div>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH"
+                        tip="Pull the current dataset again from the server"
+                        onClick={() => setReloadToken(t => t + 1)} />
+                </HeaderActions>
             </header>
 
             <div className={styles.tabRow} role="tablist" aria-label="Reports and analysis">
@@ -2042,7 +1503,7 @@ const ReportHub = () => {
             {tab === 'REPORTS' && (
                 <div className={styles.pillarStack}>
                     <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="BUILD YOUR OWN REPORT" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" />
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} />
                     </DrawerPanel>
 
                     {hasFinancialAccess ? (
@@ -2087,23 +1548,16 @@ const ReportHub = () => {
 
             {tab === 'ANALYSIS' && (
                 <div className={styles.pillarStack}>
-                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')} label="ASK ANYTHING" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" />
+                    {/* Just the studio. The expense-analysis drawer that used to
+                        sit here was the EXPENSES dataset with the grouping
+                        pre-chosen for you -- the same numbers, reachable in two
+                        clicks from the builder, so it was a second way to say
+                        the same thing. The canned CSV pillars stay on the
+                        REPORTS tab where they belong. */}
+                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')}
+                        label="ASK ANYTHING" icon={FiSliders} tall>
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" reloadToken={reloadToken} />
                     </DrawerPanel>
-
-                    {hasFinancialAccess ? (
-                        <DrawerPanel open={drawers.expenses} onToggle={() => toggleDrawer('expenses')} label="EXPENSE ANALYSIS" icon={FiTrendingDown} tall>
-                            <ExpenseAnalysis active={drawers.expenses} />
-                        </DrawerPanel>
-                    ) : (
-                        <div className={styles.restrictionHandbrake} role="alert">
-                            <FiLock className={styles.lockIcon} aria-hidden="true" />
-                            <div className={styles.warningText}>
-                                <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                                <p>EXPENSE ANALYSIS IS DIRECTOR-ONLY. CONTACT ROOT OWNER FOR ACCESS.</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
@@ -2113,380 +1567,567 @@ const ReportHub = () => {
 export default ReportHub;
 """
 
+PREFS_CONTEXT = r"""// PATH: erp-frontend/src/context/PreferencesContext.js
+import { createContext } from 'react';
 
-# ===================================================== 1. GLOBAL STAT TOKENS
-STAT_TOKENS = """
-    /* ===== STAT CARD SCALE (fix68) =================================
-       The summary boxes at the top of Payments, the Dossier, Expenses,
-       Recovery and the Report Studio all read off these three. They were
-       each carrying their own clamp() and had drifted small -- 7-9px
-       labels over 11-13px figures, which is not a size you can scan a
-       number off across a desk. One knob now, app-wide.
-       The Dashboard deliberately does NOT use these; it has its own
-       layout and was left alone.
-       ============================================================== */
-    --stat-label:    clamp(9px,  0.95vw, 11px);
-    --stat-value:    clamp(17px, 2.0vw,  23px);
-    --stat-value-sm: clamp(13px, 1.5vw,  17px);
-    --stat-note:     clamp(8px,  0.85vw, 10px);
+export const DEFAULT_PREFS = {
+    theme: 'light',      // light | dark   -- page background and chrome
+    uiScale: '100',      // 90 | 100 | 110 | 125
+    statSize: 'standard',// small | standard | large
+    motion: 'full',      // full | reduced
+    tips: 'normal',      // normal | slow | off
+    contrast: 'normal',  // normal | high
+};
+
+export const PreferencesContext = createContext({
+    prefs: DEFAULT_PREFS,
+    setPref: () => {},
+    resetPrefs: () => {},
+});
+"""
+
+PREFS_PROVIDER = r"""// PATH: erp-frontend/src/context/PreferencesProvider.jsx
+/**
+ * GOLDEN SEED -- APPEARANCE PREFERENCES
+ *
+ * Everything here is applied by writing data-attributes and CSS variables onto
+ * <html>, which is the only way a preference can reach every page without
+ * every page having to opt in. The CSS that reads them lives in index.css.
+ *
+ * Choices are per-device, in localStorage, not per-account on the server. That
+ * is deliberate: "this screen is too small to read" is a fact about the screen
+ * in front of you, not about who you are, and the office shares logins across
+ * a desktop and two phones.
+ *
+ * WHAT EACH ONE ACTUALLY DOES -- no setting here is decorative:
+ *   theme     swaps the page background and the sidebar rail between the
+ *             cream original and a slate dark. Panels stay dark navy in both,
+ *             because the panel palette is still hard-coded per page; a full
+ *             inversion needs that tokenised first.
+ *   uiScale   zoom on #root. The app is laid out in px and clamp(), not rem,
+ *             so a root font-size would move almost nothing -- zoom moves all
+ *             of it. Tooltips portal into #root rather than <body> so they
+ *             scale and stay aligned with it.
+ *   statSize  the --stat-* tokens the summary cards read off.
+ *   motion    kills animation and transition app-wide.
+ *   tips      hover-explainer dwell, or off entirely.
+ *   contrast  strengthens table rules and panel edges.
+ */
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { PreferencesContext, DEFAULT_PREFS } from './PreferencesContext';
+
+const KEY = 'goldenseed.prefs.v1';
+
+const readStored = () => {
+    try {
+        const raw = window.localStorage.getItem(KEY);
+        if (!raw) return DEFAULT_PREFS;
+        return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    } catch {
+        return DEFAULT_PREFS;
+    }
+};
+
+const STAT_SIZES = {
+    small:    { label: 'clamp(8px, 0.8vw, 9.5px)',  value: 'clamp(12px, 1.3vw, 15px)',   valueSm: 'clamp(10px, 1.1vw, 12px)', note: 'clamp(7px, 0.75vw, 9px)' },
+    standard: { label: 'clamp(8px, 0.85vw, 10px)',  value: 'clamp(13px, 1.45vw, 16.5px)', valueSm: 'clamp(11px, 1.2vw, 13px)', note: 'clamp(7px, 0.8vw, 9px)' },
+    large:    { label: 'clamp(9px, 0.95vw, 11px)',  value: 'clamp(16px, 1.8vw, 21px)',    valueSm: 'clamp(13px, 1.4vw, 16px)', note: 'clamp(8px, 0.85vw, 10px)' },
+};
+
+export const PreferencesProvider = ({ children }) => {
+    const [prefs, setPrefs] = useState(readStored);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        root.setAttribute('data-theme', prefs.theme);
+        root.setAttribute('data-motion', prefs.motion);
+        root.setAttribute('data-tips', prefs.tips);
+        root.setAttribute('data-contrast', prefs.contrast);
+        root.style.setProperty('--ui-scale', String(Number(prefs.uiScale || 100) / 100));
+
+        const s = STAT_SIZES[prefs.statSize] || STAT_SIZES.standard;
+        root.style.setProperty('--stat-label', s.label);
+        root.style.setProperty('--stat-value', s.value);
+        root.style.setProperty('--stat-value-sm', s.valueSm);
+        root.style.setProperty('--stat-note', s.note);
+
+        try { window.localStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* private mode */ }
+    }, [prefs]);
+
+    const setPref = useCallback((key, value) => setPrefs(p => ({ ...p, [key]: value })), []);
+    const resetPrefs = useCallback(() => setPrefs(DEFAULT_PREFS), []);
+
+    const value = useMemo(() => ({ prefs, setPref, resetPrefs }), [prefs, setPref, resetPrefs]);
+
+    return (
+        <PreferencesContext.Provider value={value}>
+            {children}
+        </PreferencesContext.Provider>
+    );
+};
+
+export default PreferencesProvider;
+"""
+
+USE_PREFS = r"""// PATH: erp-frontend/src/context/usePreferences.js
+import { useContext } from 'react';
+import { PreferencesContext } from './PreferencesContext';
+
+export const usePreferences = () => useContext(PreferencesContext);
+export default usePreferences;
 """
 
 
-def patch_global_tokens():
-    print('\n[1/6] index.css -- global stat card scale')
-    if not require(INDEX_CSS, 'index.css'):
+# ============================================================ 1. GLOBAL CSS
+GLOBAL_CSS = """
+/* ===== APPEARANCE PREFERENCES (fix69) ==============================
+   Written onto <html> by context/PreferencesProvider. Everything below
+   is the CSS half of a setting the user can actually change in
+   Settings -> Appearance. Nothing here is decorative.
+   ================================================================== */
+:root {
+    --ui-scale: 1;
+
+    /* The page background is built from these two in
+       CircuitBackground.module.css, which is what makes a dark page
+       theme possible at all without touching every panel. */
+    --bg-base: #F4F2EF;
+    --bg-rgb: 244, 242, 239;
+}
+
+/* PAGE THEME -- background and chrome only. Panels stay dark navy in
+   both themes: that palette is still hard-coded per page, and a half
+   inverted app is worse than a consistent one. Tokenising the panel
+   colours is the next step, and then this selector grows. */
+:root[data-theme="dark"] {
+    --bg-base: #16292b;
+    --bg-rgb: 22, 41, 43;
+    --text-on-light: #F4F2EF;
+}
+
+/* UI SIZE -- the app is laid out in px and clamp(), not rem, so a root
+   font-size would move almost nothing. zoom moves all of it, and #root
+   is the right place because the tooltip portal lives inside it. */
+#root { zoom: var(--ui-scale); }
+
+/* REDUCED MOTION -- the user's explicit choice, so !important is
+   correct here: it has to beat every page's local animation. */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* HIGH CONTRAST -- stronger row rules and panel edges. Helps most on the
+   cheap office monitors, which is where it was asked for. */
+:root[data-contrast="high"] table tbody td { border-bottom-color: rgba(255, 255, 255, 0.22) !important; }
+:root[data-contrast="high"] table tbody tr:hover { background: rgba(255, 255, 255, 0.10) !important; }
+"""
+
+
+def patch_global_css():
+    print('\n[1/9] index.css -- preference tokens, zoom, motion, contrast')
+    p = P('index.css')
+    if not require(p, 'index.css'):
         return
-    css = read(INDEX_CSS)
-    css = swap(
-        css,
-        "    --spinner-track:     rgba(238, 140, 58, 0.15);\n",
-        "    --spinner-track:     rgba(238, 140, 58, 0.15);\n" + STAT_TOKENS,
-        'index.css stat tokens')
-    write(INDEX_CSS, css, 'index.css')
+    css = read(p)
+    # fix68 set these as constants; they are a user setting now, and the
+    # provider overwrites them at runtime. These stay as the fallback for
+    # the first paint before React mounts.
+    css = swap(css, '--stat-label:    clamp(9px,  0.95vw, 11px);',
+               '--stat-label:    clamp(8px,  0.85vw, 10px);', 'stat label down a size')
+    css = swap(css, '--stat-value:    clamp(17px, 2.0vw,  23px);',
+               '--stat-value:    clamp(13px, 1.45vw, 16.5px);', 'stat value down a size')
+    css = swap(css, '--stat-value-sm: clamp(13px, 1.5vw,  17px);',
+               '--stat-value-sm: clamp(11px, 1.2vw,  13px);', 'stat small value down a size')
+    css = swap(css, '--stat-note:     clamp(8px,  0.85vw, 10px);',
+               '--stat-note:     clamp(7px,  0.8vw,  9px);', 'stat note down a size')
+    css = append_block(css, '/* ===== APPEARANCE PREFERENCES (fix69)', GLOBAL_CSS, 'index.css preference layer')
+    write(p, css, 'index.css')
 
 
-# ===================================================== 2. STAT CARDS APP-WIDE
-def patch_stat_cards():
-    print('\n[2/6] Stat cards -> the shared scale (Dashboard untouched)')
-
-    # -- Payment Records: the card every other page was copied from ------
-    if require(PAYMENTS_CSS, 'PaymentsPage.module.css'):
-        css = read(PAYMENTS_CSS)
-        css = swap(css,
-                   ".sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--fs-label);",
-                   ".sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--stat-label);",
-                   'Payments .sumCard label')
-        css = swap(css,
-                   ".sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--fs-value);",
-                   ".sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value);",
-                   'Payments .sumCard value')
-        css = swap(css,
-                   ".sumCard span { font-size: var(--fs-label); color: rgba(255,255,255,0.35); }",
-                   ".sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }",
-                   'Payments .sumCard note')
-        # The 480px override forced the figure back down to 13px, which
-        # undid the whole point of the token on the screens that need the
-        # size most.
-        css = swap(css,
-                   "    .sumCard strong { font-size: 13px; }",
-                   "    .sumCard strong { font-size: clamp(15px, 4.5vw, 19px); }",
-                   'Payments .sumCard 480px override')
-        write(PAYMENTS_CSS, css, 'PaymentsPage.module.css')
-
-    # -- Client Dossier --------------------------------------------------
-    if require(PORTFOLIO_CSS, 'ClientPortfolioPage.module.css'):
-        css = read(PORTFOLIO_CSS)
-        css = swap(css, "  font-size: clamp(7px, 0.75vw, 9px);\n  font-weight: 900; letter-spacing: 1px; text-transform: uppercase;\n  color: rgba(255,255,255,0.5);",
-                   "  font-size: var(--stat-label);\n  font-weight: 900; letter-spacing: 1px; text-transform: uppercase;\n  color: rgba(255,255,255,0.5);",
-                   'Dossier .statCard label')
-        css = swap(css, "  font-size: clamp(11px, 1.1vw, 13px);\n  font-weight: 700; color: #fff; word-break: break-all;",
-                   "  font-size: var(--stat-value);\n  font-weight: 700; color: #fff; word-break: break-all;",
-                   'Dossier .statCard value')
-        css = swap(css, ".statTextValue { font-size: clamp(11px, 1.1vw, 13px); }",
-                   ".statTextValue { font-size: var(--stat-value-sm); }",
-                   'Dossier .statTextValue')
-        css = swap(css, "  font-size: clamp(7px, 0.75vw, 9px);\n  font-weight: 700; letter-spacing: 1px; text-transform: uppercase;\n  color: rgba(255,255,255,0.35);",
-                   "  font-size: var(--stat-note);\n  font-weight: 700; letter-spacing: 1px; text-transform: uppercase;\n  color: rgba(255,255,255,0.35);",
-                   'Dossier .statNote')
-        write(PORTFOLIO_CSS, css, 'ClientPortfolioPage.module.css')
-
-    # -- Expenses --------------------------------------------------------
-    if require(EXPENSES_CSS, 'ExpensesPage.module.css'):
-        css = read(EXPENSES_CSS)
-        css = swap(css,
-                   "  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);\n  font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);",
-                   "  font-family: 'Inter', sans-serif; font-size: var(--stat-label);\n  font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);",
-                   'Expenses .statCard label')
-        css = swap(css,
-                   "  font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px);\n  font-weight: 700; color: #fff; word-break: break-all;",
-                   "  font-family: 'Space Mono', monospace; font-size: var(--stat-value);\n  font-weight: 700; color: #fff; word-break: break-all;",
-                   'Expenses .statCard value')
-        css = swap(css,
-                   "  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);\n  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);",
-                   "  font-family: 'Inter', sans-serif; font-size: var(--stat-note);\n  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);",
-                   'Expenses .statNote')
-        write(EXPENSES_CSS, css, 'ExpensesPage.module.css')
-
-    # -- Recovery Cockpit ------------------------------------------------
-    # This file overrides .countCard twice further down (once inside a
-    # later "type scale" block), so the only reliable way in is a final
-    # override appended at the end -- same specificity, last one wins.
-    if require(RECOVERY_CSS, 'RecoveryPortal.module.css'):
-        css = read(RECOVERY_CSS)
-        css = append_block(css, '/* fix68: stat scale */', """
-/* fix68: stat scale -- the count cards read off the app-wide tokens now.
-   This sits at the end on purpose: two earlier blocks in this file also
-   set .countCard font sizes, and same-specificity rules are decided by
-   source order. */
-.countCard label  { font-size: var(--stat-label); }
-.countCard strong { font-size: var(--stat-value); }
-""", 'Recovery .countCard scale')
-        write(RECOVERY_CSS, css, 'RecoveryPortal.module.css')
-
-    # -- Audit HUD pill --------------------------------------------------
-    # Targeted rather than appended: this one keeps its 480px shrink,
-    # because it is a header pill, not a card, and going to 23px on a
-    # phone would push the page title onto three lines.
-    if require(AUDIT_CSS, 'AuditPage.module.css'):
-        css = read(AUDIT_CSS)
-        css = swap(css,
-                   "    font-family: 'DM Sans', sans-serif;\n    font-size: clamp(7px, 0.75vw, 9px);\n    font-weight: 900;",
-                   "    font-family: 'DM Sans', sans-serif;\n    font-size: var(--stat-label);\n    font-weight: 900;",
-                   'Audit .diagItem scale')
-        css = swap(css,
-                   ".diagItem strong { font-family: 'Space Mono', monospace; }",
-                   ".diagItem strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value-sm); }",
-                   'Audit .diagItem value')
-        write(AUDIT_CSS, css, 'AuditPage.module.css')
+# ============================================================ 2. BACKGROUND
+def patch_background():
+    print('\n[2/9] CircuitBackground -- tokenised so a dark page theme is possible')
+    p = P('components', 'layout', 'CircuitBackground.module.css')
+    if not require(p, 'CircuitBackground.module.css'):
+        return
+    css = read(p)
+    css = swap(css, '    background: #F4F2EF;\n    background:',
+               '    background: var(--bg-base);\n    background:', 'background base token')
+    css = swap_all(css, 'rgba(244,242,239,', 'rgba(var(--bg-rgb),', 'background gradient tokens')
+    write(p, css, 'CircuitBackground.module.css')
 
 
-# ===================================================== 3. TOOLTIP
+# ============================================================ 3. PROVIDER
+def patch_bootstrap():
+    print('\n[3/9] Preferences provider wired into the bootstrapper')
+    write(P('context', 'PreferencesContext.js'), PREFS_CONTEXT, 'context/PreferencesContext.js')
+    write(P('context', 'PreferencesProvider.jsx'), PREFS_PROVIDER, 'context/PreferencesProvider.jsx')
+    write(P('context', 'usePreferences.js'), USE_PREFS, 'context/usePreferences.js')
+
+    p = P('main.jsx')
+    if not require(p, 'main.jsx'):
+        return
+    s = read(p)
+    s = swap(s, "import App from './App.jsx'",
+             "import App from './App.jsx'\nimport PreferencesProvider from './context/PreferencesProvider'", 'main.jsx import')
+    s = swap(s, """  <React.StrictMode>
+    <App />
+  </React.StrictMode>,""",
+             """  <React.StrictMode>
+    {/* Outermost on purpose: it writes onto <html> before anything renders,
+        so the first paint is already at the user's chosen size and theme. */}
+    <PreferencesProvider>
+      <App />
+    </PreferencesProvider>
+  </React.StrictMode>,""", 'main.jsx provider')
+    write(p, s, 'main.jsx')
+
+
+# ============================================================ 4. TOOLTIP
 def patch_tooltip():
-    print('\n[3/6] Hover explainer -- lighter, and no longer clipped')
-    write(TOOLTIP_JSX_PATH, TOOLTIP_JSX, 'components/common/Tooltip.jsx')
-    write(TOOLTIP_CSS_PATH, TOOLTIP_CSS, 'components/common/Tooltip.module.css')
+    print('\n[4/9] Hover explainers time out, and scale with the UI')
+    write(P('components', 'common', 'Tooltip.jsx'), TOOLTIP_JSX, 'components/common/Tooltip.jsx')
 
 
-# ===================================================== 4. HEADER BUTTON
-IMPORT_HB = "import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';\n"
+# ============================================================ 5. REPORTS
+def patch_reports():
+    print('\n[5/9] Reports -- light surface, header refresh, no duplication')
+    write(P('pages', 'Reports', 'ReportStudio.jsx'), STUDIO_JSX, 'pages/Reports/ReportStudio.jsx')
+    write(P('pages', 'Reports', 'ReportStudio.module.css'), STUDIO_CSS, 'pages/Reports/ReportStudio.module.css')
+    write(P('pages', 'Reports', 'ReportHub.jsx'), REPORTHUB_JSX, 'pages/Reports/ReportHub.jsx')
+
+    p = P('pages', 'Reports', 'ReportHub.module.css')
+    if require(p, 'ReportHub.module.css'):
+        css = read(p)
+        css = append_block(css, '/* ── STUDIO SURFACE (fix69)', """
+/* ── STUDIO SURFACE (fix69) ───────────────────────────────────────
+   The drawer that holds the Report Studio is a light workbench, not a
+   navy panel -- see the note at the top of ReportStudio.module.css. */
+.studioInner {
+    background: #faf8f5;
+    border-top: 1px solid #e6e0d8;
+    padding: clamp(12px, 1.8vw, 22px);
+}
+""", 'ReportHub studio surface')
+        write(p, css, 'ReportHub.module.css')
+
+    # The expense analysis component is no longer mounted anywhere. Left on
+    # disk rather than deleted: it is the only place the by-staff endpoint is
+    # called, and that is worth keeping around if it is ever wanted back.
+    print('  [note ] ExpenseAnalysis.jsx left on disk, no longer mounted')
 
 
-def patch_header_buttons():
-    print('\n[4/6] One header button spec, rolled out')
-    write(HEADERBTN_JSX_PATH, HEADERBTN_JSX, 'components/common/HeaderButton.jsx')
-    write(HEADERBTN_CSS_PATH, HEADERBTN_CSS, 'components/common/HeaderButton.module.css')
-
-    # ---- Payments -----------------------------------------------------
-    if require(PAYMENTS_JSX, 'PaymentsPage.jsx'):
-        jsx = read(PAYMENTS_JSX)
-        jsx = swap(jsx, "import styles from './PaymentsPage.module.css';",
-                   IMPORT_HB + "import styles from './PaymentsPage.module.css';",
-                   'Payments: HeaderButton import')
-        jsx = swap(jsx,
-                   """                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={14} /> REFRESH
-                </button>""",
-                   """                <HeaderActions>
-                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Pull every payment record again" onClick={loadPayments} />
-                </HeaderActions>""",
-                   'Payments: header button')
-        write(PAYMENTS_JSX, jsx, 'PaymentsPage.jsx')
-
-    # ---- Project Ledger -----------------------------------------------
-    if require(LEDGER_JSX, 'LedgerPage.jsx'):
-        jsx = read(LEDGER_JSX)
-        jsx = swap(jsx, "import styles from './LedgerPage.module.css';",
-                   "import { FiRefreshCw } from 'react-icons/fi';\n" + IMPORT_HB
-                   + "import styles from './LedgerPage.module.css';",
-                   'Ledger: imports')
-        jsx = swap(jsx,
-                   """                    <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
+# ============================================================ 6. SETTINGS
+APPEARANCE_PANEL = """        <div className={styles.hwPanel}>
+          <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiSliders className={styles.drawerIcon} aria-hidden="true" /> APPEARANCE</div></div>
+          <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+            <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
+            {PREF_GROUPS.map(group => (
+              <div key={group.key} className={styles.prefRow}>
+                <div className={styles.prefLabel}>
+                  <strong>{group.label}</strong>
+                  <span>{group.hint}</span>
                 </div>
-            </header>""",
-                   """                    <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
+                <div className={styles.prefOptions} role="group" aria-label={group.label}>
+                  {group.options.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
+                      aria-pressed={prefs[group.key] === opt.value}
+                      onClick={() => setPref(group.key, opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <HeaderActions>
-                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Reload this page of the ledger" onClick={() => fetchLedger()} />
-                </HeaderActions>
-            </header>""",
-                   'Ledger: header button')
-        write(LEDGER_JSX, jsx, 'LedgerPage.jsx')
-
-    # ---- Client Ledger ------------------------------------------------
-    if require(CLEDGER_JSX, 'ClientLedgerPage.jsx'):
-        jsx = read(CLEDGER_JSX)
-        jsx = swap(jsx, "import styles from './ClientLedgerPage.module.css';",
-                   "import { FiRefreshCw } from 'react-icons/fi';\n" + IMPORT_HB
-                   + "import styles from './ClientLedgerPage.module.css';",
-                   'Client Ledger: imports')
-        jsx = swap(jsx,
-                   """                    <p className={styles.subtitle}>Every client — click a row for the full portfolio dossier</p>
-                </div>
-            </header>""",
-                   """                    <p className={styles.subtitle}>Every client — click a row for the full portfolio dossier</p>
-                </div>
-                <HeaderActions>
-                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Reload every client and their totals" onClick={() => load()} />
-                </HeaderActions>
-            </header>""",
-                   'Client Ledger: header button')
-        write(CLEDGER_JSX, jsx, 'ClientLedgerPage.jsx')
-
-    # ---- Recovery Cockpit ---------------------------------------------
-    if require(RECOVERY_JSX, 'RecoveryPortal.jsx'):
-        jsx = read(RECOVERY_JSX)
-        jsx = swap(jsx, "import styles from './RecoveryPortal.module.css';",
-                   IMPORT_HB + "import styles from './RecoveryPortal.module.css';",
-                   'Recovery: HeaderButton import')
-        jsx = swap(jsx,
-                   "import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus } from 'react-icons/fi';",
-                   "import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';",
-                   'Recovery: FiRefreshCw import')
-        jsx = swap(jsx,
-                   """          <p className={styles.subtitle}>Call logs only - numbers only</p>
+              </div>
+            ))}
+            <div className={styles.submitRow}>
+              <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
+            </div>
+          </div></div>
         </div>
-      </header>""",
-                   """          <p className={styles.subtitle}>Call logs only - numbers only</p>
-        </div>
-        <HeaderActions>
-          <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-            tip="Reload the queues, counts and call stats" onClick={() => load()} />
-        </HeaderActions>
-      </header>""",
-                   'Recovery: header button')
-        write(RECOVERY_JSX, jsx, 'RecoveryPortal.jsx')
+"""
 
-    # ---- Audit --------------------------------------------------------
-    if require(AUDIT_JSX, 'AuditPage.jsx'):
-        jsx = read(AUDIT_JSX)
-        jsx = swap(jsx, "import styles from './AuditPage.module.css';",
-                   "import { FiRefreshCw } from 'react-icons/fi';\n" + IMPORT_HB
-                   + "import styles from './AuditPage.module.css';",
-                   'Audit: imports')
-        jsx = swap(jsx,
-                   """                        <span>VISIBLE RECORDS: <strong>{logs.length}</strong></span>
-                    </div>
-                </div>
-            </header>""",
-                   """                        <span>VISIBLE RECORDS: <strong>{logs.length}</strong></span>
-                    </div>
-                </div>
-                <HeaderActions>
-                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Re-run the current audit search" onClick={() => fetchForensics()} />
-                </HeaderActions>
-            </header>""",
-                   'Audit: header button')
-        write(AUDIT_JSX, jsx, 'AuditPage.jsx')
+PREF_GROUPS_CONST = """
+/* Every option here is wired to real CSS in index.css -- see the note at the
+   top of context/PreferencesProvider.jsx for what each one moves. */
+const PREF_GROUPS = [
+  { key: 'theme', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',
+    options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },
+  { key: 'uiScale', label: 'Interface size', hint: 'Scales the whole app, not just text.',
+    options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
+  { key: 'statSize', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',
+    options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },
+  { key: 'tips', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
+    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },
+  { key: 'motion', label: 'Animation', hint: 'Turn off movement and fades across the app.',
+    options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },
+  { key: 'contrast', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
+    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },
+];
+"""
 
-
-# ===================================================== 5. EXPENSES HEADER
-def patch_expenses_header():
-    print('\n[5/6] Expenses -- one NEW PRESET, not two')
-    if not require(EXPENSES_JSX, 'ExpensesPage.jsx'):
-        return
-    jsx = read(EXPENSES_JSX)
-    jsx = swap(jsx, "import styles from './ExpensesPage.module.css';",
-               IMPORT_HB + "import styles from './ExpensesPage.module.css';",
-               'Expenses: HeaderButton import')
-    jsx = swap(jsx,
-               """                <div className={styles.headerActions}>
-                    <Tooltip label="Reload the presets and the last 24 hours of entries">
-                        <button className={styles.ghostBtn} onClick={loadAll} aria-label="Refresh expenses">
-                            <FiRefreshCw size={12} aria-hidden="true" /> REFRESH
-                        </button>
-                    </Tooltip>
-                    <Tooltip label="Add a new tile for a cost you log often">
-                        <button className={styles.primaryBtn} onClick={() => setPresetModal(true)}>
-                            <FiPlus size={12} aria-hidden="true" /> NEW PRESET
-                        </button>
-                    </Tooltip>
-                </div>""",
-               """                {/* NEW PRESET used to live here as well as inside LOG AN
-                    EXPENSE. Two buttons, same modal, three inches apart. It
-                    belongs next to the tiles it creates, so this is just the
-                    refresh now. */}
-                <HeaderActions>
-                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Reload the presets and the last 24 hours of entries" onClick={loadAll} />
-                </HeaderActions>""",
-               'Expenses: drop duplicate NEW PRESET')
-    write(EXPENSES_JSX, jsx, 'ExpensesPage.jsx')
-
-
-# ===================================================== 6. REPORTS + ANALYSIS
-REPORTHUB_CSS_ADDITION = """
-/* ── TABS (fix68) ──────────────────────────────────────────────────
-   Reports and Analysis are two different jobs -- "give me the file"
-   and "tell me what it says" -- so they are two tabs rather than one
-   very long scroll. Standard filter-button spec, same as everywhere. */
-.tabRow {
-    display: flex;
-    gap: clamp(6px, 0.9vw, 10px);
-    margin-bottom: clamp(10px, 1.4vw, 16px);
-    flex-wrap: wrap;
+SETTINGS_CSS = """
+/* ── APPEARANCE (fix69) ───────────────────────────────────────────── */
+.prefRow {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px; padding: clamp(10px, 1.3vw, 14px) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-.tab, .tabActive {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-family: 'Inter', sans-serif;
-    font-size: clamp(9px, 0.95vw, 11px);
-    font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
-    padding: clamp(8px, 1.1vw, 11px) clamp(14px, 2vw, 24px);
-    border-radius: var(--radius-sm);
-    border: 1.5px solid rgba(26, 46, 48, 0.2);
-    background: rgba(255, 255, 255, 0.62);
-    -webkit-backdrop-filter: blur(15px);
-    backdrop-filter: blur(15px);
-    /* CONTRAST RULE: these sit on the cream page, not on a panel, so the
-       text is navy on a frosted white pill -- 13.4:1. */
-    color: #1a2e30;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.prefRow:last-of-type { border-bottom: none; }
+.prefLabel { display: flex; flex-direction: column; gap: 3px; min-width: 190px; flex: 1 1 200px; }
+.prefLabel strong {
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px);
+  font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase;
+  color: rgba(244, 242, 239, 0.9);
 }
-.tab:hover { border-color: var(--orange); color: var(--orange); }
-.tabActive {
-    background: var(--orange);
-    border-color: var(--orange);
-    color: #1a2e30;
-    box-shadow: 0 4px 16px rgba(238, 140, 58, 0.3);
+/* CONTRAST RULE: cream 62% on the navy panel is 5.3:1 -- fine for this size. */
+.prefLabel span {
+  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px);
+  font-weight: 500; line-height: 1.45; color: rgba(244, 242, 239, 0.62);
 }
-.tab:focus-visible, .tabActive:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-
-/* ── STUDIO / ANALYSIS DRAWER BODY ────────────────────────────────
-   .bodyOpen caps at 6000px and clips overflow -- right for a list of
-   report rows, wrong for the studio, which is taller than the cap once
-   a table is in it and has select menus that have to escape the panel. */
-.bodyOpenTall { max-height: none; opacity: 1; overflow: visible; }
-.studioInner { padding: clamp(12px, 1.6vw, 18px); }
+.prefOptions { display: flex; flex-wrap: wrap; gap: 6px; }
+.prefBtn, .prefBtnActive {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 15px);
+  border-radius: 6px; cursor: pointer; transition: all 0.18s ease; white-space: nowrap;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(26, 46, 48, 0.75); color: rgba(255, 255, 255, 0.85);
+}
+.prefBtn:hover { background: rgba(238, 140, 58, 0.14); border-color: #EE8C3A; color: #EE8C3A; }
+.prefBtnActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.prefBtn:focus-visible, .prefBtnActive:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
 """
 
 
-def patch_reports():
-    print('\n[6/6] Reports -> REPORTS + ANALYSIS, with the Report Studio')
-    write(REPORTDATA_PATH, REPORTDATA_JS, 'pages/Reports/reportData.js')
-    write(STUDIO_JSX_PATH, STUDIO_JSX, 'pages/Reports/ReportStudio.jsx')
-    write(STUDIO_CSS_PATH, STUDIO_CSS, 'pages/Reports/ReportStudio.module.css')
-    write(REPORTHUB_JSX_PATH, REPORTHUB_JSX, 'pages/Reports/ReportHub.jsx')
+def patch_settings():
+    print('\n[6/9] Settings -- a real, wired Appearance panel')
+    p = P('pages', 'settings', 'SettingsPage.jsx')
+    if require(p, 'SettingsPage.jsx'):
+        s = read(p)
+        s = swap(s, "import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff } from 'react-icons/fi';",
+                 "import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor } from 'react-icons/fi';",
+                 'Settings: icon imports')
+        s = swap(s, "import { useAuth } from '../../hooks/useAuth';",
+                 "import { useAuth } from '../../hooks/useAuth';\nimport { usePreferences } from '../../context/usePreferences';",
+                 'Settings: usePreferences import')
+        s = swap(s, "const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];",
+                 "const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];\n" + PREF_GROUPS_CONST,
+                 'Settings: preference groups')
+        s = swap(s, "  const { user } = useAuth();\n  const isRoot = !!user?.isRoot;",
+                 "  const { user } = useAuth();\n  const { prefs, setPref, resetPrefs } = usePreferences();\n  const isRoot = !!user?.isRoot;",
+                 'Settings: preferences hook')
+        s = swap(s, "      <div className={styles.workstationGrid}>\n",
+                 "      <div className={styles.workstationGrid}>\n" + APPEARANCE_PANEL,
+                 'Settings: Appearance panel')
+        s = swap(s, "<p className={styles.subtitle}>Security, governance and danger zone</p>",
+                 "<p className={styles.subtitle}>Appearance, security, governance and the danger zone</p>",
+                 'Settings: subtitle')
+        write(p, s, 'SettingsPage.jsx')
 
-    if require(REPORTHUB_CSS_PATH, 'ReportHub.module.css'):
-        css = read(REPORTHUB_CSS_PATH)
-        # fix67 already appended a .bodyOpenTall; drop it so the fix68 block
-        # is the single definition rather than two competing ones.
-        css = css.replace("""
-
-/* ── EXPENSE ANALYSIS DRAWER ──────────────────────────────────────
-   .bodyOpen caps at 6000px and clips overflow, which is right for a
-   list of report rows but wrong here: the analysis is taller than the
-   cap on a busy month, and its category dropdown has to escape the
-   panel to be usable. This variant lifts both constraints. */
-.bodyOpenTall { max-height: none; opacity: 1; overflow: visible; }
-""", '\n')
-        css = append_block(css, '/* ── TABS (fix68) ──', REPORTHUB_CSS_ADDITION, 'ReportHub tabs + studio CSS')
-        write(REPORTHUB_CSS_PATH, css, 'ReportHub.module.css')
+    p = P('pages', 'settings', 'SettingsPage.module.css')
+    if require(p, 'SettingsPage.module.css'):
+        css = read(p)
+        css = append_block(css, '/* ── APPEARANCE (fix69)', SETTINGS_CSS, 'Settings: Appearance CSS')
+        write(p, css, 'SettingsPage.module.css')
 
 
-# ===================================================== main
+# ============================================================ 7. FOLDER
+def patch_folder():
+    print('\n[7/9] Folder page -- owner names open the client dossier')
+    p = P('pages', 'DigitalFolder', 'FolderPage.jsx')
+    if not require(p, 'FolderPage.jsx'):
+        return
+    s = read(p)
+    # Owner cards in the OWNERS tab. Every other client name in the app opens
+    # the dossier; this was the one that did not.
+    s = swap(s,
+             """                            </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>
+                                <h2 className={styles.ownerName}>{p.fullName}</h2>""",
+             """                            </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>
+                                {/* Every other client name in the app opens the
+                                    dossier. This one used to be dead text. */}
+                                {p.id ? (
+                                    <button type="button" className={styles.ownerNameLink}
+                                        onClick={() => navigate('/client/' + p.id)}
+                                        title={`Open ${p.fullName}'s full portfolio`}>
+                                        {p.fullName}
+                                    </button>
+                                ) : <h2 className={styles.ownerName}>{p.fullName}</h2>}""",
+             'Folder: owner name -> dossier')
+    write(p, s, 'FolderPage.jsx')
+
+    p = P('pages', 'DigitalFolder', 'FolderPage.module.css')
+    if require(p, 'FolderPage.module.css'):
+        css = read(p)
+        css = append_block(css, '/* ── OWNER NAME LINK (fix69)', """
+/* ── OWNER NAME LINK (fix69) ──────────────────────────────────────
+   Matches .ownerName exactly, plus the affordances that say it goes
+   somewhere: pointer, underline on hover, a real focus ring. It is a
+   <button> and not an <a> because it navigates through the router. */
+.ownerNameLink {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; padding: 0; margin: 0 0 10px;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(14px, 1.6vw, 19px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: #EE8C3A; cursor: pointer;
+  transition: color 0.15s, text-decoration-color 0.15s;
+  text-decoration: underline; text-decoration-color: rgba(238, 140, 58, 0.35);
+  text-underline-offset: 4px;
+}
+.ownerNameLink:hover { color: #fff; text-decoration-color: #fff; }
+.ownerNameLink:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; border-radius: 3px; }
+""", 'Folder: owner link CSS')
+        write(p, css, 'FolderPage.module.css')
+
+
+# ============================================================ 8. AUDIT
+def patch_audit():
+    print('\n[8/9] Audit -- date range and CSV export')
+    p = P('pages', 'Audit', 'AuditPage.jsx')
+    if not require(p, 'AuditPage.jsx'):
+        return
+    s = read(p)
+    s = swap(s, "    FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser\n",
+             "    FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser, FiDownloadCloud\n",
+             'Audit: export icon')
+    s = swap(s, "import React, { useState, useEffect, useCallback } from 'react';",
+             "import React, { useState, useEffect, useCallback, useMemo } from 'react';",
+             'Audit: useMemo import')
+    s = swap(s, "    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '' });",
+             "    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '', from: '', to: '' });",
+             'Audit: date filter state')
+    s = swap(s, """    const isDirty = filters.search !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');""",
+             """    const isDirty = filters.search !== '' || filters.from !== '' || filters.to !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');""",
+             'Audit: dirty check includes dates')
+    # The search endpoint takes operator and action but not a date window, and
+    # the log is already paged, so the window is applied to the page in hand.
+    s = swap(s, "    useEffect(() => { fetchForensics(); }, [fetchForensics]);",
+             """    useEffect(() => { fetchForensics(); }, [fetchForensics]);
+
+    // WHEN, which is the first question anyone asks of an audit trail and the
+    // one filter the page did not have. The search endpoint takes operator and
+    // action but no date window, so this narrows the page in hand rather than
+    // the query -- honest about its scope in the hint under the controls.
+    const visibleLogs = useMemo(() => {
+        const from = filters.from ? new Date(filters.from + 'T00:00:00').getTime() : null;
+        const to   = filters.to   ? new Date(filters.to   + 'T23:59:59').getTime() : null;
+        if (from === null && to === null) return logs;
+        return logs.filter(l => {
+            const t = new Date(l.timestamp).getTime();
+            if (!Number.isFinite(t)) return false;
+            if (from !== null && t < from) return false;
+            if (to !== null && t > to) return false;
+            return true;
+        });
+    }, [logs, filters.from, filters.to]);
+
+    const exportVisible = () => {
+        const cell = v => {
+            const str = v === null || v === undefined ? '' : String(v);
+            return /[",\\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+        };
+        const rows = visibleLogs.map(l => [
+            new Date(l.timestamp).toISOString(), l.performedBy, l.action, l.details || '',
+        ]);
+        const csv = [['TIMESTAMP', 'OPERATOR', 'ACTION', 'DETAILS'], ...rows]
+            .map(r => r.map(cell).join(',')).join('\\n');
+        // The BOM stops Excel reading a UTF-8 CSV as Latin-1.
+        const blob = new Blob(['\\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.setAttribute('download', 'GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };""",
+             'Audit: date window + CSV export')
+    s = swap(s, """                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:''})} aria-label="Reset all filters">
+                        <FiFilter aria-hidden="true" /> RESET FILTERS
+                    </button>""",
+             """                    <label className={styles.dateField}>
+                        <span>FROM</span>
+                        <input type="date" value={filters.from} aria-label="From date"
+                            onChange={e => setFilters({...filters, from: e.target.value})} />
+                    </label>
+                    <label className={styles.dateField}>
+                        <span>TO</span>
+                        <input type="date" value={filters.to} aria-label="To date"
+                            onChange={e => setFilters({...filters, to: e.target.value})} />
+                    </label>
+                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:'', from:'', to:''})} aria-label="Reset all filters">
+                        <FiFilter aria-hidden="true" /> RESET FILTERS
+                    </button>
+                    <button className={styles.resetBtn} onClick={exportVisible} disabled={visibleLogs.length === 0} aria-label="Export the visible log to CSV">
+                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV
+                    </button>""",
+             'Audit: date inputs + export button')
+    s = swap(s, "                    {!loading && logs.length === 0 && <div className={styles.emptySignal} role=\"status\">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}\n                    {!loading && logs.map(log => (",
+             "                    {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role=\"status\">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}\n                    {!loading && visibleLogs.map(log => (",
+             'Audit: render the filtered list')
+    s = swap(s, "<span>VISIBLE RECORDS: <strong>{logs.length}</strong></span>",
+             "<span>VISIBLE RECORDS: <strong>{visibleLogs.length}</strong></span>",
+             'Audit: HUD counts what is on screen')
+    write(p, s, 'AuditPage.jsx')
+
+    p = P('pages', 'Audit', 'AuditPage.module.css')
+    if require(p, 'AuditPage.module.css'):
+        css = read(p)
+        css = append_block(css, '/* ── DATE FILTER (fix69)', """
+/* ── DATE FILTER (fix69) ──────────────────────────────────────────
+   Matches .resetBtn's height and weight so the filter row stays one
+   straight line rather than a stack of differently-sized controls. */
+.dateField {
+  display: flex; align-items: center; gap: 7px;
+  background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px;
+  padding: 0 10px; height: clamp(36px, 4.4vw, 44px);
+}
+.dateField span {
+  font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  /* CONTRAST RULE: this control is white, so its text is navy. */
+  color: #5b6f70;
+}
+.dateField input {
+  border: none; outline: none; background: transparent; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px); font-weight: 700;
+  min-width: 108px;
+}
+.dateField:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
+""", 'Audit: date field CSS')
+        write(p, css, 'AuditPage.module.css')
+
+
+# ============================================================ main
 def main():
     print('=' * 70)
-    print('GOLDEN SEED -- fix68: stat scale, one header button, tooltip pass,')
-    print('                     Reports rebuilt as Reports + Analysis')
+    print('GOLDEN SEED -- fix69')
     print('=' * 70)
-
     if not os.path.isdir(FE):
-        print('ERROR: erp-frontend/src not found next to this script.')
-        print('       Run fix.py from the repository root.')
+        print('ERROR: erp-frontend/src not found. Run fix.py from the repo root.')
         sys.exit(1)
 
-    patch_global_tokens()
-    patch_stat_cards()
+    patch_global_css()
+    patch_background()
+    patch_bootstrap()
     patch_tooltip()
-    patch_header_buttons()
-    patch_expenses_header()
     patch_reports()
+    patch_settings()
+    patch_folder()
+    patch_audit()
 
+    print('\n[9/9] Done patching.')
     print('\n' + '-' * 70)
     print('FILES WRITTEN: ' + str(len(CHANGED)))
     for c in CHANGED:
@@ -2500,10 +2141,11 @@ def main():
     print('\nCommitting...')
     run(['git', 'add', '-A'])
     code = run(['git', 'commit', '-m',
-                'fix68: app-wide stat card scale, one shared header button '
-                '(icon-only on mobile), quieter unclipped tooltips, duplicate '
-                'NEW PRESET removed, Reports rebuilt as Reports + Analysis '
-                'tabs with a fully customisable Report Studio'])
+                'fix69: Report Studio on a light surface with header refresh and '
+                'dropdown pickers, analysis tab de-duplicated, tooltips time out '
+                'and scale, smaller stat boxes, Settings appearance preferences '
+                '(theme/UI size/motion/tips/contrast), folder owner names open '
+                'the dossier, audit date range + CSV export'])
     if code != 0:
         print('  (nothing to commit, or commit failed -- pushing anyway)')
     run(['git', 'push'])

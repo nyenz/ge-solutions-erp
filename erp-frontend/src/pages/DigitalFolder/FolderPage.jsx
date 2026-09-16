@@ -696,7 +696,15 @@ useEffect(() => {
                                 <SmartInput label="EMAIL" value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} id={`owner_${idx}_email`} />
                                 <SmartInput label="ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
                             </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>
-                                <h2 className={styles.ownerName}>{p.fullName}</h2>
+                                {/* Every other client name in the app opens the
+                                    dossier. This one used to be dead text. */}
+                                {p.id ? (
+                                    <button type="button" className={styles.ownerNameLink}
+                                        onClick={() => navigate('/client/' + p.id)}
+                                        title={`Open ${p.fullName}'s full portfolio`}>
+                                        {p.fullName}
+                                    </button>
+                                ) : <h2 className={styles.ownerName}>{p.fullName}</h2>}
                                 <div className={styles.infoColumns}>
                                     <div className={styles.infoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{p.phoneNumber||'---'}</span></div>
                                     <div className={styles.infoRow}><FiMail aria-hidden="true" /><span>{p.email||'---'}</span></div>

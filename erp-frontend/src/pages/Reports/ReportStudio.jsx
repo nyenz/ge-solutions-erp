@@ -21,7 +21,7 @@
  * this just keeps a manager from being shown a money column that would come
  * back 403.
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     FiDatabase, FiFilter, FiColumns, FiBarChart2, FiDownloadCloud,
     FiPlus, FiX, FiRefreshCw, FiSave, FiTrash2, FiSearch, FiAlertCircle,
@@ -42,7 +42,7 @@ const TABLE_LIMIT = 500;
 
 const newCondition = () => ({ uid: Math.random().toString(36).slice(2), field: '', op: '', value: '', value2: '' });
 
-const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
+const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 }) => {
     const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
     const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
     const dataset = DATASETS[datasetKey] || available[0];
@@ -59,6 +59,16 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
     const [splitBy, setSplitBy] = useState('');
     const [measures, setMeasures] = useState([{ agg: 'count', field: '' }]);
     const [sort, setSort] = useState({ key: '', dir: 'desc' });
+    const [colMenuOpen, setColMenuOpen] = useState(false);
+    const colMenuRef = useRef(null);
+    useEffect(() => {
+        const onDown = (e) => {
+            if (colMenuRef.current && !colMenuRef.current.contains(e.target)) setColMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, []);
+
     const [views, setViews] = useState(() => loadViews());
     const [viewName, setViewName] = useState('');
 
@@ -82,6 +92,14 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
     }, []);
 
     useEffect(() => { load(datasetKey); }, [datasetKey, load]);
+
+    // REFRESH in the page header bumps reloadToken. Skipped on first render --
+    // the effect above has already done the initial pull.
+    const firstRun = useRef(true);
+    useEffect(() => {
+        if (firstRun.current) { firstRun.current = false; return; }
+        load(datasetKey);
+    }, [reloadToken, datasetKey, load]);
 
     // Switching dataset invalidates every field reference, so the builder
     // resets to that dataset's sensible defaults rather than carrying over
@@ -225,23 +243,23 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
                 title="DATA SOURCE"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
+                {/* A select, not a row of chips: four today, more later, and a
+                    wrapping chip row is the first thing to break on a phone. */}
                 <div className={styles.chipRow}>
-                    {available.map(ds => (
-                        <Tooltip key={ds.key} label={ds.blurb}>
-                            <button
-                                className={ds.key === datasetKey ? styles.chipActive : styles.chip}
-                                onClick={() => setDatasetKey(ds.key)}
-                                aria-pressed={ds.key === datasetKey}
-                            >
-                                {ds.label.toUpperCase()}
-                            </button>
-                        </Tooltip>
-                    ))}
-                    <Tooltip label="Pull this dataset again from the server">
-                        <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
-                            <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
-                        </button>
-                    </Tooltip>
+                    <label className={styles.picker}>
+                        <span className={styles.miniLabel}>Dataset</span>
+                        <select
+                            className={styles.select}
+                            value={datasetKey}
+                            onChange={e => setDatasetKey(e.target.value)}
+                            aria-label="Dataset"
+                        >
+                            {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
+                        </select>
+                    </label>
+                    <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
+                        <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
+                    </button>
                 </div>
                 <p className={styles.hint}>{dataset?.blurb}</p>
                 {!canSeeMoney && (
@@ -391,22 +409,38 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report' }) => {
                 <p className={styles.hint}>
                     Only applies to the row-by-row table. Grouped results show your measures instead.
                 </p>
-                <div className={styles.chipRow}>
-                    {fields.map(fl => (
-                        <button
-                            key={fl.key}
-                            className={columns.includes(fl.key) ? styles.chipActive : styles.chip}
-                            onClick={() => toggleColumn(fl.key)}
-                            aria-pressed={columns.includes(fl.key)}
-                        >
-                            {fl.label}
-                        </button>
-                    ))}
-                </div>
-                <div className={styles.chipRow}>
-                    <button className={styles.chip} onClick={() => setColumns(fields.map(fl => fl.key))}>SELECT ALL</button>
-                    <button className={styles.chip} onClick={() => setColumns([])}>CLEAR</button>
-                    <button className={styles.chip} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
+                {/* Forty checkboxes laid out as chips filled most of a phone
+                    screen before you reached anything else. Same include /
+                    exclude control, folded into a dropdown. */}
+                <div className={styles.dropdown} ref={colMenuRef}>
+                    <button
+                        type="button"
+                        className={styles.dropdownBtn}
+                        onClick={() => setColMenuOpen(o => !o)}
+                        aria-expanded={colMenuOpen}
+                    >
+                        <span>{columns.length === 0 ? 'No columns picked' : `${columns.length} of ${fields.length} columns`}</span>
+                        <FiChevronDown className={colMenuOpen ? styles.dropdownIconOpen : ''} aria-hidden="true" />
+                    </button>
+                    {colMenuOpen && (
+                        <div className={styles.dropdownList}>
+                            <div className={styles.dropdownActions}>
+                                <button className={styles.miniBtn} onClick={() => setColumns(fields.map(fl => fl.key))}>ALL</button>
+                                <button className={styles.miniBtn} onClick={() => setColumns([])}>NONE</button>
+                                <button className={styles.miniBtn} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
+                            </div>
+                            {fields.map(fl => (
+                                <label key={fl.key} className={styles.dropdownOption}>
+                                    <input
+                                        type="checkbox"
+                                        checked={columns.includes(fl.key)}
+                                        onChange={() => toggleColumn(fl.key)}
+                                    />
+                                    {fl.label}
+                                </label>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </CollapsibleSection>
 

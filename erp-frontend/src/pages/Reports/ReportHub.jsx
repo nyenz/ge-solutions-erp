@@ -27,12 +27,12 @@ import {
     FiBarChart2, FiMap, FiActivity, FiLayers,
     FiShield, FiTrendingUp, FiTrendingDown, FiLock, FiDownloadCloud,
     FiChevronDown, FiCreditCard, FiDatabase, FiFileText,
-    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo, FiSliders
+    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo, FiSliders, FiRefreshCw
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import reportService from '../../services/reportService';
 import BackToTopButton from '../../components/common/BackToTopButton';
-import ExpenseAnalysis from './ExpenseAnalysis';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import ReportStudio from './ReportStudio';
 import styles from './ReportHub.module.css';
 
@@ -133,6 +133,10 @@ const ReportHub = () => {
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
     const [tab, setTab] = useState('REPORTS');
+    // The studio caches its dataset in local state, so REFRESH in the page
+    // header has to reach it. Bumping this token is the signal; the studio
+    // re-pulls whichever dataset it is currently on.
+    const [reloadToken, setReloadToken] = useState(0);
     const [drawers, setDrawers] = useState({
         finance: true, ops: true, system: false, p2: true, studio: true,
         aStudio: true, expenses: false,
@@ -245,6 +249,11 @@ const ReportHub = () => {
                     <h1 className={styles.title}>Reports &amp; Analysis</h1>
                     <p className={styles.subtitle}>Canned exports, or build exactly the question you want to ask</p>
                 </div>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH"
+                        tip="Pull the current dataset again from the server"
+                        onClick={() => setReloadToken(t => t + 1)} />
+                </HeaderActions>
             </header>
 
             <div className={styles.tabRow} role="tablist" aria-label="Reports and analysis">
@@ -269,7 +278,7 @@ const ReportHub = () => {
             {tab === 'REPORTS' && (
                 <div className={styles.pillarStack}>
                     <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="BUILD YOUR OWN REPORT" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" />
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} />
                     </DrawerPanel>
 
                     {hasFinancialAccess ? (
@@ -314,23 +323,16 @@ const ReportHub = () => {
 
             {tab === 'ANALYSIS' && (
                 <div className={styles.pillarStack}>
-                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')} label="ASK ANYTHING" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" />
+                    {/* Just the studio. The expense-analysis drawer that used to
+                        sit here was the EXPENSES dataset with the grouping
+                        pre-chosen for you -- the same numbers, reachable in two
+                        clicks from the builder, so it was a second way to say
+                        the same thing. The canned CSV pillars stay on the
+                        REPORTS tab where they belong. */}
+                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')}
+                        label="ASK ANYTHING" icon={FiSliders} tall>
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" reloadToken={reloadToken} />
                     </DrawerPanel>
-
-                    {hasFinancialAccess ? (
-                        <DrawerPanel open={drawers.expenses} onToggle={() => toggleDrawer('expenses')} label="EXPENSE ANALYSIS" icon={FiTrendingDown} tall>
-                            <ExpenseAnalysis active={drawers.expenses} />
-                        </DrawerPanel>
-                    ) : (
-                        <div className={styles.restrictionHandbrake} role="alert">
-                            <FiLock className={styles.lockIcon} aria-hidden="true" />
-                            <div className={styles.warningText}>
-                                <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                                <p>EXPENSE ANALYSIS IS DIRECTOR-ONLY. CONTACT ROOT OWNER FOR ACCESS.</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

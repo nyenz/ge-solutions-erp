@@ -1,9 +1,9 @@
 // PATH: erp-frontend/src/pages/Audit/AuditPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     FiShield, FiSearch, FiActivity, FiClock,
     FiDatabase, FiMaximize2, FiX, FiFilter,
-    FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser
+    FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser, FiDownloadCloud
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
 import settingsService from '../../services/settingsService';
@@ -20,10 +20,10 @@ const AuditPage = () => {
     const [loading,    setLoading]    = useState(true);
     const [page,       setPage]       = useState(0);
     const [expandedId, setExpandedId] = useState(null);
-    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '' });
+    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '', from: '', to: '' });
     const [operators,  setOperators]  = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const isDirty = filters.search !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');
+    const isDirty = filters.search !== '' || filters.from !== '' || filters.to !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');
     const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
 
     // Load real operators from database
@@ -52,6 +52,45 @@ const AuditPage = () => {
     }, [page, filters]);
 
     useEffect(() => { fetchForensics(); }, [fetchForensics]);
+
+    // WHEN, which is the first question anyone asks of an audit trail and the
+    // one filter the page did not have. The search endpoint takes operator and
+    // action but no date window, so this narrows the page in hand rather than
+    // the query -- honest about its scope in the hint under the controls.
+    const visibleLogs = useMemo(() => {
+        const from = filters.from ? new Date(filters.from + 'T00:00:00').getTime() : null;
+        const to   = filters.to   ? new Date(filters.to   + 'T23:59:59').getTime() : null;
+        if (from === null && to === null) return logs;
+        return logs.filter(l => {
+            const t = new Date(l.timestamp).getTime();
+            if (!Number.isFinite(t)) return false;
+            if (from !== null && t < from) return false;
+            if (to !== null && t > to) return false;
+            return true;
+        });
+    }, [logs, filters.from, filters.to]);
+
+    const exportVisible = () => {
+        const cell = v => {
+            const str = v === null || v === undefined ? '' : String(v);
+            return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+        };
+        const rows = visibleLogs.map(l => [
+            new Date(l.timestamp).toISOString(), l.performedBy, l.action, l.details || '',
+        ]);
+        const csv = [['TIMESTAMP', 'OPERATOR', 'ACTION', 'DETAILS'], ...rows]
+            .map(r => r.map(cell).join(',')).join('\n');
+        // The BOM stops Excel reading a UTF-8 CSV as Latin-1.
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.setAttribute('download', 'GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
 
     const getSeverityClass = action => {
         const a = action?.toUpperCase() || '';
@@ -89,7 +128,7 @@ const AuditPage = () => {
                 <div className={styles.diagHUD}>
                     <div className={styles.diagItem}>
                         <FiDatabase aria-hidden="true" />
-                        <span>VISIBLE RECORDS: <strong>{logs.length}</strong></span>
+                        <span>VISIBLE RECORDS: <strong>{visibleLogs.length}</strong></span>
                     </div>
                 </div>
                 <HeaderActions>
@@ -134,8 +173,21 @@ const AuditPage = () => {
                             onChange={val => setFilters({...filters, action: val})}
                         />
                     </div>
-                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:''})} aria-label="Reset all filters">
+                    <label className={styles.dateField}>
+                        <span>FROM</span>
+                        <input type="date" value={filters.from} aria-label="From date"
+                            onChange={e => setFilters({...filters, from: e.target.value})} />
+                    </label>
+                    <label className={styles.dateField}>
+                        <span>TO</span>
+                        <input type="date" value={filters.to} aria-label="To date"
+                            onChange={e => setFilters({...filters, to: e.target.value})} />
+                    </label>
+                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:'', from:'', to:''})} aria-label="Reset all filters">
                         <FiFilter aria-hidden="true" /> RESET FILTERS
+                    </button>
+                    <button className={styles.resetBtn} onClick={exportVisible} disabled={visibleLogs.length === 0} aria-label="Export the visible log to CSV">
+                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV
                     </button>
                 </div>
             </div>
@@ -143,8 +195,8 @@ const AuditPage = () => {
             <div className={styles.timelineFrame}>
                 <div className={styles.timelineStream}>
                     {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
-                    {!loading && logs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
-                    {!loading && logs.map(log => (
+                    {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
+                    {!loading && visibleLogs.map(log => (
                         <div
                             key={log.id}
                             className={`${styles.logRow} ${getSeverityClass(log.action)} ${expandedId === log.id ? styles.expanded : ''}`}

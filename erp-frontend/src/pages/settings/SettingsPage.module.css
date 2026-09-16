@@ -474,3 +474,34 @@
 .wipeBtn:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(239,68,68,0.35); }
 .wipeBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .wipeBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ── APPEARANCE (fix69) ───────────────────────────────────────────── */
+.prefRow {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px; padding: clamp(10px, 1.3vw, 14px) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.prefRow:last-of-type { border-bottom: none; }
+.prefLabel { display: flex; flex-direction: column; gap: 3px; min-width: 190px; flex: 1 1 200px; }
+.prefLabel strong {
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px);
+  font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase;
+  color: rgba(244, 242, 239, 0.9);
+}
+/* CONTRAST RULE: cream 62% on the navy panel is 5.3:1 -- fine for this size. */
+.prefLabel span {
+  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px);
+  font-weight: 500; line-height: 1.45; color: rgba(244, 242, 239, 0.62);
+}
+.prefOptions { display: flex; flex-wrap: wrap; gap: 6px; }
+.prefBtn, .prefBtnActive {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: clamp(6px, 0.9vw, 9px) clamp(10px, 1.4vw, 15px);
+  border-radius: 6px; cursor: pointer; transition: all 0.18s ease; white-space: nowrap;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(26, 46, 48, 0.75); color: rgba(255, 255, 255, 0.85);
+}
+.prefBtn:hover { background: rgba(238, 140, 58, 0.14); border-color: #EE8C3A; color: #EE8C3A; }
+.prefBtnActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.prefBtn:focus-visible, .prefBtnActive:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }

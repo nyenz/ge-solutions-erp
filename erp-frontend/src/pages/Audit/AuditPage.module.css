@@ -484,3 +484,23 @@
     box-shadow: 0 0 18px rgba(238, 140, 58, 0.5) !important;
 }
 
+/* ── DATE FILTER (fix69) ──────────────────────────────────────────
+   Matches .resetBtn's height and weight so the filter row stays one
+   straight line rather than a stack of differently-sized controls. */
+.dateField {
+  display: flex; align-items: center; gap: 7px;
+  background: #fff; border: 1.5px solid #c8d6d7; border-radius: 6px;
+  padding: 0 10px; height: clamp(36px, 4.4vw, 44px);
+}
+.dateField span {
+  font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  /* CONTRAST RULE: this control is white, so its text is navy. */
+  color: #5b6f70;
+}
+.dateField input {
+  border: none; outline: none; background: transparent; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px); font-weight: 700;
+  min-width: 108px;
+}
+.dateField:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }

@@ -34,13 +34,34 @@ import styles from './Tooltip.module.css';
  *    is what made it feel crowded. It is now a plain translucent slab --
  *    no border, no pointer, blurred backdrop, Inter at normal weight.
  */
-export const Tooltip = ({ label, children, placement = 'top', delay = 120, disabled = false, block = false }) => {
+// fix69: dwell and auto-dismiss come from the user's Appearance setting,
+// which the provider writes onto <html data-tips>. "off" means the explainer
+// never opens at all -- some people find it noise, and that is a fair call.
+const TIP_MODES = {
+    normal: { delay: 120, life: 6000 },
+    slow:   { delay: 500, life: 9000 },
+    off:    { delay: 0,   life: 0, disabled: true },
+};
+const tipMode = () => {
+    if (typeof document === 'undefined') return TIP_MODES.normal;
+    return TIP_MODES[document.documentElement.getAttribute('data-tips')] || TIP_MODES.normal;
+};
+
+// Portal target is #root, not <body>: the UI-size setting applies zoom to
+// #root, and a bubble outside it would render at 100% next to a page at 125%
+// and sit in the wrong place.
+const portalTarget = () => (typeof document === 'undefined'
+    ? null
+    : (document.getElementById('root') || document.body));
+
+export const Tooltip = ({ label, children, placement = 'top', delay, disabled = false, block = false }) => {
     const [open, setOpen] = useState(false);
     const [box, setBox] = useState({ top: 0, left: 0, place: placement });
     const [shift, setShift] = useState(0);
     const anchorRef = useRef(null);
     const bubbleRef = useRef(null);
     const timerRef = useRef(null);
+    const lifeRef = useRef(null);
     const tipId = useId();
 
     const measure = useCallback(() => {
@@ -72,18 +93,29 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
     }, [open, box, shift]);
 
     const show = useCallback(() => {
-        if (disabled || !label) return;
+        const mode = tipMode();
+        if (disabled || !label || mode.disabled) return;
         clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => { measure(); setOpen(true); }, delay);
+        clearTimeout(lifeRef.current);
+        timerRef.current = setTimeout(() => {
+            measure();
+            setOpen(true);
+            // Auto-dismiss: an explainer you have already read should not keep
+            // sitting on top of the row underneath it.
+            if (mode.life > 0) {
+                lifeRef.current = setTimeout(() => { setOpen(false); setShift(0); }, mode.life);
+            }
+        }, delay === undefined ? mode.delay : delay);
     }, [disabled, label, delay, measure]);
 
     const hide = useCallback(() => {
         clearTimeout(timerRef.current);
+        clearTimeout(lifeRef.current);
         setOpen(false);
         setShift(0);
     }, []);
 
-    useEffect(() => () => clearTimeout(timerRef.current), []);
+    useEffect(() => () => { clearTimeout(timerRef.current); clearTimeout(lifeRef.current); }, []);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -110,12 +142,12 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
                 onMouseLeave={hide}
                 onFocus={show}
                 onBlur={hide}
-                onTouchStart={() => { measure(); setOpen(o => !o); }}
+                onTouchStart={() => { if (tipMode().disabled) return; measure(); setOpen(o => !o); }}
                 aria-describedby={open ? tipId : undefined}
             >
                 {children}
             </span>
-            {open && typeof document !== 'undefined' && createPortal(
+            {open && portalTarget() && createPortal(
                 <div
                     ref={bubbleRef}
                     id={tipId}
@@ -129,7 +161,7 @@ export const Tooltip = ({ label, children, placement = 'top', delay = 120, disab
                 >
                     {label}
                 </div>,
-                document.body,
+                portalTarget(),
             )}
         </>
     );

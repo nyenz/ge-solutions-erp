@@ -3075,3 +3075,21 @@
 .scrollTopBtn { position: fixed; right: clamp(14px,2vw,24px); bottom: clamp(14px,2vw,24px); z-index: 400; width: clamp(38px,4.5vw,46px); height: clamp(38px,4.5vw,46px); border-radius: 50%; background: #EE8C3A; color: #1a2e30; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 3px 14px rgba(238,140,58,0.45); transition: background .2s, transform .2s; }
 .scrollTopBtn:hover { background: #f0a050; transform: translateY(-2px); }
 .scrollTopBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+
+/* ── OWNER NAME LINK (fix69) ──────────────────────────────────────
+   Matches .ownerName exactly, plus the affordances that say it goes
+   somewhere: pointer, underline on hover, a real focus ring. It is a
+   <button> and not an <a> because it navigates through the router. */
+.ownerNameLink {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; padding: 0; margin: 0 0 10px;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(14px, 1.6vw, 19px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: #EE8C3A; cursor: pointer;
+  transition: color 0.15s, text-decoration-color 0.15s;
+  text-decoration: underline; text-decoration-color: rgba(238, 140, 58, 0.35);
+  text-underline-offset: 4px;
+}
+.ownerNameLink:hover { color: #fff; text-decoration-color: #fff; }
+.ownerNameLink:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 3px; border-radius: 3px; }

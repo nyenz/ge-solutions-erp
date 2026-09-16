@@ -1,14 +1,30 @@
 /* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css */
-/* Same reference chain as the rest of the app -- Payment Records -> Client
-   Dossier -> here. Panels are the shared CollapsibleSection, so only the
-   controls inside them are styled locally, and every control follows the
-   app's standard filter-button / input spec. */
+/* fix69 -- THE STUDIO IS A LIGHT SURFACE NOW.
+   Every other page in the app is a handful of dark panels floating on the
+   cream background, and that works because you look at each panel for a
+   second. The studio is the opposite: it is a workbench you sit at, with
+   five stacked panels of controls, and rendered dark it was a wall of navy
+   from header to footer with no light anywhere.
+   So: the workbench is paper (cream/white), the controls are white with navy
+   ink, and the only dark objects left are the ones that should draw the eye
+   -- the stat cards and the results table header. */
 .studio {
-  --orange: #EE8C3A; --orange-border: rgba(238,140,58,0.28);
-  --navy: #213E40; --navy-deep: #1a2e30; --red: #ef4444; --amber: #f59e0b;
+  --orange: #EE8C3A;
+  --orange-soft: rgba(238,140,58,0.12);
+  --navy: #213E40;
+  --navy-deep: #1a2e30;
+  --ink: #1a2e30;
+  --ink-soft: #5b6f70;
+  --paper: #faf8f5;
+  --paper-edge: #dfd9d1;
+  --red: #b91c1c;
   --radius: 10px; --radius-sm: 6px;
+
   display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
-  font-family: 'Inter', sans-serif; color: #fff;
+  font-family: 'Inter', sans-serif;
+  /* CONTRAST RULE: this block is light, so text here is INK, never cream.
+     Anything that needs to stay cream declares it locally. */
+  color: var(--ink);
 }
 
 .badge {
@@ -19,96 +35,142 @@
 
 .hint {
   display: flex; align-items: center; gap: 7px; margin: 0;
-  font-size: clamp(10px,1vw,11px); font-weight: 500; line-height: 1.5;
-  color: rgba(244,242,239,0.62);
+  font-size: clamp(10px,1vw,11.5px); font-weight: 500; line-height: 1.5;
+  color: var(--ink-soft);
 }
 .hint svg { color: var(--orange); flex-shrink: 0; }
 
 .error {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4);
-  color: #fca5a5; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px;
+  background: #fee2e2; border: 1px solid #fca5a5;
+  color: var(--red); font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 8px 12px;
 }
 
 .sectionLabel {
-  font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 2px;
-  color: var(--orange); text-transform: uppercase;
+  font-size: clamp(9px,0.9vw,11px); font-weight: 900; letter-spacing: 2px;
+  color: var(--navy-deep); text-transform: uppercase;
 }
 
-/* ── chips: the app's standard filter-button spec ─────────────────── */
-.chipRow { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(6px,0.9vw,10px); }
-.chip, .chipActive, .exportBtn {
-  font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+/* ── controls ─────────────────────────────────────────────────────── */
+.chipRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+
+.chip, .chipActive, .exportBtn, .miniBtn {
+  font-family: 'Inter', sans-serif; font-weight: 900;
   text-transform: uppercase; letter-spacing: 1.5px;
-  padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
-  cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.18s ease;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
-.chip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
-.chipActive, .exportBtn { background: var(--orange); color: #1a2e30; border-color: var(--orange); }
+.chip, .chipActive, .exportBtn {
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border: 1.5px solid var(--paper-edge);
+  background: #fff; color: var(--ink);
+}
+.chip:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
+.chipActive, .exportBtn { background: var(--orange); color: var(--navy-deep); border-color: var(--orange); }
 .chipActive:hover:not(:disabled), .exportBtn:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; }
 .chip:disabled, .chipActive:disabled, .exportBtn:disabled { opacity: 0.45; cursor: not-allowed; }
-.chip:focus-visible, .chipActive:focus-visible, .exportBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.chip:focus-visible, .chipActive:focus-visible, .exportBtn:focus-visible, .miniBtn:focus-visible {
+  outline: 2px solid var(--orange); outline-offset: 2px;
+}
+.miniBtn {
+  font-size: 9px; padding: 5px 10px; border: 1.5px solid var(--paper-edge);
+  background: #fff; color: var(--ink);
+}
+.miniBtn:hover { border-color: var(--orange); color: var(--orange); }
 
 .miniLabel {
   font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1.5px;
-  text-transform: uppercase; color: rgba(255,255,255,0.5);
+  text-transform: uppercase; color: var(--ink-soft);
 }
 
 /* ── saved views ──────────────────────────────────────────────────── */
 .viewBar { display: flex; flex-wrap: wrap; gap: clamp(6px,0.9vw,10px); align-items: center; }
 .viewChip {
-  display: inline-flex; align-items: center; gap: 2px;
-  border: 1.5px solid rgba(238,140,58,0.35); border-radius: var(--radius-sm); overflow: hidden;
+  display: inline-flex; align-items: center;
+  border: 1.5px solid rgba(238,140,58,0.5); border-radius: var(--radius-sm); overflow: hidden; background: #fff;
 }
 .viewChipName {
-  background: rgba(238,140,58,0.1); border: none; color: var(--orange);
+  background: transparent; border: none; color: #b45309;
   font-family: 'Inter', sans-serif; font-size: clamp(9px,0.95vw,11px); font-weight: 800;
   padding: 7px 12px; cursor: pointer; transition: background 0.15s;
 }
-.viewChipName:hover { background: rgba(238,140,58,0.22); }
+.viewChipName:hover { background: var(--orange-soft); }
 .viewChipDrop {
-  background: rgba(239,68,68,0.12); border: none; color: #fca5a5;
+  background: #fee2e2; border: none; color: var(--red);
   padding: 8px 9px; cursor: pointer; display: flex; align-items: center; transition: background 0.15s;
 }
-.viewChipDrop:hover { background: rgba(239,68,68,0.3); color: #fff; }
+.viewChipDrop:hover { background: #ef4444; color: #fff; }
 
 /* ── inputs ───────────────────────────────────────────────────────── */
 .input, .select {
-  height: 34px; padding: 0 10px; border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.22); color: #fff;
-  font-family: 'Inter', sans-serif; font-size: clamp(10px,1.05vw,12px); font-weight: 600;
-  min-width: 130px; flex: 1 1 140px; max-width: 100%;
+  height: 36px; padding: 0 10px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--paper-edge); background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 600;
+  min-width: 130px; flex: 1 1 150px; max-width: 100%;
 }
-.input:focus, .select:focus { outline: none; border-color: var(--orange); }
+.input::placeholder { color: rgba(26,46,48,0.38); font-weight: 500; }
+.input:focus, .select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
 .select { cursor: pointer; }
-/* The native menu paints on the OS surface, so options need their own
-   colours or they render dark-on-dark on some platforms. */
-.select option { background: #16292b; color: #fff; }
+.select option { background: #fff; color: var(--ink); }
 
-.condRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.condRow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  padding: 8px; 
+}
 .dropBtn {
-  height: 34px; width: 34px; flex: 0 0 34px; border-radius: var(--radius-sm);
-  background: rgba(239,68,68,0.14); border: 1.5px solid transparent; color: #fca5a5;
+  height: 36px; width: 36px; flex: 0 0 36px; border-radius: var(--radius-sm);
+  background: #fee2e2; border: 1.5px solid transparent; color: var(--red);
   display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s;
 }
-.dropBtn:hover { background: rgba(239,68,68,0.3); border-color: var(--red); color: #fff; }
+.dropBtn:hover { background: #ef4444; color: #fff; }
 
 .pickerGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: clamp(8px,1.2vw,14px); }
-.picker { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.picker { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 200px; }
+
+/* ── the columns dropdown ─────────────────────────────────────────── */
+.dropdown { position: relative; max-width: 420px; }
+.dropdownBtn {
+  width: 100%; height: 38px; padding: 0 12px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--paper-edge); background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 800;
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-transform: uppercase; transition: border-color 0.2s;
+}
+.dropdownBtn:hover { border-color: var(--orange); }
+.dropdownBtn svg { color: var(--orange); flex-shrink: 0; transition: transform 0.2s; }
+.dropdownIconOpen { transform: rotate(180deg); }
+.dropdownList {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 400;
+  background: #fff; border: 2px solid var(--orange); border-radius: var(--radius-sm);
+  box-shadow: 0 20px 44px rgba(26,46,48,0.28);
+  max-height: 320px; overflow-y: auto;
+}
+.dropdownActions {
+  display: flex; gap: 6px; padding: 8px 10px; position: sticky; top: 0;
+  background: #fff; border-bottom: 1px solid var(--paper-edge);
+}
+.dropdownOption {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; color: var(--ink); font-size: 12px; font-weight: 700;
+  border-bottom: 1px solid #f1eeea; cursor: pointer; text-transform: uppercase;
+}
+.dropdownOption:last-child { border-bottom: none; }
+.dropdownOption:hover { background: var(--orange-soft); }
+.dropdownOption input { accent-color: var(--orange); width: 15px; height: 15px; cursor: pointer; }
 
 /* ── free-text search ─────────────────────────────────────────────── */
 .searchRow {
   position: relative; display: flex; align-items: center;
-  background: #fff; border: 1.5px solid #c8d6d7; border-radius: var(--radius-sm);
-  height: clamp(36px,4.5vw,42px); transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  height: clamp(38px,4.5vw,44px); transition: border-color 0.2s, box-shadow 0.2s;
 }
-.searchRow:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.searchRow:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
 .searchIcon { position: absolute; left: 12px; color: var(--orange); font-size: 15px; pointer-events: none; }
 .searchInput {
   width: 100%; border: none; outline: none; background: transparent;
-  /* CONTRAST RULE: this input is white, so its text is navy, not cream. */
-  color: #1a2e30; padding: 0 36px 0 38px; height: 100%;
+  color: var(--ink); padding: 0 36px 0 38px; height: 100%;
   font-family: 'Inter', sans-serif; font-weight: 700; font-size: clamp(11px,1.1vw,13px);
 }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.35); }
@@ -116,13 +178,14 @@
   position: absolute; right: 8px; background: transparent; border: none; cursor: pointer;
   color: rgba(26,46,48,0.45); display: flex; align-items: center; padding: 5px; border-radius: 4px;
 }
-.searchClear:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
+.searchClear:hover { color: var(--ink); background: rgba(26,46,48,0.08); }
 
-/* ── stat strip -- the Payment Records card, same as everywhere ───── */
+/* ── stat strip -- kept dark on purpose: on a light workbench these are
+      the one thing that should pull the eye. ───────────────────────── */
 .statStrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: clamp(10px,1.4vw,16px); }
 .statCard {
   background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-  border: 1.5px solid var(--orange-border); border-radius: var(--radius);
+  border: 1.5px solid rgba(238,140,58,0.28); border-radius: var(--radius);
   padding: clamp(12px,1.5vw,18px); display: flex; flex-direction: column; gap: 4px;
 }
 .statCard label { font-size: var(--stat-label); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
@@ -130,52 +193,59 @@
 .statNote { font-size: var(--stat-note); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 
 /* ── chart ────────────────────────────────────────────────────────── */
-.chart { display: flex; flex-direction: column; gap: 8px; }
+.chart {
+  display: flex; flex-direction: column; gap: 9px;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius);
+  padding: clamp(12px,1.5vw,18px);
+}
 .chartRow { display: grid; grid-template-columns: minmax(90px, 190px) 1fr minmax(80px, 140px); align-items: center; gap: 10px; }
 .chartLabel {
-  font-size: clamp(9px,0.95vw,11px); font-weight: 800; color: rgba(255,255,255,0.82);
+  font-size: clamp(9px,0.95vw,11px); font-weight: 800; color: var(--ink);
   text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.chartTrack { height: 13px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+.chartTrack { height: 13px; background: #efe9e2; border-radius: 999px; overflow: hidden; }
 .chartFill { height: 100%; background: linear-gradient(90deg, var(--orange) 0%, #d97a28 100%); border-radius: 999px; transition: width 0.4s ease; }
-.chartValue { font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); font-weight: 700; text-align: right; color: rgba(255,255,255,0.75); }
+.chartValue { font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); font-weight: 700; text-align: right; color: var(--navy-deep); }
 
-/* ── table -- the Dossier ledger table ────────────────────────────── */
-.tableScroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
-.tableScroll::-webkit-scrollbar { height: 5px; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 3px; }
+/* ── results table -- light body, navy header bar ─────────────────── */
+.tableScroll {
+  overflow-x: auto; background: #fff;
+  border: 1.5px solid var(--paper-edge); border-radius: var(--radius);
+  scrollbar-width: thin; scrollbar-color: var(--orange) transparent;
+}
+.tableScroll::-webkit-scrollbar { height: 6px; }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
 .table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
 .table thead th {
-  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  background: var(--navy); color: var(--orange);
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; text-align: left;
   padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
-  border-bottom: 3px solid var(--orange); white-space: nowrap;
-  position: sticky; top: 0; z-index: 2;
+  white-space: nowrap; position: sticky; top: 0; z-index: 2;
 }
-.table thead th:first-child { border-radius: 6px 0 0 0; }
-.table thead th:last-child { border-radius: 0 6px 0 0; }
 .sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
-.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), #162a2c; color: #fff; }
+.sortable:hover { background: #2c5052; color: #fff; }
 .table tbody td {
   padding: clamp(8px,1.1vw,12px) clamp(10px,1.5vw,16px);
-  border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle;
-  color: #fff; font-size: clamp(10px,1.05vw,12px);
+  border-bottom: 1px solid #f1eeea; vertical-align: middle;
+  color: var(--ink); font-size: clamp(11px,1.05vw,12.5px); font-weight: 500;
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .table tbody tr { border-left: 3px solid transparent; transition: background 0.15s; }
-.table tbody tr:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.table tbody tr:nth-child(even) { background: #fbf9f7; }
+.table tbody tr:hover { background: var(--orange-soft); border-left-color: var(--orange); }
 .mono { font-family: 'Space Mono', monospace; font-weight: 700; }
 .strong { font-weight: 800; }
 
-/* CONTRAST RULE: inside a dark panel already, so cream text, no second card. */
 .emptyCell {
   text-align: center; padding: clamp(20px,4vw,40px) 16px;
-  font-family: 'Space Mono', monospace; color: rgba(244,242,239,0.68);
+  font-family: 'Space Mono', monospace; color: var(--ink-soft);
   font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
 }
 
 @media (max-width: 640px) {
   .chartRow { grid-template-columns: minmax(70px, 110px) 1fr minmax(64px, 96px); }
-  .input, .select { flex: 1 1 100%; min-width: 0; }
+  .input, .select, .picker { flex: 1 1 100%; min-width: 0; }
+  .dropdown { max-width: none; }
   .table { min-width: 560px; }
 }

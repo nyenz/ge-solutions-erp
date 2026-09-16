@@ -304,3 +304,12 @@
    a table is in it and has select menus that have to escape the panel. */
 .bodyOpenTall { max-height: none; opacity: 1; overflow: visible; }
 .studioInner { padding: clamp(12px, 1.6vw, 18px); }
+
+/* ── STUDIO SURFACE (fix69) ───────────────────────────────────────
+   The drawer that holds the Report Studio is a light workbench, not a
+   navy panel -- see the note at the top of ReportStudio.module.css. */
+.studioInner {
+    background: #faf8f5;
+    border-top: 1px solid #e6e0d8;
+    padding: clamp(12px, 1.8vw, 22px);
+}
