@@ -7,6 +7,8 @@ import {
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import { FiRefreshCw } from 'react-icons/fi';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 
@@ -253,6 +255,10 @@ const LedgerPage = () => {
                     <h1 className={styles.title}>Project Ledger</h1>
                     <p className={styles.subtitle}>Every project — folder to release, live payment health</p>
                 </div>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+                        tip="Reload this page of the ledger" onClick={() => fetchLedger()} />
+                </HeaderActions>
             </header>
 
             {/* Control cluster (fix42): only .searchBlock is sticky (see

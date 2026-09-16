@@ -21,6 +21,7 @@ import { Tooltip, IconButton, Term } from '../../components/common/Tooltip';
 import { GLOSSARY } from '../../components/common/glossary';
 import { useToasts, useConfirm } from '../../components/common/useFeedback';
 import { ToastStack, ConfirmDialog } from '../../components/common/Feedback';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ExpensesPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
@@ -232,18 +233,14 @@ const ExpensesPage = () => {
                     <h1 className={styles.title}>Expenses</h1>
                     <p className={styles.subtitle}>Log any cash that leaves the office</p>
                 </div>
-                <div className={styles.headerActions}>
-                    <Tooltip label="Reload the presets and the last 24 hours of entries">
-                        <button className={styles.ghostBtn} onClick={loadAll} aria-label="Refresh expenses">
-                            <FiRefreshCw size={12} aria-hidden="true" /> REFRESH
-                        </button>
-                    </Tooltip>
-                    <Tooltip label="Add a new tile for a cost you log often">
-                        <button className={styles.primaryBtn} onClick={() => setPresetModal(true)}>
-                            <FiPlus size={12} aria-hidden="true" /> NEW PRESET
-                        </button>
-                    </Tooltip>
-                </div>
+                {/* NEW PRESET used to live here as well as inside LOG AN
+                    EXPENSE. Two buttons, same modal, three inches apart. It
+                    belongs next to the tiles it creates, so this is just the
+                    refresh now. */}
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+                        tip="Reload the presets and the last 24 hours of entries" onClick={loadAll} />
+                </HeaderActions>
             </header>
 
             {/* Shared autocomplete source for every "type it yourself" category field */}

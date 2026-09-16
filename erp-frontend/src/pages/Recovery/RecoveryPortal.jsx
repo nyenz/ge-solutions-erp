@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus } from 'react-icons/fi';
+import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { useAuth } from '../../hooks/useAuth';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './RecoveryPortal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -88,6 +89,10 @@ export default function RecoveryPortal() {
           <h1 className={styles.title}>Recovery Cockpit</h1>
           <p className={styles.subtitle}>Call logs only - numbers only</p>
         </div>
+        <HeaderActions>
+          <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+            tip="Reload the queues, counts and call stats" onClick={() => load()} />
+        </HeaderActions>
       </header>
       <div className={styles.countsHUD}>
         <div className={styles.countCard}><label>TODAY'S CALLS</label><strong>{stats ? stats.callsToday : '-'}</strong></div>

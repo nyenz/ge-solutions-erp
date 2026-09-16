@@ -1,16 +1,39 @@
 // PATH: erp-frontend/src/pages/Reports/ReportHub.jsx
+/**
+ * GOLDEN SEED -- REPORTS & ANALYSIS
+ *
+ * Two tabs, because these are two different jobs:
+ *
+ *   REPORTS  -- "give me the file". The twelve canned CSV pillars the server
+ *               generates, plus a builder for the twelve-thousand it doesn't:
+ *               pick a dataset, filter it to one client or one district or one
+ *               week, choose your columns, export.
+ *
+ *   ANALYSIS -- "tell me what it says". The same builder pointed at grouping
+ *               and measures instead of rows -- totals per district, average
+ *               days-since-payment per staff member, spend per category split
+ *               by who spent it -- plus the expense analysis.
+ *
+ * It is the same engine behind both tabs (ReportStudio); the tab only decides
+ * which panel opens first. Splitting them into two tools would have meant two
+ * filter builders to keep in step.
+ *
+ * ROLES: financial datasets, money columns and the financial CSV pillars are
+ * all gated on hasFinancialAccess, which mirrors what the server enforces.
+ */
 import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiBarChart2, FiMap, FiActivity, FiLayers,
     FiShield, FiTrendingUp, FiTrendingDown, FiLock, FiDownloadCloud,
     FiChevronDown, FiCreditCard, FiDatabase, FiFileText,
-    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo
+    FiX, FiCheckSquare, FiAlertCircle, FiAlertTriangle, FiInfo, FiSliders
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import reportService from '../../services/reportService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import ExpenseAnalysis from './ExpenseAnalysis';
+import ReportStudio from './ReportStudio';
 import styles from './ReportHub.module.css';
 
 // ─── TOAST ────────────────────────────────────────────────────────
@@ -83,6 +106,25 @@ const REPORT_SCHEMA = {
     monthly:   { columns: 'YEAR_MONTH, TOTAL_COLLECTED_UGX, TRANSACTION_COUNT', desc: 'Shows total cash collected each calendar month for the past 24 months. Use this to spot seasonal patterns and track collection performance over time.' },
 };
 
+// ─── DRAWER PANEL ─────────────────────────────────────────────────
+// Module scope on purpose. Defined inside ReportHub it would be a NEW
+// component type on every render, so React would unmount and remount its
+// children -- and the Report Studio would lose every filter you had set
+// the moment you collapsed any other drawer on the page.
+const DrawerPanel = ({ label, icon, open, onToggle, tall = false, children }) => (
+    <div className={styles.hwPanel}>
+        <DrawerTitle label={label} isOpen={open} onClick={onToggle} icon={icon} />
+        <div
+            className={`${styles.panelBody} ${open ? (tall ? styles.bodyOpenTall : styles.bodyOpen) : styles.bodyClosed}`}
+            aria-hidden={!open}
+        >
+            {tall
+                ? (open && <div className={styles.studioInner}>{children}</div>)
+                : <div className={styles.panelInner}>{children}</div>}
+        </div>
+    </div>
+);
+
 // ─── MAIN ─────────────────────────────────────────────────────────
 const ReportHub = () => {
     const { user } = useAuth();
@@ -90,9 +132,13 @@ const ReportHub = () => {
 
     const hasFinancialAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
-    const [drawers,    setDrawers]    = useState({ finance: true, ops: true, system: false, p2: true, expenses: false });
+    const [tab, setTab] = useState('REPORTS');
+    const [drawers, setDrawers] = useState({
+        finance: true, ops: true, system: false, p2: true, studio: true,
+        aStudio: true, expenses: false,
+    });
     const [expandedId, setExpandedId] = useState(null);
-    const [status,     setStatus]     = useState({
+    const [status, setStatus] = useState({
         debt: false, map: false, perf: false,
         stage: false, legal: false, risk: false,
         audit: false, revenue: false,
@@ -128,10 +174,10 @@ const ReportHub = () => {
         { id: 'audit', title: 'Master System Audit',   icon: FiShield,   action: reportService.downloadAuditTrail  },
     ];
     const PRIORITY2_GROUP = [
-        { id: 'receivable',   title: 'Receivables Breakdown',            icon: FiLock,        action: reportService.downloadReceivableBreakdown         },
-        { id: 'completed', title: 'Completed Titles',             icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
-        { id: 'reconcile', title: 'Operator Cash Reconciliation', icon: FiShield,      action: reportService.downloadOperatorReconciliation   },
-        { id: 'monthly',   title: 'Monthly Collection',           icon: FiBarChart2,   action: reportService.downloadMonthlyCollection        },
+        { id: 'receivable', title: 'Receivables Breakdown',       icon: FiLock,        action: reportService.downloadReceivableBreakdown     },
+        { id: 'completed',  title: 'Completed Titles',            icon: FiCheckSquare, action: reportService.downloadCompletedTitles         },
+        { id: 'reconcile',  title: 'Operator Cash Reconciliation', icon: FiShield,      action: reportService.downloadOperatorReconciliation  },
+        { id: 'monthly',    title: 'Monthly Collection',          icon: FiBarChart2,   action: reportService.downloadMonthlyCollection       },
     ];
 
     const ReportRow = ({ item }) => {
@@ -196,86 +242,97 @@ const ReportHub = () => {
 
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
-                    <h1 className={styles.title}>Reports</h1>
-                    <p className={styles.subtitle}>Download CSV reports for analysis</p>
+                    <h1 className={styles.title}>Reports &amp; Analysis</h1>
+                    <p className={styles.subtitle}>Canned exports, or build exactly the question you want to ask</p>
                 </div>
             </header>
 
-            <div className={styles.pillarStack}>
-
-                {hasFinancialAccess ? (
-                    <div className={styles.hwPanel}>
-                        <DrawerTitle label="FINANCIAL REPORTS" isOpen={drawers.finance} onClick={() => toggleDrawer('finance')} icon={FiBarChart2} />
-                        <div className={`${styles.panelBody} ${drawers.finance ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.finance}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.reportList}>
-                                    {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className={styles.restrictionHandbrake} role="alert">
-                        <FiLock className={styles.lockIcon} aria-hidden="true" />
-                        <div className={styles.warningText}>
-                            <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                            <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
-                        </div>
-                    </div>
-                )}
-
-                <div className={styles.hwPanel}>
-                    <DrawerTitle label="OPERATIONAL REPORTS" isOpen={drawers.ops} onClick={() => toggleDrawer('ops')} icon={FiMap} />
-                    <div className={`${styles.panelBody} ${drawers.ops ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.ops}>
-                        <div className={styles.panelInner}>
-                            <div className={styles.reportList}>
-                                {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {hasFinancialAccess && (
-                    <div className={styles.hwPanel}>
-                        <DrawerTitle label="SYSTEM REPORTS" isOpen={drawers.system} onClick={() => toggleDrawer('system')} icon={FiShield} />
-                        <div className={`${styles.panelBody} ${drawers.system ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.system}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.reportList}>
-                                    {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {hasFinancialAccess && (
-                    <div className={styles.hwPanel}>
-                        <DrawerTitle label="MORE REPORTS" isOpen={drawers.p2} onClick={() => toggleDrawer('p2')} icon={FiBarChart2} />
-                        <div className={`${styles.panelBody} ${drawers.p2 ? styles.bodyOpen : styles.bodyClosed}`} aria-hidden={!drawers.p2}>
-                            <div className={styles.panelInner}>
-                                <div className={styles.reportList}>
-                                    {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {hasFinancialAccess && (
-                    <div className={styles.hwPanel}>
-                        <DrawerTitle label="EXPENSE ANALYSIS" isOpen={drawers.expenses} onClick={() => toggleDrawer('expenses')} icon={FiTrendingDown} />
-                        <div
-                            className={`${styles.panelBody} ${drawers.expenses ? styles.bodyOpenTall : styles.bodyClosed}`}
-                            aria-hidden={!drawers.expenses}
-                        >
-                            {/* Mounted only while open: the analysis fires three
-                                service calls on mount and on every period change,
-                                and a collapsed drawer should cost nothing. */}
-                            {drawers.expenses && <ExpenseAnalysis active={drawers.expenses} />}
-                        </div>
-                    </div>
-                )}
-
+            <div className={styles.tabRow} role="tablist" aria-label="Reports and analysis">
+                <button
+                    role="tab"
+                    aria-selected={tab === 'REPORTS'}
+                    className={tab === 'REPORTS' ? styles.tabActive : styles.tab}
+                    onClick={() => setTab('REPORTS')}
+                >
+                    <FiFileText aria-hidden="true" /> REPORTS
+                </button>
+                <button
+                    role="tab"
+                    aria-selected={tab === 'ANALYSIS'}
+                    className={tab === 'ANALYSIS' ? styles.tabActive : styles.tab}
+                    onClick={() => setTab('ANALYSIS')}
+                >
+                    <FiBarChart2 aria-hidden="true" /> ANALYSIS
+                </button>
             </div>
+
+            {tab === 'REPORTS' && (
+                <div className={styles.pillarStack}>
+                    <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="BUILD YOUR OWN REPORT" icon={FiSliders} tall>
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" />
+                    </DrawerPanel>
+
+                    {hasFinancialAccess ? (
+                        <DrawerPanel open={drawers.finance} onToggle={() => toggleDrawer('finance')} label="FINANCIAL REPORTS" icon={FiBarChart2}>
+                            <div className={styles.reportList}>
+                                {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                            </div>
+                        </DrawerPanel>
+                    ) : (
+                        <div className={styles.restrictionHandbrake} role="alert">
+                            <FiLock className={styles.lockIcon} aria-hidden="true" />
+                            <div className={styles.warningText}>
+                                <strong>SECURITY HANDBRAKE ACTIVE</strong>
+                                <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <DrawerPanel open={drawers.ops} onToggle={() => toggleDrawer('ops')} label="OPERATIONAL REPORTS" icon={FiMap}>
+                        <div className={styles.reportList}>
+                            {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                        </div>
+                    </DrawerPanel>
+
+                    {hasFinancialAccess && (
+                        <DrawerPanel open={drawers.system} onToggle={() => toggleDrawer('system')} label="SYSTEM REPORTS" icon={FiShield}>
+                            <div className={styles.reportList}>
+                                {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                            </div>
+                        </DrawerPanel>
+                    )}
+
+                    {hasFinancialAccess && (
+                        <DrawerPanel open={drawers.p2} onToggle={() => toggleDrawer('p2')} label="MORE REPORTS" icon={FiBarChart2}>
+                            <div className={styles.reportList}>
+                                {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                            </div>
+                        </DrawerPanel>
+                    )}
+                </div>
+            )}
+
+            {tab === 'ANALYSIS' && (
+                <div className={styles.pillarStack}>
+                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')} label="ASK ANYTHING" icon={FiSliders} tall>
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" />
+                    </DrawerPanel>
+
+                    {hasFinancialAccess ? (
+                        <DrawerPanel open={drawers.expenses} onToggle={() => toggleDrawer('expenses')} label="EXPENSE ANALYSIS" icon={FiTrendingDown} tall>
+                            <ExpenseAnalysis active={drawers.expenses} />
+                        </DrawerPanel>
+                    ) : (
+                        <div className={styles.restrictionHandbrake} role="alert">
+                            <FiLock className={styles.lockIcon} aria-hidden="true" />
+                            <div className={styles.warningText}>
+                                <strong>SECURITY HANDBRAKE ACTIVE</strong>
+                                <p>EXPENSE ANALYSIS IS DIRECTOR-ONLY. CONTACT ROOT OWNER FOR ACCESS.</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

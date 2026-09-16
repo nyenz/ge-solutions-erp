@@ -10,6 +10,8 @@ import settingsService from '../../services/settingsService';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
+import { FiRefreshCw } from 'react-icons/fi';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './AuditPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 
@@ -90,6 +92,10 @@ const AuditPage = () => {
                         <span>VISIBLE RECORDS: <strong>{logs.length}</strong></span>
                     </div>
                 </div>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+                        tip="Re-run the current audit search" onClick={() => fetchForensics()} />
+                </HeaderActions>
             </header>
 
             <div className={styles.controlHub}>

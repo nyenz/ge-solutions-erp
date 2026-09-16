@@ -16,44 +16,38 @@
     width: 100%;
 }
 
-/* The bubble is portalled to <body>, so it sits outside every page's
-   .container token scope -- every colour here has to be literal. */
+/* fix68: was a bordered navy card -- orange 1.5px edge, 30px shadow, a
+   pointer triangle and DM Sans 600. Three panel-like objects on screen at
+   once (page panel, table, tooltip) is what made hovering feel congested.
+   This is deliberately not a panel: no border, no pointer, a translucent
+   slab that blurs whatever is under it and reads as a passing note.
+
+   The bubble is portalled to <body>, so it sits outside every page's
+   .container token scope -- every colour here has to be literal.
+   CONTRAST RULE: cream 90% over #121f22 at 86% opacity = 11.1:1. */
 .bubble {
     position: fixed;
     z-index: 100000;
-    transform: translateX(-50%);
-    max-width: min(280px, 80vw);
-    padding: 9px 12px;
-    border-radius: 8px;
-    background: #16292b;
-    border: 1.5px solid rgba(238, 140, 58, 0.45);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
-    /* CONTRAST RULE: cream on #16292b = 11.6:1. */
-    color: rgba(244, 242, 239, 0.92);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 1.45;
-    letter-spacing: 0.2px;
+    max-width: min(300px, 78vw);
+    padding: 7px 11px;
+    border-radius: 7px;
+    background: rgba(18, 32, 34, 0.86);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    color: rgba(244, 242, 239, 0.9);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.1px;
     text-align: left;
     text-transform: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
     pointer-events: none; /* never let the bubble eat the next hover */
     animation: tipIn 0.12s ease-out;
 }
-
-.bubbleTop    { transform: translate(-50%, -100%); }
-.bubbleBottom { transform: translate(-50%, 0); }
-
-/* Little pointer. */
-.bubble::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    margin-left: -5px;
-    border: 5px solid transparent;
-}
-.bubbleTop::after    { bottom: -10px; border-top-color: #16292b; }
-.bubbleBottom::after { top: -10px; border-bottom-color: rgba(238, 140, 58, 0.45); }
 
 @keyframes tipIn {
     from { opacity: 0; }

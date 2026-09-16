@@ -101,9 +101,9 @@
     flex-direction: column;
     gap: 4px;
 }
-.sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--fs-label); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
-.sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--fs-value); color: #fff; font-weight: 700; word-break: break-all; }
-.sumCard span { font-size: var(--fs-label); color: rgba(255,255,255,0.35); }
+.sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--stat-label); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value); color: #fff; font-weight: 700; word-break: break-all; }
+.sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }
 
 /* CONTROLS */
 .controls {
@@ -359,7 +359,7 @@
         grid-template-columns: 1fr 1fr;
         padding: 0 clamp(8px, 2vw, 12px);
     }
-    .sumCard strong { font-size: 13px; }
+    .sumCard strong { font-size: clamp(15px, 4.5vw, 19px); }
     .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: 600px; }
     .ledgerTable th { font-size: 7px; letter-spacing: 1px; }

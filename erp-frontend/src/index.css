@@ -34,6 +34,20 @@
     --text-on-dark-soft: rgba(244, 242, 239, 0.72); /* 6.98:1 on #1c3335 */
     --text-on-light:     #1a2e30;                   /* 13.9:1 on cream    */
     --spinner-track:     rgba(238, 140, 58, 0.15);
+
+    /* ===== STAT CARD SCALE (fix68) =================================
+       The summary boxes at the top of Payments, the Dossier, Expenses,
+       Recovery and the Report Studio all read off these three. They were
+       each carrying their own clamp() and had drifted small -- 7-9px
+       labels over 11-13px figures, which is not a size you can scan a
+       number off across a desk. One knob now, app-wide.
+       The Dashboard deliberately does NOT use these; it has its own
+       layout and was left alone.
+       ============================================================== */
+    --stat-label:    clamp(9px,  0.95vw, 11px);
+    --stat-value:    clamp(17px, 2.0vw,  23px);
+    --stat-value-sm: clamp(13px, 1.5vw,  17px);
+    --stat-note:     clamp(8px,  0.85vw, 10px);
 }
 
 * {

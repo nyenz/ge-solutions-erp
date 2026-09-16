@@ -8,6 +8,8 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import recoveryService from '../../services/recoveryService';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import { FiRefreshCw } from 'react-icons/fi';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 
@@ -223,6 +225,10 @@ const ClientLedgerPage = () => {
                     <h1 className={styles.title}>Client Ledger</h1>
                     <p className={styles.subtitle}>Every client — click a row for the full portfolio dossier</p>
                 </div>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+                        tip="Reload every client and their totals" onClick={() => load()} />
+                </HeaderActions>
             </header>
 
             {/* Control cluster: only .searchBlock is sticky -- filters and

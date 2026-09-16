@@ -9,6 +9,7 @@ import {
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 
@@ -105,9 +106,10 @@ const PaymentsPage = () => {
                     <h1 className={styles.title}>Payment Records</h1>
                     <p className={styles.subtitle}>All payment records — title payments and storage fee collections</p>
                 </div>
-                <button className={styles.refreshBtn} onClick={loadPayments} aria-label="Refresh">
-                    <FiRefreshCw size={14} /> REFRESH
-                </button>
+                <HeaderActions>
+                    <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
+                        tip="Pull every payment record again" onClick={loadPayments} />
+                </HeaderActions>
             </header>
 
             <div className={styles.summaryRow}>

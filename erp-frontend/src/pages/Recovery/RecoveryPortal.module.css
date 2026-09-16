@@ -565,3 +565,10 @@
   color: rgba(255, 255, 255, 0.85);
   text-shadow: none;
 }
+
+/* fix68: stat scale -- the count cards read off the app-wide tokens now.
+   This sits at the end on purpose: two earlier blocks in this file also
+   set .countCard font sizes, and same-specificity rules are decided by
+   source order. */
+.countCard label  { font-size: var(--stat-label); }
+.countCard strong { font-size: var(--stat-value); }

@@ -76,15 +76,15 @@
   display: flex; flex-direction: column; gap: 4px;
 }
 .statCard label {
-  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);
+  font-family: 'Inter', sans-serif; font-size: var(--stat-label);
   font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);
 }
 .statCard strong {
-  font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px);
+  font-family: 'Space Mono', monospace; font-size: var(--stat-value);
   font-weight: 700; color: #fff; word-break: break-all;
 }
 .statNote {
-  font-family: 'Inter', sans-serif; font-size: clamp(7px,0.75vw,9px);
+  font-family: 'Inter', sans-serif; font-size: var(--stat-note);
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
 }
 .statAmber { border-color: rgba(238,140,58,0.55); }
