@@ -2,22 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
- GOLDEN SEED ERP -- fix72 PATCHER
+ GOLDEN SEED ERP -- fix73 PATCHER
 ================================================================================
  WHAT:
-   1. Reports tab: the four canned-report drawers (FINANCIAL / OPERATIONAL /
-      SYSTEM / MORE) are removed from UNDER the studio and integrated at the
-      TOP of the general reports system as one ONE-CLICK REPORTS section
-      inside the studio. The RESULTS table becomes the last block on the tab.
-   2. Every studio <select> loses its browser-default look: no native arrow,
-      fixed 38px height (the old flex-basis made the dataset select ~150px
-      tall), styled options, a real disabled state.
-   3. DATA SOURCE panel rethought: icon frame + full-width dataset pick +
-      RELOAD on one row.
-   4. GROUP / COMPARE panel rethought: group-by and split-by on one row with
-      a VS tag between them, plus an unlock hint.
-   5. Contrast faults: hint / mini labels / section labels were ink-on-dark;
-      now light-on-dark where they actually sit.
+   1. Every native <select> in the Report Studio is replaced by one custom
+      themed dropdown component (Pick): white button, ink text, orange
+      chevron, popover list with orange border / orange-soft hover / orange
+      left-bar on the chosen row. No browser-default styling left anywhere.
+   2. Space efficiency, Intake-style: controls live in compact tool rows with
+      the label above the control and fixed clamp() widths.
+      - DATA SOURCE: dataset pick + RELOAD + save-view input + SAVE VIEW on
+        one row (the save-view bar is folded into it and deleted).
+      - NARROW IT DOWN: search box + MATCH ALL/ANY + ADD CONDITION +
+        CLEAR ALL on one row; conditions stack tightly under it.
+      - GROUP / COMPARE: group pick + VS + compare pick on one row.
+   3. Phone rule kept: under 640px every control goes full-width per row.
  HOW: run  py fix.py  from the project root. Prints OK / MISSING per patch.
       Commits and pushes at the end.
 ================================================================================
@@ -29,8 +28,6 @@ import subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-HUB    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.jsx')
-HUBCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.module.css')
 STU    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.jsx')
 STUCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.module.css')
 ADD    = 'LLM_CONTEXT_ADDENDUM.md'
@@ -61,7 +58,10 @@ def patch(rel, old, new, tag):
 
 def rpatch(rel, pat, new, tag):
     s = get(rel)
-    out, n = re.subn(pat, new, s, count=1)
+    if callable(new):
+        out, n = re.subn(pat, new, s, count=1)
+    else:
+        out, n = re.subn(pat, new, s, count=1)
     if n:
         BUF[rel] = out
         print('OK      ' + tag)
@@ -76,339 +76,384 @@ def append(rel, block, tag):
 
 
 # ----------------------------------------------------------------------------
-# 1. ReportHub.jsx -- library node (the four groups, folded into one block)
+# 1. The custom dropdown component (module scope, shared by every control)
 # ----------------------------------------------------------------------------
-LIB_JSX = '''    const library = (
-        <div className={styles.libWrap}>
-            {hasFinancialAccess ? (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>Financial</span>
-                    <div className={styles.libList}>
-                        {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                    </div>
-                </div>
-            ) : (
-                <div className={styles.restrictionHandbrake} role="alert">
-                    <FiLock className={styles.lockIcon} aria-hidden="true" />
-                    <div className={styles.warningText}>
-                        <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                        <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
-                    </div>
-                </div>
-            )}
-            <div className={styles.libGroup}>
-                <span className={styles.libLabel}>Operational</span>
-                <div className={styles.libList}>
-                    {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                </div>
-            </div>
-            {hasFinancialAccess && (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>System</span>
-                    <div className={styles.libList}>
-                        {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                    </div>
-                </div>
-            )}
-            {hasFinancialAccess && (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>More</span>
-                    <div className={styles.libList}>
-                        {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                    </div>
+PICK_JSX = '''const Pick = ({ value, options, onChange, placeholder = 'Choose...', disabled = false, ariaLabel = '', icon = null, className = '' }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        const onDown = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, []);
+    const current = options.find(o => o.value === value);
+    return (
+        <div className={`${styles.pick} ${className}`} ref={ref}>
+            <button
+                type="button"
+                className={styles.pickBtn}
+                disabled={disabled}
+                aria-expanded={open}
+                aria-label={ariaLabel}
+                onClick={() => setOpen(o => !o)}
+            >
+                {icon && <span className={styles.pickLead} aria-hidden="true">{icon}</span>}
+                <span className={current ? styles.pickValue : styles.pickPlaceholder}>
+                    {current ? current.label : placeholder}
+                </span>
+                <FiChevronDown className={open ? styles.pickIconOpen : ''} aria-hidden="true" />
+            </button>
+            {open && (
+                <div className={styles.pickList} role="listbox" aria-label={ariaLabel}>
+                    {options.map(o => (
+                        <button
+                            type="button"
+                            key={String(o.value)}
+                            role="option"
+                            aria-selected={o.value === value}
+                            className={o.value === value ? styles.pickOptionActive : styles.pickOption}
+                            onClick={() => { onChange(o.value); setOpen(false); }}
+                        >
+                            {o.label}
+                        </button>
+                    ))}
                 </div>
             )}
         </div>
     );
+};
 
-    return (
-        <div className={styles.container}>'''
-
-# ----------------------------------------------------------------------------
-# 2. ReportStudio.jsx -- the ONE-CLICK REPORTS section, first in the studio
-# ----------------------------------------------------------------------------
-QUICK_JSX = '''            {quickExports && (
-                <CollapsibleSection
-                    icon={<FiDownloadCloud aria-hidden="true" />}
-                    title="ONE-CLICK REPORTS"
-                    defaultOpen
-                    right={<span className={styles.badge}>CANNED CSV</span>}
-                >
-                    <p className={styles.hint}>
-                        The standing company reports, ready to pull. Open one to read exactly what is inside before you download it.
-                    </p>
-                    {quickExports}
-                </CollapsibleSection>
-            )}
-'''
+const ReportStudio = ({'''
 
 # ----------------------------------------------------------------------------
-# 3. ReportStudio.jsx -- DATA SOURCE bar, rethought
+# 2. DATA SOURCE: one compact tool row (dataset pick + reload + save view)
 # ----------------------------------------------------------------------------
-DATASET_JSX = '''                <div className={styles.datasetBar}>
-                    <span className={styles.datasetIcon} aria-hidden="true">
-                        <FiDatabase aria-hidden="true" />
-                    </span>
-                    <label className={styles.datasetPick}>
+DATASET2_JSX = '''                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Dataset</span>
-                        <span className={styles.selectWrap}>
-                            <select
-                                className={styles.select}
-                                value={datasetKey}
-                                onChange={e => setDatasetKey(e.target.value)}
-                                aria-label="Dataset"
-                            >
-                                {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
-                            </select>
-                        </span>
+                        <Pick
+                            className={styles.wDataset}
+                            icon={<FiDatabase size={13} aria-hidden="true" />}
+                            ariaLabel="Dataset"
+                            value={datasetKey}
+                            options={available.map(ds => ({ value: ds.key, label: ds.label }))}
+                            onChange={v => setDatasetKey(v)}
+                        />
                     </label>
                     <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
                         <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
                     </button>
+                    <label className={styles.toolField}>
+                        <span className={styles.miniLabel}>Save view</span>
+                        <input
+                            className={styles.viewInput}
+                            placeholder="Name this setup..."
+                            value={viewName}
+                            onChange={e => setViewName(e.target.value)}
+                        />
+                    </label>
+                    <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
+                        <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
+                            <FiSave size={11} aria-hidden="true" /> SAVE VIEW
+                        </button>
+                    </Tooltip>
                 </div>'''
 
 # ----------------------------------------------------------------------------
-# 4. ReportStudio.jsx -- GROUP / COMPARE row, rethought
+# 3. NARROW IT DOWN: search + match + add/clear on one compact tool row
 # ----------------------------------------------------------------------------
-COMPARE_JSX = '''                <div className={styles.compareRow}>
-                    <label className={styles.comparePick}>
-                        <span className={styles.miniLabel}>Group by</span>
-                        <span className={styles.selectWrap}>
-                            <select className={styles.select} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
-                                <option value="">(no grouping -- show every row)</option>
-                                {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select>
-                        </span>
-                    </label>
-                    <span className={styles.compareVs} aria-hidden="true">VS</span>
-                    <label className={styles.comparePick}>
-                        <span className={styles.miniLabel}>Compare / split by</span>
-                        <span className={styles.selectWrap}>
-                            <select className={styles.select} value={splitBy} onChange={e => setSplitBy(e.target.value)} disabled={!groupBy}>
-                                <option value="">(none)</option>
-                                {fields.filter(fl => fl.key !== groupBy).map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select>
-                        </span>
-                    </label>
-                </div>
-                {!groupBy && (
-                    <p className={styles.hint}>
-                        <FiAlertCircle size={12} aria-hidden="true" />
-                        Compare unlocks once a group field is picked -- the chart and the split columns light up with it.
-                    </p>
-                )}'''
+NARROW_TOP_JSX = '''                <div className={styles.toolRow}>
+                    <div className={styles.searchBox}>
+                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                        <input
+                            className={styles.searchInput}
+                            placeholder="Free text across every text column -- a name, a plot, a district..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
+                                <FiX size={13} aria-hidden="true" />
+                            </button>
+                        )}
+                    </div>
+                    <span className={styles.miniLabel}>Match</span>
+                    <Tooltip label="Every condition must be true">
+                        <button className={mergeMode === 'AND' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('AND')}>ALL</button>
+                    </Tooltip>
+                    <Tooltip label="Any one condition is enough">
+                        <button className={mergeMode === 'OR' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('OR')}>ANY</button>
+                    </Tooltip>
+                    <button className={styles.chip} onClick={addCondition}>
+                        <FiPlus size={11} aria-hidden="true" /> ADD CONDITION
+                    </button>
+                    {conditions.length > 0 && (
+                        <button className={styles.chip} onClick={() => setConditions([])}>
+                            <FiX size={11} aria-hidden="true" /> CLEAR ALL
+                        </button>
+                    )}
+                </div>'''
 
 # ----------------------------------------------------------------------------
-# 5. ReportStudio.module.css -- appended override layer (cascade does the work)
+# 4. Condition row picks
+# ----------------------------------------------------------------------------
+COND_FIELD_JSX = '''                            <Pick
+                                className={styles.wMid}
+                                ariaLabel="Field"
+                                value={c.field}
+                                placeholder="Choose a field..."
+                                options={fields.map(fl => ({ value: fl.key, label: fl.label }))}
+                                onChange={v => patchCondition(c.uid, { field: v, op: '', value: '', value2: '' })}
+                            />'''
+
+COND_OP_JSX = '''                            <Pick
+                                className={styles.wSm}
+                                ariaLabel="Condition"
+                                value={c.op}
+                                placeholder="is..."
+                                disabled={!fld}
+                                options={ops.map(o => ({ value: o.key, label: o.label }))}
+                                onChange={v => patchCondition(c.uid, { op: v })}
+                            />'''
+
+# ----------------------------------------------------------------------------
+# 5. GROUP / COMPARE: one row, two picks, VS tag between
+# ----------------------------------------------------------------------------
+GROUP2_JSX = '''                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
+                        <span className={styles.miniLabel}>Group by</span>
+                        <Pick
+                            className={styles.wDataset}
+                            ariaLabel="Group by"
+                            value={groupBy}
+                            options={[{ value: '', label: '(no grouping -- show every row)' }, ...fields.map(fl => ({ value: fl.key, label: fl.label }))]}
+                            onChange={v => setGroupBy(v)}
+                        />
+                    </label>
+                    <span className={styles.compareVs} aria-hidden="true">VS</span>
+                    <label className={styles.toolField}>
+                        <span className={styles.miniLabel}>Compare / split by</span>
+                        <Pick
+                            className={styles.wDataset}
+                            ariaLabel="Compare or split by"
+                            value={splitBy}
+                            disabled={!groupBy}
+                            options={[{ value: '', label: '(none)' }, ...fields.filter(fl => fl.key !== groupBy).map(fl => ({ value: fl.key, label: fl.key === groupBy ? fl.label : fl.label }))]}
+                            onChange={v => setSplitBy(v)}
+                        />
+                    </label>
+                </div>'''
+
+# ----------------------------------------------------------------------------
+# 6. Measure row picks
+# ----------------------------------------------------------------------------
+MEASURE_AGG_JSX = '''                            <Pick
+                                className={styles.wSm}
+                                ariaLabel="Measure"
+                                value={m.agg}
+                                options={AGGREGATIONS.map(a => ({ value: a.key, label: a.label }))}
+                                onChange={v => patchMeasure(i, { agg: v })}
+                            />'''
+
+MEASURE_FIELD_JSX = '''                            <Pick
+                                className={styles.wMid}
+                                ariaLabel="Measure field"
+                                value={m.field}
+                                placeholder="Choose a field..."
+                                options={fields
+                                    .filter(fl => (m.agg === 'distinct' ? true : ['number', 'money', 'percent'].includes(fl.type)))
+                                    .map(fl => ({ value: fl.key, label: fl.label }))}
+                                onChange={v => patchMeasure(i, { field: v })}
+                            />'''
+
+# ----------------------------------------------------------------------------
+# 7. CSS layer: the Pick dropdown + compact tool rows
 # ----------------------------------------------------------------------------
 STU_CSS = '''
 
-/* fix72 -- DROPDOWN + PANEL RESTYLE LAYER (appended on purpose: every rule
-   below overrides the same selector declared earlier in this file). */
+/* fix73 -- CUSTOM DROPDOWNS + COMPACT TOOL ROWS (Intake is the reference:
+   label above the control, controls sized to their content, nothing
+   browser-default anywhere). Appended on purpose: cascade wins. */
 
-/* 1. The native select, fully owned. No browser arrow, no browser height.
-   The old flex: 1 1 150px became a 150px-TALL box inside column-flex
-   wrappers, because in a column the basis is the height. Wrappers below
-   are row-flex, so the basis is a width again. */
-.select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  height: 38px;
-  padding-right: 32px;
-  flex: 0 1 auto;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23EE8C3A' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 11px center;
-}
-.select:disabled {
-  cursor: not-allowed;
-  background-color: #f1eeea;
-  border-style: dashed;
-  color: rgba(26,46,48,0.45);
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23b9b2a9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-}
-.select option { background: #fff; color: var(--ink); font-weight: 600; }
-.select option:disabled { color: rgba(26,46,48,0.35); }
-.selectWrap { position: relative; display: flex; flex: 1 1 150px; min-width: 130px; max-width: 100%; }
-.selectWrap .select { flex: 1 1 auto; width: 100%; min-width: 0; }
-
-/* 2. DATA SOURCE rethink: icon frame + full-width pick + RELOAD, one row. */
-.datasetBar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
-.datasetIcon {
-  width: 38px; height: 38px; flex: 0 0 38px;
+/* -- the Pick dropdown -------------------------------------------------- */
+.pick { position: relative; min-width: 0; }
+.pickBtn {
+  width: 100%; height: 36px; padding: 0 30px 0 10px;
   border-radius: var(--radius-sm);
-  background: rgba(238,140,58,0.16); border: 1.5px solid rgba(238,140,58,0.34);
-  color: var(--orange); font-size: 16px;
-  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--paper-edge); background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.datasetPick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 240px; min-width: 0; }
-
-/* 3. COMPARE rethink: group and split on one row with a VS tag between,
-   so the eye reads them as one decision instead of two orphan boxes. */
-.compareRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
-.comparePick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; min-width: 0; }
-.compareVs {
-  font-family: 'Space Mono', monospace; font-weight: 900;
-  font-size: clamp(9px,0.95vw,11px); letter-spacing: 1px;
-  color: var(--orange); background: rgba(238,140,58,0.16);
-  border: 1.5px solid rgba(238,140,58,0.34); border-radius: var(--radius-sm);
-  padding: clamp(7px,0.95vw,10px) clamp(8px,1vw,12px);
+.pickBtn:hover:not(:disabled) { border-color: var(--orange); }
+.pickBtn:focus-visible { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
+.pickBtn:disabled { cursor: not-allowed; background: #f1eeea; border-style: dashed; color: rgba(26,46,48,0.45); }
+.pickBtn > svg { position: absolute; right: 10px; color: var(--orange); transition: transform 0.2s; }
+.pickBtn:disabled > svg { color: rgba(26,46,48,0.35); }
+.pickIconOpen { transform: rotate(180deg); }
+.pickLead { color: var(--orange); display: flex; flex-shrink: 0; }
+.pickValue { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickPlaceholder { color: rgba(26,46,48,0.42); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickList {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 500;
+  width: max-content; min-width: 100%; max-width: 340px;
+  background: #fff; border: 2px solid var(--orange); border-radius: var(--radius-sm);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+  max-height: 264px; overflow-y: auto; padding: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--orange) transparent;
 }
+.pickList::-webkit-scrollbar { width: 6px; }
+.pickList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
+.pickList::-webkit-scrollbar-track { background: transparent; }
+.pickOption, .pickOptionActive {
+  display: flex; width: 100%; text-align: left;
+  border: none; border-left: 3px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+  padding: 7px 10px; cursor: pointer; transition: background 0.15s;
+}
+.pickOption:hover { background: var(--orange-soft); }
+.pickOptionActive { background: var(--orange-soft); border-left-color: var(--orange); color: #b45309; }
 
-/* 4. Condition + measure rows: the wrapper owns the stretch now. */
-.condRow .selectWrap { flex: 1 1 160px; }
-.condRow .input { flex: 1 1 120px; }
+/* -- compact tool rows --------------------------------------------------- */
+.toolRow {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: clamp(6px,0.9vw,10px);
+  margin-bottom: clamp(8px,1.1vw,12px);
+}
+.toolRow:last-child { margin-bottom: 0; }
+.toolField { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.toolField .pick { width: 100%; }
+.wDataset { width: clamp(180px,22vw,260px); }
+.wMid { width: clamp(150px,18vw,210px); }
+.wSm { width: clamp(120px,15vw,170px); }
 
-/* 5. Contrast faults: these labels sit on the dark CollapsibleSection
-   bodies, not on paper. Ink-grey on navy was a 2:1 whisper. */
-.studio { color: #fff; }
-.hint { color: rgba(255,255,255,0.66); }
-.miniLabel { color: rgba(255,255,255,0.6); }
-.sectionLabel { color: var(--orange); }
+/* search box: capped, icon inside, no more full-width bar */
+.searchBox {
+  position: relative; width: clamp(200px,26vw,320px); height: 36px;
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.searchBox:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
+.searchBox .searchIcon { left: 10px; font-size: 14px; }
+.searchBox .searchInput { padding: 0 30px 0 32px; font-size: clamp(11px,1.05vw,12.5px); }
+.searchBox .searchClear { right: 6px; }
+
+/* save-view input: a field, not a banner */
+.viewInput {
+  height: 36px; width: clamp(160px,20vw,240px); padding: 0 10px;
+  border-radius: var(--radius-sm); border: 1.5px solid var(--paper-edge);
+  background: #fff; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: clamp(11px,1.05vw,12.5px); font-weight: 600;
+}
+.viewInput::placeholder { color: rgba(26,46,48,0.38); font-weight: 500; }
+.viewInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
+
+/* condition + measure rows stay tight */
+.condRow { padding: 6px; gap: 6px; }
+.condRow + .condRow { margin-top: 6px; }
+.toolRow + .condRow { margin-top: clamp(8px,1.1vw,12px); }
+.condRow .input { flex: 0 1 auto; width: clamp(110px,12vw,150px); min-width: 0; }
+.chipRow { margin-top: clamp(6px,0.9vw,10px); }
+
+/* columns dropdown: same capped discipline */
+.dropdown { max-width: 320px; }
 
 @media (max-width: 640px) {
-  .selectWrap, .datasetPick, .comparePick { flex: 1 1 100%; min-width: 0; }
+  .wDataset, .wMid, .wSm, .searchBox, .viewInput { width: 100%; flex: 1 1 100%; }
+  .condRow .input { width: 100%; flex: 1 1 100%; }
 }
 '''
 
 # ----------------------------------------------------------------------------
-# 6. ReportHub.module.css -- library-on-dark-panel styles
-# ----------------------------------------------------------------------------
-HUB_CSS = '''
-
-/* fix72 -- REPORT LIBRARY INSIDE THE STUDIO.
-   The canned pillars moved from four dark drawers under the studio into one
-   library section at the TOP of the studio, so the rows become white cards
-   on the dark panel body and the group labels read light-on-dark. */
-.libWrap { display: flex; flex-direction: column; gap: clamp(10px,1.4vw,16px); }
-.libGroup { display: flex; flex-direction: column; gap: 6px; }
-.libLabel {
-  font-family: 'DM Sans', sans-serif; font-weight: 900;
-  font-size: clamp(8px,0.85vw,10px); letter-spacing: 2px; text-transform: uppercase;
-  color: rgba(255,255,255,0.6);
-}
-.libList { display: flex; flex-direction: column; gap: 6px; }
-.libList .reportRowWrap {
-  border-bottom: none;
-  background: #fff;
-  border: 1.5px solid rgba(255,255,255,0.14);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.libList .reportRow { padding: clamp(9px,1.2vw,13px) clamp(10px,1.4vw,15px); }
-.libList .reportRow:hover { background: rgba(238,140,58,0.07); }
-.libList .reportRowActive { background: rgba(238,140,58,0.09); border-left: 3px solid var(--orange); }
-.libList .rptTitle { color: #1a2e30; }
-.libList .rowChevron { color: rgba(26,46,48,0.35); }
-.libList .reportRow:hover .rowChevron { color: var(--orange); }
-.libList .iconFrame { background: rgba(238,140,58,0.12); }
-/* the forensic detail drawer stays black on purpose -- it is the one object
-   in the library that should look like a vault opening. */
-.libList .detailBox { border-top: 1px solid rgba(255,255,255,0.08); }
-'''
-
-# ----------------------------------------------------------------------------
-# 7. Addendum entry
+# 8. Addendum entry
 # ----------------------------------------------------------------------------
 ADDENDUM = '''
 
-- fix72 (2026-09-17): Reports tab rebuilt around one rule -- the builder IS the reports system, everything else feeds it from the top. The four canned-report drawers (FINANCIAL / OPERATIONAL / SYSTEM / MORE) are gone from under the studio; their twelve pillars now live in ONE-CLICK REPORTS, the first section inside the studio on the REPORTS tab, grouped under FINANCIAL / OPERATIONAL / SYSTEM / MORE labels with the same expand-for-schema-and-download rows, restyled as white cards on the dark panel body (the black forensic detail drawer stays). Non-financial roles get the SECURITY HANDBRAKE card inside that library instead of a financial drawer. The RESULTS table is now the last block on the Reports tab. Dropdown faults: every studio select loses the browser arrow and the browser height (the old flex: 1 1 150px became a ~150px-tall box inside the column-flex picker), gains an orange chevron background, a fixed 38px height, styled options and a real disabled state (dashed border, grey chevron, not-allowed cursor). DATA SOURCE rethought: icon frame + full-width dataset pick + RELOAD on one row. GROUP / COMPARE rethought: group-by and split-by share one row with a VS tag between them plus an unlock hint; condition and measure selects sit in row-flex wrappers so they stretch instead of ballooning. Contrast faults: hint text, mini labels and section labels were ink-grey written for a light surface but sitting on dark panel bodies -- now light-on-dark.
+- fix73 (2026-09-17): Report Studio controls rebuilt against the Intake reference -- zero browser-default UI left. One custom themed dropdown component (Pick) replaces every native select in the studio (dataset, group by, compare/split, condition field, condition operator, measure type, measure field): white button with ink text and an orange chevron that rotates open, popover list with orange border, orange-soft hover and an orange left-bar on the chosen row instead of the browser blue. Space efficiency: controls now sit in compact tool rows with the label above the control and fixed clamp() widths -- DATA SOURCE is one row (dataset pick with an inline database icon + RELOAD + save-view input + SAVE VIEW, the old full-width save bar deleted), NARROW IT DOWN is one row (capped search box with the icon inside + MATCH ALL/ANY + ADD CONDITION + CLEAR ALL), GROUP/COMPARE is one row (group pick + VS tag + compare pick). Condition and measure rows stay tight with capped value inputs. Under 640px every control goes full-width on its own row. The ONE-CLICK REPORTS library and the RESULTS-last order from fix72 are unchanged.
 '''
 
 # ============================================================================
 # PATCHES
 # ============================================================================
 print('=' * 72)
-print(' GOLDEN SEED fix72 -- reports integration + dropdown/panel restyle')
+print(' GOLDEN SEED fix73 -- custom dropdowns + compact Intake-style rows')
 print('=' * 72)
 
-# -- ReportHub.jsx ----------------------------------------------------------
-# a) delete the four drawers under the studio (financial ternary through the
-#    MORE REPORTS closing brace). Lazy match: the tail markers are unique.
-rpatch(HUB,
-       r'\{hasFinancialAccess \? \([\s\S]*?label="MORE REPORTS"[\s\S]*?</DrawerPanel>\s*\)\}',
+# a) Pick component lands just above the ReportStudio component
+rpatch(STU,
+       r'const ReportStudio = \(\{',
+       lambda m: PICK_JSX,
+       'Studio: Pick dropdown component added')
+
+# b) DATA SOURCE bar -> compact tool row (also absorbs the save-view bar)
+rpatch(STU,
+       r'<div className=\{styles\.datasetBar\}>[\s\S]*?RELOAD\s*</button>\s*</div>',
+       lambda m: DATASET2_JSX,
+       'Studio: DATA SOURCE row rebuilt compact')
+
+# c) old standalone save-view bar removed (folded into the row above)
+rpatch(STU,
+       r'<div className=\{styles\.viewBar\}>[\s\S]*?</Tooltip>\s*</div>',
        '',
-       'Hub: four canned drawers removed from under the studio')
+       'Studio: old full-width save-view bar removed')
 
-# b) the library node is built just before the main return
-rpatch(HUB,
-       r'return \(\n\s*<div className=\{styles\.container\}>',
-       LIB_JSX,
-       'Hub: library node inserted before main return')
-
-# c) hand the library to the studio on the REPORTS tab
-rpatch(HUB,
-       r'<ReportStudio\s+canSeeMoney=\{hasFinancialAccess\}\s+mode="report"\s+reloadToken=\{reloadToken\}\s*/>',
-       r'<ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} quickExports={library} />',
-       'Hub: studio receives quickExports on the REPORTS tab')
-
-# d) the outer drawer is the whole system now, not just the builder
-patch(HUB,
-      'label="BUILD YOUR OWN REPORT"',
-      'label="REPORT STUDIO"',
-      'Hub: studio drawer renamed REPORT STUDIO')
-
-# -- ReportStudio.jsx --------------------------------------------------------
-# e) new prop
-patch(STU,
-      "const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 }) => {",
-      "const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, quickExports = null }) => {",
-      'Studio: quickExports prop added')
-
-# f) ONE-CLICK REPORTS becomes the first section in the studio
+# d) search bar + match chips -> one compact tool row with add/clear
 rpatch(STU,
-       r'<div className=\{styles\.studio\}>',
-       lambda m: m.group(0) + '\n' + QUICK_JSX.rstrip('\n'),
-       'Studio: ONE-CLICK REPORTS section inserted first')
+       r'<div className=\{styles\.searchRow\}>[\s\S]*?</Tooltip>\s*</div>',
+       lambda m: NARROW_TOP_JSX,
+       'Studio: NARROW IT DOWN row rebuilt compact')
 
-# g) DATA SOURCE bar rebuild (old chipRow/picker block, comment included)
+# e) the old add-condition row at the bottom is now redundant
 rpatch(STU,
-       r'\{/\* A select, not a row of chips[\s\S]*?</div>',
-       lambda m: DATASET_JSX,
-       'Studio: DATA SOURCE bar rebuilt')
+       r'<div className=\{styles\.chipRow\}>\s*<button className=\{styles\.chip\} onClick=\{addCondition\}>[\s\S]*?</div>',
+       '',
+       'Studio: duplicate add-condition row removed')
 
-# h) GROUP / COMPARE row rebuild
+# f) condition field + operator selects -> Pick
 rpatch(STU,
-       r'<div className=\{styles\.pickerGrid\}>[\s\S]*?</div>',
-       lambda m: COMPARE_JSX,
-       'Studio: GROUP / COMPARE row rebuilt')
+       r'<span className=\{styles\.selectWrap\}>\s*<select\s+className=\{styles\.select\}\s+value=\{c\.field\}[\s\S]*?</span>',
+       lambda m: COND_FIELD_JSX,
+       'Studio: condition field select -> Pick')
+rpatch(STU,
+       r'<span className=\{styles\.selectWrap\}>\s*<select\s+className=\{styles\.select\}\s+value=\{c\.op\}[\s\S]*?</span>',
+       lambda m: COND_OP_JSX,
+       'Studio: condition operator select -> Pick')
 
-# i) every remaining bare select gets a row-flex wrapper (conditions+measures)
+# g) group / compare selects -> Pick row
 rpatch(STU,
-       r'(<select\s+className=\{styles\.select\}\s+value=\{c\.field\}[\s\S]*?</select>)',
-       r'<span className={styles.selectWrap}>\1</span>',
-       'Studio: condition field select wrapped')
-rpatch(STU,
-       r'(<select\s+className=\{styles\.select\}\s+value=\{c\.op\}[\s\S]*?</select>)',
-       r'<span className={styles.selectWrap}>\1</span>',
-       'Studio: condition operator select wrapped')
-rpatch(STU,
-       r'(<select\s+className=\{styles\.select\}\s+value=\{m\.agg\}[\s\S]*?</select>)',
-       r'<span className={styles.selectWrap}>\1</span>',
-       'Studio: measure aggregation select wrapped')
-rpatch(STU,
-       r'(<select\s+className=\{styles\.select\}\s+value=\{m\.field\}[\s\S]*?</select>)',
-       r'<span className={styles.selectWrap}>\1</span>',
-       'Studio: measure field select wrapped')
+       r'<div className=\{styles\.compareRow\}>[\s\S]*?</label>\s*</div>',
+       lambda m: GROUP2_JSX,
+       'Studio: GROUP / COMPARE row rebuilt with Picks')
 
-# -- CSS layers (appended, cascade wins, zero anchor risk) -------------------
-append(STUCSS, STU_CSS, 'Studio CSS: dropdown + panel restyle layer appended')
-append(HUBCSS, HUB_CSS, 'Hub CSS: library-on-dark styles appended')
-append(ADD, ADDENDUM, 'Addendum: fix72 entry appended')
+# h) measure selects -> Pick
+rpatch(STU,
+       r'<span className=\{styles\.selectWrap\}>\s*<select\s+className=\{styles\.select\}\s+value=\{m\.agg\}[\s\S]*?</span>',
+       lambda m: MEASURE_AGG_JSX,
+       'Studio: measure type select -> Pick')
+rpatch(STU,
+       r'<span className=\{styles\.selectWrap\}>\s*<select\s+className=\{styles\.select\}\s+value=\{m\.field\}[\s\S]*?</span>',
+       lambda m: MEASURE_FIELD_JSX,
+       'Studio: measure field select -> Pick')
+
+# i) CSS layer
+append(STUCSS, STU_CSS, 'Studio CSS: Pick dropdown + tool row layer appended')
+append(ADD, ADDENDUM, 'Addendum: fix73 entry appended')
 
 # ============================================================================
 # WRITE + GIT
 # ============================================================================
-for rel in (HUB, HUBCSS, STU, STUCSS, ADD):
+for rel in (STU, STUCSS, ADD):
     save(rel)
 print('')
 print('All files written.')
 print('')
 print('git: staging, committing, pushing...')
-MSG = ('fix72: canned reports folded into a ONE-CLICK library at the top of '
-       'the studio, results table last, native selects fully styled, '
-       'dataset + compare panels rethought, dark-body contrast faults fixed')
+MSG = ('fix73: studio controls rebuilt Intake-style -- one custom themed '
+       'dropdown replaces every native select, dataset/search/save-view/'
+       'match/add-condition share compact tool rows instead of full-width bars')
 subprocess.run(['git', 'add', '-A'])
 subprocess.run(['git', 'commit', '-m', MSG])
 subprocess.run(['git', 'push'])

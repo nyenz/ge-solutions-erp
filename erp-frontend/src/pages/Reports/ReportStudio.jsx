@@ -42,6 +42,53 @@ const TABLE_LIMIT = 500;
 
 const newCondition = () => ({ uid: Math.random().toString(36).slice(2), field: '', op: '', value: '', value2: '' });
 
+const Pick = ({ value, options, onChange, placeholder = 'Choose...', disabled = false, ariaLabel = '', icon = null, className = '' }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        const onDown = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, []);
+    const current = options.find(o => o.value === value);
+    return (
+        <div className={`${styles.pick} ${className}`} ref={ref}>
+            <button
+                type="button"
+                className={styles.pickBtn}
+                disabled={disabled}
+                aria-expanded={open}
+                aria-label={ariaLabel}
+                onClick={() => setOpen(o => !o)}
+            >
+                {icon && <span className={styles.pickLead} aria-hidden="true">{icon}</span>}
+                <span className={current ? styles.pickValue : styles.pickPlaceholder}>
+                    {current ? current.label : placeholder}
+                </span>
+                <FiChevronDown className={open ? styles.pickIconOpen : ''} aria-hidden="true" />
+            </button>
+            {open && (
+                <div className={styles.pickList} role="listbox" aria-label={ariaLabel}>
+                    {options.map(o => (
+                        <button
+                            type="button"
+                            key={String(o.value)}
+                            role="option"
+                            aria-selected={o.value === value}
+                            className={o.value === value ? styles.pickOptionActive : styles.pickOption}
+                            onClick={() => { onChange(o.value); setOpen(false); }}
+                        >
+                            {o.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, quickExports = null }) => {
     const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
     const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
@@ -256,26 +303,35 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                 title="DATA SOURCE"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
-                                <div className={styles.datasetBar}>
-                    <span className={styles.datasetIcon} aria-hidden="true">
-                        <FiDatabase aria-hidden="true" />
-                    </span>
-                    <label className={styles.datasetPick}>
+                                                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Dataset</span>
-                        <span className={styles.selectWrap}>
-                            <select
-                                className={styles.select}
-                                value={datasetKey}
-                                onChange={e => setDatasetKey(e.target.value)}
-                                aria-label="Dataset"
-                            >
-                                {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
-                            </select>
-                        </span>
+                        <Pick
+                            className={styles.wDataset}
+                            icon={<FiDatabase size={13} aria-hidden="true" />}
+                            ariaLabel="Dataset"
+                            value={datasetKey}
+                            options={available.map(ds => ({ value: ds.key, label: ds.label }))}
+                            onChange={v => setDatasetKey(v)}
+                        />
                     </label>
                     <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
                         <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
                     </button>
+                    <label className={styles.toolField}>
+                        <span className={styles.miniLabel}>Save view</span>
+                        <input
+                            className={styles.viewInput}
+                            placeholder="Name this setup..."
+                            value={viewName}
+                            onChange={e => setViewName(e.target.value)}
+                        />
+                    </label>
+                    <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
+                        <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
+                            <FiSave size={11} aria-hidden="true" /> SAVE VIEW
+                        </button>
+                    </Tooltip>
                 </div>
                 <p className={styles.hint}>{dataset?.blurb}</p>
                 {!canSeeMoney && (
@@ -286,19 +342,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                 )}
                 {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
 
-                <div className={styles.viewBar}>
-                    <input
-                        className={styles.input}
-                        placeholder="Name this setup to save it..."
-                        value={viewName}
-                        onChange={e => setViewName(e.target.value)}
-                    />
-                    <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
-                        <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
-                            <FiSave size={11} aria-hidden="true" /> SAVE VIEW
-                        </button>
-                    </Tooltip>
-                </div>
+                
                 {views.length > 0 && (
                     <div className={styles.chipRow}>
                         {views.map(v => (
@@ -323,22 +367,21 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                 title="NARROW IT DOWN"
                 right={<span className={styles.badge}>{filtered.length} OF {rows.length}</span>}
             >
-                <div className={styles.searchRow}>
-                    <FiSearch className={styles.searchIcon} aria-hidden="true" />
-                    <input
-                        className={styles.searchInput}
-                        placeholder="Free text across every text column -- a name, a plot, a district..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                    />
-                    {search && (
-                        <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
-                            <FiX size={13} aria-hidden="true" />
-                        </button>
-                    )}
-                </div>
-
-                <div className={styles.chipRow}>
+                                <div className={styles.toolRow}>
+                    <div className={styles.searchBox}>
+                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                        <input
+                            className={styles.searchInput}
+                            placeholder="Free text across every text column -- a name, a plot, a district..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
+                                <FiX size={13} aria-hidden="true" />
+                            </button>
+                        )}
+                    </div>
                     <span className={styles.miniLabel}>Match</span>
                     <Tooltip label="Every condition must be true">
                         <button className={mergeMode === 'AND' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('AND')}>ALL</button>
@@ -346,6 +389,14 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     <Tooltip label="Any one condition is enough">
                         <button className={mergeMode === 'OR' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('OR')}>ANY</button>
                     </Tooltip>
+                    <button className={styles.chip} onClick={addCondition}>
+                        <FiPlus size={11} aria-hidden="true" /> ADD CONDITION
+                    </button>
+                    {conditions.length > 0 && (
+                        <button className={styles.chip} onClick={() => setConditions([])}>
+                            <FiX size={11} aria-hidden="true" /> CLEAR ALL
+                        </button>
+                    )}
                 </div>
 
                 {conditions.map(c => {
@@ -357,25 +408,23 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                             : 'text';
                     return (
                         <div key={c.uid} className={styles.condRow}>
-                            <span className={styles.selectWrap}><select
-                                className={styles.select}
+                                                        <Pick
+                                className={styles.wMid}
+                                ariaLabel="Field"
                                 value={c.field}
-                                onChange={e => patchCondition(c.uid, { field: e.target.value, op: '', value: '', value2: '' })}
-                                aria-label="Field"
-                            >
-                                <option value="">Choose a field...</option>
-                                {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select></span>
-                            <span className={styles.selectWrap}><select
-                                className={styles.select}
+                                placeholder="Choose a field..."
+                                options={fields.map(fl => ({ value: fl.key, label: fl.label }))}
+                                onChange={v => patchCondition(c.uid, { field: v, op: '', value: '', value2: '' })}
+                            />
+                                                        <Pick
+                                className={styles.wSm}
+                                ariaLabel="Condition"
                                 value={c.op}
-                                onChange={e => patchCondition(c.uid, { op: e.target.value })}
+                                placeholder="is..."
                                 disabled={!fld}
-                                aria-label="Condition"
-                            >
-                                <option value="">is...</option>
-                                {ops.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-                            </select></span>
+                                options={ops.map(o => ({ value: o.key, label: o.label }))}
+                                onChange={v => patchCondition(c.uid, { op: v })}
+                            />
                             {opDef?.value && (
                                 <input
                                     className={styles.input}
@@ -403,16 +452,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     );
                 })}
 
-                <div className={styles.chipRow}>
-                    <button className={styles.chip} onClick={addCondition}>
-                        <FiPlus size={11} aria-hidden="true" /> ADD CONDITION
-                    </button>
-                    {conditions.length > 0 && (
-                        <button className={styles.chip} onClick={() => setConditions([])}>
-                            <FiX size={11} aria-hidden="true" /> CLEAR ALL
-                        </button>
-                    )}
-                </div>
+                
             </CollapsibleSection>
 
             {/* ── COLUMNS ─────────────────────────────────────────── */}
@@ -467,25 +507,28 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                 defaultOpen={mode === 'analysis'}
                 right={<span className={styles.badge}>{groupBy ? 'GROUPED' : 'ROW BY ROW'}</span>}
             >
-                                <div className={styles.compareRow}>
-                    <label className={styles.comparePick}>
+                                                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Group by</span>
-                        <span className={styles.selectWrap}>
-                            <select className={styles.select} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
-                                <option value="">(no grouping -- show every row)</option>
-                                {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select>
-                        </span>
+                        <Pick
+                            className={styles.wDataset}
+                            ariaLabel="Group by"
+                            value={groupBy}
+                            options={[{ value: '', label: '(no grouping -- show every row)' }, ...fields.map(fl => ({ value: fl.key, label: fl.label }))]}
+                            onChange={v => setGroupBy(v)}
+                        />
                     </label>
                     <span className={styles.compareVs} aria-hidden="true">VS</span>
-                    <label className={styles.comparePick}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Compare / split by</span>
-                        <span className={styles.selectWrap}>
-                            <select className={styles.select} value={splitBy} onChange={e => setSplitBy(e.target.value)} disabled={!groupBy}>
-                                <option value="">(none)</option>
-                                {fields.filter(fl => fl.key !== groupBy).map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select>
-                        </span>
+                        <Pick
+                            className={styles.wDataset}
+                            ariaLabel="Compare or split by"
+                            value={splitBy}
+                            disabled={!groupBy}
+                            options={[{ value: '', label: '(none)' }, ...fields.filter(fl => fl.key !== groupBy).map(fl => ({ value: fl.key, label: fl.key === groupBy ? fl.label : fl.label }))]}
+                            onChange={v => setSplitBy(v)}
+                        />
                     </label>
                 </div>
                 {!groupBy && (
@@ -499,16 +542,24 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     const def = AGGREGATIONS.find(a => a.key === m.agg);
                     return (
                         <div key={i} className={styles.condRow}>
-                            <span className={styles.selectWrap}><select className={styles.select} value={m.agg} onChange={e => patchMeasure(i, { agg: e.target.value })} aria-label="Measure">
-                                {AGGREGATIONS.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
-                            </select></span>
+                                                        <Pick
+                                className={styles.wSm}
+                                ariaLabel="Measure"
+                                value={m.agg}
+                                options={AGGREGATIONS.map(a => ({ value: a.key, label: a.label }))}
+                                onChange={v => patchMeasure(i, { agg: v })}
+                            />
                             {def?.needsField && (
-                                <span className={styles.selectWrap}><select className={styles.select} value={m.field} onChange={e => patchMeasure(i, { field: e.target.value })} aria-label="Measure field">
-                                    <option value="">Choose a field...</option>
-                                    {fields
-                                        .filter(fl => (m.agg === 'distinct' ? true : ['number', 'money', 'percent'].includes(fl.type)))
-                                        .map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                                </select></span>
+                                                            <Pick
+                                className={styles.wMid}
+                                ariaLabel="Measure field"
+                                value={m.field}
+                                placeholder="Choose a field..."
+                                options={fields
+                                    .filter(fl => (m.agg === 'distinct' ? true : ['number', 'money', 'percent'].includes(fl.type)))
+                                    .map(fl => ({ value: fl.key, label: fl.label }))}
+                                onChange={v => patchMeasure(i, { field: v })}
+                            />
                             )}
                             {measures.length > 1 && (
                                 <button className={styles.dropBtn} onClick={() => setMeasures(ms => ms.filter((_, idx) => idx !== i))} aria-label="Remove measure">
