@@ -277,6 +277,37 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
         setSort(s => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' }));
 
     /* ── render ─────────────────────────────────────────────────── */
+    const PRESET_VIEWS = [
+        { name: 'OWED BY DISTRICT', money: true, datasetKey: 'PROJECTS', group: 'District', agg: 'sum', measure: 'Balance Owed', blurb: 'Projects grouped by district with the total balance owed summed per district.' },
+        { name: 'OWED BY OWNER', money: true, datasetKey: 'PROJECTS', group: 'Primary Owner', agg: 'sum', measure: 'Balance Owed', blurb: 'Every primary owner ranked by what they still owe.' },
+        { name: 'PAID VS COST', money: true, datasetKey: 'PROJECTS', group: 'Status', agg: 'sum', measure: 'Amount Paid', blurb: 'What has been paid per project status, against the live cost columns.' },
+        { name: 'PAYMENTS BY TYPE', money: true, datasetKey: 'PAYMENTS', group: 'Payment Type', agg: 'sum', measure: 'Amount', blurb: 'Every payment summed by payment type: standard, deposit, receivable part.' },
+        { name: 'SPEND BY CATEGORY', money: true, datasetKey: 'EXPENSES', group: 'Category', agg: 'sum', measure: 'Amount', blurb: 'Company spend grouped by expense category.' },
+        { name: 'PROJECTS BY DISTRICT', money: false, datasetKey: 'PROJECTS', group: 'District', agg: 'count', measure: '', blurb: 'How many projects sit in each district.' },
+        { name: 'PROJECTS BY STAGE', money: false, datasetKey: 'PROJECTS', group: 'Stage', agg: 'count', measure: '', blurb: 'Pipeline shape: project count per current stage.' },
+        { name: 'CLIENTS BY DISTRICT', money: false, datasetKey: 'CLIENTS', group: 'District', agg: 'count', measure: '', blurb: 'Registered clients per district.' },
+    ];
+
+    const applyPreset = (p) => {
+        const ds = DATASETS[p.datasetKey];
+        if (!ds) return;
+        const flds = fieldsFor(ds, canSeeMoney);
+        const gKey = (flds.find(f => f.label === p.group) || {}).key || '';
+        const mKey = p.measure ? ((flds.find(f => f.label === p.measure) || {}).key || '') : '';
+        setDatasetKey(p.datasetKey);
+        // the dataset-change effect resets the builder, so the preset lands after it
+        setTimeout(() => {
+            setSearch('');
+            setMergeMode('AND');
+            setConditions([]);
+            setColumns(ds.defaultColumns.filter(c => flds.some(f => f.key === c)));
+            setGroupBy(gKey);
+            setSplitBy('');
+            setMeasures([{ agg: p.agg, field: mKey }]);
+            setSort({ key: '', dir: 'desc' });
+        }, 0);
+    };
+
     const groupField = fieldByKey(dataset, groupBy);
     const splitField = fieldByKey(dataset, splitBy);
     const chartRows = grouped ? grouped.slice(0, CHART_LIMIT) : [];
@@ -284,41 +315,48 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
     return (
         <div className={styles.studio}>
             {quickExports && (
-                <CollapsibleSection
-                    icon={<FiDownloadCloud aria-hidden="true" />}
-                    title="PRESETS"
-                    defaultOpen
-                    right={<span className={styles.badge}>CANNED CSV</span>}
-                >
-                    <p className={styles.hint}>
-                        The standing company reports, ready to pull. Open one to read exactly what is inside before you download it.
-                    </p>
-                    {quickExports}
-                </CollapsibleSection>
+                
             )}
 
             {/* ── DATA SOURCE ─────────────────────────────────────── */}
-            <CollapsibleSection
+                        <CollapsibleSection
                 icon={<FiDatabase aria-hidden="true" />}
-                title="SOURCE"
+                title="DATASETS"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
-                                                <div className={styles.toolRow}>
-                    <label className={styles.toolField}>
-                        <span className={styles.miniLabel}>Dataset</span>
-                        <Pick
-                            className={styles.wDataset}
-                            icon={<FiDatabase size={13} aria-hidden="true" />}
-                            ariaLabel="Dataset"
-                            value={datasetKey}
-                            options={available.map(ds => ({ value: ds.key, label: ds.label }))}
-                            onChange={v => setDatasetKey(v)}
-                        />
-                    </label>
+                <div className={styles.tileRow}>
+                    {available.map(ds => (
+                        <button
+                            key={ds.key}
+                            className={ds.key === datasetKey ? styles.tileActive : styles.tile}
+                            onClick={() => setDatasetKey(ds.key)}
+                        >
+                            {ds.label}
+                            {ds.key === datasetKey && <span className={styles.tileCount}>{loading ? '...' : rows.length}</span>}
+                        </button>
+                    ))}
                     <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
                         <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
                     </button>
-                                        <label className={styles.toolField}>
+                </div>
+                <p className={styles.hint}>{dataset?.blurb}</p>
+                {!canSeeMoney && (
+                    <p className={styles.hint}>
+                        <FiAlertCircle size={12} aria-hidden="true" />
+                        Financial datasets and money columns are hidden on your role.
+                    </p>
+                )}
+                {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
+                <span className={styles.rowLabel}>Start from a preset</span>
+                <div className={styles.tileRow}>
+                    {PRESET_VIEWS.filter(p => !p.money || canSeeMoney).map(p => (
+                        <Tooltip key={p.name} label={p.blurb}>
+                            <button className={styles.pChip} onClick={() => applyPreset(p)}>{p.name}</button>
+                        </Tooltip>
+                    ))}
+                </div>
+                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Save as</span>
                         <span className={styles.viewBox}>
                             <FiSave className={styles.boxIcon} aria-hidden="true" />
@@ -336,16 +374,6 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                         </button>
                     </Tooltip>
                 </div>
-                <p className={styles.hint}>{dataset?.blurb}</p>
-                {!canSeeMoney && (
-                    <p className={styles.hint}>
-                        <FiAlertCircle size={12} aria-hidden="true" />
-                        Financial datasets and money columns are hidden on your role.
-                    </p>
-                )}
-                {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
-
-                
                 {views.length > 0 && (
                     <div className={styles.chipRow}>
                         {views.map(v => (
@@ -362,12 +390,18 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                         ))}
                     </div>
                 )}
+                {quickExports && (
+                    <>
+                        <span className={styles.rowLabel}>One-click CSV</span>
+                        {quickExports}
+                    </>
+                )}
             </CollapsibleSection>
 
             {/* ── FILTERS ─────────────────────────────────────────── */}
             <CollapsibleSection
                 icon={<FiFilter aria-hidden="true" />}
-                title="FILTERS"
+                title="BUILD"
                 right={<span className={styles.badge}>{filtered.length} OF {rows.length}</span>}
             >
                                 <div className={styles.toolRow}>

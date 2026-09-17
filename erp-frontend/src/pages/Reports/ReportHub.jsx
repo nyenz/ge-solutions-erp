@@ -34,6 +34,7 @@ import reportService from '../../services/reportService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import ReportStudio from './ReportStudio';
+import { Tooltip } from '../../components/common/Tooltip';
 import styles from './ReportHub.module.css';
 
 // ─── TOAST ────────────────────────────────────────────────────────
@@ -184,68 +185,24 @@ const ReportHub = () => {
         { id: 'monthly',    title: 'Monthly Collection',          icon: FiBarChart2,   action: reportService.downloadMonthlyCollection       },
     ];
 
-    const ReportRow = ({ item }) => {
-        const ItemIcon = item.icon;
-        const isLoading = status[item.id];
-        const isExpanded = expandedId === item.id;
-        const schema = REPORT_SCHEMA[item.id] || {};
-
-        return (
-            <div className={styles.reportRowWrap}>
-                <div
-                    className={`${styles.reportRow} ${isExpanded ? styles.reportRowActive : ''}`}
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={isExpanded}
-                    aria-label={`${item.title}, ${isExpanded ? 'collapse' : 'expand details'}`}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : item.id); } }}
-                >
-                    <div className={styles.iconFrame} aria-hidden="true">
-                        <ItemIcon aria-hidden="true" />
-                    </div>
-                    <span className={styles.rptTitle}>{item.title}</span>
-                    <FiChevronDown className={`${styles.rowChevron} ${isExpanded ? styles.rotated : ''}`} aria-hidden="true" />
-                </div>
-
-                <div className={`${styles.reportDetails} ${isExpanded ? styles.detailsOpen : styles.detailsClosed}`}>
-                    <div className={styles.detailBox}>
-                        <div className={styles.detailHeader}>
-                            <span>REPORT INTELLIGENCE DISCOVERY [SECURE]</span>
-                        </div>
-                        <p className={styles.detailDesc}>{schema.desc}</p>
-                        {schema.columns && (
-                            <div className={styles.schemaBlock}>
-                                <span className={styles.schemaLabel}>CSV COLUMN SCHEMA:</span>
-                                <p className={styles.schemaColumns}>{schema.columns}</p>
-                            </div>
-                        )}
-                        <div className={styles.detailActions}>
-                            <button
-                                className={styles.exportBtnLarge}
-                                onClick={e => { e.stopPropagation(); triggerPillarExport(item.id, item.action, item.title); }}
-                                disabled={isLoading}
-                                aria-label={isLoading ? `Exporting ${item.title}` : `Download ${item.title}`}
-                            >
-                                {isLoading
-                                    ? <><div className={styles.exportSpinner} aria-hidden="true" /> STREAMING DATA...</>
-                                    : <><FiDownloadCloud aria-hidden="true" /> DOWNLOAD CSV</>
-                                }
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
         const library = (
         <div className={styles.libWrap}>
             {hasFinancialAccess ? (
                 <div className={styles.libGroup}>
                     <span className={styles.libLabel}>Financial</span>
-                    <div className={styles.libList}>
-                        {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    <div className={styles.libChips}>
+                        {FINANCIAL_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
                     </div>
                 </div>
             ) : (
@@ -259,23 +216,53 @@ const ReportHub = () => {
             )}
             <div className={styles.libGroup}>
                 <span className={styles.libLabel}>Operational</span>
-                <div className={styles.libList}>
-                    {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                <div className={styles.libChips}>
+                    {OPS_GROUP.map(item => (
+                        <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                            <button
+                                className={styles.libChip}
+                                disabled={status[item.id]}
+                                onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                            >
+                                {status[item.id] ? 'STREAMING...' : item.title}
+                            </button>
+                        </Tooltip>
+                    ))}
                 </div>
             </div>
             {hasFinancialAccess && (
                 <div className={styles.libGroup}>
                     <span className={styles.libLabel}>System</span>
-                    <div className={styles.libList}>
-                        {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    <div className={styles.libChips}>
+                        {SYSTEM_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
                     </div>
                 </div>
             )}
             {hasFinancialAccess && (
                 <div className={styles.libGroup}>
                     <span className={styles.libLabel}>More</span>
-                    <div className={styles.libList}>
-                        {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    <div className={styles.libChips}>
+                        {PRIORITY2_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
                     </div>
                 </div>
             )}

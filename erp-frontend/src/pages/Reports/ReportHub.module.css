@@ -344,3 +344,21 @@
 /* the forensic detail drawer stays black on purpose -- it is the one object
    in the library that should look like a vault opening. */
 .libList .detailBox { border-top: 1px solid rgba(255,255,255,0.08); }
+
+
+/* fix75 -- one-click CSV pillars as compact chips (filter-button spec on the
+   dark panel body). The black expandable drawers are gone. */
+.libChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.libChip {
+  font-family: 'Inter', sans-serif; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border-radius: 6px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.libChip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.libChip:disabled { opacity: 0.45; cursor: wait; }

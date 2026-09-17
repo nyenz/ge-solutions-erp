@@ -2,21 +2,25 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
- GOLDEN SEED ERP -- fix74 PATCHER
+ GOLDEN SEED ERP -- fix75 PATCHER
 ================================================================================
  WHAT:
-   1. Search icon centred inside the search bar (was pinned to the top).
-   2. NARROW IT DOWN + COLUMNS TO SHOW merged into ONE panel; all panel
-      names shortened: PRESETS / SOURCE / FILTERS / GROUPING / RESULTS.
-   3. The save-view input in SOURCE restyled as a normal in-page search-style
-      box (icon inside left, capped width, 36px) under a "SAVE AS" label;
-      every control height in the tool rows locked to 36px.
-   4. MATCH label sits above its ALL/ANY chips like a real field label.
-   5. Every open dropdown list (Pick lists + columns checklist) restyled to
-      the app's dark panel language: navy body, orange border, cream text,
-      orange-soft hover, orange left-bar on the chosen row.
- HOW: run  py fix.py  from the project root. Prints OK / MISSING per patch.
-      Commits and pushes at the end.
+   1. Panel 1 is DATASETS and it is NOT a dropdown: Intake-style tiles
+      (dark idle, solid orange selected, row count inside the selected tile).
+   2. The builder panels after it are combined into ONE panel called BUILD
+      (search + match + conditions + columns + group/compare + measures).
+      Studio = DATASETS -> BUILD -> RESULTS. Table still last.
+   3. Presets rethought against the updated app:
+      - START FROM A PRESET: preset builder views generated from what the app
+        actually tracks (owed by district/owner, paid vs cost, payments by
+        type, spend by category, projects by district/stage, clients by
+        district). Label-resolved at click time so they degrade, never crash.
+      - ONE-CLICK CSV: the twelve server pillars as compact download chips
+        grouped FINANCIAL / OPERATIONAL / SYSTEM / MORE, tooltip = what is
+        inside. The black expandable drawers are gone.
+      - Saved views live in the DATASETS panel now.
+ HOW: run  py fix.py  from the project root (on a fresh clone of main).
+      Prints OK / MISSING per patch. Commits and pushes at the end.
 ================================================================================
 """
 
@@ -28,6 +32,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 STU    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.jsx')
 STUCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.module.css')
+HUB    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.jsx')
+HUBCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.module.css')
 ADD    = 'LLM_CONTEXT_ADDENDUM.md'
 
 BUF = {}
@@ -71,24 +77,46 @@ def append(rel, block, tag):
 
 
 # ----------------------------------------------------------------------------
-# 1. MATCH becomes a labelled field (label above the chips)
+# 1. The new DATASETS panel (tiles + presets + saved views + one-click CSV)
 # ----------------------------------------------------------------------------
-MATCH_JSX = '''                    <label className={styles.toolField}>
-                        <span className={styles.miniLabel}>Match</span>
-                        <span className={styles.chipGroup}>
-                            <Tooltip label="Every condition must be true">
-                                <button className={mergeMode === 'AND' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('AND')}>ALL</button>
-                            </Tooltip>
-                            <Tooltip label="Any one condition is enough">
-                                <button className={mergeMode === 'OR' ? styles.chipActive : styles.chip} onClick={() => setMergeMode('OR')}>ANY</button>
-                            </Tooltip>
-                        </span>
-                    </label>'''
-
-# ----------------------------------------------------------------------------
-# 2. SAVE AS field: a normal in-page search-style box
-# ----------------------------------------------------------------------------
-SAVE_JSX = '''                    <label className={styles.toolField}>
+DATASETS_JSX = '''            <CollapsibleSection
+                icon={<FiDatabase aria-hidden="true" />}
+                title="DATASETS"
+                right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
+            >
+                <div className={styles.tileRow}>
+                    {available.map(ds => (
+                        <button
+                            key={ds.key}
+                            className={ds.key === datasetKey ? styles.tileActive : styles.tile}
+                            onClick={() => setDatasetKey(ds.key)}
+                        >
+                            {ds.label}
+                            {ds.key === datasetKey && <span className={styles.tileCount}>{loading ? '...' : rows.length}</span>}
+                        </button>
+                    ))}
+                    <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
+                        <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
+                    </button>
+                </div>
+                <p className={styles.hint}>{dataset?.blurb}</p>
+                {!canSeeMoney && (
+                    <p className={styles.hint}>
+                        <FiAlertCircle size={12} aria-hidden="true" />
+                        Financial datasets and money columns are hidden on your role.
+                    </p>
+                )}
+                {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
+                <span className={styles.rowLabel}>Start from a preset</span>
+                <div className={styles.tileRow}>
+                    {PRESET_VIEWS.filter(p => !p.money || canSeeMoney).map(p => (
+                        <Tooltip key={p.name} label={p.blurb}>
+                            <button className={styles.pChip} onClick={() => applyPreset(p)}>{p.name}</button>
+                        </Tooltip>
+                    ))}
+                </div>
+                <div className={styles.toolRow}>
+                    <label className={styles.toolField}>
                         <span className={styles.miniLabel}>Save as</span>
                         <span className={styles.viewBox}>
                             <FiSave className={styles.boxIcon} aria-hidden="true" />
@@ -99,178 +127,303 @@ SAVE_JSX = '''                    <label className={styles.toolField}>
                                 onChange={e => setViewName(e.target.value)}
                             />
                         </span>
-                    </label>'''
-
-# ----------------------------------------------------------------------------
-# 3. Columns picker folded into the FILTERS panel as one tool row
-# ----------------------------------------------------------------------------
-COLS_ROW_JSX = '''                <div className={styles.toolRow}>
-                    <label className={styles.toolField}>
-                        <span className={styles.miniLabel}>Columns</span>
-                        <div className={styles.dropdown} ref={colMenuRef}>
-                            <button
-                                type="button"
-                                className={styles.dropdownBtn}
-                                onClick={() => setColMenuOpen(o => !o)}
-                                aria-expanded={colMenuOpen}
-                            >
-                                <span>{columns.length === 0 ? 'No columns picked' : `${columns.length} of ${fields.length} columns`}</span>
-                                <FiChevronDown className={colMenuOpen ? styles.dropdownIconOpen : ''} aria-hidden="true" />
-                            </button>
-                            {colMenuOpen && (
-                                <div className={styles.dropdownList}>
-                                    <div className={styles.dropdownActions}>
-                                        <button className={styles.miniBtn} onClick={() => setColumns(fields.map(fl => fl.key))}>ALL</button>
-                                        <button className={styles.miniBtn} onClick={() => setColumns([])}>NONE</button>
-                                        <button className={styles.miniBtn} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
-                                    </div>
-                                    {fields.map(fl => (
-                                        <label key={fl.key} className={styles.dropdownOption}>
-                                            <input
-                                                type="checkbox"
-                                                checked={columns.includes(fl.key)}
-                                                onChange={() => toggleColumn(fl.key)}
-                                            />
-                                            {fl.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                     </label>
-                    <p className={styles.hint}>Row-by-row table only -- grouped results show your measures.</p>
+                    <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
+                        <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
+                            <FiSave size={11} aria-hidden="true" /> SAVE VIEW
+                        </button>
+                    </Tooltip>
                 </div>
-            </CollapsibleSection>
-            <CollapsibleSection
-                icon={<FiColumns'''
+                {views.length > 0 && (
+                    <div className={styles.chipRow}>
+                        {views.map(v => (
+                            <span key={v.name} className={styles.viewChip}>
+                                <button className={styles.viewChipName} onClick={() => applyView(v)}>{v.name}</button>
+                                <button
+                                    className={styles.viewChipDrop}
+                                    onClick={() => persist(views.filter(x => x.name !== v.name))}
+                                    aria-label={`Delete saved view ${v.name}`}
+                                >
+                                    <FiTrash2 size={10} aria-hidden="true" />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+                {quickExports && (
+                    <>
+                        <span className={styles.rowLabel}>One-click CSV</span>
+                        {quickExports}
+                    </>
+                )}
+            </CollapsibleSection>'''
 
 # ----------------------------------------------------------------------------
-# 4. CSS layer: centring, heights, chip group, save box, dark popovers
+# 2. Preset views + the applier (label-resolved, degrades never crashes)
 # ----------------------------------------------------------------------------
+PRESET_JSX = '''    const PRESET_VIEWS = [
+        { name: 'OWED BY DISTRICT', money: true, datasetKey: 'PROJECTS', group: 'District', agg: 'sum', measure: 'Balance Owed', blurb: 'Projects grouped by district with the total balance owed summed per district.' },
+        { name: 'OWED BY OWNER', money: true, datasetKey: 'PROJECTS', group: 'Primary Owner', agg: 'sum', measure: 'Balance Owed', blurb: 'Every primary owner ranked by what they still owe.' },
+        { name: 'PAID VS COST', money: true, datasetKey: 'PROJECTS', group: 'Status', agg: 'sum', measure: 'Amount Paid', blurb: 'What has been paid per project status, against the live cost columns.' },
+        { name: 'PAYMENTS BY TYPE', money: true, datasetKey: 'PAYMENTS', group: 'Payment Type', agg: 'sum', measure: 'Amount', blurb: 'Every payment summed by payment type: standard, deposit, receivable part.' },
+        { name: 'SPEND BY CATEGORY', money: true, datasetKey: 'EXPENSES', group: 'Category', agg: 'sum', measure: 'Amount', blurb: 'Company spend grouped by expense category.' },
+        { name: 'PROJECTS BY DISTRICT', money: false, datasetKey: 'PROJECTS', group: 'District', agg: 'count', measure: '', blurb: 'How many projects sit in each district.' },
+        { name: 'PROJECTS BY STAGE', money: false, datasetKey: 'PROJECTS', group: 'Stage', agg: 'count', measure: '', blurb: 'Pipeline shape: project count per current stage.' },
+        { name: 'CLIENTS BY DISTRICT', money: false, datasetKey: 'CLIENTS', group: 'District', agg: 'count', measure: '', blurb: 'Registered clients per district.' },
+    ];
+
+    const applyPreset = (p) => {
+        const ds = DATASETS[p.datasetKey];
+        if (!ds) return;
+        const flds = fieldsFor(ds, canSeeMoney);
+        const gKey = (flds.find(f => f.label === p.group) || {}).key || '';
+        const mKey = p.measure ? ((flds.find(f => f.label === p.measure) || {}).key || '') : '';
+        setDatasetKey(p.datasetKey);
+        // the dataset-change effect resets the builder, so the preset lands after it
+        setTimeout(() => {
+            setSearch('');
+            setMergeMode('AND');
+            setConditions([]);
+            setColumns(ds.defaultColumns.filter(c => flds.some(f => f.key === c)));
+            setGroupBy(gKey);
+            setSplitBy('');
+            setMeasures([{ agg: p.agg, field: mKey }]);
+            setSort({ key: '', dir: 'desc' });
+        }, 0);
+    };
+
+    const groupField = fieldByKey(dataset, groupBy);'''
+
+# ----------------------------------------------------------------------------
+# 3. Hub: the library becomes compact download chips (no more black drawers)
+# ----------------------------------------------------------------------------
+LIB_CHIPS_JSX = '''    const library = (
+        <div className={styles.libWrap}>
+            {hasFinancialAccess ? (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>Financial</span>
+                    <div className={styles.libChips}>
+                        {FINANCIAL_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className={styles.restrictionHandbrake} role="alert">
+                    <FiLock className={styles.lockIcon} aria-hidden="true" />
+                    <div className={styles.warningText}>
+                        <strong>SECURITY HANDBRAKE ACTIVE</strong>
+                        <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
+                    </div>
+                </div>
+            )}
+            <div className={styles.libGroup}>
+                <span className={styles.libLabel}>Operational</span>
+                <div className={styles.libChips}>
+                    {OPS_GROUP.map(item => (
+                        <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                            <button
+                                className={styles.libChip}
+                                disabled={status[item.id]}
+                                onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                            >
+                                {status[item.id] ? 'STREAMING...' : item.title}
+                            </button>
+                        </Tooltip>
+                    ))}
+                </div>
+            </div>
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>System</span>
+                    <div className={styles.libChips}>
+                        {SYSTEM_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>More</span>
+                    <div className={styles.libChips}>
+                        {PRIORITY2_GROUP.map(item => (
+                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
+                                <button
+                                    className={styles.libChip}
+                                    disabled={status[item.id]}
+                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
+                                >
+                                    {status[item.id] ? 'STREAMING...' : item.title}
+                                </button>
+                            </Tooltip>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    return ('''
+
 STU_CSS = '''
 
-/* fix74 -- CENTRING, HEIGHTS, MERGED FILTERS PANEL, DARK POPOVERS.
-   Appended on purpose: cascade wins over the earlier layers. */
-
-/* 1. icons centred in their bars */
-.searchBox .searchIcon,
-.viewBox .boxIcon { top: 50%; transform: translateY(-50%); }
-
-/* 2. heights locked so no control towers over its row again */
-.pickBtn, .searchBox, .viewBox { height: 36px; }
-
-/* 3. chip groups inside a labelled field */
-.chipGroup { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* 4. SAVE AS box: same anatomy as the search box, smaller */
-.viewBox {
-  position: relative; display: flex;
-  width: clamp(150px,18vw,210px);
-  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
-  transition: border-color 0.2s, box-shadow 0.2s;
+/* fix75 -- DATASETS TILES + PRESET CHIPS (Intake / Recovery button language:
+   dark idle, solid orange selected, orange tint on hover). Appended on
+   purpose: cascade wins. */
+.tileRow {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: clamp(6px,0.9vw,10px);
+  margin-bottom: clamp(8px,1.1vw,12px);
 }
-.viewBox:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
-.boxIcon { position: absolute; left: 10px; color: var(--orange); font-size: 13px; pointer-events: none; }
-.viewBox .viewInput {
-  height: 100%; width: 100%; border: none; background: transparent;
-  padding: 0 10px 0 30px; box-shadow: none;
-}
-.viewBox .viewInput:focus { outline: none; box-shadow: none; }
-
-/* 5. open dropdown lists = the app's dark panel language, not white popups */
-.pickList {
-  background: #162a2c;
-  border: 2px solid var(--orange);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.5);
-}
-.pickOption, .pickOptionActive { color: rgba(255,255,255,0.85); }
-.pickOption:hover { background: rgba(238,140,58,0.12); }
-.pickOptionActive {
-  background: rgba(238,140,58,0.16);
-  border-left-color: var(--orange);
-  color: var(--orange);
-}
-.dropdownList {
-  background: #162a2c;
-  border: 2px solid var(--orange);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.5);
-}
-.dropdownActions { background: #162a2c; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.dropdownOption { color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
-.dropdownOption:last-child { border-bottom: none; }
-.dropdownOption:hover { background: rgba(238,140,58,0.12); }
-.miniBtn {
-  background: rgba(255,255,255,0.06);
+.tile, .tileActive {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(9px,0.95vw,11px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: clamp(8px,1.1vw,11px) clamp(14px,2vw,24px);
+  border-radius: var(--radius-sm);
   border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease;
 }
-.miniBtn:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.12); }
-
-/* 6. the columns hint shares its row with the picker */
-.toolRow .hint { align-self: flex-end; padding-bottom: 9px; }
+.tile:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.12); }
+.tileActive {
+  background: var(--orange); border-color: var(--orange); color: #1a2e30;
+  box-shadow: 0 4px 16px rgba(238,140,58,0.3);
+}
+.tileCount { font-family: 'Space Mono', monospace; font-size: clamp(8px,0.85vw,10px); opacity: 0.75; }
+.pChip {
+  font-family: 'Inter', sans-serif; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.pChip:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
+.rowLabel {
+  display: block;
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+  margin: clamp(4px,0.6vw,8px) 0 6px;
+}
 '''
 
-# ----------------------------------------------------------------------------
-# 5. Addendum entry
-# ----------------------------------------------------------------------------
+HUB_CSS = '''
+
+/* fix75 -- one-click CSV pillars as compact chips (filter-button spec on the
+   dark panel body). The black expandable drawers are gone. */
+.libChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.libChip {
+  font-family: 'Inter', sans-serif; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border-radius: 6px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.libChip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.libChip:disabled { opacity: 0.45; cursor: wait; }
+'''
+
 ADDENDUM = '''
 
-- fix74 (2026-09-17): Report Studio panel pass per David's review. NARROW IT DOWN and COLUMNS TO SHOW are ONE panel now; every panel name is one word: PRESETS (canned library), SOURCE, FILTERS (search + match + conditions + columns picker), GROUPING, RESULTS. The save-view input in SOURCE stopped being a mystery full-size bar: it is a normal in-page search-style box (icon inside left, capped width, 36px) under a SAVE AS label with a "View name..." placeholder. Search icon is vertically centred in its bar (the new bar is not a flex box like the old one, so absolute-without-top pinned it to the ceiling). MATCH is a labelled field with ALL/ANY under the label instead of floating at the row's bottom edge. Every open dropdown list (Pick lists and the columns checklist) now uses the app's dark panel language: navy #162a2c body, orange border, cream option text, orange-soft hover, orange left-bar and orange text on the chosen row, dark action row for ALL/NONE/RESET. Control heights in the tool rows locked to 36px.
+- fix75 (2026-09-17): Report Studio is now three panels -- DATASETS, BUILD, RESULTS -- with Intake/Recovery as the design baseline. Panel 1 picks the dataset with Intake-mode tiles (dark idle, solid orange selected, live row count inside the selected tile), not a dropdown. The builder panels that followed are ONE panel called BUILD (search + match + conditions + columns + group/compare + measures). Presets rethought against the updated app: START FROM A PRESET chips configure the builder in one click from what the app actually tracks now (owed by district, owed by owner, paid vs cost, payments by type, spend by category, projects by district, projects by stage, clients by district); they resolve field labels at click time so a missing field degrades the preset instead of crashing it, and money presets hide from non-financial roles. ONE-CLICK CSV keeps the twelve server pillars but as compact download chips grouped FINANCIAL / OPERATIONAL / SYSTEM / MORE with a tooltip describing exactly what is inside; the black expandable forensic drawers are gone. Saved views (SAVE AS box + view chips) moved into the DATASETS panel because they are a what-am-I-looking-at control, not a builder control.
 '''
 
 # ============================================================================
 # PATCHES
 # ============================================================================
 print('=' * 72)
-print(' GOLDEN SEED fix74 -- merged FILTERS panel, short names, dark popovers')
+print(' GOLDEN SEED fix75 -- DATASETS tiles, one BUILD panel, rethought presets')
 print('=' * 72)
 
-# a) MATCH label above its chips
+# -- ReportStudio.jsx --------------------------------------------------------
+# a) the old PRESETS section (expandable library holder) is gone
 rpatch(STU,
-       r'<span className=\{styles\.miniLabel\}>Match</span>[\s\S]*?Any one condition is enough">\s*<button[^>]*>ANY</button>\s*</Tooltip>',
-       lambda m: MATCH_JSX,
-       'Studio: MATCH becomes a labelled field')
-
-# b) SAVE AS box replaces the plain tall input
-rpatch(STU,
-       r'<label className=\{styles\.toolField\}>\s*<span className=\{styles\.miniLabel\}>Save view</span>[\s\S]*?</label>',
-       lambda m: SAVE_JSX,
-       'Studio: SAVE AS search-style box')
-
-# c) columns picker moves inside the FILTERS panel (insert row, reopen tag)
-rpatch(STU,
-       r'</CollapsibleSection>\s*<CollapsibleSection\s+icon=\{<FiColumns',
-       lambda m: COLS_ROW_JSX,
-       'Studio: columns row folded into FILTERS panel')
-
-# d) the old standalone COLUMNS section is now gone
-rpatch(STU,
-       r'<CollapsibleSection\s+icon=\{<FiColumns[\s\S]*?</CollapsibleSection>',
+       r'<CollapsibleSection\s+icon=\{<FiDownloadCloud aria-hidden="true" />\}\s+title="PRESETS"[\s\S]*?</CollapsibleSection>',
        '',
-       'Studio: standalone COLUMNS section removed')
+       'Studio: old PRESETS section removed')
 
-# e) short panel names
-patch(STU, 'title="ONE-CLICK REPORTS"', 'title="PRESETS"', 'Studio: panel renamed PRESETS')
-patch(STU, 'title="DATA SOURCE"', 'title="SOURCE"', 'Studio: panel renamed SOURCE')
-patch(STU, 'title="NARROW IT DOWN"', 'title="FILTERS"', 'Studio: panel renamed FILTERS')
-patch(STU, 'title="GROUP, MEASURE & COMPARE"', 'title="GROUPING"', 'Studio: panel renamed GROUPING')
+# b) SOURCE section becomes the DATASETS panel
+rpatch(STU,
+       r'<CollapsibleSection\s+icon=\{<FiDatabase aria-hidden="true" />\}\s+title="SOURCE"[\s\S]*?</CollapsibleSection>',
+       lambda m: DATASETS_JSX,
+       'Studio: DATASETS panel (tiles + presets + views + one-click CSV)')
 
-# f) CSS layer
-append(STUCSS, STU_CSS, 'Studio CSS: centring + heights + dark popovers layer appended')
-append(ADD, ADDENDUM, 'Addendum: fix74 entry appended')
+# c) GROUPING folds into the FILTERS panel, which becomes BUILD
+rpatch(STU,
+       r'</CollapsibleSection>\s*<CollapsibleSection\s+icon=\{<FiBarChart2 aria-hidden="true" />\}\s+title="GROUPING"\s+defaultOpen=\{mode === .analysis.\}\s+right=\{<span className=\{styles\.badge\}>\{groupBy \? .GROUPED. : .ROW BY ROW.\}</span>\}\s*>([\s\S]*?)</CollapsibleSection>',
+       lambda m: m.group(1) + '            </CollapsibleSection>',
+       'Studio: GROUPING folded into the builder panel')
+patch(STU, 'title="FILTERS"', 'title="BUILD"', 'Studio: builder panel renamed BUILD')
+
+# d) preset views + applier land just before the render helpers
+patch(STU,
+      '    const groupField = fieldByKey(dataset, groupBy);',
+      PRESET_JSX,
+      'Studio: PRESET_VIEWS + applyPreset added')
+
+# -- ReportHub.jsx -----------------------------------------------------------
+# e) Tooltip import for the chip tooltips
+patch(HUB,
+      "import ReportStudio from './ReportStudio';",
+      "import ReportStudio from './ReportStudio';\nimport { Tooltip } from '../../components/common/Tooltip';",
+      'Hub: Tooltip imported')
+
+# f) the expandable ReportRow component is gone (chips replace it)
+rpatch(HUB,
+       r'    const ReportRow = \(\{ item \}\) => \{[\s\S]*?\n    \};\n',
+       '',
+       'Hub: ReportRow component removed')
+
+# g) library becomes chip groups
+rpatch(HUB,
+       r'    const library = \([\s\S]*?\n    \);\n\n    return \(',
+       lambda m: LIB_CHIPS_JSX,
+       'Hub: library rebuilt as download chips')
+
+# -- CSS layers ---------------------------------------------------------------
+append(STUCSS, STU_CSS, 'Studio CSS: tiles + preset chips layer appended')
+append(HUBCSS, HUB_CSS, 'Hub CSS: lib chips layer appended')
+append(ADD, ADDENDUM, 'Addendum: fix75 entry appended')
 
 # ============================================================================
 # WRITE + GIT
 # ============================================================================
-for rel in (STU, STUCSS, ADD):
+for rel in (STU, STUCSS, HUB, HUBCSS, ADD):
     save(rel)
 print('')
 print('All files written.')
 print('')
 print('git: staging, committing, pushing...')
-MSG = ('fix74: FILTERS panel merged (narrow + columns), one-word panel names, '
-       'SAVE AS box styled like in-page search, centred search icon, '
-       'dark app-language dropdown lists, 36px control heights')
+MSG = ('fix75: studio is DATASETS tiles + one BUILD panel + RESULTS; presets '
+       'rethought as one-click builder views and compact CSV chips')
 subprocess.run(['git', 'add', '-A'])
 subprocess.run(['git', 'commit', '-m', MSG])
 subprocess.run(['git', 'push'])

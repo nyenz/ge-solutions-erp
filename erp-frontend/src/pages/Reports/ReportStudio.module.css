@@ -473,3 +473,50 @@
 
 /* 6. the columns hint shares its row with the picker */
 .toolRow .hint { align-self: flex-end; padding-bottom: 9px; }
+
+
+/* fix75 -- DATASETS TILES + PRESET CHIPS (Intake / Recovery button language:
+   dark idle, solid orange selected, orange tint on hover). Appended on
+   purpose: cascade wins. */
+.tileRow {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: clamp(6px,0.9vw,10px);
+  margin-bottom: clamp(8px,1.1vw,12px);
+}
+.tile, .tileActive {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(9px,0.95vw,11px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: clamp(8px,1.1vw,11px) clamp(14px,2vw,24px);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease;
+}
+.tile:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.12); }
+.tileActive {
+  background: var(--orange); border-color: var(--orange); color: #1a2e30;
+  box-shadow: 0 4px 16px rgba(238,140,58,0.3);
+}
+.tileCount { font-family: 'Space Mono', monospace; font-size: clamp(8px,0.85vw,10px); opacity: 0.75; }
+.pChip {
+  font-family: 'Inter', sans-serif; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  font-size: clamp(8px,0.85vw,10px);
+  padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.pChip:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
+.rowLabel {
+  display: block;
+  font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+  margin: clamp(4px,0.6vw,8px) 0 6px;
+}
