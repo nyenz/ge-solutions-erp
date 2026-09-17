@@ -2,377 +2,415 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
- GOLDEN SEED ERP  --  fix.py  (git commit + push helper)
+ GOLDEN SEED ERP -- fix72 PATCHER
 ================================================================================
-
-WHAT THIS IS
-
-  A small, separate script that does ONLY git operations: stage, commit, push.
-  It does not touch any source file. Run the patcher (the earlier fix.py, or
-  whatever produced your current working tree) first, confirm the app still
-  builds, THEN run this one to get it onto GitHub.
-
-  This is deliberately its own file rather than folded into the patcher: a
-  script that edits source AND pushes to git in one run is a script you cannot
-  safely dry-run, and a bad patch you already pushed is much more annoying to
-  undo than a bad patch sitting locally.
-
-HOW TO RUN
-
-      python3 fix.py --dry-run          # show exactly what would be committed
-                                         # and the exact push command, do nothing
-      python3 fix.py                    # stage everything, commit, push
-      python3 fix.py -m "custom message"
-      python3 fix.py --no-verify-build  # skip the npm build sanity check
-
-WHAT IT CHECKS BEFORE TOUCHING GIT
-
-  1. You are inside a git repository.
-  2. There is a configured remote (`origin` by default, or --remote).
-  3. There is something to commit at all (refuses to make an empty commit).
-  4. If erp-frontend/package.json exists and node_modules is present, it runs
-     `npm run build` and refuses to commit on a red build -- unless you pass
-     --no-verify-build. This is the same check the earlier fix.py told you to
-     run by hand; doing it here means a broken build never reaches GitHub by
-     accident.
-  5. It does NOT force-push, ever. If the remote has moved ahead of your local
-     branch, the push will fail on purpose and this script tells you to pull
-     first rather than guessing at a resolution.
-
-WHAT IT DOES
-
-  1. git add -A
-  2. git commit -m "<message>"   (default message summarises file counts by
-     top-level area -- frontend / backend / other -- not a placeholder)
-  3. git push <remote> <current-branch>
-
-SAFETY
-
-  * --dry-run shows the exact commit message and the exact push command
-    without running either.
-  * Refuses to run with a merge/rebase/cherry-pick sitting mid-flight --
-    checks .git/MERGE_HEAD, .git/rebase-apply, .git/rebase-merge,
-    .git/CHERRY_PICK_HEAD first, since committing on top of one of those is
-    how you get a confusing history.
-  * Prints the full `git status --short` it is about to commit before it
-    commits, every time, dry-run or not.
-  * Never force-pushes and never rewrites history.
---------------------------------------------------------------------------------
+ WHAT:
+   1. Reports tab: the four canned-report drawers (FINANCIAL / OPERATIONAL /
+      SYSTEM / MORE) are removed from UNDER the studio and integrated at the
+      TOP of the general reports system as one ONE-CLICK REPORTS section
+      inside the studio. The RESULTS table becomes the last block on the tab.
+   2. Every studio <select> loses its browser-default look: no native arrow,
+      fixed 38px height (the old flex-basis made the dataset select ~150px
+      tall), styled options, a real disabled state.
+   3. DATA SOURCE panel rethought: icon frame + full-width dataset pick +
+      RELOAD on one row.
+   4. GROUP / COMPARE panel rethought: group-by and split-by on one row with
+      a VS tag between them, plus an unlock hint.
+   5. Contrast faults: hint / mini labels / section labels were ink-on-dark;
+      now light-on-dark where they actually sit.
+ HOW: run  py fix.py  from the project root. Prints OK / MISSING per patch.
+      Commits and pushes at the end.
+================================================================================
 """
 
-import argparse
 import os
+import re
 import subprocess
-import sys
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+HUB    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.jsx')
+HUBCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.module.css')
+STU    = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.jsx')
+STUCSS = os.path.join('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.module.css')
+ADD    = 'LLM_CONTEXT_ADDENDUM.md'
+
+BUF = {}
+
+
+def get(rel):
+    if rel not in BUF:
+        with open(os.path.join(ROOT, rel), 'r', encoding='utf-8', errors='replace') as f:
+            BUF[rel] = f.read()
+    return BUF[rel]
+
+
+def save(rel):
+    with open(os.path.join(ROOT, rel), 'w', encoding='utf-8', newline='\n') as f:
+        f.write(BUF[rel])
+
+
+def patch(rel, old, new, tag):
+    s = get(rel)
+    if old in s:
+        BUF[rel] = s.replace(old, new, 1)
+        print('OK      ' + tag)
+    else:
+        print('MISSING ' + tag)
+
+
+def rpatch(rel, pat, new, tag):
+    s = get(rel)
+    out, n = re.subn(pat, new, s, count=1)
+    if n:
+        BUF[rel] = out
+        print('OK      ' + tag)
+    else:
+        print('MISSING ' + tag)
+
+
+def append(rel, block, tag):
+    get(rel)
+    BUF[rel] = BUF[rel] + block
+    print('OK      ' + tag)
 
 
 # ----------------------------------------------------------------------------
-# small git helpers
+# 1. ReportHub.jsx -- library node (the four groups, folded into one block)
 # ----------------------------------------------------------------------------
+LIB_JSX = '''    const library = (
+        <div className={styles.libWrap}>
+            {hasFinancialAccess ? (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>Financial</span>
+                    <div className={styles.libList}>
+                        {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            ) : (
+                <div className={styles.restrictionHandbrake} role="alert">
+                    <FiLock className={styles.lockIcon} aria-hidden="true" />
+                    <div className={styles.warningText}>
+                        <strong>SECURITY HANDBRAKE ACTIVE</strong>
+                        <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
+                    </div>
+                </div>
+            )}
+            <div className={styles.libGroup}>
+                <span className={styles.libLabel}>Operational</span>
+                <div className={styles.libList}>
+                    {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                </div>
+            </div>
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>System</span>
+                    <div className={styles.libList}>
+                        {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            )}
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>More</span>
+                    <div className={styles.libList}>
+                        {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
-def run(cmd, check=True, capture=True):
-    """Run a command, return (returncode, stdout, stderr)."""
-    result = subprocess.run(cmd, capture_output=capture, text=True)
-    if check and result.returncode != 0:
-        out = (result.stdout or "") + (result.stderr or "")
-        sys.exit("ERROR running " + " ".join(cmd) + ":\n" + out.strip())
-    return result.returncode, (result.stdout or "").strip(), (result.stderr or "").strip()
-
-
-def in_git_repo():
-    code, _out, _err = run(["git", "rev-parse", "--is-inside-work-tree"], check=False)
-    return code == 0
-
-
-def repo_root():
-    _code, out, _err = run(["git", "rev-parse", "--show-toplevel"])
-    return out
-
-
-def current_branch():
-    _code, out, _err = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-    if out == "HEAD":
-        sys.exit(
-            "ERROR: you are in a detached HEAD state (not on a branch).\n"
-            "       Check out a branch before running this: git checkout main"
-        )
-    return out
-
-
-def remote_exists(remote):
-    _code, out, _err = run(["git", "remote"], check=False)
-    return remote in out.splitlines()
-
-
-def ahead_of_upstream(remote, branch):
-    """How many local commits exist that <remote>/<branch> does not have yet
-    -- distinct from an unclean working tree. This matters after resolving a
-    rebase or merge conflict by hand: the working tree is clean (nothing left
-    to stage) but a real commit is sitting there unpushed, and a script whose
-    whole job is "get my work onto GitHub" should not call that "nothing to
-    do".
-
-    Deliberately does NOT rely on `@{u}` / the branch's configured upstream:
-    a branch pushed with plain `git push origin main` (no -u) has no tracking
-    branch set even though the remote ref exists and the comparison is
-    perfectly well-defined. Comparing directly against
-    refs/remotes/<remote>/<branch> works whether or not tracking was ever
-    configured.
-
-    If that remote-tracking ref does not exist locally yet (a fresh clone
-    that has not fetched, or a branch that has genuinely never been pushed),
-    a quiet fetch is attempted to get an accurate answer. If even that fails
-    (no network, unreachable remote), this returns 1 rather than 0 -- the
-    conservative direction for a script whose job is to push: "I don't know,
-    so try" beats "I don't know, so silently skip your work"."""
-    ref = "refs/remotes/" + remote + "/" + branch
-
-    code, _out, _err = run(["git", "rev-parse", "--verify", "--quiet", ref], check=False)
-    if code != 0:
-        run(["git", "fetch", "--quiet", remote, branch], check=False)
-        code, _out, _err = run(["git", "rev-parse", "--verify", "--quiet", ref], check=False)
-        if code != 0:
-            return 1
-
-    code, out, _err = run(["git", "rev-list", "--count", ref + "..HEAD"], check=False)
-    if code != 0:
-        return 1
-    try:
-        return int(out)
-    except ValueError:
-        return 1
-
-
-def mid_operation(git_dir):
-    """True if a merge/rebase/cherry-pick is in progress -- committing on top
-    of one of those silently is how a confusing history happens."""
-    markers = [
-        os.path.join(git_dir, "MERGE_HEAD"),
-        os.path.join(git_dir, "rebase-apply"),
-        os.path.join(git_dir, "rebase-merge"),
-        os.path.join(git_dir, "CHERRY_PICK_HEAD"),
-    ]
-    return [m for m in markers if os.path.exists(m)]
-
-
-def porcelain_lines():
-    """Raw `git status --porcelain` output, one entry per line, with each
-    line's LEADING characters intact.
-
-    NOTE: this deliberately does not go through run(), whose generic .strip()
-    on the whole captured blob eats the leading space off only the FIRST
-    line (porcelain's status column is column-aligned with a literal space
-    for "no change on this side", e.g. " M path" for a worktree-only edit).
-    Stripping the whole blob silently turned " M fix.py" into "M fix.py" and
-    then a fixed-width slice read the wrong three characters -- "fix.py"
-    became "ix.py" in the commit-message summary. Individual lines are still
-    rstripped for the trailing newline, which is safe.
-    """
-    result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-    if result.returncode != 0:
-        sys.exit("ERROR running git status --porcelain:\n" + (result.stderr or "").strip())
-    return [l for l in result.stdout.split("\n") if l]
-
-
-def has_changes():
-    return bool(porcelain_lines())
-
-
-def status_short():
-    _code, out, _err = run(["git", "status", "--short"])
-    return out
-
-
-def summarise_changes():
-    """Build a default commit message from what actually changed, grouped by
-    top-level area, rather than a fixed placeholder string."""
-    areas = {}
-    for line in porcelain_lines():
-        # porcelain format is a fixed 2-character status column, then a
-        # space, then the path (or "orig -> new" for a rename) -- e.g.
-        # " M erp-frontend/src/App.jsx" or "?? fix.py".
-        path = line[3:].split(" -> ")[-1].strip()
-        top = path.split("/", 1)[0] if "/" in path else path
-        areas[top] = areas.get(top, 0) + 1
-
-    if not areas:
-        return "Update"
-
-    parts = [str(n) + " file" + ("s" if n != 1 else "") + " in " + area
-             for area, n in sorted(areas.items())]
-    total = sum(areas.values())
-    header = "Update " + str(total) + " file" + ("s" if total != 1 else "")
-    return header + "\n\n" + "\n".join("- " + p for p in parts)
-
+    return (
+        <div className={styles.container}>'''
 
 # ----------------------------------------------------------------------------
-# build sanity check
+# 2. ReportStudio.jsx -- the ONE-CLICK REPORTS section, first in the studio
 # ----------------------------------------------------------------------------
-
-def verify_frontend_build(root):
-    frontend = os.path.join(root, "erp-frontend")
-    pkg = os.path.join(frontend, "package.json")
-    modules = os.path.join(frontend, "node_modules")
-
-    if not os.path.isfile(pkg):
-        print("  (no erp-frontend/package.json found -- skipping build check)")
-        return True
-    if not os.path.isdir(modules):
-        print("  (erp-frontend/node_modules not installed -- skipping build check)")
-        print("   run `npm install` in erp-frontend/ if you want this check active)")
-        return True
-
-    print("  running `npm run build` in erp-frontend/ ...")
-    result = subprocess.run(
-        ["npm", "run", "build"], cwd=frontend,
-        capture_output=True, text=True, shell=(os.name == "nt"),
-    )
-    if result.returncode != 0:
-        print("")
-        print((result.stdout or "")[-2000:])
-        print((result.stderr or "")[-2000:])
-        return False
-    print("  build OK")
-    return True
-
+QUICK_JSX = '''            {quickExports && (
+                <CollapsibleSection
+                    icon={<FiDownloadCloud aria-hidden="true" />}
+                    title="ONE-CLICK REPORTS"
+                    defaultOpen
+                    right={<span className={styles.badge}>CANNED CSV</span>}
+                >
+                    <p className={styles.hint}>
+                        The standing company reports, ready to pull. Open one to read exactly what is inside before you download it.
+                    </p>
+                    {quickExports}
+                </CollapsibleSection>
+            )}
+'''
 
 # ----------------------------------------------------------------------------
+# 3. ReportStudio.jsx -- DATA SOURCE bar, rethought
+# ----------------------------------------------------------------------------
+DATASET_JSX = '''                <div className={styles.datasetBar}>
+                    <span className={styles.datasetIcon} aria-hidden="true">
+                        <FiDatabase aria-hidden="true" />
+                    </span>
+                    <label className={styles.datasetPick}>
+                        <span className={styles.miniLabel}>Dataset</span>
+                        <span className={styles.selectWrap}>
+                            <select
+                                className={styles.select}
+                                value={datasetKey}
+                                onChange={e => setDatasetKey(e.target.value)}
+                                aria-label="Dataset"
+                            >
+                                {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
+                            </select>
+                        </span>
+                    </label>
+                    <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
+                        <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
+                    </button>
+                </div>'''
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Stage, commit and push the current working tree.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    ap.add_argument("--dry-run", action="store_true",
-                     help="show what would be committed and pushed, do nothing")
-    ap.add_argument("-m", "--message", default=None,
-                     help="commit message (default: auto-summarised from changed files)")
-    ap.add_argument("--remote", default="origin",
-                     help="git remote to push to (default: origin)")
-    ap.add_argument("--no-verify-build", action="store_true",
-                     help="skip the npm build sanity check before committing")
-    args = ap.parse_args()
+# ----------------------------------------------------------------------------
+# 4. ReportStudio.jsx -- GROUP / COMPARE row, rethought
+# ----------------------------------------------------------------------------
+COMPARE_JSX = '''                <div className={styles.compareRow}>
+                    <label className={styles.comparePick}>
+                        <span className={styles.miniLabel}>Group by</span>
+                        <span className={styles.selectWrap}>
+                            <select className={styles.select} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+                                <option value="">(no grouping -- show every row)</option>
+                                {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
+                            </select>
+                        </span>
+                    </label>
+                    <span className={styles.compareVs} aria-hidden="true">VS</span>
+                    <label className={styles.comparePick}>
+                        <span className={styles.miniLabel}>Compare / split by</span>
+                        <span className={styles.selectWrap}>
+                            <select className={styles.select} value={splitBy} onChange={e => setSplitBy(e.target.value)} disabled={!groupBy}>
+                                <option value="">(none)</option>
+                                {fields.filter(fl => fl.key !== groupBy).map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
+                            </select>
+                        </span>
+                    </label>
+                </div>
+                {!groupBy && (
+                    <p className={styles.hint}>
+                        <FiAlertCircle size={12} aria-hidden="true" />
+                        Compare unlocks once a group field is picked -- the chart and the split columns light up with it.
+                    </p>
+                )}'''
 
-    if not in_git_repo():
-        sys.exit("ERROR: not inside a git repository.")
+# ----------------------------------------------------------------------------
+# 5. ReportStudio.module.css -- appended override layer (cascade does the work)
+# ----------------------------------------------------------------------------
+STU_CSS = '''
 
-    root = repo_root()
-    os.chdir(root)
+/* fix72 -- DROPDOWN + PANEL RESTYLE LAYER (appended on purpose: every rule
+   below overrides the same selector declared earlier in this file). */
 
-    blockers = mid_operation(os.path.join(root, ".git"))
-    if blockers:
-        sys.exit(
-            "ERROR: a merge, rebase or cherry-pick looks unfinished:\n"
-            + "\n".join("    " + b for b in blockers)
-            + "\nResolve or abort that first (git status will tell you how),"
-              " then re-run this."
-        )
+/* 1. The native select, fully owned. No browser arrow, no browser height.
+   The old flex: 1 1 150px became a 150px-TALL box inside column-flex
+   wrappers, because in a column the basis is the height. Wrappers below
+   are row-flex, so the basis is a width again. */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  height: 38px;
+  padding-right: 32px;
+  flex: 0 1 auto;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23EE8C3A' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+.select:disabled {
+  cursor: not-allowed;
+  background-color: #f1eeea;
+  border-style: dashed;
+  color: rgba(26,46,48,0.45);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23b9b2a9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.select option { background: #fff; color: var(--ink); font-weight: 600; }
+.select option:disabled { color: rgba(26,46,48,0.35); }
+.selectWrap { position: relative; display: flex; flex: 1 1 150px; min-width: 130px; max-width: 100%; }
+.selectWrap .select { flex: 1 1 auto; width: 100%; min-width: 0; }
 
-    branch = current_branch()
+/* 2. DATA SOURCE rethink: icon frame + full-width pick + RELOAD, one row. */
+.datasetBar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+.datasetIcon {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(238,140,58,0.16); border: 1.5px solid rgba(238,140,58,0.34);
+  color: var(--orange); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.datasetPick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 240px; min-width: 0; }
 
-    print("=" * 72)
-    print("  GOLDEN SEED  git commit + push  " + ("(DRY RUN)" if args.dry_run else ""))
-    print("=" * 72)
-    print("  repo:   " + root)
-    print("  branch: " + branch)
-    print("  remote: " + args.remote + ("  (configured)" if remote_exists(args.remote) else "  ** NOT CONFIGURED **"))
-    print("")
+/* 3. COMPARE rethink: group and split on one row with a VS tag between,
+   so the eye reads them as one decision instead of two orphan boxes. */
+.compareRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+.comparePick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; min-width: 0; }
+.compareVs {
+  font-family: 'Space Mono', monospace; font-weight: 900;
+  font-size: clamp(9px,0.95vw,11px); letter-spacing: 1px;
+  color: var(--orange); background: rgba(238,140,58,0.16);
+  border: 1.5px solid rgba(238,140,58,0.34); border-radius: var(--radius-sm);
+  padding: clamp(7px,0.95vw,10px) clamp(8px,1vw,12px);
+}
 
-    def do_push():
-        push_cmd = ["git", "push", args.remote, branch]
-        if args.dry_run:
-            print("Would run:")
-            print("    " + " ".join(push_cmd))
-            print("")
-            print("Dry run -- nothing pushed.")
-            return 0
-        print("Running:")
-        print("    " + " ".join(push_cmd))
-        print("")
-        code, out, err = run(push_cmd, check=False)
-        if code != 0:
-            print("")
-            print("Push failed:")
-            print("    " + (out + "\n" + err).strip())
-            if "rejected" in err.lower() or "non-fast-forward" in err.lower():
-                print("")
-                print("  The remote has commits you don't have locally. Pull first:")
-                print("      git pull --rebase " + args.remote + " " + branch)
-                print("  then re-run this script.")
-            return 1
-        print("Pushed to " + args.remote + "/" + branch + ".")
-        return 0
+/* 4. Condition + measure rows: the wrapper owns the stretch now. */
+.condRow .selectWrap { flex: 1 1 160px; }
+.condRow .input { flex: 1 1 120px; }
 
-    if not has_changes():
-        ahead = ahead_of_upstream(args.remote, branch)
-        if ahead <= 0:
-            print("Nothing to commit and nothing unpushed -- working tree matches")
-            print(args.remote + "/" + branch + ". Nothing to do.")
-            return 0
+/* 5. Contrast faults: these labels sit on the dark CollapsibleSection
+   bodies, not on paper. Ink-grey on navy was a 2:1 whisper. */
+.studio { color: #fff; }
+.hint { color: rgba(255,255,255,0.66); }
+.miniLabel { color: rgba(255,255,255,0.6); }
+.sectionLabel { color: var(--orange); }
 
-        # A clean working tree with unpushed commits happens after resolving a
-        # rebase or merge conflict by hand: the commit already exists, it is
-        # just sitting local. The job here is "get my work onto GitHub", so
-        # that counts as something to do, not nothing.
-        print("Working tree is clean, but " + str(ahead) + " local commit"
-              + ("s" if ahead != 1 else "") + " on " + branch
-              + " have not been pushed yet.")
-        print("")
-        if not remote_exists(args.remote):
-            sys.exit(
-                "ERROR: remote '" + args.remote + "' is not configured.\n"
-                "       git remote add " + args.remote + " <your-repo-url>"
-            )
-        return do_push()
+@media (max-width: 640px) {
+  .selectWrap, .datasetPick, .comparePick { flex: 1 1 100%; min-width: 0; }
+}
+'''
 
-    print("Changes to be committed:")
-    print(status_short())
-    print("")
+# ----------------------------------------------------------------------------
+# 6. ReportHub.module.css -- library-on-dark-panel styles
+# ----------------------------------------------------------------------------
+HUB_CSS = '''
 
-    message = args.message or summarise_changes()
-    print("Commit message:")
-    for line in message.splitlines():
-        print("    " + line)
-    print("")
+/* fix72 -- REPORT LIBRARY INSIDE THE STUDIO.
+   The canned pillars moved from four dark drawers under the studio into one
+   library section at the TOP of the studio, so the rows become white cards
+   on the dark panel body and the group labels read light-on-dark. */
+.libWrap { display: flex; flex-direction: column; gap: clamp(10px,1.4vw,16px); }
+.libGroup { display: flex; flex-direction: column; gap: 6px; }
+.libLabel {
+  font-family: 'DM Sans', sans-serif; font-weight: 900;
+  font-size: clamp(8px,0.85vw,10px); letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+}
+.libList { display: flex; flex-direction: column; gap: 6px; }
+.libList .reportRowWrap {
+  border-bottom: none;
+  background: #fff;
+  border: 1.5px solid rgba(255,255,255,0.14);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.libList .reportRow { padding: clamp(9px,1.2vw,13px) clamp(10px,1.4vw,15px); }
+.libList .reportRow:hover { background: rgba(238,140,58,0.07); }
+.libList .reportRowActive { background: rgba(238,140,58,0.09); border-left: 3px solid var(--orange); }
+.libList .rptTitle { color: #1a2e30; }
+.libList .rowChevron { color: rgba(26,46,48,0.35); }
+.libList .reportRow:hover .rowChevron { color: var(--orange); }
+.libList .iconFrame { background: rgba(238,140,58,0.12); }
+/* the forensic detail drawer stays black on purpose -- it is the one object
+   in the library that should look like a vault opening. */
+.libList .detailBox { border-top: 1px solid rgba(255,255,255,0.08); }
+'''
 
-    if not args.no_verify_build:
-        print("Build check:")
-        ok = verify_frontend_build(root)
-        print("")
-        if not ok:
-            sys.exit(
-                "ERROR: erp-frontend build failed. Nothing was committed or pushed.\n"
-                "       Fix the build, or re-run with --no-verify-build to skip this\n"
-                "       check (not recommended)."
-            )
+# ----------------------------------------------------------------------------
+# 7. Addendum entry
+# ----------------------------------------------------------------------------
+ADDENDUM = '''
 
-    if not remote_exists(args.remote):
-        sys.exit(
-            "ERROR: remote '" + args.remote + "' is not configured.\n"
-            "       git remote add " + args.remote + " <your-repo-url>"
-        )
+- fix72 (2026-09-17): Reports tab rebuilt around one rule -- the builder IS the reports system, everything else feeds it from the top. The four canned-report drawers (FINANCIAL / OPERATIONAL / SYSTEM / MORE) are gone from under the studio; their twelve pillars now live in ONE-CLICK REPORTS, the first section inside the studio on the REPORTS tab, grouped under FINANCIAL / OPERATIONAL / SYSTEM / MORE labels with the same expand-for-schema-and-download rows, restyled as white cards on the dark panel body (the black forensic detail drawer stays). Non-financial roles get the SECURITY HANDBRAKE card inside that library instead of a financial drawer. The RESULTS table is now the last block on the Reports tab. Dropdown faults: every studio select loses the browser arrow and the browser height (the old flex: 1 1 150px became a ~150px-tall box inside the column-flex picker), gains an orange chevron background, a fixed 38px height, styled options and a real disabled state (dashed border, grey chevron, not-allowed cursor). DATA SOURCE rethought: icon frame + full-width dataset pick + RELOAD on one row. GROUP / COMPARE rethought: group-by and split-by share one row with a VS tag between them plus an unlock hint; condition and measure selects sit in row-flex wrappers so they stretch instead of ballooning. Contrast faults: hint text, mini labels and section labels were ink-grey written for a light surface but sitting on dark panel bodies -- now light-on-dark.
+'''
 
-    print("Would run:" if args.dry_run else "Running:")
-    print("    git add -A")
-    print("    git commit -m \"" + message.splitlines()[0] + "\" ...")
-    print("    git push " + args.remote + " " + branch)
+# ============================================================================
+# PATCHES
+# ============================================================================
+print('=' * 72)
+print(' GOLDEN SEED fix72 -- reports integration + dropdown/panel restyle')
+print('=' * 72)
 
-    if args.dry_run:
-        print("")
-        print("Dry run -- nothing staged, committed, or pushed.")
-        return 0
+# -- ReportHub.jsx ----------------------------------------------------------
+# a) delete the four drawers under the studio (financial ternary through the
+#    MORE REPORTS closing brace). Lazy match: the tail markers are unique.
+rpatch(HUB,
+       r'\{hasFinancialAccess \? \([\s\S]*?label="MORE REPORTS"[\s\S]*?</DrawerPanel>\s*\)\}',
+       '',
+       'Hub: four canned drawers removed from under the studio')
 
-    print("")
-    run(["git", "add", "-A"])
-    run(["git", "commit", "-m", message])
-    print("")
-    result = do_push()
-    if result != 0:
-        print("  (the commit above succeeded locally either way -- re-running")
-        print("   this script after resolving the push problem will just push,")
-        print("   since there will be nothing left to commit)")
-    return result
+# b) the library node is built just before the main return
+rpatch(HUB,
+       r'return \(\n\s*<div className=\{styles\.container\}>',
+       LIB_JSX,
+       'Hub: library node inserted before main return')
 
+# c) hand the library to the studio on the REPORTS tab
+rpatch(HUB,
+       r'<ReportStudio\s+canSeeMoney=\{hasFinancialAccess\}\s+mode="report"\s+reloadToken=\{reloadToken\}\s*/>',
+       r'<ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} quickExports={library} />',
+       'Hub: studio receives quickExports on the REPORTS tab')
 
-if __name__ == "__main__":
-    sys.exit(main())
+# d) the outer drawer is the whole system now, not just the builder
+patch(HUB,
+      'label="BUILD YOUR OWN REPORT"',
+      'label="REPORT STUDIO"',
+      'Hub: studio drawer renamed REPORT STUDIO')
+
+# -- ReportStudio.jsx --------------------------------------------------------
+# e) new prop
+patch(STU,
+      "const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 }) => {",
+      "const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, quickExports = null }) => {",
+      'Studio: quickExports prop added')
+
+# f) ONE-CLICK REPORTS becomes the first section in the studio
+rpatch(STU,
+       r'<div className=\{styles\.studio\}>',
+       lambda m: m.group(0) + '\n' + QUICK_JSX.rstrip('\n'),
+       'Studio: ONE-CLICK REPORTS section inserted first')
+
+# g) DATA SOURCE bar rebuild (old chipRow/picker block, comment included)
+rpatch(STU,
+       r'\{/\* A select, not a row of chips[\s\S]*?</div>',
+       lambda m: DATASET_JSX,
+       'Studio: DATA SOURCE bar rebuilt')
+
+# h) GROUP / COMPARE row rebuild
+rpatch(STU,
+       r'<div className=\{styles\.pickerGrid\}>[\s\S]*?</div>',
+       lambda m: COMPARE_JSX,
+       'Studio: GROUP / COMPARE row rebuilt')
+
+# i) every remaining bare select gets a row-flex wrapper (conditions+measures)
+rpatch(STU,
+       r'(<select\s+className=\{styles\.select\}\s+value=\{c\.field\}[\s\S]*?</select>)',
+       r'<span className={styles.selectWrap}>\1</span>',
+       'Studio: condition field select wrapped')
+rpatch(STU,
+       r'(<select\s+className=\{styles\.select\}\s+value=\{c\.op\}[\s\S]*?</select>)',
+       r'<span className={styles.selectWrap}>\1</span>',
+       'Studio: condition operator select wrapped')
+rpatch(STU,
+       r'(<select\s+className=\{styles\.select\}\s+value=\{m\.agg\}[\s\S]*?</select>)',
+       r'<span className={styles.selectWrap}>\1</span>',
+       'Studio: measure aggregation select wrapped')
+rpatch(STU,
+       r'(<select\s+className=\{styles\.select\}\s+value=\{m\.field\}[\s\S]*?</select>)',
+       r'<span className={styles.selectWrap}>\1</span>',
+       'Studio: measure field select wrapped')
+
+# -- CSS layers (appended, cascade wins, zero anchor risk) -------------------
+append(STUCSS, STU_CSS, 'Studio CSS: dropdown + panel restyle layer appended')
+append(HUBCSS, HUB_CSS, 'Hub CSS: library-on-dark styles appended')
+append(ADD, ADDENDUM, 'Addendum: fix72 entry appended')
+
+# ============================================================================
+# WRITE + GIT
+# ============================================================================
+for rel in (HUB, HUBCSS, STU, STUCSS, ADD):
+    save(rel)
+print('')
+print('All files written.')
+print('')
+print('git: staging, committing, pushing...')
+MSG = ('fix72: canned reports folded into a ONE-CLICK library at the top of '
+       'the studio, results table last, native selects fully styled, '
+       'dataset + compare panels rethought, dark-body contrast faults fixed')
+subprocess.run(['git', 'add', '-A'])
+subprocess.run(['git', 'commit', '-m', MSG])
+subprocess.run(['git', 'push'])
+print('')
+print('Done. Wait for the green tick on Render, then test only once you say so.')

@@ -239,6 +239,49 @@ const ReportHub = () => {
         );
     };
 
+        const library = (
+        <div className={styles.libWrap}>
+            {hasFinancialAccess ? (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>Financial</span>
+                    <div className={styles.libList}>
+                        {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            ) : (
+                <div className={styles.restrictionHandbrake} role="alert">
+                    <FiLock className={styles.lockIcon} aria-hidden="true" />
+                    <div className={styles.warningText}>
+                        <strong>SECURITY HANDBRAKE ACTIVE</strong>
+                        <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
+                    </div>
+                </div>
+            )}
+            <div className={styles.libGroup}>
+                <span className={styles.libLabel}>Operational</span>
+                <div className={styles.libList}>
+                    {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                </div>
+            </div>
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>System</span>
+                    <div className={styles.libList}>
+                        {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            )}
+            {hasFinancialAccess && (
+                <div className={styles.libGroup}>
+                    <span className={styles.libLabel}>More</span>
+                    <div className={styles.libList}>
+                        {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className={styles.container}>
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -277,47 +320,11 @@ const ReportHub = () => {
 
             {tab === 'REPORTS' && (
                 <div className={styles.pillarStack}>
-                    <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="BUILD YOUR OWN REPORT" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} />
+                    <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="REPORT STUDIO" icon={FiSliders} tall>
+                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} quickExports={library} />
                     </DrawerPanel>
 
-                    {hasFinancialAccess ? (
-                        <DrawerPanel open={drawers.finance} onToggle={() => toggleDrawer('finance')} label="FINANCIAL REPORTS" icon={FiBarChart2}>
-                            <div className={styles.reportList}>
-                                {FINANCIAL_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                            </div>
-                        </DrawerPanel>
-                    ) : (
-                        <div className={styles.restrictionHandbrake} role="alert">
-                            <FiLock className={styles.lockIcon} aria-hidden="true" />
-                            <div className={styles.warningText}>
-                                <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                                <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
-                            </div>
-                        </div>
-                    )}
-
-                    <DrawerPanel open={drawers.ops} onToggle={() => toggleDrawer('ops')} label="OPERATIONAL REPORTS" icon={FiMap}>
-                        <div className={styles.reportList}>
-                            {OPS_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                        </div>
-                    </DrawerPanel>
-
-                    {hasFinancialAccess && (
-                        <DrawerPanel open={drawers.system} onToggle={() => toggleDrawer('system')} label="SYSTEM REPORTS" icon={FiShield}>
-                            <div className={styles.reportList}>
-                                {SYSTEM_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                            </div>
-                        </DrawerPanel>
-                    )}
-
-                    {hasFinancialAccess && (
-                        <DrawerPanel open={drawers.p2} onToggle={() => toggleDrawer('p2')} label="MORE REPORTS" icon={FiBarChart2}>
-                            <div className={styles.reportList}>
-                                {PRIORITY2_GROUP.map(item => <ReportRow key={item.id} item={item} />)}
-                            </div>
-                        </DrawerPanel>
-                    )}
+                    
                 </div>
             )}
 

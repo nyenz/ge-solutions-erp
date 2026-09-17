@@ -42,7 +42,7 @@ const TABLE_LIMIT = 500;
 
 const newCondition = () => ({ uid: Math.random().toString(36).slice(2), field: '', op: '', value: '', value2: '' });
 
-const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 }) => {
+const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, quickExports = null }) => {
     const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
     const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
     const dataset = DATASETS[datasetKey] || available[0];
@@ -236,6 +236,19 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
 
     return (
         <div className={styles.studio}>
+            {quickExports && (
+                <CollapsibleSection
+                    icon={<FiDownloadCloud aria-hidden="true" />}
+                    title="ONE-CLICK REPORTS"
+                    defaultOpen
+                    right={<span className={styles.badge}>CANNED CSV</span>}
+                >
+                    <p className={styles.hint}>
+                        The standing company reports, ready to pull. Open one to read exactly what is inside before you download it.
+                    </p>
+                    {quickExports}
+                </CollapsibleSection>
+            )}
 
             {/* ── DATA SOURCE ─────────────────────────────────────── */}
             <CollapsibleSection
@@ -243,19 +256,22 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
                 title="DATA SOURCE"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
-                {/* A select, not a row of chips: four today, more later, and a
-                    wrapping chip row is the first thing to break on a phone. */}
-                <div className={styles.chipRow}>
-                    <label className={styles.picker}>
+                                <div className={styles.datasetBar}>
+                    <span className={styles.datasetIcon} aria-hidden="true">
+                        <FiDatabase aria-hidden="true" />
+                    </span>
+                    <label className={styles.datasetPick}>
                         <span className={styles.miniLabel}>Dataset</span>
-                        <select
-                            className={styles.select}
-                            value={datasetKey}
-                            onChange={e => setDatasetKey(e.target.value)}
-                            aria-label="Dataset"
-                        >
-                            {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
-                        </select>
+                        <span className={styles.selectWrap}>
+                            <select
+                                className={styles.select}
+                                value={datasetKey}
+                                onChange={e => setDatasetKey(e.target.value)}
+                                aria-label="Dataset"
+                            >
+                                {available.map(ds => <option key={ds.key} value={ds.key}>{ds.label}</option>)}
+                            </select>
+                        </span>
                     </label>
                     <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
                         <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
@@ -341,7 +357,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
                             : 'text';
                     return (
                         <div key={c.uid} className={styles.condRow}>
-                            <select
+                            <span className={styles.selectWrap}><select
                                 className={styles.select}
                                 value={c.field}
                                 onChange={e => patchCondition(c.uid, { field: e.target.value, op: '', value: '', value2: '' })}
@@ -349,8 +365,8 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
                             >
                                 <option value="">Choose a field...</option>
                                 {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                            </select>
-                            <select
+                            </select></span>
+                            <span className={styles.selectWrap}><select
                                 className={styles.select}
                                 value={c.op}
                                 onChange={e => patchCondition(c.uid, { op: e.target.value })}
@@ -359,7 +375,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
                             >
                                 <option value="">is...</option>
                                 {ops.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-                            </select>
+                            </select></span>
                             {opDef?.value && (
                                 <input
                                     className={styles.input}
@@ -451,37 +467,48 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0 })
                 defaultOpen={mode === 'analysis'}
                 right={<span className={styles.badge}>{groupBy ? 'GROUPED' : 'ROW BY ROW'}</span>}
             >
-                <div className={styles.pickerGrid}>
-                    <label className={styles.picker}>
+                                <div className={styles.compareRow}>
+                    <label className={styles.comparePick}>
                         <span className={styles.miniLabel}>Group by</span>
-                        <select className={styles.select} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
-                            <option value="">(no grouping -- show every row)</option>
-                            {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                        </select>
+                        <span className={styles.selectWrap}>
+                            <select className={styles.select} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+                                <option value="">(no grouping -- show every row)</option>
+                                {fields.map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
+                            </select>
+                        </span>
                     </label>
-                    <label className={styles.picker}>
+                    <span className={styles.compareVs} aria-hidden="true">VS</span>
+                    <label className={styles.comparePick}>
                         <span className={styles.miniLabel}>Compare / split by</span>
-                        <select className={styles.select} value={splitBy} onChange={e => setSplitBy(e.target.value)} disabled={!groupBy}>
-                            <option value="">(none)</option>
-                            {fields.filter(fl => fl.key !== groupBy).map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                        </select>
+                        <span className={styles.selectWrap}>
+                            <select className={styles.select} value={splitBy} onChange={e => setSplitBy(e.target.value)} disabled={!groupBy}>
+                                <option value="">(none)</option>
+                                {fields.filter(fl => fl.key !== groupBy).map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
+                            </select>
+                        </span>
                     </label>
                 </div>
+                {!groupBy && (
+                    <p className={styles.hint}>
+                        <FiAlertCircle size={12} aria-hidden="true" />
+                        Compare unlocks once a group field is picked -- the chart and the split columns light up with it.
+                    </p>
+                )}
 
                 {measures.map((m, i) => {
                     const def = AGGREGATIONS.find(a => a.key === m.agg);
                     return (
                         <div key={i} className={styles.condRow}>
-                            <select className={styles.select} value={m.agg} onChange={e => patchMeasure(i, { agg: e.target.value })} aria-label="Measure">
+                            <span className={styles.selectWrap}><select className={styles.select} value={m.agg} onChange={e => patchMeasure(i, { agg: e.target.value })} aria-label="Measure">
                                 {AGGREGATIONS.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
-                            </select>
+                            </select></span>
                             {def?.needsField && (
-                                <select className={styles.select} value={m.field} onChange={e => patchMeasure(i, { field: e.target.value })} aria-label="Measure field">
+                                <span className={styles.selectWrap}><select className={styles.select} value={m.field} onChange={e => patchMeasure(i, { field: e.target.value })} aria-label="Measure field">
                                     <option value="">Choose a field...</option>
                                     {fields
                                         .filter(fl => (m.agg === 'distinct' ? true : ['number', 'money', 'percent'].includes(fl.type)))
                                         .map(fl => <option key={fl.key} value={fl.key}>{fl.label}</option>)}
-                                </select>
+                                </select></span>
                             )}
                             {measures.length > 1 && (
                                 <button className={styles.dropBtn} onClick={() => setMeasures(ms => ms.filter((_, idx) => idx !== i))} aria-label="Remove measure">

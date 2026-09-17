@@ -249,3 +249,72 @@
   .dropdown { max-width: none; }
   .table { min-width: 560px; }
 }
+
+
+/* fix72 -- DROPDOWN + PANEL RESTYLE LAYER (appended on purpose: every rule
+   below overrides the same selector declared earlier in this file). */
+
+/* 1. The native select, fully owned. No browser arrow, no browser height.
+   The old flex: 1 1 150px became a 150px-TALL box inside column-flex
+   wrappers, because in a column the basis is the height. Wrappers below
+   are row-flex, so the basis is a width again. */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  height: 38px;
+  padding-right: 32px;
+  flex: 0 1 auto;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23EE8C3A' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+.select:disabled {
+  cursor: not-allowed;
+  background-color: #f1eeea;
+  border-style: dashed;
+  color: rgba(26,46,48,0.45);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23b9b2a9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.select option { background: #fff; color: var(--ink); font-weight: 600; }
+.select option:disabled { color: rgba(26,46,48,0.35); }
+.selectWrap { position: relative; display: flex; flex: 1 1 150px; min-width: 130px; max-width: 100%; }
+.selectWrap .select { flex: 1 1 auto; width: 100%; min-width: 0; }
+
+/* 2. DATA SOURCE rethink: icon frame + full-width pick + RELOAD, one row. */
+.datasetBar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+.datasetIcon {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(238,140,58,0.16); border: 1.5px solid rgba(238,140,58,0.34);
+  color: var(--orange); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.datasetPick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 240px; min-width: 0; }
+
+/* 3. COMPARE rethink: group and split on one row with a VS tag between,
+   so the eye reads them as one decision instead of two orphan boxes. */
+.compareRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: clamp(6px,0.9vw,10px); }
+.comparePick { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; min-width: 0; }
+.compareVs {
+  font-family: 'Space Mono', monospace; font-weight: 900;
+  font-size: clamp(9px,0.95vw,11px); letter-spacing: 1px;
+  color: var(--orange); background: rgba(238,140,58,0.16);
+  border: 1.5px solid rgba(238,140,58,0.34); border-radius: var(--radius-sm);
+  padding: clamp(7px,0.95vw,10px) clamp(8px,1vw,12px);
+}
+
+/* 4. Condition + measure rows: the wrapper owns the stretch now. */
+.condRow .selectWrap { flex: 1 1 160px; }
+.condRow .input { flex: 1 1 120px; }
+
+/* 5. Contrast faults: these labels sit on the dark CollapsibleSection
+   bodies, not on paper. Ink-grey on navy was a 2:1 whisper. */
+.studio { color: #fff; }
+.hint { color: rgba(255,255,255,0.66); }
+.miniLabel { color: rgba(255,255,255,0.6); }
+.sectionLabel { color: var(--orange); }
+
+@media (max-width: 640px) {
+  .selectWrap, .datasetPick, .comparePick { flex: 1 1 100%; min-width: 0; }
+}

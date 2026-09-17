@@ -313,3 +313,34 @@
     border-top: 1px solid #e6e0d8;
     padding: clamp(12px, 1.8vw, 22px);
 }
+
+
+/* fix72 -- REPORT LIBRARY INSIDE THE STUDIO.
+   The canned pillars moved from four dark drawers under the studio into one
+   library section at the TOP of the studio, so the rows become white cards
+   on the dark panel body and the group labels read light-on-dark. */
+.libWrap { display: flex; flex-direction: column; gap: clamp(10px,1.4vw,16px); }
+.libGroup { display: flex; flex-direction: column; gap: 6px; }
+.libLabel {
+  font-family: 'DM Sans', sans-serif; font-weight: 900;
+  font-size: clamp(8px,0.85vw,10px); letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+}
+.libList { display: flex; flex-direction: column; gap: 6px; }
+.libList .reportRowWrap {
+  border-bottom: none;
+  background: #fff;
+  border: 1.5px solid rgba(255,255,255,0.14);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.libList .reportRow { padding: clamp(9px,1.2vw,13px) clamp(10px,1.4vw,15px); }
+.libList .reportRow:hover { background: rgba(238,140,58,0.07); }
+.libList .reportRowActive { background: rgba(238,140,58,0.09); border-left: 3px solid var(--orange); }
+.libList .rptTitle { color: #1a2e30; }
+.libList .rowChevron { color: rgba(26,46,48,0.35); }
+.libList .reportRow:hover .rowChevron { color: var(--orange); }
+.libList .iconFrame { background: rgba(238,140,58,0.12); }
+/* the forensic detail drawer stays black on purpose -- it is the one object
+   in the library that should look like a vault opening. */
+.libList .detailBox { border-top: 1px solid rgba(255,255,255,0.08); }
