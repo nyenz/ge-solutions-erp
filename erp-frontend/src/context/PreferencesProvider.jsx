@@ -40,6 +40,11 @@ const readStored = () => {
     }
 };
 
+// Plain (non-hook) localStorage read, exported for callers -- such as
+// App.jsx's pre-provider route elements -- that need a preference value
+// before PreferencesProvider has mounted and can't use the context/hook.
+export const readPrefs = readStored;
+
 const STAT_SIZES = {
     small:    { label: 'clamp(8px, 0.8vw, 9.5px)',  value: 'clamp(12px, 1.3vw, 15px)',   valueSm: 'clamp(10px, 1.1vw, 12px)', note: 'clamp(7px, 0.75vw, 9px)' },
     standard: { label: 'clamp(8px, 0.85vw, 10px)',  value: 'clamp(13px, 1.45vw, 16.5px)', valueSm: 'clamp(11px, 1.2vw, 13px)', note: 'clamp(7px, 0.8vw, 9px)' },
