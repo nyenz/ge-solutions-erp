@@ -314,9 +314,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
 
     return (
         <div className={styles.studio}>
-            {quickExports && (
-                
-            )}
+            
 
             {/* ── DATA SOURCE ─────────────────────────────────────── */}
                         <CollapsibleSection
