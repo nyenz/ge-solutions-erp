@@ -412,3 +412,64 @@
   .wDataset, .wMid, .wSm, .searchBox, .viewInput { width: 100%; flex: 1 1 100%; }
   .condRow .input { width: 100%; flex: 1 1 100%; }
 }
+
+
+/* fix74 -- CENTRING, HEIGHTS, MERGED FILTERS PANEL, DARK POPOVERS.
+   Appended on purpose: cascade wins over the earlier layers. */
+
+/* 1. icons centred in their bars */
+.searchBox .searchIcon,
+.viewBox .boxIcon { top: 50%; transform: translateY(-50%); }
+
+/* 2. heights locked so no control towers over its row again */
+.pickBtn, .searchBox, .viewBox { height: 36px; }
+
+/* 3. chip groups inside a labelled field */
+.chipGroup { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 4. SAVE AS box: same anatomy as the search box, smaller */
+.viewBox {
+  position: relative; display: flex;
+  width: clamp(150px,18vw,210px);
+  background: #fff; border: 1.5px solid var(--paper-edge); border-radius: var(--radius-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.viewBox:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
+.boxIcon { position: absolute; left: 10px; color: var(--orange); font-size: 13px; pointer-events: none; }
+.viewBox .viewInput {
+  height: 100%; width: 100%; border: none; background: transparent;
+  padding: 0 10px 0 30px; box-shadow: none;
+}
+.viewBox .viewInput:focus { outline: none; box-shadow: none; }
+
+/* 5. open dropdown lists = the app's dark panel language, not white popups */
+.pickList {
+  background: #162a2c;
+  border: 2px solid var(--orange);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+}
+.pickOption, .pickOptionActive { color: rgba(255,255,255,0.85); }
+.pickOption:hover { background: rgba(238,140,58,0.12); }
+.pickOptionActive {
+  background: rgba(238,140,58,0.16);
+  border-left-color: var(--orange);
+  color: var(--orange);
+}
+.dropdownList {
+  background: #162a2c;
+  border: 2px solid var(--orange);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+}
+.dropdownActions { background: #162a2c; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.dropdownOption { color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
+.dropdownOption:last-child { border-bottom: none; }
+.dropdownOption:hover { background: rgba(238,140,58,0.12); }
+.miniBtn {
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.85);
+}
+.miniBtn:hover { border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.12); }
+
+/* 6. the columns hint shares its row with the picker */
+.toolRow .hint { align-self: flex-end; padding-bottom: 9px; }

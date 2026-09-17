@@ -286,7 +286,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             {quickExports && (
                 <CollapsibleSection
                     icon={<FiDownloadCloud aria-hidden="true" />}
-                    title="ONE-CLICK REPORTS"
+                    title="PRESETS"
                     defaultOpen
                     right={<span className={styles.badge}>CANNED CSV</span>}
                 >
@@ -300,7 +300,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             {/* ── DATA SOURCE ─────────────────────────────────────── */}
             <CollapsibleSection
                 icon={<FiDatabase aria-hidden="true" />}
-                title="DATA SOURCE"
+                title="SOURCE"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
             >
                                                 <div className={styles.toolRow}>
@@ -318,14 +318,17 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
                         <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
                     </button>
-                    <label className={styles.toolField}>
-                        <span className={styles.miniLabel}>Save view</span>
-                        <input
-                            className={styles.viewInput}
-                            placeholder="Name this setup..."
-                            value={viewName}
-                            onChange={e => setViewName(e.target.value)}
-                        />
+                                        <label className={styles.toolField}>
+                        <span className={styles.miniLabel}>Save as</span>
+                        <span className={styles.viewBox}>
+                            <FiSave className={styles.boxIcon} aria-hidden="true" />
+                            <input
+                                className={styles.viewInput}
+                                placeholder="View name..."
+                                value={viewName}
+                                onChange={e => setViewName(e.target.value)}
+                            />
+                        </span>
                     </label>
                     <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
                         <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
@@ -364,7 +367,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             {/* ── FILTERS ─────────────────────────────────────────── */}
             <CollapsibleSection
                 icon={<FiFilter aria-hidden="true" />}
-                title="NARROW IT DOWN"
+                title="FILTERS"
                 right={<span className={styles.badge}>{filtered.length} OF {rows.length}</span>}
             >
                                 <div className={styles.toolRow}>
@@ -456,54 +459,12 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             </CollapsibleSection>
 
             {/* ── COLUMNS ─────────────────────────────────────────── */}
-            <CollapsibleSection
-                icon={<FiColumns aria-hidden="true" />}
-                title="COLUMNS TO SHOW"
-                defaultOpen={mode === 'report'}
-                right={<span className={styles.badge}>{columns.length} PICKED</span>}
-            >
-                <p className={styles.hint}>
-                    Only applies to the row-by-row table. Grouped results show your measures instead.
-                </p>
-                {/* Forty checkboxes laid out as chips filled most of a phone
-                    screen before you reached anything else. Same include /
-                    exclude control, folded into a dropdown. */}
-                <div className={styles.dropdown} ref={colMenuRef}>
-                    <button
-                        type="button"
-                        className={styles.dropdownBtn}
-                        onClick={() => setColMenuOpen(o => !o)}
-                        aria-expanded={colMenuOpen}
-                    >
-                        <span>{columns.length === 0 ? 'No columns picked' : `${columns.length} of ${fields.length} columns`}</span>
-                        <FiChevronDown className={colMenuOpen ? styles.dropdownIconOpen : ''} aria-hidden="true" />
-                    </button>
-                    {colMenuOpen && (
-                        <div className={styles.dropdownList}>
-                            <div className={styles.dropdownActions}>
-                                <button className={styles.miniBtn} onClick={() => setColumns(fields.map(fl => fl.key))}>ALL</button>
-                                <button className={styles.miniBtn} onClick={() => setColumns([])}>NONE</button>
-                                <button className={styles.miniBtn} onClick={() => setColumns(dataset.defaultColumns.filter(k => fields.some(fl => fl.key === k)))}>RESET</button>
-                            </div>
-                            {fields.map(fl => (
-                                <label key={fl.key} className={styles.dropdownOption}>
-                                    <input
-                                        type="checkbox"
-                                        checked={columns.includes(fl.key)}
-                                        onChange={() => toggleColumn(fl.key)}
-                                    />
-                                    {fl.label}
-                                </label>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </CollapsibleSection>
+            
 
             {/* ── GROUP & MEASURE ─────────────────────────────────── */}
             <CollapsibleSection
                 icon={<FiBarChart2 aria-hidden="true" />}
-                title="GROUP, MEASURE & COMPARE"
+                title="GROUPING"
                 defaultOpen={mode === 'analysis'}
                 right={<span className={styles.badge}>{groupBy ? 'GROUPED' : 'ROW BY ROW'}</span>}
             >
