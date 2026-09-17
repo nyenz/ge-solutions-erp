@@ -19,3 +19,6 @@
 
 
 - fix76 (2026-09-17): build-breaker cleanup from fix75. fix75's delete pattern removed the old PRESETS panel but left its empty conditional wrapper ({quickExports && ( )}) sitting in ReportStudio.jsx, which is the Unexpected ")" that failed the Render build at line 319. The hollow wrapper is deleted; the real one-click CSV block lives inside the DATASETS panel and is untouched. Permanent process change shipped with this fix: every patcher now runs a local npm run build (when erp-frontend/node_modules is installed) AFTER writing files and BEFORE git commit, and refuses to commit on a red build.
+
+
+- fix77 (2026-09-17): results-table row hover fixed for real. The old hover was rgba(238,140,58,0.12) on white (invisible at arm's length) and its orange left bar was a border on the row, which never paints because the table uses border-collapse: separate. Hover is now rgba(238,140,58,0.22) with the orange left bar drawn as an inset shadow on the first cell, on both the row-by-row table and the grouped table, with a 0.15s ease transition.

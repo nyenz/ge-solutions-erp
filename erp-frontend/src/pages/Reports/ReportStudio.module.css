@@ -520,3 +520,15 @@
   color: rgba(255,255,255,0.6);
   margin: clamp(4px,0.6vw,8px) 0 6px;
 }
+
+
+/* fix77 -- table hover with actual presence.
+   0.12 alpha on white was invisible at arm's length, and the orange left
+   bar never painted because row borders do not render under
+   border-collapse: separate. The bar is an inset shadow on the first cell
+   instead, which does paint. Appended: cascade wins over the zebra stripe
+   and the old hover rule. */
+.table tbody tr:hover { background: rgba(238,140,58,0.22); }
+.table tbody tr:hover td { color: #1a2e30; }
+.table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 0 var(--orange); }
+.table tbody tr { transition: background 0.15s ease; }
