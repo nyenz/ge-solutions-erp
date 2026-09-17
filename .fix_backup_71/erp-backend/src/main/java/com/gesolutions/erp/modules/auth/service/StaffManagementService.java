@@ -6,7 +6,6 @@ import com.gesolutions.erp.modules.auth.dto.*;
 import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.common.exception.BusinessException;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,11 +28,6 @@ public class StaffManagementService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
-    /* fix71: every one of these four is a privileged act on somebody else's
-       access. They were written to the audit log, which nobody reads daily,
-       and nowhere else -- so an account could be provisioned or suspended
-       without a single person being told. They notify ROOT now. */
-    private final NotificationService notificationService;
 
     /**
      * OPERATOR PROVISIONING
@@ -61,17 +55,9 @@ public class StaffManagementService {
                 .build();
 
         try {
-            // Read the id back off the RETURNED entity rather than the one we
-            // passed in. With GenerationType.UUID the two are the same instance
-            // today, but that is a Hibernate implementation detail and the
-            // notification would carry a null entityId the day it changes.
-            User saved = userRepository.save(newUser);
+            userRepository.save(newUser);
             auditService.logAction("OPERATOR_PROVISIONED", 
                 "New " + initialRole + " account created: " + request.getUsername());
-            notificationService.emitRaw("STAFF_PROVISIONED", "INFO",
-                "Operator " + request.getUsername() + " provisioned as "
-                + String.valueOf(initialRole).replace("ROLE_", "") + ".",
-                "STAFF", saved.getId(), "ROLE_DIRECTOR");
         } catch (Exception e) {
             throw new BusinessException("DATABASE_REJECTION: Email conflict.");
         }
@@ -102,10 +88,6 @@ public class StaffManagementService {
 
         auditService.logAction("RANK_ADJUSTMENT", 
             "Operator " + username + " rank shifted to " + newRole);
-        notificationService.emitRaw("STAFF_ROLE_CHANGED", "WARN",
-            "Operator " + username + " is now "
-            + String.valueOf(newRole).replace("ROLE_", "") + ".",
-            "STAFF", target.getId(), "ROLE_DIRECTOR");
     }
 
     /**
@@ -125,11 +107,6 @@ public class StaffManagementService {
 
         String stateName = active ? "ACTIVATED" : "SUSPENDED";
         auditService.logAction("OPERATOR_STATUS_CHANGE", "Account [" + username + "] moved to " + stateName);
-        notificationService.emitRaw(
-            active ? "STAFF_ACTIVATED" : "STAFF_SUSPENDED",
-            active ? "POSITIVE" : "WARN",
-            "Operator " + username + " " + stateName.toLowerCase() + ".",
-            "STAFF", target.getId(), "ROLE_DIRECTOR");
     }
 
     /**
@@ -146,9 +123,6 @@ public class StaffManagementService {
         
         userRepository.save(user);
         auditService.logAction("CREDENTIAL_RESET", "Temporary key generated for: " + username);
-        notificationService.emitRaw("KEY_RESET", "WARN",
-            "Security key reset for " + username + ". They must change it at next sign in.",
-            "STAFF", user.getId(), "ROLE_DIRECTOR");
         return newKey;
     }
 

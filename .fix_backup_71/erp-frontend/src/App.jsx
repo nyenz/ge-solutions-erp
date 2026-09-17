@@ -7,7 +7,6 @@ import { useAuth } from './hooks/useAuth';
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
 import RouteErrorScreen from './components/common/RouteErrorScreen';
-import { readPrefs } from './context/PreferencesProvider';
 
 import LoginPage      from './pages/login/LoginPage';
 import Dashboard      from './pages/Dashboard/Dashboard';
@@ -32,31 +31,11 @@ const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSe
     return children;
 };
 
-/* fix71 -- WHERE SIGNING IN DROPS YOU.
-   Settings -> Data & Start. Only pages with no role gate are offered, so this
-   can never land somebody on a route their rank would bounce them out of:
-   Payments and Reports are adminOnly and are deliberately not in the list.
-   readPrefs() is a plain localStorage read, not a hook, because these two are
-   route elements that render before any provider below them. */
-const LANDING = {
-    dashboard: '/dashboard',
-    ledger:    '/land/projects',
-    recovery:  '/recovery',
-    clients:   '/clients',
-};
-
-const landingPath = () => {
-    try { return LANDING[readPrefs().landing] || '/dashboard'; }
-    catch { return '/dashboard'; }
-};
-
 const LoginRoute = () => {
     const { user, token } = useAuth();
     if (token && user) {
-        // The password handbrake outranks the preference: an account that has
-        // to change its key goes to Settings wherever it would rather start.
         if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-        return <Navigate to={landingPath()} replace />;
+        return <Navigate to="/dashboard" replace />;
     }
     return <LoginPage />;
 };
@@ -65,7 +44,7 @@ const FallbackRoute = () => {
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-    return <Navigate to={landingPath()} replace />;
+    return <Navigate to="/dashboard" replace />;
 };
 
 const AppLayout = () => {

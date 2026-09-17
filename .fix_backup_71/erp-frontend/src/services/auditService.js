@@ -15,20 +15,16 @@ const auditService = {
      * THE TRUTH MACHINE (Search Hub)
      * Fetches logs based on Operator, Action type, or Timeline range.
      */
-    searchForensics: async (filters = {}, page = 0, size = 50) => {
+    searchForensics: async (filters = {}, page = 0) => {
         try {
             const response = await api.get('/admin/audit/search', {
                 params: {
                     operator: filters.operator || null,
                     action: filters.action || null,
-                    // fix71: keyword travels WITH the other filters now. It used
-                    // to force a different endpoint that understood nothing else,
-                    // so searching silently discarded operator, action and dates.
-                    keyword: filters.keyword || null,
                     start: filters.start || null,
                     end: filters.end || null,
                     page: page,
-                    size: size
+                    size: 50
                 }
             });
             return response.data;

@@ -10,7 +10,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
@@ -19,37 +18,17 @@ public class NotificationController {
     private final NotificationReadRepository readRepo;
     private final UserRepository userRepo;
     private User me(Authentication auth) { return userRepo.findByUsername(auth.getName()).orElse(null); }
-    /**
-     * fix71 -- THE N+1 THAT GREW WITH THE TABLE.
-     *
-     * This used to call existsByNotificationIdAndUserId() once PER ROW, so
-     * opening the bell fired one query plus one per notification the role had
-     * ever been sent -- and nothing ever deletes a notification, so that count
-     * only goes up. After a few months in production it is thousands of round
-     * trips to render a dropdown.
-     *
-     * The read markers for one user are now a single query into a Set, and the
-     * list is capped: the bell shows the recent past, not the whole archive.
-     */
-    private static final int MAX_ROWS = 200;
-
     @GetMapping
     public List<Map<String, Object>> list(Authentication auth) {
         User u = me(auth);
         if (u == null) return List.of();
-
-        Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
-                .map(NotificationRead::getNotificationId)
-                .collect(Collectors.toSet());
-
         List<Map<String, Object>> out = new ArrayList<>();
         for (Notification n : notifRepo.findForRole(u.getRole().name())) {
-            if (out.size() >= MAX_ROWS) break;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", n.getId()); m.put("type", n.getType()); m.put("severity", n.getSeverity());
             m.put("message", n.getMessage()); m.put("entityType", n.getEntityType());
             m.put("entityId", n.getEntityId()); m.put("createdAt", n.getCreatedAt());
-            m.put("read", readIds.contains(n.getId()));
+            m.put("read", readRepo.existsByNotificationIdAndUserId(n.getId(), u.getId()));
             out.add(m);
         }
         return out;
@@ -58,13 +37,8 @@ public class NotificationController {
     public Map<String, Long> unread(Authentication auth) {
         User u = me(auth);
         if (u == null) return Map.of("unread", 0L);
-        // Same N+1 as list() -- and this one runs on a timer for every signed-in
-        // user, so it was the more expensive of the two.
-        Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
-                .map(NotificationRead::getNotificationId)
-                .collect(Collectors.toSet());
         long c = notifRepo.findForRole(u.getRole().name()).stream()
-            .filter(n -> !readIds.contains(n.getId())).count();
+            .filter(n -> !readRepo.existsByNotificationIdAndUserId(n.getId(), u.getId())).count();
         return Map.of("unread", c);
     }
     @PostMapping("/{id}/read")
@@ -79,18 +53,11 @@ public class NotificationController {
     public Map<String, Object> readAll(Authentication auth) {
         User u = me(auth);
         if (u == null) return Map.of("ok", false);
-        Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
-                .map(NotificationRead::getNotificationId)
-                .collect(Collectors.toSet());
-        List<NotificationRead> toSave = new ArrayList<>();
         for (Notification n : notifRepo.findForRole(u.getRole().name())) {
-            if (!readIds.contains(n.getId())) {
-                toSave.add(NotificationRead.builder()
-                    .notificationId(n.getId()).userId(u.getId()).readAt(LocalDateTime.now()).build());
+            if (!readRepo.existsByNotificationIdAndUserId(n.getId(), u.getId())) {
+                readRepo.save(NotificationRead.builder().notificationId(n.getId()).userId(u.getId()).readAt(LocalDateTime.now()).build());
             }
         }
-        // One batched write instead of one INSERT per unread row.
-        if (!toSave.isEmpty()) readRepo.saveAll(toSave);
         return Map.of("ok", true);
     }
 }

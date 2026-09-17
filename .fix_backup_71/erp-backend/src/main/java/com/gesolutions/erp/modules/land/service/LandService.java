@@ -514,15 +514,6 @@ public class LandService {
 
         auditService.logAction("RECORD_DELETED",
             "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo);
-        /* fix71: CRITICAL was a severity the frontend rendered and the backend
-           never emitted. Deleting a plot is exactly what it is for. emitRaw,
-           not emit: emit de-duplicates on (type, entityId) forever, so a plot
-           deleted, restored and deleted again would have gone silent the
-           second time. */
-        notificationService.emitRaw("PROJECT_DELETED", "CRITICAL",
-            "Plot " + plotNo + " deleted by " + getCurrentOperator()
-            + ". Restore it from Settings -> Archive.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
     }
 
     @Transactional
@@ -537,9 +528,6 @@ public class LandService {
 
         auditService.logAction("RECORD_RESTORED",
             "Root user [" + getCurrentOperator() + "] restored plot: " + plotNo);
-        notificationService.emitRaw("PROJECT_RESTORED", "POSITIVE",
-            "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
     }
 
     @Transactional(readOnly = true)
@@ -674,16 +662,6 @@ public class LandService {
         auditService.logAction("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
             + " document(s) to plot: " + projectId);
-        // This method only ever had the id, not the entity, so the label has to
-        // be looked up -- and must not be allowed to fail the upload if the
-        // row has gone missing underneath us.
-        String docPlotLabel = projectRepository.findById(projectId)
-                .map(this::plotLabel)
-                .orElse("plot " + projectId);
-        notificationService.emitRaw("DOC_UPLOADED", "INFO",
-            scans.length + " document(s) attached to " + docPlotLabel
-            + " by " + getCurrentOperator() + ".",
-            "PROJECT", projectId, "ROLE_MANAGER");
     }
 
     @Transactional
@@ -708,10 +686,6 @@ public class LandService {
             "Operator [" + getCurrentOperator() + "] shifted plot "
             + plotLabel(project)
             + " from stage " + oldStage + " to stage " + targetStage);
-        notificationService.emitRaw("STAGE_ADVANCED", "POSITIVE",
-            plotLabel(project) + " moved from stage " + oldStage
-            + " to stage " + targetStage + " by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_MANAGER");
     }
 
     @Transactional
@@ -733,9 +707,6 @@ public class LandService {
         auditService.logAction("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + project.getLandTitle().getPlotNumber());
-        notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
-            "Title for " + plotLabel(project) + " released to the client.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
     }
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────

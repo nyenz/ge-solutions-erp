@@ -7,7 +7,6 @@ import com.gesolutions.erp.modules.finance.model.Expense;
 import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
 import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;
-import com.gesolutions.erp.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,10 +43,6 @@ public class ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final ExpensePresetRepository presetRepository;
     private final AuditService auditService;
-    /* fix71: expenses were audited but never notified. The audit log is a
-       forensic record you go looking for; a notification is how a director
-       finds out money left the office without being told in person. */
-    private final NotificationService notificationService;
 
     private String getCurrentOperator() {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
@@ -118,10 +113,6 @@ public class ExpenseService {
             + " -- UGX " + amount
             + (cleanSpentBy != null ? " (spent by " + cleanSpentBy + ")" : ""));
 
-        notificationService.emitRaw("EXPENSE_LOGGED", "INFO",
-            "Expense UGX " + amount + " on " + category + " logged by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
-
         return saved;
     }
 
@@ -166,13 +157,6 @@ public class ExpenseService {
             + saved.getRecordedBy() + "): " + oldCategory + " UGX " + oldAmount
             + " -> " + category + " UGX " + amount);
 
-        // An edit after the fact is the one that matters: the money already
-        // showed up in a total somewhere and the total just changed.
-        notificationService.emitRaw("EXPENSE_EDITED", "WARN",
-            "Expense corrected: " + oldCategory + " UGX " + oldAmount
-            + " changed to " + category + " UGX " + amount + " by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
-
         return saved;
     }
 
@@ -187,11 +171,6 @@ public class ExpenseService {
         auditService.logAction("EXPENSE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()
             + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");
-
-        notificationService.emitRaw("EXPENSE_DELETED", "WARN",
-            "Expense " + expense.getCategory() + " UGX " + expense.getAmount()
-            + " deleted by " + getCurrentOperator() + ".",
-            "EXPENSE", expense.getId(), "ROLE_DIRECTOR");
     }
 
     // -- DIRECTOR ANALYSIS: SEARCH ------------------------------------

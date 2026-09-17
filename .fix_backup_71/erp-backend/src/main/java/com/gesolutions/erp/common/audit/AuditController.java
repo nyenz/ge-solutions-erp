@@ -55,24 +55,12 @@ public class AuditController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
-            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-
-        // Blank strings arrive from the UI as "" rather than absent, and an
-        // empty LIKE '%%' would quietly match everything while looking like a
-        // filter. Normalise to null so the IS NULL branch is taken.
-        String op  = (operator == null || operator.isBlank()) ? null : operator.trim();
-        String act = (action   == null || action.isBlank())   ? null : action.trim();
-        String kw  = (keyword  == null || keyword.isBlank())  ? null : keyword.trim();
-
-        // A caller asking for 100000 rows is a denial of service, accidental or
-        // otherwise. The UI's largest page is 200.
-        int safeSize = Math.min(Math.max(size, 1), 200);
-
+        
         return ResponseEntity.ok(auditLogRepository.findWithFilters(
-            op, act, start, end, kw,
-            PageRequest.of(page, safeSize, Sort.by("timestamp").descending())
+            operator, action, start, end, 
+            PageRequest.of(page, size, Sort.by("timestamp").descending())
         ));
     }
 

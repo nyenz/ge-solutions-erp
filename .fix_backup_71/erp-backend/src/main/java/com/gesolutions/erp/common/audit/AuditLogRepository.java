@@ -29,16 +29,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
            "(cast(:operator as text) IS NULL OR a.performedBy = cast(:operator as text)) AND " +
            "(cast(:action as text) IS NULL OR a.action = cast(:action as text)) AND " +
            "(cast(:start as timestamp) IS NULL OR a.timestamp >= :start) AND " +
-           "(cast(:end as timestamp) IS NULL OR a.timestamp <= :end) AND " +
-           "(cast(:keyword as text) IS NULL OR " +
-           "   LOWER(a.details) LIKE LOWER(CONCAT('%', cast(:keyword as text), '%')) OR " +
-           "   LOWER(a.performedBy) LIKE LOWER(CONCAT('%', cast(:keyword as text), '%')))")
+           "(cast(:end as timestamp) IS NULL OR a.timestamp <= :end)")
     Page<AuditLog> findWithFilters(
             @Param("operator") String operator,
             @Param("action") String action,
             @Param("start") LocalDateTime startDate,
             @Param("end") LocalDateTime endDate,
-            @Param("keyword") String keyword,
             Pageable pageable
     );
 

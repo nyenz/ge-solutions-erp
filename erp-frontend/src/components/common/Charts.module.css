@@ -1,0 +1,166 @@
+/* PATH: erp-frontend/src/components/common/Charts.module.css */
+/* Everything reads the theme tokens, so a chart drawn on the Cream theme and
+   the same chart on Midnight differ only in the two lines that matter. */
+
+.svgWrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.svg {
+    width: 100%;
+    min-width: 440px;   /* below this a month axis becomes unreadable */
+    height: auto;
+    display: block;
+}
+
+.grid { stroke: var(--surface-edge); stroke-width: 1; opacity: 0.7; }
+.axis { stroke: var(--surface-edge); stroke-width: 1.5; }
+
+.axisText {
+    fill: var(--ink-soft);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.4px;
+}
+
+.valueText {
+    fill: var(--ink);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.dot {
+    fill: var(--surface);
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    transition: r 0.15s ease;
+}
+
+/* ── horizontal bars / stacks ──────────────────────────────────────── */
+.barRows {
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--density, 1));
+    width: 100%;
+}
+
+.barRow {
+    display: grid;
+    grid-template-columns: minmax(84px, 180px) 1fr minmax(76px, 132px);
+    align-items: center;
+    gap: 10px;
+}
+
+.barLabel {
+    font-size: calc(clamp(9px, 0.95vw, 11px) * var(--font-scale, 1));
+    font-weight: 800;
+    color: var(--ink);
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.barTrack {
+    display: block;
+    height: 13px;
+    background: var(--surface-3);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.barFill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.stack {
+    display: flex;
+    height: 100%;
+    border-radius: 999px;
+    overflow: hidden;
+    transition: width 0.4s ease;
+}
+.stackPart { display: block; height: 100%; }
+
+.barValue {
+    font-family: 'Space Mono', monospace;
+    font-size: calc(clamp(9px, 0.95vw, 11px) * var(--font-scale, 1));
+    font-weight: 700;
+    text-align: right;
+    color: var(--ink);
+}
+
+/* ── donut ─────────────────────────────────────────────────────────── */
+.donutWrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(14px, 2.4vw, 30px);
+    justify-content: center;
+}
+.donutValue {
+    fill: var(--ink);
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+}
+.donutLabel {
+    fill: var(--ink-soft);
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+/* ── legend ────────────────────────────────────────────────────────── */
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    padding-top: 4px;
+}
+.legendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: calc(clamp(8.5px, 0.85vw, 10px) * var(--font-scale, 1));
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.legendSwatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.empty {
+    padding: clamp(18px, 3.5vw, 34px);
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 900;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+@media (max-width: 640px) {
+    .barRow { grid-template-columns: minmax(64px, 104px) 1fr minmax(60px, 92px); }
+    .svg { min-width: 360px; }
+}
