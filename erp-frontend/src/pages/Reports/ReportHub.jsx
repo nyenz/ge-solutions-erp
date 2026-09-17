@@ -186,88 +186,19 @@ const ReportHub = () => {
     ];
 
 
-        const library = (
-        <div className={styles.libWrap}>
-            {hasFinancialAccess ? (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>Financial</span>
-                    <div className={styles.libChips}>
-                        {FINANCIAL_GROUP.map(item => (
-                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
-                                <button
-                                    className={styles.libChip}
-                                    disabled={status[item.id]}
-                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
-                                >
-                                    {status[item.id] ? 'STREAMING...' : item.title}
-                                </button>
-                            </Tooltip>
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div className={styles.restrictionHandbrake} role="alert">
-                    <FiLock className={styles.lockIcon} aria-hidden="true" />
-                    <div className={styles.warningText}>
-                        <strong>SECURITY HANDBRAKE ACTIVE</strong>
-                        <p>FINANCIAL PILLARS ARE ENCRYPTED. CONTACT ROOT OWNER FOR ACCESS.</p>
-                    </div>
-                </div>
-            )}
-            <div className={styles.libGroup}>
-                <span className={styles.libLabel}>Operational</span>
-                <div className={styles.libChips}>
-                    {OPS_GROUP.map(item => (
-                        <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
-                            <button
-                                className={styles.libChip}
-                                disabled={status[item.id]}
-                                onClick={() => triggerPillarExport(item.id, item.action, item.title)}
-                            >
-                                {status[item.id] ? 'STREAMING...' : item.title}
-                            </button>
-                        </Tooltip>
-                    ))}
-                </div>
-            </div>
-            {hasFinancialAccess && (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>System</span>
-                    <div className={styles.libChips}>
-                        {SYSTEM_GROUP.map(item => (
-                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
-                                <button
-                                    className={styles.libChip}
-                                    disabled={status[item.id]}
-                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
-                                >
-                                    {status[item.id] ? 'STREAMING...' : item.title}
-                                </button>
-                            </Tooltip>
-                        ))}
-                    </div>
-                </div>
-            )}
-            {hasFinancialAccess && (
-                <div className={styles.libGroup}>
-                    <span className={styles.libLabel}>More</span>
-                    <div className={styles.libChips}>
-                        {PRIORITY2_GROUP.map(item => (
-                            <Tooltip key={item.id} label={(REPORT_SCHEMA[item.id] || {}).desc || item.title}>
-                                <button
-                                    className={styles.libChip}
-                                    disabled={status[item.id]}
-                                    onClick={() => triggerPillarExport(item.id, item.action, item.title)}
-                                >
-                                    {status[item.id] ? 'STREAMING...' : item.title}
-                                </button>
-                            </Tooltip>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+        const library = {
+        options: [
+            ...(hasFinancialAccess ? [{ section: 'FINANCIAL' }, ...FINANCIAL_GROUP.map(g => ({ value: g.id, label: g.title }))] : []),
+            { section: 'OPERATIONAL' },
+            ...OPS_GROUP.map(g => ({ value: g.id, label: g.title })),
+            ...(hasFinancialAccess ? [{ section: 'SYSTEM' }, ...SYSTEM_GROUP.map(g => ({ value: g.id, label: g.title }))] : []),
+            ...(hasFinancialAccess ? [{ section: 'MORE' }, ...PRIORITY2_GROUP.map(g => ({ value: g.id, label: g.title }))] : []),
+        ],
+        onExport: (id) => {
+            const item = [...FINANCIAL_GROUP, ...OPS_GROUP, ...SYSTEM_GROUP, ...PRIORITY2_GROUP].find(x => x.id === id);
+            if (item) triggerPillarExport(id, item.action, item.title);
+        },
+    };
 
     return (
         <div className={styles.container}>
@@ -305,30 +236,16 @@ const ReportHub = () => {
                 </button>
             </div>
 
-            {tab === 'REPORTS' && (
-                <div className={styles.pillarStack}>
-                    <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="REPORT STUDIO" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="report" reloadToken={reloadToken} quickExports={library} />
-                    </DrawerPanel>
-
-                    
-                </div>
-            )}
-
-            {tab === 'ANALYSIS' && (
-                <div className={styles.pillarStack}>
-                    {/* Just the studio. The expense-analysis drawer that used to
-                        sit here was the EXPENSES dataset with the grouping
-                        pre-chosen for you -- the same numbers, reachable in two
-                        clicks from the builder, so it was a second way to say
-                        the same thing. The canned CSV pillars stay on the
-                        REPORTS tab where they belong. */}
-                    <DrawerPanel open={drawers.aStudio} onToggle={() => toggleDrawer('aStudio')}
-                        label="ASK ANYTHING" icon={FiSliders} tall>
-                        <ReportStudio canSeeMoney={hasFinancialAccess} mode="analysis" reloadToken={reloadToken} />
-                    </DrawerPanel>
-                </div>
-            )}
+                    <div className={styles.pillarStack}>
+            <DrawerPanel open={drawers.studio} onToggle={() => toggleDrawer('studio')} label="REPORT STUDIO" icon={FiSliders} tall>
+                <ReportStudio
+                    canSeeMoney={hasFinancialAccess}
+                    mode={tab === 'REPORTS' ? 'report' : 'analysis'}
+                    reloadToken={reloadToken}
+                    quickExports={tab === 'REPORTS' ? library : null}
+                />
+            </DrawerPanel>
+        </div>
         </div>
     );
 };

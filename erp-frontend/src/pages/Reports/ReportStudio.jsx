@@ -72,6 +72,9 @@ const Pick = ({ value, options, onChange, placeholder = 'Choose...', disabled = 
             {open && (
                 <div className={styles.pickList} role="listbox" aria-label={ariaLabel}>
                     {options.map(o => (
+                o.section ? (
+                    <span key={o.section} className={styles.pickSection}>{o.section}</span>
+                ) : (
                         <button
                             type="button"
                             key={String(o.value)}
@@ -82,7 +85,8 @@ const Pick = ({ value, options, onChange, placeholder = 'Choose...', disabled = 
                         >
                             {o.label}
                         </button>
-                    ))}
+                    )
+                ))}
                 </div>
             )}
         </div>
@@ -116,8 +120,6 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
         return () => document.removeEventListener('mousedown', onDown);
     }, []);
 
-    const [views, setViews] = useState(() => loadViews());
-    const [viewName, setViewName] = useState('');
 
     const fields = useMemo(() => fieldsFor(dataset, canSeeMoney), [dataset, canSeeMoney]);
 
@@ -218,34 +220,6 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
         setMeasures(m => m.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
 
     /* ── saved views ────────────────────────────────────────────── */
-    const persist = (next) => { setViews(next); saveViews(next); };
-
-    const saveCurrentView = () => {
-        const name = viewName.trim();
-        if (!name) return;
-        const snapshot = {
-            name, datasetKey, search, mergeMode, conditions, columns,
-            groupBy, splitBy, measures, sort,
-        };
-        persist([...views.filter(v => v.name !== name), snapshot]);
-        setViewName('');
-    };
-
-    const applyView = (v) => {
-        setDatasetKey(v.datasetKey);
-        // The dataset-change effect resets the builder, so the snapshot has to
-        // land after it, not with it.
-        setTimeout(() => {
-            setSearch(v.search || '');
-            setMergeMode(v.mergeMode || 'AND');
-            setConditions(v.conditions || []);
-            setColumns(v.columns || []);
-            setGroupBy(v.groupBy || '');
-            setSplitBy(v.splitBy || '');
-            setMeasures(v.measures || [{ agg: 'count', field: '' }]);
-            setSort(v.sort || { key: '', dir: 'desc' });
-        }, 0);
-    };
 
     /* ── export ─────────────────────────────────────────────────── */
     const exportCSV = () => {
@@ -278,14 +252,14 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
 
     /* ── render ─────────────────────────────────────────────────── */
     const PRESET_VIEWS = [
-        { name: 'OWED BY DISTRICT', money: true, datasetKey: 'PROJECTS', group: 'District', agg: 'sum', measure: 'Balance Owed', blurb: 'Projects grouped by district with the total balance owed summed per district.' },
-        { name: 'OWED BY OWNER', money: true, datasetKey: 'PROJECTS', group: 'Primary Owner', agg: 'sum', measure: 'Balance Owed', blurb: 'Every primary owner ranked by what they still owe.' },
-        { name: 'PAID VS COST', money: true, datasetKey: 'PROJECTS', group: 'Status', agg: 'sum', measure: 'Amount Paid', blurb: 'What has been paid per project status, against the live cost columns.' },
-        { name: 'PAYMENTS BY TYPE', money: true, datasetKey: 'PAYMENTS', group: 'Payment Type', agg: 'sum', measure: 'Amount', blurb: 'Every payment summed by payment type: standard, deposit, receivable part.' },
-        { name: 'SPEND BY CATEGORY', money: true, datasetKey: 'EXPENSES', group: 'Category', agg: 'sum', measure: 'Amount', blurb: 'Company spend grouped by expense category.' },
-        { name: 'PROJECTS BY DISTRICT', money: false, datasetKey: 'PROJECTS', group: 'District', agg: 'count', measure: '', blurb: 'How many projects sit in each district.' },
-        { name: 'PROJECTS BY STAGE', money: false, datasetKey: 'PROJECTS', group: 'Stage', agg: 'count', measure: '', blurb: 'Pipeline shape: project count per current stage.' },
-        { name: 'CLIENTS BY DISTRICT', money: false, datasetKey: 'CLIENTS', group: 'District', agg: 'count', measure: '', blurb: 'Registered clients per district.' },
+        { name: 'OWED BY DISTRICT', money: true, datasetKey: 'PROJECTS', group: 'District', agg: 'sum', measure: 'Balance Owed', cols: ['Project Index', 'Primary Owner', 'District', 'Sub-County', 'Village', 'Status', 'Total Cost', 'Amount Paid', 'Balance Owed'], blurb: 'Projects grouped by district with the total balance owed summed per district.' },
+        { name: 'OWED BY OWNER', money: true, datasetKey: 'PROJECTS', group: 'Primary Owner', agg: 'sum', measure: 'Balance Owed', cols: ['Project Index', 'Primary Owner', 'Owner Phone', 'District', 'Sub-County', 'Status', 'Total Cost', 'Amount Paid', 'Balance Owed'], blurb: 'Every primary owner ranked by what they still owe.' },
+        { name: 'PAID VS COST', money: true, datasetKey: 'PROJECTS', group: 'Status', agg: 'sum', measure: 'Amount Paid', cols: ['Project Index', 'Primary Owner', 'District', 'Status', 'Total Cost', 'Amount Paid', 'Balance Owed'], blurb: 'What has been paid per project status, against the live cost columns.' },
+        { name: 'PAYMENTS BY TYPE', money: true, datasetKey: 'PAYMENTS', group: 'Payment Type', agg: 'sum', measure: 'Amount', cols: [], blurb: 'Every payment summed by payment type: standard, deposit, receivable part.' },
+        { name: 'SPEND BY CATEGORY', money: true, datasetKey: 'EXPENSES', group: 'Category', agg: 'sum', measure: 'Amount', cols: [], blurb: 'Company spend grouped by expense category.' },
+        { name: 'PROJECTS BY DISTRICT', money: false, datasetKey: 'PROJECTS', group: 'District', agg: 'count', measure: '', cols: ['Project Index', 'Plot Number', 'District', 'County', 'Sub-County', 'Parish', 'Village', 'Primary Owner', 'Status'], blurb: 'How many projects sit in each district, down to village level.' },
+        { name: 'PROJECTS BY STAGE', money: false, datasetKey: 'PROJECTS', group: 'Stage', agg: 'count', measure: '', cols: ['Project Index', 'Primary Owner', 'District', 'Sub-County', 'Status'], blurb: 'Pipeline shape: project count per current stage.' },
+        { name: 'CLIENTS BY DISTRICT', money: false, datasetKey: 'CLIENTS', group: 'District', agg: 'count', measure: '', cols: [], blurb: 'Registered clients per district.' },
     ];
 
     const applyPreset = (p) => {
@@ -300,7 +274,8 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             setSearch('');
             setMergeMode('AND');
             setConditions([]);
-            setColumns(ds.defaultColumns.filter(c => flds.some(f => f.key === c)));
+            const presetCols = (p.cols || []).map(l => (flds.find(f => f.label === l) || {}).key).filter(Boolean);
+            setColumns(presetCols.length > 0 ? presetCols : ds.defaultColumns.filter(c => flds.some(f => f.key === c)));
             setGroupBy(gKey);
             setSplitBy('');
             setMeasures([{ agg: p.agg, field: mKey }]);
@@ -317,7 +292,8 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             
 
             {/* ── DATA SOURCE ─────────────────────────────────────── */}
-                        <CollapsibleSection
+                                    {mode === 'report' && (
+<CollapsibleSection
                 icon={<FiDatabase aria-hidden="true" />}
                 title="DATASETS"
                 right={<span className={styles.badge}>{loading ? 'LOADING' : `${rows.length} ROWS`}</span>}
@@ -345,59 +321,39 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     </p>
                 )}
                 {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
-                <span className={styles.rowLabel}>Start from a preset</span>
-                <div className={styles.tileRow}>
-                    {PRESET_VIEWS.filter(p => !p.money || canSeeMoney).map(p => (
-                        <Tooltip key={p.name} label={p.blurb}>
-                            <button className={styles.pChip} onClick={() => applyPreset(p)}>{p.name}</button>
-                        </Tooltip>
-                    ))}
-                </div>
+                <span className={styles.divider} />
                 <div className={styles.toolRow}>
                     <label className={styles.toolField}>
-                        <span className={styles.miniLabel}>Save as</span>
-                        <span className={styles.viewBox}>
-                            <FiSave className={styles.boxIcon} aria-hidden="true" />
-                            <input
-                                className={styles.viewInput}
-                                placeholder="View name..."
-                                value={viewName}
-                                onChange={e => setViewName(e.target.value)}
-                            />
-                        </span>
+                        <span className={styles.miniLabel}>Preset</span>
+                        <Pick
+                            className={styles.wDataset}
+                            ariaLabel="Start from a preset"
+                            value=""
+                            placeholder="Choose a preset..."
+                            options={PRESET_VIEWS.filter(p => !p.money || canSeeMoney).map(p => ({ value: p.name, label: p.name }))}
+                            onChange={v => { const p = PRESET_VIEWS.find(x => x.name === v); if (p) applyPreset(p); }}
+                        />
                     </label>
-                    <Tooltip label="Save the current dataset, filters, columns and grouping. Saved on this device.">
-                        <button className={styles.chipActive} onClick={saveCurrentView} disabled={!viewName.trim()}>
-                            <FiSave size={11} aria-hidden="true" /> SAVE VIEW
-                        </button>
-                    </Tooltip>
+                    {quickExports && (
+                        <label className={styles.toolField}>
+                            <span className={styles.miniLabel}>One-click CSV</span>
+                            <Pick
+                                className={styles.wCsv}
+                                ariaLabel="One-click CSV reports"
+                                value=""
+                                placeholder="Download a standing report..."
+                                options={quickExports.options}
+                                onChange={v => quickExports.onExport(v)}
+                            />
+                        </label>
+                    )}
                 </div>
-                {views.length > 0 && (
-                    <div className={styles.chipRow}>
-                        {views.map(v => (
-                            <span key={v.name} className={styles.viewChip}>
-                                <button className={styles.viewChipName} onClick={() => applyView(v)}>{v.name}</button>
-                                <button
-                                    className={styles.viewChipDrop}
-                                    onClick={() => persist(views.filter(x => x.name !== v.name))}
-                                    aria-label={`Delete saved view ${v.name}`}
-                                >
-                                    <FiTrash2 size={10} aria-hidden="true" />
-                                </button>
-                            </span>
-                        ))}
-                    </div>
-                )}
-                {quickExports && (
-                    <>
-                        <span className={styles.rowLabel}>One-click CSV</span>
-                        {quickExports}
-                    </>
-                )}
             </CollapsibleSection>
+            )}
 
             {/* ── FILTERS ─────────────────────────────────────────── */}
-            <CollapsibleSection
+            {mode === 'report' && (
+<CollapsibleSection
                 icon={<FiFilter aria-hidden="true" />}
                 title="BUILD"
                 right={<span className={styles.badge}>{filtered.length} OF {rows.length}</span>}
@@ -489,6 +445,7 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
 
                 
             </CollapsibleSection>
+            )}
 
             {/* ── COLUMNS ─────────────────────────────────────────── */}
             
@@ -570,7 +527,8 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
             </CollapsibleSection>
 
             {/* ── RESULTS ─────────────────────────────────────────── */}
-            <CollapsibleSection
+            {mode === 'report' && (
+<CollapsibleSection
                 icon={<FiBarChart2 aria-hidden="true" />}
                 title="RESULTS"
                 right={
@@ -703,6 +661,83 @@ const ReportStudio = ({ canSeeMoney = false, mode = 'report', reloadToken = 0, q
                     </>
                 )}
             </CollapsibleSection>
+            )}
+
+            {mode === 'analysis' && (
+                <CollapsibleSection
+                    icon={<FiBarChart2 aria-hidden="true" />}
+                    title="ANALYSIS"
+                    right={<span className={styles.badge}>{groupBy ? 'GROUPED' : 'ROW BY ROW'}</span>}
+                >
+                    <div className={styles.statStrip}>
+                        <div className={styles.statCard}>
+                            <label>ROWS MATCHED</label>
+                            <strong>{filtered.length.toLocaleString()}</strong>
+                            <span className={styles.statNote}>of {rows.length.toLocaleString()} loaded</span>
+                        </div>
+                        {measures.map((m, i) => (
+                            <div key={i} className={styles.statCard}>
+                                <label>{measureLabel(m, dataset)}</label>
+                                <strong>{formatValue(totals[i], measureType(m, dataset))}</strong>
+                                <span className={styles.statNote}>across the filtered set</span>
+                            </div>
+                        ))}
+                    </div>
+                    {grouped && grouped.length > 0 ? (
+                        <>
+                            <div className={styles.sectionLabel}>
+                                {measureLabel(measures[0], dataset)} by {groupField?.label}
+                                {splitField ? ' split by ' + splitField.label : ''}
+                            </div>
+                            <div className={styles.chart}>
+                                {chartRows.map(g => (
+                                    <div key={g.id} className={styles.chartRow}>
+                                        <span className={styles.chartLabel} title={g.id}>{g.id}</span>
+                                        <div className={styles.chartTrack}>
+                                            <div
+                                                className={styles.chartFill}
+                                                style={{ width: chartMax ? `${Math.max(1, (Math.abs(num(g.values[0])) / chartMax) * 100)}%` : '1%' }}
+                                            />
+                                        </div>
+                                        <span className={styles.chartValue}>
+                                            {formatValue(g.values[0], measureType(measures[0], dataset))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className={styles.tableScroll}>
+                                <table className={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th>{groupField?.label || 'Group'}</th>
+                                            {splitField && <th>{splitField.label}</th>}
+                                            <th>Rows</th>
+                                            {measures.map((m, i) => <th key={i}>{measureLabel(m, dataset)}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {grouped.map(g => (
+                                            <tr key={g.id}>
+                                                <td className={styles.strong}>{g.path[0]}</td>
+                                                {splitField && <td>{g.path[1] ?? '---'}</td>}
+                                                <td className={styles.mono}>{g.count}</td>
+                                                {g.values.map((v, i) => (
+                                                    <td key={i} className={styles.mono}>{formatValue(v, measureType(measures[i], dataset))}</td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    ) : (
+                        <p className={styles.hint}>
+                            <FiAlertCircle size={12} aria-hidden="true" />
+                            Nothing grouped yet. Pick a group field on the REPORTS tab and the charts light up here from exactly that selection.
+                        </p>
+                    )}
+                </CollapsibleSection>
+            )}
         </div>
     );
 };
