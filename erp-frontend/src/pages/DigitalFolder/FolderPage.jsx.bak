@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/DigitalFolder/FolderPage.jsx
-import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -144,7 +144,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 /* STAGE CHECKLIST - Intake mirror (fix117): Intake/Recovery button tones,
    first stage auto-ticked, first & last stages locked from delete,
    RESTORE DEFAULTS like Intake, insert-below never after the last stage. */
-const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle }, ref) => {
+const StageChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm }) => {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [addingStage, setAddingStage] = useState(false);
@@ -181,31 +181,7 @@ const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, 
             await loadStages(); cancelInsert(); toast && toast('Stage inserted.', 'success');
 } catch (err) { await loadStages(); cancelInsert(); toast && toast('POSITION UPDATE FAILED (HTTP ' + (err.response?.status || 'network') + ') - stage added at the end.', 'error', 9000); } finally { setSaving(false); }
     };
-    const handleToggleComplete = async (stage, isLast) => {
-        const next = !stage.isCompleted;
-        try {
-            await stageTemplateService.toggleStageCompletion(projectId, stage.id, next);
-            await loadStages();
-            // Ticking the final stage means the title is now ready -- hand
-            // off to the title panel. Unticking it (a correction) hands
-            // back to the stage checklist. See onLastStageToggle in the
-            // parent for what this actually does.
-            if (isLast && onLastStageToggle) onLastStageToggle(next);
-        } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); }
-    };
-    // Lets the parent's single "TITLE READY" button drive the last stage's
-    // tick too, so one button covers both "title is ready" and "final stage
-    // done" instead of asking the user to keep two controls in sync.
-    useImperativeHandle(ref, () => ({
-        setLastStageCompletion: async (done) => {
-            const last = stages[stages.length - 1];
-            if (!last || last.isCompleted === done) return;
-            try {
-                await stageTemplateService.toggleStageCompletion(projectId, last.id, done);
-                await loadStages();
-            } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); }
-        },
-    }), [stages, projectId, toast, loadStages]);
+    const handleToggleComplete = async (stage) => { try { await stageTemplateService.toggleStageCompletion(projectId, stage.id, !stage.isCompleted); await loadStages(); } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); } };
     const handleRemove = async (stageId) => { try { await stageTemplateService.removeStage(projectId, stageId); await loadStages(); toast && toast('Stage removed.', 'warn'); } catch { toast && toast('Failed to remove stage', 'error'); } };
     const handleRestoreDefaults = async () => {
 if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current stage list with the master checklist? Current ticks and custom stages will be lost.', 'warn'); if (!ok) return; }
@@ -230,7 +206,7 @@ if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current
             return (<React.Fragment key={stage.id}>
                 <label className={`${styles.stageItem} ${stage.isCompleted ? styles.stageItemChecked : ''}`}>
                     <input type="checkbox" className={styles.stageCheckbox} checked={!!stage.isCompleted} disabled={!canEdit}
-                        onChange={() => handleToggleComplete(stage, isLast)} aria-label={`Mark ${stage.stageName} complete`} />
+                        onChange={() => handleToggleComplete(stage)} aria-label={`Mark ${stage.stageName} complete`} />
                     <span className={styles.stageItemName}>{stage.stageName}</span>
                     <span className={styles.stageActions}>
                         {canEdit && !isLast && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
@@ -253,7 +229,7 @@ if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current
             </React.Fragment>);
         })}
     </div>);
-});
+};
 
 const FolderPage = () => {
     const { id } = useParams();
@@ -278,7 +254,6 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const stageChecklistRef = useRef(null);
     const [committing, setCommitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [ninMismatch, setNinMismatch] = useState(null);
@@ -593,12 +568,8 @@ useEffect(() => {
                         {isEditing ? (<>
                             {!project.landTitle && (<div className={styles.convertRow}>
                                 <button type="button" className={`${styles.convertBtn} ${buffer.convertToTitle ? styles.convertBtnActive : ''}`}
-                                    onClick={() => {
-                                        const next = !buffer.convertToTitle;
-                                        touchedSetBuffer(p => ({ ...p, convertToTitle: next }));
-                                        stageChecklistRef.current?.setLastStageCompletion(next);
-                                    }}><FiCheckCircle aria-hidden="true" /> {buffer.convertToTitle ? 'UNDO' : 'TITLE READY'}</button>
-                                <span className={styles.inputHint}>Unlocks title fields and marks the final stage done</span>
+                                    onClick={() => touchedSetBuffer(p => ({ ...p, convertToTitle: !p.convertToTitle }))}><FiCheckCircle aria-hidden="true" /> {buffer.convertToTitle ? 'CONVERT TO FOLDER' : 'CONVERT TO TITLE'}</button>
+                                <span className={styles.inputHint}>Unlocks Plot ID, Tenure and Title ID fields</span>
                             </div>)}
                             <div className={styles.inputGrid3}>
                                 <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({ ...buffer, district: e.target.value.toUpperCase() })} />
@@ -631,8 +602,7 @@ useEffect(() => {
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                        <StageChecklistPanel ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing} canRemove={isDirector && isEditing} toast={toast} confirm={confirm}
-                            onLastStageToggle={(done) => touchedSetBuffer(p => ({ ...p, convertToTitle: done }))} />
+                        <StageChecklistPanel projectId={id} canEdit={canEdit} canRemove={isDirector} toast={toast} confirm={confirm} />
                     </div></div>
                 </section>
                 )}

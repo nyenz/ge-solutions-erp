@@ -140,14 +140,11 @@ export default function IntakePage() {
 
     const firstStageName = stageList[0]?.name;
     const lastStageName = stageList[stageList.length - 1]?.name;
+    const finalStageChecked = !!checked['Registration and Title Issuance'];
     const isLegacy = projectType === 'LEGACY_TITLE';
     const titleAtIntake = projectType === 'NEW_TITLE';
     const isTitleType = isLegacy || titleAtIntake;
-    // Title fields only ever show at intake because of the project type
-    // picked (New Title / Legacy Title). The final stage can no longer be
-    // ticked here (see toggleStage), so it can never drive this on its own --
-    // "title is ready" is decided on the folder page once work is actually done.
-    const isTitleSectionVisible = isTitleType;
+    const isTitleSectionVisible = isTitleType || finalStageChecked;
     const showStages = !isTitleType;
 
     const handleProjectTypeChange = (value) => {
@@ -158,15 +155,7 @@ export default function IntakePage() {
             setChecked({ [firstStageName]: true });
         }
     };
-    // First stage is mandatory (every project passes through it before
-    // intake) and last stage can't be pre-completed at intake -- title
-    // readiness is only ever declared from the folder page, once the work
-    // is actually done. Both are locked out of the checkbox too (see
-    // render), this is just a second line of defense.
-    const toggleStage = (name) => {
-        if (name === firstStageName || name === lastStageName) return;
-        markDirty(); setChecked(p => ({ ...p, [name]: !p[name] }));
-    };
+    const toggleStage = (name) => { markDirty(); setChecked(p => ({ ...p, [name]: !p[name] })); };
 
     const openInsertBelow = (name) => { setInsertAfterName(name); setAddingStage(true); };
     const handleAddStage = () => {
@@ -262,16 +251,11 @@ export default function IntakePage() {
                     fullName: o.fullName.trim().toUpperCase(), phone: o.phone.trim(),
                     email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
                 })),
-                // Every stage on the list is sent now, not just the checked
-                // ones -- an unchecked stage is still real work ahead on this
-                // project, and the folder page needs it as a pending row, not
-                // a stage that silently never existed.
-                selectedStages: stageList.map(s => {
+                selectedStages: stageList.filter(s => checked[s.name]).map(s => {
                     const m = masterTemplates.find(t => t.name === s.name);
-                    const isCompleted = !!checked[s.name];
                     return m
-                        ? { stageTemplateId: m.id, stageName: s.name, isCustom: false, isCompleted }
-                        : { stageName: s.name, isCustom: true, cost: 0, isCompleted };
+                        ? { stageTemplateId: m.id, stageName: s.name, isCustom: false, isCompleted: true }
+                        : { stageName: s.name, isCustom: true, cost: 0, isCompleted: true };
                 }),
                 notes: noteText ? [{ content: noteText }] : [],
             };
@@ -487,11 +471,8 @@ export default function IntakePage() {
                                 const isFirst = s.name === firstStageName;
                                 return (
                                     <label key={s.name} className={`${styles.stageItem} ${checked[s.name] ? styles.checked : ''}`}>
-                                        <input type="checkbox" className={styles.checkbox} checked={!!checked[s.name]}
-                                            disabled={isFirst || isLast}
-                                            title={isFirst ? 'Always required before intake' : isLast ? "Marked done from the folder page once title is ready" : undefined}
-                                            onChange={() => toggleStage(s.name)} />
-                                        <span className={styles.stageName}>{s.name}{isFirst ? ' (required)' : ''}</span>
+                                        <input type="checkbox" className={styles.checkbox} checked={!!checked[s.name]} onChange={() => toggleStage(s.name)} />
+                                        <span className={styles.stageName}>{s.name}</span>
                                         <span className={styles.stageActions}>
                                             {!isLast && (
                                                 <button type="button" className={styles.plusBtn} title="Insert a stage below this one"
