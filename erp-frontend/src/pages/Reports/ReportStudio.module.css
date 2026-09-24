@@ -614,3 +614,57 @@
   .entBtn { min-width: 100%; }
   .scopeRow { flex-direction: column; align-items: stretch; }
 }
+
+/* === fix79a STAGE 2: SCOPE BAR + CATALOGUE === */
+.studio { display: flex; flex-direction: column; gap: clamp(16px, 2vw, 24px); }
+.scopeBar { display: flex; gap: clamp(8px, 1vw, 12px); flex-wrap: wrap; }
+.scopeBtn {
+  background: rgba(26, 46, 48, 0.75); border: 1.5px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85); padding: clamp(8px, 1vw, 10px) clamp(14px, 1.8vw, 20px);
+  border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900;
+  font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; text-transform: uppercase;
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.scopeBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.scopeBtnActive {
+  background: #EE8C3A !important; color: #1a2e30 !important;
+  border-color: #EE8C3A !important; box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
+}
+.catalogueTitle {
+  font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(14px, 1.6vw, 18px);
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: clamp(8px, 1vw, 12px);
+}
+.catalogueGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: clamp(12px, 1.5vw, 18px);
+}
+.catalogueCard {
+  background: var(--panel-bg); border: 1.5px solid var(--panel-border); border-radius: var(--radius);
+  padding: clamp(14px, 1.8vw, 20px); display: flex; flex-direction: column; gap: clamp(6px, 0.8vw, 10px);
+  text-align: left; cursor: pointer; transition: all 0.2s ease;
+}
+.catalogueCard:hover { border-color: var(--orange); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+.catalogueCardActive { border-color: var(--orange) !important; box-shadow: 0 0 16px rgba(238, 140, 58, 0.4) !important; }
+.cardTitle {
+  font-family: 'DM Sans', sans-serif; font-size: clamp(12px, 1.3vw, 15px); font-weight: 900;
+  color: #fff; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cardDesc {
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1.1vw, 12px); font-weight: 500;
+  color: rgba(255, 255, 255, 0.6); line-height: 1.5;
+}
+.builderArea { display: grid; grid-template-columns: 1fr 1.5fr; gap: clamp(16px, 2vw, 24px); }
+.builderPanel, .resultsPanel {
+  background: var(--panel-bg); border: 1.5px solid var(--panel-border); border-radius: var(--radius);
+  padding: clamp(16px, 2vw, 24px);
+}
+.builderPanel h3, .resultsPanel h3 {
+  font-family: 'Cinzel', serif; color: var(--orange); font-size: clamp(12px, 1.4vw, 16px);
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: clamp(10px, 1.2vw, 16px);
+}
+.builderHint, .resultsHint {
+  font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.2vw, 13px); color: rgba(255,255,255,0.5);
+}
+@media (max-width: 900px) {
+  .builderArea { grid-template-columns: 1fr; }
+}
