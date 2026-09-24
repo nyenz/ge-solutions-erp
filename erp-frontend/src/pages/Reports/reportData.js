@@ -228,7 +228,7 @@ export const DATASETS = {
     },
 };
 
-COMPANY_FIELDS = [
+companyFields = [
   f('timestamp', 'Timestamp', 'date', a => a.timestamp || null),
   f('month', 'Month', 'text', a => monthKey(a.timestamp)),
   f('operator', 'Operator', 'text', a => a.performedBy || ''),
@@ -242,7 +242,8 @@ DATASETS.COMPANY = {
   restricted: true,
   entityTypes: { OPERATOR: 'Operator' },
   dateField: 'Timestamp',
-  fields: COMPANY_FIELDS,
+  fields: companyFields,
+    dateField: 'Timestamp',
   defaultColumns: ['timestamp', 'operator', 'action', 'details'],
   load: async () => {
     const out = [];
