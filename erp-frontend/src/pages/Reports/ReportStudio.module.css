@@ -742,3 +742,78 @@ cascade wins over everything above. */
   font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7;
 }
 .perChipsDim { opacity: 0.45; pointer-events: none; }
+
+/* fix81 -- STAGE 3: results viewer (chart + table + downloads). Appended:
+cascade wins over everything above. */
+.viewerPanel {
+  --accent: #EE8C3A;
+  --surface: #ffffff;
+  --surface-3: #efe9e2;
+  --surface-edge: #dfd9d1;
+  --ink: #1a2e30;
+  --ink-soft: #5b6f70;
+  --ink-faint: rgba(26, 46, 48, 0.45);
+  background: linear-gradient(135deg, #4a6a6c 0%, #3a5a5c 50%, #2f4c4e 100%);
+  border: 1.5px solid rgba(238, 140, 58, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  margin-bottom: clamp(10px, 1.4vw, 14px);
+  overflow: visible;
+  padding: clamp(10px, 1.4vw, 14px) clamp(12px, 1.6vw, 18px);
+  display: flex; flex-direction: column; gap: clamp(8px, 1.2vw, 12px);
+}
+.viewerPanel .panelHeadRow { background: transparent; border-bottom: 1.5px solid var(--orange); border-radius: 0; padding: 0 0 10px 0; }
+.pvChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pvChip {
+  font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05); white-space: nowrap;
+}
+.pvBtns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.chartChips { display: flex; gap: 6px; flex-wrap: wrap; }
+.cchip, .cchipOn {
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+  padding: 7px 12px; border-radius: 6px; transition: all 0.2s ease;
+  border: 1.5px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.8);
+}
+.cchip:hover { border-color: var(--orange); color: var(--orange); }
+.cchipOn { background: var(--orange); border-color: var(--orange); color: #1a2e30; }
+.chartBox {
+  background: #ffffff; border: 1.5px solid var(--surface-edge); border-radius: 8px;
+  padding: clamp(10px, 1.4vw, 14px);
+}
+.pvScroll {
+  overflow-x: auto; background: #ffffff; border: 1.5px solid var(--surface-edge);
+  border-radius: 8px; scrollbar-width: thin; scrollbar-color: var(--orange) transparent;
+}
+.pvScroll::-webkit-scrollbar { height: 8px; }
+.pvScroll::-webkit-scrollbar-thumb { background: rgba(238, 140, 58, 0.45); border-radius: 4px; }
+.pvTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
+.pvTable th {
+  position: sticky; top: 0; z-index: 2; background: #162a2c; color: var(--orange);
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase; text-align: left;
+  padding: 9px 12px; white-space: nowrap;
+}
+.pvTable td {
+  padding: 8px 12px; border-bottom: 1px solid #f1eeea; color: #1a2e30;
+  font-size: clamp(10px, 1.05vw, 12px); font-weight: 600; white-space: nowrap;
+}
+.pvTable tbody tr:nth-child(even) td { background: #fbf9f7; }
+.pvTable tbody tr:hover td { background: rgba(238, 140, 58, 0.22); }
+.pvTable th:first-child, .pvTable td:first-child { position: sticky; left: 0; z-index: 3; }
+.pvTable th:first-child { background: #162a2c; }
+.pvTable td:first-child {
+  background: #ffffff; font-family: 'Space Mono', monospace; font-weight: 700;
+  border-right: 1px solid var(--surface-edge);
+}
+.pvTable tbody tr:nth-child(even) td:first-child { background: #fbf9f7; }
+.pvTable tbody tr:hover td:first-child { background: rgba(238, 140, 58, 0.22); }
+.pvNote {
+  padding: 8px 4px 0; color: rgba(255, 255, 255, 0.6);
+  font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7;
+}
+.perChipsDim { opacity: 0.45; pointer-events: none; }
