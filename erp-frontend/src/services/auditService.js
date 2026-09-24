@@ -57,7 +57,7 @@ const auditService = {
     getRawStream: async (page = 0, size = 200) => {
         try {
             const response = await api.get('/admin/audit/stream', {
-                params: { page, size: 50 }
+                params: { page, size }
             });
             return response.data;
         } catch {

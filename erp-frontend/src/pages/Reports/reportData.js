@@ -29,6 +29,7 @@ import landService from '../../services/landService';
 import recoveryService from '../../services/recoveryService';
 import expenseService from '../../services/expenseService';
 import auditService from '../../services/auditService';
+import auditService from '../../services/auditService';
 
 /* ── value helpers ───────────────────────────────────────────────── */
 export const num = (v) => {
@@ -163,6 +164,14 @@ const expenseFields = [
     f('edited', 'Edited', 'bool', e => !!e.editedAt),
     f('amount', 'Amount', 'money', e => num(e.amount), { money: true }),
     f('daysAgo', 'Days Ago', 'number', e => daysSince(e.createdAt)),
+];
+/* ── COMPANY (audit ledger) ─────────────────────────────────────── */
+const companyFields = [
+  f('timestamp', 'Timestamp', 'date', a => a.timestamp || null),
+  f('month', 'Month', 'text', a => monthKey(a.timestamp)),
+  f('operator', 'Operator', 'text', a => a.performedBy || ''),
+  f('action', 'Action', 'text', a => a.action || ''),
+  f('details', 'Details', 'text', a => a.details || ''),
 ];
 
 /* ── dataset registry ────────────────────────────────────────────── */
