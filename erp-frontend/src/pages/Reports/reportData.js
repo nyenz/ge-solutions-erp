@@ -28,6 +28,7 @@ import api from '../../api/axios';
 import landService from '../../services/landService';
 import recoveryService from '../../services/recoveryService';
 import expenseService from '../../services/expenseService';
+import auditService from '../../services/auditService';
 
 /* ── value helpers ───────────────────────────────────────────────── */
 export const num = (v) => {
@@ -76,7 +77,9 @@ const projectFields = [
     f('parish', 'Parish', 'text', p => p.parish || ''),
     f('village', 'Village', 'text', p => p.village || ''),
     f('area', 'Area', 'text', p => p.area || ''),
-    f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
+    f('entryMode', 'Entry Mode', 'text', p => (p.isLegacy ? 'Legacy Title' : (p.landTitle ? 'New Title' : 'New Folder'))),
+  f('startMonth', 'Start Month', 'text', p => monthKey(p.projectStartDate)),
+  f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
     f('ownerPhone', 'Owner Phone', 'text', p => p.proprietors?.[0]?.phoneNumber || ''),
     f('ownerNin', 'Owner NIN', 'text', p => p.proprietors?.[0]?.nationalId || ''),
     f('ownerAddress', 'Owner Address', 'text', p => p.proprietors?.[0]?.homeAddress || ''),
@@ -217,6 +220,33 @@ export const DATASETS = {
     },
 };
 
+COMPANY_FIELDS = [
+  f('timestamp', 'Timestamp', 'date', a => a.timestamp || null),
+  f('month', 'Month', 'text', a => monthKey(a.timestamp)),
+  f('operator', 'Operator', 'text', a => a.performedBy || ''),
+  f('action', 'Action', 'text', a => a.action || ''),
+  f('details', 'Details', 'text', a => a.details || ''),
+];
+DATASETS.COMPANY = {
+  key: 'COMPANY',
+  label: 'Company',
+  blurb: 'Every staff action in the audit ledger: logins, edits, deletes, overrides, stage moves.',
+  restricted: true,
+  entityTypes: { OPERATOR: 'Operator' },
+  dateField: 'Timestamp',
+  fields: COMPANY_FIELDS,
+  defaultColumns: ['timestamp', 'operator', 'action', 'details'],
+  load: async () => {
+    const out = [];
+    for (let page = 0; page < 40; page += 1) {
+      const data = await auditService.getRawStream(page, 200);
+      const rows = data?.content || [];
+      out.push(...rows);
+      if (rows.length < 200) break;
+    }
+    return out;
+  },
+};
 export const datasetsFor = (canSeeMoney) =>
     Object.values(DATASETS).filter(d => canSeeMoney || !d.restricted);
 

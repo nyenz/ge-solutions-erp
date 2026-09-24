@@ -54,7 +54,7 @@ const auditService = {
     /**
      * RAW TIMELINE STREAM
      */
-    getRawStream: async (page = 0) => {
+    getRawStream: async (page = 0, size = 200) => {
         try {
             const response = await api.get('/admin/audit/stream', {
                 params: { page, size: 50 }
