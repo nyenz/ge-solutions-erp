@@ -5,8 +5,8 @@
    white controls with ink text, orange for active/hover, Intake chip spec. */
 .studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
 .scopePanel, .catPanel, .viewerPanel {
-  background: linear-gradient(135deg, #4a6a6c 0%, #3a5a5c 55%, #2f4c4e 100%);
-  border: 1.5px solid rgba(238, 140, 58, 0.22);
+  background: #4a6a6c;
+  border: 1.5px solid rgba(255, 255, 255, 0.10);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   overflow: visible;
@@ -22,8 +22,8 @@
 .sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .sourcePanel {
   flex: 0 0 auto; display: flex; align-items: center;
-  background: linear-gradient(135deg, #4a6a6c 0%, #3a5a5c 55%, #2f4c4e 100%);
-  border: 1.5px solid rgba(238, 140, 58, 0.22); border-radius: 8px;
+  background: #4a6a6c;
+  border: 1.5px solid rgba(255, 255, 255, 0.10); border-radius: 8px;
   padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
 }
 .sourceCount {
@@ -125,7 +125,7 @@
 .sortRow { display: flex; gap: 6px; align-items: center; }
 .dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #EE8C3A; font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
 .dirBtn:hover { border-color: #EE8C3A; }
-.searchBox { position: relative; height: 32px; width: clamp(180px, 20vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
+.searchBox { position: relative; height: 36px; width: clamp(180px, 20vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
 .searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
 .searchIcon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: #EE8C3A; pointer-events: none; }
 .searchBox input { width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0 26px 0 30px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #1a2e30; }
