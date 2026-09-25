@@ -19,6 +19,13 @@ const CHART_MAP = { BAR: 'bars', COLUMN: 'column', LINE: 'line', AREA: 'line', D
 const CHART_OPTS = ['NONE','BAR','COLUMN','LINE','AREA','DONUT'];
 const RECENT_KEY = 'gs.reports.recent.v1';
 const SAMPLE = 8;
+const SEARCH_HINT = {
+  PROJECTS: 'Project index, plot, owner name, NIN...',
+  CLIENTS: 'Client name, NIN, phone...',
+  PAYMENTS: 'Receipt no, project, client...',
+  EXPENSES: 'Item, category, project...',
+  COMPANY: 'Any row across the company...',
+};
 
 const fldByLabel = (dataset, label) => (dataset?.fields || []).find(f => f.label === label);
 
@@ -53,6 +60,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
   const dataset = DATASETS[datasetKey] || available[0];
   const [rows, setRows] = useState([]);
+  const [counts, setCounts] = useState({});
+  const countsRef = useRef({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entity, setEntity] = useState(null);
@@ -111,6 +120,23 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     }
   }, []);
   useEffect(() => { load(datasetKey); }, [datasetKey, load]);
+  useEffect(() => {
+    let alive = true;
+    const put = (k, v) => { countsRef.current[k] = v; setCounts(c => ({ ...c, [k]: v })); };
+    available.forEach(ds => {
+      if (ds.key === datasetKey || countsRef.current[ds.key] != null) return;
+      ds.load().then(data => { if (alive) put(ds.key, Array.isArray(data) ? data.length : 0); })
+        .catch(() => { if (alive) put(ds.key, 0); });
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, datasetKey]);
+  useEffect(() => {
+    if (countsRef.current[datasetKey] !== rows.length) {
+      countsRef.current[datasetKey] = rows.length;
+      setCounts(c => ({ ...c, [datasetKey]: rows.length }));
+    }
+  }, [datasetKey, rows.length]);
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
@@ -367,12 +393,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             {available.map(ds => (
               <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
                 {ds.label}
-                <span className={styles.tileCount}>{ds.key === datasetKey ? (loading ? '...' : rows.length) : ''}</span>
+                <span className={styles.tileCount}>{counts[ds.key] != null ? counts[ds.key] : (ds.key === datasetKey && loading ? '...' : '')}</span>
               </button>
             ))}
           </div>
-          <p className={styles.hint}>{dataset?.blurb}</p>
-          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
         </div>
         <span className={styles.sourceCount}>{loading ? '...' : rows.length} SOURCE ROWS</span>
       </div>
@@ -381,6 +405,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           <span className={styles.scopeTitle}>SCOPE</span>
         </div>
         <div className={styles.scopeBody}>
+          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
           {!canSeeMoney && (
             <p className={styles.hint}>
               <FiAlertCircle size={12} aria-hidden="true" /> Financial datasets, money columns and company reports are hidden on your role.
@@ -399,7 +424,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                 <input
                   className={styles.entInput}
                   value={entQuery}
-                  placeholder={entity ? 'Change...' : 'Type to search this source...'}
+                  placeholder={entity ? 'Change...' : (SEARCH_HINT[datasetKey] || 'Type to search this source...')}
                   onFocus={() => setEntOpen(true)}
                   onChange={e => { setEntQuery(e.target.value); setEntOpen(true); }}
                   onKeyDown={e => {

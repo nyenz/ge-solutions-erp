@@ -18,7 +18,7 @@ const ReportHub = () => {
       <header className={styles.pageHeader}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>Reports</h1>
-          <p className={styles.subtitle}>Scope it, pick it, chart it, take it home</p>
+          <p className={styles.subtitle}>Define the scope, preview the numbers, export the document.</p>
         </div>
         <HeaderActions>
           <HeaderButton icon={FiRefreshCw} label="REFRESH" tip="Pull the current dataset again from the server"
