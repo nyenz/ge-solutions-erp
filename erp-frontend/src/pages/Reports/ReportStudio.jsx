@@ -15,8 +15,8 @@ import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
 import styles from './ReportStudio.module.css';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
-const CHART_MAP = { BAR: 'bars', COLUMN: 'column', LINE: 'line', DONUT: 'donut' };
-const CHART_OPTS = ['NONE','BAR','COLUMN','LINE','DONUT'];
+const CHART_MAP = { BAR: 'bars', COLUMN: 'column', LINE: 'line', AREA: 'line', DONUT: 'donut' };
+const CHART_OPTS = ['NONE','BAR','COLUMN','LINE','AREA','DONUT'];
 const RECENT_KEY = 'gs.reports.recent.v1';
 const SAMPLE = 8;
 
@@ -72,15 +72,19 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [colOpen, setColOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [entOpen, setEntOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
+  const [entQuery, setEntQuery] = useState('');
   const colRef = useRef(null);
   const sortRef = useRef(null);
   const entRef = useRef(null);
   const chartRef = useRef(null);
+  const chartDdRef = useRef(null);
   useEffect(() => {
     const h = (e) => {
       if (colRef.current && !colRef.current.contains(e.target)) setColOpen(false);
       if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
       if (entRef.current && !entRef.current.contains(e.target)) setEntOpen(false);
+      if (chartDdRef.current && !chartDdRef.current.contains(e.target)) setChartOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -148,6 +152,19 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const defaultName = (DEFAULTS[datasetKey] || {})[entity ? entity.type : 'ALL'] || '';
   const defaultDef = CATALOGUE.find(d => d.title === defaultName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;
   const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);
+  const restList = listed.filter(d => !defaultDef || d.id !== defaultDef.id);
+  const entMatches = useMemo(() => {
+    const q = entQuery.trim().toUpperCase();
+    if (!q) return [];
+    const out = [];
+    entityTypes.forEach(t => {
+      entityValues(t.type).forEach(v => {
+        if (String(v).toUpperCase().indexOf(q) >= 0) out.push({ type: t.type, label: t.label, value: v });
+      });
+    });
+    return out.slice(0, 15);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entQuery, entityTypes, rows]);
 
   const toggleColumn = (key) => setColumns(c => (c.indexOf(key) >= 0 ? c.filter(k => k !== key) : [...c, key]));
   const applyDef = (def) => {
@@ -178,6 +195,20 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     text += ' Sorted by ' + sc.col + ' ' + (sc.dir === 'desc' ? 'highest first.' : 'A to Z.');
     return text;
   };
+  const catRowNode = (def) => (
+    <div key={def.id} className={styles.catWrap}>
+      <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
+        <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span><span className={styles.toggleHint}>{readId === def.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
+        <span className={styles.r2}>{def.desc}</span>
+      </button>
+      {readId === def.id && (
+        <div className={styles.readout}>
+          <div className={styles.readoutText}>{readout(def)}</div>
+          <button className={styles.useBtn} onClick={() => applyDef(def)}>USE THIS REPORT</button>
+        </div>
+      )}
+    </div>
+  );
 
   /* ── viewer pipeline: one row set feeds chart, table, CSV, PDF ── */
   const scopeRows = useMemo(() => {
@@ -363,19 +394,31 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                     <button onClick={() => setEntity(null)} aria-label="Clear entity"><FiX size={11} aria-hidden="true" /></button>
                   </span>
                 )}
-                <button className={styles.pickBtn} onClick={() => setEntOpen(o => !o)} aria-expanded={entOpen}>
-                  <span>{entity ? 'Change...' : 'Whole company'}</span>
-                  <FiChevronDown className={entOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-                </button>
+                <input
+                  className={styles.entInput}
+                  value={entQuery}
+                  placeholder={entity ? 'Change...' : 'Type to search this source...'}
+                  onFocus={() => setEntOpen(true)}
+                  onChange={e => { setEntQuery(e.target.value); setEntOpen(true); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (entMatches[0]) { setEntity(entMatches[0]); setEntQuery(''); setEntOpen(false); }
+                      e.preventDefault();
+                    }
+                  }}
+                  aria-label="Search who / what"
+                />
                 {entOpen && (
                   <div className={styles.pickList}>
                     <div className={styles.ddScroll}>
-                      <button className={styles.pickOption} onClick={() => { setEntity(null); setEntOpen(false); }}>WHOLE COMPANY</button>
-                      {entityTypes.map(t => entityValues(t.type).slice(0, 12).map(v => (
-                        <button key={t.type + v} className={styles.pickOption} onClick={() => { setEntity({ type: t.type, label: t.label, value: v }); setEntOpen(false); }}>
-                          {t.label}: {v}
+                      {!entQuery && <button className={styles.pickOption} onClick={() => { setEntity(null); setEntQuery(''); setEntOpen(false); }}>WHOLE COMPANY</button>}
+                      {!entQuery && <div className={styles.ddFootMsg}>TYPE TO SEARCH THIS SOURCE -- ENTER PICKS THE FIRST MATCH</div>}
+                      {entQuery && entMatches.length === 0 && <div className={styles.ddFootMsg}>NO MATCH IN THIS SOURCE</div>}
+                      {entQuery && entMatches.map(m => (
+                        <button key={m.type + m.value} className={styles.pickOption} onClick={() => { setEntity(m); setEntQuery(''); setEntOpen(false); }}>
+                          {m.value}<span className={styles.pickOptionTag}>{m.label}</span>
                         </button>
-                      )))}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -478,8 +521,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         <div className={styles.catList}>
           {defaultDef && (
             <div className={styles.catWrap}>
-              <button className={styles.catRow + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
-                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span></span>
+              <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
+                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
                 <span className={styles.r2}>{defaultDef.desc}</span>
               </button>
               {readId === defaultDef.id && (
@@ -490,24 +533,18 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               )}
             </div>
           )}
-          {listed.filter(d => !defaultDef || d.id !== defaultDef.id).length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
-          {listed.filter(d => !defaultDef || d.id !== defaultDef.id).map(def => (
-            <div key={def.id} className={styles.catWrap}>
-              <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
-                <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span></span>
-                <span className={styles.r2}>{def.desc}</span>
-              </button>
-              {readId === def.id && (
-                <div className={styles.readout}>
-                  <div className={styles.readoutText}>{readout(def)}</div>
-                  <button className={styles.useBtn} onClick={() => applyDef(def)}>USE THIS REPORT</button>
-                </div>
-              )}
-            </div>
-          ))}
+          {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
+          {groupTab === 'ALL'
+            ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (
+              <div key={g}>
+                <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>
+                {restList.filter(d => d.group === g).map(catRowNode)}
+              </div>
+            ))
+            : restList.map(catRowNode)}
         </div>
         <div className={styles.foot}>
-          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}
+          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}
           {search ? ' matching "' + search + '"' : ''}
           {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
         </div>
@@ -523,16 +560,29 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               <span className={styles.pvChip}>SORT {sort.col || 'DEFAULT'} {sort.dir.toUpperCase()}</span>
               <span className={styles.pvChip}>{tableCols.length} COLUMNS</span>
               <span className={styles.pvChip}>{sortedAll.length} ROWS MATCH</span>
+              <span className={styles.pvChipDd} ref={chartDdRef}>
+                CHART
+                <button className={styles.chartDdBtn} onClick={() => setChartOpen(o => !o)} aria-expanded={chartOpen}>
+                  {chartMode}<FiChevronDown className={chartOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+                </button>
+                {chartOpen && (
+                  <div className={styles.pickList}>
+                    <div className={styles.ddScroll}>
+                      {CHART_OPTS.map(t => (
+                        <button key={t} className={styles.pickOption + (chartMode === t ? ' ' + styles.pickOptionActive : '')} onClick={() => { setChartMode(t); setChartOpen(false); }}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </span>
             </div>
             <div className={styles.pvBtns}>
               <button className={styles.useBtn} onClick={exportCSV} disabled={!sortedAll.length || !tableCols.length}>CSV -- THE DATA</button>
-              <button className={styles.useBtn} onClick={exportPDF} disabled={!sortedAll.length || !tableCols.length}>PDF -- THE DOCUMENT</button>
+              <button className={styles.useBtnDark} onClick={exportPDF} disabled={!sortedAll.length || !tableCols.length}>PDF -- THE DOCUMENT</button>
             </div>
           </div>
-          <div className={styles.chartChips}>
-            {CHART_OPTS.map(t => (
-              <button key={t} className={chartMode === t ? styles.cchipOn : styles.cchip} onClick={() => setChartMode(t)}>{t}</button>
-            ))}
+          <div className={styles.approachNote}>
+            CSV = every matching row, flat, for Excel. PDF = one document: cover with scope stamp and the chart, then all table pages in landscape with repeated headers. The screen table stays a sample so the page stays fast.
           </div>
           {chartMode !== 'NONE' && chartRows.length > 0 && (
             <div className={styles.chartBox} ref={chartRef}>

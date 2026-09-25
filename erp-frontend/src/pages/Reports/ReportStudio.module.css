@@ -188,6 +188,36 @@
 .pvNote { color: rgba(255,255,255,0.62); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7; }
 .appliedLine { color: rgba(26,46,48,0.62); font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
 .appliedLine b { color: #EE8C3A; }
+.useBtnDark {
+  flex-shrink: 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px;
+  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #162a2c; color: #EE8C3A; transition: all 0.2s;
+}
+.useBtnDark:hover:not(:disabled) { background: #213E40; transform: translateY(-1px); }
+.useBtnDark:disabled { opacity: 0.45; cursor: not-allowed; }
+.approachNote { background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: rgba(255,255,255,0.72); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 10px); line-height: 1.6; }
+.pvChipDd {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.78);
+  border: 1px solid rgba(255,255,255,0.22); border-radius: 4px; padding: 3px 6px 3px 8px;
+  background: rgba(255,255,255,0.06);
+}
+.chartDdBtn {
+  display: flex; align-items: center; gap: 4px; cursor: pointer; height: 22px; padding: 0 8px;
+  border-radius: 4px; border: none; background: #EE8C3A; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+}
+.chartDdBtn svg { flex-shrink: 0; transition: transform 0.2s; }
+.catRowDef { border-left: 3px solid #EE8C3A; background: #fdf3e7; }
+.catRowDef:hover, .catRowDef.catRowOn { background: #EE8C3A; }
+.ddSec { position: sticky; top: 0; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 14px; border-bottom: 1px solid #dfd9d1; z-index: 1; }
+.toggleHint { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
+.tag + .toggleHint { margin-left: 8px; }
+.entInput { height: 38px; width: clamp(180px, 22vw, 280px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: all 0.2s; }
+.entInput:focus { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.pickOptionTag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.7; }
+.ddFootMsg { padding: 8px 10px; color: rgba(26,46,48,0.5); font-size: 10px; font-weight: 700; }
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }
   .pickBtn { min-width: 100%; }
