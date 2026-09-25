@@ -281,17 +281,10 @@
 }
 .headToggle:hover { background: #EE8C3A; color: #1a2e30; }
 .headToggle svg { transition: transform 0.2s; }
-.catPanel .searchBox { margin-left: 10px; }
+.catPanel .searchBox { margin-left: auto; }
+.catPanel .headToggle { margin-left: 10px; }
 .panelClosed { display: none; }
 .catPanelClosed > *:not(.panelHeadRow) { display: none; }
-.scopePanel, .catPanel { position: relative; border-bottom: 1.5px solid #EE8C3A; }
-.scopePanel::before, .catPanel::before,
-.scopePanel::after, .catPanel::after {
-  content: ''; position: absolute; bottom: -1.5px; width: 14px; height: 14px;
-  border-bottom: 2.5px solid #EE8C3A; pointer-events: none;
-}
-.scopePanel::before, .catPanel::before { left: -1.5px; border-left: 2.5px solid #EE8C3A; border-bottom-left-radius: 12px; }
-.scopePanel::after, .catPanel::after { right: -1.5px; border-right: 2.5px solid #EE8C3A; border-bottom-right-radius: 12px; }
 .liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }
 .catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }
 @media (max-width: 900px) {
@@ -299,4 +292,9 @@
   .pickBtn { min-width: 100%; }
   .pvBtns { margin-left: 0; }
   .searchBox { margin-left: 0; width: 100%; }
+}
+
+/* fix99b: ported verbatim from erp-frontend/src/pages/Clients/ClientLedgerPage.module.css */
+.decorBl::after,.decorBr::after {
+  content:'';position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,0.4);
 }

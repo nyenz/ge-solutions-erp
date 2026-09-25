@@ -457,7 +457,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
         <span className={styles.sourceCount}>{loading ? '...' : scopeRows.length} SOURCE ROWS</span>
       </div>
-      <div className={styles.scopePanel}>
+      <div className={styles.scopePanel + ' ' + styles.decorBl}>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>SCOPE</span>
           <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
@@ -483,6 +483,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
                 )}
                 <input
                   className={styles.entInput}
+                  style={{ height: 36, width: 'clamp(200px, 22vw, 260px)', boxSizing: 'border-box' }}
                   value={entQuery}
                   placeholder={entity ? 'Change...' : (SEARCH_HINT[datasetKey] || 'Type to search this source...')}
                   onFocus={() => setEntOpen(true)}
@@ -573,18 +574,18 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       </div>
 
-      <div className={catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed}>
+      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed) + ' ' + styles.decorBl}>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
+          <div className={styles.searchBox}>
+            <FiSearch className={styles.searchIcon} aria-hidden="true" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
+            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
+          </div>
           <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label="Collapse or expand catalogue panel">
             <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
           </button>
-          <div className={styles.searchBox}>
-            <FiSearch className={styles.searchIcon} aria-hidden="true" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" />
-            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
-          </div>
         </div>
         <div className={styles.tabRow}>
           <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
@@ -713,11 +714,11 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       )}
 
-      <div className={styles.appliedLine}>
-        {appliedDef
-          ? <>APPLIED: <b>{appliedDef.title}</b> &middot; {tableCols.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}</>
-          : <>No report applied yet -- open a report above and press USE THIS REPORT.</>}
-      </div>
+      {appliedDef && (
+        <div className={styles.appliedLine}>
+          APPLIED: <b>{appliedDef.title}</b> &middot; {tableCols.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}
+        </div>
+      )}
     </div>
   );
 };
