@@ -21,10 +21,10 @@
 .scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
 .sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .sourcePanel {
-  flex: 0 0 auto; display: flex; align-items: center;
-  background: #3e595b;
-  border: 1.5px solid rgba(255, 255, 255, 0.08); border-radius: 8px;
-  padding: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  flex: 0 1 auto; display: flex; align-items: center;
+  background: transparent;
+  border: none; border-radius: 0;
+  padding: 0; box-shadow: none;
 }
 .sourceCount {
   margin-left: auto; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
@@ -40,21 +40,21 @@
 }
 .chip:hover:not(:disabled) { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
 .chip:disabled { opacity: 0.45; cursor: not-allowed; }
-.tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tileRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .tile {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 8px 12px; border-radius: 6px;
-  border: 1.5px solid transparent; background: transparent;
-  color: rgba(255,255,255,0.8); transition: color 0.2s ease;
+  padding: 12px 22px; border-radius: 8px;
+  border: 1.5px solid transparent; background: #4d5c5a;
+  color: rgba(255,255,255,0.92); transition: background 0.2s ease, color 0.2s ease;
 }
-.tile:hover { color: #EE8C3A; }
+.tile:hover { background: #5a6b68; color: #fff; }
 .tileActive {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 8px 14px; border-radius: 6px;
+  padding: 12px 24px; border-radius: 8px;
   border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;
   box-shadow: 0 4px 16px rgba(238,140,58,0.3);
 }

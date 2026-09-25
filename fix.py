@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix93: safe CSS patch.
-# Rolls the stylesheet back to the clean state before the fix92 regex broke
-# the build, then applies exact-match replacements for:
-# 1. Scope search field: shorter height (34px), longer reach (clamp 220-320).
-# 2. Scope dropdown table: max-height and overflow removed (no scrollbar).
-# 3. Catalogue search field: flex-centered box, input line-height 34px so
-#    "Search reports..." aligns perfectly after the magnifier.
+# GOLDEN SEED -- fix94: source tabs become the app's deactivated filter chips.
+# Other pages draw filter rows directly on the cream page: solid slate
+# (#4d5c5a) chips for deactivated filters, orange chip for the active one.
+# The Reports source row now matches that family 1-to-1: band removed,
+# slate chips in, orange active chip, 10px gaps.
 # Then adds, commits and pushes by itself.
 import os
 import subprocess
@@ -29,28 +27,59 @@ def replace(file_path, old, new):
     print('patched: ' + os.path.relpath(file_path, ROOT))
 
 
-# 1. Roll back to the clean CSS file from the commit before fix92 broke it.
-# This guarantees we are editing valid, well-formed CSS.
-subprocess.run(['git', 'checkout', 'HEAD~1', '--', os.path.relpath(CSS, ROOT)], cwd=ROOT, check=True)
-print('restored clean CSS from HEAD~1')
+# 1. holder loses the band: row sits on the cream page like other filter rows
+replace(CSS,
+        ".sourcePanel {\n"
+        "  flex: 0 0 auto; display: flex; align-items: center;\n"
+        "  background: #3e595b;\n"
+        "  border: 1.5px solid rgba(255, 255, 255, 0.08); border-radius: 8px;\n"
+        "  padding: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);\n"
+        "}\n",
+        ".sourcePanel {\n"
+        "  flex: 0 1 auto; display: flex; align-items: center;\n"
+        "  background: transparent;\n"
+        "  border: none; border-radius: 0;\n"
+        "  padding: 0; box-shadow: none;\n"
+        "}\n")
 
-# 2. Scope search field: shorter height, longer reach
+# 2 + 3 + 4. deactivated slate chips, orange active chip, 10px gaps
 replace(CSS,
-        ".entInput { height: 38px; width: clamp(180px, 20vw, 260px);",
-        ".entInput { height: 34px; width: clamp(220px, 26vw, 320px);")
-
-# 3. Scope dropdown table: remove scrollbar constraints completely
-replace(CSS,
-        ".ddScroll { max-height: 264px; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }",
-        ".ddScroll { padding: 0; }")
-
-# 4. Catalogue search field: flex-centered box so text aligns perfectly
-replace(CSS,
-        ".searchBox { position: relative; height: 36px; width: clamp(180px, 20vw, 260px);",
-        ".searchBox { position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px);")
-replace(CSS,
-        ".searchBox input { width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0 26px 0 30px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #1a2e30; }",
-        ".searchBox input { flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 10px 0 32px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px; }")
+        ".tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n"
+        ".tile {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 8px 12px; border-radius: 6px;\n"
+        "  border: 1.5px solid transparent; background: transparent;\n"
+        "  color: rgba(255,255,255,0.8); transition: color 0.2s ease;\n"
+        "}\n"
+        ".tile:hover { color: #EE8C3A; }\n"
+        ".tileActive {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 8px 14px; border-radius: 6px;\n"
+        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
+        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
+        "}\n",
+        ".tileRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }\n"
+        ".tile {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 12px 22px; border-radius: 8px;\n"
+        "  border: 1.5px solid transparent; background: #4d5c5a;\n"
+        "  color: rgba(255,255,255,0.92); transition: background 0.2s ease, color 0.2s ease;\n"
+        "}\n"
+        ".tile:hover { background: #5a6b68; color: #fff; }\n"
+        ".tileActive {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 12px 24px; border-radius: 8px;\n"
+        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
+        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
+        "}\n")
 
 
 def git(*args):
@@ -70,8 +99,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix93: scope search size, no scrollbar dropdown, perfectly aligned catalogue search')
+git('commit', '-m', 'fix94: source tabs = deactivated filter chips from other pages (slate on cream, orange active), band removed')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix93 done: patched, committed and pushed to main.')
+print('fix94 done: patched, committed and pushed to main.')
