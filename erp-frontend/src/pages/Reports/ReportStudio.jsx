@@ -4,7 +4,7 @@
 // chart + table + CSV + PDF. Every control recomputes the same row set, so
 // chart, table and downloads can never disagree.
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FiSearch, FiX, FiChevronDown, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiSearch, FiX, FiChevronDown, FiAlertCircle } from 'react-icons/fi';
 import { jsPDF } from 'jspdf';
 import { Chart } from '../../components/common/Charts';
 import {
@@ -361,14 +361,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
 
   return (
     <div className={styles.studio}>
-      <div className={styles.scopePanel}>
-        <div className={styles.panelHeadRow}>
-          <span className={styles.scopeTitle}>SCOPE</span>
-          <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
-            <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
-          </button>
-        </div>
-        <div className={styles.scopeBody}>
+      <div className={styles.sourceRow}>
+        <div className={styles.sourcePanel}>
           <div className={styles.tileRow}>
             {available.map(ds => (
               <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
@@ -378,12 +372,20 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             ))}
           </div>
           <p className={styles.hint}>{dataset?.blurb}</p>
+          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
+        </div>
+        <span className={styles.sourceCount}>{loading ? '...' : rows.length} SOURCE ROWS</span>
+      </div>
+      <div className={styles.scopePanel}>
+        <div className={styles.panelHeadRow}>
+          <span className={styles.scopeTitle}>SCOPE</span>
+        </div>
+        <div className={styles.scopeBody}>
           {!canSeeMoney && (
             <p className={styles.hint}>
               <FiAlertCircle size={12} aria-hidden="true" /> Financial datasets, money columns and company reports are hidden on your role.
             </p>
           )}
-          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
           <div className={styles.scopeRow}>
             <div className={styles.scopeField} ref={entRef}>
               <span className={styles.miniLabel}>Who / what</span>
@@ -489,7 +491,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       <div className={styles.catPanel}>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
-          <span className={styles.badge}>{searched.length} REPORTS</span>
+          <span className={styles.badge}>{searched.length} MATCHES</span>
           <div className={styles.searchBox}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" />

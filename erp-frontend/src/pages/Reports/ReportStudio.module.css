@@ -19,6 +19,19 @@
 .scopeTitle { font-family: 'Cinzel', serif; color: #EE8C3A; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.65); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 20px; padding: 4px 12px; }
 .scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
+.sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sourcePanel {
+  flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px;
+  background: linear-gradient(135deg, #4a6a6c 0%, #3a5a5c 55%, #2f4c4e 100%);
+  border: 1.5px solid rgba(238, 140, 58, 0.22); border-radius: 10px;
+  padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 14px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+.sourceCount {
+  flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(26,46,48,0.55);
+  background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; padding: 8px 12px; white-space: nowrap;
+}
 .chip {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
@@ -63,27 +76,31 @@
 .pickList {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
   width: max-content; min-width: 100%; max-width: 340px;
-  background: #fff; border: 2px solid #EE8C3A; border-radius: 8px;
+  background: #fff; border: 1px solid #dfd9d1; border-radius: 8px;
   box-shadow: 0 18px 40px rgba(26,46,48,0.28); overflow: hidden;
 }
-.ddScroll { max-height: 264px; overflow-y: auto; padding: 4px; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+.ddScroll { max-height: 264px; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
 .ddScroll::-webkit-scrollbar { width: 6px; }
 .ddScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
 .pickOption {
-  display: flex; width: 100%; text-align: left; border: none; border-left: 3px solid transparent;
-  border-radius: 4px; background: transparent; color: #1a2e30;
-  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 10px; cursor: pointer;
+  display: flex; width: 100%; text-align: left; border: none; border-bottom: 1px solid #f1eeea;
+  border-radius: 0; background: transparent; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; padding: 10px 12px; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.pickOption:hover { background: rgba(238,140,58,0.12); }
-.pickOptionActive { background: rgba(238,140,58,0.16); border-left-color: #EE8C3A; color: #b45309; }
+.pickOption:last-child { border-bottom: none; }
+.pickOption:hover { background: #EE8C3A; color: #fff; }
+.pickOptionActive { background: #EE8C3A; color: #fff; }
 .pickCheck {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  border: none; border-left: 3px solid transparent; border-radius: 4px; background: transparent;
+  border: none; border-bottom: 1px solid #f1eeea; border-radius: 0; background: transparent;
   color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
-  padding: 8px 10px; cursor: pointer;
+  padding: 10px 12px; cursor: pointer; transition: background 0.15s, color 0.15s;
 }
-.pickCheck:hover { background: rgba(238,140,58,0.12); }
-.pickCheckOn { background: rgba(238,140,58,0.16); border-left-color: #EE8C3A; color: #b45309; }
+.pickCheck:last-child { border-bottom: none; }
+.pickCheck:hover { background: #EE8C3A; color: #fff; }
+.pickCheck:hover input { accent-color: #fff; }
+.pickCheckOn { background: #fdf3e7; color: #b45309; }
 .pickCheck input { accent-color: #EE8C3A; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
 .perChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .perChipsDim { opacity: 0.45; pointer-events: none; }
@@ -102,10 +119,10 @@
 .sortRow { display: flex; gap: 6px; align-items: center; }
 .dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #EE8C3A; font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
 .dirBtn:hover { border-color: #EE8C3A; }
-.searchBox { position: relative; height: 36px; width: clamp(170px, 22vw, 280px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
+.searchBox { position: relative; height: 32px; width: clamp(150px, 17vw, 230px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
 .searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #EE8C3A; pointer-events: none; }
-.searchBox input { width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0 30px 0 32px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; }
+.searchIcon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: #EE8C3A; pointer-events: none; }
+.searchBox input { width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0 26px 0 30px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #1a2e30; }
 .searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.45); display: flex; padding: 4px; }
 .searchClear:hover { color: #1a2e30; }
 .tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(0,0,0,0.16); border-bottom: 1px solid rgba(255,255,255,0.08); }
