@@ -22,9 +22,9 @@
 .sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .sourcePanel {
   flex: 0 0 auto; display: flex; align-items: center;
-  background: #4a6a6c;
-  border: 1.5px solid rgba(255, 255, 255, 0.10); border-radius: 8px;
-  padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  background: #3e595b;
+  border: 1.5px solid rgba(255, 255, 255, 0.08); border-radius: 8px;
+  padding: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
 }
 .sourceCount {
   margin-left: auto; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
@@ -40,21 +40,21 @@
 }
 .chip:hover:not(:disabled) { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
 .chip:disabled { opacity: 0.45; cursor: not-allowed; }
-.tileRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tile {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 9px 14px; border-radius: 6px;
+  padding: 8px 12px; border-radius: 6px;
   border: 1.5px solid transparent; background: transparent;
-  color: rgba(255,255,255,0.92); transition: color 0.2s ease;
+  color: rgba(255,255,255,0.8); transition: color 0.2s ease;
 }
 .tile:hover { color: #EE8C3A; }
 .tileActive {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 9px 16px; border-radius: 6px;
+  padding: 8px 14px; border-radius: 6px;
   border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;
   box-shadow: 0 4px 16px rgba(238,140,58,0.3);
 }
