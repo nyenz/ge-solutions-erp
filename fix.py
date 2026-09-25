@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix95:
-# 1. Dropdown lists scroll but hide the scrollbar (prototype behaviour).
-# 2. Scope who/what field gets the exact catalogue-search dimensions, both
-#    rules now box-sizing: border-box so edits actually render.
-# 3. Catalogue report titles use the theme soft grey, white on hover.
+# GOLDEN SEED -- fix96:
+# 1. Source row back to prototype format: solid slate band (#4d5c5a) hugging
+#    flat text tabs, orange active pill inside, tight gaps.
+# 2. Active filter chips (.pchipOn / .gtabOn) get the FULL pill spec -- they
+#    previously only carried colours, so active chips rendered as square
+#    default buttons. Now every active filter on the page matches the
+#    prototype's rounded orange pill.
 # Then adds, commits and pushes by itself.
 import os
 import subprocess
@@ -27,33 +29,75 @@ def replace(file_path, old, new):
     print('patched: ' + os.path.relpath(file_path, ROOT))
 
 
-# ── 1. scrollable dropdowns with hidden scrollbars ──
+# ── 1. prototype slate band with flat tabs and orange pill inside ──
 replace(CSS,
-        ".ddScroll { padding: 0; }",
-        ".ddScroll { max-height: 264px; overflow-y: auto; padding: 0; scrollbar-width: none; -ms-overflow-style: none; }")
+        ".sourcePanel {\n"
+        "  flex: 0 1 auto; display: flex; align-items: center;\n"
+        "  background: transparent;\n"
+        "  border: none; border-radius: 0;\n"
+        "  padding: 0; box-shadow: none;\n"
+        "}\n",
+        ".sourcePanel {\n"
+        "  flex: 0 0 auto; display: flex; align-items: center;\n"
+        "  background: #4d5c5a;\n"
+        "  border: none; border-radius: 8px;\n"
+        "  padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);\n"
+        "}\n")
 replace(CSS,
-        ".ddScroll::-webkit-scrollbar { width: 6px; }",
-        ".ddScroll::-webkit-scrollbar { width: 0; height: 0; display: none; }")
-replace(CSS,
-        ".ddScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
-        ".ddScroll::-webkit-scrollbar-thumb { background: transparent; }")
+        ".tileRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }\n"
+        ".tile {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 12px 22px; border-radius: 8px;\n"
+        "  border: 1.5px solid transparent; background: #4d5c5a;\n"
+        "  color: rgba(255,255,255,0.92); transition: background 0.2s ease, color 0.2s ease;\n"
+        "}\n"
+        ".tile:hover { background: #5a6b68; color: #fff; }\n"
+        ".tileActive {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 12px 24px; border-radius: 8px;\n"
+        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
+        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
+        "}\n",
+        ".tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n"
+        ".tile {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 8px 12px; border-radius: 6px; outline: none;\n"
+        "  border: 1.5px solid transparent; background: transparent;\n"
+        "  color: rgba(255,255,255,0.92); transition: color 0.2s ease;\n"
+        "}\n"
+        ".tile:hover { color: #EE8C3A; }\n"
+        ".tileActive {\n"
+        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "  padding: 8px 14px; border-radius: 6px; outline: none;\n"
+        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
+        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
+        "}\n")
 
-# ── 2. one shared dimension token set for both search fields, border-box ──
+# ── 2. active filter chips carry the full pill spec, not just colours ──
 replace(CSS,
-        ".entInput { height: 34px; width: clamp(220px, 26vw, 320px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: all 0.2s; }",
-        ".entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }")
+        ".pchipOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }",
+        ".pchipOn {\n"
+        "  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);\n"
+        "  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;\n"
+        "  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #EE8C3A;\n"
+        "  color: #1a2e30; white-space: nowrap; outline: none;\n"
+        "}")
 replace(CSS,
-        ".searchBox { position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }",
-        ".searchBox { box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }")
-
-# ── 3. report titles on theme soft grey, white on hover/active ──
-replace(CSS,
-        ".r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }",
-        ".r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6f70; }")
-replace(CSS,
-        ".catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }",
-        ".catRow:hover .r1, .catRowOn .r1 { color: #fff; }\n"
-        ".catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }")
+        ".gtabOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }",
+        ".gtabOn {\n"
+        "  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);\n"
+        "  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;\n"
+        "  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #EE8C3A;\n"
+        "  color: #1a2e30; outline: none;\n"
+        "}")
 
 
 def git(*args):
@@ -73,8 +117,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix95: hidden-scrollbar dropdowns, scope search mirrors catalogue search (border-box), report titles on theme grey')
+git('commit', '-m', 'fix96: prototype slate source band with flat tabs, active filter chips get full pill spec')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix95 done: patched, committed and pushed to main.')
+print('fix96 done: patched, committed and pushed to main.')
