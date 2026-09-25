@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix97b: state-tolerant completion of fix97.
-# Rewrites whole CSS rules by selector (immune to previous partial runs) and
-# guards every JSX/CSS change: already applied -> skip, old form -> replace,
-# unknown -> stop with a clear message. Safe to re-run.
-# Then adds, commits and pushes by itself.
+# GOLDEN SEED -- fix98b: completes fix98 (live row counters on report cards,
+# footer scope line, counter styling). Corrected patterns (no phantom line
+# breaks), fully guarded and re-runnable. Commits the already-applied fix98
+# pipeline together with these last pieces and pushes.
 import os
-import re
 import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPORTS = os.path.join(ROOT, 'erp-frontend', 'src', 'pages', 'Reports')
-CSS = os.path.join(REPORTS, 'ReportStudio.module.css')
 JSX = os.path.join(REPORTS, 'ReportStudio.jsx')
+CSS = os.path.join(REPORTS, 'ReportStudio.module.css')
 
 
 def read(p):
@@ -24,14 +22,6 @@ def read(p):
 def write(p, s):
     with open(p, 'w', encoding='utf-8', newline='\n') as f:
         f.write(s)
-
-
-def rule_replace(css, selector, body):
-    pat = re.compile(re.escape(selector) + r'\s*\{[^}]*\}')
-    repl = selector + ' {\n  ' + body + '\n}'
-    if pat.search(css):
-        return pat.sub(lambda m: repl, css, count=1), 'rewrote rule ' + selector
-    return css + '\n' + repl + '\n', 'added rule ' + selector
 
 
 def guarded(src, old, new, marker, label):
@@ -46,136 +36,36 @@ def guarded(src, old, new, marker, label):
     return src.replace(old, new)
 
 
+jsx = read(JSX)
+jsx = guarded(jsx,
+              "<span className={styles.r1}>{def.title}<span className={styles.tag}>",
+              "<span className={styles.r1}>{def.title}<span className={styles.liveCount}>{liveCount(def)} ROWS</span><span className={styles.tag}>",
+              '{liveCount(def)} ROWS', 'report card live counter')
+jsx = guarded(jsx,
+              "<span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.tag}>",
+              "<span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>",
+              '{liveCount(defaultDef)} ROWS', 'default row live counter')
+jsx = guarded(jsx,
+              "          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}\n",
+              "          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}\n"
+              "          {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}\n",
+              'rows in scope', 'footer scope line')
+write(JSX, jsx)
+
 css = read(CSS)
-
-# ── search field family: whole-rule rewrite, any prior variant normalised ──
-css, m = rule_replace(css, '.searchIcon',
-                      "position: absolute; left: 12px; top: 50%; transform: translateY(-50%); "
-                      "width: 15px; height: 15px; color: #EE8C3A; pointer-events: none;")
-print(m)
-css, m = rule_replace(css, '.searchBox',
-                      "box-sizing: border-box; position: relative; display: flex; align-items: center; "
-                      "height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; "
-                      "border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto;")
-print(m)
-css, m = rule_replace(css, '.searchBox input',
-                      "flex: 1; width: 100%; height: 34px; border: none; outline: none; "
-                      "background: transparent; padding: 0 12px 0 40px; font-family: 'Inter', sans-serif; "
-                      "font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px;")
-print(m)
-
-# ── selected report row contrast splits (guarded, soft) ──
-splits = [
-    (".catRow:hover, .catRowOn { background: #EE8C3A; color: #fff; }",
-     ".catRow:hover { background: #EE8C3A; color: #fff; }\n.catRowOn { background: #d97e2f; color: #1a2e30; }",
-     ".catRowOn { background: #d97e2f;"),
-    (".catRow:hover .r1, .catRowOn .r1 { color: #fff; }",
-     ".catRow:hover .r1 { color: #fff; }\n.catRowOn .r1 { color: #1a2e30; }",
-     ".catRowOn .r1 { color: #1a2e30; }"),
-    (".catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }",
-     ".catRow:hover .r2 { color: rgba(255,255,255,0.85); }\n.catRowOn .r2 { color: rgba(26,46,48,0.72); }",
-     ".catRowOn .r2 { color: rgba(26,46,48,0.72); }"),
-    (".catRowDef:hover, .catRowDef.catRowOn { background: #EE8C3A; }",
-     ".catRowDef:hover { background: #EE8C3A; }\n.catRowDef.catRowOn { background: #d97e2f; }",
-     ".catRowDef.catRowOn { background: #d97e2f; }"),
-]
-for old, new, mark in splits:
-    if mark in css:
-        print('skip (already applied): ' + old[:40] + '...')
-    elif old in css:
-        css = css.replace(old, new)
-        print('patched: ' + old[:40] + '...')
-    else:
-        print('note: pattern not present (skipped): ' + old[:40] + '...')
-
-# ── fix97 block (placeholder, toggles, panel decor) inserted once ──
-if '.viewerEmpty {' not in css:
-    BLOCK = (
-        "/* fix97: prototype parity -- canonical field dims last, empty preview\n"
-        "   placeholder, head toggles, panel bottom edge + corner ticks. */\n"
-        ".entInput, .searchBox { box-sizing: border-box; height: 36px; width: clamp(200px, 22vw, 260px); }\n"
-        ".viewerEmpty {\n"
-        "  border: 2px dashed rgba(26, 46, 48, 0.28); border-radius: 10px;\n"
-        "  background: rgba(255, 255, 255, 0.35);\n"
-        "  padding: clamp(24px, 4vw, 40px) 16px;\n"
-        "  display: flex; align-items: center; justify-content: center; text-align: center;\n"
-        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;\n"
-        "  letter-spacing: 2px; text-transform: uppercase; color: rgba(26, 46, 48, 0.45);\n"
-        "}\n"
-        ".headToggle {\n"
-        "  margin-left: auto; display: inline-flex; align-items: center; justify-content: center;\n"
-        "  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; flex-shrink: 0;\n"
-        "  border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12);\n"
-        "  color: #EE8C3A; transition: all 0.2s ease;\n"
-        "}\n"
-        ".headToggle:hover { background: #EE8C3A; color: #1a2e30; }\n"
-        ".headToggle svg { transition: transform 0.2s; }\n"
-        ".catPanel .searchBox { margin-left: 10px; }\n"
-        ".panelClosed { display: none; }\n"
-        ".catPanelClosed > *:not(.panelHeadRow) { display: none; }\n"
-        ".scopePanel, .catPanel { position: relative; border-bottom: 1.5px solid #EE8C3A; }\n"
-        ".scopePanel::before, .catPanel::before,\n"
-        ".scopePanel::after, .catPanel::after {\n"
-        "  content: ''; position: absolute; bottom: -1.5px; width: 14px; height: 14px;\n"
-        "  border-bottom: 2.5px solid #EE8C3A; pointer-events: none;\n"
-        "}\n"
-        ".scopePanel::before, .catPanel::before { left: -1.5px; border-left: 2.5px solid #EE8C3A; border-bottom-left-radius: 12px; }\n"
-        ".scopePanel::after, .catPanel::after { right: -1.5px; border-right: 2.5px solid #EE8C3A; border-bottom-right-radius: 12px; }\n"
-        "@media (max-width: 900px) {")
+if '.liveCount {' in css:
+    print('skip (already applied): liveCount styling')
+else:
     if '@media (max-width: 900px) {' not in css:
         print('FAIL: media query anchor missing in CSS')
         sys.exit(1)
-    css = css.replace('@media (max-width: 900px) {', BLOCK, 1)
-    print('patched: fix97 CSS block inserted')
-else:
-    print('skip (already applied): fix97 CSS block')
+    css = css.replace('@media (max-width: 900px) {',
+                      ".liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; "
+                      "letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }\n"
+                      ".catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }\n"
+                      "@media (max-width: 900px) {", 1)
+    print('patched: liveCount styling')
 write(CSS, css)
-
-# ── JSX changes, each guarded so partial states survive ──
-jsx = read(JSX)
-jsx = guarded(jsx,
-              "  const [chartOpen, setChartOpen] = useState(false);\n",
-              "  const [chartOpen, setChartOpen] = useState(false);\n"
-              "  const [scopeOpen, setScopeOpen] = useState(true);\n"
-              "  const [catOpen, setCatOpen] = useState(true);\n",
-              'setScopeOpen', 'collapse states')
-jsx = guarded(jsx,
-              "        <div className={styles.panelHeadRow}>\n"
-              "          <span className={styles.scopeTitle}>SCOPE</span>\n"
-              "        </div>\n"
-              "        <div className={styles.scopeBody}>\n",
-              "        <div className={styles.panelHeadRow}>\n"
-              "          <span className={styles.scopeTitle}>SCOPE</span>\n"
-              "          <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label=\"Collapse or expand scope panel\">\n"
-              "            <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
-              "          </button>\n"
-              "        </div>\n"
-              "        <div className={scopeOpen ? styles.scopeBody : styles.panelClosed}>\n",
-              'Collapse or expand scope panel', 'scope head toggle')
-jsx = guarded(jsx,
-              "      <div className={styles.catPanel}>\n",
-              "      <div className={catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed}>\n",
-              'catPanelClosed}>', 'catalogue collapse class')
-jsx = guarded(jsx,
-              "          <span className={styles.badge}>{searched.length} MATCHES</span>\n"
-              "          <div className={styles.searchBox}>\n",
-              "          <span className={styles.badge}>{searched.length} MATCHES</span>\n"
-              "          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label=\"Collapse or expand catalogue panel\">\n"
-              "            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
-              "          </button>\n"
-              "          <div className={styles.searchBox}>\n",
-              'Collapse or expand catalogue panel', 'catalogue head toggle')
-jsx = guarded(jsx,
-              "      <div className={styles.appliedLine}>\n",
-              "      {!appliedDef && (\n"
-              "        <div className={styles.viewerEmpty}>\n"
-              "          PICK A REPORT ABOVE -- ITS LIVE CHART, PREVIEW, CSV AND PDF LAND HERE\n"
-              "        </div>\n"
-              "      )}\n"
-              "\n"
-              "      <div className={styles.appliedLine}>\n",
-              'styles.viewerEmpty', 'dashed empty preview placeholder')
-write(JSX, jsx)
 
 
 def git(*args):
@@ -195,8 +85,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix97b: state-tolerant completion of fix97 -- search field rules normalised, placeholder, toggles, panel decor, selected-row contrast')
+git('commit', '-m', 'fix98b: complete fix98 -- live row counters on cards, footer scope line, counter styling (carries fix98 pipeline)')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix97b done: patched, committed and pushed to main.')
+print('fix98b done: patched, committed and pushed to main.')

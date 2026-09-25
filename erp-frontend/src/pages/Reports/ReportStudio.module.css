@@ -292,6 +292,8 @@
 }
 .scopePanel::before, .catPanel::before { left: -1.5px; border-left: 2.5px solid #EE8C3A; border-bottom-left-radius: 12px; }
 .scopePanel::after, .catPanel::after { right: -1.5px; border-right: 2.5px solid #EE8C3A; border-bottom-right-radius: 12px; }
+.liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }
+.catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }
   .pickBtn { min-width: 100%; }

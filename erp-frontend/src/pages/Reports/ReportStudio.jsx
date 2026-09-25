@@ -62,6 +62,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [rows, setRows] = useState([]);
   const [counts, setCounts] = useState({});
   const countsRef = useRef({});
+  const cacheRef = useRef({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entity, setEntity] = useState(null);
@@ -113,8 +114,11 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     setError('');
     try {
       const data = await ds.load();
-      setRows(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      cacheRef.current[key] = list;
+      setRows(list);
     } catch (e) {
+      cacheRef.current[key] = [];
       setRows([]);
       setError('Could not load ' + ds.label.toLowerCase() + '. You may not have access, or the connection dropped.');
     } finally {
@@ -126,9 +130,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     let alive = true;
     const put = (k, v) => { countsRef.current[k] = v; setCounts(c => ({ ...c, [k]: v })); };
     available.forEach(ds => {
-      if (ds.key === datasetKey || countsRef.current[ds.key] != null) return;
-      ds.load().then(data => { if (alive) put(ds.key, Array.isArray(data) ? data.length : 0); })
-        .catch(() => { if (alive) put(ds.key, 0); });
+      if (ds.key === datasetKey || cacheRef.current[ds.key]) return;
+      ds.load().then(data => {
+        if (!alive) return;
+        const list = Array.isArray(data) ? data : [];
+        cacheRef.current[ds.key] = list;
+        put(ds.key, list.length);
+      }).catch(() => { if (alive) { cacheRef.current[ds.key] = []; put(ds.key, 0); } });
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +158,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);
     setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
     setEntity(null); setAppliedId(null); setReadId(null);
-    setGroupTab('ALL'); setSearch(''); setSort({ col: '', dir: 'asc' }); setChartMode('NONE');
+    setGroupTab('ALL'); setSearch('');
+    const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');
+    setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });
+    setChartMode('NONE');
   }, [datasetKey, canSeeMoney]);
 
   const entityTypes = ENTITIES[datasetKey] || [];
@@ -226,7 +237,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const catRowNode = (def) => (
     <div key={def.id} className={styles.catWrap}>
       <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
-        <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span><span className={styles.toggleHint}>{readId === def.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
+        <span className={styles.r1}>{def.title}<span className={styles.liveCount}>{liveCount(def)} ROWS</span><span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span><span className={styles.toggleHint}>{readId === def.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
         <span className={styles.r2}>{def.desc}</span>
       </button>
       {readId === def.id && (
@@ -239,20 +250,16 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   );
 
   /* ── viewer pipeline: one row set feeds chart, table, CSV, PDF ── */
+  const entityRows = useMemo(() => {
+    if (!entity) return rows;
+    const et = entityTypes.find(t => t.type === entity.type);
+    const fld = et ? fieldByLabelMap[et.field] : null;
+    if (!fld) return rows;
+    return rows.filter(r => String(fld.get(r) || '').toLowerCase() === String(entity.value).toLowerCase());
+  }, [rows, entity, entityTypes, fieldByLabelMap]);
   const scopeRows = useMemo(() => {
-    const def = appliedDef;
-    if (!def) return [];
-    let list = rows.slice();
-    if (entity && (def.scopes || []).indexOf(entity.type) >= 0) {
-      const et = entityTypes.find(t => t.type === entity.type);
-      const fld = et ? fieldByLabelMap[et.field] : null;
-      if (fld) list = list.filter(r => String(fld.get(r) || '').toLowerCase() === String(entity.value).toLowerCase());
-    }
-    if (def.filter) {
-      const fld = fieldByLabelMap[def.filter.field];
-      if (fld) list = applyFilters(list, dataset, [{ field: fld.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
-    }
-    if (def.period && period !== 'ALL TIME') {
+    let list = entityRows;
+    if (period !== 'ALL TIME') {
       const rng = periodRange(period, from, to);
       const fld = dataset.dateField ? fieldByLabelMap[dataset.dateField] : null;
       if (rng && fld) list = list.filter(r => {
@@ -263,10 +270,58 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       });
     }
     return list;
-  }, [rows, dataset, entity, entityTypes, fieldByLabelMap, period, from, to, appliedDef]);
+  }, [entityRows, dataset, fieldByLabelMap, period, from, to]);
+  const viewerRows = useMemo(() => {
+    const def = appliedDef;
+    if (!def) return [];
+    let list = def.period ? scopeRows : entityRows;
+    if (def.filter) {
+      const fld = fieldByLabelMap[def.filter.field];
+      if (fld) list = applyFilters(list, dataset, [{ field: fld.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
+    }
+    return list;
+  }, [appliedDef, scopeRows, entityRows, fieldByLabelMap, dataset]);
+  const scopedCount = useCallback((key) => {
+    const ds = DATASETS[key];
+    if (!ds) return 0;
+    let list = key === datasetKey ? rows : (cacheRef.current[key] || []);
+    if (entity) {
+      const et = (ENTITIES[key] || []).find(t => t.type === entity.type);
+      const f = et ? fieldsFor(ds, canSeeMoney).find(x => x.label === et.field) : null;
+      if (f) list = list.filter(r => String(f.get(r) || '').toLowerCase() === String(entity.value).toLowerCase());
+    }
+    if (period !== 'ALL TIME' && ds.dateField) {
+      const rng = periodRange(period, from, to);
+      const f = fieldsFor(ds, canSeeMoney).find(x => x.label === ds.dateField);
+      if (rng && f) list = list.filter(r => { const v = f.get(r); if (!v) return false; const d = String(v).slice(0, 10); return d >= rng[0] && d <= rng[1]; });
+    }
+    return list.length;
+  }, [datasetKey, rows, entity, period, from, to, canSeeMoney]);
+  const liveCount = useCallback((def) => {
+    let list = def.ds === datasetKey ? scopeRows : (cacheRef.current[def.ds] || []);
+    if (def.ds !== datasetKey) {
+      const ds = DATASETS[def.ds];
+      if (ds && entity) {
+        const et = (ENTITIES[def.ds] || []).find(t => t.type === entity.type);
+        const f = et ? fieldsFor(ds, canSeeMoney).find(x => x.label === et.field) : null;
+        if (f) list = list.filter(r => String(f.get(r) || '').toLowerCase() === String(entity.value).toLowerCase());
+      }
+      if (ds && period !== 'ALL TIME' && ds.dateField) {
+        const rng = periodRange(period, from, to);
+        const f = fieldsFor(ds, canSeeMoney).find(x => x.label === ds.dateField);
+        if (rng && f) list = list.filter(r => { const v = f.get(r); if (!v) return false; const d = String(v).slice(0, 10); return d >= rng[0] && d <= rng[1]; });
+      }
+    }
+    if (def.filter) {
+      const ds = DATASETS[def.ds];
+      const f = ds ? fieldsFor(ds, canSeeMoney).find(x => x.label === def.filter.field) : null;
+      if (f) list = applyFilters(list, ds, [{ field: f.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
+    }
+    return list.length;
+  }, [datasetKey, scopeRows, entity, period, from, to, canSeeMoney]);
   const tableCols = useMemo(() => columns.map(k => fieldByKey(dataset, k)).filter(Boolean), [columns, dataset]);
   const sortedAll = useMemo(() => {
-    const list = scopeRows.slice();
+    const list = viewerRows.slice();
     const fld = sort.col ? fieldByLabelMap[sort.col] : null;
     if (!fld) return list;
     list.sort((a, b) => {
@@ -279,7 +334,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       return sort.dir === 'desc' ? -cmp : cmp;
     });
     return list;
-  }, [scopeRows, fieldByLabelMap, sort]);
+  }, [viewerRows, fieldByLabelMap, sort]);
   const chartRows = useMemo(() => {
     const def = appliedDef;
     if (!def || !def.groupBy || chartMode === 'NONE') return [];
@@ -287,13 +342,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     if (!gf) return [];
     const mf = def.measure && def.measure.field ? fieldByLabelMap[def.measure.field] : null;
     const meas = def.measure ? { agg: def.measure.agg, field: mf ? mf.key : undefined } : { agg: 'count' };
-    const g = groupRows(scopeRows, dataset, [gf.key], [meas]);
+    const g = groupRows(viewerRows, dataset, [gf.key], [meas]);
     const isTime = /Month|Date|Year|Timestamp/.test(def.groupBy);
     g.sort((a, b) => isTime
       ? String(a.path[0]).localeCompare(String(b.path[0]))
       : (Number(b.values[0]) || 0) - (Number(a.values[0]) || 0));
     return g.slice(0, 24).map(b => ({ id: String(b.path[0]), label: String(b.path[0]), value: Number(b.values[0]) || 0 }));
-  }, [scopeRows, dataset, fieldByLabelMap, appliedDef, chartMode]);
+  }, [viewerRows, dataset, fieldByLabelMap, appliedDef, chartMode]);
   const measureField = appliedDef && appliedDef.measure && appliedDef.measure.field ? fieldByLabelMap[appliedDef.measure.field] : null;
   const fmtChart = useCallback((v) => formatValue(v, measureField ? measureField.type : 'number'), [measureField]);
 
@@ -395,12 +450,12 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             {available.map(ds => (
               <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
                 {ds.label}
-                <span className={styles.tileCount}>{counts[ds.key] != null ? counts[ds.key] : (ds.key === datasetKey && loading ? '...' : '')}</span>
+                <span className={styles.tileCount}>{ds.key === datasetKey && loading ? '...' : scopedCount(ds.key)}</span>
               </button>
             ))}
           </div>
         </div>
-        <span className={styles.sourceCount}>{loading ? '...' : rows.length} SOURCE ROWS</span>
+        <span className={styles.sourceCount}>{loading ? '...' : scopeRows.length} SOURCE ROWS</span>
       </div>
       <div className={styles.scopePanel}>
         <div className={styles.panelHeadRow}>
@@ -557,7 +612,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           {defaultDef && (
             <div className={styles.catWrap}>
               <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
-                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
+                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
                 <span className={styles.r2}>{defaultDef.desc}</span>
               </button>
               {readId === defaultDef.id && (
@@ -582,6 +637,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}
           {search ? ' matching "' + search + '"' : ''}
           {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
+          {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}
         </div>
       </div>
 
