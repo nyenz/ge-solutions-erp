@@ -11,7 +11,7 @@ import {
   DATASETS, datasetsFor, fieldsFor, fieldByKey, applyFilters,
   groupRows, formatValue, toCSV, downloadCSV,
 } from './reportData';
-import { CATALOGUE, ENTITIES, GROUPS } from './reportsCatalog';
+import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
 import styles from './ReportStudio.module.css';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
@@ -145,6 +145,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   }, [searched, groupTab]);
   const listed = groupTab === 'ALL' ? searched : searched.filter(d => d.group === groupTab);
   const appliedDef = CATALOGUE.find(d => d.id === appliedId) || null;
+  const defaultName = (DEFAULTS[datasetKey] || {})[entity ? entity.type : 'ALL'] || '';
+  const defaultDef = CATALOGUE.find(d => d.title === defaultName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;
   const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);
 
   const toggleColumn = (key) => setColumns(c => (c.indexOf(key) >= 0 ? c.filter(k => k !== key) : [...c, key]));
@@ -474,8 +476,22 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           </div>
         )}
         <div className={styles.catList}>
-          {listed.length === 0 && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
-          {listed.map(def => (
+          {defaultDef && (
+            <div className={styles.catWrap}>
+              <button className={styles.catRow + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
+                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span></span>
+                <span className={styles.r2}>{defaultDef.desc}</span>
+              </button>
+              {readId === defaultDef.id && (
+                <div className={styles.readout}>
+                  <div className={styles.readoutText}>{readout(defaultDef)}</div>
+                  <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>
+                </div>
+              )}
+            </div>
+          )}
+          {listed.filter(d => !defaultDef || d.id !== defaultDef.id).length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
+          {listed.filter(d => !defaultDef || d.id !== defaultDef.id).map(def => (
             <div key={def.id} className={styles.catWrap}>
               <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
                 <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span></span>
