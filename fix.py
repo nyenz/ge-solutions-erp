@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix99b: repair fix99 (undo Charts.module.css mis-port), then
-# re-discover the REAL panel deco + arrow code pages-first with word-boundary
-# keywords, and finish: redundant line removed, search-before-arrow + icon
-# gap, scope field inline dimensions, head margins, deco wiring.
+# GOLDEN SEED -- fix100: verify decorBl usage against its source page and
+# rewire Reports to match (child element vs panel class), then discover the
+# app's real panel-arrow button structurally (head button rendering a
+# chevron icon), port its class rules verbatim and wire it onto both heads.
 import os
 import re
 import subprocess
@@ -26,28 +26,50 @@ def write(p, s):
         f.write(s)
 
 
-# ═══ 1. UNDO the bad fix99 port ═══
 css = read(CSS)
-idx = css.find('/* fix99: ported verbatim from')
-if idx >= 0:
-    css = css[:idx].rstrip() + '\n'
-    print('undo: removed mis-ported Charts block from Reports CSS')
-else:
-    print('undo: no ported block present (nothing to strip)')
-write(CSS, css)
-
 jsx = read(JSX)
-bad = "className={styles.headToggle + ' ' + styles.barRows + ' ' + styles.barRow}"
-n = jsx.count(bad)
-if n:
-    jsx = jsx.replace(bad, 'className={styles.headToggle}')
-    print('undo: unwired barRows/barRow from %d button(s)' % n)
-else:
-    print('undo: buttons already clean')
 
-# ═══ 2. RE-DISCOVER the real deco/arrow code (pages first, word boundaries) ═══
-KEY_PANEL = re.compile(r'\b(corner|deco|frame)\b|::(before|after)', re.I)
-KEY_ARROW = re.compile(r'\b(arrow|collapse|chevron|toggle)\b', re.I)
+# ═══ 1. locate the decoration source page from the port comment ═══
+m = re.search(r'/\* fix99b: ported verbatim from (.+?) \*/', css)
+ref_css = os.path.join(ROOT, m.group(1).strip()) if m else None
+ref_dir = os.path.dirname(ref_css) if ref_css and os.path.isdir(os.path.dirname(ref_css)) else None
+print('decoration source: ' + (os.path.relpath(ref_css, ROOT) if ref_css else '(unknown)'))
+
+# ═══ 2. decorBl: child element or panel class? match the source exactly ═══
+standalone = False
+if ref_dir:
+    for fn in os.listdir(ref_dir):
+        if fn.endswith('.jsx'):
+            body = read(os.path.join(ref_dir, fn))
+            if 'decorBl' not in body:
+                continue
+            if re.search(r'className=\{styles\.decorBl\}', body):
+                standalone = True
+                print('decorBl usage in source: standalone child element')
+            elif re.search(r'className=\{[^}]*\+[^}]*styles\.decorBl', body):
+                print('decorBl usage in source: combined panel class (current wiring is correct)')
+            break
+
+if standalone and "styles.decorBl}" in jsx.replace(" + ' ' + styles.decorBl}", '}'):
+    n = jsx.count(" + ' ' + styles.decorBl}")
+    jsx = jsx.replace(" + ' ' + styles.decorBl}", '}')
+    print('rewired: removed decorBl from %d panel class list(s)' % n)
+    if '<div className={styles.decorBl}' not in jsx:
+        jsx, c1 = re.subn(r'(      <div className=\{styles\.scopePanel[^>]*>\n)',
+                          r'\1        <div className={styles.decorBl} aria-hidden="true"></div>\n', jsx, count=1)
+        jsx, c2 = re.subn(r'(      <div className=\{\(catOpen[^>]*>\n)',
+                          r'\1        <div className={styles.decorBl} aria-hidden="true"></div>\n', jsx, count=1)
+        print('rewired: decorBl child element inserted in %d panel(s)' % (c1 + c2))
+    else:
+        print('skip (already applied): decorBl child element')
+elif standalone:
+    print('note: decorBl standalone detected but wiring already matches')
+write(JSX, jsx)
+
+# ═══ 3. structural arrow discovery: head button rendering a chevron icon ═══
+ARROW_BTN = re.compile(r'<button[^>]*className=\{styles\.([A-Za-z0-9_]+)\}[^>]*>(?:(?!</button>).){0,160}?(?:FiChevron|FiArrow|FiPlus|FiMinus|rotate)', re.S)
+arrow_class = None
+arrow_css_file = None
 cands = []
 pages_dir = os.path.join(SRC, 'pages')
 if os.path.isdir(pages_dir):
@@ -56,150 +78,47 @@ if os.path.isdir(pages_dir):
         if d == 'Reports' or not os.path.isdir(pd):
             continue
         for f in sorted(os.listdir(pd)):
-            if f.endswith('.module.css'):
+            if f.endswith('.jsx'):
                 cands.append(os.path.join(pd, f))
 for dirpath, _dirs, files in os.walk(os.path.join(SRC, 'components')):
     for f in sorted(files):
-        if f.endswith('.module.css'):
+        if f.endswith('.jsx'):
             cands.append(os.path.join(dirpath, f))
-
-ref_file = None
-panel_rules = []
-arrow_rules = []
-panel_classes = []
-arrow_classes = []
 for fp in cands:
-    rules = re.findall(r'([^{}]+)\{([^}]*)\}', read(fp))
-    pr = []
-    ar = []
-    for sel, body in rules:
-        s = sel.strip()
-        if not s or s.startswith('@'):
-            continue
-        if KEY_ARROW.search(s):
-            ar.append((s, body.strip()))
-        elif KEY_PANEL.search(s) and ('content:' in body or 'border' in body or 'background' in body):
-            pr.append((s, body.strip()))
-    if pr or ar:
-        ref_file = fp
-        panel_rules = pr
-        arrow_rules = ar
-        for s, _b in pr:
-            base = re.findall(r'\.([A-Za-z0-9_-]+)', s)
-            if base and base[0] not in panel_classes:
-                panel_classes.append(base[0])
-        for s, _b in ar:
-            base = re.findall(r'\.([A-Za-z0-9_-]+)', s)
-            if base and base[0] not in arrow_classes:
-                arrow_classes.append(base[0])
+    mm = ARROW_BTN.search(read(fp))
+    if mm:
+        arrow_class = mm.group(1)
+        arrow_css_file = fp[:-4] + '.module.css'
+        if not os.path.exists(arrow_css_file):
+            arrow_css_file = None
+            for f in os.listdir(os.path.dirname(fp)):
+                if f.endswith('.module.css'):
+                    arrow_css_file = os.path.join(os.path.dirname(fp), f)
+                    break
+        print('arrow button discovered: .' + arrow_class + ' in ' + os.path.relpath(fp, ROOT))
         break
+if not arrow_class:
+    print('note: no chevron head button found in other pages; checked %d files' % len(cands))
 
-if ref_file:
-    print('porting deco/arrow code verbatim from: ' + os.path.relpath(ref_file, ROOT))
-    print('panel deco classes: ' + (', '.join(panel_classes) or '(none)'))
-    print('arrow classes: ' + (', '.join(arrow_classes) or '(none)'))
-    css = read(CSS)
-    ported = '/* fix99b: ported verbatim from ' + os.path.relpath(ref_file, ROOT).replace('\\', '/') + ' */\n'
-    for s, b in panel_rules + arrow_rules:
-        ported += s + ' {\n  ' + b + '\n}\n'
-    css += '\n' + ported
-    write(CSS, css)
-else:
-    print('note: no deco/arrow rules discovered; checked %d stylesheets:' % len(cands))
-    for fp in cands:
-        print('  - ' + os.path.relpath(fp, ROOT))
-
-# ═══ 3. redundant bottom line removed (correct guard this time) ═══
-if 'No report applied yet' not in jsx:
-    print('skip (already applied): redundant applied line removed')
-else:
-    old = ("      <div className={styles.appliedLine}>\n"
-           "        {appliedDef\n"
-           "          ? <>APPLIED: <b>{appliedDef.title}</b> &middot; {tableCols.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}</>\n"
-           "          : <>No report applied yet -- open a report above and press USE THIS REPORT.</>}\n"
-           "      </div>\n")
-    new = ("      {appliedDef && (\n"
-           "        <div className={styles.appliedLine}>\n"
-           "          APPLIED: <b>{appliedDef.title}</b> &middot; {tableCols.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}\n"
-           "        </div>\n"
-           "      )}\n")
-    if old not in jsx:
-        print('FAIL: unknown state for redundant applied line')
-        sys.exit(1)
-    jsx = jsx.replace(old, new)
-    print('patched: redundant applied line removed')
-
-# ═══ 4. catalogue head: search first, arrow after, icon gap guaranteed ═══
-if 'paddingLeft: 40' in jsx:
-    print('skip (already applied): catalogue head order + icon gap')
-else:
-    old = ("          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label=\"Collapse or expand catalogue panel\">\n"
-           "            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
-           "          </button>\n"
-           "          <div className={styles.searchBox}>\n"
-           "            <FiSearch className={styles.searchIcon} aria-hidden=\"true\" />\n"
-           "            <input value={search} onChange={e => setSearch(e.target.value)} placeholder=\"Search reports...\" aria-label=\"Search reports\" />\n"
-           "            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label=\"Clear search\"><FiX size={13} aria-hidden=\"true\" /></button>}\n"
-           "          </div>\n")
-    new = ("          <div className={styles.searchBox}>\n"
-           "            <FiSearch className={styles.searchIcon} aria-hidden=\"true\" />\n"
-           "            <input value={search} onChange={e => setSearch(e.target.value)} placeholder=\"Search reports...\" aria-label=\"Search reports\" style={{ paddingLeft: 40 }} />\n"
-           "            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label=\"Clear search\"><FiX size={13} aria-hidden=\"true\" /></button>}\n"
-           "          </div>\n"
-           "          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label=\"Collapse or expand catalogue panel\">\n"
-           "            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
-           "          </button>\n")
-    if old not in jsx:
-        print('FAIL: unknown state for catalogue head order')
-        sys.exit(1)
-    jsx = jsx.replace(old, new)
-    print('patched: catalogue head order + icon gap')
-
-# ═══ 5. scope field inline dimensions ═══
-if 'boxSizing' in jsx:
-    print('skip (already applied): scope field inline dimensions')
-else:
-    old = "                  className={styles.entInput}\n"
-    new = ("                  className={styles.entInput}\n"
-           "                  style={{ height: 36, width: 'clamp(200px, 22vw, 260px)', boxSizing: 'border-box' }}\n")
-    if old not in jsx:
-        print('FAIL: unknown state for scope field input')
-        sys.exit(1)
-    jsx = jsx.replace(old, new)
-    print('patched: scope field inline dimensions')
-
-# ═══ 6. wire discovered deco/arrow classes (after all reorders) ═══
-if ref_file:
-    psuf = ''.join(" + ' ' + styles." + c for c in panel_classes)
-    asuf = ''.join(" + ' ' + styles." + c for c in arrow_classes)
-    if psuf and 'styles.scopePanel +' not in jsx:
-        jsx = jsx.replace("      <div className={styles.scopePanel}>\n",
-                          "      <div className={styles.scopePanel" + psuf + "}>\n", 1)
-        jsx = jsx.replace("      <div className={catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed}>\n",
-                          "      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed)" + psuf + "}>\n", 1)
-        print('patched: panel deco classes wired')
-    elif psuf:
-        print('skip (already applied): panel deco classes')
-    if asuf and 'styles.headToggle +' not in jsx:
+if arrow_class and arrow_css_file and os.path.exists(arrow_css_file):
+    rules = re.findall(r'([^{}]+)\{([^}]*)\}', read(arrow_css_file))
+    picked = [(s.strip(), b.strip()) for s, b in rules
+              if re.match(r'\s*\.' + re.escape(arrow_class) + r'(\w*)\b', s.strip())]
+    if picked and ('styles.' + arrow_class) not in jsx:
+        css = read(CSS)
+        ported = '/* fix100: ported verbatim from ' + os.path.relpath(arrow_css_file, ROOT).replace('\\', '/') + ' */\n'
+        for s, b in picked:
+            ported += s + ' {\n  ' + b + '\n}\n'
+        css += '\n' + ported
+        write(CSS, css)
         n = jsx.count('className={styles.headToggle}')
-        jsx = jsx.replace('className={styles.headToggle}', 'className={styles.headToggle' + asuf + '}')
-        print('patched: %d head arrow button(s) wired' % n)
-    elif asuf:
-        print('skip (already applied): head arrow classes')
-write(JSX, jsx)
-
-# ═══ 7. catalogue head margins ═══
-css = read(CSS)
-if '.catPanel .searchBox { margin-left: auto; }' in css:
-    print('skip (already applied): catalogue head margins')
-elif '.catPanel .searchBox { margin-left: 10px; }' in css:
-    css = css.replace('.catPanel .searchBox { margin-left: 10px; }',
-                      '.catPanel .searchBox { margin-left: auto; }\n.catPanel .headToggle { margin-left: 10px; }')
-    print('patched: catalogue head margins')
-else:
-    css += '\n.catPanel .searchBox { margin-left: auto; }\n.catPanel .headToggle { margin-left: 10px; }\n'
-    print('added: catalogue head margins')
-write(CSS, css)
+        jsx = jsx.replace('className={styles.headToggle}', "className={styles.headToggle + ' ' + styles." + arrow_class + '}')
+        write(JSX, jsx)
+        print('patched: %d head arrow button(s) wired to .' % n + arrow_class)
+    elif picked:
+        print('skip (already applied): arrow class wiring')
+    else:
+        print('note: arrow class .' + arrow_class + ' has no rules in ' + os.path.relpath(arrow_css_file, ROOT))
 
 
 def git(*args):
@@ -219,8 +138,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix99b: undo Charts mis-port, port real page deco + arrows, finish head order, icon gap, scope field, redundant line')
+git('commit', '-m', 'fix100: decorBl wiring matched to source usage, real panel-arrow button ported structurally')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix99b done: patched, committed and pushed to main.')
+print('fix100 done: patched, committed and pushed to main.')

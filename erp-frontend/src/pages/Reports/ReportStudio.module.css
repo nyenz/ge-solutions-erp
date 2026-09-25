@@ -298,3 +298,20 @@
 .decorBl::after,.decorBr::after {
   content:'';position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,0.4);
 }
+
+/* fix100: ported verbatim from erp-frontend/src/pages/Audit/AuditPage.module.css */
+.pgBtn {
+  background: transparent; border: 1.5px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: clamp(6px,0.8vw,9px) clamp(11px,1.4vw,16px); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn); cursor: pointer; display: flex; align-items: center; gap: clamp(5px,0.6vw,8px); transition: border-color 0.2s, color 0.2s, background 0.2s; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
+}
+.pgBtn:hover:not(:disabled) {
+  border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.06);
+}
+.pgBtn:disabled {
+  opacity: 0.25; cursor: not-allowed;
+}
+.pgBtn:focus-visible {
+  outline: 2px solid var(--orange); outline-offset: 2px;
+}
+.pgBtn {
+  padding: 5px 10px; font-size: 8px;
+}
