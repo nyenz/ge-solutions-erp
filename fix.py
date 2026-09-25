@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================================
-# GOLDEN SEED fix83 -- CLEAN-SLATE REPAIR OF reportData.js + package.json
-# ----------------------------------------------------------------------------
-# The Render build log named two leftovers from the overlapping fix79/80/82
-# patch runs:
-#   1. package.json carries "jspdf" twice (duplicate object key warning).
-#   2. reportData.js line ~231 reassigns a const binding ("Cannot reassign a
-#      variable declared with const"), the same fault that threw
-#      "Assignment to constant variable" in the browser.
-# Patch-on-patch cannot be trusted here any more, so this fix rewrites
-# reportData.js WHOLE from one clean source: the original data layer plus the
-# agreed additions (COMPANY dataset from the audit ledger, dateField on every
-# dataset so period chips can filter, derived Entry Mode column). Nothing else
-# in the app changes; reportsCatalog.js and ReportStudio.jsx keep reading the
-# same exports they read today.
+# GOLDEN SEED fix84 -- REPORTS PAGE AS ONE MATCHED SET.
+# Rewrites ReportHub.jsx, ReportStudio.jsx and ReportStudio.module.css
+# together so props, class names and styles can never disagree again:
+#   * hub passes canSeeMoney + reloadToken and uses existing header classes
+#   * studio = scope bar + catalogue + readout + viewer (chart/table/CSV/PDF)
+#   * stylesheet defines EVERY class the studio JSX references
+# reportsCatalog.js and reportData.js are untouched (they are correct).
 # ============================================================================
 import os
 import subprocess
@@ -22,511 +15,825 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 R = lambda *p: os.path.join(ROOT, *p)
-RDATA = R('erp-frontend', 'src', 'pages', 'Reports', 'reportData.js')
-PKG   = R('erp-frontend', 'package.json')
-ADD   = R('LLM_CONTEXT_ADDENDUM.md')
+HUB    = R('erp-frontend', 'src', 'pages', 'Reports', 'ReportHub.jsx')
+STU    = R('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.jsx')
+STUCSS = R('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.module.css')
+ADD    = R('LLM_CONTEXT_ADDENDUM.md')
 
-REPORT_DATA = r'''// PATH: erp-frontend/src/pages/Reports/reportData.js
-/**
-* GOLDEN SEED -- THE REPORT STUDIO DATA LAYER (fix83 clean rewrite)
-*
-* One source of truth for datasets, fields, filtering, grouping, measures and
-* CSV output. Every report the studio can show is computed in the browser from
-* these four list endpoints plus the audit ledger (COMPANY), so a filter or a
-* grouping is instant and costs nothing.
-*
-* ROLE RULES ARE ENFORCED IN TWO PLACES, deliberately. The server already
-* refuses the financial endpoints to non-directors -- that is the real
-* boundary. What happens here is the second half: a dataset marked
-* `restricted` and a field marked `money` are never offered to a user without
-* financial access, so a manager is not shown a column that would just come
-* back empty or 403.
-*
-* ADDING A FIELD: add one entry to the dataset's `fields` array. Filters,
-* columns, grouping, measures, comparison and CSV all read from that array, so
-* nothing else needs touching.
-*/
-import api from '../../api/axios';
-import landService from '../../services/landService';
-import recoveryService from '../../services/recoveryService';
-import expenseService from '../../services/expenseService';
-import auditService from '../../services/auditService';
+HUB_JS = '''// PATH: erp-frontend/src/pages/Reports/ReportHub.jsx
+// GOLDEN SEED -- REPORTS PAGE SHELL (fix84).
+// Passes the two props the studio needs (money gate + refresh signal) and
+// uses the header classes ReportHub.module.css actually defines.
+import React, { useState } from 'react';
+import { FiRefreshCw } from 'react-icons/fi';
+import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
+import { useAuth } from '../../hooks/useAuth';
+import ReportStudio from './ReportStudio';
+import styles from './ReportHub.module.css';
 
-/* ── value helpers ───────────────────────────────────────────────── */
-export const num = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+const ReportHub = () => {
+  const { user } = useAuth();
+  const canSeeMoney = !!(user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR');
+  const [reloadToken, setReloadToken] = useState(0);
+  return (
+    <div className={styles.container}>
+      <header className={styles.pageHeader}>
+        <div className={styles.headerLeft}>
+          <h1 className={styles.title}>Report Studio</h1>
+          <p className={styles.subtitle}>Scope it, pick it, preview it, take it home</p>
+        </div>
+        <HeaderActions>
+          <HeaderButton icon={FiRefreshCw} label="REFRESH" tip="Pull the current dataset again from the server"
+            onClick={() => setReloadToken(t => t + 1)} />
+        </HeaderActions>
+      </header>
+      <ReportStudio canSeeMoney={canSeeMoney} reloadToken={reloadToken} />
+    </div>
+  );
 };
-export const fmtMoney = (v) => 'UGX ' + num(v).toLocaleString();
-export const fmtNum = (v) => num(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
-export const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '---');
-const daysSince = (v) => {
-  if (!v) return null;
-  const t = new Date(v).getTime();
-  if (!Number.isFinite(t)) return null;
-  return Math.floor((Date.now() - t) / 86400000);
-};
-const monthKey = (v) => {
-  if (!v) return '---';
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return '---';
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-};
-export const formatValue = (value, type) => {
-  if (value === null || value === undefined || value === '') return '---';
-  if (type === 'money') return fmtMoney(value);
-  if (type === 'number') return fmtNum(value);
-  if (type === 'percent') return fmtNum(value) + '%';
-  if (type === 'date') return fmtDate(value);
-  if (type === 'bool') return value ? 'YES' : 'NO';
-  return String(value);
-};
-const f = (key, label, type, get, extra) => ({ key, label, type, get, ...(extra || {}) });
+export default ReportHub;
+'''
 
-/* ── PROJECTS ────────────────────────────────────────────────────── */
-const projectFields = [
-  f('index', 'Project Index', 'text', p => p.projectIndex || ''),
-  f('plot', 'Plot Number', 'text', p => p.landTitle?.plotNumber || ''),
-  f('titleId', 'Title ID', 'text', p => p.landTitle?.titleId || ''),
-  f('tenure', 'Tenure', 'text', p => p.landTitle?.tenure || ''),
-  f('blockRoad', 'Block / Road', 'text', p => p.landTitle?.blockRoad || ''),
-  f('district', 'District', 'text', p => p.district || ''),
-  f('county', 'County', 'text', p => p.county || ''),
-  f('subCounty', 'Sub-County', 'text', p => p.subCounty || ''),
-  f('parish', 'Parish', 'text', p => p.parish || ''),
-  f('village', 'Village', 'text', p => p.village || ''),
-  f('area', 'Area', 'text', p => p.area || ''),
-  f('entryMode', 'Entry Mode', 'text', p => (p.isLegacy ? 'Legacy Title' : (p.landTitle ? 'New Title' : 'New Folder'))),
-  f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
-  f('ownerPhone', 'Owner Phone', 'text', p => p.proprietors?.[0]?.phoneNumber || ''),
-  f('ownerNin', 'Owner NIN', 'text', p => p.proprietors?.[0]?.nationalId || ''),
-  f('ownerAddress', 'Owner Address', 'text', p => p.proprietors?.[0]?.homeAddress || ''),
-  f('allOwners', 'All Owners', 'text', p => (p.proprietors || []).map(o => o.fullName).join(', ')),
-  f('ownerCount', 'Owner Count', 'number', p => (p.proprietors || []).length),
-  f('ownership', 'Ownership', 'text', p => ((p.proprietors || []).length > 1 ? 'JOINT' : 'SOLO')),
-  f('status', 'Status', 'text', p => p.status || ''),
-  f('stage', 'Stage Index', 'number', p => num(p.currentStageIndex)),
-  f('planType', 'Plan Type', 'text', p => p.planType || ''),
-  f('titled', 'Has Title', 'bool', p => !!p.landTitle),
-  f('released', 'Title Released', 'bool', p => !!p.landTitle?.isReleased),
-  f('legacy', 'Legacy', 'bool', p => !!p.isLegacy),
-  f('receivable', 'In Receivables', 'bool', p => !!p.isReceivable),
-  f('problem', 'Flagged Problem', 'bool', p => !!p.problem),
-  f('startDate', 'Project Start', 'date', p => p.projectStartDate || null),
-  f('lastPayment', 'Last Payment', 'date', p => p.lastPaymentDate || null),
-  f('daysSincePayment', 'Days Since Payment', 'number', p => daysSince(p.lastPaymentDate)),
-  f('receivableStart', 'Receivables Start', 'date', p => p.receivableStartDate || null),
-  f('totalCost', 'Total Cost', 'money', p => num(p.totalCost), { money: true }),
-  f('amountPaid', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
-  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),
-  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),
-  f('originalDebt', 'Original Debt', 'money', p => num(p.originalDebt), { money: true }),
-  f('installment', 'Weekly Installment', 'money', p => num(p.weeklyInstallment), { money: true }),
-  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),
-];
+STUDIO_JS = '''// PATH: erp-frontend/src/pages/Reports/ReportStudio.jsx
+// GOLDEN SEED -- REPORT STUDIO (fix84): scope bar + catalogue + viewer.
+// One chain: dataset -> entity -> period -> columns -> sort -> report ->
+// chart + table + CSV + PDF. Every control recomputes the same row set, so
+// chart, table and downloads can never disagree.
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { FiSearch, FiX, FiChevronDown, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+import { jsPDF } from 'jspdf';
+import { Chart } from '../../components/common/Charts';
+import {
+  DATASETS, datasetsFor, fieldsFor, fieldByKey, applyFilters,
+  groupRows, formatValue, toCSV, downloadCSV,
+} from './reportData';
+import { CATALOGUE, ENTITIES, GROUPS } from './reportsCatalog';
+import styles from './ReportStudio.module.css';
 
-/* ── CLIENTS ─────────────────────────────────────────────────────── */
-const clientFields = [
-  f('name', 'Client Name', 'text', c => c.name || ''),
-  f('nin', 'NIN', 'text', c => c.nin || ''),
-  f('phone', 'Phone', 'text', c => c.phone || ''),
-  f('email', 'Email', 'text', c => c.email || ''),
-  f('plotCount', 'Projects', 'number', c => num(c.plotCount)),
-  f('districts', 'Districts', 'text', c => [...new Set((c.plots || []).map(p => p.district).filter(Boolean))].join(', ')),
-  f('receivables', 'Has Receivables', 'bool', c => (c.plots || []).some(p => p.receivable)),
-  f('lastContact', 'Last Contact', 'date', c => c.lastContact || null),
-  f('daysSinceContact', 'Days Since Contact', 'number', c => daysSince(c.lastContact)),
-  f('lastPaymentAt', 'Last Payment', 'date', c => c.lastPaymentAt || null),
-  f('daysSincePayment', 'Days Since Payment', 'number', c => daysSince(c.lastPaymentAt)),
-  f('lastTag', 'Last Call Tag', 'text', c => c.lastTag || ''),
-  f('lastTone', 'Last Call Tone', 'text', c => c.lastTone || ''),
-  f('owed', 'Total Owed', 'money', c => num(c.owed), { money: true }),
-  f('paid', 'Total Paid', 'money', c => num(c.paid), { money: true }),
-  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),
-  f('billed', 'Total Billed', 'money', c => num(c.owed) + num(c.paid), { money: true }),
-  f('pctPaid', 'Percent Paid', 'percent', c => {
-    const total = num(c.owed) + num(c.paid);
-    return total > 0 ? Math.round((num(c.paid) / total) * 100) : 0;
-  }, { money: true }),
-];
+const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
+const CHART_MAP = { BAR: 'bars', COLUMN: 'column', LINE: 'line', DONUT: 'donut' };
+const CHART_OPTS = ['NONE','BAR','COLUMN','LINE','DONUT'];
+const RECENT_KEY = 'gs.reports.recent.v1';
+const SAMPLE = 8;
 
-/* ── PAYMENTS ────────────────────────────────────────────────────── */
-const PAYMENT_TYPE_LABELS = {
-  STANDARD: 'Title Payment',
-  INITIAL_DEPOSIT: 'Initial Deposit',
-  RECEIVABLE_PARTIAL: 'Receivables Payment',
-};
-const paymentFields = [
-  f('date', 'Date', 'date', p => p.timestamp || null),
-  f('month', 'Month', 'text', p => monthKey(p.timestamp)),
-  f('year', 'Year', 'text', p => (p.timestamp ? String(new Date(p.timestamp).getFullYear()) : '---')),
-  f('plot', 'Plot', 'text', p => p.plotNumber || ''),
-  f('owner', 'Owner', 'text', p => p.ownerName || ''),
-  f('type', 'Payment Type', 'text', p => PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType || ''),
-  f('recordedBy', 'Recorded By', 'text', p => p.recordedBy || ''),
-  f('notes', 'Notes', 'text', p => p.notes || ''),
-  f('amount', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
-  f('balanceAfter', 'Balance After', 'money', p => num(p.balanceAfter), { money: true }),
-  f('daysAgo', 'Days Ago', 'number', p => daysSince(p.timestamp)),
-];
+const fldByLabel = (dataset, label) => (dataset?.fields || []).find(f => f.label === label);
 
-/* ── EXPENSES ────────────────────────────────────────────────────── */
-const expenseFields = [
-  f('date', 'Date', 'date', e => e.createdAt || null),
-  f('month', 'Month', 'text', e => monthKey(e.createdAt)),
-  f('category', 'Category', 'text', e => e.category || ''),
-  f('recordedBy', 'Logged By', 'text', e => e.recordedBy || ''),
-  f('spentBy', 'Spent By', 'text', e => e.spentBy || e.recordedBy || ''),
-  f('note', 'Note', 'text', e => e.note || ''),
-  f('edited', 'Edited', 'bool', e => !!e.editedAt),
-  f('amount', 'Amount', 'money', e => num(e.amount), { money: true }),
-  f('daysAgo', 'Days Ago', 'number', e => daysSince(e.createdAt)),
-];
-
-/* ── COMPANY (audit ledger) ──────────────────────────────────────── */
-const companyFields = [
-  f('timestamp', 'Timestamp', 'date', a => a.timestamp || null),
-  f('month', 'Month', 'text', a => monthKey(a.timestamp)),
-  f('operator', 'Operator', 'text', a => a.performedBy || ''),
-  f('action', 'Action', 'text', a => a.action || ''),
-  f('details', 'Details', 'text', a => a.details || ''),
-];
-
-/* ── dataset registry ────────────────────────────────────────────── */
-export const DATASETS = {
-  PROJECTS: {
-    key: 'PROJECTS',
-    label: 'Projects',
-    blurb: 'Every land project: location, owners, stage, and the money against it.',
-    restricted: false,
-    dateField: 'Project Start',
-    fields: projectFields,
-    defaultColumns: ['index', 'plot', 'district', 'owner', 'status', 'totalCost', 'amountPaid', 'balance'],
-    load: async () => {
-      // The ledger endpoint is paged. A report has to see all of it, not
-      // page one, so this walks until a short page comes back.
-      const out = [];
-      const SIZE = 200;
-      for (let page = 0; page < 60; page += 1) {
-        const data = await landService.getGlobalLedger(page, SIZE);
-        const rows = data?.content || [];
-        out.push(...rows);
-        if (rows.length < SIZE) break;
-      }
-      return out;
-    },
-  },
-  CLIENTS: {
-    key: 'CLIENTS',
-    label: 'Clients',
-    blurb: 'Every registered client with their portfolio totals and call history.',
-    restricted: false,
-    dateField: 'Last Contact',
-    fields: clientFields,
-    defaultColumns: ['name', 'phone', 'plotCount', 'districts', 'owed', 'paid', 'lastContact'],
-    load: async () => (await recoveryService.getClientLedger()) || [],
-  },
-  PAYMENTS: {
-    key: 'PAYMENTS',
-    label: 'Payments',
-    blurb: 'Every cash payment ever recorded, with who recorded it.',
-    restricted: true,
-    dateField: 'Date',
-    fields: paymentFields,
-    defaultColumns: ['date', 'plot', 'owner', 'type', 'amount', 'recordedBy'],
-    load: async () => (await api.get('/recovery/payments/all')).data || [],
-  },
-  EXPENSES: {
-    key: 'EXPENSES',
-    label: 'Expenses',
-    blurb: 'Every shilling logged as leaving the office, by category and by staff.',
-    restricted: true,
-    dateField: 'Date',
-    fields: expenseFields,
-    defaultColumns: ['date', 'category', 'amount', 'recordedBy', 'spentBy'],
-    load: async () => {
-      const data = await expenseService.search({}, 0, 5000);
-      return data?.content || data || [];
-    },
-  },
-  COMPANY: {
-    key: 'COMPANY',
-    label: 'Company',
-    blurb: 'Every staff action in the audit ledger: logins, edits, deletes, overrides, stage moves.',
-    restricted: true,
-    dateField: 'Timestamp',
-    fields: companyFields,
-    defaultColumns: ['timestamp', 'operator', 'action', 'details'],
-    load: async () => {
-      const out = [];
-      for (let page = 0; page < 40; page += 1) {
-        const data = await auditService.getRawStream(page, 200);
-        const rows = (data && data.content) || [];
-        out.push(...rows);
-        if (rows.length < 200) break;
-      }
-      return out;
-    },
-  },
-};
-
-export const datasetsFor = (canSeeMoney) =>
-  Object.values(DATASETS).filter(d => canSeeMoney || !d.restricted);
-export const fieldsFor = (dataset, canSeeMoney) =>
-  (dataset?.fields || []).filter(fld => canSeeMoney || !fld.money);
-export const fieldByKey = (dataset, key) => (dataset?.fields || []).find(fld => fld.key === key);
-
-/* ── filtering ───────────────────────────────────────────────────── */
-export const OPERATORS = {
-  text: [
-    { key: 'contains', label: 'contains', value: true },
-    { key: 'notContains', label: 'does not contain', value: true },
-    { key: 'is', label: 'is exactly', value: true },
-    { key: 'isNot', label: 'is not', value: true },
-    { key: 'startsWith', label: 'starts with', value: true },
-    { key: 'empty', label: 'is empty', value: false },
-    { key: 'notEmpty', label: 'is not empty', value: false },
-  ],
-  number: [
-    { key: 'eq', label: '=', value: true },
-    { key: 'ne', label: '!=', value: true },
-    { key: 'gt', label: '>', value: true },
-    { key: 'gte', label: '>=', value: true },
-    { key: 'lt', label: '<', value: true },
-    { key: 'lte', label: '<=', value: true },
-    { key: 'between', label: 'between', value: true, value2: true },
-  ],
-  date: [
-    { key: 'after', label: 'on or after', value: true, input: 'date' },
-    { key: 'before', label: 'on or before', value: true, input: 'date' },
-    { key: 'between', label: 'between', value: true, value2: true, input: 'date' },
-    { key: 'lastDays', label: 'in the last N days', value: true },
-    { key: 'empty', label: 'is empty (never)', value: false },
-    { key: 'notEmpty', label: 'is not empty', value: false },
-  ],
-  bool: [
-    { key: 'isTrue', label: 'is YES', value: false },
-    { key: 'isFalse', label: 'is NO', value: false },
-  ],
-};
-OPERATORS.money = OPERATORS.number;
-OPERATORS.percent = OPERATORS.number;
-export const operatorsFor = (type) => OPERATORS[type] || OPERATORS.text;
-
-const matchOne = (raw, type, op, v1, v2) => {
-  if (type === 'bool') {
-    if (op === 'isTrue') return !!raw;
-    if (op === 'isFalse') return !raw;
-    return true;
+const periodRange = (period, fromArg, toArg) => {
+  const now = new Date();
+  let start = null;
+  let end = null;
+  if (period === 'TODAY') { start = new Date(now); end = new Date(now); }
+  else if (period === 'THIS WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day); end = new Date(now); }
+  else if (period === 'LAST WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day - 7); end = new Date(start); end.setDate(start.getDate() + 6); }
+  else if (period === 'THIS MONTH') { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now); }
+  else if (period === 'LAST MONTH') { start = new Date(now.getFullYear(), now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); }
+  else if (period === 'THIS QUARTER') { start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); end = new Date(now); }
+  else if (period === 'THIS YEAR') { start = new Date(now.getFullYear(), 0, 1); end = new Date(now); }
+  else if (period === 'LAST YEAR') { start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() - 1, 11, 31); }
+  else if (period === 'CUSTOM') {
+    let a = fromArg || '';
+    let b = toArg || '';
+    if (a && b && a > b) { const tmp = a; a = b; b = tmp; }
+    if (!a && !b) return null;
+    start = a ? new Date(a) : null;
+    end = b ? new Date(b) : null;
+  } else {
+    return null;
   }
-  if (type === 'date') {
-    const has = raw !== null && raw !== undefined && raw !== '';
-    if (op === 'empty') return !has;
-    if (op === 'notEmpty') return has;
-    if (!has) return false;
-    const t = new Date(raw).getTime();
-    if (op === 'lastDays') {
-      const n = Number(v1);
-      if (!Number.isFinite(n)) return true;
-      return Date.now() - t <= n * 86400000;
-    }
-    const a = v1 ? new Date(v1 + 'T00:00:00').getTime() : null;
-    const b = v2 ? new Date(v2 + 'T23:59:59').getTime() : null;
-    if (op === 'after') return a === null || t >= a;
-    if (op === 'before') return a === null || t <= new Date(v1 + 'T23:59:59').getTime();
-    if (op === 'between') return (a === null || t >= a) && (b === null || t <= b);
-    return true;
-  }
-  if (type === 'number' || type === 'money' || type === 'percent') {
-    const n = num(raw);
-    const a = Number(v1);
-    const b = Number(v2);
-    if (op === 'between') {
-      if (Number.isFinite(a) && n < a) return false;
-      if (Number.isFinite(b) && n > b) return false;
-      return true;
-    }
-    if (!Number.isFinite(a)) return true;
-    if (op === 'eq') return n === a;
-    if (op === 'ne') return n !== a;
-    if (op === 'gt') return n > a;
-    if (op === 'gte') return n >= a;
-    if (op === 'lt') return n < a;
-    if (op === 'lte') return n <= a;
-    return true;
-  }
-  const s = String(raw === null || raw === undefined ? '' : raw).toLowerCase();
-  const q = String(v1 === null || v1 === undefined ? '' : v1).toLowerCase().trim();
-  if (op === 'empty') return s.trim() === '';
-  if (op === 'notEmpty') return s.trim() !== '';
-  if (!q) return true;
-  if (op === 'contains') return s.includes(q);
-  if (op === 'notContains') return !s.includes(q);
-  if (op === 'is') return s === q;
-  if (op === 'isNot') return s !== q;
-  if (op === 'startsWith') return s.startsWith(q);
-  return true;
+  if (!start || !end) return null;
+  return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
 };
 
-/**
-* Conditions combine with AND by default; set `mode` to 'OR' for any-of.
-* `search` is a free-text sweep across every text field, so you can narrow
-* without having to know which column a name lives in.
-*/
-export const applyFilters = (rows, dataset, conditions, mode = 'AND', search = '') => {
-  const active = (conditions || []).filter(c => c.field && c.op);
-  const q = (search || '').trim().toLowerCase();
-  const textFields = (dataset.fields || []).filter(fld => fld.type === 'text');
-  return rows.filter(row => {
-    if (q) {
-      const hit = textFields.some(fld => String(fld.get(row) || '').toLowerCase().includes(q));
-      if (!hit) return false;
-    }
-    if (active.length === 0) return true;
-    const results = active.map(c => {
-      const fld = fieldByKey(dataset, c.field);
-      if (!fld) return true;
-      return matchOne(fld.get(row), fld.type, c.op, c.value, c.value2);
-    });
-    return mode === 'OR' ? results.some(Boolean) : results.every(Boolean);
+const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
+  const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
+  const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
+  const dataset = DATASETS[datasetKey] || available[0];
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [entity, setEntity] = useState(null);
+  const [period, setPeriod] = useState('THIS MONTH');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [columns, setColumns] = useState([]);
+  const [sort, setSort] = useState({ col: '', dir: 'asc' });
+  const [search, setSearch] = useState('');
+  const [groupTab, setGroupTab] = useState('ALL');
+  const [readId, setReadId] = useState(null);
+  const [appliedId, setAppliedId] = useState(null);
+  const [chartMode, setChartMode] = useState('NONE');
+  const [recent, setRecent] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; }
   });
-};
+  const [colOpen, setColOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [entOpen, setEntOpen] = useState(false);
+  const colRef = useRef(null);
+  const sortRef = useRef(null);
+  const entRef = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      if (colRef.current && !colRef.current.contains(e.target)) setColOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
+      if (entRef.current && !entRef.current.contains(e.target)) setEntOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const fields = useMemo(() => fieldsFor(dataset, canSeeMoney), [dataset, canSeeMoney]);
+  const fieldByLabelMap = useMemo(() => {
+    const map = {};
+    fields.forEach(fld => { map[fld.label] = fld; });
+    return map;
+  }, [fields]);
+  const load = useCallback(async (key) => {
+    const ds = DATASETS[key];
+    if (!ds) return;
+    setLoading(true);
+    setError('');
+    try {
+      const data = await ds.load();
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setRows([]);
+      setError('Could not load ' + ds.label.toLowerCase() + '. You may not have access, or the connection dropped.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(datasetKey); }, [datasetKey, load]);
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    load(datasetKey);
+  }, [reloadToken, datasetKey, load]);
+  useEffect(() => {
+    const ds = DATASETS[datasetKey];
+    if (!ds) return;
+    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);
+    setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
+    setEntity(null); setAppliedId(null); setReadId(null);
+    setGroupTab('ALL'); setSearch(''); setSort({ col: '', dir: 'asc' }); setChartMode('NONE');
+  }, [datasetKey, canSeeMoney]);
 
-/* ── measures ────────────────────────────────────────────────────── */
-export const AGGREGATIONS = [
-  { key: 'count', label: 'Count of rows', needsField: false, type: 'number' },
-  { key: 'sum', label: 'Sum', needsField: true },
-  { key: 'avg', label: 'Average', needsField: true },
-  { key: 'min', label: 'Minimum', needsField: true },
-  { key: 'max', label: 'Maximum', needsField: true },
-  { key: 'distinct', label: 'Distinct values', needsField: true, type: 'number' },
-];
-const aggregate = (rows, agg, fld) => {
-  if (agg === 'count' || !fld) return rows.length;
-  if (agg === 'distinct') return new Set(rows.map(r => String(fld.get(r) ?? ''))).size;
-  const vals = rows.map(r => num(fld.get(r)));
-  if (vals.length === 0) return 0;
-  if (agg === 'sum') return vals.reduce((a, b) => a + b, 0);
-  if (agg === 'avg') return vals.reduce((a, b) => a + b, 0) / vals.length;
-  if (agg === 'min') return Math.min(...vals);
-  if (agg === 'max') return Math.max(...vals);
-  return 0;
-};
-export const measureType = (measure, dataset) => {
-  const def = AGGREGATIONS.find(a => a.key === measure.agg);
-  if (def && def.type) return def.type;
-  const fld = fieldByKey(dataset, measure.field);
-  if (!fld) return 'number';
-  return fld.type === 'percent' ? 'number' : fld.type;
-};
-export const measureLabel = (measure, dataset) => {
-  const def = AGGREGATIONS.find(a => a.key === measure.agg);
-  if (!def) return 'Value';
-  if (!def.needsField) return def.label;
-  const fld = fieldByKey(dataset, measure.field);
-  return def.label + ' of ' + (fld ? fld.label : '?');
-};
+  const entityTypes = ENTITIES[datasetKey] || [];
+  const entityValues = (type) => {
+    const t = entityTypes.find(x => x.type === type);
+    if (!t) return [];
+    const fld = fieldByLabelMap[t.field];
+    if (!fld) return [];
+    const seen = [];
+    rows.forEach(r => { const v = fld.get(r); if (v && seen.indexOf(v) < 0) seen.push(v); });
+    return seen.sort().slice(0, 40);
+  };
+  const catalogue = useMemo(() => CATALOGUE.filter(d =>
+    d.ds === datasetKey && (!d.money || canSeeMoney) &&
+    ((entity ? (d.scopes || []).indexOf(entity.type) >= 0 : (d.scopes || []).indexOf('ALL') >= 0))
+  ), [datasetKey, canSeeMoney, entity]);
+  const searched = useMemo(() => {
+    const q = search.trim().toUpperCase();
+    if (!q) return catalogue;
+    return catalogue.filter(d => (d.title + ' ' + d.desc).toUpperCase().indexOf(q) >= 0);
+  }, [catalogue, search]);
+  useEffect(() => {
+    if (groupTab !== 'ALL' && !searched.some(d => d.group === groupTab)) setGroupTab('ALL');
+  }, [searched, groupTab]);
+  const listed = groupTab === 'ALL' ? searched : searched.filter(d => d.group === groupTab);
+  const appliedDef = CATALOGUE.find(d => d.id === appliedId) || null;
+  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);
 
-/**
-* Group by one or two fields and run every measure over each bucket.
-* Two levels is the ceiling on purpose: a third turns a readable table into
-* a puzzle, and "compare" already covers the cross-tab case.
-*/
-export const groupRows = (rows, dataset, groupKeys, measures) => {
-  const keys = (groupKeys || []).filter(Boolean).slice(0, 2);
-  const flds = keys.map(k => fieldByKey(dataset, k)).filter(Boolean);
-  const buckets = new Map();
-  rows.forEach(row => {
-    const path = flds.map(fld => {
-      const v = fld.get(row);
-      if (v === null || v === undefined || v === '') return '(none)';
-      if (fld.type === 'bool') return v ? 'YES' : 'NO';
-      if (fld.type === 'date') return fmtDate(v);
-      return String(v);
+  const toggleColumn = (key) => setColumns(c => (c.indexOf(key) >= 0 ? c.filter(k => k !== key) : [...c, key]));
+  const applyDef = (def) => {
+    setAppliedId(def.id);
+    setReadId(null);
+    const keys = (def.cols || []).map(l => (fieldByLabelMap[l] || {}).key).filter(Boolean);
+    const allowed = fields.map(f => f.key);
+    if (keys.length) setColumns(keys.filter(k => allowed.includes(k)));
+    if (def.sort) setSort({ col: def.sort.col, dir: def.sort.dir });
+    setChartMode(def.chart || 'NONE');
+    const next = [def.id].concat(recent.filter(x => x !== def.id)).slice(0, 6);
+    setRecent(next);
+    try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch (e) { /* private mode */ }
+  };
+  const periodHuman = () => {
+    const labels = { TODAY: 'today', 'THIS WEEK': 'this week', 'LAST WEEK': 'last week', 'THIS MONTH': 'this month', 'LAST MONTH': 'last month', 'THIS QUARTER': 'this quarter', 'THIS YEAR': 'this year', 'LAST YEAR': 'last year', 'ALL TIME': 'since records began' };
+    if (period !== 'CUSTOM') return labels[period] || period;
+    let a = from || '..';
+    let b = to || '..';
+    if (from && to && from > to) { a = to; b = from; }
+    return 'between ' + a + ' and ' + b;
+  };
+  const readout = (def) => {
+    let text = def.desc;
+    text += entity ? (' For ' + entity.label.toLowerCase() + ' ' + entity.value + '.') : (' Whole company.');
+    text += def.period ? (' Period: ' + periodHuman() + '.') : (' Right-now snapshot.');
+    const sc = def.sort || { col: 'first column', dir: 'asc' };
+    text += ' Sorted by ' + sc.col + ' ' + (sc.dir === 'desc' ? 'highest first.' : 'A to Z.');
+    return text;
+  };
+
+  /* ── viewer pipeline: one row set feeds chart, table, CSV, PDF ── */
+  const scopeRows = useMemo(() => {
+    const def = appliedDef;
+    if (!def) return [];
+    let list = rows.slice();
+    if (entity && (def.scopes || []).indexOf(entity.type) >= 0) {
+      const et = entityTypes.find(t => t.type === entity.type);
+      const fld = et ? fieldByLabelMap[et.field] : null;
+      if (fld) list = list.filter(r => String(fld.get(r) || '').toLowerCase() === String(entity.value).toLowerCase());
+    }
+    if (def.filter) {
+      const fld = fieldByLabelMap[def.filter.field];
+      if (fld) list = applyFilters(list, dataset, [{ field: fld.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
+    }
+    if (def.period && period !== 'ALL TIME') {
+      const rng = periodRange(period, from, to);
+      const fld = dataset.dateField ? fieldByLabelMap[dataset.dateField] : null;
+      if (rng && fld) list = list.filter(r => {
+        const v = fld.get(r);
+        if (!v) return false;
+        const d = String(v).slice(0, 10);
+        return d >= rng[0] && d <= rng[1];
+      });
+    }
+    return list;
+  }, [rows, dataset, entity, entityTypes, fieldByLabelMap, period, from, to, appliedDef]);
+  const tableCols = useMemo(() => columns.map(k => fieldByKey(dataset, k)).filter(Boolean), [columns, dataset]);
+  const sortedAll = useMemo(() => {
+    const list = scopeRows.slice();
+    const fld = sort.col ? fieldByLabelMap[sort.col] : null;
+    if (!fld) return list;
+    list.sort((a, b) => {
+      const av = fld.get(a);
+      const bv = fld.get(b);
+      let cmp;
+      if (fld.type === 'number' || fld.type === 'money' || fld.type === 'percent') cmp = (Number(av) || 0) - (Number(bv) || 0);
+      else if (fld.type === 'date') cmp = new Date(av || 0).getTime() - new Date(bv || 0).getTime();
+      else cmp = String(av ?? '').localeCompare(String(bv ?? ''));
+      return sort.dir === 'desc' ? -cmp : cmp;
     });
-    const id = path.join(' \u2023 ') || 'ALL';
-    if (!buckets.has(id)) buckets.set(id, { id, path, rows: [] });
-    buckets.get(id).rows.push(row);
-  });
-  return [...buckets.values()].map(b => ({
-    id: b.id,
-    path: b.path,
-    count: b.rows.length,
-    values: (measures || []).map(m => aggregate(b.rows, m.agg, fieldByKey(dataset, m.field))),
-    rows: b.rows,
-  }));
-};
-export const summarise = (rows, dataset, measures) =>
-  (measures || []).map(m => aggregate(rows, m.agg, fieldByKey(dataset, m.field)));
+    return list;
+  }, [scopeRows, fieldByLabelMap, sort]);
+  const chartRows = useMemo(() => {
+    const def = appliedDef;
+    if (!def || !def.groupBy || chartMode === 'NONE') return [];
+    const gf = fieldByLabelMap[def.groupBy];
+    if (!gf) return [];
+    const mf = def.measure && def.measure.field ? fieldByLabelMap[def.measure.field] : null;
+    const meas = def.measure ? { agg: def.measure.agg, field: mf ? mf.key : undefined } : { agg: 'count' };
+    const g = groupRows(scopeRows, dataset, [gf.key], [meas]);
+    const isTime = /Month|Date|Year|Timestamp/.test(def.groupBy);
+    g.sort((a, b) => isTime
+      ? String(a.path[0]).localeCompare(String(b.path[0]))
+      : (Number(b.values[0]) || 0) - (Number(a.values[0]) || 0));
+    return g.slice(0, 24).map(b => ({ id: String(b.path[0]), label: String(b.path[0]), value: Number(b.values[0]) || 0 }));
+  }, [scopeRows, dataset, fieldByLabelMap, appliedDef, chartMode]);
+  const measureField = appliedDef && appliedDef.measure && appliedDef.measure.field ? fieldByLabelMap[appliedDef.measure.field] : null;
+  const fmtChart = useCallback((v) => formatValue(v, measureField ? measureField.type : 'number'), [measureField]);
 
-/* ── CSV out ─────────────────────────────────────────────────────── */
-const csvCell = (v) => {
-  const s = v === null || v === undefined ? '' : String(v);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-};
-export const toCSV = (headers, matrix) =>
-  [headers.map(csvCell).join(','), ...matrix.map(r => r.map(csvCell).join(','))].join('\n');
-export const downloadCSV = (filename, csv) => {
-  // Excel reads a bare UTF-8 CSV as Latin-1 and mangles anything non-ASCII.
-  // The BOM is what tells it otherwise.
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-};
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const exportCSV = () => {
+    const def = appliedDef;
+    if (!def || !tableCols.length) return;
+    downloadCSV(
+      'GOLDEN_SEED_' + def.id + '_' + stamp() + '.csv',
+      toCSV(tableCols.map(c => c.label), sortedAll.map(r => tableCols.map(c => c.get(r)))),
+    );
+  };
+  const pdfTablePages = (doc, cols, list) => {
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const m = 30;
+    const cw = (pw - m * 2) / Math.max(cols.length, 1);
+    let y = m;
+    const head = () => {
+      doc.setFillColor(26, 46, 48);
+      doc.rect(m, y - 12, pw - m * 2, 16, 'F');
+      doc.setTextColor(238, 140, 58);
+      doc.setFontSize(7);
+      cols.forEach((c, i) => doc.text(String(c.label).toUpperCase().slice(0, 24), m + i * cw + 3, y));
+      y += 10;
+    };
+    head();
+    doc.setTextColor(26, 46, 48);
+    doc.setFontSize(7);
+    list.forEach(r => {
+      if (y > ph - 40) {
+        doc.addPage();
+        y = m;
+        head();
+        doc.setTextColor(26, 46, 48);
+        doc.setFontSize(7);
+      }
+      cols.forEach((c, i) => doc.text(String(formatValue(c.get(r), c.type)).slice(0, 26), m + i * cw + 3, y));
+      doc.setDrawColor(223, 217, 209);
+      doc.line(m, y + 2, pw - m, y + 2);
+      y += 12;
+    });
+  };
+  const exportPDF = () => {
+    const def = appliedDef;
+    if (!def || !tableCols.length) return;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(22, 42, 44);
+    doc.rect(0, 0, pw, 70, 'F');
+    doc.setTextColor(238, 140, 58);
+    doc.setFontSize(16);
+    doc.text('GOLDEN SEED -- ' + def.title, 30, 32);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text((entity ? entity.type + ' ' + entity.value : 'WHOLE SOURCE') + '  |  ' +
+      (def.period ? periodHuman().toUpperCase() : 'AS AT TODAY') + '  |  SORT ' +
+      (sort.col || 'DEFAULT') + ' ' + sort.dir.toUpperCase() + '  |  ' + sortedAll.length + ' ROWS', 30, 50);
+    doc.setTextColor(150, 160, 160);
+    doc.setFontSize(7);
+    doc.text(def.desc + '  Generated ' + new Date().toLocaleString() + '.', 30, 62);
+    const finish = (png) => {
+      let y = 96;
+      if (png) {
+        try { doc.addImage(png, 'PNG', 30, y, 500, 190); } catch (e) { /* chart image best-effort */ }
+        y += 200;
+      }
+      pdfTablePages(doc, tableCols, sortedAll);
+      doc.save('GOLDEN_SEED_' + def.id + '_' + stamp() + '.pdf');
+    };
+    try {
+      const svg = chartMode !== 'NONE' && chartRef.current ? chartRef.current.querySelector('svg') : null;
+      if (svg) {
+        const xml = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = 1360;
+          c.height = Math.max(300, Math.round(1360 * (img.height / (img.width || 1360))));
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          finish(c.toDataURL('image/png'));
+        };
+        img.onerror = () => finish(null);
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+        return;
+      }
+    } catch (e) { /* fall through to text-only PDF */ }
+    finish(null);
+  };
 
-/* ── saved views ─────────────────────────────────────────────────── */
-const VIEW_KEY = 'goldenseed.reportstudio.views.v1';
-export const loadViews = () => {
-  try {
-    return JSON.parse(window.localStorage.getItem(VIEW_KEY) || '[]');
-  } catch {
-    return [];
-  }
+  return (
+    <div className={styles.studio}>
+      <div className={styles.scopePanel}>
+        <div className={styles.panelHeadRow}>
+          <span className={styles.scopeTitle}>SCOPE</span>
+          <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
+            <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
+          </button>
+        </div>
+        <div className={styles.scopeBody}>
+          <div className={styles.tileRow}>
+            {available.map(ds => (
+              <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
+                {ds.label}
+                <span className={styles.tileCount}>{ds.key === datasetKey ? (loading ? '...' : rows.length) : ''}</span>
+              </button>
+            ))}
+          </div>
+          <p className={styles.hint}>{dataset?.blurb}</p>
+          {!canSeeMoney && (
+            <p className={styles.hint}>
+              <FiAlertCircle size={12} aria-hidden="true" /> Financial datasets, money columns and company reports are hidden on your role.
+            </p>
+          )}
+          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
+          <div className={styles.scopeRow}>
+            <div className={styles.scopeField} ref={entRef}>
+              <span className={styles.miniLabel}>Who / what</span>
+              <div className={styles.entWrap}>
+                {entity && (
+                  <span className={styles.chipE}>
+                    {entity.label}: {entity.value}
+                    <button onClick={() => setEntity(null)} aria-label="Clear entity"><FiX size={11} aria-hidden="true" /></button>
+                  </span>
+                )}
+                <button className={styles.pickBtn} onClick={() => setEntOpen(o => !o)} aria-expanded={entOpen}>
+                  <span>{entity ? 'Change...' : 'Whole company'}</span>
+                  <FiChevronDown className={entOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+                </button>
+                {entOpen && (
+                  <div className={styles.pickList}>
+                    <div className={styles.ddScroll}>
+                      <button className={styles.pickOption} onClick={() => { setEntity(null); setEntOpen(false); }}>WHOLE COMPANY</button>
+                      {entityTypes.map(t => entityValues(t.type).slice(0, 12).map(v => (
+                        <button key={t.type + v} className={styles.pickOption} onClick={() => { setEntity({ type: t.type, label: t.label, value: v }); setEntOpen(false); }}>
+                          {t.label}: {v}
+                        </button>
+                      )))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className={styles.scopeField}>
+              <span className={styles.miniLabel}>When</span>
+              <div className={(appliedDef && !appliedDef.period ? styles.perChipsDim : '') + ' ' + styles.perChips}>
+                {PERIODS.map(p => (
+                  <button key={p} className={period === p ? styles.pchipOn : styles.pchip} onClick={() => setPeriod(p)}>{p}</button>
+                ))}
+              </div>
+              {period === 'CUSTOM' && (
+                <div className={styles.customRange}>
+                  <input type="date" value={from} onChange={e => setFrom(e.target.value)} aria-label="From date" />
+                  <span>to</span>
+                  <input type="date" value={to} onChange={e => setTo(e.target.value)} aria-label="To date" />
+                </div>
+              )}
+              {appliedDef && !appliedDef.period && <span className={styles.snapHint}>snapshot -- as at today, period ignored</span>}
+            </div>
+            <div className={styles.scopeField} ref={colRef}>
+              <span className={styles.miniLabel}>Columns</span>
+              <button className={styles.pickBtn} onClick={() => setColOpen(o => !o)} aria-expanded={colOpen}>
+                <span>{columns.length} OF {fields.length} COLUMNS</span>
+                <FiChevronDown className={colOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+              </button>
+              {colOpen && (
+                <div className={styles.pickList}>
+                  <div className={styles.ddScroll}>
+                    {fields.map(f => (
+                      <label key={f.key} className={styles.pickCheck + (columns.indexOf(f.key) >= 0 ? ' ' + styles.pickCheckOn : '')}>
+                        <input type="checkbox" checked={columns.indexOf(f.key) >= 0} onChange={() => toggleColumn(f.key)} />{f.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className={styles.scopeField} ref={sortRef}>
+              <span className={styles.miniLabel}>Sort</span>
+              <div className={styles.sortRow}>
+                <button className={styles.pickBtn} onClick={() => setSortOpen(o => !o)} aria-expanded={sortOpen}>
+                  <span>{sort.col || 'DEFAULT'}</span>
+                  <FiChevronDown className={sortOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+                </button>
+                <button className={styles.dirBtn} onClick={() => setSort(s => ({ col: s.col, dir: s.dir === 'desc' ? 'asc' : 'desc' }))} aria-label="Flip sort direction">
+                  {sort.dir === 'desc' ? '\\u2193' : '\\u2191'}
+                </button>
+                {sortOpen && (
+                  <div className={styles.pickList}>
+                    <div className={styles.ddScroll}>
+                      <button className={styles.pickOption + (!sort.col ? ' ' + styles.pickOptionActive : '')} onClick={() => { setSort({ col: '', dir: 'asc' }); setSortOpen(false); }}>DEFAULT (report's own)</button>
+                      {fields.map(f => (
+                        <button key={f.key} className={styles.pickOption + (sort.col === f.label ? ' ' + styles.pickOptionActive : '')} onClick={() => { setSort(s => ({ col: f.label, dir: s.dir })); setSortOpen(false); }}>
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.catPanel}>
+        <div className={styles.panelHeadRow}>
+          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
+          <span className={styles.badge}>{searched.length} REPORTS</span>
+          <div className={styles.searchBox}>
+            <FiSearch className={styles.searchIcon} aria-hidden="true" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" />
+            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
+          </div>
+        </div>
+        <div className={styles.tabRow}>
+          <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
+            ALL<span className={styles.gcnt}>{searched.length}</span>
+          </button>
+          {GROUPS.map(g => {
+            const n = searched.filter(d => d.group === g).length;
+            if (!n && g !== groupTab) return null;
+            return (
+              <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>
+                {g}<span className={styles.gcnt}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+        {recentDefs.length > 0 && (
+          <div className={styles.recentRow}>
+            <span className={styles.recentLabel}>RECENTLY USED</span>
+            {recentDefs.map(d => (
+              <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>
+            ))}
+          </div>
+        )}
+        <div className={styles.catList}>
+          {listed.length === 0 && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
+          {listed.map(def => (
+            <div key={def.id} className={styles.catWrap}>
+              <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
+                <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span></span>
+                <span className={styles.r2}>{def.desc}</span>
+              </button>
+              {readId === def.id && (
+                <div className={styles.readout}>
+                  <div className={styles.readoutText}>{readout(def)}</div>
+                  <button className={styles.useBtn} onClick={() => applyDef(def)}>USE THIS REPORT</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className={styles.foot}>
+          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}
+          {search ? ' matching "' + search + '"' : ''}
+          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
+        </div>
+      </div>
+
+      {appliedDef && (
+        <div className={styles.viewerPanel}>
+          <div className={styles.panelHeadRow}>
+            <span className={styles.scopeTitle}>PREVIEW -- {appliedDef.title}</span>
+            <div className={styles.pvChips}>
+              <span className={styles.pvChip}>{entity ? entity.label.toUpperCase() + ' ' + entity.value : 'WHOLE SOURCE'}</span>
+              <span className={styles.pvChip}>{appliedDef.period ? periodHuman().toUpperCase() : 'AS AT TODAY'}</span>
+              <span className={styles.pvChip}>SORT {sort.col || 'DEFAULT'} {sort.dir.toUpperCase()}</span>
+              <span className={styles.pvChip}>{tableCols.length} COLUMNS</span>
+              <span className={styles.pvChip}>{sortedAll.length} ROWS MATCH</span>
+            </div>
+            <div className={styles.pvBtns}>
+              <button className={styles.useBtn} onClick={exportCSV} disabled={!sortedAll.length || !tableCols.length}>CSV -- THE DATA</button>
+              <button className={styles.useBtn} onClick={exportPDF} disabled={!sortedAll.length || !tableCols.length}>PDF -- THE DOCUMENT</button>
+            </div>
+          </div>
+          <div className={styles.chartChips}>
+            {CHART_OPTS.map(t => (
+              <button key={t} className={chartMode === t ? styles.cchipOn : styles.cchip} onClick={() => setChartMode(t)}>{t}</button>
+            ))}
+          </div>
+          {chartMode !== 'NONE' && chartRows.length > 0 && (
+            <div className={styles.chartBox} ref={chartRef}>
+              <Chart type={CHART_MAP[chartMode] || 'bars'} rows={chartRows} format={fmtChart} />
+            </div>
+          )}
+          {chartMode !== 'NONE' && chartRows.length === 0 && (
+            <div className={styles.pvNote}>NOTHING TO CHART FOR THIS SCOPE</div>
+          )}
+          <div className={styles.pvScroll}>
+            <table className={styles.pvTable}>
+              <thead>
+                <tr>{tableCols.map(c => <th key={c.key}>{c.label}</th>)}</tr>
+              </thead>
+              <tbody>
+                {sortedAll.length === 0 && (
+                  <tr><td colSpan={Math.max(tableCols.length, 1)} className={styles.emptyCell}>NOTHING MATCHES THIS SCOPE</td></tr>
+                )}
+                {sortedAll.slice(0, SAMPLE).map((r, i) => (
+                  <tr key={i}>
+                    {tableCols.map(c => <td key={c.key}>{formatValue(c.get(r), c.type)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.pvNote}>
+            SAMPLE: FIRST {Math.min(SAMPLE, sortedAll.length)} OF {sortedAll.length} ROWS -- CSV AND PDF CARRY ALL OF THEM.
+            WIDE TABLE? SCROLL SIDEWAYS, THE FIRST COLUMN STAYS PINNED.
+          </div>
+        </div>
+      )}
+
+      <div className={styles.appliedLine}>
+        {appliedDef
+          ? <>APPLIED: <b>{appliedDef.title}</b> &middot; {tableCols.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}</>
+          : <>No report applied yet -- open a report above and press USE THIS REPORT.</>}
+      </div>
+    </div>
+  );
 };
-export const saveViews = (views) => {
-  try {
-    window.localStorage.setItem(VIEW_KEY, JSON.stringify(views));
-    return true;
-  } catch {
-    return false;
-  }
-};
+export default ReportStudio;
+'''
+
+STU_CSS = r'''/* PATH: erp-frontend/src/pages/Reports/ReportStudio.module.css */
+/* GOLDEN SEED -- REPORT STUDIO STYLESHEET (fix84 complete rewrite).
+   Every class the studio JSX references is defined here, once, in the app's
+   own language: dark teal panels with #162a2c heads and orange separators,
+   white controls with ink text, orange for active/hover, Intake chip spec. */
+.studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
+.scopePanel, .catPanel, .viewerPanel {
+  background: linear-gradient(135deg, #4a6a6c 0%, #3a5a5c 55%, #2f4c4e 100%);
+  border: 1.5px solid rgba(238, 140, 58, 0.22);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  overflow: visible;
+}
+.panelHeadRow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: #162a2c; border-bottom: 1.5px solid #EE8C3A;
+  border-radius: 11px 11px 0 0; padding: 10px 14px;
+}
+.scopeTitle { font-family: 'Cinzel', serif; color: #EE8C3A; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.65); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 20px; padding: 4px 12px; }
+.scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px; border-radius: 6px;
+  border: 1.5px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.85); transition: all 0.2s ease;
+}
+.chip:hover:not(:disabled) { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
+.chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.tileRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.tile, .tileActive {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: clamp(9px, 1.1vw, 12px) clamp(14px, 1.8vw, 22px); border-radius: 6px;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85); transition: all 0.2s ease;
+}
+.tile:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.tileActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; box-shadow: 0 4px 16px rgba(238,140,58,0.3); }
+.tileCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
+.hint { display: flex; align-items: center; gap: 7px; margin: 0; font-size: clamp(10px, 1vw, 11.5px); font-weight: 600; color: rgba(255,255,255,0.66); }
+.hint svg { color: #EE8C3A; flex-shrink: 0; }
+.error { display: flex; align-items: center; gap: 8px; background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 8px 12px; }
+.scopeRow { display: flex; flex-wrap: wrap; gap: clamp(12px, 1.8vw, 24px); align-items: flex-start; }
+.scopeField { display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
+.miniLabel { font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+.entWrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chipE { display: inline-flex; align-items: center; gap: 8px; background: #EE8C3A; color: #1a2e30; border-radius: 6px; padding: 9px 12px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.chipE button { background: transparent; border: none; cursor: pointer; color: #1a2e30; font-size: 12px; font-weight: 900; display: flex; }
+.pickBtn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-width: clamp(150px, 18vw, 240px); height: 38px; padding: 0 12px; border-radius: 6px;
+  border: 1.5px solid #dfd9d1; background: #fff; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: clamp(10px, 1.05vw, 12px); font-weight: 800;
+  letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.pickBtn:hover { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.pickBtn svg { color: #EE8C3A; transition: transform 0.2s; flex-shrink: 0; }
+.pickIconOpen { transform: rotate(180deg); }
+.pickList {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+  width: max-content; min-width: 100%; max-width: 340px;
+  background: #fff; border: 2px solid #EE8C3A; border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(26,46,48,0.28); overflow: hidden;
+}
+.ddScroll { max-height: 264px; overflow-y: auto; padding: 4px; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+.ddScroll::-webkit-scrollbar { width: 6px; }
+.ddScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
+.pickOption {
+  display: flex; width: 100%; text-align: left; border: none; border-left: 3px solid transparent;
+  border-radius: 4px; background: transparent; color: #1a2e30;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 10px; cursor: pointer;
+}
+.pickOption:hover { background: rgba(238,140,58,0.12); }
+.pickOptionActive { background: rgba(238,140,58,0.16); border-left-color: #EE8C3A; color: #b45309; }
+.pickCheck {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  border: none; border-left: 3px solid transparent; border-radius: 4px; background: transparent;
+  color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+  padding: 8px 10px; cursor: pointer;
+}
+.pickCheck:hover { background: rgba(238,140,58,0.12); }
+.pickCheckOn { background: rgba(238,140,58,0.16); border-left-color: #EE8C3A; color: #b45309; }
+.pickCheck input { accent-color: #EE8C3A; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.perChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.perChipsDim { opacity: 0.45; pointer-events: none; }
+.pchip {
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;
+  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85); transition: all 0.2s ease; white-space: nowrap;
+}
+.pchip:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.pchipOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.customRange { display: flex; align-items: center; gap: 8px; }
+.customRange input { height: 36px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; }
+.customRange span { color: rgba(255,255,255,0.6); font-weight: 900; font-size: 10px; }
+.snapHint { color: #EE8C3A; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
+.sortRow { display: flex; gap: 6px; align-items: center; }
+.dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #EE8C3A; font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+.dirBtn:hover { border-color: #EE8C3A; }
+.searchBox { position: relative; height: 36px; width: clamp(170px, 22vw, 280px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
+.searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
+.searchIcon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #EE8C3A; pointer-events: none; }
+.searchBox input { width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0 30px 0 32px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; }
+.searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.45); display: flex; padding: 4px; }
+.searchClear:hover { color: #1a2e30; }
+.tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(0,0,0,0.16); border-bottom: 1px solid rgba(255,255,255,0.08); }
+.gtab {
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
+  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8); transition: all 0.2s;
+}
+.gtab:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.gtabOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.gcnt { font-family: 'Space Mono', monospace; opacity: 0.7; margin-left: 6px; }
+.recentRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border-bottom: 1px solid #dfd9d1; }
+.recentLabel { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: rgba(26,46,48,0.45); margin-right: 4px; }
+.rchip {
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900;
+  letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 6px;
+  border: 1.5px solid rgba(238,140,58,0.5); background: #fff; color: #b45309; transition: all 0.2s;
+}
+.rchip:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.catList { max-height: 340px; overflow-y: auto; background: #fff; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+.catList::-webkit-scrollbar { width: 6px; }
+.catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
+.catWrap { border-bottom: 1px solid #f1eeea; }
+.catWrap:last-child { border-bottom: none; }
+.catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 9px 14px; cursor: pointer; transition: background 0.15s; }
+.catRow:hover, .catRowOn { background: #EE8C3A; color: #fff; }
+.r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+.r2 { font-size: 10px; font-weight: 600; color: rgba(26,46,48,0.55); }
+.catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }
+.tag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
+.readout { display: flex; align-items: center; gap: 12px; background: #0a0a0a; border-left: 3px solid #EE8C3A; padding: 8px 12px; }
+.readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; line-height: 1.5; color: #c9f7d6; }
+.useBtn {
+  flex-shrink: 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px;
+  border-radius: 6px; border: none; background: #EE8C3A; color: #1a2e30; transition: all 0.2s;
+}
+.useBtn:hover:not(:disabled) { background: #f0a050; transform: translateY(-1px); }
+.useBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.emptyCell { text-align: center; padding: 24px 16px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26,46,48,0.5); }
+.foot { padding: 8px 14px; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 0 0 11px 11px; }
+.viewerPanel { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
+.viewerPanel .panelHeadRow { background: transparent; border-bottom: 1.5px solid #EE8C3A; border-radius: 0; padding: 0 0 10px 0; }
+.pvChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pvChip {
+  font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.78);
+  border: 1px solid rgba(255,255,255,0.22); border-radius: 4px; padding: 3px 8px;
+  background: rgba(255,255,255,0.06); white-space: nowrap;
+}
+.pvBtns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.chartChips { display: flex; gap: 6px; flex-wrap: wrap; }
+.cchip {
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
+  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8); transition: all 0.2s;
+}
+.cchip:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.cchipOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.chartBox {
+  --accent: #EE8C3A; --surface: #ffffff; --surface-3: #efe9e2; --surface-edge: #dfd9d1;
+  --ink: #1a2e30; --ink-soft: #5b6f70; --ink-faint: rgba(26,46,48,0.45);
+  background: #fff; border: 1.5px solid #dfd9d1; border-radius: 8px; padding: clamp(10px, 1.4vw, 14px);
+}
+.pvScroll { overflow-x: auto; background: #fff; border: 1.5px solid #dfd9d1; border-radius: 8px; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+.pvScroll::-webkit-scrollbar { height: 8px; }
+.pvScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 4px; }
+.pvTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
+.pvTable th { position: sticky; top: 0; z-index: 2; background: #162a2c; color: #EE8C3A; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: 9px 12px; white-space: nowrap; }
+.pvTable td { padding: 8px 12px; border-bottom: 1px solid #f1eeea; color: #1a2e30; font-size: clamp(10px, 1.05vw, 12px); font-weight: 600; white-space: nowrap; }
+.pvTable tbody tr:nth-child(even) td { background: #fbf9f7; }
+.pvTable tbody tr:hover td { background: rgba(238,140,58,0.22); }
+.pvTable th:first-child, .pvTable td:first-child { position: sticky; left: 0; z-index: 3; }
+.pvTable th:first-child { background: #162a2c; }
+.pvTable td:first-child { background: #fff; font-family: 'Space Mono', monospace; font-weight: 700; border-right: 1px solid #dfd9d1; }
+.pvTable tbody tr:nth-child(even) td:first-child { background: #fbf9f7; }
+.pvTable tbody tr:hover td:first-child { background: rgba(238,140,58,0.22); }
+.pvNote { color: rgba(255,255,255,0.62); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7; }
+.appliedLine { color: rgba(26,46,48,0.62); font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.appliedLine b { color: #EE8C3A; }
+@media (max-width: 900px) {
+  .scopeRow { flex-direction: column; align-items: stretch; }
+  .pickBtn { min-width: 100%; }
+  .pvBtns { margin-left: 0; }
+  .searchBox { margin-left: 0; width: 100%; }
+}
 '''
 
 ADDENDUM = '''
-- fix83 (2026-09-25): clean-slate repair of reportData.js and package.json after the Render build log named two leftovers from the overlapping fix79/80/82 patch runs: a duplicate "jspdf" key in package.json, and a const reassignment at reportData.js line ~231 ("Cannot reassign a variable declared with const") which was the runtime "Assignment to constant variable" crash. reportData.js is now rewritten whole from one source: original data layer plus COMPANY dataset (audit ledger, restricted), dateField on every dataset so the period chips can filter event reports, and the derived Entry Mode column. Exports unchanged, so reportsCatalog.js and ReportStudio.jsx keep working as-is.
+- fix84 (2026-09-25): Reports page rewritten as ONE matched set after the live page shipped with three mismatches (hub lost canSeeMoney/reloadToken so root was told money is hidden; hub header used pageTitle/pageSubtitle classes its CSS never defined, giving a white-on-white title; studio JSX referenced ~40 class names missing from its stylesheet, leaving naked controls). fix84 rewrites ReportHub.jsx (correct header classes + both props + REFRESH header button), ReportStudio.jsx (scope bar + catalogue + readout + full viewer with chart chips, sample table, CSV and composed PDF) and ReportStudio.module.css (complete stylesheet defining every class the JSX uses, in the app's panel/chip language). reportsCatalog.js and reportData.js untouched.
 '''
 
 print('=' * 72)
-print(' GOLDEN SEED fix83 -- clean-slate reportData.js + package.json repair')
+print(' GOLDEN SEED fix84 -- Reports page as one matched set (hub+studio+css)')
 print('=' * 72)
 
-os.makedirs(os.path.dirname(RDATA), exist_ok=True)
-with open(RDATA, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(REPORT_DATA)
-print('OK      rewrite reportData.js (single clean source, no stray assigns)')
-
-with open(PKG, 'r', encoding='utf-8', errors='replace') as f:
-    pkg = f.read()
-dup = '    "jspdf": "^2.5.1",\n    "jspdf": "^2.5.1"'
-if dup in pkg:
-    pkg = pkg.replace(dup, '    "jspdf": "^2.5.1"', 1)
-    with open(PKG, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(pkg)
-    print('OK      package.json duplicate jspdf key removed')
-else:
-    print('SKIP    package.json jspdf key already single')
+for path, content, tag in ((HUB, HUB_JS, 'rewrite ReportHub.jsx (props + header classes)'),
+                           (STU, STUDIO_JS, 'rewrite ReportStudio.jsx (scope+catalogue+viewer)'),
+                           (STUCSS, STU_CSS, 'rewrite ReportStudio.module.css (complete)')):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(content)
+    print('OK      ' + tag)
 
 with open(ADD, 'a', encoding='utf-8', newline='\n') as f:
     f.write(ADDENDUM)
 print('OK      addendum appended')
-
 print('')
 print('All files written.')
 print('')
@@ -545,9 +852,9 @@ else:
 
 print('')
 print('git: staging, committing, pushing...')
-MSG = 'fix83: clean-slate reportData.js (kills const-reassignment at line 231) + duplicate jspdf key removed'
+MSG = 'fix84: Reports page rewritten as one matched set (hub props + header classes, full studio, complete stylesheet)'
 subprocess.run(['git', 'add', '-A'])
 subprocess.run(['git', 'commit', '-m', MSG])
 subprocess.run(['git', 'push'])
 print('')
-print('Done. After the green tick, hard-refresh and walk Reports end to end.')
+print('Done. After the green tick, hard-refresh (Ctrl+Shift+R) and walk the page.')
