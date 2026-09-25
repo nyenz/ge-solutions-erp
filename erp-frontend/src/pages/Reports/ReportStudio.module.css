@@ -130,10 +130,16 @@
 .sortRow { display: flex; gap: 6px; align-items: center; }
 .dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #EE8C3A; font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
 .dirBtn:hover { border-color: #EE8C3A; }
-.searchBox { box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }
+.searchBox {
+  box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto;
+}
 .searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.searchIcon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: #EE8C3A; pointer-events: none; }
-.searchBox input { flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 10px 0 32px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px; }
+.searchIcon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #EE8C3A; pointer-events: none;
+}
+.searchBox input {
+  flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 12px 0 40px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px;
+}
 .searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.45); display: flex; padding: 4px; }
 .searchClear:hover { color: #1a2e30; }
 .tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(0,0,0,0.16); border-bottom: 1px solid rgba(255,255,255,0.08); }
@@ -165,11 +171,14 @@
 .catWrap { border-bottom: 1px solid #f1eeea; }
 .catWrap:last-child { border-bottom: none; }
 .catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 9px 14px; cursor: pointer; transition: background 0.15s; }
-.catRow:hover, .catRowOn { background: #EE8C3A; color: #fff; }
+.catRow:hover { background: #EE8C3A; color: #fff; }
+.catRowOn { background: #d97e2f; color: #1a2e30; }
 .r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6f70; }
 .r2 { font-size: 10px; font-weight: 600; color: rgba(26,46,48,0.55); }
-.catRow:hover .r1, .catRowOn .r1 { color: #fff; }
-.catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }
+.catRow:hover .r1 { color: #fff; }
+.catRowOn .r1 { color: #1a2e30; }
+.catRow:hover .r2 { color: rgba(255,255,255,0.85); }
+.catRowOn .r2 { color: rgba(26,46,48,0.72); }
 .tag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
 .readout { display: flex; align-items: center; gap: 12px; background: #0a0a0a; border-left: 3px solid #EE8C3A; padding: 8px 12px; }
 .readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; line-height: 1.5; color: #c9f7d6; }
@@ -244,7 +253,8 @@
 }
 .chartDdBtn svg { flex-shrink: 0; transition: transform 0.2s; }
 .catRowDef { border-left: 3px solid #EE8C3A; background: #fdf3e7; }
-.catRowDef:hover, .catRowDef.catRowOn { background: #EE8C3A; }
+.catRowDef:hover { background: #EE8C3A; }
+.catRowDef.catRowOn { background: #d97e2f; }
 .ddSec { position: sticky; top: 0; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 14px; border-bottom: 1px solid #dfd9d1; z-index: 1; }
 .toggleHint { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
 .tag + .toggleHint { margin-left: 8px; }
@@ -252,6 +262,36 @@
 .entInput:focus { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
 .pickOptionTag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.7; }
 .ddFootMsg { padding: 8px 10px; color: rgba(26,46,48,0.5); font-size: 10px; font-weight: 700; }
+/* fix97: prototype parity -- canonical field dims last, empty preview
+   placeholder, head toggles, panel bottom edge + corner ticks. */
+.entInput, .searchBox { box-sizing: border-box; height: 36px; width: clamp(200px, 22vw, 260px); }
+.viewerEmpty {
+  border: 2px dashed rgba(26, 46, 48, 0.28); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.35);
+  padding: clamp(24px, 4vw, 40px) 16px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: 'Inter', sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase; color: rgba(26, 46, 48, 0.45);
+}
+.headToggle {
+  margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
+  border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12);
+  color: #EE8C3A; transition: all 0.2s ease;
+}
+.headToggle:hover { background: #EE8C3A; color: #1a2e30; }
+.headToggle svg { transition: transform 0.2s; }
+.catPanel .searchBox { margin-left: 10px; }
+.panelClosed { display: none; }
+.catPanelClosed > *:not(.panelHeadRow) { display: none; }
+.scopePanel, .catPanel { position: relative; border-bottom: 1.5px solid #EE8C3A; }
+.scopePanel::before, .catPanel::before,
+.scopePanel::after, .catPanel::after {
+  content: ''; position: absolute; bottom: -1.5px; width: 14px; height: 14px;
+  border-bottom: 2.5px solid #EE8C3A; pointer-events: none;
+}
+.scopePanel::before, .catPanel::before { left: -1.5px; border-left: 2.5px solid #EE8C3A; border-bottom-left-radius: 12px; }
+.scopePanel::after, .catPanel::after { right: -1.5px; border-right: 2.5px solid #EE8C3A; border-bottom-right-radius: 12px; }
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }
   .pickBtn { min-width: 100%; }

@@ -82,6 +82,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [sortOpen, setSortOpen] = useState(false);
   const [entOpen, setEntOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
+  const [scopeOpen, setScopeOpen] = useState(true);
+  const [catOpen, setCatOpen] = useState(true);
   const [entQuery, setEntQuery] = useState('');
   const colRef = useRef(null);
   const sortRef = useRef(null);
@@ -403,8 +405,11 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       <div className={styles.scopePanel}>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>SCOPE</span>
+          <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
+            <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+          </button>
         </div>
-        <div className={styles.scopeBody}>
+        <div className={scopeOpen ? styles.scopeBody : styles.panelClosed}>
           {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
           {!canSeeMoney && (
             <p className={styles.hint}>
@@ -513,10 +518,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       </div>
 
-      <div className={styles.catPanel}>
+      <div className={catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed}>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
+          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label="Collapse or expand catalogue panel">
+            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
+          </button>
           <div className={styles.searchBox}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" />
@@ -640,6 +648,12 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             SAMPLE: FIRST {Math.min(SAMPLE, sortedAll.length)} OF {sortedAll.length} ROWS -- CSV AND PDF CARRY ALL OF THEM.
             WIDE TABLE? SCROLL SIDEWAYS, THE FIRST COLUMN STAYS PINNED.
           </div>
+        </div>
+      )}
+
+      {!appliedDef && (
+        <div className={styles.viewerEmpty}>
+          PICK A REPORT ABOVE -- ITS LIVE CHART, PREVIEW, CSV AND PDF LAND HERE
         </div>
       )}
 
