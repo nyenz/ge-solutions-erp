@@ -1,422 +1,532 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================================
-# GOLDEN SEED fix82 -- REPAIR: "Assignment to constant variable" crash on
-# Reports. Rewrites ReportStudio.jsx with audited let/const discipline and
-# normalises the companyFields const block in reportData.js so it is declared
-# before DATASETS and referenced by one name only.
+# GOLDEN SEED fix83 -- CLEAN-SLATE REPAIR OF reportData.js + package.json
+# ----------------------------------------------------------------------------
+# The Render build log named two leftovers from the overlapping fix79/80/82
+# patch runs:
+#   1. package.json carries "jspdf" twice (duplicate object key warning).
+#   2. reportData.js line ~231 reassigns a const binding ("Cannot reassign a
+#      variable declared with const"), the same fault that threw
+#      "Assignment to constant variable" in the browser.
+# Patch-on-patch cannot be trusted here any more, so this fix rewrites
+# reportData.js WHOLE from one clean source: the original data layer plus the
+# agreed additions (COMPANY dataset from the audit ledger, dateField on every
+# dataset so period chips can filter, derived Entry Mode column). Nothing else
+# in the app changes; reportsCatalog.js and ReportStudio.jsx keep reading the
+# same exports they read today.
 # ============================================================================
 import os
-import re
 import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 R = lambda *p: os.path.join(ROOT, *p)
-STU   = R('erp-frontend', 'src', 'pages', 'Reports', 'ReportStudio.jsx')
 RDATA = R('erp-frontend', 'src', 'pages', 'Reports', 'reportData.js')
+PKG   = R('erp-frontend', 'package.json')
 ADD   = R('LLM_CONTEXT_ADDENDUM.md')
 
-BUF = {}
-def get(p):
-    if p not in BUF:
-        with open(p, 'r', encoding='utf-8', errors='replace') as f:
-            BUF[p] = f.read()
-    return BUF[p]
-def save(p):
-    with open(p, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(BUF[p])
-def write(p, content, tag):
-    BUF[p] = content
-    print('OK      ' + tag)
+REPORT_DATA = r'''// PATH: erp-frontend/src/pages/Reports/reportData.js
+/**
+* GOLDEN SEED -- THE REPORT STUDIO DATA LAYER (fix83 clean rewrite)
+*
+* One source of truth for datasets, fields, filtering, grouping, measures and
+* CSV output. Every report the studio can show is computed in the browser from
+* these four list endpoints plus the audit ledger (COMPANY), so a filter or a
+* grouping is instant and costs nothing.
+*
+* ROLE RULES ARE ENFORCED IN TWO PLACES, deliberately. The server already
+* refuses the financial endpoints to non-directors -- that is the real
+* boundary. What happens here is the second half: a dataset marked
+* `restricted` and a field marked `money` are never offered to a user without
+* financial access, so a manager is not shown a column that would just come
+* back empty or 403.
+*
+* ADDING A FIELD: add one entry to the dataset's `fields` array. Filters,
+* columns, grouping, measures, comparison and CSV all read from that array, so
+* nothing else needs touching.
+*/
+import api from '../../api/axios';
+import landService from '../../services/landService';
+import recoveryService from '../../services/recoveryService';
+import expenseService from '../../services/expenseService';
+import auditService from '../../services/auditService';
 
-# ----------------------------------------------------------------------------
-# 1. reportData.js -- normalise companyFields placement + single name
-# ----------------------------------------------------------------------------
-rd = get(RDATA)
-print('=' * 72)
-print(' GOLDEN SEED fix82 -- repair const-assignment crash')
-print('=' * 72)
-if 'COMPANY_FIELDS' in rd:
-    rd = rd.replace('COMPANY_FIELDS', 'companyFields')
-    print('OK      stray COMPANY_FIELDS renamed to companyFields')
-else:
-    print('SKIP    no stray COMPANY_FIELDS')
-# pull any companyFields const block out and re-insert before DATASETS
-m = re.search(r'const companyFields = \[.*?\];\n', rd, re.S)
-if m and rd.index('export const DATASETS') < m.start():
-    block = m.group(0)
-    rd = rd.replace(block, '', 1)
-    rd = rd.replace('export const DATASETS', block + 'export const DATASETS', 1)
-    print('OK      companyFields block moved above DATASETS')
-else:
-    print('SKIP    companyFields already declared before DATASETS (or absent)')
-BUF[RDATA] = rd
+/* ── value helpers ───────────────────────────────────────────────── */
+export const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+export const fmtMoney = (v) => 'UGX ' + num(v).toLocaleString();
+export const fmtNum = (v) => num(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+export const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '---');
+const daysSince = (v) => {
+  if (!v) return null;
+  const t = new Date(v).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+};
+const monthKey = (v) => {
+  if (!v) return '---';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '---';
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+};
+export const formatValue = (value, type) => {
+  if (value === null || value === undefined || value === '') return '---';
+  if (type === 'money') return fmtMoney(value);
+  if (type === 'number') return fmtNum(value);
+  if (type === 'percent') return fmtNum(value) + '%';
+  if (type === 'date') return fmtDate(value);
+  if (type === 'bool') return value ? 'YES' : 'NO';
+  return String(value);
+};
+const f = (key, label, type, get, extra) => ({ key, label, type, get, ...(extra || {}) });
 
-# ----------------------------------------------------------------------------
-# 2. ReportStudio.jsx -- audited rewrite (stage 2 UI, no viewer yet)
-# ----------------------------------------------------------------------------
-STUDIO_JS = '''// PATH: erp-frontend/src/pages/Reports/ReportStudio.jsx
-// GOLDEN SEED -- REPORT STUDIO (stage 2, fix82 audited rewrite).
-// Scope bar + catalogue + readout. Every mutable local is declared let;
-// helpers are pure; no binding is ever reassigned after const.
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FiSearch, FiX, FiChevronDown, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
-import { DATASETS, datasetsFor, fieldsFor, formatValue } from './reportData';
-import { CATALOGUE, ENTITIES, GROUPS } from './reportsCatalog';
-import styles from './ReportStudio.module.css';
+/* ── PROJECTS ────────────────────────────────────────────────────── */
+const projectFields = [
+  f('index', 'Project Index', 'text', p => p.projectIndex || ''),
+  f('plot', 'Plot Number', 'text', p => p.landTitle?.plotNumber || ''),
+  f('titleId', 'Title ID', 'text', p => p.landTitle?.titleId || ''),
+  f('tenure', 'Tenure', 'text', p => p.landTitle?.tenure || ''),
+  f('blockRoad', 'Block / Road', 'text', p => p.landTitle?.blockRoad || ''),
+  f('district', 'District', 'text', p => p.district || ''),
+  f('county', 'County', 'text', p => p.county || ''),
+  f('subCounty', 'Sub-County', 'text', p => p.subCounty || ''),
+  f('parish', 'Parish', 'text', p => p.parish || ''),
+  f('village', 'Village', 'text', p => p.village || ''),
+  f('area', 'Area', 'text', p => p.area || ''),
+  f('entryMode', 'Entry Mode', 'text', p => (p.isLegacy ? 'Legacy Title' : (p.landTitle ? 'New Title' : 'New Folder'))),
+  f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
+  f('ownerPhone', 'Owner Phone', 'text', p => p.proprietors?.[0]?.phoneNumber || ''),
+  f('ownerNin', 'Owner NIN', 'text', p => p.proprietors?.[0]?.nationalId || ''),
+  f('ownerAddress', 'Owner Address', 'text', p => p.proprietors?.[0]?.homeAddress || ''),
+  f('allOwners', 'All Owners', 'text', p => (p.proprietors || []).map(o => o.fullName).join(', ')),
+  f('ownerCount', 'Owner Count', 'number', p => (p.proprietors || []).length),
+  f('ownership', 'Ownership', 'text', p => ((p.proprietors || []).length > 1 ? 'JOINT' : 'SOLO')),
+  f('status', 'Status', 'text', p => p.status || ''),
+  f('stage', 'Stage Index', 'number', p => num(p.currentStageIndex)),
+  f('planType', 'Plan Type', 'text', p => p.planType || ''),
+  f('titled', 'Has Title', 'bool', p => !!p.landTitle),
+  f('released', 'Title Released', 'bool', p => !!p.landTitle?.isReleased),
+  f('legacy', 'Legacy', 'bool', p => !!p.isLegacy),
+  f('receivable', 'In Receivables', 'bool', p => !!p.isReceivable),
+  f('problem', 'Flagged Problem', 'bool', p => !!p.problem),
+  f('startDate', 'Project Start', 'date', p => p.projectStartDate || null),
+  f('lastPayment', 'Last Payment', 'date', p => p.lastPaymentDate || null),
+  f('daysSincePayment', 'Days Since Payment', 'number', p => daysSince(p.lastPaymentDate)),
+  f('receivableStart', 'Receivables Start', 'date', p => p.receivableStartDate || null),
+  f('totalCost', 'Total Cost', 'money', p => num(p.totalCost), { money: true }),
+  f('amountPaid', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
+  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),
+  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),
+  f('originalDebt', 'Original Debt', 'money', p => num(p.originalDebt), { money: true }),
+  f('installment', 'Weekly Installment', 'money', p => num(p.weeklyInstallment), { money: true }),
+  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),
+];
 
-const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
-const RECENT_KEY = 'gs.reports.recent.v1';
+/* ── CLIENTS ─────────────────────────────────────────────────────── */
+const clientFields = [
+  f('name', 'Client Name', 'text', c => c.name || ''),
+  f('nin', 'NIN', 'text', c => c.nin || ''),
+  f('phone', 'Phone', 'text', c => c.phone || ''),
+  f('email', 'Email', 'text', c => c.email || ''),
+  f('plotCount', 'Projects', 'number', c => num(c.plotCount)),
+  f('districts', 'Districts', 'text', c => [...new Set((c.plots || []).map(p => p.district).filter(Boolean))].join(', ')),
+  f('receivables', 'Has Receivables', 'bool', c => (c.plots || []).some(p => p.receivable)),
+  f('lastContact', 'Last Contact', 'date', c => c.lastContact || null),
+  f('daysSinceContact', 'Days Since Contact', 'number', c => daysSince(c.lastContact)),
+  f('lastPaymentAt', 'Last Payment', 'date', c => c.lastPaymentAt || null),
+  f('daysSincePayment', 'Days Since Payment', 'number', c => daysSince(c.lastPaymentAt)),
+  f('lastTag', 'Last Call Tag', 'text', c => c.lastTag || ''),
+  f('lastTone', 'Last Call Tone', 'text', c => c.lastTone || ''),
+  f('owed', 'Total Owed', 'money', c => num(c.owed), { money: true }),
+  f('paid', 'Total Paid', 'money', c => num(c.paid), { money: true }),
+  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),
+  f('billed', 'Total Billed', 'money', c => num(c.owed) + num(c.paid), { money: true }),
+  f('pctPaid', 'Percent Paid', 'percent', c => {
+    const total = num(c.owed) + num(c.paid);
+    return total > 0 ? Math.round((num(c.paid) / total) * 100) : 0;
+  }, { money: true }),
+];
 
-const fldByLabel = (dataset, label) => (dataset?.fields || []).find(f => f.label === label);
+/* ── PAYMENTS ────────────────────────────────────────────────────── */
+const PAYMENT_TYPE_LABELS = {
+  STANDARD: 'Title Payment',
+  INITIAL_DEPOSIT: 'Initial Deposit',
+  RECEIVABLE_PARTIAL: 'Receivables Payment',
+};
+const paymentFields = [
+  f('date', 'Date', 'date', p => p.timestamp || null),
+  f('month', 'Month', 'text', p => monthKey(p.timestamp)),
+  f('year', 'Year', 'text', p => (p.timestamp ? String(new Date(p.timestamp).getFullYear()) : '---')),
+  f('plot', 'Plot', 'text', p => p.plotNumber || ''),
+  f('owner', 'Owner', 'text', p => p.ownerName || ''),
+  f('type', 'Payment Type', 'text', p => PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType || ''),
+  f('recordedBy', 'Recorded By', 'text', p => p.recordedBy || ''),
+  f('notes', 'Notes', 'text', p => p.notes || ''),
+  f('amount', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
+  f('balanceAfter', 'Balance After', 'money', p => num(p.balanceAfter), { money: true }),
+  f('daysAgo', 'Days Ago', 'number', p => daysSince(p.timestamp)),
+];
 
-const periodRange = (period, fromArg, toArg) => {
-  const now = new Date();
-  let start = null;
-  let end = null;
-  if (period === 'TODAY') { start = new Date(now); end = new Date(now); }
-  else if (period === 'THIS WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day); end = new Date(now); }
-  else if (period === 'LAST WEEK') { const day = (now.getDay() + 6) % 7; start = new Date(now); start.setDate(now.getDate() - day - 7); end = new Date(start); end.setDate(start.getDate() + 6); }
-  else if (period === 'THIS MONTH') { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now); }
-  else if (period === 'LAST MONTH') { start = new Date(now.getFullYear(), now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); }
-  else if (period === 'THIS QUARTER') { start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); end = new Date(now); }
-  else if (period === 'THIS YEAR') { start = new Date(now.getFullYear(), 0, 1); end = new Date(now); }
-  else if (period === 'LAST YEAR') { start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() - 1, 11, 31); }
-  else if (period === 'CUSTOM') {
-    let a = fromArg || '';
-    let b = toArg || '';
-    if (a && b && a > b) { const tmp = a; a = b; b = tmp; }
-    if (!a && !b) return null;
-    start = a ? new Date(a) : null;
-    end = b ? new Date(b) : null;
-  } else {
-    return null;
+/* ── EXPENSES ────────────────────────────────────────────────────── */
+const expenseFields = [
+  f('date', 'Date', 'date', e => e.createdAt || null),
+  f('month', 'Month', 'text', e => monthKey(e.createdAt)),
+  f('category', 'Category', 'text', e => e.category || ''),
+  f('recordedBy', 'Logged By', 'text', e => e.recordedBy || ''),
+  f('spentBy', 'Spent By', 'text', e => e.spentBy || e.recordedBy || ''),
+  f('note', 'Note', 'text', e => e.note || ''),
+  f('edited', 'Edited', 'bool', e => !!e.editedAt),
+  f('amount', 'Amount', 'money', e => num(e.amount), { money: true }),
+  f('daysAgo', 'Days Ago', 'number', e => daysSince(e.createdAt)),
+];
+
+/* ── COMPANY (audit ledger) ──────────────────────────────────────── */
+const companyFields = [
+  f('timestamp', 'Timestamp', 'date', a => a.timestamp || null),
+  f('month', 'Month', 'text', a => monthKey(a.timestamp)),
+  f('operator', 'Operator', 'text', a => a.performedBy || ''),
+  f('action', 'Action', 'text', a => a.action || ''),
+  f('details', 'Details', 'text', a => a.details || ''),
+];
+
+/* ── dataset registry ────────────────────────────────────────────── */
+export const DATASETS = {
+  PROJECTS: {
+    key: 'PROJECTS',
+    label: 'Projects',
+    blurb: 'Every land project: location, owners, stage, and the money against it.',
+    restricted: false,
+    dateField: 'Project Start',
+    fields: projectFields,
+    defaultColumns: ['index', 'plot', 'district', 'owner', 'status', 'totalCost', 'amountPaid', 'balance'],
+    load: async () => {
+      // The ledger endpoint is paged. A report has to see all of it, not
+      // page one, so this walks until a short page comes back.
+      const out = [];
+      const SIZE = 200;
+      for (let page = 0; page < 60; page += 1) {
+        const data = await landService.getGlobalLedger(page, SIZE);
+        const rows = data?.content || [];
+        out.push(...rows);
+        if (rows.length < SIZE) break;
+      }
+      return out;
+    },
+  },
+  CLIENTS: {
+    key: 'CLIENTS',
+    label: 'Clients',
+    blurb: 'Every registered client with their portfolio totals and call history.',
+    restricted: false,
+    dateField: 'Last Contact',
+    fields: clientFields,
+    defaultColumns: ['name', 'phone', 'plotCount', 'districts', 'owed', 'paid', 'lastContact'],
+    load: async () => (await recoveryService.getClientLedger()) || [],
+  },
+  PAYMENTS: {
+    key: 'PAYMENTS',
+    label: 'Payments',
+    blurb: 'Every cash payment ever recorded, with who recorded it.',
+    restricted: true,
+    dateField: 'Date',
+    fields: paymentFields,
+    defaultColumns: ['date', 'plot', 'owner', 'type', 'amount', 'recordedBy'],
+    load: async () => (await api.get('/recovery/payments/all')).data || [],
+  },
+  EXPENSES: {
+    key: 'EXPENSES',
+    label: 'Expenses',
+    blurb: 'Every shilling logged as leaving the office, by category and by staff.',
+    restricted: true,
+    dateField: 'Date',
+    fields: expenseFields,
+    defaultColumns: ['date', 'category', 'amount', 'recordedBy', 'spentBy'],
+    load: async () => {
+      const data = await expenseService.search({}, 0, 5000);
+      return data?.content || data || [];
+    },
+  },
+  COMPANY: {
+    key: 'COMPANY',
+    label: 'Company',
+    blurb: 'Every staff action in the audit ledger: logins, edits, deletes, overrides, stage moves.',
+    restricted: true,
+    dateField: 'Timestamp',
+    fields: companyFields,
+    defaultColumns: ['timestamp', 'operator', 'action', 'details'],
+    load: async () => {
+      const out = [];
+      for (let page = 0; page < 40; page += 1) {
+        const data = await auditService.getRawStream(page, 200);
+        const rows = (data && data.content) || [];
+        out.push(...rows);
+        if (rows.length < 200) break;
+      }
+      return out;
+    },
+  },
+};
+
+export const datasetsFor = (canSeeMoney) =>
+  Object.values(DATASETS).filter(d => canSeeMoney || !d.restricted);
+export const fieldsFor = (dataset, canSeeMoney) =>
+  (dataset?.fields || []).filter(fld => canSeeMoney || !fld.money);
+export const fieldByKey = (dataset, key) => (dataset?.fields || []).find(fld => fld.key === key);
+
+/* ── filtering ───────────────────────────────────────────────────── */
+export const OPERATORS = {
+  text: [
+    { key: 'contains', label: 'contains', value: true },
+    { key: 'notContains', label: 'does not contain', value: true },
+    { key: 'is', label: 'is exactly', value: true },
+    { key: 'isNot', label: 'is not', value: true },
+    { key: 'startsWith', label: 'starts with', value: true },
+    { key: 'empty', label: 'is empty', value: false },
+    { key: 'notEmpty', label: 'is not empty', value: false },
+  ],
+  number: [
+    { key: 'eq', label: '=', value: true },
+    { key: 'ne', label: '!=', value: true },
+    { key: 'gt', label: '>', value: true },
+    { key: 'gte', label: '>=', value: true },
+    { key: 'lt', label: '<', value: true },
+    { key: 'lte', label: '<=', value: true },
+    { key: 'between', label: 'between', value: true, value2: true },
+  ],
+  date: [
+    { key: 'after', label: 'on or after', value: true, input: 'date' },
+    { key: 'before', label: 'on or before', value: true, input: 'date' },
+    { key: 'between', label: 'between', value: true, value2: true, input: 'date' },
+    { key: 'lastDays', label: 'in the last N days', value: true },
+    { key: 'empty', label: 'is empty (never)', value: false },
+    { key: 'notEmpty', label: 'is not empty', value: false },
+  ],
+  bool: [
+    { key: 'isTrue', label: 'is YES', value: false },
+    { key: 'isFalse', label: 'is NO', value: false },
+  ],
+};
+OPERATORS.money = OPERATORS.number;
+OPERATORS.percent = OPERATORS.number;
+export const operatorsFor = (type) => OPERATORS[type] || OPERATORS.text;
+
+const matchOne = (raw, type, op, v1, v2) => {
+  if (type === 'bool') {
+    if (op === 'isTrue') return !!raw;
+    if (op === 'isFalse') return !raw;
+    return true;
   }
-  if (!start || !end) return null;
-  return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
-};
-
-const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
-  const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
-  const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
-  const dataset = DATASETS[datasetKey] || available[0];
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [entity, setEntity] = useState(null);
-  const [period, setPeriod] = useState('THIS MONTH');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [columns, setColumns] = useState([]);
-  const [sort, setSort] = useState({ col: '', dir: 'asc' });
-  const [search, setSearch] = useState('');
-  const [groupTab, setGroupTab] = useState('ALL');
-  const [readId, setReadId] = useState(null);
-  const [appliedId, setAppliedId] = useState(null);
-  const [recent, setRecent] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; }
-  });
-  const [colOpen, setColOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
-  const [entOpen, setEntOpen] = useState(false);
-  const colRef = useRef(null);
-  const sortRef = useRef(null);
-  const entRef = useRef(null);
-  useEffect(() => {
-    const h = (e) => {
-      if (colRef.current && !colRef.current.contains(e.target)) setColOpen(false);
-      if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
-      if (entRef.current && !entRef.current.contains(e.target)) setEntOpen(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  const fields = useMemo(() => fieldsFor(dataset, canSeeMoney), [dataset, canSeeMoney]);
-  const fieldByLabelMap = useMemo(() => {
-    const map = {};
-    fields.forEach(f => { map[f.label] = f; });
-    return map;
-  }, [fields]);
-  const load = useCallback(async (key) => {
-    const ds = DATASETS[key];
-    if (!ds) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await ds.load();
-      setRows(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setRows([]);
-      setError('Could not load ' + ds.label.toLowerCase() + '. You may not have access, or the connection dropped.');
-    } finally {
-      setLoading(false);
+  if (type === 'date') {
+    const has = raw !== null && raw !== undefined && raw !== '';
+    if (op === 'empty') return !has;
+    if (op === 'notEmpty') return has;
+    if (!has) return false;
+    const t = new Date(raw).getTime();
+    if (op === 'lastDays') {
+      const n = Number(v1);
+      if (!Number.isFinite(n)) return true;
+      return Date.now() - t <= n * 86400000;
     }
-  }, []);
-  useEffect(() => { load(datasetKey); }, [datasetKey, load]);
-  const firstRun = useRef(true);
-  useEffect(() => {
-    if (firstRun.current) { firstRun.current = false; return; }
-    load(datasetKey);
-  }, [reloadToken, datasetKey, load]);
-  useEffect(() => {
-    const ds = DATASETS[datasetKey];
-    if (!ds) return;
-    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);
-    setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
-    setEntity(null); setAppliedId(null); setReadId(null);
-    setGroupTab('ALL'); setSearch(''); setSort({ col: '', dir: 'asc' });
-  }, [datasetKey, canSeeMoney]);
-
-  const entityTypes = ENTITIES[datasetKey] || [];
-  const entityValues = (type) => {
-    const t = entityTypes.find(x => x.type === type);
-    if (!t) return [];
-    const fld = fieldByLabelMap[t.field];
-    if (!fld) return [];
-    const seen = [];
-    rows.forEach(r => { const v = fld.get(r); if (v && seen.indexOf(v) < 0) seen.push(v); });
-    return seen.sort().slice(0, 40);
-  };
-  const catalogue = useMemo(() => CATALOGUE.filter(d =>
-    d.ds === datasetKey && (!d.money || canSeeMoney) &&
-    ((entity ? (d.scopes || []).indexOf(entity.type) >= 0 : (d.scopes || []).indexOf('ALL') >= 0))
-  ), [datasetKey, canSeeMoney, entity]);
-  const searched = useMemo(() => {
-    const q = search.trim().toUpperCase();
-    if (!q) return catalogue;
-    return catalogue.filter(d => (d.title + ' ' + d.desc).toUpperCase().indexOf(q) >= 0);
-  }, [catalogue, search]);
-  useEffect(() => {
-    if (groupTab !== 'ALL' && !searched.some(d => d.group === groupTab)) setGroupTab('ALL');
-  }, [searched, groupTab]);
-  const listed = groupTab === 'ALL' ? searched : searched.filter(d => d.group === groupTab);
-  const appliedDef = CATALOGUE.find(d => d.id === appliedId) || null;
-  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);
-
-  const toggleColumn = (key) => setColumns(c => (c.indexOf(key) >= 0 ? c.filter(k => k !== key) : [...c, key]));
-  const applyDef = (def) => {
-    setAppliedId(def.id);
-    setReadId(null);
-    const keys = (def.cols || []).map(l => (fieldByLabelMap[l] || {}).key).filter(Boolean);
-    const allowed = fields.map(f => f.key);
-    if (keys.length) setColumns(keys.filter(k => allowed.includes(k)));
-    if (def.sort) setSort({ col: def.sort.col, dir: def.sort.dir });
-    const next = [def.id].concat(recent.filter(x => x !== def.id)).slice(0, 6);
-    setRecent(next);
-    try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch (e) { /* private mode */ }
-  };
-  const periodHuman = () => {
-    const labels = { TODAY: 'today', 'THIS WEEK': 'this week', 'LAST WEEK': 'last week', 'THIS MONTH': 'this month', 'LAST MONTH': 'last month', 'THIS QUARTER': 'this quarter', 'THIS YEAR': 'this year', 'LAST YEAR': 'last year', 'ALL TIME': 'since records began' };
-    if (period !== 'CUSTOM') return labels[period] || period;
-    let a = from || '..';
-    let b = to || '..';
-    if (from && to && from > to) { a = to; b = from; }
-    return 'between ' + a + ' and ' + b;
-  };
-  const readout = (def) => {
-    let text = def.desc;
-    text += entity ? (' For ' + entity.label.toLowerCase() + ' ' + entity.value + '.') : (' Whole company.');
-    text += def.period ? (' Period: ' + periodHuman() + '.') : (' Right-now snapshot.');
-    const sc = def.sort || { col: 'first column', dir: 'asc' };
-    text += ' Sorted by ' + sc.col + ' ' + (sc.dir === 'desc' ? 'highest first.' : 'A to Z.');
-    return text;
-  };
-  return (
-    <div className={styles.studio}>
-      <div className={styles.scopePanel}>
-        <div className={styles.panelHeadRow}>
-          <span className={styles.scopeTitle}>SCOPE</span>
-          <button className={styles.chip} onClick={() => load(datasetKey)} disabled={loading}>
-            <FiRefreshCw size={11} aria-hidden="true" /> RELOAD
-          </button>
-        </div>
-        <div className={styles.scopeBody}>
-          <div className={styles.tileRow}>
-            {available.map(ds => (
-              <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
-                {ds.label}
-                <span className={styles.tileCount}>{ds.key === datasetKey ? (loading ? '...' : rows.length) : ''}</span>
-              </button>
-            ))}
-          </div>
-          <p className={styles.hint}>{dataset?.blurb}</p>
-          {!canSeeMoney && (
-            <p className={styles.hint}>
-              <FiAlertCircle size={12} aria-hidden="true" /> Financial datasets, money columns and company reports are hidden on your role.
-            </p>
-          )}
-          {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
-          <div className={styles.scopeRow}>
-            <div className={styles.scopeField} ref={entRef}>
-              <span className={styles.miniLabel}>Who / what</span>
-              <div className={styles.entWrap}>
-                {entity && (
-                  <span className={styles.chipE}>
-                    {entity.label}: {entity.value}
-                    <button onClick={() => setEntity(null)} aria-label="Clear entity"><FiX size={11} aria-hidden="true" /></button>
-                  </span>
-                )}
-                <button className={styles.pickBtn} onClick={() => setEntOpen(o => !o)} aria-expanded={entOpen}>
-                  <span>{entity ? 'Change...' : 'Whole company'}</span>
-                  <FiChevronDown className={entOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-                </button>
-                {entOpen && (
-                  <div className={styles.pickList}>
-                    <div className={styles.ddScroll}>
-                      <button className={styles.pickOption} onClick={() => { setEntity(null); setEntOpen(false); }}>WHOLE COMPANY</button>
-                      {entityTypes.map(t => entityValues(t.type).slice(0, 12).map(v => (
-                        <button key={t.type + v} className={styles.pickOption} onClick={() => { setEntity({ type: t.type, label: t.label, value: v }); setEntOpen(false); }}>
-                          {t.label}: {v}
-                        </button>
-                      )))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className={styles.scopeField}>
-              <span className={styles.miniLabel}>When</span>
-              <div className={(appliedDef && !appliedDef.period ? styles.perChipsDim : '') + ' ' + styles.perChips}>
-                {PERIODS.map(p => (
-                  <button key={p} className={period === p ? styles.pchipOn : styles.pchip} onClick={() => setPeriod(p)}>{p}</button>
-                ))}
-              </div>
-              {period === 'CUSTOM' && (
-                <div className={styles.customRange}>
-                  <input type="date" value={from} onChange={e => setFrom(e.target.value)} aria-label="From date" />
-                  <span>to</span>
-                  <input type="date" value={to} onChange={e => setTo(e.target.value)} aria-label="To date" />
-                </div>
-              )}
-              {appliedDef && !appliedDef.period && <span className={styles.snapHint}>snapshot -- as at today, period ignored</span>}
-            </div>
-            <div className={styles.scopeField} ref={colRef}>
-              <span className={styles.miniLabel}>Columns</span>
-              <button className={styles.pickBtn} onClick={() => setColOpen(o => !o)} aria-expanded={colOpen}>
-                <span>{columns.length} OF {fields.length} COLUMNS</span>
-                <FiChevronDown className={colOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-              </button>
-              {colOpen && (
-                <div className={styles.pickList}>
-                  <div className={styles.ddScroll}>
-                    {fields.map(f => (
-                      <label key={f.key} className={styles.pickCheck + (columns.indexOf(f.key) >= 0 ? ' ' + styles.pickCheckOn : '')}>
-                        <input type="checkbox" checked={columns.indexOf(f.key) >= 0} onChange={() => toggleColumn(f.key)} />{f.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className={styles.scopeField} ref={sortRef}>
-              <span className={styles.miniLabel}>Sort</span>
-              <div className={styles.sortRow}>
-                <button className={styles.pickBtn} onClick={() => setSortOpen(o => !o)} aria-expanded={sortOpen}>
-                  <span>{sort.col || 'DEFAULT'}</span>
-                  <FiChevronDown className={sortOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-                </button>
-                <button className={styles.dirBtn} onClick={() => setSort(s => ({ col: s.col, dir: s.dir === 'desc' ? 'asc' : 'desc' }))} aria-label="Flip sort direction">
-                  {sort.dir === 'desc' ? '\\u2193' : '\\u2191'}
-                </button>
-                {sortOpen && (
-                  <div className={styles.pickList}>
-                    <div className={styles.ddScroll}>
-                      <button className={styles.pickOption + (!sort.col ? ' ' + styles.pickOptionActive : '')} onClick={() => { setSort({ col: '', dir: 'asc' }); setSortOpen(false); }}>DEFAULT (report's own)</button>
-                      {fields.map(f => (
-                        <button key={f.key} className={styles.pickOption + (sort.col === f.label ? ' ' + styles.pickOptionActive : '')} onClick={() => { setSort(s => ({ col: f.label, dir: s.dir })); setSortOpen(false); }}>
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.catPanel}>
-        <div className={styles.panelHeadRow}>
-          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
-          <span className={styles.badge}>{searched.length} REPORTS</span>
-          <div className={styles.searchBox}>
-            <FiSearch className={styles.searchIcon} aria-hidden="true" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" />
-            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
-          </div>
-        </div>
-        <div className={styles.tabRow}>
-          <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
-            ALL<span className={styles.gcnt}>{searched.length}</span>
-          </button>
-          {GROUPS.map(g => {
-            const n = searched.filter(d => d.group === g).length;
-            if (!n && g !== groupTab) return null;
-            return (
-              <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>
-                {g}<span className={styles.gcnt}>{n}</span>
-              </button>
-            );
-          })}
-        </div>
-        {recentDefs.length > 0 && (
-          <div className={styles.recentRow}>
-            <span className={styles.recentLabel}>RECENTLY USED</span>
-            {recentDefs.map(d => (
-              <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>
-            ))}
-          </div>
-        )}
-        <div className={styles.catList}>
-          {listed.length === 0 && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
-          {listed.map(def => (
-            <div key={def.id} className={styles.catWrap}>
-              <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
-                <span className={styles.r1}>{def.title}<span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span></span>
-                <span className={styles.r2}>{def.desc}</span>
-              </button>
-              {readId === def.id && (
-                <div className={styles.readout}>
-                  <div className={styles.readoutText}>{readout(def)}</div>
-                  <button className={styles.useBtn} onClick={() => applyDef(def)}>USE THIS REPORT</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className={styles.foot}>
-          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}
-          {search ? ' matching "' + search + '"' : ''}
-          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
-        </div>
-      </div>
-
-      <div className={styles.appliedLine}>
-        {appliedDef
-          ? <>APPLIED: <b>{appliedDef.title}</b> &middot; {columns.length} columns &middot; sorted {sort.col || 'default'} {sort.dir} &middot; {entity ? entity.label + ' ' + entity.value : 'whole company'} &middot; {appliedDef.period ? periodHuman() : 'right now'}</>
-          : <>No report applied yet -- open a report above and press USE THIS REPORT.</>}
-      </div>
-    </div>
-  );
+    const a = v1 ? new Date(v1 + 'T00:00:00').getTime() : null;
+    const b = v2 ? new Date(v2 + 'T23:59:59').getTime() : null;
+    if (op === 'after') return a === null || t >= a;
+    if (op === 'before') return a === null || t <= new Date(v1 + 'T23:59:59').getTime();
+    if (op === 'between') return (a === null || t >= a) && (b === null || t <= b);
+    return true;
+  }
+  if (type === 'number' || type === 'money' || type === 'percent') {
+    const n = num(raw);
+    const a = Number(v1);
+    const b = Number(v2);
+    if (op === 'between') {
+      if (Number.isFinite(a) && n < a) return false;
+      if (Number.isFinite(b) && n > b) return false;
+      return true;
+    }
+    if (!Number.isFinite(a)) return true;
+    if (op === 'eq') return n === a;
+    if (op === 'ne') return n !== a;
+    if (op === 'gt') return n > a;
+    if (op === 'gte') return n >= a;
+    if (op === 'lt') return n < a;
+    if (op === 'lte') return n <= a;
+    return true;
+  }
+  const s = String(raw === null || raw === undefined ? '' : raw).toLowerCase();
+  const q = String(v1 === null || v1 === undefined ? '' : v1).toLowerCase().trim();
+  if (op === 'empty') return s.trim() === '';
+  if (op === 'notEmpty') return s.trim() !== '';
+  if (!q) return true;
+  if (op === 'contains') return s.includes(q);
+  if (op === 'notContains') return !s.includes(q);
+  if (op === 'is') return s === q;
+  if (op === 'isNot') return s !== q;
+  if (op === 'startsWith') return s.startsWith(q);
+  return true;
 };
-export default ReportStudio;
-'''
-write(STU, STUDIO_JS, 'rewrite ReportStudio.jsx (audited let/const, stage 2 UI)')
 
-# ----------------------------------------------------------------------------
-# 3. addendum + save + build + commit
-# ----------------------------------------------------------------------------
-ADDENDUM = '''
-- fix82 (2026-09-24): REPAIR for the runtime crash "Assignment to constant variable" on Reports. ReportStudio.jsx rewritten with audited let/const discipline (mutable locals are let, helpers pure, custom-range swap uses a temp const instead of reassigning a const); reportData.js normalised so the companyFields const block is declared before DATASETS and only one spelling of the name exists anywhere.
+/**
+* Conditions combine with AND by default; set `mode` to 'OR' for any-of.
+* `search` is a free-text sweep across every text field, so you can narrow
+* without having to know which column a name lives in.
+*/
+export const applyFilters = (rows, dataset, conditions, mode = 'AND', search = '') => {
+  const active = (conditions || []).filter(c => c.field && c.op);
+  const q = (search || '').trim().toLowerCase();
+  const textFields = (dataset.fields || []).filter(fld => fld.type === 'text');
+  return rows.filter(row => {
+    if (q) {
+      const hit = textFields.some(fld => String(fld.get(row) || '').toLowerCase().includes(q));
+      if (!hit) return false;
+    }
+    if (active.length === 0) return true;
+    const results = active.map(c => {
+      const fld = fieldByKey(dataset, c.field);
+      if (!fld) return true;
+      return matchOne(fld.get(row), fld.type, c.op, c.value, c.value2);
+    });
+    return mode === 'OR' ? results.some(Boolean) : results.every(Boolean);
+  });
+};
+
+/* ── measures ────────────────────────────────────────────────────── */
+export const AGGREGATIONS = [
+  { key: 'count', label: 'Count of rows', needsField: false, type: 'number' },
+  { key: 'sum', label: 'Sum', needsField: true },
+  { key: 'avg', label: 'Average', needsField: true },
+  { key: 'min', label: 'Minimum', needsField: true },
+  { key: 'max', label: 'Maximum', needsField: true },
+  { key: 'distinct', label: 'Distinct values', needsField: true, type: 'number' },
+];
+const aggregate = (rows, agg, fld) => {
+  if (agg === 'count' || !fld) return rows.length;
+  if (agg === 'distinct') return new Set(rows.map(r => String(fld.get(r) ?? ''))).size;
+  const vals = rows.map(r => num(fld.get(r)));
+  if (vals.length === 0) return 0;
+  if (agg === 'sum') return vals.reduce((a, b) => a + b, 0);
+  if (agg === 'avg') return vals.reduce((a, b) => a + b, 0) / vals.length;
+  if (agg === 'min') return Math.min(...vals);
+  if (agg === 'max') return Math.max(...vals);
+  return 0;
+};
+export const measureType = (measure, dataset) => {
+  const def = AGGREGATIONS.find(a => a.key === measure.agg);
+  if (def && def.type) return def.type;
+  const fld = fieldByKey(dataset, measure.field);
+  if (!fld) return 'number';
+  return fld.type === 'percent' ? 'number' : fld.type;
+};
+export const measureLabel = (measure, dataset) => {
+  const def = AGGREGATIONS.find(a => a.key === measure.agg);
+  if (!def) return 'Value';
+  if (!def.needsField) return def.label;
+  const fld = fieldByKey(dataset, measure.field);
+  return def.label + ' of ' + (fld ? fld.label : '?');
+};
+
+/**
+* Group by one or two fields and run every measure over each bucket.
+* Two levels is the ceiling on purpose: a third turns a readable table into
+* a puzzle, and "compare" already covers the cross-tab case.
+*/
+export const groupRows = (rows, dataset, groupKeys, measures) => {
+  const keys = (groupKeys || []).filter(Boolean).slice(0, 2);
+  const flds = keys.map(k => fieldByKey(dataset, k)).filter(Boolean);
+  const buckets = new Map();
+  rows.forEach(row => {
+    const path = flds.map(fld => {
+      const v = fld.get(row);
+      if (v === null || v === undefined || v === '') return '(none)';
+      if (fld.type === 'bool') return v ? 'YES' : 'NO';
+      if (fld.type === 'date') return fmtDate(v);
+      return String(v);
+    });
+    const id = path.join(' \u2023 ') || 'ALL';
+    if (!buckets.has(id)) buckets.set(id, { id, path, rows: [] });
+    buckets.get(id).rows.push(row);
+  });
+  return [...buckets.values()].map(b => ({
+    id: b.id,
+    path: b.path,
+    count: b.rows.length,
+    values: (measures || []).map(m => aggregate(b.rows, m.agg, fieldByKey(dataset, m.field))),
+    rows: b.rows,
+  }));
+};
+export const summarise = (rows, dataset, measures) =>
+  (measures || []).map(m => aggregate(rows, m.agg, fieldByKey(dataset, m.field)));
+
+/* ── CSV out ─────────────────────────────────────────────────────── */
+const csvCell = (v) => {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+export const toCSV = (headers, matrix) =>
+  [headers.map(csvCell).join(','), ...matrix.map(r => r.map(csvCell).join(','))].join('\n');
+export const downloadCSV = (filename, csv) => {
+  // Excel reads a bare UTF-8 CSV as Latin-1 and mangles anything non-ASCII.
+  // The BOM is what tells it otherwise.
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+/* ── saved views ─────────────────────────────────────────────────── */
+const VIEW_KEY = 'goldenseed.reportstudio.views.v1';
+export const loadViews = () => {
+  try {
+    return JSON.parse(window.localStorage.getItem(VIEW_KEY) || '[]');
+  } catch {
+    return [];
+  }
+};
+export const saveViews = (views) => {
+  try {
+    window.localStorage.setItem(VIEW_KEY, JSON.stringify(views));
+    return true;
+  } catch {
+    return false;
+  }
+};
 '''
-get(ADD)
-BUF[ADD] = BUF[ADD] + ADDENDUM
+
+ADDENDUM = '''
+- fix83 (2026-09-25): clean-slate repair of reportData.js and package.json after the Render build log named two leftovers from the overlapping fix79/80/82 patch runs: a duplicate "jspdf" key in package.json, and a const reassignment at reportData.js line ~231 ("Cannot reassign a variable declared with const") which was the runtime "Assignment to constant variable" crash. reportData.js is now rewritten whole from one source: original data layer plus COMPANY dataset (audit ledger, restricted), dateField on every dataset so the period chips can filter event reports, and the derived Entry Mode column. Exports unchanged, so reportsCatalog.js and ReportStudio.jsx keep working as-is.
+'''
+
+print('=' * 72)
+print(' GOLDEN SEED fix83 -- clean-slate reportData.js + package.json repair')
+print('=' * 72)
+
+os.makedirs(os.path.dirname(RDATA), exist_ok=True)
+with open(RDATA, 'w', encoding='utf-8', newline='\n') as f:
+    f.write(REPORT_DATA)
+print('OK      rewrite reportData.js (single clean source, no stray assigns)')
+
+with open(PKG, 'r', encoding='utf-8', errors='replace') as f:
+    pkg = f.read()
+dup = '    "jspdf": "^2.5.1",\n    "jspdf": "^2.5.1"'
+if dup in pkg:
+    pkg = pkg.replace(dup, '    "jspdf": "^2.5.1"', 1)
+    with open(PKG, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(pkg)
+    print('OK      package.json duplicate jspdf key removed')
+else:
+    print('SKIP    package.json jspdf key already single')
+
+with open(ADD, 'a', encoding='utf-8', newline='\n') as f:
+    f.write(ADDENDUM)
 print('OK      addendum appended')
 
-for p in (STU, RDATA, ADD):
-    save(p)
 print('')
 print('All files written.')
 print('')
@@ -435,9 +545,9 @@ else:
 
 print('')
 print('git: staging, committing, pushing...')
-MSG = 'fix82 repair: const-assignment crash on Reports fixed (audited studio rewrite + companyFields normalised)'
+MSG = 'fix83: clean-slate reportData.js (kills const-reassignment at line 231) + duplicate jspdf key removed'
 subprocess.run(['git', 'add', '-A'])
 subprocess.run(['git', 'commit', '-m', MSG])
 subprocess.run(['git', 'push'])
 print('')
-print('Done. After the green tick, HARD-REFRESH (Ctrl+Shift+R) -- the old bundle is cached.')
+print('Done. After the green tick, hard-refresh and walk Reports end to end.')
