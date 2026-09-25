@@ -457,10 +457,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
         <span className={styles.sourceCount}>{loading ? '...' : scopeRows.length} SOURCE ROWS</span>
       </div>
-      <div className={styles.scopePanel + ' ' + styles.decorBl}>
+      <div className={styles.scopePanel}>
+        <i className={styles.decoCornerBL} aria-hidden="true"></i>
+        <i className={styles.decoCornerBR} aria-hidden="true"></i>
+        <i className={styles.decoDots} aria-hidden="true"></i>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>SCOPE</span>
-          <button className={styles.headToggle + ' ' + styles.pgBtn} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
+          <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
             <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
           </button>
         </div>
@@ -574,7 +577,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       </div>
 
-      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed) + ' ' + styles.decorBl}>
+      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed)}>
+        <i className={styles.decoCornerBL} aria-hidden="true"></i>
+        <i className={styles.decoCornerBR} aria-hidden="true"></i>
+        <i className={styles.decoDots} aria-hidden="true"></i>
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
@@ -583,7 +589,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
             {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
           </div>
-          <button className={styles.headToggle + ' ' + styles.pgBtn} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label="Collapse or expand catalogue panel">
+          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label="Collapse or expand catalogue panel">
             <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
           </button>
         </div>

@@ -274,44 +274,26 @@
   letter-spacing: 2px; text-transform: uppercase; color: rgba(26, 46, 48, 0.45);
 }
 .headToggle {
-  margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
-  border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12);
-  color: #EE8C3A; transition: all 0.2s ease;
+  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; flex-shrink: 0; border: 1.5px solid #EE8C3A; background: #162a2c; color: #EE8C3A; transition: all 0.2s ease;
 }
 .headToggle:hover { background: #EE8C3A; color: #1a2e30; }
-.headToggle svg { transition: transform 0.2s; }
+.headToggle svg {
+  width: 14px; height: 14px; transition: transform 0.2s;
+}
 .catPanel .searchBox { margin-left: auto; }
 .catPanel .headToggle { margin-left: 10px; }
 .panelClosed { display: none; }
 .catPanelClosed > *:not(.panelHeadRow) { display: none; }
 .liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }
 .catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }
+.scopePanel, .catPanel { position: relative; }
+.decoCornerBL, .decoCornerBR { position: absolute; bottom: -8px; width: 14px; height: 14px; pointer-events: none; }
+.decoCornerBL { left: -8px; border-left: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }
+.decoCornerBR { right: -8px; border-right: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }
+.decoDots { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); width: 45px; height: 4px; pointer-events: none; background: radial-gradient(circle, #EE8C3A 1.5px, transparent 2px) repeat-x left center; background-size: 9px 4px; }
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }
   .pickBtn { min-width: 100%; }
   .pvBtns { margin-left: 0; }
   .searchBox { margin-left: 0; width: 100%; }
-}
-
-/* fix99b: ported verbatim from erp-frontend/src/pages/Clients/ClientLedgerPage.module.css */
-.decorBl::after,.decorBr::after {
-  content:'';position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,0.4);
-}
-
-/* fix100: ported verbatim from erp-frontend/src/pages/Audit/AuditPage.module.css */
-.pgBtn {
-  background: transparent; border: 1.5px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: clamp(6px,0.8vw,9px) clamp(11px,1.4vw,16px); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: var(--fs-btn); cursor: pointer; display: flex; align-items: center; gap: clamp(5px,0.6vw,8px); transition: border-color 0.2s, color 0.2s, background 0.2s; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
-}
-.pgBtn:hover:not(:disabled) {
-  border-color: var(--orange); color: var(--orange); background: rgba(238,140,58,0.06);
-}
-.pgBtn:disabled {
-  opacity: 0.25; cursor: not-allowed;
-}
-.pgBtn:focus-visible {
-  outline: 2px solid var(--orange); outline-offset: 2px;
-}
-.pgBtn {
-  padding: 5px 10px; font-size: 8px;
 }
