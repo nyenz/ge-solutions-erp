@@ -1,9 +1,9 @@
 import subprocess
 import pathlib
 
-DRY_RUN = True  # True = change nothing
+DRY_RUN = True  # True = change nothing, just report what would happen
 
-MSG = 'fix86: reports top section matches prototype (drop dupe reload, data sources own panel, search field resized, dropdown restyle)'
+MSG = 'fix: reports top section matches prototype (drop dupe reload, data sources own panel, search field resized, dropdown restyle)'
 
 FIXES = [
     # 1) drop unused FiRefreshCw import (RELOAD button goes away below)
@@ -59,7 +59,7 @@ FIXES = [
     ),
 
     # 3) WHO/WHAT search field was wider than its row siblings (COLUMNS/SORT
-    #    pick buttons) -- scale it down to the same clamp so proportions match
+    #    pick buttons) -- scale it down so proportions read closer together
     (
         "erp-frontend/src/pages/Reports/ReportStudio.module.css",
         ".entInput { height: 38px; width: clamp(180px, 22vw, 280px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: all 0.2s; }",
