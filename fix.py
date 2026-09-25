@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix94: source tabs become the app's deactivated filter chips.
-# Other pages draw filter rows directly on the cream page: solid slate
-# (#4d5c5a) chips for deactivated filters, orange chip for the active one.
-# The Reports source row now matches that family 1-to-1: band removed,
-# slate chips in, orange active chip, 10px gaps.
+# GOLDEN SEED -- fix95:
+# 1. Dropdown lists scroll but hide the scrollbar (prototype behaviour).
+# 2. Scope who/what field gets the exact catalogue-search dimensions, both
+#    rules now box-sizing: border-box so edits actually render.
+# 3. Catalogue report titles use the theme soft grey, white on hover.
 # Then adds, commits and pushes by itself.
 import os
 import subprocess
@@ -27,59 +27,33 @@ def replace(file_path, old, new):
     print('patched: ' + os.path.relpath(file_path, ROOT))
 
 
-# 1. holder loses the band: row sits on the cream page like other filter rows
+# ── 1. scrollable dropdowns with hidden scrollbars ──
 replace(CSS,
-        ".sourcePanel {\n"
-        "  flex: 0 0 auto; display: flex; align-items: center;\n"
-        "  background: #3e595b;\n"
-        "  border: 1.5px solid rgba(255, 255, 255, 0.08); border-radius: 8px;\n"
-        "  padding: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);\n"
-        "}\n",
-        ".sourcePanel {\n"
-        "  flex: 0 1 auto; display: flex; align-items: center;\n"
-        "  background: transparent;\n"
-        "  border: none; border-radius: 0;\n"
-        "  padding: 0; box-shadow: none;\n"
-        "}\n")
+        ".ddScroll { padding: 0; }",
+        ".ddScroll { max-height: 264px; overflow-y: auto; padding: 0; scrollbar-width: none; -ms-overflow-style: none; }")
+replace(CSS,
+        ".ddScroll::-webkit-scrollbar { width: 6px; }",
+        ".ddScroll::-webkit-scrollbar { width: 0; height: 0; display: none; }")
+replace(CSS,
+        ".ddScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
+        ".ddScroll::-webkit-scrollbar-thumb { background: transparent; }")
 
-# 2 + 3 + 4. deactivated slate chips, orange active chip, 10px gaps
+# ── 2. one shared dimension token set for both search fields, border-box ──
 replace(CSS,
-        ".tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n"
-        ".tile {\n"
-        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
-        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
-        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
-        "  padding: 8px 12px; border-radius: 6px;\n"
-        "  border: 1.5px solid transparent; background: transparent;\n"
-        "  color: rgba(255,255,255,0.8); transition: color 0.2s ease;\n"
-        "}\n"
-        ".tile:hover { color: #EE8C3A; }\n"
-        ".tileActive {\n"
-        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
-        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
-        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
-        "  padding: 8px 14px; border-radius: 6px;\n"
-        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
-        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
-        "}\n",
-        ".tileRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }\n"
-        ".tile {\n"
-        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
-        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
-        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
-        "  padding: 12px 22px; border-radius: 8px;\n"
-        "  border: 1.5px solid transparent; background: #4d5c5a;\n"
-        "  color: rgba(255,255,255,0.92); transition: background 0.2s ease, color 0.2s ease;\n"
-        "}\n"
-        ".tile:hover { background: #5a6b68; color: #fff; }\n"
-        ".tileActive {\n"
-        "  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
-        "  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
-        "  letter-spacing: 1.5px; text-transform: uppercase;\n"
-        "  padding: 12px 24px; border-radius: 8px;\n"
-        "  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30;\n"
-        "  box-shadow: 0 4px 16px rgba(238,140,58,0.3);\n"
-        "}\n")
+        ".entInput { height: 34px; width: clamp(220px, 26vw, 320px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: all 0.2s; }",
+        ".entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }")
+replace(CSS,
+        ".searchBox { position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }",
+        ".searchBox { box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto; }")
+
+# ── 3. report titles on theme soft grey, white on hover/active ──
+replace(CSS,
+        ".r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }",
+        ".r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6f70; }")
+replace(CSS,
+        ".catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }",
+        ".catRow:hover .r1, .catRowOn .r1 { color: #fff; }\n"
+        ".catRow:hover .r2, .catRowOn .r2 { color: rgba(255,255,255,0.85); }")
 
 
 def git(*args):
@@ -99,8 +73,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix94: source tabs = deactivated filter chips from other pages (slate on cream, orange active), band removed')
+git('commit', '-m', 'fix95: hidden-scrollbar dropdowns, scope search mirrors catalogue search (border-box), report titles on theme grey')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix94 done: patched, committed and pushed to main.')
+print('fix95 done: patched, committed and pushed to main.')
