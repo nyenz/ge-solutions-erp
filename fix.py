@@ -1,109 +1,111 @@
 #!/usr/bin/env python3
-# PATH: fix103.py
-# GOLDEN SEED -- fix103: the notification dropdown isn't a layout bug, it's a
-# broken design-token chain. fix71 rewrote the bell's CSS to reference
-# --panel-bg, --panel-header, --accent, --accent-ink, --accent-soft, --warn,
-# --warn-soft, --on-panel, --on-panel-soft and --on-panel-faint (and
-# notificationCatalog.js reaches for --ok/--warn/--bad/--info too) -- but
-# NONE of those names are ever defined in scope for <Header>. Every other
-# page defines its own --panel-bg/--accent-style tokens on its own root
-# `.container`, so those pages look fine; Header sits outside all of them,
-# so every var() call silently fails and the dropdown paints with browser
-# defaults -- which is exactly the washed-out, see-through, overlapping mess
-# in the screenshot. Fix: (1) delete the dead fix70 duplicate rule block
-# fix71 was appended alongside instead of replacing, keeping the one live
-# rule (.notifWrap) it still held; (2) declare the missing tokens as local
-# overrides on .header itself, using the same literal values the rest of
-# the app already uses for panel surfaces / accent / status colors, so the
-# bell finally matches every other panel in Golden Seed.
+# PATH: fix.py
+# GOLDEN SEED -- fix104: repair the header glitch + notification styling.
+# Concretises every design token in the header stylesheet (broken chain from
+# fix103), then guarantees: sticky dark flex-row header bar, bell button,
+# red badge, notification dropdown panel. Idempotent and re-runnable.
 import os
 import re
 import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-LAYOUT = os.path.join(ROOT, 'erp-frontend', 'src', 'components', 'layout')
-CSS = os.path.join(LAYOUT, 'Header.module.css')
+SRC = os.path.join(ROOT, 'erp-frontend', 'src')
 
+TOKENS = {
+    '--panel-bg': '#162a2c',
+    '--panel-header': '#101f21',
+    '--panel-head': '#101f21',
+    '--accent': '#EE8C3A',
+    '--accent-soft': 'rgba(238, 140, 58, 0.14)',
+    '--accent-dim': 'rgba(238, 140, 58, 0.45)',
+    '--ok': '#2ecc8f',
+    '--warn': '#EE8C3A',
+    '--bad': '#e5484d',
+    '--info': '#38bdf8',
+    '--on-panel': '#ffffff',
+    '--on-panel-soft': 'rgba(255, 255, 255, 0.72)',
+    '--on-panel-faint': 'rgba(255, 255, 255, 0.45)',
+}
 
-def read(p):
-    with open(p, 'r', encoding='utf-8') as f:
-        return f.read()
-
-
-def write(p, s):
-    with open(p, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(s)
-
-
-css = read(CSS)
-
-# ═══ 1. remove the dead fix70 block, keep the one rule still in use ═══
-old_block = (
-    "/* NOTIFICATION DROPDOWN (fix70) */\n"
-    ".notifWrap { position: relative; }\n"
-    ".notifDrop {\n"
-    "  position: absolute; top: calc(100% + 8px); right: 0; z-index: 500;\n"
-    "  width: clamp(260px, 30vw, 360px);\n"
-    "  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);\n"
-    "  border: 1.5px solid rgba(238,140,58,0.35); border-radius: 10px;\n"
-    "  box-shadow: 0 20px 50px rgba(0,0,0,0.55); overflow: hidden;\n"
-    "  animation: dropIn 0.18s ease-out;\n"
-    "}\n"
-    "@keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }\n"
-    ".notifHead { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 900; letter-spacing: 2px; color: var(--orange); }\n"
-    ".notifReadAll { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 4px 8px; font-size: 8px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }\n"
-    ".notifReadAll:hover { color: #fff; border-color: var(--orange); }\n"
-    ".notifEmpty { padding: 18px 12px; text-align: center; font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 900; letter-spacing: 2px; color: rgba(255,255,255,0.3); }\n"
-    ".notifRow { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 10px 12px; cursor: pointer; }\n"
-    ".notifRow:hover { background: rgba(255,255,255,0.05); }\n"
-    ".notifRead { opacity: 0.45; }\n"
-    ".notifDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }\n"
-    ".notifMsg { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1.4; word-break: break-word; }\n"
-)
-if old_block in css:
-    css = css.replace(old_block, "/* NOTIFICATION DROPDOWN -- .notifWrap kept, dead fix70 rules removed by fix103 */\n.notifWrap { position: relative; }\n")
-    print('undo: removed dead fix70 duplicate rule block (kept .notifWrap)')
-elif '.notifWrap { position: relative; }' in css and '(fix70)' not in css:
-    print('skip (already applied): fix70 block already removed')
-else:
-    print('FAIL: could not locate the fix70 block to remove')
+# ═══ 1. find the header stylesheet ═══
+cands = []
+for dirpath, _dirs, files in os.walk(SRC):
+    for f in sorted(files):
+        if f.endswith('.module.css'):
+            fp = os.path.join(dirpath, f)
+            cands.append((0 if 'header' in f.lower() else 1, fp))
+cands.sort()
+header_css = None
+for _prio, fp in cands:
+    with open(fp, 'r', encoding='utf-8') as fh:
+        body = fh.read()
+    if re.search(r'\.(header|appHeader|topBar|headerBar)\s*(,|\{)', body):
+        header_css = fp
+        break
+if not header_css:
+    print('FAIL: no header stylesheet found under erp-frontend/src')
     sys.exit(1)
+print('header stylesheet: ' + os.path.relpath(header_css, ROOT))
 
-# ═══ 2. give .header the local token overrides the bell actually needs ═══
-if '--panel-bg:' in css.split('.notifWrap')[0] or re.search(r'\.header\s*\{[^}]*--panel-bg:', css):
-    print('skip (already applied): .header token overrides')
-else:
-    anchor = (
-        ".header {\n"
-        "    height: var(--header-height, clamp(52px, 7vw, 64px));\n"
-    )
-    if anchor not in css:
-        print('FAIL: .header rule anchor not found')
-        sys.exit(1)
-    tokens = (
-        "    /* fix103: local overrides -- Header sits outside every page's\n"
-        "       .container, so it can't inherit their page-scoped tokens. These\n"
-        "       are the same literal values the rest of the app already uses. */\n"
-        "    --panel-bg: linear-gradient(160deg, #1c3335 0%, #213E40 100%);\n"
-        "    --panel-header: #162a2c;\n"
-        "    --accent: var(--orange);\n"
-        "    --accent-ink: var(--text-on-light, #1a2e30);\n"
-        "    --accent-soft: rgba(238, 140, 58, 0.14);\n"
-        "    --ok: #10b981;\n"
-        "    --warn: #f59e0b;\n"
-        "    --warn-soft: rgba(245, 158, 11, 0.12);\n"
-        "    --bad: #ef4444;\n"
-        "    --info: #06b6d4;\n"
-        "    --on-panel: var(--text-on-dark, rgba(244, 242, 239, 0.82));\n"
-        "    --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));\n"
-        "    --on-panel-faint: rgba(244, 242, 239, 0.45);\n"
-        + anchor
-    )
-    css = css.replace(anchor, tokens, 1)
-    print('patched: declared --panel-bg/--panel-header/--accent*/--ok/--warn*/--bad/--info/--on-panel* on .header')
+with open(header_css, 'r', encoding='utf-8') as f:
+    css = f.read()
 
-write(CSS, css)
+# ═══ 2. concretise tokens (kill the broken var chain) ═══
+def detok(m):
+    return TOKENS.get(m.group(1), m.group(0))
+css, nt = re.subn(r'var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)', detok, css)
+print('tokens concretised: %d occurrence(s)' % nt)
+
+
+def ensure_rule(css, sel_regex, canonical, label, needs):
+    pat = re.compile(r'(' + sel_regex + r'\s*(?:,[^{]*)?\{)([^}]*)(\})')
+    m = pat.search(css)
+    if m and all(k in m.group(2) for k in needs):
+        print('skip (already healthy): ' + label)
+        return css
+    if m:
+        css = pat.sub(lambda mm: mm.group(1) + '\n  ' + canonical + '\n', css, count=1)
+        print('rebuilt rule: ' + label)
+    else:
+        css += '\n.' + label.split(' ')[0] + ' {\n  ' + canonical + '\n}\n'
+        print('added rule: ' + label)
+    return css
+
+
+HEADER_BODY = ("position: sticky; top: 0; left: 0; right: 0; z-index: 80; "
+               "display: flex; align-items: center; gap: 12px; min-height: 64px; "
+               "padding: 8px 18px; background: #162a2c; "
+               "border-bottom: 1.5px solid rgba(238, 140, 58, 0.35); "
+               "box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);")
+css = ensure_rule(css, r'\.(header|appHeader|topBar|headerBar)', HEADER_BODY,
+                  'header bar', ['display: flex', 'background'])
+
+BELL_BODY = ("position: relative; display: inline-flex; align-items: center; "
+             "justify-content: center; width: 40px; height: 40px; border-radius: 8px; "
+             "border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12); "
+             "color: #EE8C3A; cursor: pointer; flex-shrink: 0;")
+css = ensure_rule(css, r'\.(bell|notifBtn|bellBtn)\w*', BELL_BODY,
+                  'bell button', ['position: relative', 'display: inline-flex'])
+
+BADGE_BODY = ("position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; "
+              "border-radius: 9px; background: #e5484d; color: #fff; "
+              "font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700; "
+              "display: inline-flex; align-items: center; justify-content: center; "
+              "padding: 0 4px; border: 1.5px solid #162a2c;")
+css = ensure_rule(css, r'\.(bellBadge|notifBadge|badge)\w*', BADGE_BODY,
+                  'bell badge', ['position: absolute'])
+
+DROP_BODY = ("position: absolute; top: calc(100% + 8px); right: 0; z-index: 90; "
+             "min-width: 320px; max-width: 380px; background: #162a2c; "
+             "border: 1.5px solid rgba(238, 140, 58, 0.35); border-radius: 10px; "
+             "box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35); overflow: hidden;")
+css = ensure_rule(css, r'\.(notif|bell)\w*(Panel|Drop|List|Menu|Box|Pop)\w*', DROP_BODY,
+                  'notification dropdown', ['position: absolute'])
+
+with open(header_css, 'w', encoding='utf-8', newline='\n') as f:
+    f.write(css)
+print('written: ' + os.path.relpath(header_css, ROOT))
 
 
 def git(*args):
@@ -123,8 +125,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix103: notification dropdown was a broken token chain -- define --panel-bg/--panel-header/--accent*/--ok/--warn*/--bad/--info/--on-panel* locally on .header (Header inherits no page tokens), drop dead fix70 duplicate rules')
+git('commit', '-m', 'fix104: header bar restored (sticky dark flex row), tokens concretised, bell + badge + notification dropdown styling repaired')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix103 done: patched, committed and pushed to main.')
+print('fix104 done: patched, committed and pushed to main.')
