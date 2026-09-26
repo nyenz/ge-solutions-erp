@@ -23,11 +23,11 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall, FiShield } from 'react-icons/fi';
+import { FiMenu, FiBell, FiLogOut, FiCheck, FiPhoneCall, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
-import { describe, routeFor, relativeTime, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';
+import { describe, routeFor, relativeTime, SEVERITY_COLOR, SEVERITY_BG, FILTERS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
 
 const VISIBLE_LIMIT = 40;
@@ -150,14 +150,12 @@ const Header = ({ onToggle }) => {
                         <div className={styles.notifDrop} role="dialog" aria-label="Notifications">
                             <div className={styles.notifHead}>
                                 <span>SIGNALS</span>
-                                <span className={styles.notifHeadBtns}>
-                                    <button type="button" className={styles.notifReadAll} onClick={pullList} aria-label="Refresh notifications">
-                                        <FiRefreshCw aria-hidden="true" /> REFRESH
-                                    </button>
-                                    <button type="button" className={styles.notifReadAll} onClick={readAll}>
-                                        <FiCheck aria-hidden="true" /> READ ALL
-                                    </button>
-                                </span>
+                                {/* Refresh used to sit next to this, but opening the bell already
+                                    pulls a fresh list (see openDrop) -- a second control that does
+                                    the same fetch was just clutter. */}
+                                <button type="button" className={styles.notifReadAll} onClick={readAll}>
+                                    <FiCheck aria-hidden="true" /> READ ALL
+                                </button>
                             </div>
 
                             <div className={styles.notifFilters}>
@@ -181,7 +179,7 @@ const Header = ({ onToggle }) => {
                                 {staleCount > 0 && (filter === 'ALL' || filter === 'RECOVERY') && (
                                     <button type="button" className={styles.notifRowPinned}
                                         onClick={() => { setNotifOpen(false); navigate('/recovery'); }}>
-                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)' }}>
+                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)', background: 'var(--warn-soft)' }}>
                                             <FiPhoneCall aria-hidden="true" />
                                         </span>
                                         <span className={styles.notifBody}>
@@ -210,7 +208,10 @@ const Header = ({ onToggle }) => {
                                             onClick={() => go(n)}
                                         >
                                             <span className={styles.notifIcon}
-                                                style={{ color: SEVERITY_COLOR[meta.severity] || 'var(--info)' }}>
+                                                style={{
+                                                    color: SEVERITY_COLOR[meta.severity] || 'var(--info)',
+                                                    background: SEVERITY_BG[meta.severity] || SEVERITY_BG.INFO,
+                                                }}>
                                                 <Icon aria-hidden="true" />
                                             </span>
                                             <span className={styles.notifBody}>

@@ -49,6 +49,16 @@ export const SEVERITY_COLOR = {
     INFO:     'var(--info)',
 };
 
+/* Tinted icon chips, not the same flat grey square for every row -- the
+   colour is the fastest way to tell "money came in" from "something is
+   overdue" without reading the label first. */
+export const SEVERITY_BG = {
+    POSITIVE: 'rgba(16, 185, 129, 0.16)',
+    WARN:     'rgba(245, 158, 11, 0.16)',
+    CRITICAL: 'rgba(239, 68, 68, 0.16)',
+    INFO:     'rgba(6, 182, 212, 0.16)',
+};
+
 /* Ordered loosely by how often the office sees them. */
 export const CATALOG = {
     /* ── money ──────────────────────────────────────────────────── */

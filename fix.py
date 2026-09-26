@@ -1,30 +1,42 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix108: header bar clean rewrite (replaces fix103->fix107 chain).
+# GOLDEN SEED -- fix109: header/sidebar chrome pass + notification centre cleanup.
 #
-# Root causes found and fixed at the source instead of patched again:
-#   1. .header lost `justify-content: space-between` somewhere in the
-#      fix104/106 churn. Without it, headerRight (bell / operator card /
-#      exit) rendered bunched right next to the logo instead of pinned
-#      to the right edge -- which is also why the notification dropdown
-#      (anchored to the bell with `right: 0`) rendered near the left
-#      edge, on top of the sidebar.
-#   2. .header's z-index (80) sat below the sidebar's mobile overlay
-#      (100); bumped to 200 so the header (and its dropdown) is always
-#      the top-most chrome layer.
-#   3. --panel-edge was referenced by six rules but never actually
-#      defined (dangling since fix103) -- defined once in :root.
-#   4. The bell was two nested boxes: .notificationGroup's own
-#      border+background, PLUS an identical border+background on the
-#      inner .bellIcon. .bellIcon is now icon-only.
-#   5. ROOT OWNER now renders as a distinct solid-orange chip with a
-#      shield glyph instead of the same faint grey label every other
-#      role gets.
+# What this fixes, and why:
+#   1. Header and sidebar were both a flat, near-black solid colour --
+#      #162a2c and a plain 180deg teal fade respectively. Both now carry a
+#      proper diagonal gradient in the same palette/angle family, so the
+#      two pieces of chrome read as one system instead of two different
+#      darks bolted together.
+#   2. Collapsed, the sidebar footer used to rotate the full "GOLDEN SEED"
+#      wordmark 90 degrees to fit a 52px rail -- it either clipped or sat
+#      right against the icon column above it. It now just shows "GS" at a
+#      normal, upright, small size.
+#   3. Sidebar auto-collapse used to be a mobile-only side effect keyed off
+#      a pathname diff (so clicking the ALREADY-active route did nothing,
+#      and desktop never collapsed at all). Replaced with a direct
+#      onClick on every nav link: pick a destination, the panel gets out
+#      of the way, on any screen size. IntakePage.jsx had its own
+#      page-local copy of the same idea (faking a click on the sidebar's
+#      toggle button the first time you touched the form) -- that's
+#      redundant now the sidebar does it everywhere, so it's removed.
+#   4. Report Studio's panel collapse buttons (SCOPE / REPORT CATALOGUE)
+#      were a boxed orange-bordered square -- the only collapse control in
+#      the app styled that way. Restyled to match the Intake page's
+#      CollapsibleSection chevron: no box, a plain rotating glyph that
+#      turns orange on hover/open.
+#   5. Notification centre: every row's icon sat in the same flat grey
+#      chip regardless of type, so MONEY and RECOVERY and CRITICAL signals
+#      were only distinguishable by squinting at a 13px glyph. Icons now
+#      sit in a tint of their own severity colour. The dropdown's REFRESH
+#      button was also a second way to do what opening the bell already
+#      does (openDrop calls pullList), so it's gone -- READ ALL stays.
 #
-# Header.module.css is replaced whole (the fix103-107 patch chain left
-# it fragile -- rewriting from one clean source is safer than another
-# regex patch). Header.jsx gets two surgical edits: the FiShield import,
-# and the ROOT OWNER badge markup.
+# Every edit below is a surgical find/replace against known-good source
+# text (fix108's shape) rather than a full-file rewrite -- the changes are
+# small and localised, so a diff-sized patch is safer than reprinting
+# whole files and risking a silent regression somewhere the diff didn't
+# touch.
 #
 # Runs `npm run build` before committing if node_modules is installed
 # (fix76's build-gate rule) and refuses to commit on a red build.
@@ -33,594 +45,376 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-HEADER_CSS = os.path.join(ROOT, "erp-frontend", "src", "components", "layout", "Header.module.css")
-HEADER_JSX = os.path.join(ROOT, "erp-frontend", "src", "components", "layout", "Header.jsx")
+FRONTEND = os.path.join(ROOT, "erp-frontend")
+SRC = os.path.join(FRONTEND, "src")
 
-NEW_CSS = """/* PATH: erp-frontend/src/components/layout/Header.module.css */
-/* ERP Standard V1 — clamp() everywhere, DM Sans/Space Mono/Cinzel,
-   font-weight 800-900 minimum, focus-visible on all interactive.
+HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
+HEADER_JSX = os.path.join(SRC, "components", "layout", "Header.jsx")
+SIDEBAR_JSX = os.path.join(SRC, "components", "layout", "Sidebar.jsx")
+SIDEBAR_CSS = os.path.join(SRC, "components", "layout", "Sidebar.module.css")
+NOTIF_CATALOG = os.path.join(SRC, "components", "common", "notificationCatalog.js")
+INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
+REPORTS_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
 
-   fix108: clean rewrite, replacing the fix103->fix107 patch chain.
-   Root causes fixed at the source instead of patched again:
-     1. .header never had `justify-content: space-between`, so
-        headerRight (bell / operator card / exit) rendered bunched
-        directly against the logo instead of pinned to the right --
-        which is also why the notification dropdown (anchored to the
-        bell with `right: 0`) rendered near the left edge, on top of
-        the sidebar.
-     2. .header's z-index (80) sat BELOW the sidebar's mobile overlay
-        (100), so on narrow widths the sidebar drawer could paint over
-        the header and its dropdown. Header is now the top-most chrome
-        layer (200) — nothing in the app should render above it.
-     3. --panel-edge was referenced by six rules but never defined
-        (dangling since fix103); defined once, here, in :root.
-     4. The bell was two nested boxes (.notificationGroup's own
-        border/background PLUS an identical border/background on
-        the inner .bellIcon) -- .bellIcon is now icon-only.
-     5. ROOT OWNER now reads as a distinct tier (solid orange chip),
-        not the same faint grey label as every other role.
-   ─────────────────────────────────────────────────────────────────── */
 
-:root {
-    /* Header sits outside every page's .container, so it can't inherit
-       their page-scoped tokens -- these are the same literal values the
-       rest of the app already uses. */
-    --panel-bg: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-    --panel-header: #162a2c;
-    --panel-edge: rgba(255, 255, 255, 0.10);
-    --accent: var(--orange);
-    --accent-ink: var(--text-on-light, #1a2e30);
-    --accent-soft: rgba(238, 140, 58, 0.14);
-    --ok: #10b981;
-    --warn: #f59e0b;
-    --warn-soft: rgba(245, 158, 11, 0.12);
-    --bad: #ef4444;
-    --info: #06b6d4;
-    --on-panel: var(--text-on-dark, rgba(244, 242, 239, 0.82));
-    --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
-    --on-panel-faint: rgba(244, 242, 239, 0.45);
-}
+def apply_patches(path, patches):
+    """Apply an ordered list of (old, new, description) surgical patches to
+    a file. Each `old` must appear exactly once -- if it doesn't (because
+    the file has already been patched, or has drifted from what this
+    script expects), that one patch is skipped with a warning instead of
+    corrupting the file or aborting the whole run."""
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
 
-/* ── BAR ──────────────────────────────────────────────────────────── */
-.header {
-    position: sticky;
-    top: 0; left: 0; right: 0;
-    z-index: 200; /* fix108: top of the whole chrome stack -- was 80,
-                     which lost to the sidebar's mobile overlay (100) */
-    display: flex;
-    align-items: center;
-    justify-content: space-between; /* fix108: the missing rule --
-                     this alone is what pins headerRight to the right */
-    gap: 12px;
-    min-height: 64px;
-    padding: 8px 18px;
-    background: #162a2c;
-    border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-}
+    rel = os.path.relpath(path, ROOT)
+    applied = 0
+    for old, new, desc in patches:
+        if old not in text:
+            if new in text:
+                print("skip: " + rel + " -- '" + desc + "' already applied")
+            else:
+                print("WARN: " + rel + " -- '" + desc + "' did not match expected text, check manually")
+            continue
+        text = text.replace(old, new, 1)
+        applied += 1
 
-/* Orange under-glow accent */
-.header::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #EE8C3A, transparent);
-    opacity: 0.6;
-}
+    if applied:
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print("written: " + rel + " (" + str(applied) + "/" + str(len(patches)) + " patch(es) applied)")
+    else:
+        print("skip: " + rel + " -- no patches applied")
+    return applied
 
-.headerLeft,
-.headerRight {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1.2vw, 18px);
-    flex-shrink: 0;
-}
 
-/* ── SIDEBAR TOGGLE ─────────────────────────────────────────────── */
-.sidebarToggle {
-    width:  clamp(34px, 4vw, 42px);
-    height: clamp(34px, 4vw, 42px);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: border-color 0.25s, background 0.25s, color 0.25s;
-    color: #fff;
-    font-size: clamp(17px, 2vw, 22px);
-    flex-shrink: 0;
-}
-.sidebarToggle:hover {
-    border-color: #EE8C3A;
-    background: rgba(238, 140, 58, 0.1);
-    color: #EE8C3A;
-}
-.sidebarToggle:focus-visible {
-    outline: 2px solid #EE8C3A;
-    outline-offset: 2px;
-}
+# ═══ 1. Header.module.css -- gradient chrome, dropdown to match ═══
+apply_patches(HEADER_CSS, [
+    (
+        "    min-height: 64px;\n"
+        "    padding: 8px 18px;\n"
+        "    background: #162a2c;\n"
+        "    border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);\n"
+        "    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);\n"
+        "}",
+        "    min-height: 64px;\n"
+        "    padding: 8px 18px;\n"
+        "    background: linear-gradient(115deg, #14262a 0%, #1c3335 42%, #24454a 78%, #2b5157 100%);\n"
+        "    border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);\n"
+        "    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);\n"
+        "}",
+        "header bar: flat colour -> gradient",
+    ),
+    (
+        "    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));\n"
+        "    display: flex;\n"
+        "    flex-direction: column;\n"
+        "    background: #162a2c;\n"
+        "    border: 1.5px solid rgba(238, 140, 58, 0.35);\n"
+        "    border-radius: 10px;\n"
+        "    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);\n"
+        "    overflow: hidden;\n"
+        "}\n"
+        "\n"
+        ".notifHead {\n"
+        "    display: flex;\n"
+        "    justify-content: space-between;\n"
+        "    align-items: center;\n"
+        "    gap: 8px;\n"
+        "    padding: 11px 13px;\n"
+        "    background: #101f21;\n"
+        "    border-bottom: 1px solid var(--panel-edge);",
+        "    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));\n"
+        "    display: flex;\n"
+        "    flex-direction: column;\n"
+        "    background: linear-gradient(165deg, #182d2f 0%, #1c3335 55%, #213e40 100%);\n"
+        "    border: 1.5px solid rgba(238, 140, 58, 0.35);\n"
+        "    border-radius: 10px;\n"
+        "    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);\n"
+        "    overflow: hidden;\n"
+        "}\n"
+        "\n"
+        ".notifHead {\n"
+        "    display: flex;\n"
+        "    justify-content: space-between;\n"
+        "    align-items: center;\n"
+        "    gap: 8px;\n"
+        "    padding: 11px 13px;\n"
+        "    background: rgba(0, 0, 0, 0.22);\n"
+        "    border-bottom: 1px solid var(--panel-edge);",
+        "notification dropdown + head: flat colours -> gradient",
+    ),
+    (
+        ".notifHeadBtns { display: inline-flex; gap: 5px; }\n\n.notifReadAll {",
+        ".notifReadAll {",
+        "drop now-unused .notifHeadBtns rule (REFRESH button removed in Header.jsx)",
+    ),
+])
 
-/* ── LOGO SECTION ───────────────────────────────────────────────── */
-.logoSection {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1vw, 12px);
-}
+# ═══ 2. Header.jsx -- drop redundant REFRESH control, tint notif icons ═══
+apply_patches(HEADER_JSX, [
+    (
+        "import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall, FiShield } from 'react-icons/fi';",
+        "import { FiMenu, FiBell, FiLogOut, FiCheck, FiPhoneCall, FiShield } from 'react-icons/fi';",
+        "drop unused FiRefreshCw import",
+    ),
+    (
+        "import { describe, routeFor, relativeTime, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';",
+        "import { describe, routeFor, relativeTime, SEVERITY_COLOR, SEVERITY_BG, FILTERS } from '../common/notificationCatalog';",
+        "import SEVERITY_BG for tinted icon chips",
+    ),
+    (
+        "                            <div className={styles.notifHead}>\n"
+        "                                <span>SIGNALS</span>\n"
+        "                                <span className={styles.notifHeadBtns}>\n"
+        "                                    <button type=\"button\" className={styles.notifReadAll} onClick={pullList} aria-label=\"Refresh notifications\">\n"
+        "                                        <FiRefreshCw aria-hidden=\"true\" /> REFRESH\n"
+        "                                    </button>\n"
+        "                                    <button type=\"button\" className={styles.notifReadAll} onClick={readAll}>\n"
+        "                                        <FiCheck aria-hidden=\"true\" /> READ ALL\n"
+        "                                    </button>\n"
+        "                                </span>\n"
+        "                            </div>",
+        "                            <div className={styles.notifHead}>\n"
+        "                                <span>SIGNALS</span>\n"
+        "                                {/* Refresh used to sit next to this, but opening the bell already\n"
+        "                                    pulls a fresh list (see openDrop) -- a second control that does\n"
+        "                                    the same fetch was just clutter. */}\n"
+        "                                <button type=\"button\" className={styles.notifReadAll} onClick={readAll}>\n"
+        "                                    <FiCheck aria-hidden=\"true\" /> READ ALL\n"
+        "                                </button>\n"
+        "                            </div>",
+        "remove redundant REFRESH button",
+    ),
+    (
+        "                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)' }}>\n"
+        "                                            <FiPhoneCall aria-hidden=\"true\" />\n"
+        "                                        </span>",
+        "                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)', background: 'var(--warn-soft)' }}>\n"
+        "                                            <FiPhoneCall aria-hidden=\"true\" />\n"
+        "                                        </span>",
+        "tint the pinned recovery-queue icon",
+    ),
+    (
+        "                                            <span className={styles.notifIcon}\n"
+        "                                                style={{ color: SEVERITY_COLOR[meta.severity] || 'var(--info)' }}>\n"
+        "                                                <Icon aria-hidden=\"true\" />\n"
+        "                                            </span>",
+        "                                            <span className={styles.notifIcon}\n"
+        "                                                style={{\n"
+        "                                                    color: SEVERITY_COLOR[meta.severity] || 'var(--info)',\n"
+        "                                                    background: SEVERITY_BG[meta.severity] || SEVERITY_BG.INFO,\n"
+        "                                                }}>\n"
+        "                                                <Icon aria-hidden=\"true\" />\n"
+        "                                            </span>",
+        "tint every notification row's icon by severity",
+    ),
+])
 
-.logoSmallPulse {
-    width:  clamp(28px, 3.2vw, 36px);
-    height: clamp(28px, 3.2vw, 36px);
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
+# ═══ 3. notificationCatalog.js -- add the SEVERITY_BG tint map ═══
+apply_patches(NOTIF_CATALOG, [
+    (
+        "export const SEVERITY_COLOR = {\n"
+        "    POSITIVE: 'var(--ok)',\n"
+        "    WARN:     'var(--warn)',\n"
+        "    CRITICAL: 'var(--bad)',\n"
+        "    INFO:     'var(--info)',\n"
+        "};\n",
+        "export const SEVERITY_COLOR = {\n"
+        "    POSITIVE: 'var(--ok)',\n"
+        "    WARN:     'var(--warn)',\n"
+        "    CRITICAL: 'var(--bad)',\n"
+        "    INFO:     'var(--info)',\n"
+        "};\n"
+        "\n"
+        "/* Tinted icon chips, not the same flat grey square for every row -- the\n"
+        "   colour is the fastest way to tell \"money came in\" from \"something is\n"
+        "   overdue\" without reading the label first. */\n"
+        "export const SEVERITY_BG = {\n"
+        "    POSITIVE: 'rgba(16, 185, 129, 0.16)',\n"
+        "    WARN:     'rgba(245, 158, 11, 0.16)',\n"
+        "    CRITICAL: 'rgba(239, 68, 68, 0.16)',\n"
+        "    INFO:     'rgba(6, 182, 212, 0.16)',\n"
+        "};\n",
+        "add SEVERITY_BG tint map",
+    ),
+])
 
-.pulseInner {
-    position: relative;
-    z-index: 2;
-    font-size: clamp(16px, 2vw, 22px);
-    line-height: 1;
-}
+# ═══ 4. Sidebar.jsx -- collapse on nav click (any device), "GS" when collapsed ═══
+apply_patches(SIDEBAR_JSX, [
+    (
+        "import React, { useEffect, useRef } from 'react';\n"
+        "import { NavLink, useNavigate, useLocation } from 'react-router-dom';",
+        "import React from 'react';\n"
+        "import { NavLink, useNavigate } from 'react-router-dom';",
+        "drop imports the mobile-only pathname-diff effect needed",
+    ),
+    (
+        "    const { user }  = useAuth();\n"
+        "    const navigate  = useNavigate();\n"
+        "    const location  = useLocation();\n"
+        "\n"
+        "    const isCollapsedRef = useRef(isCollapsed);\n"
+        "    const onToggleRef    = useRef(onToggle);\n"
+        "    useEffect(() => { isCollapsedRef.current = isCollapsed; }, [isCollapsed]);\n"
+        "    useEffect(() => { onToggleRef.current    = onToggle;    }, [onToggle]);\n"
+        "\n"
+        "    const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;\n"
+        "    const prevPathRef = useRef(location.pathname);\n"
+        "\n"
+        "    useEffect(() => {\n"
+        "        const currentPath = location.pathname;\n"
+        "        const prevPath    = prevPathRef.current;\n"
+        "        if (currentPath !== prevPath) {\n"
+        "            prevPathRef.current = currentPath;\n"
+        "            if (isMobile() && !isCollapsedRef.current && typeof onToggleRef.current === 'function') {\n"
+        "                onToggleRef.current();\n"
+        "            }\n"
+        "        }\n"
+        "    }, [location.pathname]);\n"
+        "\n"
+        "    const isLocked           = user?.mustChangePassword;",
+        "    const { user }  = useAuth();\n"
+        "    const navigate  = useNavigate();\n"
+        "\n"
+        "    const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;\n"
+        "\n"
+        "    const isLocked           = user?.mustChangePassword;",
+        "replace mobile-only pathname-diff auto-collapse with a plain flag",
+    ),
+    (
+        "        navigate('/settings');\n"
+        "    };\n"
+        "\n"
+        "    const showBackdrop = isMobile() && !isCollapsed;",
+        "        navigate('/settings');\n"
+        "    };\n"
+        "\n"
+        "    /* Picking a destination is the end of a sidebar interaction -- the panel\n"
+        "       should get out of the page's way the moment you commit to somewhere,\n"
+        "       on desktop as well as mobile, instead of sitting open until someone\n"
+        "       remembers to collapse it by hand. */\n"
+        "    const handleNavClick = () => {\n"
+        "        if (!isCollapsed && typeof onToggle === 'function') onToggle();\n"
+        "    };\n"
+        "\n"
+        "    const showBackdrop = isMobile() && !isCollapsed;",
+        "add handleNavClick",
+    ),
+    (
+        "                                        onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>",
+        "                                        onClick={locked ? (e) => handleLockedClick(e, item) : handleNavClick}>",
+        "wire handleNavClick onto every unlocked nav link",
+    ),
+    (
+        '                    <div className={styles.branding} aria-hidden="true">GOLDEN SEED</div>',
+        "                    <div className={styles.branding} aria-hidden=\"true\">{isCollapsed ? 'GS' : 'GOLDEN SEED'}</div>",
+        "collapsed branding: 'GS' instead of the rotated full wordmark",
+    ),
+])
 
-.pulseRing {
-    position: absolute;
-    inset: 0;
-    border: 1.5px solid #EE8C3A;
-    border-radius: 50%;
-    animation: hardwarePulse 2.5s infinite ease-out;
-}
+# ═══ 5. Sidebar.module.css -- gradient to match header, no more rotated branding ═══
+apply_patches(SIDEBAR_CSS, [
+    (
+        "    background: linear-gradient(180deg, #1a2e30 0%, #162a2c 50%, #1a2e30 100%);",
+        "    background: linear-gradient(165deg, #16292b 0%, #1c3335 45%, #213e40 100%);",
+        "sidebar background: match header's gradient family",
+    ),
+    (
+        "/* Space Mono 900 — brand serial number style */\n"
+        ".branding {\n"
+        "    font-family: 'Space Mono', monospace;\n"
+        "    color: #EE8C3A;\n"
+        "    font-size: clamp(7px, 0.75vw, 9px);\n"
+        "    font-weight: 900;\n"
+        "    letter-spacing: 3px;\n"
+        "    text-transform: uppercase;\n"
+        "    transition: transform 0.4s ease, font-size 0.4s ease;\n"
+        "    white-space: nowrap;\n"
+        "}\n"
+        ".collapsed .branding {\n"
+        "    transform: rotate(-90deg);\n"
+        "    font-size: clamp(6px, 0.65vw, 7px);\n"
+        "    letter-spacing: 6px;\n"
+        "}",
+        "/* Space Mono 900 — brand serial number style. Collapsed, this shrinks to\n"
+        "   the initials rather than rotating the full wordmark -- rotated text at\n"
+        "   52px wide either clipped or crowded the icon column above it. */\n"
+        ".branding {\n"
+        "    font-family: 'Space Mono', monospace;\n"
+        "    color: #EE8C3A;\n"
+        "    font-size: clamp(7px, 0.75vw, 9px);\n"
+        "    font-weight: 900;\n"
+        "    letter-spacing: 3px;\n"
+        "    text-transform: uppercase;\n"
+        "    transition: font-size 0.3s ease, letter-spacing 0.3s ease;\n"
+        "    white-space: nowrap;\n"
+        "}\n"
+        ".collapsed .branding {\n"
+        "    font-size: 12px;\n"
+        "    letter-spacing: 1px;\n"
+        "}",
+        "branding: drop the 90deg rotate, shrink to 'GS' size instead",
+    ),
+])
 
-@keyframes hardwarePulse {
-    0%   { transform: scale(1);   opacity: 0.8; }
-    100% { transform: scale(1.7); opacity: 0; }
-}
+# ═══ 6. IntakePage.jsx -- drop the now-redundant page-local auto-collapse ═══
+apply_patches(INTAKE_JSX, [
+    (
+        "    const collapsedOnce = useRef(false);\n"
+        "    useEffect(() => {\n"
+        "        const el = topRef.current;\n"
+        "        if (!el) return;\n"
+        "        const handler = () => {\n"
+        "            if (collapsedOnce.current) return;\n"
+        "            collapsedOnce.current = true;\n"
+        "            const aside = document.querySelector('aside');\n"
+        "            const toggle = document.querySelector('[class*=\"sidebarToggle\"]');\n"
+        "            if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();\n"
+        "        };\n"
+        "        el.addEventListener('focusin', handler);\n"
+        "        el.addEventListener('input', handler);\n"
+        "        el.addEventListener('click', handler);\n"
+        "        return () => { el.removeEventListener('focusin', handler); el.removeEventListener('input', handler); el.removeEventListener('click', handler); };\n"
+        "    }, []);\n"
+        "\n"
+        "    useEffect(() => {",
+        "    /* This page used to fake a click on the sidebar's own toggle button the\n"
+        "       first time you touched the form, as a one-off workaround so the panel\n"
+        "       wasn't eating width while you filled this in. The sidebar now collapses\n"
+        "       itself on any nav click, on every page, so the page-local version of\n"
+        "       the same behaviour was just a second way of doing the same thing. */\n"
+        "\n"
+        "    useEffect(() => {",
+        "remove redundant page-local sidebar auto-collapse hack",
+    ),
+])
 
-/* Cinzel 700 — brand name, per typography standard */
-.brandName {
-    font-family: 'Cinzel', serif;
-    color: #EE8C3A;
-    font-size: clamp(13px, 1.4vw, 20px);
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    text-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
-    white-space: nowrap;
-}
-
-/* ── NOTIFICATION / RECOVERY SENSOR ────────────────────────────── */
-.notifWrap { position: relative; }
-
-/* Single box. fix108: this used to also carry a border+background on
-   the icon glyph inside it (.bellIcon), so the bell rendered as two
-   stacked squares -- one box now, the glyph is just the glyph. */
-.notificationGroup {
-    position: relative;
-    width:  clamp(34px, 3.8vw, 42px);
-    height: clamp(34px, 3.8vw, 42px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1.5px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.25s, background 0.25s;
-    flex-shrink: 0;
-}
-.notificationGroup:hover {
-    border-color: #EE8C3A;
-    background: rgba(238, 140, 58, 0.08);
-}
-.notificationGroup:focus-visible {
-    outline: 2px solid #EE8C3A;
-    outline-offset: 2px;
-}
-
-/* activeSensor — orange glow when signals are pending */
-.activeSensor {
-    border-color: rgba(238, 140, 58, 0.4);
-    box-shadow: 0 0 12px rgba(238, 140, 58, 0.2);
-    animation: sensorPulse 2s ease-in-out infinite;
-}
-@keyframes sensorPulse {
-    0%, 100% { box-shadow: 0 0 12px rgba(238, 140, 58, 0.2); }
-    50%       { box-shadow: 0 0 20px rgba(238, 140, 58, 0.45); }
-}
-
-.bellIcon {
-    font-size: clamp(16px, 1.9vw, 20px);
-    color: #EE8C3A;
-    opacity: 0.85;
-    flex-shrink: 0;
-}
-.activeSensor .bellIcon { opacity: 1; }
-
-/* Red badge counter */
-.badge {
-    position: absolute; top: -5px; right: -5px;
-    min-width: 18px; height: 18px;
-    border-radius: 9px;
-    background: #e5484d;
-    color: #fff;
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    border: 1.5px solid #162a2c;
-}
-
-/* ── OPERATOR CARD ──────────────────────────────────────────────── */
-.userCard {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1vw, 12px);
-    background: rgba(0, 0, 0, 0.25);
-    padding: clamp(4px, 0.5vw, 7px) clamp(10px, 1.4vw, 18px);
-    border-radius: 10px;
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Avatar square — orange fill, navy text, always legible */
-.avatar {
-    width:  clamp(24px, 2.8vw, 32px);
-    height: clamp(24px, 2.8vw, 32px);
-    background: #EE8C3A;
-    color: #1a2e30;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(11px, 1.2vw, 15px);
-    box-shadow: 0 0 10px rgba(238, 140, 58, 0.3);
-    flex-shrink: 0;
-}
-
-.userMeta {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(2px, 0.3vw, 4px);
-}
-
-/* DM Sans 800 — UI label per standard */
-.userName {
-    font-family: 'DM Sans', sans-serif;
-    color: #fff;
-    font-size: clamp(10px, 1.1vw, 13px);
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-/* Space Mono 900 — metadata tag per standard, for STAFF/MANAGER/DIRECTOR/ADMIN */
-.roleTag {
-    display: inline-flex;
-    align-items: center;
-    font-family: 'Space Mono', monospace;
-    color: rgba(255, 255, 255, 0.45);
-    font-size: clamp(7px, 0.78vw, 9px);
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    white-space: nowrap;
-}
-
-/* fix108: ROOT OWNER is the top of the role hierarchy -- it now reads
-   as a distinct solid chip instead of the same faint grey text every
-   other role gets. */
-.roleTagRoot {
-    color: var(--accent-ink);
-    background: linear-gradient(135deg, #EE8C3A, #f5a35c);
-    padding: 1px clamp(5px, 0.6vw, 7px);
-    border-radius: 4px;
-    gap: 3px;
-    box-shadow: 0 0 8px rgba(238, 140, 58, 0.35);
-}
-.roleTagRoot svg { font-size: 9px; }
-
-/* ── SESSION EXIT ───────────────────────────────────────────────── */
-.logoutTrigger {
-    width:  clamp(34px, 3.8vw, 42px);
-    height: clamp(34px, 3.8vw, 42px);
-    background: rgba(239, 68, 68, 0.1);
-    border: 1.5px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: clamp(15px, 1.8vw, 19px);
-    transition: background 0.25s, color 0.25s, box-shadow 0.25s;
-    flex-shrink: 0;
-}
-.logoutTrigger:hover {
-    background: #ef4444;
-    color: #fff;
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.35);
-}
-.logoutTrigger:focus-visible {
-    outline: 2px solid #ef4444;
-    outline-offset: 2px;
-}
-
-/* ── RESPONSIVE ─────────────────────────────────────────────────── */
-@media (max-width: 850px) {
-    /* Brand name hides on tablet — logo pulse remains */
-    .brandName { display: none; }
-}
-
-@media (max-width: 600px) {
-    .userCard  { padding: clamp(3px, 1vw, 5px) clamp(6px, 2vw, 10px); }
-    .roleTag   { display: none; }
-    .header    { padding: 0 clamp(10px, 3vw, 15px); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   NOTIFICATION CENTRE
-
-   Filters across the top, one icon per type, a relative timestamp on
-   every row, and an unread marker that is a shape as well as an
-   opacity so it survives the high-contrast setting.
-   ═══════════════════════════════════════════════════════════════════ */
-
-.notifDrop {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    z-index: 10;
-    min-width: 320px;
-    max-width: 380px;
-    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
-    display: flex;
-    flex-direction: column;
-    background: #162a2c;
-    border: 1.5px solid rgba(238, 140, 58, 0.35);
-    border-radius: 10px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-}
-
-.notifHead {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 13px;
-    background: #101f21;
-    border-bottom: 1px solid var(--panel-edge);
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: #EE8C3A;
-    flex-shrink: 0;
-}
-.notifHeadBtns { display: inline-flex; gap: 5px; }
-
-.notifReadAll {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: transparent;
-    border: 1px solid var(--panel-edge);
-    color: rgba(255, 255, 255, 0.72);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 8px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.16s ease;
-}
-.notifReadAll:hover { color: #EE8C3A; border-color: #EE8C3A; }
-
-/* ── filters ───────────────────────────────────────────────────────── */
-.notifFilters {
-    display: flex;
-    gap: 5px;
-    padding: 9px 11px;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--panel-edge);
-    flex-shrink: 0;
-    scrollbar-width: none;
-}
-.notifFilters::-webkit-scrollbar { display: none; }
-
-.notifChip, .notifChipActive {
-    white-space: nowrap;
-    border-radius: 20px;
-    padding: 4px 11px;
-    font-family: 'Inter', sans-serif;
-    font-size: 8.5px;
-    font-weight: 900;
-    letter-spacing: 1.1px;
-    cursor: pointer;
-    transition: all 0.16s ease;
-    border: 1px solid var(--panel-edge);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.45);
-}
-.notifChip:hover { color: #EE8C3A; border-color: #EE8C3A; }
-.notifChipActive {
-    background: #EE8C3A;
-    border-color: #EE8C3A;
-    color: var(--accent-ink);
-}
-
-/* ── list ──────────────────────────────────────────────────────────── */
-.notifList {
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-}
-
-.notifRow, .notifRowPinned {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--panel-edge);
-    padding: 11px 13px;
-    cursor: pointer;
-    transition: background 0.15s ease;
-}
-.notifRow:hover, .notifRowPinned:hover { background: rgba(238, 140, 58, 0.14); }
-.notifRow:focus-visible, .notifRowPinned:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
-
-/* The recovery queue is pinned and is not a stored row, so it is marked
-   as different rather than pretending to be one of the list. */
-.notifRowPinned {
-    background: var(--warn-soft);
-    border-left: 3px solid #EE8C3A;
-}
-
-/* Read rows dim, but the unread ones also carry a dot -- opacity alone
-   disappears under the high-contrast setting. */
-.notifRead { opacity: 0.5; }
-
-.notifIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.07);
-    font-size: 13px;
-}
-
-.notifBody {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
-}
-
-.notifType {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    font-family: 'Inter', sans-serif;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: #EE8C3A;
-}
-
-.notifTime {
-    font-family: 'Space Mono', monospace;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: none;
-    color: rgba(255, 255, 255, 0.45);
-    flex-shrink: 0;
-}
-
-.notifMsg {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #ffffff;
-    line-height: 1.45;
-    word-break: break-word;
-}
-
-.notifUnreadDot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #EE8C3A;
-    flex-shrink: 0;
-    margin-top: 6px;
-}
-
-.notifEmpty {
-    padding: 20px 13px;
-    text-align: center;
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: rgba(255, 255, 255, 0.45);
-}
-
-@media (max-width: 480px) {
-    .notifDrop {
-        position: fixed;
-        top: var(--header-height);
-        left: 8px;
-        right: 8px;
-        width: auto;
-        max-width: none;
-        max-height: calc(100vh - var(--header-height) - 16px);
-    }
-}
-"""
-
-with open(HEADER_CSS, "w", encoding="utf-8", newline="\n") as f:
-    f.write(NEW_CSS)
-print("written: " + os.path.relpath(HEADER_CSS, ROOT))
-
-with open(HEADER_JSX, "r", encoding="utf-8") as f:
-    jsx = f.read()
-
-OLD_IMPORT = "import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall } from 'react-icons/fi';"
-NEW_IMPORT = "import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall, FiShield } from 'react-icons/fi';"
-
-OLD_BADGE = (
-    "                        <span className={styles.userName}>{user?.username}</span>\n"
-    "                        <span className={styles.roleTag}>{displayRole}</span>"
-)
-NEW_BADGE = (
-    "                        <span className={styles.userName}>{user?.username}</span>\n"
-    "                        <span className={`${styles.roleTag} ${isRoot ? styles.roleTagRoot : ''}`}>\n"
-    "                            {isRoot && <FiShield aria-hidden=\"true\" />}\n"
-    "                            {displayRole}\n"
-    "                        </span>"
-)
-
-changed = 0
-if OLD_IMPORT in jsx:
-    jsx = jsx.replace(OLD_IMPORT, NEW_IMPORT, 1)
-    changed += 1
-elif "FiShield" not in jsx:
-    print("WARN: Header.jsx import line did not match expected text -- import not patched, check manually")
-
-if OLD_BADGE in jsx:
-    jsx = jsx.replace(OLD_BADGE, NEW_BADGE, 1)
-    changed += 1
-elif "roleTagRoot" not in jsx:
-    print("WARN: Header.jsx role-tag block did not match expected text -- badge not patched, check manually")
-
-if changed:
-    with open(HEADER_JSX, "w", encoding="utf-8", newline="\n") as f:
-        f.write(jsx)
-    print("written: " + os.path.relpath(HEADER_JSX, ROOT) + " (" + str(changed) + " edit(s) applied)")
-else:
-    print("skip: Header.jsx already matches (or diverged) -- no changes written")
+# ═══ 7. ReportStudio.module.css -- panel toggles to match Intake's chevron ═══
+apply_patches(REPORTS_CSS, [
+    (
+        ".headToggle {\n"
+        "  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; flex-shrink: 0; border: 1.5px solid #EE8C3A; background: #162a2c; color: #EE8C3A; transition: all 0.2s ease;\n"
+        "}\n"
+        ".headToggle:hover { background: #EE8C3A; color: #1a2e30; }\n"
+        ".headToggle svg {\n"
+        "  width: 14px; height: 14px; transition: transform 0.2s;\n"
+        "}",
+        "/* Matches the Intake page's CollapsibleSection chevron: a plain rotating\n"
+        "   glyph, not a boxed button -- was the odd one out, styled as a separate\n"
+        "   orange square unlike every other collapse control in the app. */\n"
+        ".headToggle {\n"
+        "  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease, background 0.2s ease;\n"
+        "}\n"
+        ".headToggle:hover { background: rgba(238, 140, 58, 0.14); color: #EE8C3A; }\n"
+        ".headToggle svg {\n"
+        "  width: 16px; height: 16px; transition: transform 0.2s ease;\n"
+        "}\n"
+        ".headToggle .pickIconOpen { color: #EE8C3A; }",
+        "restyle SCOPE/CATALOGUE panel toggles to match Intake's chevron",
+    ),
+])
 
 # ═══ build gate (fix76) ═══
-FRONTEND = os.path.join(ROOT, "erp-frontend")
 if os.path.isdir(os.path.join(FRONTEND, "node_modules")):
     build = subprocess.run(["npm", "run", "build"], cwd=FRONTEND, capture_output=True, text=True)
     print(build.stdout[-3000:])
@@ -650,7 +444,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix108: header bar clean rewrite -- right-alignment restored (justify-content: space-between), z-index above sidebar overlay, --panel-edge defined, bell de-duplicated, ROOT OWNER badge")
+git("commit", "-m", "fix109: header/sidebar gradient chrome, GS collapsed branding, sidebar auto-collapse on nav click, Report Studio panel toggles matched to Intake chevron, notification centre re-tinted + REFRESH removed")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
@@ -661,4 +455,4 @@ if push.returncode != 0:
         print(push2.stdout.strip())
 else:
     print(push.stdout.strip())
-print("fix108 done.")
+print("fix109 done.")

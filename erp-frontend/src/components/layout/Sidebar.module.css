@@ -9,7 +9,7 @@
 
     width: var(--sidebar-width);
     height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
-    background: linear-gradient(180deg, #1a2e30 0%, #162a2c 50%, #1a2e30 100%);
+    background: linear-gradient(165deg, #16292b 0%, #1c3335 45%, #213e40 100%);
     border-right: 2px solid rgba(238, 140, 58, 0.3);
     position: relative;
     display: flex;
@@ -153,7 +153,9 @@
     flex-shrink: 0;
 }
 
-/* Space Mono 900 — brand serial number style */
+/* Space Mono 900 — brand serial number style. Collapsed, this shrinks to
+   the initials rather than rotating the full wordmark -- rotated text at
+   52px wide either clipped or crowded the icon column above it. */
 .branding {
     font-family: 'Space Mono', monospace;
     color: #EE8C3A;
@@ -161,13 +163,12 @@
     font-weight: 900;
     letter-spacing: 3px;
     text-transform: uppercase;
-    transition: transform 0.4s ease, font-size 0.4s ease;
+    transition: font-size 0.3s ease, letter-spacing 0.3s ease;
     white-space: nowrap;
 }
 .collapsed .branding {
-    transform: rotate(-90deg);
-    font-size: clamp(6px, 0.65vw, 7px);
-    letter-spacing: 6px;
+    font-size: 12px;
+    letter-spacing: 1px;
 }
 .version { display: none; }
 

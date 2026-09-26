@@ -107,22 +107,11 @@ export default function IntakePage() {
         return () => { cancelled = true; };
     }, [toast]);
 
-    const collapsedOnce = useRef(false);
-    useEffect(() => {
-        const el = topRef.current;
-        if (!el) return;
-        const handler = () => {
-            if (collapsedOnce.current) return;
-            collapsedOnce.current = true;
-            const aside = document.querySelector('aside');
-            const toggle = document.querySelector('[class*="sidebarToggle"]');
-            if (aside && toggle && aside.getBoundingClientRect().width > 120) toggle.click();
-        };
-        el.addEventListener('focusin', handler);
-        el.addEventListener('input', handler);
-        el.addEventListener('click', handler);
-        return () => { el.removeEventListener('focusin', handler); el.removeEventListener('input', handler); el.removeEventListener('click', handler); };
-    }, []);
+    /* This page used to fake a click on the sidebar's own toggle button the
+       first time you touched the form, as a one-off workaround so the panel
+       wasn't eating width while you filled this in. The sidebar now collapses
+       itself on any nav click, on every page, so the page-local version of
+       the same behaviour was just a second way of doing the same thing. */
 
     useEffect(() => {
         const h = (e) => { if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; } };

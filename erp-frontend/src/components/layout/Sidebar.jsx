@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/components/layout/Sidebar.jsx
-import React, { useEffect, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
 FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
     FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers
@@ -12,26 +12,8 @@ import styles from './Sidebar.module.css';
 const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
     const { user }  = useAuth();
     const navigate  = useNavigate();
-    const location  = useLocation();
-
-    const isCollapsedRef = useRef(isCollapsed);
-    const onToggleRef    = useRef(onToggle);
-    useEffect(() => { isCollapsedRef.current = isCollapsed; }, [isCollapsed]);
-    useEffect(() => { onToggleRef.current    = onToggle;    }, [onToggle]);
 
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;
-    const prevPathRef = useRef(location.pathname);
-
-    useEffect(() => {
-        const currentPath = location.pathname;
-        const prevPath    = prevPathRef.current;
-        if (currentPath !== prevPath) {
-            prevPathRef.current = currentPath;
-            if (isMobile() && !isCollapsedRef.current && typeof onToggleRef.current === 'function') {
-                onToggleRef.current();
-            }
-        }
-    }, [location.pathname]);
 
     const isLocked           = user?.mustChangePassword;
     const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
@@ -54,6 +36,14 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         e.preventDefault();
         if (typeof onLockedClick === 'function') onLockedClick(item.label);
         navigate('/settings');
+    };
+
+    /* Picking a destination is the end of a sidebar interaction -- the panel
+       should get out of the page's way the moment you commit to somewhere,
+       on desktop as well as mobile, instead of sitting open until someone
+       remembers to collapse it by hand. */
+    const handleNavClick = () => {
+        if (!isCollapsed && typeof onToggle === 'function') onToggle();
     };
 
     const showBackdrop = isMobile() && !isCollapsed;
@@ -89,7 +79,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                                         className={({ isActive }) =>
                                             [styles.navItem, isActive ? styles.active : '', locked ? styles.navItemLocked : ''].filter(Boolean).join(' ')
                                         }
-                                        onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>
+                                        onClick={locked ? (e) => handleLockedClick(e, item) : handleNavClick}>
                                         <span className={styles.navIcon}>{item.icon}</span>
                                         {!isCollapsed && <span className={styles.navText}>{item.label}</span>}
                                     </NavLink>
@@ -99,7 +89,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                     </div>
                 </nav>
                 <footer className={styles.sidebarFooter} aria-label="Golden Seed branding">
-                    <div className={styles.branding} aria-hidden="true">GOLDEN SEED</div>
+                    <div className={styles.branding} aria-hidden="true">{isCollapsed ? 'GS' : 'GOLDEN SEED'}</div>
                     {!isCollapsed && <div className={styles.version} aria-hidden="true">V.2.0.1-PROD</div>}
                 </footer>
             </aside>

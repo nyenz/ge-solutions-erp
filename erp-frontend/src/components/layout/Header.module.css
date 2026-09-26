@@ -56,7 +56,7 @@
     gap: 12px;
     min-height: 64px;
     padding: 8px 18px;
-    background: #162a2c;
+    background: linear-gradient(115deg, #14262a 0%, #1c3335 42%, #24454a 78%, #2b5157 100%);
     border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
@@ -347,7 +347,7 @@
     max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
     display: flex;
     flex-direction: column;
-    background: #162a2c;
+    background: linear-gradient(165deg, #182d2f 0%, #1c3335 55%, #213e40 100%);
     border: 1.5px solid rgba(238, 140, 58, 0.35);
     border-radius: 10px;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
@@ -360,7 +360,7 @@
     align-items: center;
     gap: 8px;
     padding: 11px 13px;
-    background: #101f21;
+    background: rgba(0, 0, 0, 0.22);
     border-bottom: 1px solid var(--panel-edge);
     font-family: 'Space Mono', monospace;
     font-size: 9px;
@@ -369,8 +369,6 @@
     color: #EE8C3A;
     flex-shrink: 0;
 }
-.notifHeadBtns { display: inline-flex; gap: 5px; }
-
 .notifReadAll {
     display: inline-flex;
     align-items: center;
