@@ -7,6 +7,22 @@
    Header is a layout component — it inherits --orange / --navy etc.
    from the app root. Declare local overrides only if needed.
    ─────────────────────────────────────────────────────────────────── */
+    /* fix103: local overrides -- Header sits outside every page's
+       .container, so it can't inherit their page-scoped tokens. These
+       are the same literal values the rest of the app already uses. */
+    --panel-bg: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --panel-header: #162a2c;
+    --accent: var(--orange);
+    --accent-ink: var(--text-on-light, #1a2e30);
+    --accent-soft: rgba(238, 140, 58, 0.14);
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --warn-soft: rgba(245, 158, 11, 0.12);
+    --bad: #ef4444;
+    --info: #06b6d4;
+    --on-panel: var(--text-on-dark, rgba(244, 242, 239, 0.82));
+    --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
+    --on-panel-faint: rgba(244, 242, 239, 0.45);
 .header {
     height: var(--header-height, clamp(52px, 7vw, 64px));
     background: linear-gradient(165deg, #3a5a5c 0%, #2a4a4c 30%, #1a2e30 70%, #162628 100%);
@@ -279,26 +295,8 @@
     .roleTag   { display: none; }
     .header    { padding: 0 clamp(10px, 3vw, 15px); }
 }
-/* NOTIFICATION DROPDOWN (fix70) */
+/* NOTIFICATION DROPDOWN -- .notifWrap kept, dead fix70 rules removed by fix103 */
 .notifWrap { position: relative; }
-.notifDrop {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 500;
-  width: clamp(260px, 30vw, 360px);
-  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-  border: 1.5px solid rgba(238,140,58,0.35); border-radius: 10px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.55); overflow: hidden;
-  animation: dropIn 0.18s ease-out;
-}
-@keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-.notifHead { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 900; letter-spacing: 2px; color: var(--orange); }
-.notifReadAll { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 4px 8px; font-size: 8px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }
-.notifReadAll:hover { color: #fff; border-color: var(--orange); }
-.notifEmpty { padding: 18px 12px; text-align: center; font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 900; letter-spacing: 2px; color: rgba(255,255,255,0.3); }
-.notifRow { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 10px 12px; cursor: pointer; }
-.notifRow:hover { background: rgba(255,255,255,0.05); }
-.notifRead { opacity: 0.45; }
-.notifDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.notifMsg { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1.4; word-break: break-word; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    NOTIFICATION CENTRE (fix71)
