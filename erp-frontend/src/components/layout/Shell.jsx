@@ -25,22 +25,32 @@ const Shell = ({ children }) => {
 
     const handleSidebarToggle = () => setIsCollapsed(prev => !prev);
 
+    /* The sidebar no longer collapses itself the instant a nav link is
+       clicked -- picking a destination should still leave the panel open
+       while the new page loads. It's the first click INSIDE the page
+       content itself, once you're actually there working the page, that
+       clears the panel out of the way. */
+    const handleContentClick = () => {
+        if (!isCollapsed) setIsCollapsed(true);
+    };
+
     return (
         <div className={styles.shell}>
             <Header onToggle={handleSidebarToggle} />
 
             <div className={styles.mainWrapper}>
                 {/*
-                  onToggle is passed to Sidebar so it can collapse itself
-                  on mobile when the user navigates to a new page — without
-                  needing the user to manually press the hamburger again.
+                  onToggle is passed to Sidebar purely for its mobile backdrop
+                  -- tapping outside the open drawer still closes it right
+                  away. Auto-collapse on navigation now lives below instead,
+                  on the content area itself (handleContentClick).
                 */}
                 <Sidebar
                     isCollapsed={isCollapsed}
                     onToggle={handleSidebarToggle}
                 />
 
-                <main className={styles.mainContent}>
+                <main className={styles.mainContent} onClick={handleContentClick}>
                     <div className={styles.scrollArea}>
                         {children}
                     </div>

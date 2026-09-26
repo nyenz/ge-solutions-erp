@@ -38,14 +38,12 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
         navigate('/settings');
     };
 
-    /* Picking a destination is the end of a sidebar interaction -- the panel
-       should get out of the page's way the moment you commit to somewhere,
-       on desktop as well as mobile, instead of sitting open until someone
-       remembers to collapse it by hand. */
-    const handleNavClick = () => {
-        if (!isCollapsed && typeof onToggle === 'function') onToggle();
-    };
-
+    /* Collapsing here, on the nav link's own click, used to make the panel
+       vanish before the new page had even rendered. That auto-collapse now
+       lives in Shell instead, keyed off the first click INSIDE the page
+       content -- so picking a link still shows you where you landed with
+       the panel open, and it only gets out of the way once you start
+       actually working the page. */
     const showBackdrop = isMobile() && !isCollapsed;
 
     return (
@@ -79,7 +77,7 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
                                         className={({ isActive }) =>
                                             [styles.navItem, isActive ? styles.active : '', locked ? styles.navItemLocked : ''].filter(Boolean).join(' ')
                                         }
-                                        onClick={locked ? (e) => handleLockedClick(e, item) : handleNavClick}>
+                                        onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>
                                         <span className={styles.navIcon}>{item.icon}</span>
                                         {!isCollapsed && <span className={styles.navText}>{item.label}</span>}
                                     </NavLink>

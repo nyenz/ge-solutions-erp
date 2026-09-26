@@ -275,17 +275,26 @@
 }
 /* Matches the Intake page's CollapsibleSection chevron: a plain rotating
    glyph, not a boxed button -- was the odd one out, styled as a separate
-   orange square unlike every other collapse control in the app. */
+   orange square unlike every other collapse control in the app. No hover
+   state of its own either, same as Intake's chevron -- the head row's
+   hover (below) is the only feedback hovering this corner gives. */
 .headToggle {
-  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease, background 0.2s ease;
+  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease;
 }
-.headToggle:hover { background: rgba(238, 140, 58, 0.14); color: #EE8C3A; }
 .headToggle svg {
   width: 16px; height: 16px; transition: transform 0.2s ease;
 }
 .headToggle .pickIconOpen { color: #EE8C3A; }
 .catPanel .searchBox { margin-left: auto; }
 .catPanel .headToggle { margin-left: 10px; }
+/* Collapsed, the head row IS the whole visible panel -- it should read as
+   one complete, fully-curved box, not a shelf with a flat bottom hanging
+   off nothing, and the orange underline has nothing left to separate. */
+.panelCollapsed .panelHeadRow { border-radius: 11px; border-bottom-color: transparent; }
+/* Matches Intake's CollapsibleSection: hovering the head turns the title
+   white -- the only hover feedback the head row gives. */
+.scopePanel .panelHeadRow:hover .scopeTitle,
+.catPanel .panelHeadRow:hover .scopeTitle { color: #fff; }
 .panelClosed { display: none; }
 .catPanelClosed > *:not(.panelHeadRow) { display: none; }
 .liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }

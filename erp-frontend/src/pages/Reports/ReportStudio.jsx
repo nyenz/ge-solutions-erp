@@ -458,8 +458,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
         <span className={styles.sourceCount}>{loading ? '...' : scopeRows.length} SOURCE ROWS</span>
       </div>
-      <div className={styles.scopePanel}>
-        <CornerDecor hideTop />
+      <div className={scopeOpen ? styles.scopePanel : styles.scopePanel + ' ' + styles.panelCollapsed}>
+        {scopeOpen && <CornerDecor hideTop />}
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>SCOPE</span>
           <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
@@ -576,8 +576,8 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       </div>
 
-      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed)}>
-        <CornerDecor hideTop />
+      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed + ' ' + styles.panelCollapsed)}>
+        {catOpen && <CornerDecor hideTop />}
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>

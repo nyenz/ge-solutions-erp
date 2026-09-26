@@ -59,6 +59,28 @@ export const SEVERITY_BG = {
     INFO:     'rgba(6, 182, 212, 0.16)',
 };
 
+/* Severity alone collapses most of the catalog onto two colours -- the
+   large majority of types below are either INFO or WARN, so a payment,
+   a new intake and a document upload all rendered in the same cyan chip.
+   GROUP gives five real colour families (money / pipeline / recovery /
+   staff / system) that line up with how the bell is already filtered,
+   so the tint tells you the same story the filter chips do. */
+export const GROUP_COLOR = {
+    MONEY:    '#22c55e',
+    PIPELINE: '#38bdf8',
+    RECOVERY: '#f97316',
+    STAFF:    '#a78bfa',
+    SYSTEM:   '#f43f5e',
+};
+
+export const GROUP_BG = {
+    MONEY:    'rgba(34, 197, 94, 0.16)',
+    PIPELINE: 'rgba(56, 189, 248, 0.16)',
+    RECOVERY: 'rgba(249, 115, 22, 0.16)',
+    STAFF:    'rgba(167, 139, 250, 0.16)',
+    SYSTEM:   'rgba(244, 63, 94, 0.16)',
+};
+
 /* Ordered loosely by how often the office sees them. */
 export const CATALOG = {
     /* ── money ──────────────────────────────────────────────────── */

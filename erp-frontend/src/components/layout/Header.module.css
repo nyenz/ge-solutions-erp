@@ -347,7 +347,10 @@
     max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
     display: flex;
     flex-direction: column;
-    background: linear-gradient(165deg, #182d2f 0%, #1c3335 55%, #213e40 100%);
+    /* Same teal gradient Intake's CollapsibleSection panels use -- this used
+       to be its own near-black gradient, the one panel in the app that
+       didn't share the family. */
+    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
     border: 1.5px solid rgba(238, 140, 58, 0.35);
     border-radius: 10px;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
@@ -360,7 +363,8 @@
     align-items: center;
     gap: 8px;
     padding: 11px 13px;
-    background: rgba(0, 0, 0, 0.22);
+    /* That same panel family's own header colour, not a black overlay. */
+    background: #162a2c;
     border-bottom: 1px solid var(--panel-edge);
     font-family: 'Space Mono', monospace;
     font-size: 9px;

@@ -27,7 +27,7 @@ import { FiMenu, FiBell, FiLogOut, FiCheck, FiPhoneCall, FiShield } from 'react-
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
-import { describe, routeFor, relativeTime, SEVERITY_COLOR, SEVERITY_BG, FILTERS } from '../common/notificationCatalog';
+import { describe, routeFor, relativeTime, GROUP_COLOR, GROUP_BG, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
 
 const VISIBLE_LIMIT = 40;
@@ -179,7 +179,7 @@ const Header = ({ onToggle }) => {
                                 {staleCount > 0 && (filter === 'ALL' || filter === 'RECOVERY') && (
                                     <button type="button" className={styles.notifRowPinned}
                                         onClick={() => { setNotifOpen(false); navigate('/recovery'); }}>
-                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)', background: 'var(--warn-soft)' }}>
+                                        <span className={styles.notifIcon} style={{ color: GROUP_COLOR.RECOVERY, background: GROUP_BG.RECOVERY }}>
                                             <FiPhoneCall aria-hidden="true" />
                                         </span>
                                         <span className={styles.notifBody}>
@@ -209,8 +209,9 @@ const Header = ({ onToggle }) => {
                                         >
                                             <span className={styles.notifIcon}
                                                 style={{
-                                                    color: SEVERITY_COLOR[meta.severity] || 'var(--info)',
-                                                    background: SEVERITY_BG[meta.severity] || SEVERITY_BG.INFO,
+                                                    color: GROUP_COLOR[meta.group] || SEVERITY_COLOR[meta.severity] || 'var(--info)',
+                                                    background: GROUP_BG[meta.group] || 'rgba(6, 182, 212, 0.16)',
+                                                    boxShadow: meta.severity === 'CRITICAL' ? '0 0 0 1.5px rgba(244, 63, 94, 0.6)' : 'none',
                                                 }}>
                                                 <Icon aria-hidden="true" />
                                             </span>
