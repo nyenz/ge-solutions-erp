@@ -5,20 +5,44 @@
    white controls with ink text, orange for active/hover, Intake chip spec. */
 .studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
 .scopePanel, .catPanel, .viewerPanel {
-  background: #4a6a6c;
   border: 1.5px solid rgba(255, 255, 255, 0.10);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   overflow: visible;
 }
+.viewerPanel { background: #4a6a6c; }
+/* Scope + Catalogue containers now match Intake's CollapsibleSection card:
+   same gradient body and the same wake-up hover -- border warms to
+   orange and the shadow deepens, telling you the whole card is live. */
+.scopePanel, .catPanel {
+  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+  border-color: rgba(238, 140, 58, 0.2);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.scopePanel:hover, .catPanel:hover {
+  border-color: #EE8C3A;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
 .panelHeadRow {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   background: #162a2c; border-bottom: 1.5px solid #EE8C3A;
   border-radius: 11px 11px 0 0; padding: 10px 14px;
+  width: 100%; box-sizing: border-box; text-align: left;
+  transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
 }
+/* Only the Scope + Catalogue heads are clickable toggles (like Intake's
+   CollapsibleSection); the Preview head reuses this class but stays
+   inert, so it keeps the default cursor. */
+.scopePanel .panelHeadRow, .catPanel .panelHeadRow { cursor: pointer; }
+.scopePanel .panelHeadRow:focus-visible, .catPanel .panelHeadRow:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .scopeTitle { font-family: 'Cinzel', serif; color: #EE8C3A; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.65); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 20px; padding: 4px 12px; }
-.scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
+.scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); animation: panelExpand 0.2s ease-out; }
+.catBody { animation: panelExpand 0.2s ease-out; }
+@keyframes panelExpand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .sourcePanel {
   flex: 0 0 auto; display: flex; align-items: center;
@@ -165,12 +189,32 @@
   border: 1.5px solid rgba(238,140,58,0.5); background: #fff; color: #b45309; transition: all 0.2s;
 }
 .rchip:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-.catList { max-height: 340px; overflow-y: auto; background: #fff; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }
+/* Catalogue list: a soft warm tray behind white report cards. The tray
+   supplies the contrast (instead of dark panels) so every card reads as
+   a distinct, liftable object -- creative + professional, no dark fills. */
+.catList {
+  max-height: 340px; overflow-y: auto; background: #f2ede4;
+  padding: 10px; display: flex; flex-direction: column; gap: 9px;
+  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;
+}
 .catList::-webkit-scrollbar { width: 6px; }
 .catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
-.catWrap { border-bottom: 1px solid #f1eeea; }
-.catWrap:last-child { border-bottom: none; }
-.catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 9px 14px; cursor: pointer; transition: background 0.15s; }
+.groupBlock { display: flex; flex-direction: column; gap: 9px; }
+.catWrap {
+  border-radius: 9px; overflow: hidden; border-left: 4px solid transparent;
+  box-shadow: 0 2px 7px rgba(26,46,48,0.12);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.catWrap:hover { box-shadow: 0 8px 22px rgba(26,46,48,0.2); transform: translateY(-2px); }
+/* Per-group accent colour, so the list reads at a glance without leaning
+   on dark backgrounds -- each category gets its own light-safe hue. */
+.catWrap[data-group="WORK IN"] { border-left-color: #EE8C3A; }
+.catWrap[data-group="IN PROCESS"] { border-left-color: #4C9CD1; }
+.catWrap[data-group="MONEY IN"] { border-left-color: #16a37a; }
+.catWrap[data-group="MONEY OUT"] { border-left-color: #d9694a; }
+.catWrap[data-group="CLIENTS / RECOVERY"] { border-left-color: #9b7fc7; }
+.catWrap[data-group="COMPLIANCE / ARCHIVE"] { border-left-color: #64748b; }
+.catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 10px 14px; cursor: pointer; transition: background 0.15s; }
 .catRow:hover { background: #EE8C3A; color: #fff; }
 .catRowOn { background: #d97e2f; color: #1a2e30; }
 .r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6f70; }
@@ -255,7 +299,7 @@
 .catRowDef { border-left: 3px solid #EE8C3A; background: #fdf3e7; }
 .catRowDef:hover { background: #EE8C3A; }
 .catRowDef.catRowOn { background: #d97e2f; }
-.ddSec { position: sticky; top: 0; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 14px; border-bottom: 1px solid #dfd9d1; z-index: 1; }
+.ddSec { position: sticky; top: -10px; background: #f2ede4; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 4px 2px; z-index: 1; }
 .toggleHint { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
 .tag + .toggleHint { margin-left: 8px; }
 .entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
@@ -296,7 +340,6 @@
 .scopePanel .panelHeadRow:hover .scopeTitle,
 .catPanel .panelHeadRow:hover .scopeTitle { color: #fff; }
 .panelClosed { display: none; }
-.catPanelClosed > *:not(.panelHeadRow) { display: none; }
 .liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }
 .catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }
 .scopePanel, .catPanel { position: relative; }

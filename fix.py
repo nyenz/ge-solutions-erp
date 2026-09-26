@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix111: Intake page gets a new automatic ENTRY DATE field,
-# and DATE STARTED goes back to being editable (defaults to today).
+# GOLDEN SEED -- fix112: Reports page's Scope + Report Catalogue headers now
+# match Intake's CollapsibleSection panels, and the catalogue list gets real
+# contrast between rows without leaning on dark fills.
 #
 # What this fixes, and why:
-#   1. Two different dates were being conflated into one read-only field.
-#      "Date Started" was shown as a static today() value with no way to
-#      change it, so there was no way to record that fieldwork on a plot
-#      actually began a few days before the operator got round to keying
-#      it into the system. It is now a real date input, defaulting to
-#      today but editable.
-#   2. To keep that honest, a second, separate field -- ENTRY DATE -- has
-#      been added next to it. This one stays fully automatic: it is the
-#      day the record was actually entered into Golden Seed, set once by
-#      the server at save time and never editable on the client, so there
-#      is always an untouched record of "when this was typed in" even
-#      after Date Started has been backdated.
-#   3. On the backend, LandProject never actually stored a start date at
-#      all -- the intake builder chain had no .projectStartDate(...) call,
-#      so every project's start date landed NULL regardless of what the
-#      form showed. That is now wired up, alongside the new entry_date
-#      column (server-set, updatable = false). The LandTitle side had
-#      gone the other way (see the old "STEP 7" comment) and force-set
-#      today() specifically to stop the client editing it -- that
-#      decision is reversed here since editable is exactly what's wanted
-#      now.
+#   1. Design drift. The Scope and Report Catalogue panels on the Reports
+#      page had their own flat teal card + separate little chevron button,
+#      which didn't match the gradient card + orange "wake up" hover that
+#      every CollapsibleSection on the Intake page already uses. They now
+#      share that exact look: gradient body, border warms to orange and the
+#      shadow deepens on hover, content fades/slides in on open.
+#   2. Reactivity. Collapsing either panel only worked if you hit the small
+#      chevron dead-on -- clicking the rest of the header row did nothing.
+#      Both headers are now click-anywhere-to-toggle (plus Enter/Space when
+#      focused), same as Intake. The Catalogue header's search box stops
+#      that click from bubbling up, so typing/clearing search still works
+#      without collapsing the panel. The Catalogue header's own dimensions
+#      are left alone -- it still needs the room for the search field.
+#   3. Catalogue list contrast. Report rows sat flush against a plain white
+#      list with only a 1px hairline between them, so nothing stood out.
+#      The list now sits on a soft warm tray instead of white, so each
+#      report renders as its own lifted card (shadow, lifts further on
+#      hover), and each card picks up a thin left-edge colour by its group
+#      (Work In / In Process / Money In / Money Out / Clients-Recovery /
+#      Compliance-Archive) -- distinct at a glance, no dark backgrounds.
 #
 # Every edit below is a surgical find/replace against known-good source
 # text rather than a full-file rewrite.
@@ -38,11 +38,9 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
-BACKEND = os.path.join(ROOT, "erp-backend", "src", "main", "java", "com", "gesolutions", "erp")
 
-INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
-LAND_PROJECT_JAVA = os.path.join(BACKEND, "modules", "land", "model", "LandProject.java")
-LAND_SERVICE_JAVA = os.path.join(BACKEND, "modules", "land", "service", "LandService.java")
+REPORT_STUDIO_JSX = os.path.join(SRC, "pages", "Reports", "ReportStudio.jsx")
+REPORT_STUDIO_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
 
 
 def apply_patches(path, patches):
@@ -75,126 +73,300 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ 1. IntakePage.jsx -- editable Date Started + new automatic Entry Date ═══
-apply_patches(INTAKE_JSX, [
+# ═══ 1. ReportStudio.jsx -- click-anywhere headers + per-group data hook ═══
+apply_patches(REPORT_STUDIO_JSX, [
     (
-        "    const [projectStartDate] = useState(todayISO);",
-        "    const [projectStartDate, setProjectStartDate] = useState(todayISO);\n"
-        "    // ENTRY DATE: automatic, never editable -- the day this intake was\n"
-        "    // actually keyed into the system. Kept separate from Date Started\n"
-        "    // above, which is when fieldwork began and can be backdated by the\n"
-        "    // operator (e.g. entering a project two days after it started).\n"
-        "    const [entryDate] = useState(todayDMY);",
-        "projectStartDate becomes editable state, add entryDate (auto, no setter)",
+        "        <div className={styles.panelHeadRow}>\n"
+        "          <span className={styles.scopeTitle}>SCOPE</span>\n"
+        "          <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label=\"Collapse or expand scope panel\">\n"
+        "            <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
+        "          </button>\n"
+        "        </div>",
+        "        <div\n"
+        "          className={styles.panelHeadRow}\n"
+        "          role=\"button\"\n"
+        "          tabIndex={0}\n"
+        "          onClick={() => setScopeOpen(o => !o)}\n"
+        "          onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setScopeOpen(o => !o); } }}\n"
+        "          aria-expanded={scopeOpen}\n"
+        "          aria-label=\"Collapse or expand scope panel\"\n"
+        "        >\n"
+        "          <span className={styles.scopeTitle}>SCOPE</span>\n"
+        "          <span className={styles.headToggle}>\n"
+        "            <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
+        "          </span>\n"
+        "        </div>",
+        "Scope panel head: whole row is now the collapse toggle, not just the chevron",
     ),
     (
-        "                    <div className={styles.grid2}>\n"
-        "                        <div className={styles.field}>\n"
-        "                            <label className={styles.label}>Index</label>\n"
-        "                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>\n"
-        "                            <p className={styles.hint}>Next available index, assigned on save</p>\n"
-        "                        </div>\n"
-        "                        <div className={styles.field}>\n"
-        "                            <label className={styles.label}>Date Started</label>\n"
-        "                            <div className={styles.indexDisplay}>{todayDMY()}</div>\n"
-        "                            <p className={styles.hint}>Auto-generated with today's date</p>\n"
-        "                        </div>\n"
-        "                    </div>",
-        "                    <div className={styles.grid3}>\n"
-        "                        <div className={styles.field}>\n"
-        "                            <label className={styles.label}>Index</label>\n"
-        "                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>\n"
-        "                            <p className={styles.hint}>Next available index, assigned on save</p>\n"
-        "                        </div>\n"
-        "                        <div className={styles.field}>\n"
-        "                            <label className={styles.label}>Entry Date</label>\n"
-        "                            <div className={styles.indexDisplay}>{entryDate}</div>\n"
-        "                            <p className={styles.hint}>Automatically recorded when this is saved</p>\n"
-        "                        </div>\n"
-        "                        <div className={styles.field}>\n"
-        "                            <label className={styles.label}>Date Started</label>\n"
-        "                            <input type=\"date\" className={styles.input} value={projectStartDate}\n"
-        "                                onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />\n"
-        "                            <p className={styles.hint}>Defaults to today, edit if work started earlier</p>\n"
-        "                        </div>\n"
-        "                    </div>",
-        "Entry Mode row: grid2 -> grid3, add Entry Date, Date Started becomes a date input",
+        "  const catRowNode = (def) => (\n"
+        "    <div key={def.id} className={styles.catWrap}>",
+        "  const catRowNode = (def) => (\n"
+        "    <div key={def.id} className={styles.catWrap} data-group={def.group}>",
+        "catalogue row wrap carries its report's group, for the CSS colour accent",
     ),
     (
-        "                isLegacy, titleAtIntake, projectStartDate: todayISO(),",
-        "                isLegacy, titleAtIntake, projectStartDate: projectStartDate || todayISO(),",
-        "save payload sends the (possibly edited) Date Started instead of a fresh today()",
-    ),
-    (
-        "        setProjectType('NEW_FOLDER');\n"
-        "        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');",
-        "        setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());\n"
-        "        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');",
-        "duplicate-for-next-plot also resets Date Started back to today",
+        "      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed + ' ' + styles.panelCollapsed)}>\n"
+        "        {catOpen && <CornerDecor hideTop />}\n"
+        "        <div className={styles.panelHeadRow}>\n"
+        "          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>\n"
+        "          <span className={styles.badge}>{searched.length} MATCHES</span>\n"
+        "          <div className={styles.searchBox}>\n"
+        "            <FiSearch className={styles.searchIcon} aria-hidden=\"true\" />\n"
+        "            <input value={search} onChange={e => setSearch(e.target.value)} placeholder=\"Search reports...\" aria-label=\"Search reports\" style={{ paddingLeft: 40 }} />\n"
+        "            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label=\"Clear search\"><FiX size={13} aria-hidden=\"true\" /></button>}\n"
+        "          </div>\n"
+        "          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label=\"Collapse or expand catalogue panel\">\n"
+        "            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
+        "          </button>\n"
+        "        </div>\n"
+        "        <div className={styles.tabRow}>\n"
+        "          <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>\n"
+        "            ALL<span className={styles.gcnt}>{searched.length}</span>\n"
+        "          </button>\n"
+        "          {GROUPS.map(g => {\n"
+        "            const n = searched.filter(d => d.group === g).length;\n"
+        "            if (!n && g !== groupTab) return null;\n"
+        "            return (\n"
+        "              <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>\n"
+        "                {g}<span className={styles.gcnt}>{n}</span>\n"
+        "              </button>\n"
+        "            );\n"
+        "          })}\n"
+        "        </div>\n"
+        "        {recentDefs.length > 0 && (\n"
+        "          <div className={styles.recentRow}>\n"
+        "            <span className={styles.recentLabel}>RECENTLY USED</span>\n"
+        "            {recentDefs.map(d => (\n"
+        "              <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>\n"
+        "            ))}\n"
+        "          </div>\n"
+        "        )}\n"
+        "        <div className={styles.catList}>\n"
+        "          {defaultDef && (\n"
+        "            <div className={styles.catWrap}>\n"
+        "              <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>\n"
+        "                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \\u25B2' : 'WHAT IS THIS? \\u25BC'}</span></span>\n"
+        "                <span className={styles.r2}>{defaultDef.desc}</span>\n"
+        "              </button>\n"
+        "              {readId === defaultDef.id && (\n"
+        "                <div className={styles.readout}>\n"
+        "                  <div className={styles.readoutText}>{readout(defaultDef)}</div>\n"
+        "                  <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>\n"
+        "                </div>\n"
+        "              )}\n"
+        "            </div>\n"
+        "          )}\n"
+        "          {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}\n"
+        "          {groupTab === 'ALL'\n"
+        "            ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (\n"
+        "              <div key={g}>\n"
+        "                <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>\n"
+        "                {restList.filter(d => d.group === g).map(catRowNode)}\n"
+        "              </div>\n"
+        "            ))\n"
+        "            : restList.map(catRowNode)}\n"
+        "        </div>\n"
+        "        <div className={styles.foot}>\n"
+        "          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}\n"
+        "          {search ? ' matching \"' + search + '\"' : ''}\n"
+        "          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}\n"
+        "          {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}\n"
+        "        </div>\n"
+        "      </div>",
+        "      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.panelCollapsed)}>\n"
+        "        {catOpen && <CornerDecor hideTop />}\n"
+        "        <div\n"
+        "          className={styles.panelHeadRow}\n"
+        "          role=\"button\"\n"
+        "          tabIndex={0}\n"
+        "          onClick={() => setCatOpen(o => !o)}\n"
+        "          onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setCatOpen(o => !o); } }}\n"
+        "          aria-expanded={catOpen}\n"
+        "          aria-label=\"Collapse or expand catalogue panel\"\n"
+        "        >\n"
+        "          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>\n"
+        "          <span className={styles.badge}>{searched.length} MATCHES</span>\n"
+        "          <div className={styles.searchBox} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>\n"
+        "            <FiSearch className={styles.searchIcon} aria-hidden=\"true\" />\n"
+        "            <input value={search} onChange={e => setSearch(e.target.value)} placeholder=\"Search reports...\" aria-label=\"Search reports\" style={{ paddingLeft: 40 }} />\n"
+        "            {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label=\"Clear search\"><FiX size={13} aria-hidden=\"true\" /></button>}\n"
+        "          </div>\n"
+        "          <span className={styles.headToggle}>\n"
+        "            <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden=\"true\" />\n"
+        "          </span>\n"
+        "        </div>\n"
+        "        <div className={catOpen ? styles.catBody : styles.panelClosed}>\n"
+        "          <div className={styles.tabRow}>\n"
+        "            <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>\n"
+        "              ALL<span className={styles.gcnt}>{searched.length}</span>\n"
+        "            </button>\n"
+        "            {GROUPS.map(g => {\n"
+        "              const n = searched.filter(d => d.group === g).length;\n"
+        "              if (!n && g !== groupTab) return null;\n"
+        "              return (\n"
+        "                <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>\n"
+        "                  {g}<span className={styles.gcnt}>{n}</span>\n"
+        "                </button>\n"
+        "              );\n"
+        "            })}\n"
+        "          </div>\n"
+        "          {recentDefs.length > 0 && (\n"
+        "            <div className={styles.recentRow}>\n"
+        "              <span className={styles.recentLabel}>RECENTLY USED</span>\n"
+        "              {recentDefs.map(d => (\n"
+        "                <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>\n"
+        "              ))}\n"
+        "            </div>\n"
+        "          )}\n"
+        "          <div className={styles.catList}>\n"
+        "            {defaultDef && (\n"
+        "              <div className={styles.catWrap}>\n"
+        "                <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>\n"
+        "                  <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \\u25B2' : 'WHAT IS THIS? \\u25BC'}</span></span>\n"
+        "                  <span className={styles.r2}>{defaultDef.desc}</span>\n"
+        "                </button>\n"
+        "                {readId === defaultDef.id && (\n"
+        "                  <div className={styles.readout}>\n"
+        "                    <div className={styles.readoutText}>{readout(defaultDef)}</div>\n"
+        "                    <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>\n"
+        "                  </div>\n"
+        "                )}\n"
+        "              </div>\n"
+        "            )}\n"
+        "            {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}\n"
+        "            {groupTab === 'ALL'\n"
+        "              ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (\n"
+        "                <div key={g} className={styles.groupBlock}>\n"
+        "                  <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>\n"
+        "                  {restList.filter(d => d.group === g).map(catRowNode)}\n"
+        "                </div>\n"
+        "              ))\n"
+        "              : restList.map(catRowNode)}\n"
+        "          </div>\n"
+        "          <div className={styles.foot}>\n"
+        "            {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}\n"
+        "            {search ? ' matching \"' + search + '\"' : ''}\n"
+        "            {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}\n"
+        "            {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}\n"
+        "          </div>\n"
+        "        </div>\n"
+        "      </div>",
+        "Catalogue panel: whole head row toggles (search box stops that bubbling), "
+        "body wrapped so it can fade/slide in like Intake's sections, group divs "
+        "tagged so rows can be styled per group",
     ),
 ])
 
-# ═══ 2. LandProject.java -- new entry_date column ═══
-apply_patches(LAND_PROJECT_JAVA, [
+# ═══ 2. ReportStudio.module.css -- Intake-matching cards + list contrast ═══
+apply_patches(REPORT_STUDIO_CSS, [
     (
-        "    @Column(name = \"project_start_date\")\n"
-        "    private LocalDate projectStartDate;\n",
-        "    @Column(name = \"project_start_date\")\n"
-        "    private LocalDate projectStartDate;\n"
-        "\n"
-        "    /**\n"
-        "     * ENTRY DATE -- automatic, never client-editable. The actual calendar\n"
-        "     * day this record was keyed into Golden Seed, set once by the server\n"
-        "     * at intake (atomicIntake()) and never touched again. Distinct from\n"
-        "     * PROJECT START DATE above, which is when fieldwork began on the\n"
-        "     * ground and CAN be backdated by the operator (e.g. entering a\n"
-        "     * project two days after it actually started).\n"
-        "     */\n"
-        "    @Column(name = \"entry_date\", updatable = false)\n"
-        "    private LocalDate entryDate;\n",
-        "add entry_date column (automatic, updatable = false)",
+        ".studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }\n"
+        ".scopePanel, .catPanel, .viewerPanel {\n"
+        "  background: #4a6a6c;\n"
+        "  border: 1.5px solid rgba(255, 255, 255, 0.10);\n"
+        "  border-radius: 12px;\n"
+        "  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);\n"
+        "  overflow: visible;\n"
+        "}\n"
+        ".panelHeadRow {\n"
+        "  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;\n"
+        "  background: #162a2c; border-bottom: 1.5px solid #EE8C3A;\n"
+        "  border-radius: 11px 11px 0 0; padding: 10px 14px;\n"
+        "}",
+        ".studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }\n"
+        ".scopePanel, .catPanel, .viewerPanel {\n"
+        "  border: 1.5px solid rgba(255, 255, 255, 0.10);\n"
+        "  border-radius: 12px;\n"
+        "  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);\n"
+        "  overflow: visible;\n"
+        "}\n"
+        ".viewerPanel { background: #4a6a6c; }\n"
+        "/* Scope + Catalogue containers now match Intake's CollapsibleSection card:\n"
+        "   same gradient body and the same wake-up hover -- border warms to\n"
+        "   orange and the shadow deepens, telling you the whole card is live. */\n"
+        ".scopePanel, .catPanel {\n"
+        "  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);\n"
+        "  border-color: rgba(238, 140, 58, 0.2);\n"
+        "  transition: border-color 0.3s ease, box-shadow 0.3s ease;\n"
+        "}\n"
+        ".scopePanel:hover, .catPanel:hover {\n"
+        "  border-color: #EE8C3A;\n"
+        "  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);\n"
+        "}\n"
+        ".panelHeadRow {\n"
+        "  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;\n"
+        "  background: #162a2c; border-bottom: 1.5px solid #EE8C3A;\n"
+        "  border-radius: 11px 11px 0 0; padding: 10px 14px;\n"
+        "  width: 100%; box-sizing: border-box; text-align: left;\n"
+        "  transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;\n"
+        "}\n"
+        "/* Only the Scope + Catalogue heads are clickable toggles (like Intake's\n"
+        "   CollapsibleSection); the Preview head reuses this class but stays\n"
+        "   inert, so it keeps the default cursor. */\n"
+        ".scopePanel .panelHeadRow, .catPanel .panelHeadRow { cursor: pointer; }\n"
+        ".scopePanel .panelHeadRow:focus-visible, .catPanel .panelHeadRow:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }",
+        "panel cards get Intake's gradient + hover glow; header row becomes a full click target",
     ),
-])
-
-# ═══ 3. LandService.java -- wire projectStartDate + entryDate into intake ═══
-apply_patches(LAND_SERVICE_JAVA, [
     (
-        "                    .blockRoad(request.getBlockRoad())\n"
-        "                    // STEP 7: Date Started is no longer client-editable on the intake\n"
-        "                    // form, so creation no longer trusts a client-supplied value here\n"
-        "                    // -- always today. (updateProjectFull(), the Folder page's edit\n"
-        "                    // flow, is a different form and is untouched.)\n"
-        "                    .projectStartDate(LocalDate.now())\n"
-        "                    .titleIssueDate(request.getTitleIssueDate())\n"
-        "                    .build();",
-        "                    .blockRoad(request.getBlockRoad())\n"
-        "                    // Date Started is editable again on the intake form (staff can\n"
-        "                    // backdate a project entered a few days after fieldwork began),\n"
-        "                    // so this trusts the client value when present and only falls\n"
-        "                    // back to today when it's missing. Entry Date (LandProject,\n"
-        "                    // below) is the one that stays server-set and non-editable.\n"
-        "                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())\n"
-        "                    .titleIssueDate(request.getTitleIssueDate())\n"
-        "                    .build();",
-        "LandTitle.projectStartDate trusts the client value again instead of forcing today()",
+        ".scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }",
+        ".scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); animation: panelExpand 0.2s ease-out; }\n"
+        ".catBody { animation: panelExpand 0.2s ease-out; }\n"
+        "@keyframes panelExpand {\n"
+        "  from { opacity: 0; transform: translateY(-4px); }\n"
+        "  to   { opacity: 1; transform: translateY(0); }\n"
+        "}",
+        "opening a panel now fades/slides its body in, matching Intake's expand animation",
     ),
     (
-        "        LandProject.LandProjectBuilder builder = LandProject.builder()\n"
-        "                .landTitle(title)\n"
-        "                .projectIndex(projectIndex)\n"
-        "                .district(request.getDistrict())",
-        "        LandProject.LandProjectBuilder builder = LandProject.builder()\n"
-        "                .landTitle(title)\n"
-        "                .projectIndex(projectIndex)\n"
-        "                // ENTRY DATE: automatic, server-set, never from the request.\n"
-        "                .entryDate(LocalDate.now())\n"
-        "                // DATE STARTED: editable on the intake form, defaults to today\n"
-        "                // on the client -- this was previously never wired up here at\n"
-        "                // all, so every project's start date landed NULL regardless of\n"
-        "                // what the form showed.\n"
-        "                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())\n"
-        "                .district(request.getDistrict())",
-        "wire entryDate + projectStartDate into the LandProject builder (was missing entirely)",
+        ".catList { max-height: 340px; overflow-y: auto; background: #fff; scrollbar-width: thin; scrollbar-color: #EE8C3A transparent; }\n"
+        ".catList::-webkit-scrollbar { width: 6px; }\n"
+        ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }\n"
+        ".catWrap { border-bottom: 1px solid #f1eeea; }\n"
+        ".catWrap:last-child { border-bottom: none; }\n"
+        ".catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 9px 14px; cursor: pointer; transition: background 0.15s; }\n"
+        ".catRow:hover { background: #EE8C3A; color: #fff; }\n"
+        ".catRowOn { background: #d97e2f; color: #1a2e30; }",
+        "/* Catalogue list: a soft warm tray behind white report cards. The tray\n"
+        "   supplies the contrast (instead of dark panels) so every card reads as\n"
+        "   a distinct, liftable object -- creative + professional, no dark fills. */\n"
+        ".catList {\n"
+        "  max-height: 340px; overflow-y: auto; background: #f2ede4;\n"
+        "  padding: 10px; display: flex; flex-direction: column; gap: 9px;\n"
+        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
+        "}\n"
+        ".catList::-webkit-scrollbar { width: 6px; }\n"
+        ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }\n"
+        ".groupBlock { display: flex; flex-direction: column; gap: 9px; }\n"
+        ".catWrap {\n"
+        "  border-radius: 9px; overflow: hidden; border-left: 4px solid transparent;\n"
+        "  box-shadow: 0 2px 7px rgba(26,46,48,0.12);\n"
+        "  transition: box-shadow 0.2s ease, transform 0.2s ease;\n"
+        "}\n"
+        ".catWrap:hover { box-shadow: 0 8px 22px rgba(26,46,48,0.2); transform: translateY(-2px); }\n"
+        "/* Per-group accent colour, so the list reads at a glance without leaning\n"
+        "   on dark backgrounds -- each category gets its own light-safe hue. */\n"
+        ".catWrap[data-group=\"WORK IN\"] { border-left-color: #EE8C3A; }\n"
+        ".catWrap[data-group=\"IN PROCESS\"] { border-left-color: #4C9CD1; }\n"
+        ".catWrap[data-group=\"MONEY IN\"] { border-left-color: #16a37a; }\n"
+        ".catWrap[data-group=\"MONEY OUT\"] { border-left-color: #d9694a; }\n"
+        ".catWrap[data-group=\"CLIENTS / RECOVERY\"] { border-left-color: #9b7fc7; }\n"
+        ".catWrap[data-group=\"COMPLIANCE / ARCHIVE\"] { border-left-color: #64748b; }\n"
+        ".catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 10px 14px; cursor: pointer; transition: background 0.15s; }\n"
+        ".catRow:hover { background: #EE8C3A; color: #fff; }\n"
+        ".catRowOn { background: #d97e2f; color: #1a2e30; }",
+        "catalogue rows become distinct lifted cards on a warm tray, with a per-group colour edge",
+    ),
+    (
+        ".ddSec { position: sticky; top: 0; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 14px; border-bottom: 1px solid #dfd9d1; z-index: 1; }",
+        ".ddSec { position: sticky; top: -10px; background: #f2ede4; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 4px 2px; z-index: 1; }",
+        "group section label matches the new tray background instead of its own near-identical grey bar",
+    ),
+    (
+        ".panelClosed { display: none; }\n"
+        ".catPanelClosed > *:not(.panelHeadRow) { display: none; }",
+        ".panelClosed { display: none; }",
+        "catPanelClosed no longer needed -- catalogue body now hides via panelClosed like scope's body does",
     ),
 ])
 
@@ -228,7 +400,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix111: Intake gets automatic Entry Date field, Date Started is editable again (defaults to today), backend wires both into LandProject")
+git("commit", "-m", "fix112: Reports Scope + Catalogue headers match Intake's CollapsibleSection style (gradient card, click-anywhere collapse, hover glow), catalogue list gets per-group colour contrast")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

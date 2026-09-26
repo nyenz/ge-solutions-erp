@@ -236,7 +236,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     return text;
   };
   const catRowNode = (def) => (
-    <div key={def.id} className={styles.catWrap}>
+    <div key={def.id} className={styles.catWrap} data-group={def.group}>
       <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
         <span className={styles.r1}>{def.title}<span className={styles.liveCount}>{liveCount(def)} ROWS</span><span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span><span className={styles.toggleHint}>{readId === def.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
         <span className={styles.r2}>{def.desc}</span>
@@ -460,11 +460,19 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       </div>
       <div className={scopeOpen ? styles.scopePanel : styles.scopePanel + ' ' + styles.panelCollapsed}>
         {scopeOpen && <CornerDecor hideTop />}
-        <div className={styles.panelHeadRow}>
+        <div
+          className={styles.panelHeadRow}
+          role="button"
+          tabIndex={0}
+          onClick={() => setScopeOpen(o => !o)}
+          onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setScopeOpen(o => !o); } }}
+          aria-expanded={scopeOpen}
+          aria-label="Collapse or expand scope panel"
+        >
           <span className={styles.scopeTitle}>SCOPE</span>
-          <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
+          <span className={styles.headToggle}>
             <FiChevronDown className={scopeOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-          </button>
+          </span>
         </div>
         <div className={scopeOpen ? styles.scopeBody : styles.panelClosed}>
           {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
@@ -576,72 +584,82 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
       </div>
 
-      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed + ' ' + styles.panelCollapsed)}>
+      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.panelCollapsed)}>
         {catOpen && <CornerDecor hideTop />}
-        <div className={styles.panelHeadRow}>
+        <div
+          className={styles.panelHeadRow}
+          role="button"
+          tabIndex={0}
+          onClick={() => setCatOpen(o => !o)}
+          onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setCatOpen(o => !o); } }}
+          aria-expanded={catOpen}
+          aria-label="Collapse or expand catalogue panel"
+        >
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
-          <div className={styles.searchBox}>
+          <div className={styles.searchBox} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
             <FiSearch className={styles.searchIcon} aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..." aria-label="Search reports" style={{ paddingLeft: 40 }} />
             {search && <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search"><FiX size={13} aria-hidden="true" /></button>}
           </div>
-          <button className={styles.headToggle} onClick={() => setCatOpen(o => !o)} aria-expanded={catOpen} aria-label="Collapse or expand catalogue panel">
+          <span className={styles.headToggle}>
             <FiChevronDown className={catOpen ? styles.pickIconOpen : ''} aria-hidden="true" />
-          </button>
+          </span>
         </div>
-        <div className={styles.tabRow}>
-          <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
-            ALL<span className={styles.gcnt}>{searched.length}</span>
-          </button>
-          {GROUPS.map(g => {
-            const n = searched.filter(d => d.group === g).length;
-            if (!n && g !== groupTab) return null;
-            return (
-              <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>
-                {g}<span className={styles.gcnt}>{n}</span>
-              </button>
-            );
-          })}
-        </div>
-        {recentDefs.length > 0 && (
-          <div className={styles.recentRow}>
-            <span className={styles.recentLabel}>RECENTLY USED</span>
-            {recentDefs.map(d => (
-              <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>
-            ))}
+        <div className={catOpen ? styles.catBody : styles.panelClosed}>
+          <div className={styles.tabRow}>
+            <button className={groupTab === 'ALL' ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab('ALL')}>
+              ALL<span className={styles.gcnt}>{searched.length}</span>
+            </button>
+            {GROUPS.map(g => {
+              const n = searched.filter(d => d.group === g).length;
+              if (!n && g !== groupTab) return null;
+              return (
+                <button key={g} className={groupTab === g ? styles.gtabOn : styles.gtab} onClick={() => setGroupTab(g)}>
+                  {g}<span className={styles.gcnt}>{n}</span>
+                </button>
+              );
+            })}
           </div>
-        )}
-        <div className={styles.catList}>
-          {defaultDef && (
-            <div className={styles.catWrap}>
-              <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
-                <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
-                <span className={styles.r2}>{defaultDef.desc}</span>
-              </button>
-              {readId === defaultDef.id && (
-                <div className={styles.readout}>
-                  <div className={styles.readoutText}>{readout(defaultDef)}</div>
-                  <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>
-                </div>
-              )}
+          {recentDefs.length > 0 && (
+            <div className={styles.recentRow}>
+              <span className={styles.recentLabel}>RECENTLY USED</span>
+              {recentDefs.map(d => (
+                <button key={d.id} className={styles.rchip} onClick={() => applyDef(d)}>{d.title}</button>
+              ))}
             </div>
           )}
-          {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
-          {groupTab === 'ALL'
-            ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (
-              <div key={g}>
-                <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>
-                {restList.filter(d => d.group === g).map(catRowNode)}
+          <div className={styles.catList}>
+            {defaultDef && (
+              <div className={styles.catWrap}>
+                <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
+                  <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
+                  <span className={styles.r2}>{defaultDef.desc}</span>
+                </button>
+                {readId === defaultDef.id && (
+                  <div className={styles.readout}>
+                    <div className={styles.readoutText}>{readout(defaultDef)}</div>
+                    <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>
+                  </div>
+                )}
               </div>
-            ))
-            : restList.map(catRowNode)}
-        </div>
-        <div className={styles.foot}>
-          {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}
-          {search ? ' matching "' + search + '"' : ''}
-          {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
-          {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}
+            )}
+            {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
+            {groupTab === 'ALL'
+              ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (
+                <div key={g} className={styles.groupBlock}>
+                  <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>
+                  {restList.filter(d => d.group === g).map(catRowNode)}
+                </div>
+              ))
+              : restList.map(catRowNode)}
+          </div>
+          <div className={styles.foot}>
+            {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}
+            {search ? ' matching "' + search + '"' : ''}
+            {entity ? ' for ' + entity.label.toLowerCase() + ' ' + entity.value : ' for the whole company'}
+            {' · ' + scopeRows.length + ' of ' + rows.length + ' rows in scope'}
+          </div>
         </div>
       </div>
 
