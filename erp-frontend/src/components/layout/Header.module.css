@@ -7,6 +7,7 @@
    Header is a layout component — it inherits --orange / --navy etc.
    from the app root. Declare local overrides only if needed.
    ─────────────────────────────────────────────────────────────────── */
+:root {
     /* fix103: local overrides -- Header sits outside every page's
        .container, so it can't inherit their page-scoped tokens. These
        are the same literal values the rest of the app already uses. */
@@ -23,6 +24,7 @@
     --on-panel: var(--text-on-dark, rgba(244, 242, 239, 0.82));
     --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
     --on-panel-faint: rgba(244, 242, 239, 0.45);
+}
 .header {
   position: sticky; top: 0; left: 0; right: 0; z-index: 80; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 18px; background: #162a2c; border-bottom: 1.5px solid rgba(238, 140, 58, 0.35); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);}
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix106: generic brace-balance repair for Header.module.css.
-# fix105 missed the fourth unclosed block (.notifDrop at line 283). This pass
-# walks the stylesheet tracking block depth and inserts a closing brace
-# wherever a top-level rule begins inside a still-open block, closes anything
-# left open at end-of-file, and verifies the brace counts match before
-# committing. Idempotent: if the file is already balanced, nothing changes.
+# GOLDEN SEED -- fix107: one-pass header repair.
+# 1. Brace-balance repair of Header.module.css (closes .notifDrop and any
+#    other open block, verifies { } counts match before writing).
+# 2. Wraps the dangling fix103 token declarations in a real :root { } block
+#    so browsers actually apply them, and defines the missing --panel-edge.
+# Then adds, commits and pushes by itself.
 import os
 import re
 import subprocess
@@ -17,6 +17,7 @@ HEADER_CSS = os.path.join(ROOT, 'erp-frontend', 'src', 'components', 'layout', '
 with open(HEADER_CSS, 'r', encoding='utf-8') as f:
     css = f.read()
 
+# ═══ 1. brace-balance repair ═══
 RULE_START = re.compile(r'^\.[A-Za-z][^{}]*\{')
 lines = css.split('\n')
 out = []
@@ -35,29 +36,40 @@ while depth > 0:
     out.append('}')
     depth -= 1
     inserted += 1
-fixed = '\n'.join(out)
-
-opens = fixed.count('{')
-closes = fixed.count('}')
-print('braces inserted: %d | final balance: %d open / %d close' % (inserted, opens, closes))
-if opens != closes:
-    print('FAIL: stylesheet still unbalanced after repair -- aborting, nothing written')
+css = '\n'.join(out)
+print('braces inserted: %d | balance: %d open / %d close' % (inserted, css.count('{'), css.count('}')))
+if css.count('{') != css.count('}'):
+    print('FAIL: still unbalanced -- aborting, nothing written')
     sys.exit(1)
 
-if fixed == css:
-    print('Header.module.css already balanced -- nothing to do')
-    sys.exit(0)
+# ═══ 2. wrap dangling tokens in :root and add --panel-edge ═══
+m = re.search(r'([ \t]*/\* fix103: local overrides.*?\*/\n(?:[ \t]*--[\w-]+:[^;]*;\n)+)', css, re.S)
+if m and ':root {' not in css:
+    css = css[:m.start(1)] + ':root {\n' + m.group(1) + '}\n' + css[m.end(1):]
+    print('patched: dangling tokens wrapped in :root')
+elif m:
+    print('skip (already wrapped): tokens in :root')
+else:
+    print('note: no dangling token block found (already clean or absent)')
+if '--panel-edge' not in css:
+    if ':root {' in css:
+        css = css.replace(':root {', ':root {\n    --panel-edge: rgba(255, 255, 255, 0.10);', 1)
+    else:
+        css = ':root {\n    --panel-edge: rgba(255, 255, 255, 0.10);\n}\n' + css
+    print('patched: --panel-edge fallback defined')
+else:
+    print('skip (already defined): --panel-edge')
 
 with open(HEADER_CSS, 'w', encoding='utf-8', newline='\n') as f:
-    f.write(fixed)
+    f.write(css)
 print('written: ' + os.path.relpath(HEADER_CSS, ROOT))
 
 
 def git(*args):
     r = subprocess.run(['git'] + list(args), cwd=ROOT, capture_output=True, text=True)
-    out2 = (r.stdout or '').strip()
-    if out2:
-        print(out2)
+    o = (r.stdout or '').strip()
+    if o:
+        print(o)
     if r.returncode != 0:
         print('GIT FAIL: ' + (r.stderr or '').strip())
         sys.exit(1)
@@ -70,8 +82,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix106: brace-balance repair for Header.module.css -- closes .notifDrop and any other open block, verified counts')
+git('commit', '-m', 'fix107: brace-balance repair + dangling header tokens wrapped in :root with --panel-edge fallback')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix106 done: patched, committed and pushed to main.')
+print('fix107 done: patched, committed and pushed to main.')
