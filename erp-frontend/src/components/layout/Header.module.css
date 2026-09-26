@@ -24,7 +24,7 @@
     --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
     --on-panel-faint: rgba(244, 242, 239, 0.45);
 .header {
-  position: sticky; top: 0; left: 0; right: 0; z-index: 80; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 18px; background: #162a2c; border-bottom: 1.5px solid rgba(238, 140, 58, 0.35); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  position: sticky; top: 0; left: 0; right: 0; z-index: 80; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 18px; background: #162a2c; border-bottom: 1.5px solid rgba(238, 140, 58, 0.35); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);}
 
 
 /* Orange under-glow accent */
@@ -161,13 +161,13 @@
 }
 
 .bellIcon {
-  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12); color: #EE8C3A; cursor: pointer; flex-shrink: 0;
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12); color: #EE8C3A; cursor: pointer; flex-shrink: 0;}
 
 .activeSensor .bellIcon { color: #EE8C3A; opacity: 1; }
 
 /* Red badge counter */
 .badge {
-  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; border-radius: 9px; background: #e5484d; color: #fff; font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; border: 1.5px solid #162a2c;
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; border-radius: 9px; background: #e5484d; color: #fff; font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; border: 1.5px solid #162a2c;}
 
 
 
