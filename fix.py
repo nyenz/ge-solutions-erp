@@ -1,50 +1,33 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix110: sidebar auto-collapse moved to content click,
-# notification centre re-tinted by group instead of severity, Report
-# Studio's SCOPE / REPORT CATALOGUE panels matched to Intake's
-# CollapsibleSection (corner deco, curved collapse, header hover).
+# GOLDEN SEED -- fix111: Intake page gets a new automatic ENTRY DATE field,
+# and DATE STARTED goes back to being editable (defaults to today).
 #
 # What this fixes, and why:
-#   1. Sidebar auto-collapse (fix109) fired on the nav link's own onClick,
-#      so the panel vanished the instant you picked a destination -- before
-#      the new page had even rendered. Moved to Shell: the sidebar now
-#      stays open through the navigation, and only collapses on the FIRST
-#      click inside the page content itself. Expand it, pick a link, land
-#      on the page still open, then the next click anywhere in the content
-#      area (not the sidebar) is what tucks it away.
-#   2. Notification centre: every row was tinted by SEVERITY, and most of
-#      the catalog's ~25 types fall into only two severities (INFO / WARN),
-#      so a payment, a new intake and a document upload all rendered in the
-#      same cyan chip -- "different types, same colour" was true. Rows are
-#      now tinted by GROUP (MONEY / PIPELINE / RECOVERY / STAFF / SYSTEM),
-#      five real colour families instead of two, with a CRITICAL severity
-#      still adding its own ring so a plot deletion or system wipe stands
-#      out regardless of which group it landed in. The dropdown's own
-#      background was also a near-black gradient distinct from every other
-#      panel in the app -- it now reuses the exact teal gradient Intake's
-#      CollapsibleSection panels use, and the head bar goes solid
-#      #162a2c (that panel family's own header colour) instead of a black
-#      overlay, so the bell reads as the same system as everything else
-#      instead of a darker box bolted on top of it.
-#   3. Report Studio's SCOPE and REPORT CATALOGUE panels diverged from
-#      Intake's CollapsibleSection in three ways once you collapsed them:
-#      the corner-deco brackets and pins were mounted unconditionally at
-#      the panel root, so they kept floating at the bottom of the (now
-#      short) collapsed panel instead of disappearing with the body; the
-#      head row stayed rounded on top only, so a collapsed panel had a
-#      flat bottom edge instead of reading as one closed, fully-curved
-#      box; and the toggle button itself had its own hover halo, a hover
-#      state Intake's plain chevron never had. All three are now brought
-#      in line with Intake: the corner deco only renders while the panel
-#      is open, a shared .panelCollapsed marker gives the collapsed head
-#      row full corner rounding and drops its now-orphaned orange
-#      underline, and the toggle's hover halo is gone in favour of the
-#      same feedback Intake gives -- hovering the head turns its title
-#      white.
+#   1. Two different dates were being conflated into one read-only field.
+#      "Date Started" was shown as a static today() value with no way to
+#      change it, so there was no way to record that fieldwork on a plot
+#      actually began a few days before the operator got round to keying
+#      it into the system. It is now a real date input, defaulting to
+#      today but editable.
+#   2. To keep that honest, a second, separate field -- ENTRY DATE -- has
+#      been added next to it. This one stays fully automatic: it is the
+#      day the record was actually entered into Golden Seed, set once by
+#      the server at save time and never editable on the client, so there
+#      is always an untouched record of "when this was typed in" even
+#      after Date Started has been backdated.
+#   3. On the backend, LandProject never actually stored a start date at
+#      all -- the intake builder chain had no .projectStartDate(...) call,
+#      so every project's start date landed NULL regardless of what the
+#      form showed. That is now wired up, alongside the new entry_date
+#      column (server-set, updatable = false). The LandTitle side had
+#      gone the other way (see the old "STEP 7" comment) and force-set
+#      today() specifically to stop the client editing it -- that
+#      decision is reversed here since editable is exactly what's wanted
+#      now.
 #
 # Every edit below is a surgical find/replace against known-good source
-# text (fix109's shape) rather than a full-file rewrite.
+# text rather than a full-file rewrite.
 #
 # Runs `npm run build` before committing if node_modules is installed
 # (fix76's build-gate rule) and refuses to commit on a red build.
@@ -55,14 +38,11 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
+BACKEND = os.path.join(ROOT, "erp-backend", "src", "main", "java", "com", "gesolutions", "erp")
 
-HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
-HEADER_JSX = os.path.join(SRC, "components", "layout", "Header.jsx")
-SIDEBAR_JSX = os.path.join(SRC, "components", "layout", "Sidebar.jsx")
-SHELL_JSX = os.path.join(SRC, "components", "layout", "Shell.jsx")
-NOTIF_CATALOG = os.path.join(SRC, "components", "common", "notificationCatalog.js")
-REPORTS_JSX = os.path.join(SRC, "pages", "Reports", "ReportStudio.jsx")
-REPORTS_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
+INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
+LAND_PROJECT_JAVA = os.path.join(BACKEND, "modules", "land", "model", "LandProject.java")
+LAND_SERVICE_JAVA = os.path.join(BACKEND, "modules", "land", "service", "LandService.java")
 
 
 def apply_patches(path, patches):
@@ -95,288 +75,126 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ 1. Sidebar.jsx -- drop the collapse-on-nav-click side effect ═══
-apply_patches(SIDEBAR_JSX, [
+# ═══ 1. IntakePage.jsx -- editable Date Started + new automatic Entry Date ═══
+apply_patches(INTAKE_JSX, [
     (
-        "    /* Picking a destination is the end of a sidebar interaction -- the panel\n"
-        "       should get out of the page's way the moment you commit to somewhere,\n"
-        "       on desktop as well as mobile, instead of sitting open until someone\n"
-        "       remembers to collapse it by hand. */\n"
-        "    const handleNavClick = () => {\n"
-        "        if (!isCollapsed && typeof onToggle === 'function') onToggle();\n"
-        "    };\n"
-        "\n"
-        "    const showBackdrop = isMobile() && !isCollapsed;",
-        "    /* Collapsing here, on the nav link's own click, used to make the panel\n"
-        "       vanish before the new page had even rendered. That auto-collapse now\n"
-        "       lives in Shell instead, keyed off the first click INSIDE the page\n"
-        "       content -- so picking a link still shows you where you landed with\n"
-        "       the panel open, and it only gets out of the way once you start\n"
-        "       actually working the page. */\n"
-        "    const showBackdrop = isMobile() && !isCollapsed;",
-        "remove collapse-on-nav-click, moved to Shell's content click",
+        "    const [projectStartDate] = useState(todayISO);",
+        "    const [projectStartDate, setProjectStartDate] = useState(todayISO);\n"
+        "    // ENTRY DATE: automatic, never editable -- the day this intake was\n"
+        "    // actually keyed into the system. Kept separate from Date Started\n"
+        "    // above, which is when fieldwork began and can be backdated by the\n"
+        "    // operator (e.g. entering a project two days after it started).\n"
+        "    const [entryDate] = useState(todayDMY);",
+        "projectStartDate becomes editable state, add entryDate (auto, no setter)",
     ),
     (
-        "                                        onClick={locked ? (e) => handleLockedClick(e, item) : handleNavClick}>",
-        "                                        onClick={locked ? (e) => handleLockedClick(e, item) : undefined}>",
-        "unlocked nav links: plain navigation, no side effect",
+        "                    <div className={styles.grid2}>\n"
+        "                        <div className={styles.field}>\n"
+        "                            <label className={styles.label}>Index</label>\n"
+        "                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>\n"
+        "                            <p className={styles.hint}>Next available index, assigned on save</p>\n"
+        "                        </div>\n"
+        "                        <div className={styles.field}>\n"
+        "                            <label className={styles.label}>Date Started</label>\n"
+        "                            <div className={styles.indexDisplay}>{todayDMY()}</div>\n"
+        "                            <p className={styles.hint}>Auto-generated with today's date</p>\n"
+        "                        </div>\n"
+        "                    </div>",
+        "                    <div className={styles.grid3}>\n"
+        "                        <div className={styles.field}>\n"
+        "                            <label className={styles.label}>Index</label>\n"
+        "                            <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>\n"
+        "                            <p className={styles.hint}>Next available index, assigned on save</p>\n"
+        "                        </div>\n"
+        "                        <div className={styles.field}>\n"
+        "                            <label className={styles.label}>Entry Date</label>\n"
+        "                            <div className={styles.indexDisplay}>{entryDate}</div>\n"
+        "                            <p className={styles.hint}>Automatically recorded when this is saved</p>\n"
+        "                        </div>\n"
+        "                        <div className={styles.field}>\n"
+        "                            <label className={styles.label}>Date Started</label>\n"
+        "                            <input type=\"date\" className={styles.input} value={projectStartDate}\n"
+        "                                onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />\n"
+        "                            <p className={styles.hint}>Defaults to today, edit if work started earlier</p>\n"
+        "                        </div>\n"
+        "                    </div>",
+        "Entry Mode row: grid2 -> grid3, add Entry Date, Date Started becomes a date input",
     ),
-])
-
-# ═══ 2. Shell.jsx -- auto-collapse on the first click inside page content ═══
-apply_patches(SHELL_JSX, [
     (
-        "    const handleSidebarToggle = () => setIsCollapsed(prev => !prev);\n"
-        "\n"
-        "    return (",
-        "    const handleSidebarToggle = () => setIsCollapsed(prev => !prev);\n"
-        "\n"
-        "    /* The sidebar no longer collapses itself the instant a nav link is\n"
-        "       clicked -- picking a destination should still leave the panel open\n"
-        "       while the new page loads. It's the first click INSIDE the page\n"
-        "       content itself, once you're actually there working the page, that\n"
-        "       clears the panel out of the way. */\n"
-        "    const handleContentClick = () => {\n"
-        "        if (!isCollapsed) setIsCollapsed(true);\n"
-        "    };\n"
-        "\n"
-        "    return (",
-        "add handleContentClick",
+        "                isLegacy, titleAtIntake, projectStartDate: todayISO(),",
+        "                isLegacy, titleAtIntake, projectStartDate: projectStartDate || todayISO(),",
+        "save payload sends the (possibly edited) Date Started instead of a fresh today()",
     ),
     (
-        "                {/*\n"
-        "                  onToggle is passed to Sidebar so it can collapse itself\n"
-        "                  on mobile when the user navigates to a new page — without\n"
-        "                  needing the user to manually press the hamburger again.\n"
-        "                */}\n"
-        "                <Sidebar\n"
-        "                    isCollapsed={isCollapsed}\n"
-        "                    onToggle={handleSidebarToggle}\n"
-        "                />\n"
-        "\n"
-        "                <main className={styles.mainContent}>",
-        "                {/*\n"
-        "                  onToggle is passed to Sidebar purely for its mobile backdrop\n"
-        "                  -- tapping outside the open drawer still closes it right\n"
-        "                  away. Auto-collapse on navigation now lives below instead,\n"
-        "                  on the content area itself (handleContentClick).\n"
-        "                */}\n"
-        "                <Sidebar\n"
-        "                    isCollapsed={isCollapsed}\n"
-        "                    onToggle={handleSidebarToggle}\n"
-        "                />\n"
-        "\n"
-        "                <main className={styles.mainContent} onClick={handleContentClick}>",
-        "wire handleContentClick onto <main>",
+        "        setProjectType('NEW_FOLDER');\n"
+        "        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');",
+        "        setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());\n"
+        "        setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');",
+        "duplicate-for-next-plot also resets Date Started back to today",
     ),
 ])
 
-# ═══ 3. notificationCatalog.js -- add a GROUP colour family ═══
-apply_patches(NOTIF_CATALOG, [
+# ═══ 2. LandProject.java -- new entry_date column ═══
+apply_patches(LAND_PROJECT_JAVA, [
     (
-        "/* Tinted icon chips, not the same flat grey square for every row -- the\n"
-        "   colour is the fastest way to tell \"money came in\" from \"something is\n"
-        "   overdue\" without reading the label first. */\n"
-        "export const SEVERITY_BG = {\n"
-        "    POSITIVE: 'rgba(16, 185, 129, 0.16)',\n"
-        "    WARN:     'rgba(245, 158, 11, 0.16)',\n"
-        "    CRITICAL: 'rgba(239, 68, 68, 0.16)',\n"
-        "    INFO:     'rgba(6, 182, 212, 0.16)',\n"
-        "};\n"
+        "    @Column(name = \"project_start_date\")\n"
+        "    private LocalDate projectStartDate;\n",
+        "    @Column(name = \"project_start_date\")\n"
+        "    private LocalDate projectStartDate;\n"
         "\n"
-        "/* Ordered loosely by how often the office sees them. */",
-        "/* Tinted icon chips, not the same flat grey square for every row -- the\n"
-        "   colour is the fastest way to tell \"money came in\" from \"something is\n"
-        "   overdue\" without reading the label first. */\n"
-        "export const SEVERITY_BG = {\n"
-        "    POSITIVE: 'rgba(16, 185, 129, 0.16)',\n"
-        "    WARN:     'rgba(245, 158, 11, 0.16)',\n"
-        "    CRITICAL: 'rgba(239, 68, 68, 0.16)',\n"
-        "    INFO:     'rgba(6, 182, 212, 0.16)',\n"
-        "};\n"
-        "\n"
-        "/* Severity alone collapses most of the catalog onto two colours -- the\n"
-        "   large majority of types below are either INFO or WARN, so a payment,\n"
-        "   a new intake and a document upload all rendered in the same cyan chip.\n"
-        "   GROUP gives five real colour families (money / pipeline / recovery /\n"
-        "   staff / system) that line up with how the bell is already filtered,\n"
-        "   so the tint tells you the same story the filter chips do. */\n"
-        "export const GROUP_COLOR = {\n"
-        "    MONEY:    '#22c55e',\n"
-        "    PIPELINE: '#38bdf8',\n"
-        "    RECOVERY: '#f97316',\n"
-        "    STAFF:    '#a78bfa',\n"
-        "    SYSTEM:   '#f43f5e',\n"
-        "};\n"
-        "\n"
-        "export const GROUP_BG = {\n"
-        "    MONEY:    'rgba(34, 197, 94, 0.16)',\n"
-        "    PIPELINE: 'rgba(56, 189, 248, 0.16)',\n"
-        "    RECOVERY: 'rgba(249, 115, 22, 0.16)',\n"
-        "    STAFF:    'rgba(167, 139, 250, 0.16)',\n"
-        "    SYSTEM:   'rgba(244, 63, 94, 0.16)',\n"
-        "};\n"
-        "\n"
-        "/* Ordered loosely by how often the office sees them. */",
-        "add GROUP_COLOR / GROUP_BG",
+        "    /**\n"
+        "     * ENTRY DATE -- automatic, never client-editable. The actual calendar\n"
+        "     * day this record was keyed into Golden Seed, set once by the server\n"
+        "     * at intake (atomicIntake()) and never touched again. Distinct from\n"
+        "     * PROJECT START DATE above, which is when fieldwork began on the\n"
+        "     * ground and CAN be backdated by the operator (e.g. entering a\n"
+        "     * project two days after it actually started).\n"
+        "     */\n"
+        "    @Column(name = \"entry_date\", updatable = false)\n"
+        "    private LocalDate entryDate;\n",
+        "add entry_date column (automatic, updatable = false)",
     ),
 ])
 
-# ═══ 4. Header.jsx -- tint notification icons by group, not severity ═══
-apply_patches(HEADER_JSX, [
+# ═══ 3. LandService.java -- wire projectStartDate + entryDate into intake ═══
+apply_patches(LAND_SERVICE_JAVA, [
     (
-        "import { describe, routeFor, relativeTime, SEVERITY_COLOR, SEVERITY_BG, FILTERS } from '../common/notificationCatalog';",
-        "import { describe, routeFor, relativeTime, GROUP_COLOR, GROUP_BG, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';",
-        "import GROUP_COLOR / GROUP_BG, drop unused SEVERITY_BG",
+        "                    .blockRoad(request.getBlockRoad())\n"
+        "                    // STEP 7: Date Started is no longer client-editable on the intake\n"
+        "                    // form, so creation no longer trusts a client-supplied value here\n"
+        "                    // -- always today. (updateProjectFull(), the Folder page's edit\n"
+        "                    // flow, is a different form and is untouched.)\n"
+        "                    .projectStartDate(LocalDate.now())\n"
+        "                    .titleIssueDate(request.getTitleIssueDate())\n"
+        "                    .build();",
+        "                    .blockRoad(request.getBlockRoad())\n"
+        "                    // Date Started is editable again on the intake form (staff can\n"
+        "                    // backdate a project entered a few days after fieldwork began),\n"
+        "                    // so this trusts the client value when present and only falls\n"
+        "                    // back to today when it's missing. Entry Date (LandProject,\n"
+        "                    // below) is the one that stays server-set and non-editable.\n"
+        "                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())\n"
+        "                    .titleIssueDate(request.getTitleIssueDate())\n"
+        "                    .build();",
+        "LandTitle.projectStartDate trusts the client value again instead of forcing today()",
     ),
     (
-        "                                        <span className={styles.notifIcon} style={{ color: 'var(--warn)', background: 'var(--warn-soft)' }}>\n"
-        "                                            <FiPhoneCall aria-hidden=\"true\" />\n"
-        "                                        </span>",
-        "                                        <span className={styles.notifIcon} style={{ color: GROUP_COLOR.RECOVERY, background: GROUP_BG.RECOVERY }}>\n"
-        "                                            <FiPhoneCall aria-hidden=\"true\" />\n"
-        "                                        </span>",
-        "pinned recovery-queue icon: RECOVERY group colour",
-    ),
-    (
-        "                                            <span className={styles.notifIcon}\n"
-        "                                                style={{\n"
-        "                                                    color: SEVERITY_COLOR[meta.severity] || 'var(--info)',\n"
-        "                                                    background: SEVERITY_BG[meta.severity] || SEVERITY_BG.INFO,\n"
-        "                                                }}>\n"
-        "                                                <Icon aria-hidden=\"true\" />\n"
-        "                                            </span>",
-        "                                            <span className={styles.notifIcon}\n"
-        "                                                style={{\n"
-        "                                                    color: GROUP_COLOR[meta.group] || SEVERITY_COLOR[meta.severity] || 'var(--info)',\n"
-        "                                                    background: GROUP_BG[meta.group] || 'rgba(6, 182, 212, 0.16)',\n"
-        "                                                    boxShadow: meta.severity === 'CRITICAL' ? '0 0 0 1.5px rgba(244, 63, 94, 0.6)' : 'none',\n"
-        "                                                }}>\n"
-        "                                                <Icon aria-hidden=\"true\" />\n"
-        "                                            </span>",
-        "tint every notification row's icon by GROUP, CRITICAL keeps its own ring",
-    ),
-])
-
-# ═══ 5. Header.module.css -- dropdown rejoins the app's real panel palette ═══
-apply_patches(HEADER_CSS, [
-    (
-        "    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));\n"
-        "    display: flex;\n"
-        "    flex-direction: column;\n"
-        "    background: linear-gradient(165deg, #182d2f 0%, #1c3335 55%, #213e40 100%);\n"
-        "    border: 1.5px solid rgba(238, 140, 58, 0.35);\n"
-        "    border-radius: 10px;\n"
-        "    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);\n"
-        "    overflow: hidden;\n"
-        "}\n"
-        "\n"
-        ".notifHead {\n"
-        "    display: flex;\n"
-        "    justify-content: space-between;\n"
-        "    align-items: center;\n"
-        "    gap: 8px;\n"
-        "    padding: 11px 13px;\n"
-        "    background: rgba(0, 0, 0, 0.22);\n"
-        "    border-bottom: 1px solid var(--panel-edge);",
-        "    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));\n"
-        "    display: flex;\n"
-        "    flex-direction: column;\n"
-        "    /* Same teal gradient Intake's CollapsibleSection panels use -- this used\n"
-        "       to be its own near-black gradient, the one panel in the app that\n"
-        "       didn't share the family. */\n"
-        "    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);\n"
-        "    border: 1.5px solid rgba(238, 140, 58, 0.35);\n"
-        "    border-radius: 10px;\n"
-        "    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);\n"
-        "    overflow: hidden;\n"
-        "}\n"
-        "\n"
-        ".notifHead {\n"
-        "    display: flex;\n"
-        "    justify-content: space-between;\n"
-        "    align-items: center;\n"
-        "    gap: 8px;\n"
-        "    padding: 11px 13px;\n"
-        "    /* That same panel family's own header colour, not a black overlay. */\n"
-        "    background: #162a2c;\n"
-        "    border-bottom: 1px solid var(--panel-edge);",
-        "notification dropdown + head: rejoin the Intake panel palette",
-    ),
-])
-
-# ═══ 6. ReportStudio.jsx -- corner deco only while open ═══
-apply_patches(REPORTS_JSX, [
-    (
-        "      <div className={styles.scopePanel}>\n"
-        "        <CornerDecor hideTop />\n"
-        "        <div className={styles.panelHeadRow}>\n"
-        "          <span className={styles.scopeTitle}>SCOPE</span>",
-        "      <div className={scopeOpen ? styles.scopePanel : styles.scopePanel + ' ' + styles.panelCollapsed}>\n"
-        "        {scopeOpen && <CornerDecor hideTop />}\n"
-        "        <div className={styles.panelHeadRow}>\n"
-        "          <span className={styles.scopeTitle}>SCOPE</span>",
-        "SCOPE panel: corner deco only while open, closed marker for CSS",
-    ),
-    (
-        "      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed)}>\n"
-        "        <CornerDecor hideTop />\n"
-        "        <div className={styles.panelHeadRow}>\n"
-        "          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>",
-        "      <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed + ' ' + styles.panelCollapsed)}>\n"
-        "        {catOpen && <CornerDecor hideTop />}\n"
-        "        <div className={styles.panelHeadRow}>\n"
-        "          <span className={styles.scopeTitle}>REPORT CATALOGUE</span>",
-        "REPORT CATALOGUE panel: corner deco only while open, same closed marker",
-    ),
-])
-
-# ═══ 7. ReportStudio.module.css -- collapsed curve, no arrow hover, header hover ═══
-apply_patches(REPORTS_CSS, [
-    (
-        "/* Matches the Intake page's CollapsibleSection chevron: a plain rotating\n"
-        "   glyph, not a boxed button -- was the odd one out, styled as a separate\n"
-        "   orange square unlike every other collapse control in the app. */\n"
-        ".headToggle {\n"
-        "  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease, background 0.2s ease;\n"
-        "}\n"
-        ".headToggle:hover { background: rgba(238, 140, 58, 0.14); color: #EE8C3A; }\n"
-        ".headToggle svg {\n"
-        "  width: 16px; height: 16px; transition: transform 0.2s ease;\n"
-        "}\n"
-        ".headToggle .pickIconOpen { color: #EE8C3A; }",
-        "/* Matches the Intake page's CollapsibleSection chevron: a plain rotating\n"
-        "   glyph, not a boxed button -- was the odd one out, styled as a separate\n"
-        "   orange square unlike every other collapse control in the app. No hover\n"
-        "   state of its own either, same as Intake's chevron -- the head row's\n"
-        "   hover (below) is the only feedback hovering this corner gives. */\n"
-        ".headToggle {\n"
-        "  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease;\n"
-        "}\n"
-        ".headToggle svg {\n"
-        "  width: 16px; height: 16px; transition: transform 0.2s ease;\n"
-        "}\n"
-        ".headToggle .pickIconOpen { color: #EE8C3A; }",
-        "drop headToggle's own hover halo",
-    ),
-    (
-        ".catPanel .searchBox { margin-left: auto; }\n"
-        ".catPanel .headToggle { margin-left: 10px; }\n"
-        ".panelClosed { display: none; }\n"
-        ".catPanelClosed > *:not(.panelHeadRow) { display: none; }",
-        ".catPanel .searchBox { margin-left: auto; }\n"
-        ".catPanel .headToggle { margin-left: 10px; }\n"
-        "/* Collapsed, the head row IS the whole visible panel -- it should read as\n"
-        "   one complete, fully-curved box, not a shelf with a flat bottom hanging\n"
-        "   off nothing, and the orange underline has nothing left to separate. */\n"
-        ".panelCollapsed .panelHeadRow { border-radius: 11px; border-bottom-color: transparent; }\n"
-        "/* Matches Intake's CollapsibleSection: hovering the head turns the title\n"
-        "   white -- the only hover feedback the head row gives. */\n"
-        ".scopePanel .panelHeadRow:hover .scopeTitle,\n"
-        ".catPanel .panelHeadRow:hover .scopeTitle { color: #fff; }\n"
-        ".panelClosed { display: none; }\n"
-        ".catPanelClosed > *:not(.panelHeadRow) { display: none; }",
-        "collapsed panel: full curve + no orphaned underline; add header hover",
+        "        LandProject.LandProjectBuilder builder = LandProject.builder()\n"
+        "                .landTitle(title)\n"
+        "                .projectIndex(projectIndex)\n"
+        "                .district(request.getDistrict())",
+        "        LandProject.LandProjectBuilder builder = LandProject.builder()\n"
+        "                .landTitle(title)\n"
+        "                .projectIndex(projectIndex)\n"
+        "                // ENTRY DATE: automatic, server-set, never from the request.\n"
+        "                .entryDate(LocalDate.now())\n"
+        "                // DATE STARTED: editable on the intake form, defaults to today\n"
+        "                // on the client -- this was previously never wired up here at\n"
+        "                // all, so every project's start date landed NULL regardless of\n"
+        "                // what the form showed.\n"
+        "                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())\n"
+        "                .district(request.getDistrict())",
+        "wire entryDate + projectStartDate into the LandProject builder (was missing entirely)",
     ),
 ])
 
@@ -410,7 +228,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix110: sidebar auto-collapse moved to content click, notifications re-tinted by group, Report Studio panels matched to Intake collapse behaviour")
+git("commit", "-m", "fix111: Intake gets automatic Entry Date field, Date Started is editable again (defaults to today), backend wires both into LandProject")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
@@ -421,4 +239,3 @@ if push.returncode != 0:
         print(push2.stdout.strip())
 else:
     print(push.stdout.strip())
-print("fix110 done.")

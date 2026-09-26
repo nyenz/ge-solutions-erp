@@ -54,6 +54,17 @@ public class LandProject {
     private LocalDate projectStartDate;
 
     /**
+     * ENTRY DATE -- automatic, never client-editable. The actual calendar
+     * day this record was keyed into Golden Seed, set once by the server
+     * at intake (atomicIntake()) and never touched again. Distinct from
+     * PROJECT START DATE above, which is when fieldwork began on the
+     * ground and CAN be backdated by the operator (e.g. entering a
+     * project two days after it actually started).
+     */
+    @Column(name = "entry_date", updatable = false)
+    private LocalDate entryDate;
+
+    /**
      * LOCATION (Section 18.4/18.9): permanent, not folder-only -- stays
      * visible for the whole life of the record, title or no title.
      * district/county are moved up from LandTitle (existing data migrated

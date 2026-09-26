@@ -38,7 +38,12 @@ export default function IntakePage() {
     const [saving, setSaving] = useState(false);
     const [nextIndex, setNextIndex] = useState('');
     const [projectType, setProjectType] = useState('NEW_FOLDER');
-    const [projectStartDate] = useState(todayISO);
+    const [projectStartDate, setProjectStartDate] = useState(todayISO);
+    // ENTRY DATE: automatic, never editable -- the day this intake was
+    // actually keyed into the system. Kept separate from Date Started
+    // above, which is when fieldwork began and can be backdated by the
+    // operator (e.g. entering a project two days after it started).
+    const [entryDate] = useState(todayDMY);
     const [owners, setOwners] = useState([EMPTY_OWNER()]);
     const [district, setDistrict] = useState('');
     const [county, setCounty] = useState('');
@@ -246,7 +251,7 @@ export default function IntakePage() {
                 subCounty: subCounty.trim().toUpperCase(), parish: parish.trim().toUpperCase(),
                 village: village.trim().toUpperCase(), area: area.trim().toUpperCase(),
                 totalCost: Number(totalCost) || 0, initialPayment: Number(initialPayment) || 0,
-                isLegacy, titleAtIntake, projectStartDate: todayISO(),
+                isLegacy, titleAtIntake, projectStartDate: projectStartDate || todayISO(),
                 owners: owners.map(o => ({
                     fullName: o.fullName.trim().toUpperCase(), phone: o.phone.trim(),
                     email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
@@ -294,7 +299,7 @@ export default function IntakePage() {
         const ok = await doSave();
         if (!ok) return;
         toast('Saved. Form duplicated for the next plot.', 'success');
-        setProjectType('NEW_FOLDER');
+        setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
@@ -328,16 +333,22 @@ export default function IntakePage() {
 
             <div className={styles.sections}>
                 <CollapsibleSection icon={<FiHash />} title={`${nIndex}. Entry Mode`}>
-                    <div className={styles.grid2}>
+                    <div className={styles.grid3}>
                         <div className={styles.field}>
                             <label className={styles.label}>Index</label>
                             <div className={styles.indexDisplay}>{nextIndex || 'Loading...'}</div>
                             <p className={styles.hint}>Next available index, assigned on save</p>
                         </div>
                         <div className={styles.field}>
+                            <label className={styles.label}>Entry Date</label>
+                            <div className={styles.indexDisplay}>{entryDate}</div>
+                            <p className={styles.hint}>Automatically recorded when this is saved</p>
+                        </div>
+                        <div className={styles.field}>
                             <label className={styles.label}>Date Started</label>
-                            <div className={styles.indexDisplay}>{todayDMY()}</div>
-                            <p className={styles.hint}>Auto-generated with today's date</p>
+                            <input type="date" className={styles.input} value={projectStartDate}
+                                onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />
+                            <p className={styles.hint}>Defaults to today, edit if work started earlier</p>
                         </div>
                     </div>
                     <div className={styles.field}>

@@ -306,11 +306,12 @@ public class LandService {
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
                     .blockRoad(request.getBlockRoad())
-                    // STEP 7: Date Started is no longer client-editable on the intake
-                    // form, so creation no longer trusts a client-supplied value here
-                    // -- always today. (updateProjectFull(), the Folder page's edit
-                    // flow, is a different form and is untouched.)
-                    .projectStartDate(LocalDate.now())
+                    // Date Started is editable again on the intake form (staff can
+                    // backdate a project entered a few days after fieldwork began),
+                    // so this trusts the client value when present and only falls
+                    // back to today when it's missing. Entry Date (LandProject,
+                    // below) is the one that stays server-set and non-editable.
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
         }
@@ -318,6 +319,13 @@ public class LandService {
         LandProject.LandProjectBuilder builder = LandProject.builder()
                 .landTitle(title)
                 .projectIndex(projectIndex)
+                // ENTRY DATE: automatic, server-set, never from the request.
+                .entryDate(LocalDate.now())
+                // DATE STARTED: editable on the intake form, defaults to today
+                // on the client -- this was previously never wired up here at
+                // all, so every project's start date landed NULL regardless of
+                // what the form showed.
+                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
                 .district(request.getDistrict())
                 .county(request.getCounty())
                 .subCounty(request.getSubCounty())
