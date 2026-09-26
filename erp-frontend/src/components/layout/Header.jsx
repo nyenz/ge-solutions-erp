@@ -23,7 +23,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall } from 'react-icons/fi';
+import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiPhoneCall, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
@@ -239,7 +239,10 @@ const Header = ({ onToggle }) => {
                     <div className={styles.avatar} aria-hidden="true">{initials}</div>
                     <div className={styles.userMeta}>
                         <span className={styles.userName}>{user?.username}</span>
-                        <span className={styles.roleTag}>{displayRole}</span>
+                        <span className={`${styles.roleTag} ${isRoot ? styles.roleTagRoot : ''}`}>
+                            {isRoot && <FiShield aria-hidden="true" />}
+                            {displayRole}
+                        </span>
                     </div>
                 </div>
 

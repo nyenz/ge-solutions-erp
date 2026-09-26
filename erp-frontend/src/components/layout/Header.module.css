@@ -1,18 +1,35 @@
 /* PATH: erp-frontend/src/components/layout/Header.module.css */
 /* ERP Standard V1 — clamp() everywhere, DM Sans/Space Mono/Cinzel,
-   font-weight 800-900 minimum, focus-visible on all interactive,
-   activeSensor defined, notificationGroup now a <button>             */
+   font-weight 800-900 minimum, focus-visible on all interactive.
 
-/* ── DESIGN TOKENS ──────────────────────────────────────────────────
-   Header is a layout component — it inherits --orange / --navy etc.
-   from the app root. Declare local overrides only if needed.
+   fix108: clean rewrite, replacing the fix103->fix107 patch chain.
+   Root causes fixed at the source instead of patched again:
+     1. .header never had `justify-content: space-between`, so
+        headerRight (bell / operator card / exit) rendered bunched
+        directly against the logo instead of pinned to the right --
+        which is also why the notification dropdown (anchored to the
+        bell with `right: 0`) rendered near the left edge, on top of
+        the sidebar.
+     2. .header's z-index (80) sat BELOW the sidebar's mobile overlay
+        (100), so on narrow widths the sidebar drawer could paint over
+        the header and its dropdown. Header is now the top-most chrome
+        layer (200) — nothing in the app should render above it.
+     3. --panel-edge was referenced by six rules but never defined
+        (dangling since fix103); defined once, here, in :root.
+     4. The bell was two nested boxes (.notificationGroup's own
+        border/background PLUS an identical border/background on
+        the inner .bellIcon) -- .bellIcon is now icon-only.
+     5. ROOT OWNER now reads as a distinct tier (solid orange chip),
+        not the same faint grey label as every other role.
    ─────────────────────────────────────────────────────────────────── */
+
 :root {
-    /* fix103: local overrides -- Header sits outside every page's
-       .container, so it can't inherit their page-scoped tokens. These
-       are the same literal values the rest of the app already uses. */
+    /* Header sits outside every page's .container, so it can't inherit
+       their page-scoped tokens -- these are the same literal values the
+       rest of the app already uses. */
     --panel-bg: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
     --panel-header: #162a2c;
+    --panel-edge: rgba(255, 255, 255, 0.10);
     --accent: var(--orange);
     --accent-ink: var(--text-on-light, #1a2e30);
     --accent-soft: rgba(238, 140, 58, 0.14);
@@ -25,9 +42,24 @@
     --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
     --on-panel-faint: rgba(244, 242, 239, 0.45);
 }
-.header {
-  position: sticky; top: 0; left: 0; right: 0; z-index: 80; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 18px; background: #162a2c; border-bottom: 1.5px solid rgba(238, 140, 58, 0.35); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);}
 
+/* ── BAR ──────────────────────────────────────────────────────────── */
+.header {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    z-index: 200; /* fix108: top of the whole chrome stack -- was 80,
+                     which lost to the sidebar's mobile overlay (100) */
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* fix108: the missing rule --
+                     this alone is what pins headerRight to the right */
+    gap: 12px;
+    min-height: 64px;
+    padding: 8px 18px;
+    background: #162a2c;
+    border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
 
 /* Orange under-glow accent */
 .header::after {
@@ -46,8 +78,8 @@
     display: flex;
     align-items: center;
     gap: clamp(8px, 1.2vw, 18px);
+    flex-shrink: 0;
 }
-
 
 /* ── SIDEBAR TOGGLE ─────────────────────────────────────────────── */
 .sidebarToggle {
@@ -74,7 +106,6 @@
     outline: 2px solid #EE8C3A;
     outline-offset: 2px;
 }
-
 
 /* ── LOGO SECTION ───────────────────────────────────────────────── */
 .logoSection {
@@ -125,9 +156,12 @@
     white-space: nowrap;
 }
 
-
 /* ── NOTIFICATION / RECOVERY SENSOR ────────────────────────────── */
-/* Now a <button> — removes div-as-button a11y issue */
+.notifWrap { position: relative; }
+
+/* Single box. fix108: this used to also carry a border+background on
+   the icon glyph inside it (.bellIcon), so the bell rendered as two
+   stacked squares -- one box now, the glyph is just the glyph. */
 .notificationGroup {
     position: relative;
     width:  clamp(34px, 3.8vw, 42px);
@@ -151,7 +185,7 @@
     outline-offset: 2px;
 }
 
-/* activeSensor — orange glow when missions are pending */
+/* activeSensor — orange glow when signals are pending */
 .activeSensor {
     border-color: rgba(238, 140, 58, 0.4);
     box-shadow: 0 0 12px rgba(238, 140, 58, 0.2);
@@ -163,15 +197,29 @@
 }
 
 .bellIcon {
-  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; border: 1.5px solid rgba(238, 140, 58, 0.45); background: rgba(238, 140, 58, 0.12); color: #EE8C3A; cursor: pointer; flex-shrink: 0;}
-
-.activeSensor .bellIcon { color: #EE8C3A; opacity: 1; }
+    font-size: clamp(16px, 1.9vw, 20px);
+    color: #EE8C3A;
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+.activeSensor .bellIcon { opacity: 1; }
 
 /* Red badge counter */
 .badge {
-  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; border-radius: 9px; background: #e5484d; color: #fff; font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; border: 1.5px solid #162a2c;}
-
-
+    position: absolute; top: -5px; right: -5px;
+    min-width: 18px; height: 18px;
+    border-radius: 9px;
+    background: #e5484d;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 1.5px solid #162a2c;
+}
 
 /* ── OPERATOR CARD ──────────────────────────────────────────────── */
 .userCard {
@@ -217,8 +265,10 @@
     white-space: nowrap;
 }
 
-/* Space Mono 900 — metadata tag per standard */
+/* Space Mono 900 — metadata tag per standard, for STAFF/MANAGER/DIRECTOR/ADMIN */
 .roleTag {
+    display: inline-flex;
+    align-items: center;
     font-family: 'Space Mono', monospace;
     color: rgba(255, 255, 255, 0.45);
     font-size: clamp(7px, 0.78vw, 9px);
@@ -228,6 +278,18 @@
     white-space: nowrap;
 }
 
+/* fix108: ROOT OWNER is the top of the role hierarchy -- it now reads
+   as a distinct solid chip instead of the same faint grey text every
+   other role gets. */
+.roleTagRoot {
+    color: var(--accent-ink);
+    background: linear-gradient(135deg, #EE8C3A, #f5a35c);
+    padding: 1px clamp(5px, 0.6vw, 7px);
+    border-radius: 4px;
+    gap: 3px;
+    box-shadow: 0 0 8px rgba(238, 140, 58, 0.35);
+}
+.roleTagRoot svg { font-size: 9px; }
 
 /* ── SESSION EXIT ───────────────────────────────────────────────── */
 .logoutTrigger {
@@ -255,7 +317,6 @@
     outline-offset: 2px;
 }
 
-
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 850px) {
     /* Brand name hides on tablet — logo pulse remains */
@@ -267,26 +328,32 @@
     .roleTag   { display: none; }
     .header    { padding: 0 clamp(10px, 3vw, 15px); }
 }
-/* NOTIFICATION DROPDOWN -- .notifWrap kept, dead fix70 rules removed by fix103 */
-.notifWrap { position: relative; }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   NOTIFICATION CENTRE (fix71)
+/* ═══════════════════════════════════════════════════════════════════
+   NOTIFICATION CENTRE
 
-   The bell was a 12-row list of identical grey lines. It is a centre now:
-   filters across the top, one icon per type, a relative timestamp on every
-   row, and an unread marker that is a shape as well as an opacity so it
-   survives the high-contrast setting.
-
-   Appended rather than merged into the block above so the diff stays honest
-   about what this pass changed; later rules win on source order.
-   ═══════════════════════════════════════════════════════════════════════ */
+   Filters across the top, one icon per type, a relative timestamp on
+   every row, and an unread marker that is a shape as well as an
+   opacity so it survives the high-contrast setting.
+   ═══════════════════════════════════════════════════════════════════ */
 
 .notifDrop {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 90; min-width: 320px; max-width: 380px; background: #162a2c; border: 1.5px solid rgba(238, 140, 58, 0.35); border-radius: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35); overflow: hidden;
-
-
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 10;
+    min-width: 320px;
+    max-width: 380px;
+    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
+    display: flex;
+    flex-direction: column;
+    background: #162a2c;
+    border: 1.5px solid rgba(238, 140, 58, 0.35);
+    border-radius: 10px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
 }
+
 .notifHead {
     display: flex;
     justify-content: space-between;
@@ -377,8 +444,8 @@
 .notifRow:hover, .notifRowPinned:hover { background: rgba(238, 140, 58, 0.14); }
 .notifRow:focus-visible, .notifRowPinned:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 
-/* The recovery queue is pinned and is not a stored row, so it is marked as
-   different rather than pretending to be one of the list. */
+/* The recovery queue is pinned and is not a stored row, so it is marked
+   as different rather than pretending to be one of the list. */
 .notifRowPinned {
     background: var(--warn-soft);
     border-left: 3px solid #EE8C3A;
@@ -466,6 +533,7 @@
         left: 8px;
         right: 8px;
         width: auto;
+        max-width: none;
         max-height: calc(100vh - var(--header-height) - 16px);
     }
 }
