@@ -35,7 +35,18 @@
    inert, so it keeps the default cursor. */
 .scopePanel .panelHeadRow, .catPanel .panelHeadRow { cursor: pointer; }
 .scopePanel .panelHeadRow:focus-visible, .catPanel .panelHeadRow:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+/* fix113: Scope's header row is the one directly comparable to an
+   Intake CollapsibleSection header (no search box competing for room),
+   so it gets Intake's exact clamp() padding/gap instead of the shared
+   fixed 10px/14px -- otherwise it reads shorter than every Intake
+   section header at normal desktop widths. Catalogue keeps the fixed
+   padding; it still needs the extra width for the search field. */
+.scopePanel .panelHeadRow {
+  padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
+  gap: clamp(6px, 1vw, 12px);
+}
 .scopeTitle { font-family: 'Cinzel', serif; color: #EE8C3A; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.scopePanel .scopeTitle { font-size: clamp(10px, 1.3vw, 13px); }
 .badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.65); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 20px; padding: 4px 12px; }
 .scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); animation: panelExpand 0.2s ease-out; }
 .catBody { animation: panelExpand 0.2s ease-out; }
