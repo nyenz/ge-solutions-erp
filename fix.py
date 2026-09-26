@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-# PATH: fix.py
-# GOLDEN SEED -- fix101: remove every mis-ported deco/arrow fragment, then
-# build the Intake decoration spec directly: corner brackets bottom-left /
-# bottom-right, orange dot row under each panel, and the Intake head-arrow
-# button (30px dark square, orange border, orange chevron).
+# PATH: fix102.py
+# GOLDEN SEED -- fix102: fix101 invented its own bottom-corner-bracket +
+# dot-row CSS/markup from scratch for Reports, so it never actually matched
+# the rest of the app. The real deco is a single shared component,
+# <CornerDecor>, already used by HardwarePanel and CollapsibleSection (the
+# Intake page panels are CollapsibleSections). This patch removes fix101's
+# bespoke .decoCornerBL/.decoCornerBR/.decoDots fragments and wires Reports'
+# two panels (scopePanel, catPanel) to render the real <CornerDecor hideTop />
+# -- same corner brackets + same bottom pin row every other page uses.
 import os
 import re
 import subprocess
@@ -25,73 +29,58 @@ def write(p, s):
         f.write(s)
 
 
-def rule_replace(css, selector, body):
-    pat = re.compile(re.escape(selector) + r'\s*\{[^}]*\}')
-    repl = selector + ' {\n  ' + body + '\n}'
-    if pat.search(css):
-        return pat.sub(lambda m: repl, css, count=1), 'rewrote rule ' + selector
-    return css + '\n' + repl + '\n', 'added rule ' + selector
-
-
-# ═══ 1. strip all ported fragments ═══
+# ═══ 1. CSS: strip fix101's invented deco rules, keep position:relative ═══
 css = read(CSS)
-cuts = [i for i in (css.find('/* fix99b: ported verbatim from'), css.find('/* fix100: ported verbatim from')) if i >= 0]
-if cuts:
-    css = css[:min(cuts)].rstrip() + '\n'
-    print('undo: removed ported deco/arrow CSS blocks')
-else:
-    print('undo: no ported blocks present')
-css, m = rule_replace(css, '.headToggle',
-                      "margin-left: auto; display: inline-flex; align-items: center; justify-content: center; "
-                      "width: 30px; height: 30px; border-radius: 6px; cursor: pointer; flex-shrink: 0; "
-                      "border: 1.5px solid #EE8C3A; background: #162a2c; color: #EE8C3A; transition: all 0.2s ease;")
-print(m)
-css, m = rule_replace(css, '.headToggle svg',
-                      "width: 14px; height: 14px; transition: transform 0.2s;")
-print(m)
-
-# ═══ 2. Intake decoration spec (brackets + dot row) ═══
 if '.decoCornerBL' in css:
-    print('skip (already applied): deco rules')
-else:
-    if '@media (max-width: 900px) {' not in css:
-        print('FAIL: media query anchor missing')
+    before = css
+    css = css.replace(
+        ".decoCornerBL, .decoCornerBR { position: absolute; bottom: -8px; width: 14px; height: 14px; pointer-events: none; }\n"
+        ".decoCornerBL { left: -8px; border-left: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }\n"
+        ".decoCornerBR { right: -8px; border-right: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }\n"
+        ".decoDots { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); width: 45px; height: 4px; "
+        "pointer-events: none; background: radial-gradient(circle, #EE8C3A 1.5px, transparent 2px) repeat-x left center; background-size: 9px 4px; }\n",
+        "")
+    if css != before:
+        print('undo: removed fix101 bespoke .decoCornerBL/.decoCornerBR/.decoDots CSS')
+    else:
+        print('FAIL: could not locate fix101 deco CSS block to remove')
         sys.exit(1)
-    css = css.replace('@media (max-width: 900px) {',
-                      ".scopePanel, .catPanel { position: relative; }\n"
-                      ".decoCornerBL, .decoCornerBR { position: absolute; bottom: -8px; width: 14px; height: 14px; pointer-events: none; }\n"
-                      ".decoCornerBL { left: -8px; border-left: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }\n"
-                      ".decoCornerBR { right: -8px; border-right: 2px solid rgba(238, 140, 58, 0.55); border-bottom: 2px solid rgba(238, 140, 58, 0.55); }\n"
-                      ".decoDots { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); width: 45px; height: 4px; "
-                      "pointer-events: none; background: radial-gradient(circle, #EE8C3A 1.5px, transparent 2px) repeat-x left center; background-size: 9px 4px; }\n"
-                      "@media (max-width: 900px) {", 1)
-    print('patched: deco rules (brackets + dot row)')
+else:
+    print('skip: no bespoke deco CSS present')
+
+if '.scopePanel, .catPanel { position: relative; }' not in css:
+    print('FAIL: expected ".scopePanel, .catPanel { position: relative; }" anchor missing')
+    sys.exit(1)
+print('keep: .scopePanel, .catPanel { position: relative; } (CornerDecor needs a positioned ancestor)')
 write(CSS, css)
 
-# ═══ 3. JSX: clean wirings, insert deco elements ═══
+# ═══ 2. JSX: swap the invented <i> deco trio for the real <CornerDecor> ═══
 jsx = read(JSX)
-jsx = re.sub(r'[ \t]*<div className=\{styles\.decorBl\}[^>]*></div>\n', '', jsx)
-n = jsx.count(" + ' ' + styles.decorBl}")
-if n:
-    jsx = jsx.replace(" + ' ' + styles.decorBl}", '}')
-    print('undo: removed decorBl from %d panel class list(s)' % n)
-n = len(re.findall(r"className=\{styles\.headToggle \+ ' ' \+ styles\.\w+\}", jsx))
-if n:
-    jsx = re.sub(r"className=\{styles\.headToggle \+ ' ' \+ styles\.\w+\}", 'className={styles.headToggle}', jsx)
-    print('undo: removed ported arrow class from %d button(s)' % n)
 
-if 'decoCornerBL' in jsx:
-    print('skip (already applied): deco elements')
+if "import CornerDecor from '../../components/ui/CornerDecor';" not in jsx:
+    jsx = jsx.replace(
+        "import styles from './ReportStudio.module.css';",
+        "import CornerDecor from '../../components/ui/CornerDecor';\n"
+        "import styles from './ReportStudio.module.css';",
+        1)
+    print('patched: imported the real CornerDecor component')
 else:
-    deco = ("        <i className={styles.decoCornerBL} aria-hidden=\"true\"></i>\n"
-            "        <i className={styles.decoCornerBR} aria-hidden=\"true\"></i>\n"
-            "        <i className={styles.decoDots} aria-hidden=\"true\"></i>\n")
-    jsx, c1 = re.subn(r'(      <div className=\{styles\.scopePanel[^>]*>\n)', r'\1' + deco, jsx, count=1)
-    jsx, c2 = re.subn(r'(      <div className=\{\(catOpen[^>]*>\n)', r'\1' + deco, jsx, count=1)
-    if c1 + c2 < 2:
-        print('FAIL: could not locate both panel opening tags')
-        sys.exit(1)
-    print('patched: deco elements inserted in %d panels' % (c1 + c2))
+    print('skip (already applied): CornerDecor import')
+
+deco_i_block = re.compile(
+    r'[ \t]*<i className=\{styles\.decoCornerBL\}[^\n]*\n'
+    r'[ \t]*<i className=\{styles\.decoCornerBR\}[^\n]*\n'
+    r'[ \t]*<i className=\{styles\.decoDots\}[^\n]*\n'
+)
+jsx, n = deco_i_block.subn(lambda m: '        <CornerDecor hideTop />\n', jsx)
+if n:
+    print('patched: replaced invented deco markup with <CornerDecor hideTop /> in %d panel(s)' % n)
+elif '<CornerDecor hideTop />' in jsx:
+    print('skip (already applied): CornerDecor markup')
+else:
+    print('FAIL: could not locate invented deco markup to replace')
+    sys.exit(1)
+
 write(JSX, jsx)
 
 
@@ -112,8 +101,8 @@ if not (ident.stdout or '').strip():
     git('config', 'user.email', 'nyenz@users.noreply.github.com')
 
 git('add', '-A')
-git('commit', '-m', 'fix101: Intake deco spec built directly -- corner brackets, dot row, proper head arrow; mis-ported fragments removed')
+git('commit', '-m', 'fix102: Reports panel deco now reuses the real shared CornerDecor component (same as Intake/HardwarePanel), replacing fix101\'s bespoke bracket+dot CSS')
 push = subprocess.run(['git', 'push'], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     git('push', 'origin', 'HEAD:main')
-print('fix101 done: patched, committed and pushed to main.')
+print('fix102 done: patched, committed and pushed to main.')

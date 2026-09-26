@@ -12,6 +12,7 @@ import {
   groupRows, formatValue, toCSV, downloadCSV,
 } from './reportData';
 import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
+import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './ReportStudio.module.css';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
@@ -458,9 +459,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         <span className={styles.sourceCount}>{loading ? '...' : scopeRows.length} SOURCE ROWS</span>
       </div>
       <div className={styles.scopePanel}>
-        <i className={styles.decoCornerBL} aria-hidden="true"></i>
-        <i className={styles.decoCornerBR} aria-hidden="true"></i>
-        <i className={styles.decoDots} aria-hidden="true"></i>
+        <CornerDecor hideTop />
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>SCOPE</span>
           <button className={styles.headToggle} onClick={() => setScopeOpen(o => !o)} aria-expanded={scopeOpen} aria-label="Collapse or expand scope panel">
@@ -578,9 +577,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       </div>
 
       <div className={(catOpen ? styles.catPanel : styles.catPanel + ' ' + styles.catPanelClosed)}>
-        <i className={styles.decoCornerBL} aria-hidden="true"></i>
-        <i className={styles.decoCornerBR} aria-hidden="true"></i>
-        <i className={styles.decoDots} aria-hidden="true"></i>
+        <CornerDecor hideTop />
         <div className={styles.panelHeadRow}>
           <span className={styles.scopeTitle}>REPORT CATALOGUE</span>
           <span className={styles.badge}>{searched.length} MATCHES</span>
