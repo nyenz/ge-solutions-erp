@@ -207,7 +207,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const appliedDef = CATALOGUE.find(d => d.id === appliedId) || null;
   const defaultName = (DEFAULTS[datasetKey] || {})[entity ? entity.type : 'ALL'] || '';
   const defaultDef = CATALOGUE.find(d => d.title === defaultName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;
-  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);
+  // fix125: recent ids are stored globally across all datasets,
+  // but the chip row should only reflect this data source --
+  // filter to reports whose .ds matches what's on screen.
+  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean).filter(d => d.ds === datasetKey);
   const restList = listed.filter(d => !defaultDef || d.id !== defaultDef.id);
   const entMatches = useMemo(() => {
     const q = entQuery.trim().toUpperCase();

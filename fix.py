@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix124: two follow-ups on the Report Catalogue.
-#   1. The page used to load (and reload on every dataset switch) with
-#      nothing applied -- appliedId started at null and stayed null
-#      until you manually opened a report and hit "Use This Report",
-#      so the viewer panel below the catalogue was just absent on
-#      first load. That's also why the pinned "DEFAULT VIEW" row never
-#      looked applied on the ALL scope: nothing had actually applied
-#      it. The dataset-switch effect now looks up that same default
-#      report (DEFAULTS[dataset].ALL) and applies it automatically --
-#      same columns/sort/chart it would get from clicking "Use This
-#      Report" by hand -- so the page always lands on a populated
-#      view, and the pinned row shows APPLIED right away.
-#   2. .catList had its own visible scrollbar sitting right next to
-#      the page's own scrollbar in the screenshot -- two thin orange
-#      tracks side by side. The scrolling itself (max-height,
-#      overflow-y, the overscroll-behavior-y hand-off from fix123) is
-#      unaffected and still works; only the track is hidden now, the
-#      same hidden-but-functional pattern .ddScroll already uses a few
-#      lines up in this same file. Wheel/trackpad/keyboard scrolling
-#      inside the list still works with no visible scrollbar of its
-#      own -- just the page's.
+# GOLDEN SEED -- fix125: "RECENTLY USED" chips in the Report Catalogue
+#   were scoped to the whole app, not the current data source. `recent`
+#   in localStorage is one global list of report ids shared across every
+#   dataset (PROJECTS/CLIENTS/PAYMENTS/EXPENSES/COMPANY), and recentDefs
+#   turned every one of those ids into a chip with no dataset filter --
+#   so switching from PROJECTS to CLIENTS still showed whatever you'd
+#   most recently applied back on PROJECTS. The localStorage list itself
+#   still holds ids from all datasets (harmless, and keeps history if
+#   you switch back), but recentDefs now filters that list down to
+#   reports whose `.ds` matches the dataset you're currently viewing,
+#   so the chip row only ever shows things actually recently used under
+#   this data source.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -34,7 +25,6 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
 STUDIO_JSX = os.path.join(SRC, "pages", "Reports", "ReportStudio.jsx")
-STUDIO_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
 
 
 def apply_patches(path, patches):
@@ -65,94 +55,15 @@ def apply_patches(path, patches):
 # ═══ ReportStudio.jsx ═══
 apply_patches(STUDIO_JSX, [
     (
-        # 1. auto-apply the dataset's default report on mount/dataset
-        # switch instead of leaving appliedId null.
-        "  useEffect(() => {\n"
-        "    const ds = DATASETS[datasetKey];\n"
-        "    if (!ds) return;\n"
-        "    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);\n"
-        "    setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));\n"
-        "    setEntity(null); setAppliedId(null); setReadId(null);\n"
-        "    setGroupTab('ALL'); setSearch('');\n"
-        "    const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');\n"
-        "    setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });\n"
-        "    setChartMode('NONE');\n"
-        "  }, [datasetKey, canSeeMoney]);",
+        # 1. scope RECENTLY USED chips to the current dataset only.
+        "  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean);",
 
-        "  useEffect(() => {\n"
-        "    const ds = DATASETS[datasetKey];\n"
-        "    if (!ds) return;\n"
-        "    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);\n"
-        "    const fieldMap = {};\n"
-        "    fieldsFor(ds, canSeeMoney).forEach(f => { fieldMap[f.label] = f; });\n"
-        "    setEntity(null); setReadId(null);\n"
-        "    setGroupTab('ALL'); setSearch('');\n"
-        "    const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');\n"
-        "    // fix124: land on the dataset's own default report (the\n"
-        "    // catalogue's pinned DEFAULT VIEW row) instead of an empty\n"
-        "    // viewer -- same as clicking \"Use This Report\" on it by hand.\n"
-        "    const dName = (DEFAULTS[datasetKey] || {}).ALL || '';\n"
-        "    const dDef = CATALOGUE.find(d => d.title === dName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;\n"
-        "    if (dDef) {\n"
-        "      setAppliedId(dDef.id);\n"
-        "      const dCols = (dDef.cols || []).map(l => (fieldMap[l] || {}).key).filter(Boolean).filter(k => allowed.includes(k));\n"
-        "      setColumns(dCols.length ? dCols : ds.defaultColumns.filter(c => allowed.includes(c)));\n"
-        "      setSort(dDef.sort ? { col: dDef.sort.col, dir: dDef.sort.dir } : (sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' }));\n"
-        "      setChartMode(dDef.chart || 'NONE');\n"
-        "    } else {\n"
-        "      setAppliedId(null);\n"
-        "      setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));\n"
-        "      setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });\n"
-        "      setChartMode('NONE');\n"
-        "    }\n"
-        "  }, [datasetKey, canSeeMoney]);",
+        "  // fix125: recent ids are stored globally across all datasets,\n"
+        "  // but the chip row should only reflect this data source --\n"
+        "  // filter to reports whose .ds matches what's on screen.\n"
+        "  const recentDefs = recent.map(id => CATALOGUE.find(d => d.id === id)).filter(Boolean).filter(d => d.ds === datasetKey);",
 
-        "dataset-switch effect now auto-applies the DEFAULTS[dataset].ALL report instead of leaving appliedId null",
-    ),
-])
-
-# ═══ ReportStudio.module.css ═══
-apply_patches(STUDIO_CSS, [
-    (
-        # 2. hide catList's own scrollbar track (scroll itself untouched).
-        "/* fix123: reverts fix122 -- the list keeps its own scroll like\n"
-        "   every other internally-scrolled list in this app (Ledger,\n"
-        "   Audit, Payments, Recovery all set a max-height the same way;\n"
-        "   see the SCROLLABLE BODY comment in Shell.module.css). What was\n"
-        "   actually broken is the hand-off at the boundary, not the\n"
-        "   scroll itself -- overscroll-behavior-y: auto makes that\n"
-        "   hand-off to the page's real scroll container explicit instead\n"
-        "   of leaving it to browser default. */\n"
-        ".catList {\n"
-        "  max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
-        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
-        "}\n"
-        ".catList::-webkit-scrollbar { width: 6px; }\n"
-        ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
-
-        "/* fix123: reverts fix122 -- the list keeps its own scroll like\n"
-        "   every other internally-scrolled list in this app (Ledger,\n"
-        "   Audit, Payments, Recovery all set a max-height the same way;\n"
-        "   see the SCROLLABLE BODY comment in Shell.module.css). What was\n"
-        "   actually broken is the hand-off at the boundary, not the\n"
-        "   scroll itself -- overscroll-behavior-y: auto makes that\n"
-        "   hand-off to the page's real scroll container explicit instead\n"
-        "   of leaving it to browser default. */\n"
-        "/* fix124: the scroll stays -- only its own visible track is\n"
-        "   gone now, the same hidden-but-functional pattern .ddScroll\n"
-        "   already uses a few lines up. Wheel/trackpad/keyboard scroll\n"
-        "   inside the list still works exactly as before (and still\n"
-        "   hands off to the page at the boundary); there's just no\n"
-        "   second thin scrollbar sitting next to the page's own one. */\n"
-        ".catList {\n"
-        "  max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
-        "  scrollbar-width: none; -ms-overflow-style: none;\n"
-        "}\n"
-        ".catList::-webkit-scrollbar { display: none; width: 0; height: 0; }",
-
-        "catList's own scrollbar track hidden (scrollbar-width:none / webkit display:none), scroll+chaining behavior unchanged",
+        "recentDefs filtered to d.ds === datasetKey so RECENTLY USED only shows chips for the current data source",
     ),
 ])
 
@@ -186,7 +97,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix124: dataset's default report now auto-applies on load/switch instead of leaving the viewer empty; catList scrollbar track hidden (scroll + page hand-off unchanged)")
+git("commit", "-m", "fix125: RECENTLY USED chips in Report Catalogue now scoped to the current data source instead of showing recents from every dataset")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
