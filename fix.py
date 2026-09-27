@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix121: report + group heading titles toned down to a
-# shared grey at rest -- the near-black ink (.name #1a2e30) and dark
-# navy (.groupLabel #162a2c) were too heavy side by side, overwhelming
-# the list. Both now share the same muted grey (#5b6f70 -- the app's
-# own original report-title grey, pre-fix112). Nothing else changes:
-#   - .row.rowApplied .name already overrides .name's color with a
-#     higher-specificity selector, so an applied report keeps reading
-#     in dark ink exactly as it does now.
-#   - the open/persistent-hover selectors (.row.rowOpen:not(.rowApplied)
-#     .rowHead .name, .row:not(.rowApplied) .rowHead:hover .name) are
-#     also higher-specificity than .name, so hovering still flips the
-#     title white same as before -- greying the resting color doesn't
-#     touch that.
+# GOLDEN SEED -- fix122: two Report Catalogue fixes.
+#   1. Hovering the APPLIED report used to do nothing -- .rowApplied
+#      carried its own fixed translucent wash and the hover-to-solid-
+#      orange rule was scoped :not(.rowApplied), so the currently
+#      active report felt dead under the cursor. It now gets the same
+#      solid-orange + white-text hover feedback as every other row.
+#   2. .catList (the report list itself) had its own max-height:340 +
+#      overflow-y:auto -- a nested scroll box that trapped the wheel
+#      at its own bottom, so scrolling down through the list never
+#      handed off to the page even once you'd reached the last
+#      report. Dropping the inner scroll (list takes its natural
+#      height) fixes the trap AND removes the inner scrollbar in one
+#      change -- no JS scroll-chaining hack needed, the page just
+#      keeps scrolling normally once the list runs out of rows.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -53,17 +54,54 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ ReportStudio.module.css -- resting title/label color toned down ═══
+# ═══ ReportStudio.module.css ═══
 apply_patches(STUDIO_CSS, [
     (
-        ".groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }",
-        ".groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #5b6f70; transition: color 0.18s ease; }",
-        "group heading resting color toned down from dark navy (#162a2c) to a muted grey (#5b6f70), matching the report title grey below",
+        # 1. applied-report hover feedback -- inserted right after the
+        # existing rowOpen/rowApplied chev rules so its equal-specificity
+        # (4 classes) selectors win by cascade order in every applied
+        # state, including an applied row that's also open.
+        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
+        ".row.rowApplied.rowOpen .chev { color: #1a2e30; }\n"
+        ".appliedTag {",
+
+        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
+        ".row.rowApplied.rowOpen .chev { color: #1a2e30; }\n"
+        "/* fix122: the applied report now reacts to hover too, same\n"
+        "   solid-orange fill + white text as any other row -- it no\n"
+        "   longer sits inert under the cursor just because it's active. */\n"
+        ".row.rowApplied .rowHead:hover { background: #EE8C3A; }\n"
+        ".row.rowApplied .rowHead:hover .name,\n"
+        ".row.rowApplied .rowHead:hover .rows,\n"
+        ".row.rowApplied .rowHead:hover .tag,\n"
+        ".row.rowApplied .rowHead:hover .chev { color: #fff; }\n"
+        ".row.rowApplied .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
+        ".appliedTag {",
+
+        "applied-report row now gets solid-orange + white-text hover feedback instead of staying inert",
     ),
     (
-        ".name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }",
-        ".name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }",
-        "report title resting color toned down from near-black ink (#1a2e30) to a muted grey (#5b6f70) -- applied and open/hover states override this with their own colors, so those are unaffected",
+        # 2. drop catList's own scroll box so it can't trap the wheel at
+        # its bottom, and so there's no inner scrollbar left to hide.
+        ".catList {\n"
+        "  max-height: 340px; overflow-y: auto; background: #f2ede4;\n"
+        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
+        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
+        "}\n"
+        ".catList::-webkit-scrollbar { width: 6px; }\n"
+        ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
+
+        "/* fix122: no more max-height/overflow-y here -- the list used\n"
+        "   to trap scroll at its own bottom instead of handing off to\n"
+        "   the page. It now takes its natural height, so the page just\n"
+        "   keeps scrolling past it once you reach the last report, and\n"
+        "   there's no inner scrollbar left to remove. */\n"
+        ".catList {\n"
+        "  background: #f2ede4;\n"
+        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
+        "}",
+
+        "catList internal scroll/scrollbar removed -- list now flows naturally with the page",
     ),
 ])
 
@@ -97,7 +135,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix121: report title + group heading resting text color toned down to a shared grey (#5b6f70), applied/open/hover colors untouched")
+git("commit", "-m", "fix122: applied-report row now gets hover feedback too; Report Catalogue list scroll trap + inner scrollbar removed so the page scrolls through it naturally")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
