@@ -553,10 +553,19 @@
   border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);
   display: flex; flex-direction: column;
 }
-.prefGroupBox .prefGroupLabel { color: var(--accent, var(--orange)); opacity: 1; padding: 0 0 clamp(6px,0.8vw,9px); }
-.prefGroupBox .prefRow { border-bottom: 1px solid rgba(26,46,48,0.10); margin: 0; padding: clamp(8px,1.1vw,11px) 0; }
-.prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.045); }
-.prefGroupBox .prefRow:last-child { border-bottom: none; }
+.prefGroupBox .prefGroupLabel {
+  color: var(--accent, var(--orange)); opacity: 1;
+  padding: 0 0 clamp(7px,0.9vw,10px); margin-bottom: clamp(7px,0.9vw,10px);
+  border-bottom: 2px solid var(--accent, var(--orange));
+}
+.prefGroupBox .prefRow {
+  border: 1px solid rgba(26,46,48,0.14); border-radius: 6px;
+  background: rgba(26,46,48,0.05);
+  margin: 0 0 clamp(7px,0.9vw,10px); padding: clamp(9px,1.2vw,12px);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.09); border-color: rgba(26,46,48,0.22); }
+.prefGroupBox .prefRow:last-child { margin-bottom: 0; }
 .prefGroupBox .prefLabel strong { color: #1a2e30; }
 .prefGroupBox .prefLabel span { color: rgba(26,46,48,0.65); }
 .prefGroupBox .prefBtn, .prefGroupBox .prefBtnActive { border: 1.5px solid rgba(26,46,48,0.2); background: rgba(255,255,255,0.65); color: rgba(26,46,48,0.85); }
