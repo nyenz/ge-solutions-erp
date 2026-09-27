@@ -216,13 +216,21 @@
    the group label drops to flat, uncarded text sitting on the tray. */
 .catList {
   max-height: 340px; overflow-y: auto; background: #f2ede4;
-  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  padding: 10px; display: flex; flex-direction: column; gap: 7px;
   scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;
 }
 .catList::-webkit-scrollbar { width: 6px; }
 .catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
-.group { display: flex; flex-direction: column; gap: 6px; }
-.ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
+.group { display: flex; flex-direction: column; gap: 4px; }
+/* fix119: overflow:hidden removed -- it could clip a row's own
+   content (its description line) the moment layout shifted even a
+   pixel, which is what "default row description sometimes missing"
+   actually was. Rounded corners now live on the first/last row
+   instead, so nothing inside the card can ever be clipped. */
+.ungrouped, .groupBody { border-radius: 10px; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
+.groupBody .row:first-child .rowHead, .ungrouped .row:first-child .rowHead { border-top-left-radius: 10px; border-top-right-radius: 10px; }
+.groupBody .row:last-child:not(.rowOpen) .rowHead, .ungrouped .row:last-child:not(.rowOpen) .rowHead { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+.groupBody .row:last-child.rowOpen .readout, .ungrouped .row:last-child.rowOpen .readout { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
 .groupLabel { padding: 2px 4px; }
 .groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }
 .groupLabel span:hover { color: #EE8C3A; }
@@ -237,7 +245,7 @@
 .row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }
 .row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }
 .row.rowApplied .desc { color: rgba(26,46,48,0.65); }
-.rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 14px 15px; cursor: pointer; transition: background 0.15s ease; }
+.rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }
 /* open (not applied) keeps the hover fill persistently, not just on
    :hover, so it stays visible after you've expanded a row and moved
    the mouse elsewhere. */
@@ -250,13 +258,13 @@
 .row:not(.rowApplied) .rowHead:hover .name,
 .row:not(.rowApplied) .rowHead:hover .rows,
 .row:not(.rowApplied) .rowHead:hover .tag,
-.row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }
+.row:not(.rowApplied) .rowHead:hover .chev { color: #1a2e30; }
 .row.rowOpen:not(.rowApplied) .rowHead .desc,
-.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
+.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(26,46,48,0.7); }
 .rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }
-.desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 3px; transition: color 0.15s ease; }
+.desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 2px; transition: color 0.15s ease; }
 .rightMeta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
 .tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
@@ -272,7 +280,7 @@
 .row.rowDefault .rowHead { background: #fdf3e7; }
 /* readout sits flush against the row's own left rail with zero extra
    margin -- the rail stops exactly where the readout stops. */
-.readout { display: flex; align-items: center; gap: 12px; padding: 12px 15px; margin: 0; background: #28383a; }
+.readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: #28383a; }
 .readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(242,237,228,0.85); }
 /* real HeaderButton .primary spec: ~34px tall, recolor-only hover (no
    lift/transform), disabled/applied reuses the same colors at 0.5
