@@ -1,14 +1,27 @@
 #!/usr/bin/env python3
-# PATH: fix129.py
-# GOLDEN SEED -- fix129: SIGNALS dropdown -- filter chips were 7 wide
-#   (ALL/UNREAD/MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) inside a 320-380px
-#   panel with overflow-x: auto and a hidden scrollbar (scrollbar-width:
-#   none). Only 5 fit on screen and nothing hinted the row scrolled --
-#   no fade, no arrow, no partial chip left visibly cut off enough to
-#   read as "more here." STAFF and SYSTEM were functionally invisible.
-#   Filters now wrap onto a second row instead: every chip is on screen
-#   at once, nothing to discover, no scroll gesture required inside an
-#   already-small dropdown.
+# PATH: fix130.py
+# GOLDEN SEED -- fix130: SIGNALS dropdown re-skinned onto the same
+#   backbone fix127/fix128 gave the Settings page -- one shared cream
+#   baseline, bounded mini-cards with a real border (not just a
+#   shadow), and a 2px accent rule under the heading instead of a
+#   near-invisible one. Nothing about the panel's own identity changes
+#   (light glass card, per-group icon/left-edge/dot tinting, pinned
+#   Recovery row) -- just its construction details brought in line with
+#   the rest of the app instead of predating that language.
+#     1. Tray cream unified to #f2ede4 -- the exact value Report
+#        Catalogue's catList and Settings' prefGroupBox already use.
+#        Was #f4efe8, close enough to look like a mismatch, not a
+#        second intentional tone.
+#     2. SIGNALS heading's border-bottom was 1px at 10% black --
+#        barely there. Now a 2px solid orange rule, the same
+#        heading-divider Settings' prefGroupLabel uses under DISPLAY /
+#        INTERACTION / NOTIFICATIONS.
+#     3. Notification rows relied on box-shadow alone for definition,
+#        no border -- inconsistent with every bounded mini-card
+#        Settings now uses. Rows get the same rgba(26,46,48,0.12)
+#        border (shadow kept, for the hover lift); the pinned Recovery
+#        row's border tints orange instead of neutral, since it's
+#        already visually special.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -52,33 +65,87 @@ def apply_patches(path, patches):
 # ═══ Header.module.css ═══
 apply_patches(HEADER_CSS, [
     (
-        # 1. wrap instead of a silently-scrollable, cut-off row.
-        ".notifFilters {\n"
-        "    display: flex;\n"
-        "    gap: 5px;\n"
-        "    padding: 9px 11px;\n"
-        "    overflow-x: auto;\n"
-        "    border-bottom: 1px solid rgba(26, 46, 48, 0.08);\n"
+        # 1. tray cream unified to the app-wide baseline.
+        "background: #f4efe8;",
+        "background: #f2ede4; /* fix130: unified cream baseline w/ Settings + Report Catalogue */",
+        "notifList background unified to #f2ede4",
+    ),
+    (
+        # 2. heading divider -> Settings' 2px accent-rule language.
+        "    border-bottom: 1px solid rgba(26, 46, 48, 0.1);\n"
+        "    font-family: 'Space Mono', monospace;\n"
+        "    font-size: 9px;\n"
+        "    font-weight: 900;\n"
+        "    letter-spacing: 2px;\n"
+        "    color: #1a2e30;\n"
         "    flex-shrink: 0;\n"
-        "    scrollbar-width: none;\n"
         "}\n"
-        ".notifFilters::-webkit-scrollbar { display: none; }",
+        ".notifReadAll {",
 
-        "/* fix129: wraps instead of scrolling -- 7 filters (ALL/UNREAD/\n"
-        "   MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) in a 320-380px panel\n"
-        "   used to hide 2 of them behind an overflow-x scroll with no\n"
-        "   scrollbar and no fade to hint it was there. Every chip is now\n"
-        "   on screen at once. */\n"
-        ".notifFilters {\n"
-        "    display: flex;\n"
-        "    flex-wrap: wrap;\n"
-        "    gap: 5px;\n"
-        "    padding: 9px 11px;\n"
-        "    border-bottom: 1px solid rgba(26, 46, 48, 0.08);\n"
+        "    border-bottom: 2px solid #EE8C3A; /* fix130: Settings' prefGroupLabel divider language */\n"
+        "    font-family: 'Space Mono', monospace;\n"
+        "    font-size: 9px;\n"
+        "    font-weight: 900;\n"
+        "    letter-spacing: 2px;\n"
+        "    color: #1a2e30;\n"
         "    flex-shrink: 0;\n"
+        "}\n"
+        ".notifReadAll {",
+
+        "notifHead heading divider strengthened to a 2px accent rule",
+    ),
+    (
+        # 3. rows get a real border, matching Settings' bounded
+        # mini-cards, alongside the existing hover shadow/lift.
+        ".notifRow, .notifRowPinned {\n"
+        "    display: flex;\n"
+        "    align-items: flex-start;\n"
+        "    gap: 10px;\n"
+        "    width: 100%;\n"
+        "    text-align: left;\n"
+        "    background: #ffffff;\n"
+        "    border: none;\n"
+        "    border-left: 4px solid transparent;\n"
+        "    border-radius: 9px;\n"
+        "    padding: 10px 12px;\n"
+        "    cursor: pointer;\n"
+        "    box-shadow: 0 2px 7px rgba(26, 46, 48, 0.1);\n"
+        "    transition: box-shadow 0.2s ease, transform 0.2s ease;\n"
         "}",
 
-        "notifFilters switched from hidden-scroll to wrap",
+        ".notifRow, .notifRowPinned {\n"
+        "    display: flex;\n"
+        "    align-items: flex-start;\n"
+        "    gap: 10px;\n"
+        "    width: 100%;\n"
+        "    text-align: left;\n"
+        "    background: #ffffff;\n"
+        "    border: 1px solid rgba(26, 46, 48, 0.12); /* fix130: bounded mini-card, matches Settings' prefRow */\n"
+        "    border-left: 4px solid transparent;\n"
+        "    border-radius: 9px;\n"
+        "    padding: 10px 12px;\n"
+        "    cursor: pointer;\n"
+        "    box-shadow: 0 2px 7px rgba(26, 46, 48, 0.1);\n"
+        "    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;\n"
+        "}",
+
+        "notifRow/notifRowPinned gained a real border, not shadow-only",
+    ),
+    (
+        # 4. pinned row's border tints orange to match its already
+        # special treatment instead of the neutral default.
+        ".notifRowPinned {\n"
+        "    background: #fff7ed;\n"
+        "    border-left: 4px solid #EE8C3A;\n"
+        "}",
+
+        ".notifRowPinned {\n"
+        "    background: #fff7ed;\n"
+        "    border-color: rgba(238, 140, 58, 0.3);\n"
+        "    border-left: 4px solid #EE8C3A;\n"
+        "}",
+
+        "notifRowPinned border tinted orange",
     ),
 ])
 
@@ -112,7 +179,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix129: SIGNALS dropdown filter chips wrap onto a second row instead of hiding STAFF/SYSTEM behind an unhinted horizontal scroll")
+git("commit", "-m", "fix130: SIGNALS dropdown re-skinned onto the Settings-page backbone -- unified #f2ede4 cream, 2px accent heading divider, bordered mini-card rows (pinned row's border tinted orange)")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

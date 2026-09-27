@@ -367,7 +367,7 @@
     gap: 8px;
     padding: 11px 13px;
     background: rgba(244, 239, 232, 0.6);
-    border-bottom: 1px solid rgba(26, 46, 48, 0.1);
+    border-bottom: 2px solid #EE8C3A; /* fix130: Settings' prefGroupLabel divider language */
     font-family: 'Space Mono', monospace;
     font-size: 9px;
     font-weight: 900;
@@ -437,7 +437,7 @@
     overflow-y: auto;
     flex: 1;
     min-height: 0;
-    background: #f4efe8;
+    background: #f2ede4; /* fix130: unified cream baseline w/ Settings + Report Catalogue */
     padding: 7px;
     display: flex;
     flex-direction: column;
@@ -451,13 +451,13 @@
     width: 100%;
     text-align: left;
     background: #ffffff;
-    border: none;
+    border: 1px solid rgba(26, 46, 48, 0.12); /* fix130: bounded mini-card, matches Settings' prefRow */
     border-left: 4px solid transparent;
     border-radius: 9px;
     padding: 10px 12px;
     cursor: pointer;
     box-shadow: 0 2px 7px rgba(26, 46, 48, 0.1);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .notifRow:hover, .notifRowPinned:hover { box-shadow: 0 8px 20px rgba(26, 46, 48, 0.18); transform: translateY(-1px); }
 .notifRow:focus-visible, .notifRowPinned:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
@@ -466,6 +466,7 @@
    as different rather than pretending to be one of the list. */
 .notifRowPinned {
     background: #fff7ed;
+    border-color: rgba(238, 140, 58, 0.3);
     border-left: 4px solid #EE8C3A;
 }
 
