@@ -1,31 +1,18 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix120: three corrections to fix118/fix119's Report
-# Catalogue list, straight off feedback on the live Render screenshots.
-#
-#   1. HOVER TEXT COLOR REVERTED. fix119 flipped the open/hover row's
-#      name/meta/desc text from white to dark ink, reading that as
-#      "reduce the tone." That was a misread -- the ask was the
-#      opposite: the grey meta text (row count, tag) should go WHITE
-#      on hover for contrast against the solid orange fill, same as
-#      fix118 originally had it. Reverted.
-#   2. "HOVER CURVE" / WHITE GAP FIXED. fix119 dropped overflow:hidden
-#      on .ungrouped/.groupBody and rounded the first/last row's own
-#      rowHead corners instead (to dodge a suspected clipping bug).
-#      That rounding only applied to rowHead's background -- the row's
-#      own left rail sits behind it as a plain square box, so on
-#      hover/open the orange fill curved away from the rail's square
-#      corner and exposed a sliver of the card's white background at
-#      the top-left (and bottom-left on the last row). Back to a plain
-#      overflow:hidden on the card -- simplest fix, no seams.
-#   3. DEFAULT ROW NO LONGER LOOKS "ACTIVE" WHEN IT ISN'T. The default
-#      view row carried its own permanent orange-tinted background +
-#      left rail (fix118's .rowDefault) so it always looked selected,
-#      even while a completely different report was the one actually
-#      applied (shown by its own APPLIED tag). That's confusing --
-#      two rows both reading as "current". The default row now looks
-#      like any other row at rest; "DEFAULT VIEW: " in its own title
-#      is the only thing that marks it as the default.
+# GOLDEN SEED -- fix121: report + group heading titles toned down to a
+# shared grey at rest -- the near-black ink (.name #1a2e30) and dark
+# navy (.groupLabel #162a2c) were too heavy side by side, overwhelming
+# the list. Both now share the same muted grey (#5b6f70 -- the app's
+# own original report-title grey, pre-fix112). Nothing else changes:
+#   - .row.rowApplied .name already overrides .name's color with a
+#     higher-specificity selector, so an applied report keeps reading
+#     in dark ink exactly as it does now.
+#   - the open/persistent-hover selectors (.row.rowOpen:not(.rowApplied)
+#     .rowHead .name, .row:not(.rowApplied) .rowHead:hover .name) are
+#     also higher-specificity than .name, so hovering still flips the
+#     title white same as before -- greying the resting color doesn't
+#     touch that.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -66,66 +53,17 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ ReportStudio.module.css ═══
+# ═══ ReportStudio.module.css -- resting title/label color toned down ═══
 apply_patches(STUDIO_CSS, [
     (
-        ".group { display: flex; flex-direction: column; gap: 4px; }\n"
-        "/* fix119: overflow:hidden removed -- it could clip a row's own\n"
-        "   content (its description line) the moment layout shifted even a\n"
-        "   pixel, which is what \"default row description sometimes missing\"\n"
-        "   actually was. Rounded corners now live on the first/last row\n"
-        "   instead, so nothing inside the card can ever be clipped. */\n"
-        ".ungrouped, .groupBody { border-radius: 10px; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }\n"
-        ".groupBody .row:first-child .rowHead, .ungrouped .row:first-child .rowHead { border-top-left-radius: 10px; border-top-right-radius: 10px; }\n"
-        ".groupBody .row:last-child:not(.rowOpen) .rowHead, .ungrouped .row:last-child:not(.rowOpen) .rowHead { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }\n"
-        ".groupBody .row:last-child.rowOpen .readout, .ungrouped .row:last-child.rowOpen .readout { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }\n",
-        ".group { display: flex; flex-direction: column; gap: 4px; }\n"
-        "/* fix120: fix119's first/last-row radius workaround only rounded\n"
-        "   rowHead's own background -- the row's left rail behind it stayed\n"
-        "   a square box, so on hover/open the orange fill curved away from\n"
-        "   the rail's corner and left a sliver of the card's white\n"
-        "   background showing through at the top (and bottom on the last\n"
-        "   row). Plain overflow:hidden back on the card -- no seams. */\n"
-        ".ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }\n",
-        "fix119's per-row corner-radius workaround (was causing a white gap at the corner on hover) reverted to plain overflow:hidden on the card",
+        ".groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }",
+        ".groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #5b6f70; transition: color 0.18s ease; }",
+        "group heading resting color toned down from dark navy (#162a2c) to a muted grey (#5b6f70), matching the report title grey below",
     ),
     (
-        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
-        ".row:not(.rowApplied) .rowHead:hover .name,\n"
-        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
-        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
-        ".row:not(.rowApplied) .rowHead:hover .chev { color: #1a2e30; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
-        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(26,46,48,0.7); }\n",
-        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
-        ".row:not(.rowApplied) .rowHead:hover .name,\n"
-        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
-        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
-        ".row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
-        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n",
-        "fix119's dark-ink hover/open text reverted back to white -- the grey meta text (row count, tag) is meant to turn white against the orange fill, not ink",
-    ),
-    (
-        "/* rowDefault: the one row that should still stand out with nothing\n"
-        "   applied or open yet -- a light permanent wash, restating the old\n"
-        "   .catRowDef for the shared-card layout. Open/applied rules above\n"
-        "   this in the cascade still win once either happens. */\n"
-        ".row.rowDefault { border-left-color: rgba(238,140,58,0.6); }\n"
-        ".row.rowDefault .rowHead { background: #fdf3e7; }\n",
-        "/* fix120: the default row's permanent wash + rail is removed -- it\n"
-        "   made the default view look \"active\"/selected at all times, even\n"
-        "   while a completely different report was the one actually applied\n"
-        "   (its own APPLIED tag showing elsewhere in the list). The default\n"
-        "   row now sits at rest like any other row; \"DEFAULT VIEW: \" in its\n"
-        "   own title is the only thing marking it as the default. */\n",
-        "default row's permanent orange wash/rail removed -- it looked \"active\" even when a different report was actually applied",
+        ".name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }",
+        ".name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }",
+        "report title resting color toned down from near-black ink (#1a2e30) to a muted grey (#5b6f70) -- applied and open/hover states override this with their own colors, so those are unaffected",
     ),
 ])
 
@@ -159,7 +97,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix120: Report Catalogue list -- hover text reverted to white (was wrongly darkened in fix119), fix119's corner-radius workaround reverted to plain overflow:hidden (was leaving a white gap at the corner on hover), default row's permanent active-looking wash/rail removed")
+git("commit", "-m", "fix121: report title + group heading resting text color toned down to a shared grey (#5b6f70), applied/open/hover colors untouched")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

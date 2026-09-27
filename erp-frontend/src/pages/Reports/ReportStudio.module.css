@@ -230,7 +230,7 @@
    row). Plain overflow:hidden back on the card -- no seams. */
 .ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
 .groupLabel { padding: 2px 4px; }
-.groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }
+.groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #5b6f70; transition: color 0.18s ease; }
 .groupLabel span:hover { color: #EE8C3A; }
 /* the row itself carries the left rail, so an expanded readout can
    share it, and the hairline divider between records. */
@@ -261,7 +261,7 @@
 .row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
 .rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }
+.name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }
 .desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 2px; transition: color 0.15s ease; }
 .rightMeta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
