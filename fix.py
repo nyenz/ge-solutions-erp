@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix119: Report Catalogue list -- three follow-ups to
-# fix118's rebuild, reported straight off the live Render screenshots.
+# GOLDEN SEED -- fix120: three corrections to fix118/fix119's Report
+# Catalogue list, straight off feedback on the live Render screenshots.
 #
-#   1. CUT-OFF DEFAULT ROW (real bug, not cosmetic). .ungrouped/.groupBody
-#      had `overflow: hidden` so their rounded corners would clip
-#      anything inside them -- including a row's own description text
-#      if it ever laid out even a pixel taller than the card expected
-#      (a font-swap reflow, a tab switch changing catList's scroll
-#      height and nudging layout, etc). That's exactly the "sometimes
-#      shows it, sometimes doesn't" symptom: nothing about the data
-#      changes between tabs, only the layout timing does. Fix: drop
-#      overflow:hidden entirely so nothing can ever be clipped, and get
-#      the rounded corners back by rounding the first/last row's own
-#      rowHead (or, if the last row is open, its readout) instead.
-#   2. FONT TONE. Open (not-applied, not-hovered-applied) rows flipped
-#      name/desc/meta text to white on the solid-orange fill. Nowhere
-#      else in the app pairs orange with white text -- the tabs, the
-#      pills, the applied wash all pair orange with the app's own dark
-#      ink (#1a2e30). Open rows now match that.
-#   3. SPACING. catList padding/gap, the gap between grouped cards,
-#      rowHead's own padding, the desc's top margin and the readout's
-#      padding are all trimmed down -- the list read as too airy.
+#   1. HOVER TEXT COLOR REVERTED. fix119 flipped the open/hover row's
+#      name/meta/desc text from white to dark ink, reading that as
+#      "reduce the tone." That was a misread -- the ask was the
+#      opposite: the grey meta text (row count, tag) should go WHITE
+#      on hover for contrast against the solid orange fill, same as
+#      fix118 originally had it. Reverted.
+#   2. "HOVER CURVE" / WHITE GAP FIXED. fix119 dropped overflow:hidden
+#      on .ungrouped/.groupBody and rounded the first/last row's own
+#      rowHead corners instead (to dodge a suspected clipping bug).
+#      That rounding only applied to rowHead's background -- the row's
+#      own left rail sits behind it as a plain square box, so on
+#      hover/open the orange fill curved away from the rail's square
+#      corner and exposed a sliver of the card's white background at
+#      the top-left (and bottom-left on the last row). Back to a plain
+#      overflow:hidden on the card -- simplest fix, no seams.
+#   3. DEFAULT ROW NO LONGER LOOKS "ACTIVE" WHEN IT ISN'T. The default
+#      view row carried its own permanent orange-tinted background +
+#      left rail (fix118's .rowDefault) so it always looked selected,
+#      even while a completely different report was the one actually
+#      applied (shown by its own APPLIED tag). That's confusing --
+#      two rows both reading as "current". The default row now looks
+#      like any other row at rest; "DEFAULT VIEW: " in its own title
+#      is the only thing that marks it as the default.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -65,21 +69,6 @@ def apply_patches(path, patches):
 # ═══ ReportStudio.module.css ═══
 apply_patches(STUDIO_CSS, [
     (
-        ".catList {\n"
-        "  max-height: 340px; overflow-y: auto; background: #f2ede4;\n"
-        "  padding: 14px; display: flex; flex-direction: column; gap: 10px;\n"
-        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
-        "}\n",
-        ".catList {\n"
-        "  max-height: 340px; overflow-y: auto; background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
-        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
-        "}\n",
-        "catList padding/gap tightened (14px/10px -> 10px/7px) -- list read as too spaced out",
-    ),
-    (
-        ".group { display: flex; flex-direction: column; gap: 6px; }\n"
-        ".ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }\n",
         ".group { display: flex; flex-direction: column; gap: 4px; }\n"
         "/* fix119: overflow:hidden removed -- it could clip a row's own\n"
         "   content (its description line) the moment layout shifted even a\n"
@@ -90,24 +79,17 @@ apply_patches(STUDIO_CSS, [
         ".groupBody .row:first-child .rowHead, .ungrouped .row:first-child .rowHead { border-top-left-radius: 10px; border-top-right-radius: 10px; }\n"
         ".groupBody .row:last-child:not(.rowOpen) .rowHead, .ungrouped .row:last-child:not(.rowOpen) .rowHead { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }\n"
         ".groupBody .row:last-child.rowOpen .readout, .ungrouped .row:last-child.rowOpen .readout { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }\n",
-        "overflow:hidden removed from .ungrouped/.groupBody (was clipping row content) -- corners now rounded via first/last row instead; group gap tightened 6px -> 4px",
+        ".group { display: flex; flex-direction: column; gap: 4px; }\n"
+        "/* fix120: fix119's first/last-row radius workaround only rounded\n"
+        "   rowHead's own background -- the row's left rail behind it stayed\n"
+        "   a square box, so on hover/open the orange fill curved away from\n"
+        "   the rail's corner and left a sliver of the card's white\n"
+        "   background showing through at the top (and bottom on the last\n"
+        "   row). Plain overflow:hidden back on the card -- no seams. */\n"
+        ".ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }\n",
+        "fix119's per-row corner-radius workaround (was causing a white gap at the corner on hover) reverted to plain overflow:hidden on the card",
     ),
     (
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 14px 15px; cursor: pointer; transition: background 0.15s ease; }\n",
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }\n",
-        "rowHead padding tightened 14px/15px -> 10px/14px",
-    ),
-    (
-        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
-        ".row:not(.rowApplied) .rowHead:hover .name,\n"
-        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
-        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
-        ".row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
-        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n",
         ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
         ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
         ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
@@ -118,17 +100,32 @@ apply_patches(STUDIO_CSS, [
         ".row:not(.rowApplied) .rowHead:hover .chev { color: #1a2e30; }\n"
         ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
         ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(26,46,48,0.7); }\n",
-        "open/hover row text dropped from white to the app's own dark ink (#1a2e30) -- matches how orange fill pairs with text everywhere else (tabs, pills, applied wash)",
+        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
+        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
+        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
+        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
+        ".row:not(.rowApplied) .rowHead:hover .name,\n"
+        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
+        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
+        ".row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }\n"
+        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
+        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n",
+        "fix119's dark-ink hover/open text reverted back to white -- the grey meta text (row count, tag) is meant to turn white against the orange fill, not ink",
     ),
     (
-        ".desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 3px; transition: color 0.15s ease; }\n",
-        ".desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 2px; transition: color 0.15s ease; }\n",
-        "desc top margin tightened 3px -> 2px",
-    ),
-    (
-        ".readout { display: flex; align-items: center; gap: 12px; padding: 12px 15px; margin: 0; background: #28383a; }\n",
-        ".readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: #28383a; }\n",
-        "readout padding tightened 12px/15px -> 10px/14px",
+        "/* rowDefault: the one row that should still stand out with nothing\n"
+        "   applied or open yet -- a light permanent wash, restating the old\n"
+        "   .catRowDef for the shared-card layout. Open/applied rules above\n"
+        "   this in the cascade still win once either happens. */\n"
+        ".row.rowDefault { border-left-color: rgba(238,140,58,0.6); }\n"
+        ".row.rowDefault .rowHead { background: #fdf3e7; }\n",
+        "/* fix120: the default row's permanent wash + rail is removed -- it\n"
+        "   made the default view look \"active\"/selected at all times, even\n"
+        "   while a completely different report was the one actually applied\n"
+        "   (its own APPLIED tag showing elsewhere in the list). The default\n"
+        "   row now sits at rest like any other row; \"DEFAULT VIEW: \" in its\n"
+        "   own title is the only thing marking it as the default. */\n",
+        "default row's permanent orange wash/rail removed -- it looked \"active\" even when a different report was actually applied",
     ),
 ])
 
@@ -162,7 +159,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix119: Report Catalogue list -- default-row clipping bug fixed (overflow:hidden removed), open-row text tone matched to app's dark ink instead of white, overall list spacing tightened")
+git("commit", "-m", "fix120: Report Catalogue list -- hover text reverted to white (was wrongly darkened in fix119), fix119's corner-radius workaround reverted to plain overflow:hidden (was leaving a white gap at the corner on hover), default row's permanent active-looking wash/rail removed")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

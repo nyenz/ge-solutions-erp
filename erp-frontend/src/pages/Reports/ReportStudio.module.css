@@ -222,15 +222,13 @@
 .catList::-webkit-scrollbar { width: 6px; }
 .catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
 .group { display: flex; flex-direction: column; gap: 4px; }
-/* fix119: overflow:hidden removed -- it could clip a row's own
-   content (its description line) the moment layout shifted even a
-   pixel, which is what "default row description sometimes missing"
-   actually was. Rounded corners now live on the first/last row
-   instead, so nothing inside the card can ever be clipped. */
-.ungrouped, .groupBody { border-radius: 10px; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
-.groupBody .row:first-child .rowHead, .ungrouped .row:first-child .rowHead { border-top-left-radius: 10px; border-top-right-radius: 10px; }
-.groupBody .row:last-child:not(.rowOpen) .rowHead, .ungrouped .row:last-child:not(.rowOpen) .rowHead { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
-.groupBody .row:last-child.rowOpen .readout, .ungrouped .row:last-child.rowOpen .readout { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+/* fix120: fix119's first/last-row radius workaround only rounded
+   rowHead's own background -- the row's left rail behind it stayed
+   a square box, so on hover/open the orange fill curved away from
+   the rail's corner and left a sliver of the card's white
+   background showing through at the top (and bottom on the last
+   row). Plain overflow:hidden back on the card -- no seams. */
+.ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
 .groupLabel { padding: 2px 4px; }
 .groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }
 .groupLabel span:hover { color: #EE8C3A; }
@@ -258,9 +256,9 @@
 .row:not(.rowApplied) .rowHead:hover .name,
 .row:not(.rowApplied) .rowHead:hover .rows,
 .row:not(.rowApplied) .rowHead:hover .tag,
-.row:not(.rowApplied) .rowHead:hover .chev { color: #1a2e30; }
+.row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }
 .row.rowOpen:not(.rowApplied) .rowHead .desc,
-.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(26,46,48,0.7); }
+.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
 .rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }
@@ -272,12 +270,12 @@
 .row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }
 .row.rowApplied.rowOpen .chev { color: #1a2e30; }
 .appliedTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #a8551c; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
-/* rowDefault: the one row that should still stand out with nothing
-   applied or open yet -- a light permanent wash, restating the old
-   .catRowDef for the shared-card layout. Open/applied rules above
-   this in the cascade still win once either happens. */
-.row.rowDefault { border-left-color: rgba(238,140,58,0.6); }
-.row.rowDefault .rowHead { background: #fdf3e7; }
+/* fix120: the default row's permanent wash + rail is removed -- it
+   made the default view look "active"/selected at all times, even
+   while a completely different report was the one actually applied
+   (its own APPLIED tag showing elsewhere in the list). The default
+   row now sits at rest like any other row; "DEFAULT VIEW: " in its
+   own title is the only thing marking it as the default. */
 /* readout sits flush against the row's own left rail with zero extra
    margin -- the rail stops exactly where the readout stops. */
 .readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: #28383a; }
