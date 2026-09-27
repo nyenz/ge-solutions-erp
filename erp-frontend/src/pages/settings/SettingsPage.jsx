@@ -44,6 +44,15 @@ const PREF_GROUPS = [
     options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },
 ];
 
+/* fix127: group PREF_GROUPS into named sections so Appearance
+   renders as three separated cards instead of one long flat
+   list -- same data, grouped once instead of re-diffed against
+   the previous row every render. */
+const PREF_SECTIONS = ['Display', 'Interaction', 'Notifications'].map(name => ({
+  name,
+  items: PREF_GROUPS.filter(g => g.group === name),
+}));
+
 const SettingsPage = () => {
   const { user } = useAuth();
   const { prefs, setPref, resetPrefs } = usePreferences();
@@ -180,32 +189,38 @@ const SettingsPage = () => {
             {tab === 'appearance' && (
               <>
                 <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
-                {PREF_GROUPS.map((group, i) => (
-                  <React.Fragment key={group.key}>
-                    {group.group !== PREF_GROUPS[i - 1]?.group && (
-                      <div className={styles.prefGroupLabel}>{group.group}</div>
-                    )}
-                    <div className={styles.prefRow}>
-                      <div className={styles.prefLabel}>
-                        <strong>{group.label}</strong>
-                        <span>{group.hint}</span>
-                      </div>
-                      <div className={styles.prefOptions} role="group" aria-label={group.label}>
-                        {group.options.map(opt => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
-                            aria-pressed={prefs[group.key] === opt.value}
-                            onClick={() => setPref(group.key, opt.value)}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
+                {/* fix127: three lighter cream cards (Report Catalogue's own
+                    #f2ede4 tone) instead of one long dark list -- each
+                    section groups its own rows so Appearance reads as
+                    organised clusters, not seven settings in a row. */}
+                <div className={styles.prefSectionsGrid}>
+                  {PREF_SECTIONS.map(section => (
+                    <div key={section.name} className={styles.prefGroupBox}>
+                      <div className={styles.prefGroupLabel}>{section.name}</div>
+                      {section.items.map(group => (
+                        <div key={group.key} className={styles.prefRow}>
+                          <div className={styles.prefLabel}>
+                            <strong>{group.label}</strong>
+                            <span>{group.hint}</span>
+                          </div>
+                          <div className={styles.prefOptions} role="group" aria-label={group.label}>
+                            {group.options.map(opt => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
+                                aria-pressed={prefs[group.key] === opt.value}
+                                onClick={() => setPref(group.key, opt.value)}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </React.Fragment>
-                ))}
+                  ))}
+                </div>
                 <div className={styles.submitRow}>
                   <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
                 </div>
