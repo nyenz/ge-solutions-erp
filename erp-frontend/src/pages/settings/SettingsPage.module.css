@@ -140,22 +140,65 @@
 
 
 /* ── HARDWARE PANELS ────────────────────────────────────────────── */
-.hwPanel { background: var(--panel-bg); border: 1.5px solid var(--panel-border); border-radius: var(--radius); overflow: visible; box-shadow: 0 8px 24px rgba(0,0,0,0.14); transition: border-color 0.2s; }
-.hwPanel:hover { border-color: rgba(238,140,58,0.38); }
+/* fix114: matched to Report Studio / Intake's CollapsibleSection exactly
+   -- gradient card, border warms to full orange and the shadow deepens
+   on hover, header is click-anywhere (not just a passive bar with a
+   pointer cursor) and genuinely collapses instead of every panel body
+   being pinned to a fixed max-height with no toggle wired to it. */
+.hwPanel {
+  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+  border: 1px solid rgba(238, 140, 58, 0.2);
+  border-radius: var(--radius);
+  overflow: visible;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.hwPanel:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
 
-.drawerHeader { display: flex; justify-content: space-between; align-items: center; padding: clamp(9px,1.2vw,13px) clamp(12px,1.5vw,18px); border-bottom: 1px solid rgba(238,140,58,0.12); cursor: pointer; user-select: none; outline: none; transition: background 0.2s; }
-.drawerHeader:hover { background: rgba(238,140,58,0.04); }
+.drawerHeader {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: clamp(8px,1.1vw,12px) clamp(10px,1.4vw,16px);
+  background: #162a2c;
+  border: none; border-bottom: 1.5px solid transparent;
+  border-radius: 9px;
+  cursor: pointer; user-select: none; outline: none;
+  transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
+}
+.drawerHeader:hover .drawerTitle { color: #fff; }
 .drawerHeader:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+.drawerHeaderOpen { border-radius: 9px 9px 0 0; border-bottom-color: var(--orange); }
 
-.drawerTitle { display: flex; align-items: center; gap: clamp(6px,0.8vw,10px); font-family: 'DM Sans', sans-serif; color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: 2px; text-transform: uppercase; }
+.drawerTitle { display: flex; align-items: center; gap: clamp(6px,0.8vw,10px); font-family: 'DM Sans', sans-serif; color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: 2px; text-transform: uppercase; transition: color 0.18s ease; }
 .drawerIcon  { font-size: clamp(12px,1.3vw,15px); }
-.chevron     { color: var(--orange); font-size: clamp(15px,1.7vw,19px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
-.rotated     { transform: rotate(180deg); }
+.chevron     { color: rgba(255,255,255,0.4); font-size: clamp(15px,1.7vw,19px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s ease; }
+.rotated     { transform: rotate(180deg); color: var(--orange); }
 
-.panelBody  { transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.35s; overflow: hidden; }
-.bodyOpen   { max-height: 1500px; opacity: 1; overflow: visible; }
-.bodyClosed { max-height: 0;      opacity: 0; }
-.panelInner { padding: var(--pad); }
+.panelBody  { overflow: visible; }
+.panelInner { padding: var(--pad); animation: panelExpand 0.2s ease-out; }
+@keyframes panelExpand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* fix114: each panel's own colour, so the workstation grid reads by
+   purpose at a glance -- Appearance keeps the app's default orange,
+   Personal Security picks up the cyan Recovery already uses for contact
+   numbers, Staff Governance reuses the violet STAFF already carries in
+   the bell and in rank badges, and the archive panel gets the same
+   slate Reports uses for its own archive group. Danger Zone's red is
+   handled separately, further down this file. */
+.hwPanel[data-kind="security"] .drawerTitle { color: #22d3ee; }
+.hwPanel[data-kind="security"] .drawerHeaderOpen { border-bottom-color: #22d3ee; }
+.hwPanel[data-kind="security"] .rotated { color: #22d3ee; }
+.hwPanel[data-kind="security"]:hover { border-color: #22d3ee; }
+.hwPanel[data-kind="governance"] .drawerTitle { color: #a78bfa; }
+.hwPanel[data-kind="governance"] .drawerHeaderOpen { border-bottom-color: #a78bfa; }
+.hwPanel[data-kind="governance"] .rotated { color: #a78bfa; }
+.hwPanel[data-kind="governance"]:hover { border-color: #a78bfa; }
+.hwPanel[data-kind="deleted"] .drawerTitle { color: #94a3b8; }
+.hwPanel[data-kind="deleted"] .drawerHeaderOpen { border-bottom-color: #94a3b8; }
+.hwPanel[data-kind="deleted"] .rotated { color: #94a3b8; }
+.hwPanel[data-kind="deleted"]:hover { border-color: #94a3b8; }
 
 
 /* ── SECURITY FORM ──────────────────────────────────────────────── */
@@ -454,8 +497,7 @@
 .dangerPanel { border-color: rgba(239,68,68,0.35); }
 .dangerPanel:hover { border-color: rgba(239,68,68,0.55); }
 .dangerPanel .drawerTitle, .dangerPanel .chevron { color: var(--red); }
-.dangerPanel .drawerHeader { border-bottom-color: rgba(239,68,68,0.18); }
-.dangerPanel .drawerHeader:hover { background: rgba(239,68,68,0.05); }
+.dangerPanel .drawerHeaderOpen { border-bottom-color: var(--red); }
 
 .wipeField { margin: var(--gap-md) 0; }
 

@@ -8,6 +8,7 @@ export const DEFAULT_PREFS = {
     motion: 'full',      // full | reduced
     tips: 'normal',      // normal | slow | off
     contrast: 'normal',  // normal | high
+    notifPoll: '300',    // 300 | 900 | 0 (seconds) -- bell auto-refresh, 0 = manual only
 };
 
 export const PreferencesContext = createContext({

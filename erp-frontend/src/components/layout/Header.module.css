@@ -347,13 +347,16 @@
     max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
     display: flex;
     flex-direction: column;
-    /* Same teal gradient Intake's CollapsibleSection panels use -- this used
-       to be its own near-black gradient, the one panel in the app that
-       didn't share the family. */
-    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
-    border: 1.5px solid rgba(238, 140, 58, 0.35);
-    border-radius: 10px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    /* fix114: lighter, inspired by Recovery's glass pageHeader -- a warm
+       white card with a left orange accent stripe, instead of the same
+       near-black gradient every other panel in the app already moved off
+       of for anything meant to be scanned quickly rather than worked in. */
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(18px);
+    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    border-left: 4px solid #EE8C3A;
+    border-radius: 12px;
+    box-shadow: 0 18px 44px rgba(26, 46, 48, 0.22);
     overflow: hidden;
 }
 
@@ -363,14 +366,13 @@
     align-items: center;
     gap: 8px;
     padding: 11px 13px;
-    /* That same panel family's own header colour, not a black overlay. */
-    background: #162a2c;
-    border-bottom: 1px solid var(--panel-edge);
+    background: rgba(244, 239, 232, 0.6);
+    border-bottom: 1px solid rgba(26, 46, 48, 0.1);
     font-family: 'Space Mono', monospace;
     font-size: 9px;
     font-weight: 900;
     letter-spacing: 2px;
-    color: #EE8C3A;
+    color: #1a2e30;
     flex-shrink: 0;
 }
 .notifReadAll {
@@ -378,8 +380,8 @@
     align-items: center;
     gap: 4px;
     background: transparent;
-    border: 1px solid var(--panel-edge);
-    color: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(26, 46, 48, 0.18);
+    color: rgba(26, 46, 48, 0.6);
     border-radius: 6px;
     padding: 4px 8px;
     font-size: 8px;
@@ -388,7 +390,7 @@
     cursor: pointer;
     transition: all 0.16s ease;
 }
-.notifReadAll:hover { color: #EE8C3A; border-color: #EE8C3A; }
+.notifReadAll:hover { color: #fff; background: #EE8C3A; border-color: #EE8C3A; }
 
 /* ── filters ───────────────────────────────────────────────────────── */
 .notifFilters {
@@ -396,7 +398,7 @@
     gap: 5px;
     padding: 9px 11px;
     overflow-x: auto;
-    border-bottom: 1px solid var(--panel-edge);
+    border-bottom: 1px solid rgba(26, 46, 48, 0.08);
     flex-shrink: 0;
     scrollbar-width: none;
 }
@@ -412,22 +414,31 @@
     letter-spacing: 1.1px;
     cursor: pointer;
     transition: all 0.16s ease;
-    border: 1px solid var(--panel-edge);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.45);
+    border: 1px solid rgba(26, 46, 48, 0.16);
+    background: rgba(255, 255, 255, 0.7);
+    color: rgba(26, 46, 48, 0.55);
 }
-.notifChip:hover { color: #EE8C3A; border-color: #EE8C3A; }
+.notifChip:hover { color: #EE8C3A; border-color: #EE8C3A; background: rgba(238, 140, 58, 0.08); }
 .notifChipActive {
     background: #EE8C3A;
     border-color: #EE8C3A;
-    color: var(--accent-ink);
+    color: #fff;
 }
 
 /* ── list ──────────────────────────────────────────────────────────── */
+/* fix114: a warm tray behind white row-cards, same language as the Report
+   Catalogue -- the tray supplies the contrast, so each group's own colour
+   (left edge, icon chip, label, unread dot) is what actually stands out,
+   not a dark background every row shares regardless of type. */
 .notifList {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    background: #f4efe8;
+    padding: 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .notifRow, .notifRowPinned {
@@ -436,26 +447,28 @@
     gap: 10px;
     width: 100%;
     text-align: left;
-    background: transparent;
+    background: #ffffff;
     border: none;
-    border-bottom: 1px solid var(--panel-edge);
-    padding: 11px 13px;
+    border-left: 4px solid transparent;
+    border-radius: 9px;
+    padding: 10px 12px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    box-shadow: 0 2px 7px rgba(26, 46, 48, 0.1);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
-.notifRow:hover, .notifRowPinned:hover { background: rgba(238, 140, 58, 0.14); }
+.notifRow:hover, .notifRowPinned:hover { box-shadow: 0 8px 20px rgba(26, 46, 48, 0.18); transform: translateY(-1px); }
 .notifRow:focus-visible, .notifRowPinned:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 
 /* The recovery queue is pinned and is not a stored row, so it is marked
    as different rather than pretending to be one of the list. */
 .notifRowPinned {
-    background: var(--warn-soft);
-    border-left: 3px solid #EE8C3A;
+    background: #fff7ed;
+    border-left: 4px solid #EE8C3A;
 }
 
 /* Read rows dim, but the unread ones also carry a dot -- opacity alone
    disappears under the high-contrast setting. */
-.notifRead { opacity: 0.5; }
+.notifRead { opacity: 0.6; }
 
 .notifIcon {
     display: flex;
@@ -465,7 +478,6 @@
     height: 26px;
     border-radius: 7px;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.07);
     font-size: 13px;
 }
 
@@ -487,7 +499,6 @@
     font-weight: 900;
     letter-spacing: 1.2px;
     text-transform: uppercase;
-    color: #EE8C3A;
 }
 
 .notifTime {
@@ -496,7 +507,7 @@
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: none;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(26, 46, 48, 0.42);
     flex-shrink: 0;
 }
 
@@ -504,11 +515,14 @@
     font-family: 'Inter', sans-serif;
     font-size: 11px;
     font-weight: 600;
-    color: #ffffff;
+    color: #1a2e30;
     line-height: 1.45;
     word-break: break-word;
 }
 
+/* fix114: colour now comes from the row's own group (set inline in
+   Header.jsx from the same GROUP_COLOR map the icon chip reads) instead
+   of every dot being the same orange no matter what kind of signal it is. */
 .notifUnreadDot {
     width: 7px;
     height: 7px;
@@ -525,7 +539,7 @@
     font-size: 9px;
     font-weight: 900;
     letter-spacing: 2px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(26, 46, 48, 0.4);
 }
 
 @media (max-width: 480px) {

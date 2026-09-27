@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor } from 'react-icons/fi';
+import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
@@ -30,12 +30,23 @@ const PREF_GROUPS = [
     options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },
   { key: 'contrast', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },
+  { key: 'notifPoll', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',
+    options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },
 ];
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const { prefs, setPref, resetPrefs } = usePreferences();
   const isRoot = !!user?.isRoot;
+  /* Every hwPanel now genuinely collapses -- these five default open so
+     nothing changes for anyone who never touches a header, but a long
+     staff roster or deleted-plots list can be tucked away instead of
+     permanently occupying the full column. */
+  const [appOpen, setAppOpen] = useState(true);
+  const [secOpen, setSecOpen] = useState(true);
+  const [govOpen, setGovOpen] = useState(true);
+  const [dangerOpen, setDangerOpen] = useState(true);
+  const [delOpen, setDelOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
   const toast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -105,9 +116,18 @@ const SettingsPage = () => {
         {user?.mustChangePassword && (<div className={`${styles.handbrakeBadge} ${styles.blink}`}><FiLock aria-hidden="true" /> CHANGE YOUR PASSWORD TO UNLOCK THE SYSTEM</div>)}
       </header>
       <div className={styles.workstationGrid}>
-        <div className={styles.hwPanel}>
-          <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiSliders className={styles.drawerIcon} aria-hidden="true" /> APPEARANCE</div></div>
-          <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+        <div className={styles.hwPanel} data-kind="appearance">
+          <div
+            className={appOpen ? `${styles.drawerHeader} ${styles.drawerHeaderOpen}` : styles.drawerHeader}
+            role="button" tabIndex={0}
+            onClick={() => setAppOpen(o => !o)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAppOpen(o => !o); } }}
+            aria-expanded={appOpen} aria-label="Collapse or expand appearance panel"
+          >
+            <div className={styles.drawerTitle}><FiSliders className={styles.drawerIcon} aria-hidden="true" /> APPEARANCE</div>
+            <FiChevronDown className={appOpen ? `${styles.chevron} ${styles.rotated}` : styles.chevron} aria-hidden="true" />
+          </div>
+          {appOpen && <div className={styles.panelBody}><div className={styles.panelInner}>
             <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
             {PREF_GROUPS.map(group => (
               <div key={group.key} className={styles.prefRow}>
@@ -133,11 +153,20 @@ const SettingsPage = () => {
             <div className={styles.submitRow}>
               <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
             </div>
-          </div></div>
+          </div></div>}
         </div>
-        <div className={styles.hwPanel}>
-          <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiKey className={styles.drawerIcon} aria-hidden="true" /> PERSONAL SECURITY</div></div>
-          <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+        <div className={styles.hwPanel} data-kind="security">
+          <div
+            className={secOpen ? `${styles.drawerHeader} ${styles.drawerHeaderOpen}` : styles.drawerHeader}
+            role="button" tabIndex={0}
+            onClick={() => setSecOpen(o => !o)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSecOpen(o => !o); } }}
+            aria-expanded={secOpen} aria-label="Collapse or expand personal security panel"
+          >
+            <div className={styles.drawerTitle}><FiKey className={styles.drawerIcon} aria-hidden="true" /> PERSONAL SECURITY</div>
+            <FiChevronDown className={secOpen ? `${styles.chevron} ${styles.rotated}` : styles.chevron} aria-hidden="true" />
+          </div>
+          {secOpen && <div className={styles.panelBody}><div className={styles.panelInner}>
             <div className={styles.securityAlert}><FiShield aria-hidden="true" /><span>Minimum 8 characters, one uppercase letter and one number. Changing your key unlocks full access.</span></div>
             <div className={styles.dualRow}>
               <div className={styles.eyeInpWrap}>
@@ -152,12 +181,21 @@ const SettingsPage = () => {
             <div className={styles.submitRow}>
               <button type="button" className={styles.commitBtn} onClick={changePw} disabled={savingPw || !oldPw || !newPw}><FiKey aria-hidden="true" /> COMMIT NEW KEY</button>
             </div>
-          </div></div>
+          </div></div>}
         </div>
         {isRoot && (
-          <div className={styles.hwPanel}>
-            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiShield className={styles.drawerIcon} aria-hidden="true" /> STAFF GOVERNANCE</div></div>
-            <div className={styles.panelBody} style={{ maxHeight: 4000 }}><div className={styles.panelInner}>
+          <div className={styles.hwPanel} data-kind="governance">
+            <div
+              className={govOpen ? `${styles.drawerHeader} ${styles.drawerHeaderOpen}` : styles.drawerHeader}
+              role="button" tabIndex={0}
+              onClick={() => setGovOpen(o => !o)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGovOpen(o => !o); } }}
+              aria-expanded={govOpen} aria-label="Collapse or expand staff governance panel"
+            >
+              <div className={styles.drawerTitle}><FiShield className={styles.drawerIcon} aria-hidden="true" /> STAFF GOVERNANCE</div>
+              <FiChevronDown className={govOpen ? `${styles.chevron} ${styles.rotated}` : styles.chevron} aria-hidden="true" />
+            </div>
+            {govOpen && <div className={styles.panelBody}><div className={styles.panelInner}>
               <div className={styles.ledgerActions}>
                 <button type="button" className={styles.addOpBtn} onClick={() => setAddOpen(true)}><FiUserPlus aria-hidden="true" /> PROVISION OPERATOR</button>
               </div>
@@ -206,26 +244,44 @@ const SettingsPage = () => {
                   </div>
                 ))}
               </div>
-            </div></div>
+            </div></div>}
           </div>
         )}
         {isRoot && (
           <div className={`${styles.hwPanel} ${styles.dangerPanel}`}>
-            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiAlertTriangle className={styles.drawerIcon} aria-hidden="true" /> DANGER ZONE</div></div>
-            <div className={styles.panelBody} style={{ maxHeight: 2000 }}><div className={styles.panelInner}>
+            <div
+              className={dangerOpen ? `${styles.drawerHeader} ${styles.drawerHeaderOpen}` : styles.drawerHeader}
+              role="button" tabIndex={0}
+              onClick={() => setDangerOpen(o => !o)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDangerOpen(o => !o); } }}
+              aria-expanded={dangerOpen} aria-label="Collapse or expand danger zone panel"
+            >
+              <div className={styles.drawerTitle}><FiAlertTriangle className={styles.drawerIcon} aria-hidden="true" /> DANGER ZONE</div>
+              <FiChevronDown className={dangerOpen ? `${styles.chevron} ${styles.rotated}` : styles.chevron} aria-hidden="true" />
+            </div>
+            {dangerOpen && <div className={styles.panelBody}><div className={styles.panelInner}>
               <div className={styles.wipeField}>
                 <HardwareInput label={'TYPE "WIPE-EVERYTHING" TO ARM'} value={wipeText} onChange={e => setWipeText(e.target.value)} />
               </div>
               <button type="button" className={styles.wipeBtn} disabled={wipeText !== 'WIPE-EVERYTHING' || wiping} onClick={wipe}>
                 <FiTrash2 aria-hidden="true" /> {wiping ? 'WIPING...' : 'WIPE ALL BUSINESS DATA'}
               </button>
-            </div></div>
+            </div></div>}
           </div>
         )}
         {isRoot && (
-          <div className={styles.hwPanel}>
-            <div className={styles.drawerHeader}><div className={styles.drawerTitle}><FiRotateCcw className={styles.drawerIcon} aria-hidden="true" /> RECENTLY DELETED PLOTS</div></div>
-            <div className={styles.panelBody} style={{ maxHeight: 3000 }}><div className={styles.panelInner}>
+          <div className={styles.hwPanel} data-kind="deleted">
+            <div
+              className={delOpen ? `${styles.drawerHeader} ${styles.drawerHeaderOpen}` : styles.drawerHeader}
+              role="button" tabIndex={0}
+              onClick={() => setDelOpen(o => !o)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDelOpen(o => !o); } }}
+              aria-expanded={delOpen} aria-label="Collapse or expand recently deleted plots panel"
+            >
+              <div className={styles.drawerTitle}><FiRotateCcw className={styles.drawerIcon} aria-hidden="true" /> RECENTLY DELETED PLOTS</div>
+              <FiChevronDown className={delOpen ? `${styles.chevron} ${styles.rotated}` : styles.chevron} aria-hidden="true" />
+            </div>
+            {delOpen && <div className={styles.panelBody}><div className={styles.panelInner}>
               {delLoading && <LoadingState label="SYNCING DELETED PLOTS..." tone="bare" />}
               {!delLoading && deleted.length === 0 && <p className={styles.hint}>NO DELETED PLOTS.</p>}
               {!delLoading && deleted.map(p => (
@@ -241,7 +297,7 @@ const SettingsPage = () => {
                   </div>
                 </div>
               ))}
-            </div></div>
+            </div></div>}
           </div>
         )}
       </div>

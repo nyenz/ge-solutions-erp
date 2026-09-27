@@ -16,10 +16,11 @@
  * The list can be filtered to unread or to one group, which is the difference
  * between a bell you check and a bell you turn off.
  *
- * POLLING is the user's choice (Settings -> Behaviour). Five minutes is the
- * default; a phone on mobile data can drop to fifteen, and MANUAL stops the
- * timer entirely and leaves the refresh button. The old build hard-coded five
- * minutes with no way to change it.
+ * POLLING is the user's choice (Settings -> Notification refresh). Five
+ * minutes is the default; a phone on mobile data can drop to fifteen, and
+ * MANUAL stops the timer entirely. The old build hard-coded five minutes
+ * with no way to change it, and the setting itself did not exist in
+ * Settings until fix114 -- Header read prefs.notifPoll, nothing ever wrote it.
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -183,7 +184,7 @@ const Header = ({ onToggle }) => {
                                             <FiPhoneCall aria-hidden="true" />
                                         </span>
                                         <span className={styles.notifBody}>
-                                            <span className={styles.notifType}>RECOVERY QUEUE</span>
+                                            <span className={styles.notifType} style={{ color: GROUP_COLOR.RECOVERY }}>RECOVERY QUEUE</span>
                                             <span className={styles.notifMsg}>
                                                 {staleCount} mission{staleCount > 1 ? 's' : ''} due now
                                             </span>
@@ -200,11 +201,17 @@ const Header = ({ onToggle }) => {
                                 {!loading && shown.map(n => {
                                     const meta = describe(n);
                                     const Icon = meta.icon;
+                                    /* Same colour that tints the icon chip now drives the row's left
+                                       edge, the type label and the unread dot -- one hue per group,
+                                       not one orange for every kind of signal. */
+                                    const tint = GROUP_COLOR[meta.group] || SEVERITY_COLOR[meta.severity] || '#94a3b8';
                                     return (
                                         <button
                                             type="button"
                                             key={n.id}
+                                            data-group={meta.group}
                                             className={`${styles.notifRow} ${n.read ? styles.notifRead : ''}`}
+                                            style={{ borderLeftColor: tint }}
                                             onClick={() => go(n)}
                                         >
                                             <span className={styles.notifIcon}
@@ -216,13 +223,13 @@ const Header = ({ onToggle }) => {
                                                 <Icon aria-hidden="true" />
                                             </span>
                                             <span className={styles.notifBody}>
-                                                <span className={styles.notifType}>
+                                                <span className={styles.notifType} style={{ color: tint }}>
                                                     {meta.label}
                                                     <time className={styles.notifTime}>{relativeTime(n.createdAt)}</time>
                                                 </span>
                                                 <span className={styles.notifMsg}>{n.message}</span>
                                             </span>
-                                            {!n.read && <span className={styles.notifUnreadDot} aria-label="Unread" />}
+                                            {!n.read && <span className={styles.notifUnreadDot} style={{ background: tint, boxShadow: `0 0 5px ${tint}` }} aria-label="Unread" />}
                                         </button>
                                     );
                                 })}
