@@ -1,13 +1,23 @@
 /* PATH: erp-frontend/src/pages/settings/SettingsPage.module.css */
-/* ERP Standard — tokens, clamp(), fonts, 800+, focus-visible,
-   V5.1 class names preserved (eyeInpWrap, eyeBtn, commitBtn,
-   opCard, opHeader, opInfo, securityAlert, revealBox, serial…)  */
+/* fix121: REPORT STUDIO PARITY REWRITE.
+   The five independently-collapsing hwPanels (Appearance/Security/
+   Governance/Danger/Deleted) are gone. In their place: a dataset-tile
+   dock identical in spec to Report Studio's source row, feeding ONE
+   gradient card whose head bar, focus ring and hover glow recolor per
+   section through a single --accent custom property -- orange for
+   Appearance, cyan for Security, violet for Staff, red for the Danger
+   Zone, slate for the Archive. Card chrome (gradient, border, shadow,
+   corner brackets, panel head, button language) is lifted straight off
+   ReportStudio.module.css so the two pages read as one system. */
 
 /* ── DESIGN TOKENS + CONTAINER ─────────────────────────────────── */
 .container {
     --orange:        #EE8C3A;
     --orange-dim:    rgba(238, 140, 58, 0.18);
     --orange-border: rgba(238, 140, 58, 0.28);
+    --cyan:          #22d3ee;
+    --violet:        #a78bfa;
+    --slate:         #94a3b8;
     --navy:          #1a2e30;
     --panel-bg:      linear-gradient(160deg, #1c3335 0%, #213E40 100%);
     --panel-border:  rgba(238, 140, 58, 0.2);
@@ -17,7 +27,7 @@
     --gap-xl:   clamp(12px, 1.6vw, 16px);
     --gap-lg:   clamp(8px,  1.2vw, 12px);
     --gap-md:   clamp(5px,  0.8vw, 8px);
-    --pad:      clamp(11px, 1.5vw, 16px);
+    --pad:      clamp(12px, 1.6vw, 18px);
     --radius:   12px;
     --radius-sm: 7px;
 
@@ -58,75 +68,6 @@
 .toastClose:hover { opacity: 1; }
 
 
-/* ── CONFIRM MODAL ──────────────────────────────────────────────── */
-/* ── CONFIRM MODAL — ALL hardcoded, no var() — portalled outside .container ── */
-.confirmOverlay {
-    position: fixed; inset: 0; z-index: 99998;
-    background: rgba(10,20,22,0.82);
-    backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: clamp(16px,3vw,32px);
-}
-.confirmBox {
-    background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-    border: 1.5px solid rgba(238,140,58,0.35);
-    border-radius: 12px;
-    max-width: clamp(300px,50vw,460px); width: 100%;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
-    animation: cfSlide 0.22s cubic-bezier(0.2,1,0.3,1) both;
-}
-@keyframes cfSlide { from{opacity:0;transform:translateY(18px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-.confirmHeader {
-    display: flex; align-items: center; gap: clamp(8px,1vw,12px);
-    padding: clamp(12px,1.5vw,16px) clamp(14px,1.8vw,20px);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-.confirmHeaderWarn   { background: rgba(245,158,11,0.14); border-bottom-color: rgba(245,158,11,0.2); }
-.confirmHeaderDanger { background: rgba(239,68,68,0.14);  border-bottom-color: rgba(239,68,68,0.2); }
-.confirmIcon  { font-size: clamp(16px,2vw,22px); color: #f59e0b; flex-shrink: 0; }
-.confirmHeaderDanger .confirmIcon { color: #ef4444; }
-.confirmTitle {
-    font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,12px);
-    font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; color: #fcd34d;
-}
-.confirmHeaderDanger .confirmTitle { color: #fca5a5; }
-.confirmMessage {
-    padding: clamp(14px,1.8vw,20px) clamp(14px,1.8vw,20px);
-    font-family: 'DM Sans', sans-serif; font-size: clamp(12px,1.2vw,14px);
-    font-weight: 800; line-height: 1.6; color: rgba(255,255,255,0.8); margin: 0;
-}
-.confirmFooter {
-    display: flex; justify-content: flex-end; gap: clamp(8px,1vw,12px);
-    padding: clamp(11px,1.4vw,16px) clamp(14px,1.8vw,20px);
-    background: rgba(0,0,0,0.25); border-top: 1px solid rgba(255,255,255,0.06);
-}
-.confirmCancelBtn {
-    display: inline-flex; align-items: center; gap: clamp(4px,0.5vw,6px);
-    padding: clamp(7px,0.9vw,10px) clamp(12px,1.5vw,16px);
-    background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.7); border-radius: 7px;
-    font-family: 'DM Sans', sans-serif; font-weight: 900;
-    font-size: clamp(9px,0.9vw,11px); text-transform: uppercase; cursor: pointer;
-    transition: background 0.2s, color 0.2s;
-}
-.confirmCancelBtn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.confirmCancelBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
-.confirmOkBtn {
-    display: inline-flex; align-items: center; gap: clamp(4px,0.5vw,6px);
-    padding: clamp(7px,0.9vw,10px) clamp(12px,1.5vw,16px);
-    border-radius: 7px; font-family: 'DM Sans', sans-serif; font-weight: 900;
-    font-size: clamp(9px,0.9vw,11px); text-transform: uppercase;
-    cursor: pointer; border: none; transition: background 0.2s, transform 0.15s;
-}
-.confirmOkBtn:hover { transform: translateY(-1px); }
-.confirmOkBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
-.confirmOkWarn   { background: #EE8C3A; color: #1a2e30; }
-.confirmOkWarn:hover { background: #f0a050; }
-.confirmOkDanger { background: #ef4444; color: #fff; }
-.confirmOkDanger:hover { background: #dc2626; }
-
-
 /* ── HEADER ─────────────────────────────────────────────────────── */
 .title   { font-family: 'Cinzel', serif; color: var(--navy); font-size: var(--fs-h1); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; line-height: 1; margin: 0 0 clamp(2px,0.3vw,4px); }
 .subtitle { font-family: 'DM Sans', sans-serif; color: #64748b; font-size: var(--fs-sub); font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
@@ -134,89 +75,143 @@
 .blink { animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-bottom: clamp(14px, 2vw, 24px);
+    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
+    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
+    background: rgba(255, 255, 255, 0.62);
+    border-radius: 0 12px 12px 0;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+}
+.pageHeaderLeft { display: flex; flex-direction: column; gap: clamp(3px, 0.4vw, 5px); min-width: 0; flex: 1; }
+.pageHeaderRight { display: flex; align-items: center; gap: clamp(8px, 1.2vw, 14px); flex-shrink: 0; flex-wrap: wrap; }
+
 
 /* ── LAYOUT ─────────────────────────────────────────────────────── */
-/* fix117: Reports never lays panels out in a grid -- ReportHub's
-   .pillarStack and Report Studio's own .studio wrapper are both a
-   plain vertical flex column, full width, one panel after another.
-   This used to run two-up above ~1000px, the one structural mismatch
-   left after fix114 matched the panels' own styling to Report Studio. */
 .workstationGrid { display: flex; flex-direction: column; gap: var(--gap-xl); align-items: stretch; }
 
 
-/* ── HARDWARE PANELS ────────────────────────────────────────────── */
-/* fix114: matched to Report Studio / Intake's CollapsibleSection exactly
-   -- gradient card, border warms to full orange and the shadow deepens
-   on hover, header is click-anywhere (not just a passive bar with a
-   pointer cursor) and genuinely collapses instead of every panel body
-   being pinned to a fixed max-height with no toggle wired to it. */
-.hwPanel {
+/* ── TAB DOCK (fix121) ──────────────────────────────────────────────
+   Identical spec to Report Studio's dataset-tile row: a chip-dock tray
+   holding pill buttons (label + Space Mono count), solid-fill when the
+   tab is the one on screen. Each tile also carries its destination's
+   own accent so the dock hints at where you're headed before you land
+   there -- hovering DANGER ZONE warms red, STAFF warms violet, etc. */
+.dockRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tabDock {
+  flex: 0 0 auto; display: flex; align-items: center;
+  background: #4d5c5a;
+  border: none; border-radius: 8px;
+  padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+.tabRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tab, .tabOn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 8px 12px; border-radius: 6px; outline: none;
+  border: 1.5px solid transparent; background: transparent;
+  color: rgba(255,255,255,0.92); transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tab[data-accent="orange"]:hover { color: var(--orange); }
+.tab[data-accent="cyan"]:hover   { color: var(--cyan); }
+.tab[data-accent="violet"]:hover { color: var(--violet); }
+.tab[data-accent="red"]:hover    { color: var(--red); }
+.tab[data-accent="slate"]:hover  { color: var(--slate); }
+.tabOn { color: #1a2e30; }
+.tabOn[data-accent="orange"] { background: var(--orange); border-color: var(--orange); box-shadow: 0 4px 16px rgba(238,140,58,0.32); }
+.tabOn[data-accent="cyan"]   { background: var(--cyan);   border-color: var(--cyan);   box-shadow: 0 4px 16px rgba(34,211,238,0.32); }
+.tabOn[data-accent="violet"] { background: var(--violet); border-color: var(--violet); box-shadow: 0 4px 16px rgba(167,139,250,0.32); }
+.tabOn[data-accent="red"]    { background: var(--red);    border-color: var(--red);    color: #fff; box-shadow: 0 4px 16px rgba(239,68,68,0.32); }
+.tabOn[data-accent="slate"]  { background: var(--slate);  border-color: var(--slate);  box-shadow: 0 4px 16px rgba(148,163,184,0.32); }
+.tabOn:focus-visible, .tab:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: -2px; }
+.tabCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
+.dockBadge {
+  margin-left: auto; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(26,46,48,0.55);
+  background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; padding: 8px 12px; white-space: nowrap;
+}
+
+
+/* ── WORKSTATION CARD (fix121) ───────────────────────────────────────
+   One card instead of five. Same gradient body, same orange-warming
+   hover as Report Studio's scopePanel/catPanel -- except the color it
+   warms TOWARD is this card's own --accent, set per section below, so
+   Governance genuinely feels different from the Danger Zone without a
+   different visual language. */
+.workstationCard {
+  --accent: var(--orange);
+  position: relative;
   background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
-  border: 1px solid rgba(238, 140, 58, 0.2);
+  border: 1.5px solid rgba(238, 140, 58, 0.2);
   border-radius: var(--radius);
   overflow: visible;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.hwPanel:hover { border-color: var(--orange); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
+.workstationCard:hover { border-color: var(--accent); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32); }
+.workstationCard[data-accent="cyan"]   { --accent: var(--cyan); }
+.workstationCard[data-accent="violet"] { --accent: var(--violet); }
+.workstationCard[data-accent="red"]    { --accent: var(--red); }
+.workstationCard[data-accent="slate"]  { --accent: var(--slate); }
 
-.drawerHeader {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: clamp(8px,1.1vw,12px) clamp(10px,1.4vw,16px);
-  background: #162a2c;
-  border: none; border-bottom: 1.5px solid transparent;
-  border-radius: 9px;
-  cursor: pointer; user-select: none; outline: none;
+.panelHeadRow {
+  position: relative; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: #162a2c; border-bottom: 1.5px solid transparent;
+  border-radius: 11px 11px 0 0; padding: clamp(8px,1.1vw,12px) clamp(10px,1.4vw,16px);
+  width: 100%; box-sizing: border-box; text-align: left; cursor: pointer;
   transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
 }
-.drawerHeader:hover .drawerTitle { color: #fff; }
-.drawerHeader:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
-.drawerHeaderOpen { border-radius: 9px 9px 0 0; border-bottom-color: var(--orange); }
-
-.drawerTitle { display: flex; align-items: center; gap: clamp(6px,0.8vw,10px); font-family: 'DM Sans', sans-serif; color: var(--orange); font-weight: 900; font-size: var(--fs-drawer); letter-spacing: 2px; text-transform: uppercase; transition: color 0.18s ease; }
-.drawerIcon  { font-size: clamp(12px,1.3vw,15px); }
-.chevron     { color: rgba(255,255,255,0.4); font-size: clamp(15px,1.7vw,19px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s ease; }
-.rotated     { transform: rotate(180deg); color: var(--orange); }
-
-.panelBody  { overflow: visible; }
+.panelHeadRow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.panelHeadRowOpen { border-bottom-color: var(--accent); }
+.panelHeadTitle {
+  display: flex; align-items: center; gap: clamp(6px,0.8vw,10px);
+  font-family: 'Cinzel', serif; color: var(--accent); font-size: clamp(10px, 1.1vw, 13px);
+  font-weight: 700; letter-spacing: 2px; text-transform: uppercase; transition: color 0.18s ease;
+}
+.panelHeadIcon { font-size: clamp(12px,1.3vw,15px); }
+.panelHeadRow:hover .panelHeadTitle { color: #fff; }
+/* fix115 spec, carried over: a plain rotating glyph, not a boxed
+   button -- sized in em off the row's own font-size, no hit-box of its
+   own, because the whole row is already the click target. */
+.headToggle {
+  margin-left: auto; display: inline-flex; align-items: center; flex-shrink: 0; color: rgba(255, 255, 255, 0.4); font-size: 14px; transition: color 0.2s ease;
+}
+.headToggle svg { transition: transform 0.2s ease; }
+.pickIconOpen { transform: rotate(180deg); }
+.headToggle .pickIconOpen { color: var(--accent); }
+/* Collapsed, the head row IS the whole visible card -- one fully-curved
+   box, not a shelf with a flat bottom hanging off nothing. */
+.panelBody { overflow: visible; }
 .panelInner { padding: var(--pad); animation: panelExpand 0.2s ease-out; }
 @keyframes panelExpand {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* fix114: each panel's own colour, so the workstation grid reads by
-   purpose at a glance -- Appearance keeps the app's default orange,
-   Personal Security picks up the cyan Recovery already uses for contact
-   numbers, Staff Governance reuses the violet STAFF already carries in
-   the bell and in rank badges, and the archive panel gets the same
-   slate Reports uses for its own archive group. Danger Zone's red is
-   handled separately, further down this file. */
-.hwPanel[data-kind="security"] .drawerTitle { color: #22d3ee; }
-.hwPanel[data-kind="security"] .drawerHeaderOpen { border-bottom-color: #22d3ee; }
-.hwPanel[data-kind="security"] .rotated { color: #22d3ee; }
-.hwPanel[data-kind="security"]:hover { border-color: #22d3ee; }
-.hwPanel[data-kind="governance"] .drawerTitle { color: #a78bfa; }
-.hwPanel[data-kind="governance"] .drawerHeaderOpen { border-bottom-color: #a78bfa; }
-.hwPanel[data-kind="governance"] .rotated { color: #a78bfa; }
-.hwPanel[data-kind="governance"]:hover { border-color: #a78bfa; }
-.hwPanel[data-kind="deleted"] .drawerTitle { color: #94a3b8; }
-.hwPanel[data-kind="deleted"] .drawerHeaderOpen { border-bottom-color: #94a3b8; }
-.hwPanel[data-kind="deleted"] .rotated { color: #94a3b8; }
-.hwPanel[data-kind="deleted"]:hover { border-color: #94a3b8; }
 
-
-/* ── SECURITY FORM ──────────────────────────────────────────────── */
-.personalForm { display: flex; flex-direction: column; gap: var(--gap-md); }
-
-.securityAlert {
+/* ── SECURITY / DANGER ALERTS ──────────────────────────────────────
+   Same chip-note shape throughout the card (icon + sentence on a
+   translucent black strip); the Danger Zone gets the red-tinted
+   variant instead of the orange one everywhere else uses. */
+.securityAlert, .dangerAlert {
     display: flex; align-items: center; gap: clamp(8px,1vw,12px);
-    background: rgba(0,0,0,0.25); border: 1px solid var(--orange-border);
     padding: clamp(8px,1vw,11px) clamp(10px,1.3vw,14px);
     border-radius: var(--radius-sm); margin-bottom: var(--gap-md);
 }
+.securityAlert { background: rgba(0,0,0,0.25); border: 1px solid var(--orange-border); }
 .securityAlert svg  { color: var(--orange); font-size: clamp(14px,1.5vw,17px); flex-shrink: 0; }
 .securityAlert span { font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.65); font-size: var(--fs-meta); font-weight: 800; line-height: 1.5; }
+.dangerAlert { background: rgba(127,29,29,0.35); border: 1px solid rgba(239,68,68,0.4); }
+.dangerAlert svg  { color: var(--red); font-size: clamp(14px,1.5vw,17px); flex-shrink: 0; }
+.dangerAlert span { font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.78); font-size: var(--fs-meta); font-weight: 800; line-height: 1.5; }
 
 /* Eye toggle wrapper — positions eye button over the HardwareInput */
 .eyeInpWrap { position: relative; }
@@ -231,27 +226,30 @@
     transition: color 0.18s, background 0.18s;
     z-index: 2;
 }
-.eyeBtn:hover { color: var(--orange); background: rgba(238,140,58,0.1); }
-.eyeBtn:focus-visible { outline: 2px solid var(--orange); }
+.eyeBtn:hover { color: var(--accent, var(--orange)); background: rgba(255,255,255,0.08); }
+.eyeBtn:focus-visible { outline: 2px solid var(--accent, var(--orange)); }
 
 .dualRow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-md); }
 .submitRow { margin-top: var(--gap-md); display: flex; justify-content: flex-end; }
 
 
-/* ── COMMIT BUTTON ──────────────────────────────────────────────── */
+/* ── COMMIT BUTTON ──────────────────────────────────────────────────
+   Report Studio's .useBtn spec exactly: solid fill, recolor-only hover,
+   no lift. Applies across Appearance's reset, Security's commit and
+   the Archive's restore action -- one button language everywhere. */
 .commitBtn {
-    background: var(--orange); color: var(--navy); border: none;
+    background: var(--accent, var(--orange)); color: var(--navy); border: 1.5px solid var(--accent, var(--orange));
     padding: 0 var(--btn-px, clamp(16px,2vw,24px));
     height: var(--btn-height, clamp(38px, 5vw, 44px));
     border-radius: var(--input-radius, var(--radius-sm));
     font-family: 'DM Sans', sans-serif; font-weight: 900;
     font-size: var(--fs-btn); text-transform: uppercase; letter-spacing: 1px;
     cursor: pointer; display: inline-flex; align-items: center;
-    gap: clamp(5px,0.7vw,8px); transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    gap: clamp(5px,0.7vw,8px); transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 3px 10px rgba(0,0,0,0.2);
     white-space: nowrap;
 }
-.commitBtn:hover:not(:disabled) { background: #d4732a; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(238,140,58,0.35); }
+.commitBtn:hover:not(:disabled) { background: #d4732a; border-color: #d4732a; box-shadow: 0 6px 18px rgba(238,140,58,0.32); }
 .commitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .commitBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
@@ -260,15 +258,15 @@
 .ledgerActions { display: flex; justify-content: flex-end; margin-bottom: var(--gap-lg); }
 
 .addOpBtn {
-    background: transparent; border: 2px dashed var(--orange-border);
-    color: var(--orange); padding: clamp(7px,0.9vw,10px) clamp(12px,1.5vw,17px);
+    background: transparent; border: 1.5px solid rgba(167,139,250,0.4);
+    color: var(--violet); padding: clamp(7px,0.9vw,10px) clamp(12px,1.5vw,17px);
     border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 900;
     font-size: var(--fs-btn); cursor: pointer; text-transform: uppercase; letter-spacing: 1.5px;
-    transition: background 0.2s, border-style 0.2s; display: flex; align-items: center;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease; display: flex; align-items: center;
     gap: clamp(5px,0.7vw,8px); white-space: nowrap;
 }
-.addOpBtn:hover { background: var(--orange-dim); border-style: solid; }
-.addOpBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.addOpBtn:hover { background: rgba(167,139,250,0.14); border-color: var(--violet); }
+.addOpBtn:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
 
 .statusLegend {
     display: flex;
@@ -308,14 +306,14 @@
     display: flex; flex-direction: column; gap: var(--gap-md);
     max-height: clamp(300px, 40vh, 480px); overflow-y: auto;
     padding-right: clamp(3px,0.4vw,5px);
-    scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.4) transparent;
+    scrollbar-width: thin; scrollbar-color: rgba(167,139,250,0.4) transparent;
 }
 .staffStream::-webkit-scrollbar { width: 4px; }
-.staffStream::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.4); border-radius: 4px; }
+.staffStream::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.4); border-radius: 4px; }
 
 /* ── OPERATOR CARDS ─────────────────────────────────────────────── */
 .opCard { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: clamp(8px,1vw,11px) clamp(10px,1.2vw,14px); transition: border-color 0.2s, background 0.2s; }
-.opCard:hover { border-color: rgba(238,140,58,0.4); background: rgba(255,255,255,0.05); }
+.opCard:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); }
 /* Active card: green left accent */
 .opCard { border-left: clamp(2px,0.3vw,3px) solid rgba(16,185,129,0.5); }
 .opCard:hover { border-left-color: #10b981; }
@@ -339,8 +337,8 @@
     position: relative; flex-shrink: 0;
     width:  clamp(30px,3.5vw,38px);
     height: clamp(30px,3.5vw,38px);
-    background: rgba(0,0,0,0.3); color: var(--orange);
-    border: 1px solid var(--orange); border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.3); color: var(--violet);
+    border: 1px solid var(--violet); border-radius: var(--radius-sm);
     display: flex; align-items: center; justify-content: center;
     font-family: 'Space Mono', monospace; font-weight: 900;
     font-size: clamp(13px,1.5vw,16px);
@@ -370,13 +368,13 @@
     letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.75);
     cursor: pointer; transition: background 0.15s, color 0.15s;
 }
-.rankMenuItem:hover { background: rgba(238,140,58,0.14); color: var(--orange); }
-.rankMenuItemActive { color: var(--orange); background: rgba(238,140,58,0.08); }
+.rankMenuItem:hover { background: rgba(167,139,250,0.16); color: var(--violet); }
+.rankMenuItemActive { color: var(--violet); background: rgba(167,139,250,0.1); }
 .rankBtn, .killSwitchBtn, .resetTrigger {
     width:  clamp(26px,3vw,32px);
     height: clamp(26px,3vw,32px);
     border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer; transition: background 0.2s, box-shadow 0.2s, border-color 0.2s, color 0.2s;
     font-size: clamp(11px,1.2vw,14px); border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.05); color: #fff;
 }
@@ -395,14 +393,14 @@
     color: #ef4444 !important;
 }
 .killSwitchInactive:hover { background: #ef4444 !important; color: #fff !important; }
-.rankBtn:hover       { background: #6366f1; border-color: #818cf8; }
+.rankBtn:hover       { background: var(--violet); border-color: var(--violet); color: #1a2e30; }
 .killSwitchBtn:hover { background: #ef4444; border-color: #f87171; }
-.resetTrigger:hover  { border-color: var(--orange); color: var(--orange); }
-.rankBtn:focus-visible, .killSwitchBtn:focus-visible, .resetTrigger:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.resetTrigger:hover  { border-color: var(--violet); color: var(--violet); }
+.rankBtn:focus-visible, .killSwitchBtn:focus-visible, .resetTrigger:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
 
 .opDetails { margin-top: clamp(7px,0.9vw,10px); border-top: 1px solid rgba(255,255,255,0.05); padding-top: clamp(6px,0.8vw,9px); }
 .opDetails p { display: flex; align-items: center; gap: clamp(4px,0.5vw,6px); font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.45); font-size: var(--fs-meta); font-weight: 800; text-transform: uppercase; margin: 0; }
-.opDetails p svg { color: var(--orange); }
+.opDetails p svg { color: var(--violet); }
 
 /* CONTRAST RULE: white 30% on the navy panel was 2.5:1; cream 68% = 6.4:1. */
 .hint { font-family: 'DM Sans', sans-serif; color: rgba(244,242,239,0.68); font-size: var(--fs-meta); font-weight: 800; text-align: center; padding: clamp(12px,1.8vw,20px); letter-spacing: 1px; text-transform: uppercase; margin: 0; display: flex; align-items: center; justify-content: center; gap: clamp(6px,0.8vw,9px); }
@@ -438,90 +436,27 @@
 .revealDisclaimer { font-family: 'DM Sans', sans-serif; font-size: var(--fs-label); font-weight: 900; color: #fb923c; margin-bottom: var(--gap-lg); text-transform: uppercase; letter-spacing: 0.5px; }
 
 
-/* ── RESPONSIVE ─────────────────────────────────────────────────── */
-@media (max-width: 900px) {
-    .dualRow         { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 640px) {
-    .dualRow { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 480px) {
-    .container {
-        --gap-xl: 10px; --gap-lg: 7px; --gap-md: 5px;
-        --pad: 11px; --fs-h1: 16px; --fs-btn: 8px; --fs-drawer: 9px;
-    }
-    .header        { padding: 7px 11px; }
-    .panelInner    { padding: 11px; }
-    .drawerHeader  { padding: 7px 11px; }
-    .securityAlert { padding: 7px 10px; gap: 7px; margin-bottom: 7px; }
-    .serial        { font-size: 18px; letter-spacing: 2px; padding: 12px; }
-    .warningIcon   { font-size: 26px; }
-    .opCard        { padding: 7px 9px; }
-    .opAvatar      { width: 28px; height: 28px; font-size: 12px; }
-    .rankBtn, .killSwitchBtn, .resetTrigger { width: 25px; height: 25px; font-size: 11px; }
-    .staffStream   { max-height: 260px; }
-    .addOpBtn      { padding: 7px 12px; font-size: 8px; }
-    .commitBtn     { padding: 8px 14px; font-size: 8px; letter-spacing: 0.5px; }
-    .eyeBtn        { font-size: 13px; right: 8px; top: clamp(24px, 6vw, 30px); }
-}
-
-/* -- PAGE HEADER unified glass panel matching Dashboard -- */
-.pageHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 24px);
-    border-left: clamp(3px, 0.4vw, 5px) solid var(--orange);
-    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
-    background: rgba(255, 255, 255, 0.62);
-    border-radius: 0 12px 12px 0;
-    backdrop-filter: blur(15px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
-}
-.pageHeaderLeft {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(3px, 0.4vw, 5px);
-    min-width: 0;
-    flex: 1;
-}
-.pageHeaderRight {
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1.2vw, 14px);
-    flex-shrink: 0;
-    flex-wrap: wrap;
-}
-
-
-/* -- DANGER ZONE -------------------------------------------------- */
-.dangerPanel { border-color: rgba(239,68,68,0.35); }
-.dangerPanel:hover { border-color: rgba(239,68,68,0.55); }
-.dangerPanel .drawerTitle, .dangerPanel .chevron { color: var(--red); }
-.dangerPanel .drawerHeaderOpen { border-bottom-color: var(--red); }
-
+/* ── DANGER ZONE ────────────────────────────────────────────────── */
 .wipeField { margin: var(--gap-md) 0; }
 
 .wipeBtn {
-    background: var(--red); color: #fff; border: none;
+    background: var(--red); color: #fff; border: 1.5px solid var(--red);
     padding: 0 var(--btn-px, clamp(16px,2vw,24px));
     height: var(--btn-height, clamp(38px, 5vw, 44px));
     border-radius: var(--input-radius, var(--radius-sm));
     font-family: 'DM Sans', sans-serif; font-weight: 900;
     font-size: var(--fs-btn); text-transform: uppercase; letter-spacing: 1px;
     cursor: pointer; display: inline-flex; align-items: center;
-    gap: clamp(5px,0.7vw,8px); transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    gap: clamp(5px,0.7vw,8px); transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 3px 10px rgba(0,0,0,0.2);
     white-space: nowrap; width: 100%; justify-content: center;
 }
-.wipeBtn:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(239,68,68,0.35); }
+.wipeBtn:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; box-shadow: 0 6px 18px rgba(239,68,68,0.35); }
 .wipeBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .wipeBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-/* ── APPEARANCE (fix69) ───────────────────────────────────────────── */
+
+/* ── APPEARANCE ─────────────────────────────────────────────────── */
 .prefRow {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 12px; padding: clamp(10px, 1.3vw, 14px) 0;
@@ -551,3 +486,34 @@
 .prefBtn:hover { background: rgba(238, 140, 58, 0.14); border-color: #EE8C3A; color: #EE8C3A; }
 .prefBtnActive { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
 .prefBtn:focus-visible, .prefBtnActive:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .dualRow   { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+    .dualRow { grid-template-columns: 1fr; }
+    .dockBadge { display: none; }
+}
+
+@media (max-width: 480px) {
+    .container {
+        --gap-xl: 10px; --gap-lg: 7px; --gap-md: 5px;
+        --pad: 11px; --fs-h1: 16px; --fs-btn: 8px; --fs-drawer: 9px;
+    }
+    .pageHeader    { padding: 7px 11px; }
+    .panelInner    { padding: 11px; }
+    .panelHeadRow  { padding: 7px 11px; }
+    .tab, .tabOn   { padding: 7px 10px; font-size: 8px; }
+    .securityAlert, .dangerAlert { padding: 7px 10px; gap: 7px; margin-bottom: 7px; }
+    .serial        { font-size: 18px; letter-spacing: 2px; padding: 12px; }
+    .warningIcon   { font-size: 26px; }
+    .opCard        { padding: 7px 9px; }
+    .opAvatar      { width: 28px; height: 28px; font-size: 12px; }
+    .rankBtn, .killSwitchBtn, .resetTrigger { width: 25px; height: 25px; font-size: 11px; }
+    .staffStream   { max-height: 260px; }
+    .addOpBtn      { padding: 7px 12px; font-size: 8px; }
+    .commitBtn     { padding: 8px 14px; font-size: 8px; letter-spacing: 0.5px; }
+    .eyeBtn        { font-size: 13px; right: 8px; top: clamp(24px, 6vw, 30px); }
+}
