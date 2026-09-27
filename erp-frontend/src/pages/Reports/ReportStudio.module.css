@@ -328,16 +328,20 @@
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; color: rgba(26, 46, 48, 0.45);
 }
-/* Matches the Intake page's CollapsibleSection chevron: a plain rotating
-   glyph, not a boxed button -- was the odd one out, styled as a separate
-   orange square unlike every other collapse control in the app. No hover
-   state of its own either, same as Intake's chevron -- the head row's
-   hover (below) is the only feedback hovering this corner gives. */
+/* fix115: this comment always said "a plain rotating glyph, not a boxed
+   button" but the rule below it still was one -- a fixed 28x28 circle
+   with a fixed 16px icon, taller than Intake's ~14px chevron glyph with
+   no box at all. That circle, not the padding (already matched to
+   Intake since fix113), is what was making the whole header row read
+   taller/bigger than an Intake CollapsibleSection header. Now it really
+   is just a glyph: sized in em off the row's own font-size, no hit-box
+   of its own, because the entire row is already the click target
+   (role="button" on .panelHeadRow itself). */
 .headToggle {
-  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); transition: color 0.2s ease;
+  margin-left: auto; display: inline-flex; align-items: center; flex-shrink: 0; color: rgba(255, 255, 255, 0.4); font-size: 14px; transition: color 0.2s ease;
 }
 .headToggle svg {
-  width: 16px; height: 16px; transition: transform 0.2s ease;
+  transition: transform 0.2s ease;
 }
 .headToggle .pickIconOpen { color: #EE8C3A; }
 .catPanel .searchBox { margin-left: auto; }
