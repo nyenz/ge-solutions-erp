@@ -214,15 +214,21 @@
    elevated white card (.groupBody) with hairline dividers between its
    records. Only .groupBody/.ungrouped get the tray-lift shadow now;
    the group label drops to flat, uncarded text sitting on the tray. */
-/* fix122: no more max-height/overflow-y here -- the list used
-   to trap scroll at its own bottom instead of handing off to
-   the page. It now takes its natural height, so the page just
-   keeps scrolling past it once you reach the last report, and
-   there's no inner scrollbar left to remove. */
+/* fix123: reverts fix122 -- the list keeps its own scroll like
+   every other internally-scrolled list in this app (Ledger,
+   Audit, Payments, Recovery all set a max-height the same way;
+   see the SCROLLABLE BODY comment in Shell.module.css). What was
+   actually broken is the hand-off at the boundary, not the
+   scroll itself -- overscroll-behavior-y: auto makes that
+   hand-off to the page's real scroll container explicit instead
+   of leaving it to browser default. */
 .catList {
-  background: #f2ede4;
+  max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;
   padding: 10px; display: flex; flex-direction: column; gap: 7px;
+  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;
 }
+.catList::-webkit-scrollbar { width: 6px; }
+.catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
 .group { display: flex; flex-direction: column; gap: 4px; }
 /* fix120: fix119's first/last-row radius workaround only rounded
    rowHead's own background -- the row's left rail behind it stayed
@@ -239,28 +245,33 @@
 .row { border-left: 3px solid transparent; border-bottom: 1.5px solid rgba(26,46,48,0.16); transition: border-left-color 0.16s ease; }
 .row:last-child { border-bottom: none; }
 .row.rowOpen, .row.rowApplied { border-left-color: #EE8C3A; }
-/* applied: a real, visible orange wash rather than just the rail --
-   text stays ink, and it keeps its own fill even on hover instead of
-   flipping to the open row's solid orange. */
+/* applied, closed, at rest: a real, visible orange wash rather
+   than just the rail -- text stays ink. Opening it, or just
+   hovering it, both hand off to the same solid-orange treatment
+   every row gets below, so the applied report is never flatter
+   than the rest just because it's active. */
 .row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }
 .row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }
 .row.rowApplied .desc { color: rgba(26,46,48,0.65); }
 .rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }
-/* open (not applied) keeps the hover fill persistently, not just on
-   :hover, so it stays visible after you've expanded a row and moved
-   the mouse elsewhere. */
-.row.rowOpen:not(.rowApplied) .rowHead,
-.row:not(.rowApplied) .rowHead:hover { background: #EE8C3A; }
-.row.rowOpen:not(.rowApplied) .rowHead .name,
-.row.rowOpen:not(.rowApplied) .rowHead .rows,
-.row.rowOpen:not(.rowApplied) .rowHead .tag,
-.row.rowOpen:not(.rowApplied) .rowHead .chev,
-.row:not(.rowApplied) .rowHead:hover .name,
-.row:not(.rowApplied) .rowHead:hover .rows,
-.row:not(.rowApplied) .rowHead:hover .tag,
-.row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }
-.row.rowOpen:not(.rowApplied) .rowHead .desc,
-.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
+/* fix123: open keeps the fill persistently, not just on :hover, so
+   it stays visible after you've expanded a row and moved the
+   mouse elsewhere -- and neither this nor the hover fill is
+   scoped away from the applied row anymore, so expanding or
+   hovering the active report lights it up exactly like any
+   other one. */
+.row.rowOpen .rowHead,
+.row .rowHead:hover { background: #EE8C3A; }
+.row.rowOpen .rowHead .name,
+.row.rowOpen .rowHead .rows,
+.row.rowOpen .rowHead .tag,
+.row.rowOpen .rowHead .chev,
+.row .rowHead:hover .name,
+.row .rowHead:hover .rows,
+.row .rowHead:hover .tag,
+.row .rowHead:hover .chev { color: #fff; }
+.row.rowOpen .rowHead .desc,
+.row .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
 .rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }
@@ -270,16 +281,6 @@
 .tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
 .chev { color: rgba(26,46,48,0.35); font-size: 12px; flex-shrink: 0; transition: transform 0.2s ease, color 0.15s ease; }
 .row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }
-.row.rowApplied.rowOpen .chev { color: #1a2e30; }
-/* fix122: the applied report now reacts to hover too, same
-   solid-orange fill + white text as any other row -- it no
-   longer sits inert under the cursor just because it's active. */
-.row.rowApplied .rowHead:hover { background: #EE8C3A; }
-.row.rowApplied .rowHead:hover .name,
-.row.rowApplied .rowHead:hover .rows,
-.row.rowApplied .rowHead:hover .tag,
-.row.rowApplied .rowHead:hover .chev { color: #fff; }
-.row.rowApplied .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
 .appliedTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #a8551c; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
 /* fix120: the default row's permanent wash + rail is removed -- it
    made the default view look "active"/selected at all times, even
