@@ -17,10 +17,10 @@ import landService from '../../services/landService';
 import HardwareInput from '../../components/common/HardwareInput';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import HardwareModal from '../../components/common/HardwareModal';
-import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
+import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
@@ -28,19 +28,19 @@ const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
 /* Every option here is wired to real CSS in index.css -- see the note at the
    top of context/PreferencesProvider.jsx for what each one moves. */
 const PREF_GROUPS = [
-  { key: 'theme', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',
+  { key: 'theme', group: 'Display', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',
     options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },
-  { key: 'uiScale', label: 'Interface size', hint: 'Scales the whole app, not just text.',
+  { key: 'uiScale', group: 'Display', label: 'Interface size', hint: 'Scales the whole app, not just text.',
     options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
-  { key: 'statSize', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',
+  { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',
     options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },
-  { key: 'tips', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
+  { key: 'tips', group: 'Interaction', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },
-  { key: 'motion', label: 'Animation', hint: 'Turn off movement and fades across the app.',
+  { key: 'motion', group: 'Interaction', label: 'Animation', hint: 'Turn off movement and fades across the app.',
     options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },
-  { key: 'contrast', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
+  { key: 'contrast', group: 'Interaction', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },
-  { key: 'notifPoll', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',
+  { key: 'notifPoll', group: 'Notifications', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',
     options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },
 ];
 
@@ -180,26 +180,31 @@ const SettingsPage = () => {
             {tab === 'appearance' && (
               <>
                 <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
-                {PREF_GROUPS.map(group => (
-                  <div key={group.key} className={styles.prefRow}>
-                    <div className={styles.prefLabel}>
-                      <strong>{group.label}</strong>
-                      <span>{group.hint}</span>
+                {PREF_GROUPS.map((group, i) => (
+                  <React.Fragment key={group.key}>
+                    {group.group !== PREF_GROUPS[i - 1]?.group && (
+                      <div className={styles.prefGroupLabel}>{group.group}</div>
+                    )}
+                    <div className={styles.prefRow}>
+                      <div className={styles.prefLabel}>
+                        <strong>{group.label}</strong>
+                        <span>{group.hint}</span>
+                      </div>
+                      <div className={styles.prefOptions} role="group" aria-label={group.label}>
+                        {group.options.map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
+                            aria-pressed={prefs[group.key] === opt.value}
+                            onClick={() => setPref(group.key, opt.value)}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className={styles.prefOptions} role="group" aria-label={group.label}>
-                      {group.options.map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}
-                          aria-pressed={prefs[group.key] === opt.value}
-                          onClick={() => setPref(group.key, opt.value)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  </React.Fragment>
                 ))}
                 <div className={styles.submitRow}>
                   <button type="button" className={styles.commitBtn} onClick={resetPrefs}><FiRotateCcw aria-hidden="true" /> RESET APPEARANCE</button>
@@ -324,7 +329,9 @@ const SettingsPage = () => {
           </div>
         </div>
         <div className={styles.modalCenter}>
-          <HardwareButton onClick={createOp} icon={FiUserPlus} disabled={!newOp.username || !newOp.email}>CREATE</HardwareButton>
+          <button type="button" className={modalStyles.modalBtnPrimary} onClick={createOp} disabled={!newOp.username || !newOp.email}>
+            <FiUserPlus aria-hidden="true" /> CREATE
+          </button>
         </div>
       </HardwareModal>
       <HardwareModal isOpen={!!reveal} onClose={() => setReveal(null)} title="TEMPORARY SECURITY KEY">

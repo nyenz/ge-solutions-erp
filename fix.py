@@ -1,29 +1,38 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix123: two follow-ups on fix122.
-#   1. fix122's hover fix only covered the applied report while it was
-#      CLOSED. Once you expanded it, it fell back to a muted, ink-on-
-#      translucent look while every other expanded report gets a bold
-#      persistent solid-orange + white header -- so the active report
-#      still read as "flatter" than the rest whenever you opened it.
-#      Fixed at the root: the open-state and hover-state rules used to
-#      be scoped :not(.rowApplied); that scoping is gone, so opening OR
-#      hovering a row now gets identical solid-orange + white-text
-#      treatment whether or not it's the applied one. The old
-#      applied+open ink-chevron override is removed to match, and
-#      fix122's separate applied-only hover block is folded into the
-#      same unconditional rule instead of sitting alongside it.
-#   2. Reverting fix122's removal of .catList's own scroll -- dropping
-#      max-height/overflow-y made the list stop scrolling on its own
-#      at all, which isn't what was asked for (every other internally-
-#      scrolled list in this app -- Ledger, Audit, Payments, Recovery --
-#      keeps its own max-height/scrollbar; see the "SCROLLABLE BODY"
-#      comment in components/layout/Shell.module.css). Restored the
-#      max-height/overflow-y/scrollbar exactly as they were, and added
-#      overscroll-behavior-y: auto explicitly so hitting the top/bottom
-#      of the list's own scroll reliably hands off to the page's real
-#      scroll container (.scrollArea in Shell.module.css) instead of
-#      dead-ending, rather than leaving that to each browser's default.
+# GOLDEN SEED -- fix125: Settings page redesign, Report Studio dimension
+# parity + real sub-sections.
+#
+# The root cause of "inputs too stretched / buttons too big": SettingsPage
+# rebuilt itself in fix121 to match Report Studio's chrome (gradient card,
+# panel head, tab dock, button language) but never set the --input-height /
+# --input-px / --btn-height / --btn-px custom properties the shared
+# Hardware* components and this page's own buttons all read through
+# var(..., fallback). With nothing set, every control on the page was
+# silently falling back to HardwareInput's own default (44px) and
+# HardwareButton's own default (48px) instead of Report Studio's 36-38px
+# scale -- both bigger than anything else in the app, and inconsistent
+# with each other.
+#
+#   1. One set of sizing tokens on .container brings every Hardware*
+#      control and native button on the page down to Report Studio's own
+#      scale in one place, instead of guessing at each control one by one.
+#   2. The two fields that had no width cap at all -- the wipe-confirmation
+#      input (spanning the full ~1350px card for a six-word phrase) and
+#      the security dual-row (each password field able to stretch to half
+#      the card on a wide desktop) -- now cap at a sane reading width.
+#   3. The Provision Operator modal's CREATE button was the one control
+#      NOT reachable by page-level tokens (HardwareModal portals to
+#      document.body, outside .container in the DOM, so CSS vars set on
+#      the page never cascade into it) -- it's swapped for the app's own
+#      modalBtnPrimary convention (already used by every other modal
+#      footer in this codebase) instead of the oversized HardwareButton.
+#   4. Appearance's seven settings are split into three labelled
+#      sub-groups (Display / Interaction / Notifications) instead of one
+#      flat list, with a hover state added so rows read as individually
+#      interactive, and the panel head icon gets a soft badge instead of
+#      sitting bare on the dark bar -- matching Report Studio's iconFrame
+#      treatment while staying keyed to each tab's own accent colour.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -36,7 +45,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
-STUDIO_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
+SETTINGS_CSS = os.path.join(SRC, "pages", "settings", "SettingsPage.module.css")
+SETTINGS_JSX = os.path.join(SRC, "pages", "settings", "SettingsPage.jsx")
 
 
 def apply_patches(path, patches):
@@ -64,118 +74,246 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ ReportStudio.module.css ═══
-apply_patches(STUDIO_CSS, [
+# ═══ SettingsPage.module.css ═══
+apply_patches(SETTINGS_CSS, [
     (
-        # 1. unify open + hover treatment across applied and non-applied
-        # rows, drop the applied+open ink-chevron override, fold
-        # fix122's separate applied-hover block into the same rules.
-        "/* applied: a real, visible orange wash rather than just the rail --\n"
-        "   text stays ink, and it keeps its own fill even on hover instead of\n"
-        "   flipping to the open row's solid orange. */\n"
-        ".row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }\n"
-        ".row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }\n"
-        ".row.rowApplied .desc { color: rgba(26,46,48,0.65); }\n"
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }\n"
-        "/* open (not applied) keeps the hover fill persistently, not just on\n"
-        "   :hover, so it stays visible after you've expanded a row and moved\n"
-        "   the mouse elsewhere. */\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead,\n"
-        ".row:not(.rowApplied) .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
-        ".row:not(.rowApplied) .rowHead:hover .name,\n"
-        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
-        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
-        ".row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
-        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }",
+        # 1. sizing tokens -- brings every Hardware* control + native
+        # button on the page down to Report Studio's 36-38px scale.
+        "    --fs-op:     clamp(11px, 1.2vw, 14px);\n"
+        "\n"
+        "    max-width: 1400px;",
 
-        "/* applied, closed, at rest: a real, visible orange wash rather\n"
-        "   than just the rail -- text stays ink. Opening it, or just\n"
-        "   hovering it, both hand off to the same solid-orange treatment\n"
-        "   every row gets below, so the applied report is never flatter\n"
-        "   than the rest just because it's active. */\n"
-        ".row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }\n"
-        ".row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }\n"
-        ".row.rowApplied .desc { color: rgba(26,46,48,0.65); }\n"
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }\n"
-        "/* fix123: open keeps the fill persistently, not just on :hover, so\n"
-        "   it stays visible after you've expanded a row and moved the\n"
-        "   mouse elsewhere -- and neither this nor the hover fill is\n"
-        "   scoped away from the applied row anymore, so expanding or\n"
-        "   hovering the active report lights it up exactly like any\n"
-        "   other one. */\n"
-        ".row.rowOpen .rowHead,\n"
-        ".row .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowOpen .rowHead .name,\n"
-        ".row.rowOpen .rowHead .rows,\n"
-        ".row.rowOpen .rowHead .tag,\n"
-        ".row.rowOpen .rowHead .chev,\n"
-        ".row .rowHead:hover .name,\n"
-        ".row .rowHead:hover .rows,\n"
-        ".row .rowHead:hover .tag,\n"
-        ".row .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen .rowHead .desc,\n"
-        ".row .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }",
+        "    --fs-op:     clamp(11px, 1.2vw, 14px);\n"
+        "\n"
+        "    /* fix125: control dims pulled in line with Report Studio's own\n"
+        "       entInput/pickBtn scale (36-38px) instead of HardwareInput's\n"
+        "       bare default (44px) and HardwareButton's bare default (48px)\n"
+        "       -- both were rendering unopposed here because nothing on this\n"
+        "       page set these vars before now. Every Hardware* control and\n"
+        "       every native button below reads these through var(...)\n"
+        "       fallbacks, so one set of numbers brings the whole page to\n"
+        "       one consistent scale. */\n"
+        "    --input-height: clamp(34px, 4vw, 38px);\n"
+        "    --input-px:     clamp(10px, 1.3vw, 14px);\n"
+        "    --input-radius: 6px;\n"
+        "    --input-font:   clamp(11px, 1.05vw, 13px);\n"
+        "    --label-font:   clamp(8px, 0.85vw, 10px);\n"
+        "    --btn-height:   clamp(36px, 4.6vw, 42px);\n"
+        "    --btn-px:       clamp(14px, 1.8vw, 20px);\n"
+        "    --btn-font:     clamp(9px, 0.9vw, 11px);\n"
+        "\n"
+        "    max-width: 1400px;",
 
-        "open + hover treatment for the row header unified across applied and non-applied rows",
+        "sizing tokens added to .container (--input-*/--btn-* now set, were previously unset)",
     ),
     (
-        # drop the now-contradictory applied+open ink-chevron override,
-        # and fix122's separate applied-only hover block (folded above).
-        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
-        ".row.rowApplied.rowOpen .chev { color: #1a2e30; }\n"
-        "/* fix122: the applied report now reacts to hover too, same\n"
-        "   solid-orange fill + white text as any other row -- it no\n"
-        "   longer sits inert under the cursor just because it's active. */\n"
-        ".row.rowApplied .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowApplied .rowHead:hover .name,\n"
-        ".row.rowApplied .rowHead:hover .rows,\n"
-        ".row.rowApplied .rowHead:hover .tag,\n"
-        ".row.rowApplied .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowApplied .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".appliedTag {",
+        # 2a. wipe-confirmation field -- was full card width for a
+        # six-word phrase.
+        "/* ── DANGER ZONE ────────────────────────────────────────────────── */\n"
+        ".wipeField { margin: var(--gap-md) 0; }",
 
-        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
-        ".appliedTag {",
+        "/* ── DANGER ZONE ────────────────────────────────────────────────── */\n"
+        "/* fix125: a six-word confirmation phrase doesn't need the full\n"
+        "   card's width -- capped so it reads as a deliberate, compact\n"
+        "   arm-switch instead of a text box stretched the width of the\n"
+        "   whole panel. */\n"
+        ".wipeField { margin: var(--gap-md) 0; max-width: clamp(260px, 40vw, 420px); }",
 
-        "applied+open ink-chevron override removed, fix122's separate applied-hover block folded into the unified rule above",
+        ".wipeField width capped",
     ),
     (
-        # 2. restore catList's own scroll (reverting fix122), and make
-        # the hand-off to the page's real scroll container explicit.
-        "/* fix122: no more max-height/overflow-y here -- the list used\n"
-        "   to trap scroll at its own bottom instead of handing off to\n"
-        "   the page. It now takes its natural height, so the page just\n"
-        "   keeps scrolling past it once you reach the last report, and\n"
-        "   there's no inner scrollbar left to remove. */\n"
-        ".catList {\n"
-        "  background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
+        # 2b. security dual-row -- each field could stretch to half the
+        # 1400px card on a wide desktop.
+        ".dualRow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-md); }",
+
+        "/* fix125: capped so the two key fields stay a sane reading width\n"
+        "   instead of each stretching to half of a 1400px card. */\n"
+        ".dualRow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-md); max-width: 640px; }",
+
+        ".dualRow width capped",
+    ),
+    (
+        # 3. panel head icon -- bare glyph on the dark bar before, now a
+        # soft badge (Report Studio's iconFrame treatment).
+        ".panelHeadIcon { font-size: clamp(12px,1.3vw,15px); }",
+
+        "/* fix125: icon sits in a soft badge instead of bare on the dark\n"
+        "   head bar, echoing Report Studio's iconFrame treatment. */\n"
+        ".panelHeadIcon {\n"
+        "  font-size: clamp(11px,1.15vw,14px);\n"
+        "  width: clamp(22px, 2.4vw, 27px); height: clamp(22px, 2.4vw, 27px);\n"
+        "  display: inline-flex; align-items: center; justify-content: center;\n"
+        "  background: rgba(255, 255, 255, 0.08);\n"
+        "  border: 1px solid rgba(255, 255, 255, 0.14);\n"
+        "  border-radius: 6px; flex-shrink: 0;\n"
         "}",
 
-        "/* fix123: reverts fix122 -- the list keeps its own scroll like\n"
-        "   every other internally-scrolled list in this app (Ledger,\n"
-        "   Audit, Payments, Recovery all set a max-height the same way;\n"
-        "   see the SCROLLABLE BODY comment in Shell.module.css). What was\n"
-        "   actually broken is the hand-off at the boundary, not the\n"
-        "   scroll itself -- overscroll-behavior-y: auto makes that\n"
-        "   hand-off to the page's real scroll container explicit instead\n"
-        "   of leaving it to browser default. */\n"
-        ".catList {\n"
-        "  max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
-        "  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;\n"
+        ".panelHeadIcon badge treatment added",
+    ),
+    (
+        # 4. Appearance rows -- group label style + hover state, so the
+        # seven settings can read as three organised clusters.
+        ".prefRow {\n"
+        "  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;\n"
+        "  gap: 12px; padding: clamp(10px, 1.3vw, 14px) 0;\n"
+        "  border-bottom: 1px solid rgba(255, 255, 255, 0.08);\n"
         "}\n"
-        ".catList::-webkit-scrollbar { width: 6px; }\n"
-        ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
+        ".prefRow:last-of-type { border-bottom: none; }",
 
-        "catList scroll/scrollbar restored with overscroll-behavior-y: auto for explicit hand-off to the page",
+        "/* fix125: sub-groups inside Appearance so seven settings read as\n"
+        "   three organised clusters (Display / Interaction / Notifications)\n"
+        "   instead of one undifferentiated list. */\n"
+        ".prefGroupLabel {\n"
+        "  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);\n"
+        "  font-weight: 900; letter-spacing: 2px; text-transform: uppercase;\n"
+        "  color: var(--accent, var(--orange)); opacity: 0.85;\n"
+        "  padding: clamp(12px, 1.6vw, 18px) 0 clamp(4px, 0.6vw, 6px);\n"
+        "}\n"
+        ".prefGroupLabel:first-child { padding-top: 0; }\n"
+        "\n"
+        ".prefRow {\n"
+        "  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;\n"
+        "  gap: 12px; padding: clamp(10px, 1.3vw, 14px) 10px;\n"
+        "  margin: 0 -10px;\n"
+        "  border-radius: 6px;\n"
+        "  border-bottom: 1px solid rgba(255, 255, 255, 0.08);\n"
+        "  transition: background 0.18s ease;\n"
+        "}\n"
+        ".prefRow:hover { background: rgba(255, 255, 255, 0.03); }\n"
+        ".prefRow:last-of-type { border-bottom: none; }",
+
+        ".prefGroupLabel added, .prefRow gets hover state",
+    ),
+])
+
+# ═══ SettingsPage.jsx ═══
+apply_patches(SETTINGS_JSX, [
+    (
+        # drop the now-unused HardwareButton import, add modalStyles so
+        # the modal footer can use the app's own modalBtnPrimary class.
+        "import HardwareModal from '../../components/common/HardwareModal';\n"
+        "import HardwareButton from '../../components/common/HardwareButton';\n"
+        "import BackToTopButton from '../../components/common/BackToTopButton';\n"
+        "import CornerDecor from '../../components/ui/CornerDecor';\n"
+        "import styles from './SettingsPage.module.css';",
+
+        "import HardwareModal from '../../components/common/HardwareModal';\n"
+        "import BackToTopButton from '../../components/common/BackToTopButton';\n"
+        "import CornerDecor from '../../components/ui/CornerDecor';\n"
+        "import styles from './SettingsPage.module.css';\n"
+        "import modalStyles from '../../components/common/HardwareModal.module.css';",
+
+        "unused HardwareButton import dropped, modalStyles import added",
+    ),
+    (
+        # tag each PREF_GROUPS entry with the sub-group it belongs to
+        # (contiguous already -- no reordering needed).
+        "const PREF_GROUPS = [\n"
+        "  { key: 'theme', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',\n"
+        "    options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },\n"
+        "  { key: 'uiScale', label: 'Interface size', hint: 'Scales the whole app, not just text.',\n"
+        "    options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },\n"
+        "  { key: 'statSize', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',\n"
+        "    options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },\n"
+        "  { key: 'tips', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',\n"
+        "    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },\n"
+        "  { key: 'motion', label: 'Animation', hint: 'Turn off movement and fades across the app.',\n"
+        "    options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },\n"
+        "  { key: 'contrast', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',\n"
+        "    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },\n"
+        "  { key: 'notifPoll', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',\n"
+        "    options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },\n"
+        "];",
+
+        "const PREF_GROUPS = [\n"
+        "  { key: 'theme', group: 'Display', label: 'Page theme', hint: 'Background and chrome. Panels stay navy in both.',\n"
+        "    options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },\n"
+        "  { key: 'uiScale', group: 'Display', label: 'Interface size', hint: 'Scales the whole app, not just text.',\n"
+        "    options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },\n"
+        "  { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',\n"
+        "    options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },\n"
+        "  { key: 'tips', group: 'Interaction', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',\n"
+        "    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },\n"
+        "  { key: 'motion', group: 'Interaction', label: 'Animation', hint: 'Turn off movement and fades across the app.',\n"
+        "    options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },\n"
+        "  { key: 'contrast', group: 'Interaction', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',\n"
+        "    options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },\n"
+        "  { key: 'notifPoll', group: 'Notifications', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',\n"
+        "    options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },\n"
+        "];",
+
+        "PREF_GROUPS entries tagged with group (Display/Interaction/Notifications)",
+    ),
+    (
+        # render a .prefGroupLabel whenever the group changes.
+        "                {PREF_GROUPS.map(group => (\n"
+        "                  <div key={group.key} className={styles.prefRow}>\n"
+        "                    <div className={styles.prefLabel}>\n"
+        "                      <strong>{group.label}</strong>\n"
+        "                      <span>{group.hint}</span>\n"
+        "                    </div>\n"
+        "                    <div className={styles.prefOptions} role=\"group\" aria-label={group.label}>\n"
+        "                      {group.options.map(opt => (\n"
+        "                        <button\n"
+        "                          key={opt.value}\n"
+        "                          type=\"button\"\n"
+        "                          className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}\n"
+        "                          aria-pressed={prefs[group.key] === opt.value}\n"
+        "                          onClick={() => setPref(group.key, opt.value)}\n"
+        "                        >\n"
+        "                          {opt.label}\n"
+        "                        </button>\n"
+        "                      ))}\n"
+        "                    </div>\n"
+        "                  </div>\n"
+        "                ))}",
+
+        "                {PREF_GROUPS.map((group, i) => (\n"
+        "                  <React.Fragment key={group.key}>\n"
+        "                    {group.group !== PREF_GROUPS[i - 1]?.group && (\n"
+        "                      <div className={styles.prefGroupLabel}>{group.group}</div>\n"
+        "                    )}\n"
+        "                    <div className={styles.prefRow}>\n"
+        "                      <div className={styles.prefLabel}>\n"
+        "                        <strong>{group.label}</strong>\n"
+        "                        <span>{group.hint}</span>\n"
+        "                      </div>\n"
+        "                      <div className={styles.prefOptions} role=\"group\" aria-label={group.label}>\n"
+        "                        {group.options.map(opt => (\n"
+        "                          <button\n"
+        "                            key={opt.value}\n"
+        "                            type=\"button\"\n"
+        "                            className={prefs[group.key] === opt.value ? styles.prefBtnActive : styles.prefBtn}\n"
+        "                            aria-pressed={prefs[group.key] === opt.value}\n"
+        "                            onClick={() => setPref(group.key, opt.value)}\n"
+        "                          >\n"
+        "                            {opt.label}\n"
+        "                          </button>\n"
+        "                        ))}\n"
+        "                      </div>\n"
+        "                    </div>\n"
+        "                  </React.Fragment>\n"
+        "                ))}",
+
+        "Appearance list now renders a .prefGroupLabel before each new group",
+    ),
+    (
+        # Provision Operator CREATE button -- HardwareModal portals to
+        # document.body, outside .container in the DOM, so the page's
+        # --btn-height token never reaches it. Swap the oversized
+        # HardwareButton (48px default) for the app's own modalBtnPrimary
+        # convention, already used by every other modal footer.
+        "        <div className={styles.modalCenter}>\n"
+        "          <HardwareButton onClick={createOp} icon={FiUserPlus} disabled={!newOp.username || !newOp.email}>CREATE</HardwareButton>\n"
+        "        </div>",
+
+        "        <div className={styles.modalCenter}>\n"
+        "          <button type=\"button\" className={modalStyles.modalBtnPrimary} onClick={createOp} disabled={!newOp.username || !newOp.email}>\n"
+        "            <FiUserPlus aria-hidden=\"true\" /> CREATE\n"
+        "          </button>\n"
+        "        </div>",
+
+        "CREATE button swapped from oversized HardwareButton to modalBtnPrimary",
     ),
 ])
 
@@ -209,7 +347,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix123: applied report now gets the full open+hover treatment (not just closed-row hover); catList scroll/scrollbar restored with explicit overscroll-behavior-y hand-off to the page")
+git("commit", "-m", "fix125: Settings page redesign -- Report Studio dimension parity (--input-height/--btn-height tokens were unset, controls were silently falling back to Hardware*'s own bigger defaults), wipeField/dualRow width caps, Appearance split into Display/Interaction/Notifications sub-groups, Provision Operator CREATE button swapped from oversized HardwareButton to the app's own modalBtnPrimary")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
