@@ -157,12 +157,28 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     const ds = DATASETS[datasetKey];
     if (!ds) return;
     const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);
-    setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
-    setEntity(null); setAppliedId(null); setReadId(null);
+    const fieldMap = {};
+    fieldsFor(ds, canSeeMoney).forEach(f => { fieldMap[f.label] = f; });
+    setEntity(null); setReadId(null);
     setGroupTab('ALL'); setSearch('');
     const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');
-    setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });
-    setChartMode('NONE');
+    // fix124: land on the dataset's own default report (the
+    // catalogue's pinned DEFAULT VIEW row) instead of an empty
+    // viewer -- same as clicking "Use This Report" on it by hand.
+    const dName = (DEFAULTS[datasetKey] || {}).ALL || '';
+    const dDef = CATALOGUE.find(d => d.title === dName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;
+    if (dDef) {
+      setAppliedId(dDef.id);
+      const dCols = (dDef.cols || []).map(l => (fieldMap[l] || {}).key).filter(Boolean).filter(k => allowed.includes(k));
+      setColumns(dCols.length ? dCols : ds.defaultColumns.filter(c => allowed.includes(c)));
+      setSort(dDef.sort ? { col: dDef.sort.col, dir: dDef.sort.dir } : (sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' }));
+      setChartMode(dDef.chart || 'NONE');
+    } else {
+      setAppliedId(null);
+      setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));
+      setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });
+      setChartMode('NONE');
+    }
   }, [datasetKey, canSeeMoney]);
 
   const entityTypes = ENTITIES[datasetKey] || [];

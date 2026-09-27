@@ -222,13 +222,18 @@
    scroll itself -- overscroll-behavior-y: auto makes that
    hand-off to the page's real scroll container explicit instead
    of leaving it to browser default. */
+/* fix124: the scroll stays -- only its own visible track is
+   gone now, the same hidden-but-functional pattern .ddScroll
+   already uses a few lines up. Wheel/trackpad/keyboard scroll
+   inside the list still works exactly as before (and still
+   hands off to the page at the boundary); there's just no
+   second thin scrollbar sitting next to the page's own one. */
 .catList {
   max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;
   padding: 10px; display: flex; flex-direction: column; gap: 7px;
-  scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;
+  scrollbar-width: none; -ms-overflow-style: none;
 }
-.catList::-webkit-scrollbar { width: 6px; }
-.catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
+.catList::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .group { display: flex; flex-direction: column; gap: 4px; }
 /* fix120: fix119's first/last-row radius workaround only rounded
    rowHead's own background -- the row's left rail behind it stayed

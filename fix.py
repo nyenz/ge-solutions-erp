@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix123: two follow-ups on fix122.
-#   1. fix122's hover fix only covered the applied report while it was
-#      CLOSED. Once you expanded it, it fell back to a muted, ink-on-
-#      translucent look while every other expanded report gets a bold
-#      persistent solid-orange + white header -- so the active report
-#      still read as "flatter" than the rest whenever you opened it.
-#      Fixed at the root: the open-state and hover-state rules used to
-#      be scoped :not(.rowApplied); that scoping is gone, so opening OR
-#      hovering a row now gets identical solid-orange + white-text
-#      treatment whether or not it's the applied one. The old
-#      applied+open ink-chevron override is removed to match, and
-#      fix122's separate applied-only hover block is folded into the
-#      same unconditional rule instead of sitting alongside it.
-#   2. Reverting fix122's removal of .catList's own scroll -- dropping
-#      max-height/overflow-y made the list stop scrolling on its own
-#      at all, which isn't what was asked for (every other internally-
-#      scrolled list in this app -- Ledger, Audit, Payments, Recovery --
-#      keeps its own max-height/scrollbar; see the "SCROLLABLE BODY"
-#      comment in components/layout/Shell.module.css). Restored the
-#      max-height/overflow-y/scrollbar exactly as they were, and added
-#      overscroll-behavior-y: auto explicitly so hitting the top/bottom
-#      of the list's own scroll reliably hands off to the page's real
-#      scroll container (.scrollArea in Shell.module.css) instead of
-#      dead-ending, rather than leaving that to each browser's default.
+# GOLDEN SEED -- fix124: two follow-ups on the Report Catalogue.
+#   1. The page used to load (and reload on every dataset switch) with
+#      nothing applied -- appliedId started at null and stayed null
+#      until you manually opened a report and hit "Use This Report",
+#      so the viewer panel below the catalogue was just absent on
+#      first load. That's also why the pinned "DEFAULT VIEW" row never
+#      looked applied on the ALL scope: nothing had actually applied
+#      it. The dataset-switch effect now looks up that same default
+#      report (DEFAULTS[dataset].ALL) and applies it automatically --
+#      same columns/sort/chart it would get from clicking "Use This
+#      Report" by hand -- so the page always lands on a populated
+#      view, and the pinned row shows APPLIED right away.
+#   2. .catList had its own visible scrollbar sitting right next to
+#      the page's own scrollbar in the screenshot -- two thin orange
+#      tracks side by side. The scrolling itself (max-height,
+#      overflow-y, the overscroll-behavior-y hand-off from fix123) is
+#      unaffected and still works; only the track is hidden now, the
+#      same hidden-but-functional pattern .ddScroll already uses a few
+#      lines up in this same file. Wheel/trackpad/keyboard scrolling
+#      inside the list still works with no visible scrollbar of its
+#      own -- just the page's.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -36,6 +33,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
+STUDIO_JSX = os.path.join(SRC, "pages", "Reports", "ReportStudio.jsx")
 STUDIO_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
 
 
@@ -64,101 +62,59 @@ def apply_patches(path, patches):
     return applied
 
 
+# ═══ ReportStudio.jsx ═══
+apply_patches(STUDIO_JSX, [
+    (
+        # 1. auto-apply the dataset's default report on mount/dataset
+        # switch instead of leaving appliedId null.
+        "  useEffect(() => {\n"
+        "    const ds = DATASETS[datasetKey];\n"
+        "    if (!ds) return;\n"
+        "    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);\n"
+        "    setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));\n"
+        "    setEntity(null); setAppliedId(null); setReadId(null);\n"
+        "    setGroupTab('ALL'); setSearch('');\n"
+        "    const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');\n"
+        "    setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });\n"
+        "    setChartMode('NONE');\n"
+        "  }, [datasetKey, canSeeMoney]);",
+
+        "  useEffect(() => {\n"
+        "    const ds = DATASETS[datasetKey];\n"
+        "    if (!ds) return;\n"
+        "    const allowed = fieldsFor(ds, canSeeMoney).map(f => f.key);\n"
+        "    const fieldMap = {};\n"
+        "    fieldsFor(ds, canSeeMoney).forEach(f => { fieldMap[f.label] = f; });\n"
+        "    setEntity(null); setReadId(null);\n"
+        "    setGroupTab('ALL'); setSearch('');\n"
+        "    const sub = fieldsFor(ds, canSeeMoney).find(f => f.label === 'Sub-County');\n"
+        "    // fix124: land on the dataset's own default report (the\n"
+        "    // catalogue's pinned DEFAULT VIEW row) instead of an empty\n"
+        "    // viewer -- same as clicking \"Use This Report\" on it by hand.\n"
+        "    const dName = (DEFAULTS[datasetKey] || {}).ALL || '';\n"
+        "    const dDef = CATALOGUE.find(d => d.title === dName && d.ds === datasetKey && (!d.money || canSeeMoney)) || null;\n"
+        "    if (dDef) {\n"
+        "      setAppliedId(dDef.id);\n"
+        "      const dCols = (dDef.cols || []).map(l => (fieldMap[l] || {}).key).filter(Boolean).filter(k => allowed.includes(k));\n"
+        "      setColumns(dCols.length ? dCols : ds.defaultColumns.filter(c => allowed.includes(c)));\n"
+        "      setSort(dDef.sort ? { col: dDef.sort.col, dir: dDef.sort.dir } : (sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' }));\n"
+        "      setChartMode(dDef.chart || 'NONE');\n"
+        "    } else {\n"
+        "      setAppliedId(null);\n"
+        "      setColumns(ds.defaultColumns.filter(c => allowed.includes(c)));\n"
+        "      setSort(sub ? { col: sub.label, dir: 'asc' } : { col: '', dir: 'asc' });\n"
+        "      setChartMode('NONE');\n"
+        "    }\n"
+        "  }, [datasetKey, canSeeMoney]);",
+
+        "dataset-switch effect now auto-applies the DEFAULTS[dataset].ALL report instead of leaving appliedId null",
+    ),
+])
+
 # ═══ ReportStudio.module.css ═══
 apply_patches(STUDIO_CSS, [
     (
-        # 1. unify open + hover treatment across applied and non-applied
-        # rows, drop the applied+open ink-chevron override, fold
-        # fix122's separate applied-hover block into the same rules.
-        "/* applied: a real, visible orange wash rather than just the rail --\n"
-        "   text stays ink, and it keeps its own fill even on hover instead of\n"
-        "   flipping to the open row's solid orange. */\n"
-        ".row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }\n"
-        ".row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }\n"
-        ".row.rowApplied .desc { color: rgba(26,46,48,0.65); }\n"
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }\n"
-        "/* open (not applied) keeps the hover fill persistently, not just on\n"
-        "   :hover, so it stays visible after you've expanded a row and moved\n"
-        "   the mouse elsewhere. */\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead,\n"
-        ".row:not(.rowApplied) .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .name,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .rows,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .tag,\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .chev,\n"
-        ".row:not(.rowApplied) .rowHead:hover .name,\n"
-        ".row:not(.rowApplied) .rowHead:hover .rows,\n"
-        ".row:not(.rowApplied) .rowHead:hover .tag,\n"
-        ".row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen:not(.rowApplied) .rowHead .desc,\n"
-        ".row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }",
-
-        "/* applied, closed, at rest: a real, visible orange wash rather\n"
-        "   than just the rail -- text stays ink. Opening it, or just\n"
-        "   hovering it, both hand off to the same solid-orange treatment\n"
-        "   every row gets below, so the applied report is never flatter\n"
-        "   than the rest just because it's active. */\n"
-        ".row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }\n"
-        ".row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }\n"
-        ".row.rowApplied .desc { color: rgba(26,46,48,0.65); }\n"
-        ".rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 10px 14px; cursor: pointer; transition: background 0.15s ease; }\n"
-        "/* fix123: open keeps the fill persistently, not just on :hover, so\n"
-        "   it stays visible after you've expanded a row and moved the\n"
-        "   mouse elsewhere -- and neither this nor the hover fill is\n"
-        "   scoped away from the applied row anymore, so expanding or\n"
-        "   hovering the active report lights it up exactly like any\n"
-        "   other one. */\n"
-        ".row.rowOpen .rowHead,\n"
-        ".row .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowOpen .rowHead .name,\n"
-        ".row.rowOpen .rowHead .rows,\n"
-        ".row.rowOpen .rowHead .tag,\n"
-        ".row.rowOpen .rowHead .chev,\n"
-        ".row .rowHead:hover .name,\n"
-        ".row .rowHead:hover .rows,\n"
-        ".row .rowHead:hover .tag,\n"
-        ".row .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowOpen .rowHead .desc,\n"
-        ".row .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }",
-
-        "open + hover treatment for the row header unified across applied and non-applied rows",
-    ),
-    (
-        # drop the now-contradictory applied+open ink-chevron override,
-        # and fix122's separate applied-only hover block (folded above).
-        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
-        ".row.rowApplied.rowOpen .chev { color: #1a2e30; }\n"
-        "/* fix122: the applied report now reacts to hover too, same\n"
-        "   solid-orange fill + white text as any other row -- it no\n"
-        "   longer sits inert under the cursor just because it's active. */\n"
-        ".row.rowApplied .rowHead:hover { background: #EE8C3A; }\n"
-        ".row.rowApplied .rowHead:hover .name,\n"
-        ".row.rowApplied .rowHead:hover .rows,\n"
-        ".row.rowApplied .rowHead:hover .tag,\n"
-        ".row.rowApplied .rowHead:hover .chev { color: #fff; }\n"
-        ".row.rowApplied .rowHead:hover .desc { color: rgba(255,255,255,0.85); }\n"
-        ".appliedTag {",
-
-        ".row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }\n"
-        ".appliedTag {",
-
-        "applied+open ink-chevron override removed, fix122's separate applied-hover block folded into the unified rule above",
-    ),
-    (
-        # 2. restore catList's own scroll (reverting fix122), and make
-        # the hand-off to the page's real scroll container explicit.
-        "/* fix122: no more max-height/overflow-y here -- the list used\n"
-        "   to trap scroll at its own bottom instead of handing off to\n"
-        "   the page. It now takes its natural height, so the page just\n"
-        "   keeps scrolling past it once you reach the last report, and\n"
-        "   there's no inner scrollbar left to remove. */\n"
-        ".catList {\n"
-        "  background: #f2ede4;\n"
-        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
-        "}",
-
+        # 2. hide catList's own scrollbar track (scroll itself untouched).
         "/* fix123: reverts fix122 -- the list keeps its own scroll like\n"
         "   every other internally-scrolled list in this app (Ledger,\n"
         "   Audit, Payments, Recovery all set a max-height the same way;\n"
@@ -175,7 +131,28 @@ apply_patches(STUDIO_CSS, [
         ".catList::-webkit-scrollbar { width: 6px; }\n"
         ".catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }",
 
-        "catList scroll/scrollbar restored with overscroll-behavior-y: auto for explicit hand-off to the page",
+        "/* fix123: reverts fix122 -- the list keeps its own scroll like\n"
+        "   every other internally-scrolled list in this app (Ledger,\n"
+        "   Audit, Payments, Recovery all set a max-height the same way;\n"
+        "   see the SCROLLABLE BODY comment in Shell.module.css). What was\n"
+        "   actually broken is the hand-off at the boundary, not the\n"
+        "   scroll itself -- overscroll-behavior-y: auto makes that\n"
+        "   hand-off to the page's real scroll container explicit instead\n"
+        "   of leaving it to browser default. */\n"
+        "/* fix124: the scroll stays -- only its own visible track is\n"
+        "   gone now, the same hidden-but-functional pattern .ddScroll\n"
+        "   already uses a few lines up. Wheel/trackpad/keyboard scroll\n"
+        "   inside the list still works exactly as before (and still\n"
+        "   hands off to the page at the boundary); there's just no\n"
+        "   second thin scrollbar sitting next to the page's own one. */\n"
+        ".catList {\n"
+        "  max-height: 340px; overflow-y: auto; overscroll-behavior-y: auto; background: #f2ede4;\n"
+        "  padding: 10px; display: flex; flex-direction: column; gap: 7px;\n"
+        "  scrollbar-width: none; -ms-overflow-style: none;\n"
+        "}\n"
+        ".catList::-webkit-scrollbar { display: none; width: 0; height: 0; }",
+
+        "catList's own scrollbar track hidden (scrollbar-width:none / webkit display:none), scroll+chaining behavior unchanged",
     ),
 ])
 
@@ -209,7 +186,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix123: applied report now gets the full open+hover treatment (not just closed-row hover); catList scroll/scrollbar restored with explicit overscroll-behavior-y hand-off to the page")
+git("commit", "-m", "fix124: dataset's default report now auto-applies on load/switch instead of leaving the viewer empty; catList scrollbar track hidden (scroll + page hand-off unchanged)")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
