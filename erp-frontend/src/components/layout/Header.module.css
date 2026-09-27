@@ -393,16 +393,19 @@
 .notifReadAll:hover { color: #fff; background: #EE8C3A; border-color: #EE8C3A; }
 
 /* ── filters ───────────────────────────────────────────────────────── */
+/* fix129: wraps instead of scrolling -- 7 filters (ALL/UNREAD/
+   MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) in a 320-380px panel
+   used to hide 2 of them behind an overflow-x scroll with no
+   scrollbar and no fade to hint it was there. Every chip is now
+   on screen at once. */
 .notifFilters {
     display: flex;
+    flex-wrap: wrap;
     gap: 5px;
     padding: 9px 11px;
-    overflow-x: auto;
     border-bottom: 1px solid rgba(26, 46, 48, 0.08);
     flex-shrink: 0;
-    scrollbar-width: none;
 }
-.notifFilters::-webkit-scrollbar { display: none; }
 
 .notifChip, .notifChipActive {
     white-space: nowrap;

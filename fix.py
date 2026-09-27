@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
-# PATH: fix128.py
-# GOLDEN SEED -- fix128: fix127's three cream cards read better, but two
-#   things were still flagged from a live screenshot of /settings:
-#     1. No clear line between a group's heading and its own rows --
-#      "DISPLAY" just sat directly above "PAGE THEME" with no divider.
-#      Each prefGroupLabel now gets a 2px accent rule under it (same
-#      idea as every other section title in the app separating from its
-#      body, just inside the card instead of at the card's own head).
-#     2. Rows inside a card were only ever separated by a 10%-opacity
-#      border-bottom -- reads as almost nothing on a cream background,
-#      so the three settings in a card still blur into one paragraph
-#      ("too many things at once"). Each row is now its own bounded
-#      mini-card -- Owners' row-shading idea (a bounded box per item)
-#      applied here as a slightly darker tint instead of Owners' black
-#      overlay, with its own border and rounded corners and a visible
-#      gap to the next one, so every setting reads as one distinct,
-#      countable unit instead of a paragraph broken by faint lines.
+# PATH: fix129.py
+# GOLDEN SEED -- fix129: SIGNALS dropdown -- filter chips were 7 wide
+#   (ALL/UNREAD/MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) inside a 320-380px
+#   panel with overflow-x: auto and a hidden scrollbar (scrollbar-width:
+#   none). Only 5 fit on screen and nothing hinted the row scrolled --
+#   no fade, no arrow, no partial chip left visibly cut off enough to
+#   read as "more here." STAFF and SYSTEM were functionally invisible.
+#   Filters now wrap onto a second row instead: every chip is on screen
+#   at once, nothing to discover, no scroll gesture required inside an
+#   already-small dropdown.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -28,7 +21,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
-SETTINGS_CSS = os.path.join(SRC, "pages", "settings", "SettingsPage.module.css")
+HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
 
 
 def apply_patches(path, patches):
@@ -56,38 +49,36 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ SettingsPage.module.css ═══
-apply_patches(SETTINGS_CSS, [
+# ═══ Header.module.css ═══
+apply_patches(HEADER_CSS, [
     (
-        # 1. accent rule under the group heading, separating it from
-        # its own rows.
-        ".prefGroupBox .prefGroupLabel { color: var(--accent, var(--orange)); opacity: 1; padding: 0 0 clamp(6px,0.8vw,9px); }",
+        # 1. wrap instead of a silently-scrollable, cut-off row.
+        ".notifFilters {\n"
+        "    display: flex;\n"
+        "    gap: 5px;\n"
+        "    padding: 9px 11px;\n"
+        "    overflow-x: auto;\n"
+        "    border-bottom: 1px solid rgba(26, 46, 48, 0.08);\n"
+        "    flex-shrink: 0;\n"
+        "    scrollbar-width: none;\n"
+        "}\n"
+        ".notifFilters::-webkit-scrollbar { display: none; }",
 
-        ".prefGroupBox .prefGroupLabel {\n"
-        "  color: var(--accent, var(--orange)); opacity: 1;\n"
-        "  padding: 0 0 clamp(7px,0.9vw,10px); margin-bottom: clamp(7px,0.9vw,10px);\n"
-        "  border-bottom: 2px solid var(--accent, var(--orange));\n"
+        "/* fix129: wraps instead of scrolling -- 7 filters (ALL/UNREAD/\n"
+        "   MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) in a 320-380px panel\n"
+        "   used to hide 2 of them behind an overflow-x scroll with no\n"
+        "   scrollbar and no fade to hint it was there. Every chip is now\n"
+        "   on screen at once. */\n"
+        ".notifFilters {\n"
+        "    display: flex;\n"
+        "    flex-wrap: wrap;\n"
+        "    gap: 5px;\n"
+        "    padding: 9px 11px;\n"
+        "    border-bottom: 1px solid rgba(26, 46, 48, 0.08);\n"
+        "    flex-shrink: 0;\n"
         "}",
 
-        "prefGroupLabel gets its own accent divider under the heading",
-    ),
-    (
-        # 2. rows -> bounded mini-cards instead of a faint border-bottom
-        # list, with a real gap between them.
-        ".prefGroupBox .prefRow { border-bottom: 1px solid rgba(26,46,48,0.10); margin: 0; padding: clamp(8px,1.1vw,11px) 0; }\n"
-        ".prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.045); }\n"
-        ".prefGroupBox .prefRow:last-child { border-bottom: none; }",
-
-        ".prefGroupBox .prefRow {\n"
-        "  border: 1px solid rgba(26,46,48,0.14); border-radius: 6px;\n"
-        "  background: rgba(26,46,48,0.05);\n"
-        "  margin: 0 0 clamp(7px,0.9vw,10px); padding: clamp(9px,1.2vw,12px);\n"
-        "  transition: background 0.18s ease, border-color 0.18s ease;\n"
-        "}\n"
-        ".prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.09); border-color: rgba(26,46,48,0.22); }\n"
-        ".prefGroupBox .prefRow:last-child { margin-bottom: 0; }",
-
-        "prefGroupBox rows turned into bounded mini-cards with real gaps",
+        "notifFilters switched from hidden-scroll to wrap",
     ),
 ])
 
@@ -121,7 +112,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix128: Appearance group headings get an accent divider under them; rows turned into bounded mini-cards (border+tint+radius+gap) instead of a faint border-bottom list")
+git("commit", "-m", "fix129: SIGNALS dropdown filter chips wrap onto a second row instead of hiding STAFF/SYSTEM behind an unhinted horizontal scroll")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
