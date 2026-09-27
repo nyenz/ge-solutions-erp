@@ -208,52 +208,85 @@
   border: 1.5px solid rgba(238,140,58,0.5); background: #fff; color: #b45309; transition: all 0.2s;
 }
 .rchip:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
-/* Catalogue list: a soft warm tray behind white report cards. The tray
-   supplies the contrast (instead of dark panels) so every card reads as
-   a distinct, liftable object -- creative + professional, no dark fills. */
+/* fix118: prototype parity (report-catalogue-option1-refined.html).
+   Groups no longer render as a stack of individually-shadowed,
+   hover-lifting cards (one per report) -- each group now shares ONE
+   elevated white card (.groupBody) with hairline dividers between its
+   records. Only .groupBody/.ungrouped get the tray-lift shadow now;
+   the group label drops to flat, uncarded text sitting on the tray. */
 .catList {
   max-height: 340px; overflow-y: auto; background: #f2ede4;
-  padding: 10px; display: flex; flex-direction: column; gap: 9px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
   scrollbar-width: thin; scrollbar-color: #EE8C3A transparent;
 }
 .catList::-webkit-scrollbar { width: 6px; }
 .catList::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 3px; }
-.groupBlock { display: flex; flex-direction: column; gap: 9px; }
-.catWrap {
-  border-radius: 9px; overflow: hidden; border-left: 4px solid transparent;
-  box-shadow: 0 2px 7px rgba(26,46,48,0.12);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-.catWrap:hover { box-shadow: 0 8px 22px rgba(26,46,48,0.2); transform: translateY(-2px); }
-/* Per-group accent colour, so the list reads at a glance without leaning
-   on dark backgrounds -- each category gets its own light-safe hue. */
-.catWrap[data-group="WORK IN"] { border-left-color: #EE8C3A; }
-.catWrap[data-group="IN PROCESS"] { border-left-color: #4C9CD1; }
-.catWrap[data-group="MONEY IN"] { border-left-color: #16a37a; }
-.catWrap[data-group="MONEY OUT"] { border-left-color: #d9694a; }
-.catWrap[data-group="CLIENTS / RECOVERY"] { border-left-color: #9b7fc7; }
-.catWrap[data-group="COMPLIANCE / ARCHIVE"] { border-left-color: #64748b; }
-.catRow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: none; background: #fff; padding: 10px 14px; cursor: pointer; transition: background 0.15s; }
-.catRow:hover { background: #EE8C3A; color: #fff; }
-.catRowOn { background: #d97e2f; color: #1a2e30; }
-.r1 { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #5b6f70; }
-.r2 { font-size: 10px; font-weight: 600; color: rgba(26,46,48,0.55); }
-.catRow:hover .r1 { color: #fff; }
-.catRowOn .r1 { color: #1a2e30; }
-.catRow:hover .r2 { color: rgba(255,255,255,0.85); }
-.catRowOn .r2 { color: rgba(26,46,48,0.72); }
-.tag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
-.readout { display: flex; align-items: center; gap: 12px; background: #0a0a0a; border-left: 3px solid #EE8C3A; padding: 8px 12px; }
-.readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; line-height: 1.5; color: #c9f7d6; }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
+.groupLabel { padding: 2px 4px; }
+.groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #162a2c; transition: color 0.18s ease; }
+.groupLabel span:hover { color: #EE8C3A; }
+/* the row itself carries the left rail, so an expanded readout can
+   share it, and the hairline divider between records. */
+.row { border-left: 3px solid transparent; border-bottom: 1.5px solid rgba(26,46,48,0.16); transition: border-left-color 0.16s ease; }
+.row:last-child { border-bottom: none; }
+.row.rowOpen, .row.rowApplied { border-left-color: #EE8C3A; }
+/* applied: a real, visible orange wash rather than just the rail --
+   text stays ink, and it keeps its own fill even on hover instead of
+   flipping to the open row's solid orange. */
+.row.rowApplied .rowHead { background: rgba(238,140,58,0.26); }
+.row.rowApplied .name, .row.rowApplied .rows, .row.rowApplied .tag, .row.rowApplied .chev { color: #1a2e30; }
+.row.rowApplied .desc { color: rgba(26,46,48,0.65); }
+.rowHead { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: none; background: transparent; padding: 14px 15px; cursor: pointer; transition: background 0.15s ease; }
+/* open (not applied) keeps the hover fill persistently, not just on
+   :hover, so it stays visible after you've expanded a row and moved
+   the mouse elsewhere. */
+.row.rowOpen:not(.rowApplied) .rowHead,
+.row:not(.rowApplied) .rowHead:hover { background: #EE8C3A; }
+.row.rowOpen:not(.rowApplied) .rowHead .name,
+.row.rowOpen:not(.rowApplied) .rowHead .rows,
+.row.rowOpen:not(.rowApplied) .rowHead .tag,
+.row.rowOpen:not(.rowApplied) .rowHead .chev,
+.row:not(.rowApplied) .rowHead:hover .name,
+.row:not(.rowApplied) .rowHead:hover .rows,
+.row:not(.rowApplied) .rowHead:hover .tag,
+.row:not(.rowApplied) .rowHead:hover .chev { color: #fff; }
+.row.rowOpen:not(.rowApplied) .rowHead .desc,
+.row:not(.rowApplied) .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
+.rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
+.rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #1a2e30; transition: color 0.15s ease; }
+.desc { font-size: 11px; font-weight: 600; color: rgba(26,46,48,0.55); margin-top: 3px; transition: color 0.15s ease; }
+.rightMeta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
+.tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
+.chev { color: rgba(26,46,48,0.35); font-size: 12px; flex-shrink: 0; transition: transform 0.2s ease, color 0.15s ease; }
+.row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }
+.row.rowApplied.rowOpen .chev { color: #1a2e30; }
+.appliedTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #a8551c; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
+/* rowDefault: the one row that should still stand out with nothing
+   applied or open yet -- a light permanent wash, restating the old
+   .catRowDef for the shared-card layout. Open/applied rules above
+   this in the cascade still win once either happens. */
+.row.rowDefault { border-left-color: rgba(238,140,58,0.6); }
+.row.rowDefault .rowHead { background: #fdf3e7; }
+/* readout sits flush against the row's own left rail with zero extra
+   margin -- the rail stops exactly where the readout stops. */
+.readout { display: flex; align-items: center; gap: 12px; padding: 12px 15px; margin: 0; background: #28383a; }
+.readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(242,237,228,0.85); }
+/* real HeaderButton .primary spec: ~34px tall, recolor-only hover (no
+   lift/transform), disabled/applied reuses the same colors at 0.5
+   opacity instead of the old 0.45. */
 .useBtn {
-  flex-shrink: 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
-  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px;
-  border-radius: 6px; border: none; background: #EE8C3A; color: #1a2e30; transition: all 0.2s;
+  flex-shrink: 0; cursor: pointer; height: 34px; padding: 0 16px; border-radius: 6px;
+  font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+  font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
+  border: 1.5px solid #EE8C3A; background: #EE8C3A; color: #1a2e30; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
-.useBtn:hover:not(:disabled) { background: #f0a050; transform: translateY(-1px); }
-.useBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.useBtn:hover:not(:disabled) { background: #d97a2b; border-color: #d97a2b; color: #1a2e30; }
+.useBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .emptyCell { text-align: center; padding: 24px 16px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26,46,48,0.5); }
-.foot { padding: 8px 14px; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 0 0 11px 11px; }
+.foot { padding: 10px 14px; background: #f6f3ef; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 0 0 11px 11px; }
 .viewerPanel { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); }
 .viewerPanel .panelHeadRow { background: transparent; border-bottom: 1.5px solid #EE8C3A; border-radius: 0; padding: 0 0 10px 0; }
 .pvChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -315,12 +348,6 @@
   font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
 }
 .chartDdBtn svg { flex-shrink: 0; transition: transform 0.2s; }
-.catRowDef { border-left: 3px solid #EE8C3A; background: #fdf3e7; }
-.catRowDef:hover { background: #EE8C3A; }
-.catRowDef.catRowOn { background: #d97e2f; }
-.ddSec { position: sticky; top: -10px; background: #f2ede4; color: rgba(26,46,48,0.55); font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 4px 2px; z-index: 1; }
-.toggleHint { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.75; white-space: nowrap; }
-.tag + .toggleHint { margin-left: 8px; }
 .entInput { box-sizing: border-box; flex: 0 0 auto; height: 36px; width: clamp(200px, 22vw, 260px); padding: 0 12px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
 .entInput:focus { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
 .pickOptionTag { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; opacity: 0.7; }
@@ -363,8 +390,6 @@
 .scopePanel .panelHeadRow:hover .scopeTitle,
 .catPanel .panelHeadRow:hover .scopeTitle { color: #fff; }
 .panelClosed { display: none; }
-.liveCount { margin-left: 8px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.55); white-space: nowrap; }
-.catRow:hover .liveCount, .catRowOn .liveCount { color: rgba(255,255,255,0.85); }
 .scopePanel, .catPanel { position: relative; }
 @media (max-width: 900px) {
   .scopeRow { flex-direction: column; align-items: stretch; }

@@ -235,20 +235,35 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     text += ' Sorted by ' + sc.col + ' ' + (sc.dir === 'desc' ? 'highest first.' : 'A to Z.');
     return text;
   };
-  const catRowNode = (def) => (
-    <div key={def.id} className={styles.catWrap} data-group={def.group}>
-      <button className={styles.catRow + (appliedId === def.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === def.id ? null : def.id)} aria-expanded={readId === def.id}>
-        <span className={styles.r1}>{def.title}<span className={styles.liveCount}>{liveCount(def)} ROWS</span><span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span><span className={styles.toggleHint}>{readId === def.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
-        <span className={styles.r2}>{def.desc}</span>
-      </button>
-      {readId === def.id && (
-        <div className={styles.readout}>
-          <div className={styles.readoutText}>{readout(def)}</div>
-          <button className={styles.useBtn} onClick={() => applyDef(def)}>USE THIS REPORT</button>
-        </div>
-      )}
-    </div>
-  );
+  const catRowNode = (def, isDefault) => {
+    const isApplied = appliedId === def.id;
+    const isOpen = readId === def.id;
+    const rowCls = styles.row
+      + (isOpen ? ' ' + styles.rowOpen : '')
+      + (isApplied ? ' ' + styles.rowApplied : '')
+      + (isDefault ? ' ' + styles.rowDefault : '');
+    return (
+      <div key={def.id} className={rowCls}>
+        <button className={styles.rowHead} onClick={() => setReadId(isOpen ? null : def.id)} aria-expanded={isOpen}>
+          <span className={styles.rowMain}>
+            <span className={styles.name}>{isDefault ? 'DEFAULT VIEW: ' : ''}{def.title}{isApplied && <span className={styles.appliedTag}>APPLIED</span>}</span>
+            <span className={styles.desc}>{def.desc}</span>
+          </span>
+          <span className={styles.rightMeta}>
+            <span className={styles.rows}>{liveCount(def)} ROWS</span>
+            <span className={styles.tag}>{def.chart !== 'NONE' ? def.chart : 'TABLE'} &middot; {def.group}</span>
+            <FiChevronDown className={styles.chev} aria-hidden="true" />
+          </span>
+        </button>
+        {isOpen && (
+          <div className={styles.readout}>
+            <div className={styles.readoutText}>{readout(def)}</div>
+            <button className={styles.useBtn} onClick={() => applyDef(def)} disabled={isApplied}>{isApplied ? 'Applied \u2713' : 'Use This Report'}</button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /* ── viewer pipeline: one row set feeds chart, table, CSV, PDF ── */
   const entityRows = useMemo(() => {
@@ -631,28 +646,29 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
           )}
           <div className={styles.catList}>
             {defaultDef && (
-              <div className={styles.catWrap}>
-                <button className={styles.catRow + ' ' + styles.catRowDef + (appliedId === defaultDef.id ? ' ' + styles.catRowOn : '')} onClick={() => setReadId(readId === defaultDef.id ? null : defaultDef.id)} aria-expanded={readId === defaultDef.id}>
-                  <span className={styles.r1}>DEFAULT VIEW: {defaultDef.title}<span className={styles.liveCount}>{liveCount(defaultDef)} ROWS</span><span className={styles.tag}>{defaultDef.chart !== 'NONE' ? defaultDef.chart : 'TABLE'} &middot; {defaultDef.group}</span><span className={styles.toggleHint}>{readId === defaultDef.id ? 'CLOSE \u25B2' : 'WHAT IS THIS? \u25BC'}</span></span>
-                  <span className={styles.r2}>{defaultDef.desc}</span>
-                </button>
-                {readId === defaultDef.id && (
-                  <div className={styles.readout}>
-                    <div className={styles.readoutText}>{readout(defaultDef)}</div>
-                    <button className={styles.useBtn} onClick={() => applyDef(defaultDef)}>USE THIS REPORT</button>
-                  </div>
-                )}
+              <div className={styles.ungrouped}>
+                <div className={styles.groupBody}>
+                  {catRowNode(defaultDef, true)}
+                </div>
               </div>
             )}
             {restList.length === 0 && !defaultDef && <div className={styles.emptyCell}>NO REPORTS MATCH THIS SCOPE + SEARCH</div>}
             {groupTab === 'ALL'
               ? GROUPS.filter(g => restList.some(d => d.group === g)).map(g => (
-                <div key={g} className={styles.groupBlock}>
-                  <div className={styles.ddSec}>{g} ({restList.filter(d => d.group === g).length})</div>
-                  {restList.filter(d => d.group === g).map(catRowNode)}
+                <div key={g} className={styles.group}>
+                  <div className={styles.groupLabel}><span>{g} ({restList.filter(d => d.group === g).length})</span></div>
+                  <div className={styles.groupBody}>
+                    {restList.filter(d => d.group === g).map(d => catRowNode(d))}
+                  </div>
                 </div>
               ))
-              : restList.map(catRowNode)}
+              : restList.length > 0 && (
+                <div className={styles.ungrouped}>
+                  <div className={styles.groupBody}>
+                    {restList.map(d => catRowNode(d))}
+                  </div>
+                </div>
+              )}
           </div>
           <div className={styles.foot}>
             {listed.length} report{listed.length === 1 ? '' : 's'} in {groupTab === 'ALL' ? 'all groups' : groupTab}{defaultDef ? ' (+1 default)' : ''}
