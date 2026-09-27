@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix116: Report Catalogue header padding tightened, but
-# stops short of Scope's/Intake's exact numbers on purpose.
+# GOLDEN SEED -- fix117: Settings' page LAYOUT matched to Reports, not just
+# its panel styling.
 #
-# fix113 gave Scope its own clamp() padding matched to Intake's
-# CollapsibleSection and deliberately left Catalogue on the old shared
-# fixed 10px/14px, because Catalogue's header also carries the 36px-tall
-# search box and a MATCHES badge that Scope's header doesn't -- squeezing
-# it to Intake's exact tightness would leave that search box looking
-# cramped rather than merely tidy. fix115 then found the real source of
-# Scope's extra height (a boxed 28x28 chevron, not the padding) and fixed
-# that too, which is also shared with Catalogue via .headToggle.
+# fix114 already brought Settings' panels onto Report Studio's gradient
+# card / click-anywhere-header language. What it didn't touch was the
+# arrangement: Settings still laid its five panels out in a responsive
+# two-up grid (workstationGrid), while Reports never does that anywhere --
+# ReportHub's .pillarStack and Report Studio's own .studio wrapper are both
+# a plain vertical flex column, full width, one panel after another. That
+# was the one structural way Settings still didn't match the page it was
+# meant to be based on.
 #
-# This fix gives Catalogue its own modest reduction -- padding 10px/14px
-# ->9px/12px, gap 10px->8px -- a visible trim without matching Scope's
-# clamp(8,1.1vw,12)/clamp(10,1.4vw,16) numbers. The 36px search box itself
-# is untouched; it's a functional input, not decorative spacing, and stays
-# the actual height floor for this header regardless of padding.
+# This fix:
+#   1. .workstationGrid becomes a vertical stack (flex column) instead of
+#      an auto-fit grid -- Appearance, Personal Security, Staff Governance,
+#      Danger Zone and Recently Deleted Plots now run full-width, top to
+#      bottom, the same way Scope/Catalogue/Viewer do on Reports.
+#   2. Container max-width trimmed from 1450px to Reports' 1400px so the
+#      two pages cap out at the same width.
+#   3. The now-dead `.workstationGrid { grid-template-columns: 1fr; }`
+#      rule inside the 900px media query is removed -- grid-template-
+#      columns has no effect on a flex container, so it was inert as soon
+#      as (1) landed.
 #
 # Surgical find/replace against known-good source text, not a full rewrite.
 # Runs `npm run build` before committing if node_modules is installed and
@@ -29,7 +35,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
-REPORT_STUDIO_CSS = os.path.join(SRC, "pages", "Reports", "ReportStudio.module.css")
+SETTINGS_CSS = os.path.join(SRC, "pages", "settings", "SettingsPage.module.css")
 
 
 def apply_patches(path, patches):
@@ -57,38 +63,46 @@ def apply_patches(path, patches):
     return applied
 
 
-# ═══ ReportStudio.module.css -- Catalogue header gets its own, smaller-but-not-tiny padding ═══
-apply_patches(REPORT_STUDIO_CSS, [
+# ═══ SettingsPage.module.css -- stacked layout + matched container width ═══
+apply_patches(SETTINGS_CSS, [
     (
-        "/* fix113: Scope's header row is the one directly comparable to an\n"
-        "   Intake CollapsibleSection header (no search box competing for room),\n"
-        "   so it gets Intake's exact clamp() padding/gap instead of the shared\n"
-        "   fixed 10px/14px -- otherwise it reads shorter than every Intake\n"
-        "   section header at normal desktop widths. Catalogue keeps the fixed\n"
-        "   padding; it still needs the extra width for the search field. */\n"
-        ".scopePanel .panelHeadRow {\n"
-        "  padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);\n"
-        "  gap: clamp(6px, 1vw, 12px);\n"
+        "    max-width: 1450px;\n"
+        "    margin: 0 auto;\n"
+        "    padding: clamp(8px, 2vw, 18px) clamp(8px, 1.6vw, 18px) clamp(32px, 5vw, 56px);\n"
+        "    font-family: 'DM Sans', sans-serif;\n"
+        "    color: #fff;\n"
+        "    animation: secureBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;\n"
         "}",
-        "/* fix113: Scope's header row is the one directly comparable to an\n"
-        "   Intake CollapsibleSection header (no search box competing for room),\n"
-        "   so it gets Intake's exact clamp() padding/gap instead of the shared\n"
-        "   fixed 10px/14px -- otherwise it reads shorter than every Intake\n"
-        "   section header at normal desktop widths. */\n"
-        ".scopePanel .panelHeadRow {\n"
-        "  padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);\n"
-        "  gap: clamp(6px, 1vw, 12px);\n"
-        "}\n"
-        "/* fix116: Catalogue trims down from the original shared 10px/14px too,\n"
-        "   but stops well short of Scope's numbers above -- it still carries a\n"
-        "   36px-tall search box and a MATCHES badge Scope's header doesn't have,\n"
-        "   so squeezing it to Intake's exact tightness would crowd the search\n"
-        "   field rather than just tidy the header up. */\n"
-        ".catPanel .panelHeadRow {\n"
-        "  padding: 9px 12px;\n"
-        "  gap: 8px;\n"
+        "    max-width: 1400px;\n"
+        "    margin: 0 auto;\n"
+        "    padding: clamp(8px, 2vw, 18px) clamp(8px, 1.6vw, 18px) clamp(32px, 5vw, 56px);\n"
+        "    font-family: 'DM Sans', sans-serif;\n"
+        "    color: #fff;\n"
+        "    animation: secureBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;\n"
         "}",
-        "Catalogue header gets its own, moderately-tightened padding/gap -- reduced from the old 10px/14px/10px, but not down to Scope's Intake-matched numbers",
+        "container max-width matched to Reports' 1400px (was 1450px)",
+    ),
+    (
+        "/* ── LAYOUT ─────────────────────────────────────────────────────── */\n"
+        ".workstationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 45vw, 500px), 1fr)); gap: var(--gap-xl); align-items: start; }",
+        "/* ── LAYOUT ─────────────────────────────────────────────────────── */\n"
+        "/* fix117: Reports never lays panels out in a grid -- ReportHub's\n"
+        "   .pillarStack and Report Studio's own .studio wrapper are both a\n"
+        "   plain vertical flex column, full width, one panel after another.\n"
+        "   This used to run two-up above ~1000px, the one structural mismatch\n"
+        "   left after fix114 matched the panels' own styling to Report Studio. */\n"
+        ".workstationGrid { display: flex; flex-direction: column; gap: var(--gap-xl); align-items: stretch; }",
+        "workstationGrid switched from a two-up auto-fit grid to a full-width vertical stack, matching Reports' pillarStack/studio layout",
+    ),
+    (
+        "@media (max-width: 900px) {\n"
+        "    .workstationGrid { grid-template-columns: 1fr; }\n"
+        "    .dualRow         { grid-template-columns: 1fr 1fr; }\n"
+        "}",
+        "@media (max-width: 900px) {\n"
+        "    .dualRow         { grid-template-columns: 1fr 1fr; }\n"
+        "}",
+        "dead grid-template-columns rule removed -- workstationGrid is a flex column now, this line had no effect",
     ),
 ])
 
@@ -122,7 +136,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix116: Report Catalogue header padding/gap tightened (10px/14px/10px -> 9px/12px/8px), deliberately short of Scope's Intake-matched numbers since Catalogue still carries a 36px search box and MATCHES badge Scope's header doesn't")
+git("commit", "-m", "fix117: Settings panels stacked full-width (matching Reports' pillarStack/studio layout) instead of running two-up in a grid; container max-width matched to Reports' 1400px")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

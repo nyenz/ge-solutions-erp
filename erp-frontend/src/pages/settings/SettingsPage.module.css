@@ -30,7 +30,7 @@
     --fs-value:  clamp(11px, 1.1vw, 13px);
     --fs-op:     clamp(11px, 1.2vw, 14px);
 
-    max-width: 1450px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: clamp(8px, 2vw, 18px) clamp(8px, 1.6vw, 18px) clamp(32px, 5vw, 56px);
     font-family: 'DM Sans', sans-serif;
@@ -136,7 +136,12 @@
 
 
 /* ── LAYOUT ─────────────────────────────────────────────────────── */
-.workstationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 45vw, 500px), 1fr)); gap: var(--gap-xl); align-items: start; }
+/* fix117: Reports never lays panels out in a grid -- ReportHub's
+   .pillarStack and Report Studio's own .studio wrapper are both a
+   plain vertical flex column, full width, one panel after another.
+   This used to run two-up above ~1000px, the one structural mismatch
+   left after fix114 matched the panels' own styling to Report Studio. */
+.workstationGrid { display: flex; flex-direction: column; gap: var(--gap-xl); align-items: stretch; }
 
 
 /* ── HARDWARE PANELS ────────────────────────────────────────────── */
@@ -435,7 +440,6 @@
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-    .workstationGrid { grid-template-columns: 1fr; }
     .dualRow         { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
