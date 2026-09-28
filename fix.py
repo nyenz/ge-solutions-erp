@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
-# PATH: fix137.py
-# GOLDEN SEED -- fix137: UPLOAD DOCUMENTS dropdown matches the app.
-#   Before: the category boxes in the UPLOAD DOCUMENTS window were the
-#   browser's own <select>. Click one and Chrome opens its plain white list --
-#   default colours, default font, nothing from the app. Now:
+# PATH: fix138.py
+# GOLDEN SEED -- fix138: white dropdown in UPLOAD DOCUMENTS, receipt on every
+# payment, styled PROBLEM window.
 #
-#     1. NEW DROPDOWN. HardwareModalSelect (new component + css) draws its own
-#        list: dark teal panel, orange edge, orange highlight under the mouse,
-#        solid orange row with a tick for the chosen category. The closed box
-#        is the same box as every other input in the window.
-#     2. NOT CLIPPED. The list opens on top of everything, so the window's
-#        scroll area and the file list can never cut it off. It opens upward
-#        when there is no room below.
-#     3. KEYBOARD. Up / Down / Home / End move, Enter or Space picks, Esc
-#        closes. Click anywhere else closes it.
-#     4. WHERE. The "category for all files" box and the small category box on
-#        every file row both use it. Nothing else about uploading changes --
-#        same categories, same rules, same UPLOAD button.
+#   1. UPLOAD DOCUMENTS DROPDOWN = THE APP'S WHITE DROPDOWN. fix137 made the
+#      category list dark. It now copies HardwareSelect (Intake, Settings,
+#      Audit): white box, orange edge, white list, ORANGE row with white text
+#      on hover, orange row for the chosen category, same 0.2s timing, same
+#      hidden scrollbar. The list is still drawn on top of the window (never
+#      clipped) and the keyboard keys still work. Only the CSS file changes.
 #
-#   Not touched: HardwareSelect (the white form dropdown used on Intake,
-#   Settings and Audit) and every other page.
+#   2. RECEIPT ON EVERY PAYMENT. The RECORD PAYMENT window (title payment AND
+#      storage fee -- both go through the same CONFIRM) now has a PAYMENT
+#      RECEIPT field. Pick a scan (pdf / jpg / png / webp). When CONFIRM is
+#      pressed the payment is recorded, then the receipt is filed in the
+#      folder's Documents under "Payment Receipts", named
+#      "Receipt - Title Payment - UGX 2050000 - 2026-09-28.pdf".
+#      - Receipt is REQUIRED (no receipt = no payment). To make it optional
+#        change RECEIPT_REQUIRED to false at the top of FolderPage.jsx.
+#      - If the payment saves but the receipt upload fails, the payment
+#        stays, and a warning says to add the receipt from Documents.
 #
-# Frontend only (HardwareModalSelect.jsx + css new; FolderPage.jsx patched).
+#   3. PROBLEM WINDOW. The plain browser box ("golden-seed.onrender.com says
+#      Describe the problem") is gone. PROBLEM now opens a proper Golden Seed
+#      window: red info strip, a note box for WHAT THE PROBLEM IS (500 chars,
+#      counter), CANCEL and FLAG PROBLEM buttons. The text goes to the bell
+#      notification, the notes list and the audit line exactly as before.
+#      Clearing a problem is still one click, no window.
+#
+# Frontend only. No backend change (the PAYMENT_RECEIPT category and the
+# upload endpoint already exist from fix136).
 #
 # Atomic: every patch for every file is matched in memory first; if any
 # one is MISSING nothing is written and nothing is committed. Runs
@@ -36,9 +44,9 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 COMMON = os.path.join(SRC, "components", "common")
 
-SELECT_JSX = os.path.join(COMMON, "HardwareModalSelect.jsx")
 SELECT_CSS = os.path.join(COMMON, "HardwareModalSelect.module.css")
 FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
+FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
 
 MISSING = []
 
@@ -67,232 +75,32 @@ def sub(text, old, new, desc):
     return text
 
 
-NEW_FILES = []  # (path, text, label)
+REWRITES = []  # (path, text, label)
 
 
-def create(path, text, label):
-    """New file. SKIP if it already exists."""
-    if os.path.exists(path):
-        print("SKIP: " + label + " -- already exists")
+def rewrite(path, text, label, marker):
+    """Replace a whole file. SKIP if the file already carries `marker`."""
+    if not os.path.exists(path):
+        print("MISSING: " + label + " -- file not found")
+        MISSING.append(label)
         return
-    print("OK: " + label + " (new file)")
-    NEW_FILES.append((path, text, label))
+    if marker in read(path):
+        print("SKIP: " + label + " -- already applied")
+        return
+    print("OK: " + label + " (rewritten)")
+    REWRITES.append((path, text, label))
 
 
 # ======================================================================
-# NEW: HardwareModalSelect.jsx
+# HardwareModalSelect.module.css -- the app's white dropdown
+# (copied from HardwareSelect.module.css; class names unchanged so the
+#  component and FolderPage need no edit for this part)
 # ======================================================================
-create(SELECT_JSX, r'''// PATH: erp-frontend/src/components/common/HardwareModalSelect.jsx
-import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
-import { createPortal } from 'react-dom';
-import { FiChevronDown, FiCheck } from 'react-icons/fi';
-import styles from './HardwareModalSelect.module.css';
-
-/**
- * GOLDEN SEED - HARDWARE MODAL SELECT (fix137)
- *
- * The dropdown for use INSIDE a HardwareModal. It replaces the browser's own
- * <select>, whose white option list cannot be themed.
- *
- * The list is drawn on document.body (fixed position), so the modal's scroll
- * box and the file list can never clip it. It flips upward when there is no
- * room below.
- *
- * options = [{ value, label }]
- * onChange receives the chosen value.
- * Keyboard: Up/Down/Home/End move, Enter or Space picks, Esc closes.
- */
-const GAP = 6;
-const EDGE = 10;
-const MAX_H = 260;
-const MIN_W = 190;
-
-const HardwareModalSelect = ({
-    value,
-    options,
-    onChange,
-    placeholder = 'Choose',
-    emptyText = 'Nothing to choose from',
-    ariaLabel,
-    compact = false,
-    disabled = false,
-    className = '',
-}) => {
-    const [open, setOpen] = useState(false);
-    const [active, setActive] = useState(-1);
-    const [pos, setPos] = useState(null);
-    const triggerRef = useRef(null);
-    const panelRef = useRef(null);
-    const listId = useId();
-
-    const selectedIdx = options.findIndex(o => o.value === value);
-    const selected = selectedIdx >= 0 ? options[selectedIdx] : null;
-
-    const place = useCallback(() => {
-        const el = triggerRef.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const width = Math.min(Math.max(r.width, MIN_W), vw - EDGE * 2);
-        const left = Math.max(EDGE, Math.min(r.left, vw - width - EDGE));
-        const below = vh - r.bottom - GAP - EDGE;
-        const above = r.top - GAP - EDGE;
-        const flip = below < 170 && above > below;
-        const maxHeight = Math.max(120, Math.min(MAX_H, flip ? above : below));
-        setPos(flip
-            ? { left, width, bottom: vh - r.top + GAP, maxHeight }
-            : { left, width, top: r.bottom + GAP, maxHeight });
-    }, []);
-
-    const openPanel = () => {
-        if (disabled) return;
-        place();
-        setActive(selectedIdx >= 0 ? selectedIdx : (options.length ? 0 : -1));
-        setOpen(true);
-    };
-
-    const choose = (opt) => {
-        onChange(opt.value);
-        setOpen(false);
-        if (triggerRef.current) triggerRef.current.focus();
-    };
-
-    // close on outside click, follow the trigger on scroll / resize
-    useEffect(() => {
-        if (!open) return undefined;
-        const onDown = (e) => {
-            if (triggerRef.current && triggerRef.current.contains(e.target)) return;
-            if (panelRef.current && panelRef.current.contains(e.target)) return;
-            setOpen(false);
-        };
-        const onScroll = (e) => {
-            if (panelRef.current && panelRef.current.contains(e.target)) return;
-            place();
-        };
-        document.addEventListener('mousedown', onDown);
-        window.addEventListener('resize', place);
-        window.addEventListener('scroll', onScroll, true);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            window.removeEventListener('resize', place);
-            window.removeEventListener('scroll', onScroll, true);
-        };
-    }, [open, place]);
-
-    // keep the highlighted row inside the visible part of the list
-    useEffect(() => {
-        if (!open || active < 0) return;
-        const panel = panelRef.current;
-        if (!panel) return;
-        const row = panel.querySelector('[data-idx="' + active + '"]');
-        if (!row) return;
-        if (row.offsetTop < panel.scrollTop) {
-            panel.scrollTop = row.offsetTop;
-        } else if (row.offsetTop + row.offsetHeight > panel.scrollTop + panel.clientHeight) {
-            panel.scrollTop = row.offsetTop + row.offsetHeight - panel.clientHeight;
-        }
-    }, [open, active, pos]);
-
-    const onKeyDown = (e) => {
-        if (disabled) return;
-        if (!open) {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openPanel();
-            }
-            return;
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(false);
-        } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setActive(i => Math.min(options.length - 1, i + 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActive(i => Math.max(0, i - 1));
-        } else if (e.key === 'Home') {
-            e.preventDefault();
-            setActive(options.length ? 0 : -1);
-        } else if (e.key === 'End') {
-            e.preventDefault();
-            setActive(options.length - 1);
-        } else if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (options[active]) choose(options[active]); else setOpen(false);
-        } else if (e.key === 'Tab') {
-            setOpen(false);
-        }
-    };
-
-    return (
-        <div className={`${styles.root} ${className}`}>
-            <div
-                ref={triggerRef}
-                role="combobox"
-                tabIndex={disabled ? -1 : 0}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-                aria-controls={open ? listId : undefined}
-                aria-activedescendant={open && active >= 0 ? listId + '-' + active : undefined}
-                aria-label={ariaLabel}
-                aria-disabled={disabled || undefined}
-                className={`${styles.trigger} ${compact ? styles.compact : ''} ${open ? styles.triggerOpen : ''} ${disabled ? styles.disabled : ''}`}
-                onClick={() => (open ? setOpen(false) : openPanel())}
-                onKeyDown={onKeyDown}
-            >
-                <span className={`${styles.value} ${selected ? '' : styles.placeholder}`}>
-                    {selected ? selected.label : placeholder}
-                </span>
-                <FiChevronDown className={styles.chevron} aria-hidden="true" />
-            </div>
-
-            {open && pos && createPortal(
-                <div
-                    ref={panelRef}
-                    id={listId}
-                    role="listbox"
-                    aria-label={ariaLabel}
-                    className={styles.panel}
-                    style={pos}
-                    onMouseDown={(e) => e.preventDefault()}
-                >
-                    {options.length === 0 && <div className={styles.empty}>{emptyText}</div>}
-                    {options.map((opt, i) => (
-                        <div
-                            key={opt.value}
-                            id={listId + '-' + i}
-                            data-idx={i}
-                            role="option"
-                            aria-selected={opt.value === value}
-                            title={opt.label}
-                            className={`${styles.option} ${i === active ? styles.optionActive : ''} ${opt.value === value ? styles.optionSelected : ''}`}
-                            onMouseEnter={() => setActive(i)}
-                            onClick={() => choose(opt)}
-                        >
-                            <span className={styles.optionText}>{opt.label}</span>
-                            {opt.value === value && <FiCheck className={styles.check} aria-hidden="true" />}
-                        </div>
-                    ))}
-                </div>,
-                document.body
-            )}
-        </div>
-    );
-};
-
-export default HardwareModalSelect;
-''', "components/common/HardwareModalSelect.jsx")
-
-# ======================================================================
-# NEW: HardwareModalSelect.module.css
-# ======================================================================
-create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModalSelect.module.css
-   fix137 -- dropdown for use inside HardwareModal. The closed box is the
-   same box as .modalInput (HardwareModal.module.css); the open list uses the
-   modal's own dark teal, orange edge and orange selected row. */
+rewrite(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModalSelect.module.css
+   fix138 -- the app's WHITE dropdown (same as HardwareSelect on Intake /
+   Settings / Audit) for use inside HardwareModal. White box, orange edge,
+   white list, orange row + white text on hover, orange chosen row.
+   The list is fixed-position on document.body so a window can never clip it. */
 
 .root { position: relative; min-width: 0; }
 
@@ -305,33 +113,32 @@ create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModal
     min-width: 0;
     box-sizing: border-box;
     margin-top: clamp(5px, 0.6vw, 7px);
-    padding: clamp(11px, 1.4vw, 14px) clamp(12px, 1.6vw, 16px);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.92);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(13px, 1.3vw, 15px);
+    height: var(--input-height, clamp(34px, 4.3vw, 40px));
+    padding: 0 var(--input-px, clamp(9px, 1.2vw, 13px));
+    border-radius: var(--input-radius, 6px);
+    background: #ffffff;
+    border: 1.5px solid rgba(238, 140, 58, 0.3);
+    color: var(--navy, #213E40);
+    font-family: 'Inter', sans-serif;
+    font-size: var(--input-font, clamp(11px, 1.05vw, 13px));
     font-weight: 700;
-    line-height: 1.25;
+    letter-spacing: 0.5px;
     cursor: pointer;
     user-select: none;
     outline: none;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
-.trigger:hover { border-color: rgba(238, 140, 58, 0.45); }
+.trigger:hover,
 .trigger:focus-visible,
 .triggerOpen {
-    border-color: rgba(238, 140, 58, 0.7);
-    background: rgba(238, 140, 58, 0.06);
-    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+    border-color: var(--orange, #EE8C3A);
+    box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15);
 }
 
 /* the smaller box used on each file row */
 .compact {
     margin-top: 0;
-    padding: clamp(7px, 0.9vw, 9px) clamp(9px, 1.2vw, 12px);
-    font-size: clamp(11px, 1.1vw, 13px);
+    height: clamp(30px, 3.6vw, 36px);
 }
 
 .disabled { opacity: 0.35; cursor: not-allowed; }
@@ -343,52 +150,48 @@ create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModal
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.placeholder {
-    color: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
-    font-weight: 500;
-}
+.placeholder { color: rgba(26, 46, 48, 0.45); font-weight: 700; }
 
 .chevron {
     flex-shrink: 0;
-    font-size: 16px;
+    font-size: 14px;
     color: var(--orange, #EE8C3A);
-    transition: transform 0.2s;
+    transition: transform 0.3s;
 }
 .triggerOpen .chevron { transform: rotate(180deg); }
 
-/* ── the open list ───────────────────────────────────────────── */
+/* -- the open list -------------------------------------------------- */
 .panel {
     position: fixed;
     z-index: 100001;
     box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: var(--panel-surface-alt, #16292b);
-    border: 1.5px solid rgba(238, 140, 58, 0.55);
-    border-radius: 8px;
-    box-shadow:
-        0 18px 44px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(255, 255, 255, 0.04),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    background: #ffffff;
+    border: 1.5px solid var(--orange, #EE8C3A);
+    border-radius: 6px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.3);
     scrollbar-width: none;
     -ms-overflow-style: none;
-    animation: msOpen 0.14s ease-out;
+    animation: msOpen 0.2s ease-out;
 }
-.panel::-webkit-scrollbar { display: none; }
+.panel::-webkit-scrollbar { width: 4px; display: none !important; }
 
 .option {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: clamp(9px, 1.1vw, 12px) clamp(12px, 1.6vw, 16px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    color: var(--text-on-dark, rgba(244, 242, 239, 0.82));
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(12px, 1.2vw, 14px);
+    padding: clamp(8px, 1vw, 11px) clamp(12px, 1.4vw, 16px);
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--navy, #213E40);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 1.05vw, 13px);
     font-weight: 700;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    transition: background 0.2s, color 0.2s;
 }
 .option:last-child { border-bottom: none; }
 .optionText {
@@ -397,24 +200,21 @@ create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModal
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.optionActive {
-    background: rgba(238, 140, 58, 0.16);
-    color: #ffffff;
-}
+.optionActive,
 .optionSelected,
 .optionSelected.optionActive {
     background: var(--orange, #EE8C3A);
-    color: #1a2e30;
+    color: #ffffff;
     border-bottom-color: transparent;
 }
-.check { flex-shrink: 0; font-size: 15px; }
+.check { flex-shrink: 0; font-size: 14px; }
 
 .empty {
     padding: clamp(10px, 1.2vw, 14px) clamp(12px, 1.6vw, 16px);
-    color: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(12px, 1.2vw, 14px);
-    font-weight: 500;
+    color: rgba(26, 46, 48, 0.55);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 1.05vw, 13px);
+    font-weight: 700;
 }
 
 @keyframes msOpen {
@@ -422,11 +222,41 @@ create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModal
     to   { opacity: 1; transform: translateY(0); }
 }
 
+@media (max-width: 480px) {
+    .trigger { height: 38px; font-size: 12px; }
+    .compact { height: 34px; }
+    .option { padding: 9px 12px; font-size: 12px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .panel { animation: none; }
     .trigger, .chevron, .option { transition: none; }
 }
-''', "components/common/HardwareModalSelect.module.css")
+''', "components/common/HardwareModalSelect.module.css (white + orange hover)", "fix138")
+
+# ======================================================================
+# FolderPage.module.css -- receipt field + problem window styles
+# ======================================================================
+css0 = read(FOLDER_CSS)
+css = css0
+
+CSS_ANCHOR = ".upCatActions .addDocBtn{flex:1;}"
+css = sub(css,
+          CSS_ANCHOR,
+          CSS_ANCHOR + r'''
+
+/* fix138: payment receipt field (RECORD PAYMENT window) + PROBLEM window */
+.recFile{display:flex;align-items:center;gap:8px;min-width:0;margin-top:clamp(5px,0.6vw,7px);padding:clamp(8px,1vw,11px) clamp(10px,1.3vw,14px);background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.28);border-radius:6px;color:rgba(255,255,255,0.9);font-size:clamp(11px,1.05vw,13px);font-weight:700;}
+.recFile svg{flex-shrink:0;color:#22c55e;}
+.recName{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.recRemove{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:transparent;border:1.5px solid rgba(255,255,255,0.18);border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;transition:background 0.2s,border-color 0.2s,color 0.2s;}
+.recRemove:hover{background:rgba(239,68,68,0.15);border-color:#ef4444;color:#ef4444;}
+.recRemove:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
+.recHint{display:block;margin-top:6px;font-size:clamp(9px,0.9vw,11px);font-weight:700;letter-spacing:0.5px;color:rgba(255,255,255,0.45);}
+.probCount{display:block;margin-top:5px;text-align:right;font-family:'Space Mono',monospace;font-size:clamp(9px,0.9vw,11px);font-weight:700;color:rgba(255,255,255,0.4);}
+.probBox{min-height:clamp(96px,16vh,140px);resize:vertical;}
+''',
+          "css: receipt field + problem window styles")
 
 # ======================================================================
 # FolderPage.jsx
@@ -434,34 +264,101 @@ create(SELECT_CSS, r'''/* PATH: erp-frontend/src/components/common/HardwareModal
 fol0 = read(FOLDER_JSX)
 fol = fol0
 
+# --- imports / constant
 fol = sub(fol,
-          "import HardwareButton from '../../components/common/HardwareButton';",
-          "import HardwareButton from '../../components/common/HardwareButton';\n"
-          "import HardwareModalSelect from '../../components/common/HardwareModalSelect';",
-          "folder: import HardwareModalSelect")
+          "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp\n} from 'react-icons/fi';",
+          "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip\n} from 'react-icons/fi';",
+          "folder: import FiPaperclip")
 
-CAT_LABEL = "    const catLabel = (code) => (docCats.find(c => c.code === code)?.label) || String(code).replace(/_/g, ' ');"
+MS_IMPORT = "import modalStyles from '../../components/common/HardwareModal.module.css';"
 fol = sub(fol,
-          CAT_LABEL,
-          CAT_LABEL + "\n"
-          "    const catOptions = docCats.map(c => ({ value: c.code, label: c.label }));",
-          "folder: catOptions for the dropdown")
+          MS_IMPORT,
+          MS_IMPORT + "\n\n"
+          "// fix138: every payment needs its receipt scan filed under Payment Receipts.\n"
+          "// Set to false to make the receipt optional.\n"
+          "const RECEIPT_REQUIRED = true;",
+          "folder: RECEIPT_REQUIRED switch")
+
+# --- state
+PAY_STATE = "const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);"
+fol = sub(fol,
+          PAY_STATE,
+          PAY_STATE + "\n"
+          "    // fix138: receipt for the payment being recorded + the PROBLEM window\n"
+          "    const [payReceipt, setPayReceipt] = useState(null);\n"
+          "    const payReceiptRef = useRef(null);\n"
+          "    useEffect(() => { if (!payModal.open) setPayReceipt(null); }, [payModal.open]);\n"
+          "    const [problemModal, setProblemModal] = useState({ open: false, note: '' });\n"
+          "    const [probBusy, setProbBusy] = useState(false);",
+          "folder: receipt + problem window state")
+
+# --- problem handler (replaces the browser prompt)
+OLD_PROBLEM = "const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };"
+NEW_PROBLEM = (
+    "const runToggleProblem = async (text) => { const was = project.problem; const note = (text || '').trim(); try { await folderPortalService.toggleProblem(id, note); if (!was && note) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); return true; } catch { toast('FLAG FAILED', 'error'); return false; } };\n"
+    "    // fix138: flagging opens the Golden Seed PROBLEM window (no browser prompt); clearing stays one click\n"
+    "    const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };\n"
+    "    const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };\n"
+    "    const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };"
+)
+fol = sub(fol, OLD_PROBLEM, NEW_PROBLEM, "folder: PROBLEM handler uses a window, not window.prompt")
+
+# --- payment: require receipt, then file it under Payment Receipts
+fol = sub(fol,
+          "if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }\n        setPaying(true);",
+          "if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }\n"
+          "        if (RECEIPT_REQUIRED && !payReceipt) { toast('ATTACH THE PAYMENT RECEIPT', 'error'); return; }\n"
+          "        setPaying(true);",
+          "folder: payment needs a receipt")
 
 fol = sub(fol,
-          r'''                        <select className={modalStyles.modalInput} value={uploadDraft.batch} onChange={e => setBatchCategory(e.target.value)} aria-label="Category for all files">
-                            <option value="">-- choose category --</option>
-                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                        </select></div>''',
-          r'''                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>''',
-          "folder: 'category for all files' dropdown")
+          "await recoveryService.recordPayment(id, payAmount, fullNotes);\n"
+          "            await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');\n"
+          "            toast('Payment recorded successfully', 'success');",
+          "await recoveryService.recordPayment(id, payAmount, fullNotes);\n"
+          "            // fix138: file the receipt in Documents > Payment Receipts (payment is already saved at this point)\n"
+          "            let receiptOk = true;\n"
+          "            if (payReceipt) {\n"
+          "                try {\n"
+          "                    const ext = (payReceipt.name.match(/\\.[A-Za-z0-9]{1,6}$/) || [''])[0];\n"
+          "                    const stamp = new Date().toISOString().slice(0, 10);\n"
+          "                    const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + Number(payAmount) + ' - ' + stamp + ext;\n"
+          "                    await landService.addExtraDocuments(id, [new File([payReceipt], receiptName, { type: payReceipt.type })], ['PAYMENT_RECEIPT']);\n"
+          "                } catch { receiptOk = false; }\n"
+          "            }\n"
+          "            await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');\n"
+          "            if (receiptOk) toast(payReceipt ? 'Payment recorded. Receipt filed under Payment Receipts.' : 'Payment recorded successfully', 'success', 4500);\n"
+          "            else toast('Payment recorded, but the RECEIPT DID NOT UPLOAD. Add it from Documents > Payment Receipts.', 'warn', 9000);",
+          "folder: upload the receipt after the payment saves")
 
+# --- payment window: receipt field (after the notes box)
+PAY_NOTES_TA = "<textarea className={modalStyles.modalTextarea} value={payNotes} onChange={e => setPayNotes(e.target.value)} /></div>"
 fol = sub(fol,
-          r'''                        <select className={`${modalStyles.modalInput} ${styles.upFileSelect}`} value={f.category} onChange={e => setFileCategory(i, e.target.value)} aria-label={'Category for ' + f.file.name}>
-                            <option value="">-- category --</option>
-                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                        </select></div>))}</div>''',
-          r'''                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>''',
-          "folder: per-file category dropdown")
+          PAY_NOTES_TA,
+          PAY_NOTES_TA + "\n"
+          "                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT{RECEIPT_REQUIRED ? ' (REQUIRED)' : ' (OPTIONAL)'}</label>\n"
+          "                    <input ref={payReceiptRef} type=\"file\" accept=\".pdf,.jpg,.jpeg,.png,.webp\" style={{ display: 'none' }} aria-hidden=\"true\" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; if (f) setPayReceipt(f); e.target.value = ''; }} />\n"
+          "                    {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden=\"true\" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}</span><button type=\"button\" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label=\"Remove receipt\"><FiX aria-hidden=\"true\" /></button></div>)\n"
+          "                        : (<button type=\"button\" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()}><FiPaperclip aria-hidden=\"true\" />&nbsp;ATTACH RECEIPT SCAN</button>)}\n"
+          "                    <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts.</span></div>",
+          "folder: receipt field in the RECORD PAYMENT window")
+
+# --- the PROBLEM window (before the back-to-top button)
+TOP_BTN = "{showTopBtn && (<button type=\"button\" className={styles.scrollTopBtn}"
+PROBLEM_MODAL = (
+    "<HardwareModal isOpen={problemModal.open} onClose={closeProblemModal} title={'FLAG PROBLEM - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>\n"
+    "                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies staff. What you write below goes into the notes and the audit trail.</div>\n"
+    "                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (OPTIONAL)</label>\n"
+    "                    <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder=\"e.g. Owner name on the deed plan does not match the ID...\" aria-label=\"Problem description\" onChange={e => setProblemModal(m => ({ ...m, note: e.target.value }))} />\n"
+    "                    <span className={styles.probCount}>{problemModal.note.length}/500</span></div>\n"
+    "                <div className={modalStyles.modalFooter}>\n"
+    "                    <button type=\"button\" className={modalStyles.modalBtnSecondary} onClick={closeProblemModal} disabled={probBusy}>CANCEL</button>\n"
+    "                    <HardwareButton type=\"button\" variant=\"danger\" onClick={handleProblemConfirm} loading={probBusy} icon={FiAlertTriangle}>FLAG PROBLEM</HardwareButton>\n"
+    "                </div>\n"
+    "            </HardwareModal>\n"
+    "            "
+)
+fol = sub(fol, TOP_BTN, PROBLEM_MODAL + TOP_BTN, "folder: PROBLEM window")
 
 # ======================================================================
 # write (atomic) + build gate + commit
@@ -471,24 +368,25 @@ if MISSING:
     print("FAIL: " + str(len(MISSING)) + " patch(es) MISSING -- nothing written, nothing committed:")
     for m in MISSING:
         print("  - " + m)
-    print("The source text differs from what this script expects (or was edited since fix136).")
+    print("The source text differs from what this script expects (or was edited since fix137).")
     sys.exit(1)
 
 changed = False
-for path, text, label in NEW_FILES:
+for path, text, label in REWRITES:
     write(path, text)
-    print("created: " + label)
+    print("written: " + label)
     changed = True
 
 for path, before, after, label in [
     (FOLDER_JSX, fol0, fol, "erp-frontend/src/pages/DigitalFolder/FolderPage.jsx"),
+    (FOLDER_CSS, css0, css, "erp-frontend/src/pages/DigitalFolder/FolderPage.module.css"),
 ]:
     if after != before:
         write(path, after)
         print("written: " + label)
         changed = True
 if not changed:
-    print("note: nothing changed -- fix137 already applied")
+    print("note: nothing changed -- fix138 already applied")
 
 # build gate (fix76)
 if os.path.isdir(os.path.join(FRONTEND, "node_modules")):
@@ -524,7 +422,7 @@ if not changed:
     sys.exit(0)
 
 git("add", "-A")
-git("commit", "-m", "fix137: upload window dropdown matches the app -- custom dark category dropdown (no browser default list) for the batch category and each file row, opens on top of the window, keyboard friendly")
+git("commit", "-m", "fix138: upload window dropdown uses the app's white + orange-hover list; every payment needs a receipt scan filed under Payment Receipts; PROBLEM button opens a styled window for what the problem is")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")

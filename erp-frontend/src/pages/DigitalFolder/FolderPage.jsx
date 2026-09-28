@@ -11,7 +11,7 @@ import {
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
     FiDollarSign, FiActivity, FiHome, FiArchive,
-FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp
+FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -29,6 +29,10 @@ import ErrorMessage from '../../components/common/ErrorMessage';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
+
+// fix138: every payment needs its receipt scan filed under Payment Receipts.
+// Set to false to make the receipt optional.
+const RECEIPT_REQUIRED = true;
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const useToast = () => {
@@ -299,6 +303,12 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
+    // fix138: receipt for the payment being recorded + the PROBLEM window
+    const [payReceipt, setPayReceipt] = useState(null);
+    const payReceiptRef = useRef(null);
+    useEffect(() => { if (!payModal.open) setPayReceipt(null); }, [payModal.open]);
+    const [problemModal, setProblemModal] = useState({ open: false, note: '' });
+    const [probBusy, setProbBusy] = useState(false);
     const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, related: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -447,7 +457,11 @@ useEffect(() => {
     };
     const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
-    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+    const runToggleProblem = async (text) => { const was = project.problem; const note = (text || '').trim(); try { await folderPortalService.toggleProblem(id, note); if (!was && note) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); return true; } catch { toast('FLAG FAILED', 'error'); return false; } };
+    // fix138: flagging opens the Golden Seed PROBLEM window (no browser prompt); clearing stays one click
+    const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };
+    const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };
+    const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
@@ -526,12 +540,24 @@ useEffect(() => {
     };
     const handleRecordPayment = async () => {
         if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
+        if (RECEIPT_REQUIRED && !payReceipt) { toast('ATTACH THE PAYMENT RECEIPT', 'error'); return; }
         setPaying(true);
         try {
             const fullNotes = payType === 'STORAGE' ? ('[STORAGE FEE PAYMENT] ' + payNotes).trim() : payNotes;
             await recoveryService.recordPayment(id, payAmount, fullNotes);
+            // fix138: file the receipt in Documents > Payment Receipts (payment is already saved at this point)
+            let receiptOk = true;
+            if (payReceipt) {
+                try {
+                    const ext = (payReceipt.name.match(/\.[A-Za-z0-9]{1,6}$/) || [''])[0];
+                    const stamp = new Date().toISOString().slice(0, 10);
+                    const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + Number(payAmount) + ' - ' + stamp + ext;
+                    await landService.addExtraDocuments(id, [new File([payReceipt], receiptName, { type: payReceipt.type })], ['PAYMENT_RECEIPT']);
+                } catch { receiptOk = false; }
+            }
             await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');
-            toast('Payment recorded successfully', 'success');
+            if (receiptOk) toast(payReceipt ? 'Payment recorded. Receipt filed under Payment Receipts.' : 'Payment recorded successfully', 'success', 4500);
+            else toast('Payment recorded, but the RECEIPT DID NOT UPLOAD. Add it from Documents > Payment Receipts.', 'warn', 9000);
         } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
         finally { setPaying(false); }
     };
@@ -902,11 +928,26 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                     <input type="number" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(Math.max(0, amountOwed))} value={payAmount} onChange={e => setPayAmount(e.target.value)} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} onChange={e => setPayNotes(e.target.value)} /></div>
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT{RECEIPT_REQUIRED ? ' (REQUIRED)' : ' (OPTIONAL)'}</label>
+                    <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; if (f) setPayReceipt(f); e.target.value = ''; }} />
+                    {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt"><FiX aria-hidden="true" /></button></div>)
+                        : (<button type="button" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()}><FiPaperclip aria-hidden="true" />&nbsp;ATTACH RECEIPT SCAN</button>)}
+                    <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts.</span></div>
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
             </HardwareModal>
-{showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top to edit or save"><FiArrowUp aria-hidden="true" /></button>)}
+<HardwareModal isOpen={problemModal.open} onClose={closeProblemModal} title={'FLAG PROBLEM - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>
+                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies staff. What you write below goes into the notes and the audit trail.</div>
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (OPTIONAL)</label>
+                    <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => setProblemModal(m => ({ ...m, note: e.target.value }))} />
+                    <span className={styles.probCount}>{problemModal.note.length}/500</span></div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeProblemModal} disabled={probBusy}>CANCEL</button>
+                    <HardwareButton type="button" variant="danger" onClick={handleProblemConfirm} loading={probBusy} icon={FiAlertTriangle}>FLAG PROBLEM</HardwareButton>
+                </div>
+            </HardwareModal>
+            {showTopBtn && (<button type="button" className={styles.scrollTopBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top to edit or save"><FiArrowUp aria-hidden="true" /></button>)}
         </div>
     );
 };
