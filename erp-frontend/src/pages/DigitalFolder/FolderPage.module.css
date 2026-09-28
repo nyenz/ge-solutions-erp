@@ -665,6 +665,46 @@
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   PLOT DETAILS GROUPING (fix131) — Settings-page parity
+   The flat spec list becomes two bounded, cream mini-cards -- the
+   exact prefGroupBox/prefGroupLabel language Settings' Appearance
+   panel uses for Display/Interaction/Notifications -- instead of one
+   undivided run of fields on the dark panel body.
+   ═══════════════════════════════════════════════════════════════════ */
+.plotGroupsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); align-items: start; }
+.plotGroupBox {
+    --accent: var(--orange);
+    background: #f2ede4; border: 1px solid rgba(26,46,48,0.14);
+    border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);
+}
+.plotGroupBox[data-accent="cyan"] { --accent: var(--cyan); }
+.plotGroupLabel {
+    font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
+    font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--accent); border-bottom: 2px solid var(--accent);
+    padding: 0 0 clamp(7px,0.9vw,10px); margin-bottom: clamp(9px,1.2vw,14px);
+}
+.plotGroupBox .readOnlyGrid { row-gap: clamp(9px, 1.2vw, 14px); }
+.plotGroupBox .specItem { border-left: 2px solid rgba(26,46,48,0.18); padding: 2px 0 2px clamp(8px,1.1vw,12px); }
+.plotGroupBox .specLabel { color: rgba(26,46,48,0.55); }
+.plotGroupBox .specValue { color: #1a2e30; }
+
+/* Click-to-copy: quiet until the row is hovered/focused, then the
+   icon steps up to the group's own accent -- orange in LOCATION,
+   cyan in TITLE -- same recolor-per-group trick Settings uses. */
+.specValueRow { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.copyBtn {
+    background: transparent; border: none; color: inherit; opacity: 0;
+    cursor: pointer; padding: 2px; font-size: 11px; flex-shrink: 0;
+    display: inline-flex; align-items: center;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+.specItem:hover .copyBtn, .copyBtn:focus-visible { opacity: 0.55; }
+.copyBtn:hover, .copyBtn:focus-visible { opacity: 1 !important; color: var(--orange); outline: none; }
+.plotGroupBox .copyBtn:hover, .plotGroupBox .copyBtn:focus-visible { color: var(--accent, var(--orange)); }
+
+
+/* ═══════════════════════════════════════════════════════════════════
    EDIT INPUT GRID — strict repeat(3,1fr), no auto-fit
    auto-fit collapses columns unpredictably on narrow panels
    ═══════════════════════════════════════════════════════════════════ */

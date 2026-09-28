@@ -11,7 +11,7 @@ import {
     FiInfo, FiAlertTriangle, FiAlertOctagon,
     FiCheckSquare, FiPrinter, FiAlertCircle, FiSave,
     FiDollarSign, FiActivity, FiHome, FiArchive,
-FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp
+FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiCopy
 } from 'react-icons/fi';
 import landService from '../../services/landService';
 import stageTemplateService from '../../services/stageTemplateService';
@@ -438,6 +438,7 @@ useEffect(() => {
     const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
     const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
     const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };
+    const handleCopySpec = (value, label) => { if (!value) return; navigator.clipboard?.writeText(String(value)).then(() => toast(label + ' copied', 'success', 1500)).catch(() => toast('Copy failed', 'error')); };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
@@ -615,14 +616,22 @@ useEffect(() => {
                                 <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({ ...buffer, blockRoad: e.target.value.toUpperCase() })} />
                             </div>)}
                         </>) : (<>
-                            <div className={styles.readOnlyGrid}>
-                                {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (
-                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
+                            <div className={styles.plotGroupsGrid}>
+                                <div className={styles.plotGroupBox} data-accent="orange">
+                                    <div className={styles.plotGroupLabel}>LOCATION</div>
+                                    <div className={styles.readOnlyGrid}>
+                                        {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (
+                                            <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValueRow}><span className={styles.specValue}>{v || '---'}</span>{v && <button type="button" className={styles.copyBtn} onClick={() => handleCopySpec(v, l)} aria-label={`Copy ${l}`}><FiCopy aria-hidden="true" /></button>}</span></div>))}
+                                    </div>
+                                </div>
+                                {project.landTitle && (<div className={styles.plotGroupBox} data-accent="cyan">
+                                    <div className={styles.plotGroupLabel}>TITLE</div>
+                                    <div className={styles.readOnlyGrid}>
+                                        {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (
+                                            <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValueRow}><span className={styles.specValue}>{v || '---'}</span>{v && <button type="button" className={styles.copyBtn} onClick={() => handleCopySpec(v, l)} aria-label={`Copy ${l}`}><FiCopy aria-hidden="true" /></button>}</span></div>))}
+                                    </div>
+                                </div>)}
                             </div>
-                            {project.landTitle && (<div className={styles.readOnlyGrid}>
-                                {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (
-                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
-                            </div>)}
                         </>)}
                     </div></div>
                 </section>
