@@ -2,6 +2,11 @@
 /**
  * GOLDEN SEED -- HEADER / NOTIFICATION CENTRE
  *
+ * fix131: the dropdown is now a hero (unread count + colour meter + mode,
+ * refresh, read) over a dot-chip tray and a day-grouped, icon-free list.
+ * Bell dots, chip counts and the hero number are all UNREAD counts computed
+ * from the same rows. READ is scoped to the group being viewed.
+ *
  * WHAT CHANGED AND WHY (fix71)
  *
  * The bell used to render every signal as the same grey row with a coloured
@@ -24,14 +29,29 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMenu, FiBell, FiLogOut, FiCheck, FiPhoneCall, FiShield } from 'react-icons/fi';
+import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
-import { describe, routeFor, relativeTime, GROUP_COLOR, GROUP_BG, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';
+import { describe, routeFor, relativeTime, GROUP_COLOR, GROUPS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
 
 const VISIBLE_LIMIT = 40;
+const GROUP_KEYS = Object.values(GROUPS);
+const CRITICAL_TINT = '#dc2626';
+const BUCKETS = ['TODAY', 'YESTERDAY', 'EARLIER'];
+
+/* fix131: signals are bucketed by calendar day (since local midnight),
+   not by a rolling 24 hours, so TODAY means what people mean by it. */
+const dayBucket = (iso) => {
+    const t = new Date(iso);
+    if (Number.isNaN(t.getTime())) return 'EARLIER';
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    if (t >= start) return 'TODAY';
+    if (t.getTime() >= start.getTime() - 86400000) return 'YESTERDAY';
+    return 'EARLIER';
+};
 
 const Header = ({ onToggle }) => {
     const { user, logout } = useAuth();
@@ -43,6 +63,9 @@ const Header = ({ onToggle }) => {
     const [notifs, setNotifs] = useState([]);
     const [unread, setUnread] = useState(0);
     const [filter, setFilter] = useState('ALL');
+    const [mode, setMode] = useState('UNREAD');
+    const [keep, setKeep] = useState([]);
+    const [spin, setSpin] = useState(false);
     const [loading, setLoading] = useState(false);
     const dropRef = useRef(null);
 
@@ -51,17 +74,21 @@ const Header = ({ onToggle }) => {
     const displayRole = isRoot ? 'ROOT OWNER' : (roleMap[user?.role] || 'STAFF');
     const initials = user?.username?.charAt(0).toUpperCase() || 'A';
 
+    /* fix131: pullList can run silently, and sync now keeps the list itself
+       fresh, so the per-group dots on the bell are computed from the very
+       same rows the drawer shows -- one source of truth, no SYNCING flash. */
+    const pullList = useCallback(async (silent) => {
+        if (!silent) setLoading(true);
+        try { setNotifs(await recoveryService.getNotifications()); }
+        catch { if (!silent) setNotifs([]); }
+        finally { if (!silent) setLoading(false); }
+    }, []);
+
     const sync = useCallback(async () => {
         try { setStaleCount((await recoveryService.getTaskCount()) ?? 0); } catch { /* offline */ }
         try { setUnread((await recoveryService.getUnreadCount()) ?? 0); } catch { /* offline */ }
-    }, []);
-
-    const pullList = useCallback(async () => {
-        setLoading(true);
-        try { setNotifs(await recoveryService.getNotifications()); }
-        catch { setNotifs([]); }
-        finally { setLoading(false); }
-    }, []);
+        await pullList(true);
+    }, [pullList]);
 
     /* Poll interval comes from the user's own setting. 0 means manual only:
        the timer is never created, so a phone on metered data can opt out. */
@@ -87,7 +114,8 @@ const Header = ({ onToggle }) => {
     const openDrop = async () => {
         const next = !notifOpen;
         setNotifOpen(next);
-        if (next) await pullList();
+        setKeep([]);
+        if (next) await pullList(notifs.length > 0);
     };
 
     const go = (n) => {
@@ -100,24 +128,67 @@ const Header = ({ onToggle }) => {
         recoveryService.markRead(n.id).then(sync).catch(() => {});
     };
 
+    /* fix131: READ is scoped to what you are looking at. On ALL it is the
+       server-side mark-all; on one group it marks only that group's unread
+       rows, so that group's bell dot clears and the others are untouched.
+       Rows read this way stay listed until the filter or mode changes. */
     const readAll = async () => {
-        setNotifs(list => list.map(x => ({ ...x, read: true })));
-        setUnread(0);
-        try { await recoveryService.markAllRead(); } catch { /* retried on next sync */ }
+        const scope = notifs.filter(n => !n.read && (filter === 'ALL' || describe(n).group === filter));
+        if (scope.length === 0) return;
+        const ids = new Set(scope.map(n => n.id));
+        setKeep(k => [...k, ...scope.map(n => n.id)]);
+        setNotifs(list => list.map(x => (ids.has(x.id) ? { ...x, read: true } : x)));
+        setUnread(u => (filter === 'ALL' ? 0 : Math.max(0, u - scope.length)));
+        try {
+            if (filter === 'ALL') await recoveryService.markAllRead();
+            else await Promise.all(scope.map(n => recoveryService.markRead(n.id)));
+        } catch { /* retried on next sync */ }
         sync();
-        pullList();
     };
 
+    const refresh = async () => {
+        setSpin(true);
+        try { await Promise.all([sync(), new Promise(r => setTimeout(r, 600))]); }
+        finally { setSpin(false); }
+    };
+
+    /* Unread per group. The recovery queue is a computed row, not a stored
+       one, so its missions count toward the RECOVERY dot exactly as they
+       already counted toward the old single badge. */
+    const groupUnread = useMemo(() => {
+        const out = {};
+        GROUP_KEYS.forEach(g => { out[g] = 0; });
+        notifs.forEach(n => { if (!n.read) out[describe(n).group] += 1; });
+        if (staleCount > 0) out[GROUPS.RECOVERY] += staleCount;
+        return out;
+    }, [notifs, staleCount]);
+
+    const dots = GROUP_KEYS.filter(g => groupUnread[g] > 0);
+    const dotTotal = dots.reduce((sum, g) => sum + groupUnread[g], 0);
+    /* Offline / list not loaded yet: fall back to the server counters so the
+       bell still says something is pending. */
+    const badge = dotTotal || (unread + (staleCount > 0 ? staleCount : 0));
+    const scopeUnread = filter === 'ALL' ? dotTotal : groupUnread[filter];
+    const hasPinned = staleCount > 0 && (filter === 'ALL' || filter === 'RECOVERY');
+    const accent = filter === 'ALL' ? '#EE8C3A' : GROUP_COLOR[filter];
+
     const shown = useMemo(() => {
+        const keepSet = new Set(keep);
         const list = notifs.filter(n => {
-            if (filter === 'ALL') return true;
-            if (filter === 'UNREAD') return !n.read;
-            return describe(n).group === filter;
+            if (filter !== 'ALL' && describe(n).group !== filter) return false;
+            return mode === 'ALL' || !n.read || keepSet.has(n.id);
         });
         return list.slice(0, VISIBLE_LIMIT);
-    }, [notifs, filter]);
+    }, [notifs, filter, mode, keep]);
 
-    const badge = unread + (staleCount > 0 ? staleCount : 0);
+    const sections = useMemo(() => BUCKETS.map(b => ({
+        key: b,
+        rows: shown.filter(n => dayBucket(n.createdAt) === b)
+            .sort((a, c) => Number(a.read) - Number(c.read)),
+    })).filter(s => s.rows.length > 0), [shown]);
+
+    const pickFilter = (g) => { setFilter(f => (f === g ? 'ALL' : g)); setKeep([]); };
+    const pickMode = (m) => { setMode(m); setKeep([]); };
 
     return (
         <header className={styles.header}>
@@ -144,48 +215,108 @@ const Header = ({ onToggle }) => {
                         aria-expanded={notifOpen}
                     >
                         <FiBell className={styles.bellIcon} aria-hidden="true" />
-                        {badge > 0 && <span className={styles.badge}>{badge > 99 ? '99+' : badge}</span>}
+                        {badge > 0 && (
+                            <span className={styles.bellDots} aria-hidden="true">
+                                {dots.length > 0 ? dots.map(g => (
+                                    <span key={g} className={styles.bellDot} style={{ background: GROUP_COLOR[g] }}>
+                                        {groupUnread[g] > 99 ? '99+' : groupUnread[g]}
+                                    </span>
+                                )) : (
+                                    <span className={styles.bellDot} style={{ background: '#EE8C3A' }}>
+                                        {badge > 99 ? '99+' : badge}
+                                    </span>
+                                )}
+                            </span>
+                        )}
                     </button>
 
                     {notifOpen && (
-                        <div className={styles.notifDrop} role="dialog" aria-label="Notifications">
-                            <div className={styles.notifHead}>
-                                <span>SIGNALS</span>
-                                {/* Refresh used to sit next to this, but opening the bell already
-                                    pulls a fresh list (see openDrop) -- a second control that does
-                                    the same fetch was just clutter. */}
-                                <button type="button" className={styles.notifReadAll} onClick={readAll}>
-                                    <FiCheck aria-hidden="true" /> READ ALL
-                                </button>
-                            </div>
-
-                            <div className={styles.notifFilters}>
-                                {FILTERS.map(f => (
+                        <div className={styles.notifDrop} role="dialog" aria-label="Notifications" style={{ '--a': accent }}>
+                            <div className={styles.notifHero}>
+                                <div className={styles.notifHeroRow}>
+                                    <span className={styles.notifCount} aria-live="polite">{scopeUnread}</span>
+                                    <div className={styles.notifMeter} aria-hidden="true">
+                                        {dots.map(g => (
+                                            <span
+                                                key={g}
+                                                className={styles.notifMeterSeg}
+                                                style={{
+                                                    width: (groupUnread[g] / (dotTotal || 1) * 100) + '%',
+                                                    background: GROUP_COLOR[g],
+                                                    opacity: filter === 'ALL' || filter === g ? 1 : 0.3,
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className={styles.notifMode} role="group" aria-label="Show signals">
+                                        {['UNREAD', 'ALL'].map(m => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                className={mode === m ? styles.notifModeOn : styles.notifModeBtn}
+                                                onClick={() => pickMode(m)}
+                                                aria-pressed={mode === m}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <button
-                                        key={f.key}
                                         type="button"
-                                        className={filter === f.key ? styles.notifChipActive : styles.notifChip}
-                                        onClick={() => setFilter(f.key)}
+                                        className={`${styles.notifTool} ${spin ? styles.notifSpin : ''}`}
+                                        onClick={refresh}
+                                        aria-label="Refresh signals"
+                                        title="Refresh"
                                     >
-                                        {f.label}
-                                        {f.key === 'UNREAD' && unread > 0 ? ` (${unread})` : ''}
+                                        <FiRefreshCw aria-hidden="true" />
                                     </button>
-                                ))}
+                                    <button
+                                        type="button"
+                                        className={styles.notifTool}
+                                        onClick={readAll}
+                                        aria-label={filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read'}
+                                        title={filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read'}
+                                    >
+                                        <FiCheck aria-hidden="true" />
+                                    </button>
+                                </div>
+
+                                <div className={styles.notifChips}>
+                                    {['ALL', ...GROUP_KEYS].map(k => {
+                                        const n = k === 'ALL' ? dotTotal : groupUnread[k];
+                                        const on = filter === k;
+                                        return (
+                                            <button
+                                                key={k}
+                                                type="button"
+                                                data-empty={!on && n === 0 ? 'true' : undefined}
+                                                className={on ? styles.notifChipOn : styles.notifChip}
+                                                style={{ '--a': k === 'ALL' ? '#EE8C3A' : GROUP_COLOR[k] }}
+                                                onClick={() => pickFilter(k)}
+                                                aria-pressed={on}
+                                            >
+                                                <span className={styles.notifChipDot} aria-hidden="true" />
+                                                <span className={styles.notifChipLabel}>{k}</span>
+                                                <em className={styles.notifChipCount}>{n}</em>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div className={styles.notifList}>
                                 {/* The recovery queue is computed, not stored, so it is not a
                                     row in the notifications table -- but it is the most
                                     actionable thing the bell knows, so it pins to the top. */}
-                                {staleCount > 0 && (filter === 'ALL' || filter === 'RECOVERY') && (
+                                {hasPinned && (
                                     <button type="button" className={styles.notifRowPinned}
                                         onClick={() => { setNotifOpen(false); navigate('/recovery'); }}>
-                                        <span className={styles.notifIcon} style={{ color: GROUP_COLOR.RECOVERY, background: GROUP_BG.RECOVERY }}>
-                                            <FiPhoneCall aria-hidden="true" />
-                                        </span>
                                         <span className={styles.notifBody}>
-                                            <span className={styles.notifType} style={{ color: GROUP_COLOR.RECOVERY }}>RECOVERY QUEUE</span>
-                                            <span className={styles.notifMsg}>
+                                            <span className={styles.notifPinType}>
+                                                RECOVERY QUEUE
+                                                <time className={styles.notifPinTag}>PINNED</time>
+                                            </span>
+                                            <span className={styles.notifPinMsg}>
                                                 {staleCount} mission{staleCount > 1 ? 's' : ''} due now
                                             </span>
                                         </span>
@@ -194,45 +325,49 @@ const Header = ({ onToggle }) => {
 
                                 {loading && <div className={styles.notifEmpty}>SYNCING...</div>}
 
-                                {!loading && shown.length === 0 && staleCount === 0 && (
-                                    <div className={styles.notifEmpty}>NO SIGNALS</div>
+                                {!loading && sections.length === 0 && !hasPinned && (
+                                    <div className={styles.notifEmpty}>
+                                        {mode === 'UNREAD' ? 'ALL CAUGHT UP' : 'NO SIGNALS'}
+                                        {mode === 'UNREAD' && (
+                                            <button type="button" className={styles.notifLink} onClick={() => pickMode('ALL')}>
+                                                VIEW ALL
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
 
-                                {!loading && shown.map(n => {
-                                    const meta = describe(n);
-                                    const Icon = meta.icon;
-                                    /* Same colour that tints the icon chip now drives the row's left
-                                       edge, the type label and the unread dot -- one hue per group,
-                                       not one orange for every kind of signal. */
-                                    const tint = GROUP_COLOR[meta.group] || SEVERITY_COLOR[meta.severity] || '#94a3b8';
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={n.id}
-                                            data-group={meta.group}
-                                            className={`${styles.notifRow} ${n.read ? styles.notifRead : ''}`}
-                                            style={{ borderLeftColor: tint }}
-                                            onClick={() => go(n)}
-                                        >
-                                            <span className={styles.notifIcon}
-                                                style={{
-                                                    color: GROUP_COLOR[meta.group] || SEVERITY_COLOR[meta.severity] || 'var(--info)',
-                                                    background: GROUP_BG[meta.group] || 'rgba(6, 182, 212, 0.16)',
-                                                    boxShadow: meta.severity === 'CRITICAL' ? '0 0 0 1.5px rgba(244, 63, 94, 0.6)' : 'none',
-                                                }}>
-                                                <Icon aria-hidden="true" />
-                                            </span>
-                                            <span className={styles.notifBody}>
-                                                <span className={styles.notifType} style={{ color: tint }}>
-                                                    {meta.label}
-                                                    <time className={styles.notifTime}>{relativeTime(n.createdAt)}</time>
-                                                </span>
-                                                <span className={styles.notifMsg}>{n.message}</span>
-                                            </span>
-                                            {!n.read && <span className={styles.notifUnreadDot} style={{ background: tint, boxShadow: `0 0 5px ${tint}` }} aria-label="Unread" />}
-                                        </button>
-                                    );
-                                })}
+                                {!loading && sections.map(s => (
+                                    <React.Fragment key={s.key}>
+                                        <div className={styles.notifDay}>{s.key}</div>
+                                        {s.rows.map(n => {
+                                            const meta = describe(n);
+                                            /* One hue per group drives the row tint, the type
+                                               heading and the unread dot; CRITICAL goes red. */
+                                            const tint = meta.severity === 'CRITICAL'
+                                                ? CRITICAL_TINT
+                                                : (GROUP_COLOR[meta.group] || '#94a3b8');
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={n.id}
+                                                    data-group={meta.group}
+                                                    className={`${styles.notifRow} ${n.read ? styles.notifRead : styles.notifUnread}`}
+                                                    style={{ '--t': tint }}
+                                                    onClick={() => go(n)}
+                                                >
+                                                    <span className={styles.notifBody}>
+                                                        <span className={styles.notifType}>
+                                                            {meta.label}
+                                                            <time className={styles.notifTime}>{relativeTime(n.createdAt)}</time>
+                                                        </span>
+                                                        <span className={styles.notifMsg}>{n.message}</span>
+                                                    </span>
+                                                    {!n.read && <span className={styles.notifUnreadDot} aria-label="Unread" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
 
                                 {!loading && notifs.length > VISIBLE_LIMIT && (
                                     <div className={styles.notifEmpty}>
@@ -240,6 +375,11 @@ const Header = ({ onToggle }) => {
                                     </div>
                                 )}
                             </div>
+
+                            <button type="button" className={styles.notifFoot}
+                                onClick={() => { setNotifOpen(false); navigate('/settings'); }}>
+                                NOTIFICATION SETTINGS
+                            </button>
                         </div>
                     )}
                 </div>

@@ -204,24 +204,33 @@
 }
 .activeSensor .bellIcon { opacity: 1; }
 
-/* Red badge counter */
-.badge {
-    position: absolute; top: -5px; right: -5px;
+/* fix131: one dot per group with unread items, same colours as the
+   drawer chips, each carrying its own count. Replaces the single red
+   count badge. Dark ink on the light group colours for contrast. */
+.bellDots {
+    position: absolute; top: -9px; right: -14px;
+    display: flex;
+    pointer-events: none;
+}
+.bellDot {
+    box-sizing: border-box;
     min-width: 18px; height: 18px;
+    margin-left: -5px;
+    padding: 0 3px;
     border-radius: 9px;
-    background: #e5484d;
-    color: #fff;
+    border: 2px solid #162a2c;
+    color: #0f1f20;
     font-family: 'Space Mono', monospace;
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 4px;
-    border: 1.5px solid #162a2c;
+    animation: bellDotPop 0.3s ease-out both;
 }
+@keyframes bellDotPop { from { transform: scale(0); } to { transform: scale(1); } }
 
-/* ── OPERATOR CARD ──────────────────────────────────────────────── */
+/* --- OPERATOR CARD --- */
 .userCard {
     display: flex;
     align-items: center;
@@ -332,219 +341,294 @@
 /* ═══════════════════════════════════════════════════════════════════
    NOTIFICATION CENTRE
 
-   Filters across the top, one icon per type, a relative timestamp on
-   every row, and an unread marker that is a shape as well as an
-   opacity so it survives the high-contrast setting.
+   fix131: hero (count + colour meter + mode/refresh/read), dot-chip
+   tray, day-grouped icon-free rows split by hairlines. Unread rows
+   are tinted by group, read rows sit on flat grey. The scrollbar is
+   the app's own (Shell.scrollArea): thin, orange thumb, 6px, r10.
    ═══════════════════════════════════════════════════════════════════ */
 
 .notifDrop {
+    --a: #EE8C3A;
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
     z-index: 10;
-    min-width: 320px;
-    max-width: 380px;
-    max-height: min(560px, calc(100vh - var(--header-height, 64px) - 24px));
+    width: min(460px, calc(100vw - 16px));
+    max-height: calc(100vh - var(--header-height, 64px) - 24px);
     display: flex;
     flex-direction: column;
-    /* fix114: lighter, inspired by Recovery's glass pageHeader -- a warm
-       white card with a left orange accent stripe, instead of the same
-       near-black gradient every other panel in the app already moved off
-       of for anything meant to be scanned quickly rather than worked in. */
-    background: rgba(255, 255, 255, 0.97);
-    backdrop-filter: blur(18px);
-    border: 1.5px solid rgba(238, 140, 58, 0.3);
-    border-left: 4px solid #EE8C3A;
-    border-radius: 12px;
-    box-shadow: 0 18px 44px rgba(26, 46, 48, 0.22);
+    background: #f3f6f6;
+    border: 1.5px solid #aebdbc;
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(22, 42, 44, 0.28);
     overflow: hidden;
+    transition: border-color 0.2s ease;
+    animation: notifIn 0.2s ease-out both;
+}
+.notifDrop:hover { border-color: var(--a); }
+@keyframes notifIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.notifHead {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 13px;
-    background: rgba(244, 239, 232, 0.6);
-    border-bottom: 2px solid #EE8C3A; /* fix130: Settings' prefGroupLabel divider language */
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: #1a2e30;
+/* -- hero ------------------------------------------------------------ */
+.notifHero {
     flex-shrink: 0;
+    padding: clamp(8px, 1vw, 10px);
+    background: linear-gradient(135deg, #3a5a5c 0%, #1c3335 65%, #16292b 100%);
+    border-bottom: 2px solid var(--a);
+    transition: border-color 0.2s ease;
 }
-.notifReadAll {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: transparent;
-    border: 1px solid rgba(26, 46, 48, 0.18);
-    color: rgba(26, 46, 48, 0.6);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 8px;
+.notifHeroRow { display: flex; align-items: center; gap: clamp(6px, 0.8vw, 8px); }
+.notifCount {
+    min-width: 26px;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(20px, 2.2vw, 24px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--a);
+}
+.notifMeter {
+    flex: 1; min-width: 24px;
+    display: flex; gap: 2px;
+    height: 7px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.14);
+}
+.notifMeterSeg { display: block; height: 100%; transition: width 0.4s ease, opacity 0.2s ease; }
+
+.notifMode { display: inline-flex; flex-shrink: 0; background: rgba(0, 0, 0, 0.28); border-radius: 6px; padding: 2px; }
+.notifModeBtn, .notifModeOn {
+    -webkit-appearance: none; appearance: none;
+    border: 0; border-radius: 4px;
+    padding: 6px clamp(6px, 0.8vw, 8px);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8px, 0.85vw, 9px);
     font-weight: 900;
     letter-spacing: 1px;
     cursor: pointer;
-    transition: all 0.16s ease;
+    transition: color 0.2s ease, background 0.2s ease;
 }
-.notifReadAll:hover { color: #fff; background: #EE8C3A; border-color: #EE8C3A; }
+.notifModeBtn { background: transparent; color: rgba(255, 255, 255, 0.7); }
+.notifModeBtn:hover { color: #EE8C3A; }
+.notifModeOn { background: #EE8C3A; color: #1a2e30; }
 
-/* ── filters ───────────────────────────────────────────────────────── */
-/* fix129: wraps instead of scrolling -- 7 filters (ALL/UNREAD/
-   MONEY/PIPELINE/RECOVERY/STAFF/SYSTEM) in a 320-380px panel
-   used to hide 2 of them behind an overflow-x scroll with no
-   scrollbar and no fade to hint it was there. Every chip is now
-   on screen at once. */
-.notifFilters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    padding: 9px 11px;
-    border-bottom: 1px solid rgba(26, 46, 48, 0.08);
+.notifTool {
+    -webkit-appearance: none; appearance: none;
     flex-shrink: 0;
+    width: 28px; height: 28px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border-radius: 6px;
+    color: #EE8C3A;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.notifTool:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.notifSpin svg { animation: notifSpin 0.8s linear infinite; }
+@keyframes notifSpin { to { transform: rotate(360deg); } }
+
+.notifModeBtn:focus-visible, .notifModeOn:focus-visible, .notifTool:focus-visible,
+.notifChip:focus-visible, .notifChipOn:focus-visible, .notifRow:focus-visible,
+.notifRowPinned:focus-visible, .notifFoot:focus-visible, .notifLink:focus-visible {
+    outline: 2px solid #EE8C3A;
+    outline-offset: -2px;
 }
 
-.notifChip, .notifChipActive {
-    white-space: nowrap;
-    border-radius: 20px;
-    padding: 4px 11px;
+/* -- chips: the selected one takes the free width and clips its own
+   label, so nothing can ever spill out of the tray ------------------- */
+.notifChips {
+    display: flex; gap: 3px;
+    margin-top: clamp(6px, 0.8vw, 8px);
+    padding: 3px;
+    background: #4d5c5a;
+    border-radius: 7px;
+    overflow: hidden;
+}
+.notifChip, .notifChipOn {
+    -webkit-appearance: none; appearance: none;
+    min-width: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 5px;
+    border: 0; border-radius: 5px;
+    padding: 6px clamp(5px, 0.7vw, 8px);
     font-family: 'Inter', sans-serif;
-    font-size: 8.5px;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+.notifChip { flex: 0 1 auto; background: transparent; color: #fff; }
+.notifChip:hover { background: rgba(255, 255, 255, 0.1); }
+.notifChip[data-empty='true'] { opacity: 0.5; }
+.notifChipOn { flex: 1 1 0; background: var(--a); color: #1a2e30; }
+.notifChipDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
+.notifChipOn .notifChipDot { display: none; }
+.notifChipLabel { display: none; overflow: hidden; text-overflow: ellipsis; }
+.notifChipOn .notifChipLabel { display: inline; }
+.notifChipCount {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-style: normal;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+/* -- list: content-fit, short limit, then scroll. Scrollbar copied from
+   Shell.module.css .scrollArea (the app's official one). --------------- */
+.notifList {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: min(340px, calc(100vh - var(--header-height, 64px) - 190px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #f3f6f6;
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange, #EE8C3A) transparent;
+}
+.notifList::-webkit-scrollbar { width: 6px; }
+.notifList::-webkit-scrollbar-track { background: transparent; }
+.notifList::-webkit-scrollbar-thumb { background: var(--orange, #EE8C3A); border-radius: 10px; }
+.notifList::-webkit-scrollbar-thumb:hover { background: #f59a4a; }
+
+.notifDay {
+    position: sticky; top: 0; z-index: 1;
+    padding: 3px 12px;
+    background: #3f5654;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9px);
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* -- rows: hairline separators, no icons, no card gaps --------------- */
+.notifRow, .notifRowPinned {
+    -webkit-appearance: none; appearance: none;
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid #cbd6d6;
+    border-left: 3px solid var(--t, transparent);
+    border-radius: 0;
+    padding: clamp(7px, 0.9vw, 9px) 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+.notifUnread { background: #ffffff; background: color-mix(in srgb, var(--t) 9%, #ffffff); }
+.notifUnread:hover { background: #f6f9f9; background: color-mix(in srgb, var(--t) 17%, #ffffff); }
+.notifRead { border-left-color: transparent; background: #e4eaea; }
+.notifRead:hover { background: #dde4e4; }
+
+.notifBody { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.notifType {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8.5px, 0.9vw, 10px);
     font-weight: 900;
     letter-spacing: 1.1px;
-    cursor: pointer;
-    transition: all 0.16s ease;
-    border: 1px solid rgba(26, 46, 48, 0.16);
-    background: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    color: var(--t);
+    color: color-mix(in srgb, var(--t) 62%, #000000);
+}
+.notifRead .notifType { color: #6b7b79; }
+.notifTime {
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    text-transform: none;
     color: rgba(26, 46, 48, 0.55);
 }
-.notifChip:hover { color: #EE8C3A; border-color: #EE8C3A; background: rgba(238, 140, 58, 0.08); }
-.notifChipActive {
-    background: #EE8C3A;
-    border-color: #EE8C3A;
-    color: #fff;
+.notifMsg {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 1.1vw, 13px);
+    font-weight: 600;
+    color: #1a2e30;
+    line-height: 1.35;
+    word-break: break-word;
 }
-
-/* ── list ──────────────────────────────────────────────────────────── */
-/* fix114: a warm tray behind white row-cards, same language as the Report
-   Catalogue -- the tray supplies the contrast, so each group's own colour
-   (left edge, icon chip, label, unread dot) is what actually stands out,
-   not a dark background every row shares regardless of type. */
-.notifList {
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    background: #f2ede4; /* fix130: unified cream baseline w/ Settings + Report Catalogue */
-    padding: 7px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.notifRow, .notifRowPinned {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    width: 100%;
-    text-align: left;
-    background: #ffffff;
-    border: 1px solid rgba(26, 46, 48, 0.12); /* fix130: bounded mini-card, matches Settings' prefRow */
-    border-left: 4px solid transparent;
-    border-radius: 9px;
-    padding: 10px 12px;
-    cursor: pointer;
-    box-shadow: 0 2px 7px rgba(26, 46, 48, 0.1);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-.notifRow:hover, .notifRowPinned:hover { box-shadow: 0 8px 20px rgba(26, 46, 48, 0.18); transform: translateY(-1px); }
-.notifRow:focus-visible, .notifRowPinned:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
-
-/* The recovery queue is pinned and is not a stored row, so it is marked
-   as different rather than pretending to be one of the list. */
-.notifRowPinned {
-    background: #fff7ed;
-    border-color: rgba(238, 140, 58, 0.3);
-    border-left: 4px solid #EE8C3A;
-}
-
-/* Read rows dim, but the unread ones also carry a dot -- opacity alone
-   disappears under the high-contrast setting. */
-.notifRead { opacity: 0.6; }
-
-.notifIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
+.notifRead .notifMsg { font-weight: 500; color: #4a5a58; }
+.notifUnreadDot {
     flex-shrink: 0;
-    font-size: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--t, #EE8C3A);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.22);
 }
 
-.notifBody {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
+/* The recovery queue is pinned and is not a stored row, so it is dark and
+   marked as different rather than pretending to be one of the list. */
+.notifRowPinned {
+    background: linear-gradient(135deg, #2a4a4c, #16292b);
+    border-left-color: #f97316;
+    border-bottom-color: #16292b;
 }
+.notifRowPinned:hover { background: linear-gradient(135deg, #335a5c, #1c3335); }
+.notifPinType {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8.5px, 0.9vw, 10px);
+    font-weight: 900;
+    letter-spacing: 1.1px;
+    color: #fdba74;
+}
+.notifPinTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 400; letter-spacing: 1px; color: rgba(255, 255, 255, 0.5); }
+.notifPinMsg { font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.1vw, 13px); font-weight: 600; color: #ffffff; line-height: 1.35; }
 
-.notifType {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+.notifEmpty {
+    padding: 22px 13px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.9vw, 10px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: rgba(26, 46, 48, 0.5);
+}
+.notifLink {
+    -webkit-appearance: none; appearance: none;
+    display: block;
+    margin: 8px auto 0;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border-radius: 5px;
+    color: #bf6413;
     font-family: 'Inter', sans-serif;
     font-size: 9px;
     font-weight: 900;
     letter-spacing: 1.2px;
-    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
 }
+.notifLink:hover { background: #EE8C3A; color: #1a2e30; }
 
-.notifTime {
+.notifFoot {
+    -webkit-appearance: none; appearance: none;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 9px;
+    border: 0;
+    border-top: 2px solid var(--a);
+    background: #162a2c;
+    color: #ffffff;
     font-family: 'Space Mono', monospace;
-    font-size: 8px;
+    font-size: clamp(8px, 0.9vw, 10px);
     font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: none;
-    color: rgba(26, 46, 48, 0.42);
-    flex-shrink: 0;
-}
-
-.notifMsg {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #1a2e30;
-    line-height: 1.45;
-    word-break: break-word;
-}
-
-/* fix114: colour now comes from the row's own group (set inline in
-   Header.jsx from the same GROUP_COLOR map the icon chip reads) instead
-   of every dot being the same orange no matter what kind of signal it is. */
-.notifUnreadDot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #EE8C3A;
-    flex-shrink: 0;
-    margin-top: 6px;
-}
-
-.notifEmpty {
-    padding: 20px 13px;
+    letter-spacing: 1.6px;
     text-align: center;
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: rgba(26, 46, 48, 0.4);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
 }
+.notifFoot:hover { color: #EE8C3A; }
 
 @media (max-width: 480px) {
     .notifDrop {
@@ -553,7 +637,6 @@
         left: 8px;
         right: 8px;
         width: auto;
-        max-width: none;
         max-height: calc(100vh - var(--header-height) - 16px);
     }
 }

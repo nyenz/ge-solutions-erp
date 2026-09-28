@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
-# PATH: fix132.py
-# GOLDEN SEED -- fix132: two changes, both on FolderPage.
-#   1. REVERT fix131's PLOT DETAILS treatment. The cream prefGroupBox
-#      cards didn't land well against the panel's dark gradient -- back
-#      to the original flat, dark spec grid and the original copy-free
-#      spec items. Organisation is kept, but the lightweight way: a
-#      slim LOCATION / TITLE label (the .sectionSubHeader style that
-#      already existed in this file, unused, for exactly this) sits
-#      above each group instead of boxing it.
-#   2. Settings' TAB DOCK, ported onto the Folder page's own section
-#      tabs. OVERVIEW/FINANCIALS/OWNERS/DOCUMENTS/NOTES move from five
-#      separately-bordered floating pills into the one shared grey tray
-#      (#4d5c5a) holding borderless pills that solid-fill on selection
-#      -- Settings' exact tabDock/tab/tabOn construction -- with each
-#      tab keeping its own destination accent (orange/cyan/violet/
-#      slate/red) the way Settings' own dock hints at where a tab leads
-#      before you land there.
+# PATH: fix131.py
+# GOLDEN SEED -- fix131: NOTIFICATION CENTRE v2 ("Hero Chips").
+#   The SIGNALS dropdown is rebuilt on the Settings-page system (dark
+#   gradient hero, grey tray dock, accent rule that follows the active
+#   filter) and its read/unread/group logic is made coherent with the
+#   bell. Frontend only (Header.jsx + Header.module.css), no backend.
 #
-# Surgical find/replace against known-good source text, not a full
-# rewrite. Runs `npm run build` before committing if node_modules is
-# installed and refuses to commit on a red build.
+#     1. BELL DOTS. The single red count badge is replaced by one
+#        coloured dot per group that has unread items (same colours as
+#        the chips), each carrying its own count. sync() now also pulls
+#        the list silently, so the dots and the drawer read the SAME rows.
+#     2. HERO. Unread count for the current scope + a stacked colour
+#        meter (other groups dim when one is selected) + UNREAD/ALL mode
+#        switch + REFRESH + READ. The old "SIGNALS" title is gone.
+#     3. CHIPS. ALL + five groups. Counts are UNREAD counts, identical to
+#        the bell dots. The selected chip takes the free width and clips
+#        its own label, so it can never overflow its tray (SYSTEM incl.).
+#     4. LOGIC. Default mode is UNREAD; empty state = ALL CAUGHT UP with a
+#        VIEW ALL link. READ is scoped to the current group (ALL uses the
+#        server-side mark-all). Rows read this way stay visible until the
+#        filter or mode changes, so the list never jumps under the cursor.
+#        Clicking the selected chip again returns to ALL.
+#     5. LIST. Grouped TODAY / YESTERDAY / EARLIER (calendar days), unread
+#        first inside each. No icons. Hairline separators, no card gaps.
+#        Unread rows are tinted by group, read rows sit on flat grey, type
+#        headings take the group colour (CRITICAL severity = red).
+#     6. SIZE. Wider (460px) and content-fit: it only grows to a short
+#        list limit, then scrolls. Scrollbar is the app's own
+#        (Shell.scrollArea: thin, orange thumb, 6px, radius 10px).
+#     7. Footer link to Settings (where the refresh interval lives).
+#
+# Atomic: every patch for both files is matched in memory first; if any
+# one is MISSING nothing is written and nothing is committed. Runs
+# `npm run build` before committing if node_modules is installed and
+# refuses to commit on a red build.
 import os
 import subprocess
 import sys
@@ -28,257 +42,760 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
-FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
-FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
+HEADER_JSX = os.path.join(SRC, "components", "layout", "Header.jsx")
+HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
+
+MISSING = []
 
 
-def apply_patches(path, patches):
-    with open(path, "r", encoding="utf-8") as f:
-        text = f.read()
-
-    rel = os.path.relpath(path, ROOT)
-    applied = 0
-    for old, new, desc in patches:
-        if old not in text:
-            if new and new in text:
-                print("skip: " + rel + " -- '" + desc + "' already applied")
-            else:
-                print("WARN: " + rel + " -- '" + desc + "' did not match expected text, check manually")
-            continue
-        text = text.replace(old, new, 1)
-        applied += 1
-
-    if applied:
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-        print("written: " + rel + " (" + str(applied) + "/" + str(len(patches)) + " patch(es) applied)")
-    else:
-        print("skip: " + rel + " -- no patches applied")
-    return applied
+def read(path):
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return f.read()
 
 
-# ═══ FolderPage.jsx ═══
-apply_patches(FOLDER_JSX, [
-    (
-        # 1. fix131's FiCopy import reverted -- no longer used.
-        "    FiDollarSign, FiActivity, FiHome, FiArchive,\n"
-        "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiCopy\n"
-        "} from 'react-icons/fi';",
+def write(path, text):
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
-        "    FiDollarSign, FiActivity, FiHome, FiArchive,\n"
-        "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp\n"
-        "} from 'react-icons/fi';",
 
-        "FiCopy import reverted",
-    ),
-    (
-        # 2. fix131's copy handler removed.
-        "    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };\n"
-        "    const handleCopySpec = (value, label) => { if (!value) return; navigator.clipboard?.writeText(String(value)).then(() => toast(label + ' copied', 'success', 1500)).catch(() => toast('Copy failed', 'error')); };",
+def sub(text, old, new, desc):
+    """Exact find/replace, first occurrence. Prints OK / SKIP / MISSING."""
+    if old in text:
+        print("OK: " + desc)
+        return text.replace(old, new, 1)
+    if new in text:
+        print("SKIP: " + desc + " -- already applied")
+        return text
+    print("MISSING: " + desc)
+    MISSING.append(desc)
+    return text
 
-        "    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };",
 
-        "handleCopySpec handler removed",
-    ),
-    (
-        # 3. back to the flat, dark spec grid -- no boxes, no copy
-        # buttons -- with a slim LOCATION / TITLE label above each
-        # group using the file's own pre-existing sectionSubHeader
-        # style instead of a bounded card.
-        "                        </>) : (<>\n"
-        "                            <div className={styles.plotGroupsGrid}>\n"
-        "                                <div className={styles.plotGroupBox} data-accent=\"orange\">\n"
-        "                                    <div className={styles.plotGroupLabel}>LOCATION</div>\n"
-        "                                    <div className={styles.readOnlyGrid}>\n"
-        "                                        {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (\n"
-        "                                            <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValueRow}><span className={styles.specValue}>{v || '---'}</span>{v && <button type=\"button\" className={styles.copyBtn} onClick={() => handleCopySpec(v, l)} aria-label={`Copy ${l}`}><FiCopy aria-hidden=\"true\" /></button>}</span></div>))}\n"
-        "                                    </div>\n"
-        "                                </div>\n"
-        "                                {project.landTitle && (<div className={styles.plotGroupBox} data-accent=\"cyan\">\n"
-        "                                    <div className={styles.plotGroupLabel}>TITLE</div>\n"
-        "                                    <div className={styles.readOnlyGrid}>\n"
-        "                                        {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (\n"
-        "                                            <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValueRow}><span className={styles.specValue}>{v || '---'}</span>{v && <button type=\"button\" className={styles.copyBtn} onClick={() => handleCopySpec(v, l)} aria-label={`Copy ${l}`}><FiCopy aria-hidden=\"true\" /></button>}</span></div>))}\n"
-        "                                    </div>\n"
-        "                                </div>)}\n"
-        "                            </div>\n"
-        "                        </>)}",
+def between(text, start, end, new, desc):
+    """Replace everything from `start` up to (not including) `end`."""
+    i = text.find(start)
+    j = text.find(end, i + 1) if i >= 0 else -1
+    if i >= 0 and j > i:
+        print("OK: " + desc)
+        return text[:i] + new + text[j:]
+    if new in text:
+        print("SKIP: " + desc + " -- already applied")
+        return text
+    print("MISSING: " + desc)
+    MISSING.append(desc)
+    return text
 
-        "                        </>) : (<>\n"
-        "                            <div className={styles.sectionSubHeader}>LOCATION</div>\n"
-        "                            <div className={styles.readOnlyGrid}>\n"
-        "                                {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (\n"
-        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
-        "                            </div>\n"
-        "                            {project.landTitle && (<>\n"
-        "                            <div className={styles.sectionSubHeader}>TITLE</div>\n"
-        "                            <div className={styles.readOnlyGrid}>\n"
-        "                                {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (\n"
-        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
-        "                            </div>\n"
-        "                            </>)}\n"
-        "                        </>)}",
 
-        "PLOT DETAILS reverted to flat spec grid w/ LOCATION/TITLE sectionSubHeader labels",
-    ),
-    (
-        # 4. per-tab accent map, sitting right next to TABS itself.
-        "    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];",
+def tail(text, start, new, desc):
+    """Replace everything from `start` to end of file."""
+    i = text.find(start)
+    if i >= 0:
+        print("OK: " + desc)
+        return text[:i] + new
+    if new in text:
+        print("SKIP: " + desc + " -- already applied")
+        return text
+    print("MISSING: " + desc)
+    MISSING.append(desc)
+    return text
 
-        "    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];\n"
-        "    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', OWNERS: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };",
 
-        "TAB_ACCENTS map added",
-    ),
-    (
-        # 5. tab bar markup -> Settings' tabDock/tabRow/tab-tabOn
-        # construction. .tabBar itself is left as the outer wrapper
-        # (it's the hook print/media rules already target), now just
-        # holding the dock instead of five loose pills directly.
-        "            <div className={styles.tabBar} role=\"tablist\" aria-label=\"Record sections\">\n"
-        "                {TABS.map(tab => (<button key={tab} role=\"tab\" aria-selected={activeTab === tab}\n"
-        "                    className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab(tab)} title={tab}>\n"
-        "                    <span className={styles.tabFull}>{tab}</span><span className={styles.tabShort}>{tab.substring(0, 2)}</span>\n"
-        "                </button>))}\n"
-        "            </div>",
+# ======================================================================
+# Header.jsx
+# ======================================================================
+jsx0 = read(HEADER_JSX)
+jsx = jsx0
 
-        "            <div className={styles.tabBar} role=\"tablist\" aria-label=\"Record sections\">\n"
-        "                <div className={styles.tabDock}>\n"
-        "                    <div className={styles.tabRow}>\n"
-        "                        {TABS.map(tab => (<button key={tab} role=\"tab\" aria-selected={activeTab === tab}\n"
-        "                            data-accent={TAB_ACCENTS[tab]}\n"
-        "                            className={activeTab === tab ? styles.tabOn : styles.tab} onClick={() => setActiveTab(tab)} title={tab}>\n"
-        "                            <span className={styles.tabFull}>{tab}</span><span className={styles.tabShort}>{tab.substring(0, 2)}</span>\n"
-        "                        </button>))}\n"
-        "                    </div>\n"
-        "                </div>\n"
-        "            </div>",
+jsx = sub(jsx,
+          " * WHAT CHANGED AND WHY (fix71)",
+          " * fix131: the dropdown is now a hero (unread count + colour meter + mode,\n"
+          " * refresh, read) over a dot-chip tray and a day-grouped, icon-free list.\n"
+          " * Bell dots, chip counts and the hero number are all UNREAD counts computed\n"
+          " * from the same rows. READ is scoped to the group being viewed.\n"
+          " *\n"
+          " * WHAT CHANGED AND WHY (fix71)",
+          "Header.jsx doc comment")
 
-        "tab bar markup switched to Settings' tabDock construction",
-    ),
-])
+jsx = sub(jsx,
+          "import { FiMenu, FiBell, FiLogOut, FiCheck, FiPhoneCall, FiShield } from 'react-icons/fi';",
+          "import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiShield } from 'react-icons/fi';",
+          "icon imports (FiRefreshCw in, FiPhoneCall out)")
 
-# ═══ FolderPage.module.css ═══
-apply_patches(FOLDER_CSS, [
-    (
-        # 1. fix131's cream-card block removed outright.
-        "\n"
-        "\n"
-        "/* ═══════════════════════════════════════════════════════════════════\n"
-        "   PLOT DETAILS GROUPING (fix131) — Settings-page parity\n"
-        "   The flat spec list becomes two bounded, cream mini-cards -- the\n"
-        "   exact prefGroupBox/prefGroupLabel language Settings' Appearance\n"
-        "   panel uses for Display/Interaction/Notifications -- instead of one\n"
-        "   undivided run of fields on the dark panel body.\n"
-        "   ═══════════════════════════════════════════════════════════════════ */\n"
-        ".plotGroupsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap-lg); align-items: start; }\n"
-        ".plotGroupBox {\n"
-        "    --accent: var(--orange);\n"
-        "    background: #f2ede4; border: 1px solid rgba(26,46,48,0.14);\n"
-        "    border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);\n"
-        "}\n"
-        ".plotGroupBox[data-accent=\"cyan\"] { --accent: var(--cyan); }\n"
-        ".plotGroupLabel {\n"
-        "    font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);\n"
-        "    font-weight: 900; letter-spacing: 2px; text-transform: uppercase;\n"
-        "    color: var(--accent); border-bottom: 2px solid var(--accent);\n"
-        "    padding: 0 0 clamp(7px,0.9vw,10px); margin-bottom: clamp(9px,1.2vw,14px);\n"
-        "}\n"
-        ".plotGroupBox .readOnlyGrid { row-gap: clamp(9px, 1.2vw, 14px); }\n"
-        ".plotGroupBox .specItem { border-left: 2px solid rgba(26,46,48,0.18); padding: 2px 0 2px clamp(8px,1.1vw,12px); }\n"
-        ".plotGroupBox .specLabel { color: rgba(26,46,48,0.55); }\n"
-        ".plotGroupBox .specValue { color: #1a2e30; }\n"
-        "\n"
-        "/* Click-to-copy: quiet until the row is hovered/focused, then the\n"
-        "   icon steps up to the group's own accent -- orange in LOCATION,\n"
-        "   cyan in TITLE -- same recolor-per-group trick Settings uses. */\n"
-        ".specValueRow { display: flex; align-items: center; gap: 6px; min-width: 0; }\n"
-        ".copyBtn {\n"
-        "    background: transparent; border: none; color: inherit; opacity: 0;\n"
-        "    cursor: pointer; padding: 2px; font-size: 11px; flex-shrink: 0;\n"
-        "    display: inline-flex; align-items: center;\n"
-        "    transition: opacity 0.15s ease, color 0.15s ease;\n"
-        "}\n"
-        ".specItem:hover .copyBtn, .copyBtn:focus-visible { opacity: 0.55; }\n"
-        ".copyBtn:hover, .copyBtn:focus-visible { opacity: 1 !important; color: var(--orange); outline: none; }\n"
-        ".plotGroupBox .copyBtn:hover, .plotGroupBox .copyBtn:focus-visible { color: var(--accent, var(--orange)); }\n"
-        "\n"
-        "\n"
-        "/* ═══════════════════════════════════════════════════════════════════\n"
-        "   EDIT INPUT GRID — strict repeat(3,1fr), no auto-fit\n"
-        "   auto-fit collapses columns unpredictably on narrow panels\n"
-        "   ═══════════════════════════════════════════════════════════════════ */",
+jsx = sub(jsx,
+          "import { describe, routeFor, relativeTime, GROUP_COLOR, GROUP_BG, SEVERITY_COLOR, FILTERS } from '../common/notificationCatalog';",
+          "import { describe, routeFor, relativeTime, GROUP_COLOR, GROUPS } from '../common/notificationCatalog';",
+          "catalog imports")
 
-        "\n"
-        "\n"
-        "/* ═══════════════════════════════════════════════════════════════════\n"
-        "   EDIT INPUT GRID — strict repeat(3,1fr), no auto-fit\n"
-        "   auto-fit collapses columns unpredictably on narrow panels\n"
-        "   ═══════════════════════════════════════════════════════════════════ */",
+jsx = sub(jsx,
+          "const VISIBLE_LIMIT = 40;\n",
+          r'''const VISIBLE_LIMIT = 40;
+const GROUP_KEYS = Object.values(GROUPS);
+const CRITICAL_TINT = '#dc2626';
+const BUCKETS = ['TODAY', 'YESTERDAY', 'EARLIER'];
 
-        "fix131 plotGroupBox/copyBtn block removed",
-    ),
-    (
-        # 2. Settings' tabDock/tabRow/tab-tabOn construction, dropped
-        # right after the old tabBtn rules so both live together for
-        # anyone diffing the history (tabBtn rules elsewhere in the
-        # file are now unused but left in place, same as every other
-        # superseded-in-place block this file already carries).
-        ".tabBtn:focus-visible {\n"
-        "    outline: 2px solid var(--orange);\n"
-        "    outline-offset: 2px;\n"
-        "}",
+/* fix131: signals are bucketed by calendar day (since local midnight),
+   not by a rolling 24 hours, so TODAY means what people mean by it. */
+const dayBucket = (iso) => {
+    const t = new Date(iso);
+    if (Number.isNaN(t.getTime())) return 'EARLIER';
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    if (t >= start) return 'TODAY';
+    if (t.getTime() >= start.getTime() - 86400000) return 'YESTERDAY';
+    return 'EARLIER';
+};
+''',
+          "constants + dayBucket helper")
 
-        ".tabBtn:focus-visible {\n"
-        "    outline: 2px solid var(--orange);\n"
-        "    outline-offset: 2px;\n"
-        "}\n"
-        "\n"
-        "/* ── TAB DOCK (fix132) — ported from Settings' .tabDock ───────────\n"
-        "   One shared grey tray holding borderless pills that solid-fill on\n"
-        "   selection, each carrying its own destination accent, instead of\n"
-        "   five separately-bordered floating buttons. */\n"
-        ".tabDock {\n"
-        "    flex: 1 1 auto; display: flex; align-items: center; min-width: 0;\n"
-        "    background: #4d5c5a; border: none; border-radius: 8px;\n"
-        "    padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);\n"
-        "    overflow-x: auto; scrollbar-width: none;\n"
-        "}\n"
-        ".tabDock::-webkit-scrollbar { display: none; }\n"
-        ".tabRow { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }\n"
-        ".tab, .tabOn {\n"
-        "    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
-        "    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
-        "    letter-spacing: 1.5px; text-transform: uppercase;\n"
-        "    padding: clamp(7px,0.9vw,9px) clamp(12px,1.6vw,18px); border-radius: 6px; outline: none;\n"
-        "    border: 1.5px solid transparent; background: transparent;\n"
-        "    color: rgba(255,255,255,0.85); white-space: nowrap; flex-shrink: 0; line-height: 1;\n"
-        "    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;\n"
-        "}\n"
-        ".tab[data-accent=\"orange\"]:hover { color: var(--orange); }\n"
-        ".tab[data-accent=\"cyan\"]:hover   { color: var(--cyan); }\n"
-        ".tab[data-accent=\"violet\"]:hover { color: #34d399; }\n"
-        ".tab[data-accent=\"slate\"]:hover  { color: #eab308; }\n"
-        ".tab[data-accent=\"red\"]:hover    { color: var(--red); }\n"
-        ".tabOn { color: #1a2e30; }\n"
-        ".tabOn[data-accent=\"orange\"] { background: var(--orange); border-color: var(--orange); box-shadow: 0 4px 16px rgba(238,140,58,0.32); }\n"
-        ".tabOn[data-accent=\"cyan\"]   { background: var(--cyan);   border-color: var(--cyan);   box-shadow: 0 4px 16px rgba(6,182,212,0.32); }\n"
-        ".tabOn[data-accent=\"violet\"] { background: #34d399; border-color: #34d399; box-shadow: 0 4px 16px rgba(52,211,153,0.32); }\n"
-        ".tabOn[data-accent=\"slate\"]  { background: #eab308; border-color: #eab308; box-shadow: 0 4px 16px rgba(234,179,8,0.32); }\n"
-        ".tabOn[data-accent=\"red\"]    { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 16px rgba(239,68,68,0.32); }\n"
-        ".tabOn:focus-visible, .tab:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: -2px; }\n"
-        "@media (max-width: 480px) {\n"
-        "    .tab, .tabOn { padding: clamp(6px,2vw,8px) clamp(9px,2.6vw,12px); font-size: 9px; }\n"
-        "    .tabDock { padding: 5px; }\n"
-        "}",
+jsx = sub(jsx,
+          "    const [loading, setLoading] = useState(false);\n    const dropRef = useRef(null);",
+          "    const [mode, setMode] = useState('UNREAD');\n"
+          "    const [keep, setKeep] = useState([]);\n"
+          "    const [spin, setSpin] = useState(false);\n"
+          "    const [loading, setLoading] = useState(false);\n"
+          "    const dropRef = useRef(null);",
+          "mode / keep / spin state")
 
-        "tabDock/tabRow/tab/tabOn rules added",
-    ),
-])
+jsx = between(jsx,
+              "    const sync = useCallback(async () => {",
+              "    /* Poll interval comes from the user's own setting.",
+              r'''    /* fix131: pullList can run silently, and sync now keeps the list itself
+       fresh, so the per-group dots on the bell are computed from the very
+       same rows the drawer shows -- one source of truth, no SYNCING flash. */
+    const pullList = useCallback(async (silent) => {
+        if (!silent) setLoading(true);
+        try { setNotifs(await recoveryService.getNotifications()); }
+        catch { if (!silent) setNotifs([]); }
+        finally { if (!silent) setLoading(false); }
+    }, []);
 
-# ═══ build gate (fix76) ═══
+    const sync = useCallback(async () => {
+        try { setStaleCount((await recoveryService.getTaskCount()) ?? 0); } catch { /* offline */ }
+        try { setUnread((await recoveryService.getUnreadCount()) ?? 0); } catch { /* offline */ }
+        await pullList(true);
+    }, [pullList]);
+
+''',
+              "sync + pullList (silent list refresh)")
+
+jsx = sub(jsx,
+          "        setNotifOpen(next);\n        if (next) await pullList();",
+          "        setNotifOpen(next);\n        setKeep([]);\n        if (next) await pullList(notifs.length > 0);",
+          "openDrop resets sticky rows, pulls silently when rows exist")
+
+jsx = between(jsx,
+              "    const readAll = async () => {",
+              "    return (\n        <header className={styles.header}>",
+              r'''    /* fix131: READ is scoped to what you are looking at. On ALL it is the
+       server-side mark-all; on one group it marks only that group's unread
+       rows, so that group's bell dot clears and the others are untouched.
+       Rows read this way stay listed until the filter or mode changes. */
+    const readAll = async () => {
+        const scope = notifs.filter(n => !n.read && (filter === 'ALL' || describe(n).group === filter));
+        if (scope.length === 0) return;
+        const ids = new Set(scope.map(n => n.id));
+        setKeep(k => [...k, ...scope.map(n => n.id)]);
+        setNotifs(list => list.map(x => (ids.has(x.id) ? { ...x, read: true } : x)));
+        setUnread(u => (filter === 'ALL' ? 0 : Math.max(0, u - scope.length)));
+        try {
+            if (filter === 'ALL') await recoveryService.markAllRead();
+            else await Promise.all(scope.map(n => recoveryService.markRead(n.id)));
+        } catch { /* retried on next sync */ }
+        sync();
+    };
+
+    const refresh = async () => {
+        setSpin(true);
+        try { await Promise.all([sync(), new Promise(r => setTimeout(r, 600))]); }
+        finally { setSpin(false); }
+    };
+
+    /* Unread per group. The recovery queue is a computed row, not a stored
+       one, so its missions count toward the RECOVERY dot exactly as they
+       already counted toward the old single badge. */
+    const groupUnread = useMemo(() => {
+        const out = {};
+        GROUP_KEYS.forEach(g => { out[g] = 0; });
+        notifs.forEach(n => { if (!n.read) out[describe(n).group] += 1; });
+        if (staleCount > 0) out[GROUPS.RECOVERY] += staleCount;
+        return out;
+    }, [notifs, staleCount]);
+
+    const dots = GROUP_KEYS.filter(g => groupUnread[g] > 0);
+    const dotTotal = dots.reduce((sum, g) => sum + groupUnread[g], 0);
+    /* Offline / list not loaded yet: fall back to the server counters so the
+       bell still says something is pending. */
+    const badge = dotTotal || (unread + (staleCount > 0 ? staleCount : 0));
+    const scopeUnread = filter === 'ALL' ? dotTotal : groupUnread[filter];
+    const hasPinned = staleCount > 0 && (filter === 'ALL' || filter === 'RECOVERY');
+    const accent = filter === 'ALL' ? '#EE8C3A' : GROUP_COLOR[filter];
+
+    const shown = useMemo(() => {
+        const keepSet = new Set(keep);
+        const list = notifs.filter(n => {
+            if (filter !== 'ALL' && describe(n).group !== filter) return false;
+            return mode === 'ALL' || !n.read || keepSet.has(n.id);
+        });
+        return list.slice(0, VISIBLE_LIMIT);
+    }, [notifs, filter, mode, keep]);
+
+    const sections = useMemo(() => BUCKETS.map(b => ({
+        key: b,
+        rows: shown.filter(n => dayBucket(n.createdAt) === b)
+            .sort((a, c) => Number(a.read) - Number(c.read)),
+    })).filter(s => s.rows.length > 0), [shown]);
+
+    const pickFilter = (g) => { setFilter(f => (f === g ? 'ALL' : g)); setKeep([]); };
+    const pickMode = (m) => { setMode(m); setKeep([]); };
+
+''',
+              "readAll scope, groupUnread, dots, shown, sections")
+
+jsx = sub(jsx,
+          "{badge > 0 && <span className={styles.badge}>{badge > 99 ? '99+' : badge}</span>}",
+          r'''{badge > 0 && (
+                            <span className={styles.bellDots} aria-hidden="true">
+                                {dots.length > 0 ? dots.map(g => (
+                                    <span key={g} className={styles.bellDot} style={{ background: GROUP_COLOR[g] }}>
+                                        {groupUnread[g] > 99 ? '99+' : groupUnread[g]}
+                                    </span>
+                                )) : (
+                                    <span className={styles.bellDot} style={{ background: '#EE8C3A' }}>
+                                        {badge > 99 ? '99+' : badge}
+                                    </span>
+                                )}
+                            </span>
+                        )}''',
+          "bell: per-group colour dots replace the single badge")
+
+jsx = between(jsx,
+              "                    {notifOpen && (\n",
+              "                </div>\n\n                <div className={styles.userCard}",
+              r'''                    {notifOpen && (
+                        <div className={styles.notifDrop} role="dialog" aria-label="Notifications" style={{ '--a': accent }}>
+                            <div className={styles.notifHero}>
+                                <div className={styles.notifHeroRow}>
+                                    <span className={styles.notifCount} aria-live="polite">{scopeUnread}</span>
+                                    <div className={styles.notifMeter} aria-hidden="true">
+                                        {dots.map(g => (
+                                            <span
+                                                key={g}
+                                                className={styles.notifMeterSeg}
+                                                style={{
+                                                    width: (groupUnread[g] / (dotTotal || 1) * 100) + '%',
+                                                    background: GROUP_COLOR[g],
+                                                    opacity: filter === 'ALL' || filter === g ? 1 : 0.3,
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className={styles.notifMode} role="group" aria-label="Show signals">
+                                        {['UNREAD', 'ALL'].map(m => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                className={mode === m ? styles.notifModeOn : styles.notifModeBtn}
+                                                onClick={() => pickMode(m)}
+                                                aria-pressed={mode === m}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className={`${styles.notifTool} ${spin ? styles.notifSpin : ''}`}
+                                        onClick={refresh}
+                                        aria-label="Refresh signals"
+                                        title="Refresh"
+                                    >
+                                        <FiRefreshCw aria-hidden="true" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.notifTool}
+                                        onClick={readAll}
+                                        aria-label={filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read'}
+                                        title={filter === 'ALL' ? 'Mark all read' : 'Mark ' + filter + ' read'}
+                                    >
+                                        <FiCheck aria-hidden="true" />
+                                    </button>
+                                </div>
+
+                                <div className={styles.notifChips}>
+                                    {['ALL', ...GROUP_KEYS].map(k => {
+                                        const n = k === 'ALL' ? dotTotal : groupUnread[k];
+                                        const on = filter === k;
+                                        return (
+                                            <button
+                                                key={k}
+                                                type="button"
+                                                data-empty={!on && n === 0 ? 'true' : undefined}
+                                                className={on ? styles.notifChipOn : styles.notifChip}
+                                                style={{ '--a': k === 'ALL' ? '#EE8C3A' : GROUP_COLOR[k] }}
+                                                onClick={() => pickFilter(k)}
+                                                aria-pressed={on}
+                                            >
+                                                <span className={styles.notifChipDot} aria-hidden="true" />
+                                                <span className={styles.notifChipLabel}>{k}</span>
+                                                <em className={styles.notifChipCount}>{n}</em>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className={styles.notifList}>
+                                {/* The recovery queue is computed, not stored, so it is not a
+                                    row in the notifications table -- but it is the most
+                                    actionable thing the bell knows, so it pins to the top. */}
+                                {hasPinned && (
+                                    <button type="button" className={styles.notifRowPinned}
+                                        onClick={() => { setNotifOpen(false); navigate('/recovery'); }}>
+                                        <span className={styles.notifBody}>
+                                            <span className={styles.notifPinType}>
+                                                RECOVERY QUEUE
+                                                <time className={styles.notifPinTag}>PINNED</time>
+                                            </span>
+                                            <span className={styles.notifPinMsg}>
+                                                {staleCount} mission{staleCount > 1 ? 's' : ''} due now
+                                            </span>
+                                        </span>
+                                    </button>
+                                )}
+
+                                {loading && <div className={styles.notifEmpty}>SYNCING...</div>}
+
+                                {!loading && sections.length === 0 && !hasPinned && (
+                                    <div className={styles.notifEmpty}>
+                                        {mode === 'UNREAD' ? 'ALL CAUGHT UP' : 'NO SIGNALS'}
+                                        {mode === 'UNREAD' && (
+                                            <button type="button" className={styles.notifLink} onClick={() => pickMode('ALL')}>
+                                                VIEW ALL
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {!loading && sections.map(s => (
+                                    <React.Fragment key={s.key}>
+                                        <div className={styles.notifDay}>{s.key}</div>
+                                        {s.rows.map(n => {
+                                            const meta = describe(n);
+                                            /* One hue per group drives the row tint, the type
+                                               heading and the unread dot; CRITICAL goes red. */
+                                            const tint = meta.severity === 'CRITICAL'
+                                                ? CRITICAL_TINT
+                                                : (GROUP_COLOR[meta.group] || '#94a3b8');
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={n.id}
+                                                    data-group={meta.group}
+                                                    className={`${styles.notifRow} ${n.read ? styles.notifRead : styles.notifUnread}`}
+                                                    style={{ '--t': tint }}
+                                                    onClick={() => go(n)}
+                                                >
+                                                    <span className={styles.notifBody}>
+                                                        <span className={styles.notifType}>
+                                                            {meta.label}
+                                                            <time className={styles.notifTime}>{relativeTime(n.createdAt)}</time>
+                                                        </span>
+                                                        <span className={styles.notifMsg}>{n.message}</span>
+                                                    </span>
+                                                    {!n.read && <span className={styles.notifUnreadDot} aria-label="Unread" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
+
+                                {!loading && notifs.length > VISIBLE_LIMIT && (
+                                    <div className={styles.notifEmpty}>
+                                        SHOWING {VISIBLE_LIMIT} OF {notifs.length}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button type="button" className={styles.notifFoot}
+                                onClick={() => { setNotifOpen(false); navigate('/settings'); }}>
+                                NOTIFICATION SETTINGS
+                            </button>
+                        </div>
+                    )}
+''',
+              "notifDrop markup rebuilt (hero, chips, day-grouped rows, footer)")
+
+# ======================================================================
+# Header.module.css
+# ======================================================================
+css0 = read(HEADER_CSS)
+css = css0
+
+css = between(css,
+              "/* Red badge counter */\n.badge {",
+              ".userCard {",
+              r'''/* fix131: one dot per group with unread items, same colours as the
+   drawer chips, each carrying its own count. Replaces the single red
+   count badge. Dark ink on the light group colours for contrast. */
+.bellDots {
+    position: absolute; top: -9px; right: -14px;
+    display: flex;
+    pointer-events: none;
+}
+.bellDot {
+    box-sizing: border-box;
+    min-width: 18px; height: 18px;
+    margin-left: -5px;
+    padding: 0 3px;
+    border-radius: 9px;
+    border: 2px solid #162a2c;
+    color: #0f1f20;
+    font-family: 'Space Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: bellDotPop 0.3s ease-out both;
+}
+@keyframes bellDotPop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* --- OPERATOR CARD --- */
+''',
+              "bell badge CSS -> group dots")
+
+css = sub(css,
+          "   Filters across the top, one icon per type, a relative timestamp on\n"
+          "   every row, and an unread marker that is a shape as well as an\n"
+          "   opacity so it survives the high-contrast setting.",
+          "   fix131: hero (count + colour meter + mode/refresh/read), dot-chip\n"
+          "   tray, day-grouped icon-free rows split by hairlines. Unread rows\n"
+          "   are tinted by group, read rows sit on flat grey. The scrollbar is\n"
+          "   the app's own (Shell.scrollArea): thin, orange thumb, 6px, r10.",
+          "notification block heading comment")
+
+css = tail(css,
+           ".notifDrop {\n    position: absolute;",
+           r'''.notifDrop {
+    --a: #EE8C3A;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 10;
+    width: min(460px, calc(100vw - 16px));
+    max-height: calc(100vh - var(--header-height, 64px) - 24px);
+    display: flex;
+    flex-direction: column;
+    background: #f3f6f6;
+    border: 1.5px solid #aebdbc;
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(22, 42, 44, 0.28);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+    animation: notifIn 0.2s ease-out both;
+}
+.notifDrop:hover { border-color: var(--a); }
+@keyframes notifIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* -- hero ------------------------------------------------------------ */
+.notifHero {
+    flex-shrink: 0;
+    padding: clamp(8px, 1vw, 10px);
+    background: linear-gradient(135deg, #3a5a5c 0%, #1c3335 65%, #16292b 100%);
+    border-bottom: 2px solid var(--a);
+    transition: border-color 0.2s ease;
+}
+.notifHeroRow { display: flex; align-items: center; gap: clamp(6px, 0.8vw, 8px); }
+.notifCount {
+    min-width: 26px;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(20px, 2.2vw, 24px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--a);
+}
+.notifMeter {
+    flex: 1; min-width: 24px;
+    display: flex; gap: 2px;
+    height: 7px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.14);
+}
+.notifMeterSeg { display: block; height: 100%; transition: width 0.4s ease, opacity 0.2s ease; }
+
+.notifMode { display: inline-flex; flex-shrink: 0; background: rgba(0, 0, 0, 0.28); border-radius: 6px; padding: 2px; }
+.notifModeBtn, .notifModeOn {
+    -webkit-appearance: none; appearance: none;
+    border: 0; border-radius: 4px;
+    padding: 6px clamp(6px, 0.8vw, 8px);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8px, 0.85vw, 9px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+.notifModeBtn { background: transparent; color: rgba(255, 255, 255, 0.7); }
+.notifModeBtn:hover { color: #EE8C3A; }
+.notifModeOn { background: #EE8C3A; color: #1a2e30; }
+
+.notifTool {
+    -webkit-appearance: none; appearance: none;
+    flex-shrink: 0;
+    width: 28px; height: 28px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border-radius: 6px;
+    color: #EE8C3A;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.notifTool:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
+.notifSpin svg { animation: notifSpin 0.8s linear infinite; }
+@keyframes notifSpin { to { transform: rotate(360deg); } }
+
+.notifModeBtn:focus-visible, .notifModeOn:focus-visible, .notifTool:focus-visible,
+.notifChip:focus-visible, .notifChipOn:focus-visible, .notifRow:focus-visible,
+.notifRowPinned:focus-visible, .notifFoot:focus-visible, .notifLink:focus-visible {
+    outline: 2px solid #EE8C3A;
+    outline-offset: -2px;
+}
+
+/* -- chips: the selected one takes the free width and clips its own
+   label, so nothing can ever spill out of the tray ------------------- */
+.notifChips {
+    display: flex; gap: 3px;
+    margin-top: clamp(6px, 0.8vw, 8px);
+    padding: 3px;
+    background: #4d5c5a;
+    border-radius: 7px;
+    overflow: hidden;
+}
+.notifChip, .notifChipOn {
+    -webkit-appearance: none; appearance: none;
+    min-width: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 5px;
+    border: 0; border-radius: 5px;
+    padding: 6px clamp(5px, 0.7vw, 8px);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+.notifChip { flex: 0 1 auto; background: transparent; color: #fff; }
+.notifChip:hover { background: rgba(255, 255, 255, 0.1); }
+.notifChip[data-empty='true'] { opacity: 0.5; }
+.notifChipOn { flex: 1 1 0; background: var(--a); color: #1a2e30; }
+.notifChipDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
+.notifChipOn .notifChipDot { display: none; }
+.notifChipLabel { display: none; overflow: hidden; text-overflow: ellipsis; }
+.notifChipOn .notifChipLabel { display: inline; }
+.notifChipCount {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-style: normal;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+/* -- list: content-fit, short limit, then scroll. Scrollbar copied from
+   Shell.module.css .scrollArea (the app's official one). --------------- */
+.notifList {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: min(340px, calc(100vh - var(--header-height, 64px) - 190px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #f3f6f6;
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange, #EE8C3A) transparent;
+}
+.notifList::-webkit-scrollbar { width: 6px; }
+.notifList::-webkit-scrollbar-track { background: transparent; }
+.notifList::-webkit-scrollbar-thumb { background: var(--orange, #EE8C3A); border-radius: 10px; }
+.notifList::-webkit-scrollbar-thumb:hover { background: #f59a4a; }
+
+.notifDay {
+    position: sticky; top: 0; z-index: 1;
+    padding: 3px 12px;
+    background: #3f5654;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9px);
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* -- rows: hairline separators, no icons, no card gaps --------------- */
+.notifRow, .notifRowPinned {
+    -webkit-appearance: none; appearance: none;
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid #cbd6d6;
+    border-left: 3px solid var(--t, transparent);
+    border-radius: 0;
+    padding: clamp(7px, 0.9vw, 9px) 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+.notifUnread { background: #ffffff; background: color-mix(in srgb, var(--t) 9%, #ffffff); }
+.notifUnread:hover { background: #f6f9f9; background: color-mix(in srgb, var(--t) 17%, #ffffff); }
+.notifRead { border-left-color: transparent; background: #e4eaea; }
+.notifRead:hover { background: #dde4e4; }
+
+.notifBody { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.notifType {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8.5px, 0.9vw, 10px);
+    font-weight: 900;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--t);
+    color: color-mix(in srgb, var(--t) 62%, #000000);
+}
+.notifRead .notifType { color: #6b7b79; }
+.notifTime {
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.85vw, 9.5px);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    text-transform: none;
+    color: rgba(26, 46, 48, 0.55);
+}
+.notifMsg {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 1.1vw, 13px);
+    font-weight: 600;
+    color: #1a2e30;
+    line-height: 1.35;
+    word-break: break-word;
+}
+.notifRead .notifMsg { font-weight: 500; color: #4a5a58; }
+.notifUnreadDot {
+    flex-shrink: 0;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--t, #EE8C3A);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.22);
+}
+
+/* The recovery queue is pinned and is not a stored row, so it is dark and
+   marked as different rather than pretending to be one of the list. */
+.notifRowPinned {
+    background: linear-gradient(135deg, #2a4a4c, #16292b);
+    border-left-color: #f97316;
+    border-bottom-color: #16292b;
+}
+.notifRowPinned:hover { background: linear-gradient(135deg, #335a5c, #1c3335); }
+.notifPinType {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(8.5px, 0.9vw, 10px);
+    font-weight: 900;
+    letter-spacing: 1.1px;
+    color: #fdba74;
+}
+.notifPinTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 400; letter-spacing: 1px; color: rgba(255, 255, 255, 0.5); }
+.notifPinMsg { font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.1vw, 13px); font-weight: 600; color: #ffffff; line-height: 1.35; }
+
+.notifEmpty {
+    padding: 22px 13px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.9vw, 10px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: rgba(26, 46, 48, 0.5);
+}
+.notifLink {
+    -webkit-appearance: none; appearance: none;
+    display: block;
+    margin: 8px auto 0;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1.5px solid rgba(238, 140, 58, 0.6);
+    border-radius: 5px;
+    color: #bf6413;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+.notifLink:hover { background: #EE8C3A; color: #1a2e30; }
+
+.notifFoot {
+    -webkit-appearance: none; appearance: none;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 9px;
+    border: 0;
+    border-top: 2px solid var(--a);
+    background: #162a2c;
+    color: #ffffff;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(8px, 0.9vw, 10px);
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-align: center;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+.notifFoot:hover { color: #EE8C3A; }
+
+@media (max-width: 480px) {
+    .notifDrop {
+        position: fixed;
+        top: var(--header-height);
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-height: calc(100vh - var(--header-height) - 16px);
+    }
+}
+''',
+           "notification CSS rebuilt from .notifDrop to end of file")
+
+# ======================================================================
+# write (atomic) + build gate + commit
+# ======================================================================
+if MISSING:
+    print("")
+    print("FAIL: " + str(len(MISSING)) + " patch(es) MISSING -- nothing written, nothing committed:")
+    for m in MISSING:
+        print("  - " + m)
+    print("The source text differs from what this script expects (or was edited since fix130).")
+    sys.exit(1)
+
+if jsx != jsx0:
+    write(HEADER_JSX, jsx)
+    print("written: erp-frontend/src/components/layout/Header.jsx")
+if css != css0:
+    write(HEADER_CSS, css)
+    print("written: erp-frontend/src/components/layout/Header.module.css")
+if jsx == jsx0 and css == css0:
+    print("note: nothing changed -- fix131 already applied")
+
+# build gate (fix76)
 if os.path.isdir(os.path.join(FRONTEND, "node_modules")):
-    build = subprocess.run(["npm", "run", "build"], cwd=FRONTEND, capture_output=True, text=True)
+    build = subprocess.run(["npm", "run", "build"], cwd=FRONTEND, capture_output=True, text=True, shell=(os.name == "nt"))
     print(build.stdout[-3000:])
     if build.returncode != 0:
         print(build.stderr[-3000:])
@@ -306,7 +823,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix132: revert fix131 PLOT DETAILS cards to flat spec grid w/ LOCATION/TITLE labels; port Settings' tab dock onto Folder page section tabs")
+git("commit", "-m", "fix131: notification centre v2 -- hero (unread count, colour meter, UNREAD/ALL, refresh, scoped read), dot chips that cannot overflow, per-group colour dots on the bell, day-grouped icon-free hairline rows with group tinting, content-fit height with the app's own scrollbar")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
