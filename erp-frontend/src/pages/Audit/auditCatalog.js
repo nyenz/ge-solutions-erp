@@ -106,6 +106,7 @@ export const ACTION_GROUPS = [
         actions: [
             { code: 'DOCUMENT_UPLOADED', label: 'Document uploaded', severity: 'low'  },
             { code: 'DOCUMENT_DELETED',  label: 'Document deleted',  severity: 'high' },
+            { code: 'DOCUMENT_CATEGORY_ADDED', label: 'Document category added', severity: 'low' },
             { code: 'REPORT_EXPORT',     label: 'Report exported',   severity: 'low'  },
         ],
     },

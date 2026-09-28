@@ -40,6 +40,14 @@ public class ProjectDocument {
     private String fileType;
 
     /**
+     * fix136: DOCUMENT CATEGORY code (APPLICATION_FORM, OFFER_LETTER,
+     * FORWARDING_LETTER, DEED_PLAN, COPY_OF_TITLE, PAYMENT_RECEIPT or a
+     * custom one). null = uploaded before categories existed.
+     */
+    @Column(name = "category", length = 60)
+    private String category;
+
+    /**
      * STORAGE ANCHOR: 
      * The physical path on Local Disk or a Cloud Bucket URL.
      */

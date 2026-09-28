@@ -303,6 +303,14 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const firstInputRef = useRef(null);
     const fileInputRef = useRef(null);
+    // fix136: document categories + the UPLOAD DOCUMENTS window
+    const [docCats, setDocCats] = useState([]);
+    const [uploadDraft, setUploadDraft] = useState(null); // { batch, files: [{ file, category }] }
+    const [newCatOpen, setNewCatOpen] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const [catBusy, setCatBusy] = useState(false);
+    const loadDocCats = useCallback(async () => { try { setDocCats(await landService.getDocumentCategories()); } catch { /* headings fall back to the raw code */ } }, []);
+    useEffect(() => { loadDocCats(); }, [loadDocCats]);
     const touchedRef = useRef(false);
     const touchedSetBuffer = React.useCallback((updater) => { touchedRef.current = true; setBuffer(updater); }, []);
     const { blocked: guardModalOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(!committing && isEditing);
@@ -461,7 +469,34 @@ useEffect(() => {
         const owners = buffer.owners.map((o, i) => { if (i !== idx) return o; let v = val; if (field === 'fullName') v = val.toUpperCase(); if (field === 'nationalId') v = val.toUpperCase().replace(/\s/g, ''); if (field === 'email') v = val.toLowerCase().replace(/\s/g, ''); return { ...o, [field]: v }; });
         touchedRef.current = true; setBuffer(p => ({ ...p, owners }));
     };
-    const handleVaultAction = async (files) => { if (!files?.length) return; setCommitting(true); try { await landService.addExtraDocuments(id, files); await loadFolderData(); toast(files.length + ' document(s) uploaded', 'success', 3000); } catch { toast('INGESTION FAILED', 'error', 8000); } finally { setCommitting(false); } };
+    const handleVaultAction = (files) => { if (!files?.length) return; setUploadDraft({ batch: '', files: files.map(file => ({ file, category: '' })) }); };
+    const closeUploadDraft = () => { if (committing) return; setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
+    const setBatchCategory = (code) => setUploadDraft(d => d && ({ batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
+    const setFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
+    const handleAddCategory = async () => {
+        const name = newCatName.trim();
+        if (name.length < 2 || catBusy) return;
+        setCatBusy(true);
+        try {
+            const cat = await landService.addDocumentCategory(name);
+            await loadDocCats();
+            setNewCatName(''); setNewCatOpen(false);
+            setUploadDraft(d => d && ({ ...d, batch: d.batch || cat.code, files: d.files.map(f => (f.category ? f : { ...f, category: cat.code })) }));
+            toast('Category "' + cat.label + '" ready', 'success', 3000);
+        } catch { toast('COULD NOT ADD CATEGORY', 'error', 6000); } finally { setCatBusy(false); }
+    };
+    const handleUploadConfirm = async () => {
+        if (!uploadDraft || committing) return;
+        if (uploadDraft.files.some(f => !f.category)) { toast('Pick a category for every file', 'warn', 4000); return; }
+        const count = uploadDraft.files.length;
+        setCommitting(true);
+        try {
+            await landService.addExtraDocuments(id, uploadDraft.files.map(f => f.file), uploadDraft.files.map(f => f.category));
+            setUploadDraft(null); setNewCatOpen(false); setNewCatName('');
+            await loadFolderData();
+            toast(count + ' document(s) uploaded', 'success', 3000);
+        } catch { toast('INGESTION FAILED', 'error', 8000); } finally { setCommitting(false); }
+    };
     const handleDeleteDoc = async (docId, fileName) => { const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"?', 'danger'); if (!ok) return; try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };
     const handleNoteSave = async () => { if (!noteModal.content.trim()) return; try { if (noteModal.id) await landService.editStandaloneNote(noteModal.id, noteModal.content); else await landService.addStandaloneNote(id, noteModal.content); setNoteModal({ open: false, id: null, content: '' }); await loadFolderData(); toast('Note saved', 'success', 3000); } catch { toast('SAVE FAILED', 'error'); } };
     const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this entry?', 'danger'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };
@@ -511,6 +546,18 @@ useEffect(() => {
     const isBacklog = !project?.landTitle;
     const showTitleFields = !!project.landTitle || !!buffer.convertToTitle;
     const docCount = (binder.documents || []).length;
+    const UNCATEGORISED = '__NONE__';
+    const catLabel = (code) => (docCats.find(c => c.code === code)?.label) || String(code).replace(/_/g, ' ');
+    const docGroups = (() => {
+        const groups = new Map();
+        (binder.documents || []).forEach(d => {
+            const key = d.category || (docCats.some(c => c.code === d.fileType) ? d.fileType : UNCATEGORISED);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(d);
+        });
+        const rank = (k) => { if (k === UNCATEGORISED) return 9999; const i = docCats.findIndex(c => c.code === k); return i < 0 ? 9000 : i; };
+        return [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+    })();
     const noteCount = (binder.notes || []).length;
     const paymentCount = payments.length;
     const totalValue = Number(project?.totalCost || 0);
@@ -783,11 +830,11 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
 <CornerDecor hideTop />
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span>
                             {canUploadDocs && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}</div>) : (<>
-                            <div className={styles.compactVault}>{binder.documents.map((doc, idx) => (<div key={idx} className={styles.docTag}>
+                            <div className={styles.compactVault}>{docGroups.map(([cat, docs]) => (<React.Fragment key={cat}><div className={styles.docGroupLabel}>{cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)}<span className={styles.docGroupCount}>{docs.length}</span></div>{docs.map((doc) => (<div key={doc.id} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
                                 <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)}>{doc.fileName}</button>
                                 {isEditing && canEdit && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
-                            </div>))}</div>
+                            </div>))}</React.Fragment>))}</div>
                             {canUploadDocs && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}
                         </>)}
                     </div></div>
@@ -818,6 +865,31 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value = ''; }} />
             <UnsavedChangesModal isOpen={guardModalOpen} onStay={handleStay} onLeave={handleLeave} context="Plot Record Edit" />
             <NinMismatchModal isOpen={!!ninMismatch} existingName={ninMismatch?.existingName} enteredName={ninMismatch?.enteredName} onConfirm={handleNinMismatchConfirm} onReject={handleNinMismatchReject} />
+            <HardwareModal isOpen={!!uploadDraft} onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
+                {uploadDraft && (<>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
+                        <select className={modalStyles.modalInput} value={uploadDraft.batch} onChange={e => setBatchCategory(e.target.value)} aria-label="Category for all files">
+                            <option value="">-- choose category --</option>
+                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                        </select></div>
+                    <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
+                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>
+                        <select className={`${modalStyles.modalInput} ${styles.upFileSelect}`} value={f.category} onChange={e => setFileCategory(i, e.target.value)} aria-label={'Category for ' + f.file.name}>
+                            <option value="">-- category --</option>
+                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                        </select></div>))}</div>
+                    {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
+                        <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
+                        <div className={styles.upCatActions}>
+                            <button type="button" className={styles.addDocBtn} onClick={handleAddCategory} disabled={catBusy || newCatName.trim().length < 2}>SAVE CATEGORY</button>
+                            <button type="button" className={styles.addDocBtn} onClick={() => { setNewCatOpen(false); setNewCatName(''); }}>CANCEL</button>
+                        </div></div>)
+                        : (<button type="button" className={styles.addDocBtn} onClick={() => setNewCatOpen(true)}>+ NEW CATEGORY</button>)}
+                    <div className={modalStyles.modalFooter}>
+                        <HardwareButton type="button" onClick={handleUploadConfirm} loading={committing} icon={FiUploadCloud}>UPLOAD</HardwareButton>
+                    </div>
+                </>)}
+            </HardwareModal>
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
             <HardwareModal isOpen={noteModal.open} onClose={() => { setNoteModal({ open: false, id: null, content: '' }); }} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
                 <div className={modalStyles.modalField}><textarea className={modalStyles.modalTextarea} value={noteModal.content} onChange={e => setNoteModal({ ...noteModal, content: e.target.value })} placeholder="Enter interaction note..." aria-label="Note content" /></div>

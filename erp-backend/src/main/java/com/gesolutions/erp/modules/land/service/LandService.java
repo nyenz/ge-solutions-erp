@@ -31,6 +31,7 @@ public class LandService {
     private final LandProjectRepository projectRepository;
     private final FollowUpRepository followUpRepository;
     private final ProjectDocumentRepository documentRepository;
+    private final DocumentCategoryService documentCategoryService;
     private final ClientRepository clientRepository;
     private final ClientService clientService;
     private final FileStorageService fileStorageService;
@@ -668,12 +669,32 @@ public class LandService {
 
     @Transactional
     public void addScansToProject(UUID projectId, MultipartFile[] scans) throws Exception {
-        for (MultipartFile file : scans) {
+        addScansToProject(projectId, scans, null, null);
+    }
+
+    /**
+     * fix136: every file lands in a document category. batchCategory is the
+     * default for the whole upload; fileCategories (same order as scans) lets
+     * the uploader override it per file. All categories are validated BEFORE
+     * any file is stored so a bad name can never leave half a batch behind.
+     */
+    @Transactional
+    public void addScansToProject(UUID projectId, MultipartFile[] scans, String batchCategory, List<String> fileCategories) throws Exception {
+        String batchCode = documentCategoryService.requireCode(batchCategory);
+        String[] cats = new String[scans.length];
+        for (int i = 0; i < scans.length; i++) {
+            String own = (fileCategories != null && i < fileCategories.size())
+                    ? documentCategoryService.requireCode(fileCategories.get(i)) : null;
+            cats[i] = own != null ? own : batchCode;
+        }
+        for (int i = 0; i < scans.length; i++) {
+            MultipartFile file = scans[i];
             String path = fileStorageService.storeFile(file, projectId.toString());
             ProjectDocument doc = ProjectDocument.builder()
                     .projectId(projectId)
                     .fileName(file.getOriginalFilename())
                     .fileType(file.getContentType())
+                    .category(cats[i])
                     .filePath(path)
                     .uploadedBy(getCurrentOperator())
                     .build();
@@ -681,7 +702,9 @@ public class LandService {
         }
         auditService.logAction("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
-            + " document(s) to plot: " + projectId);
+            + " document(s) to plot: " + projectId
+            + " [" + String.join(", ", java.util.Arrays.stream(cats)
+                    .map(c -> c == null ? "UNCATEGORISED" : c).distinct().toList()) + "]");
         // This method only ever had the id, not the entity, so the label has to
         // be looked up -- and must not be allowed to fail the upload if the
         // row has gone missing underneath us.

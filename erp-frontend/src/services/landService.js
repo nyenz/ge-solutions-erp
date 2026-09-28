@@ -35,12 +35,24 @@ const landService = {
         await api.post(`/land/projects/${projectId}/restore`);
     },
 
-    addExtraDocuments: async (projectId, scans) => {
+    addExtraDocuments: async (projectId, scans, categories = []) => {
         const formData = new FormData();
         scans.forEach(file => formData.append('scans', file));
+        // fix136: one category code per file, same order as scans
+        if (categories.length === scans.length) categories.forEach(c => formData.append('categories', c || ''));
         await api.post(`/land/projects/${projectId}/documents`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
+    },
+
+    getDocumentCategories: async () => {
+        const response = await api.get('/land/document-categories');
+        return response.data;
+    },
+
+    addDocumentCategory: async (label) => {
+        const response = await api.post('/land/document-categories', { label });
+        return response.data;
     },
 
     deleteDocument: async (docId) => {

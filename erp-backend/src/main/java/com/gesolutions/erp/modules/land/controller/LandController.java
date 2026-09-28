@@ -112,8 +112,10 @@ public class LandController {
     @PostMapping(value = "/projects/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> addExtraDocuments(
             @PathVariable UUID id,
-            @RequestParam("scans") MultipartFile[] scans) throws Exception {
-        landService.addScansToProject(id, scans);
+            @RequestParam("scans") MultipartFile[] scans,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "categories", required = false) List<String> categories) throws Exception {
+        landService.addScansToProject(id, scans, category, categories);
         return ResponseEntity.ok().build();
     }
 
