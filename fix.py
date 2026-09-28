@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
-# PATH: fix131.py
-# GOLDEN SEED -- fix131: FOLDER PAGE / PLOT DETAILS re-organised onto the
-#   Settings page's dataset-card language (fix121/fix127), plus one real
-#   functionality gain: click-to-copy on every read-only value.
-#     1. ORGANISATION -- PLOT DETAILS used to be one flat run of six
-#        location fields followed by (sometimes) four title fields, with
-#        no label separating the two groups. It's now two named, bounded
-#        cream mini-cards -- LOCATION and TITLE -- the exact
-#        prefGroupBox/prefGroupLabel construction Settings' Appearance
-#        panel uses to split Display/Interaction/Notifications, right
-#        down to the 2px accent-colour heading rule. LOCATION keeps the
-#        panel's own orange; TITLE gets cyan, so the two clusters are
-#        distinguishable at a glance the way Settings' own tabs are.
-#     2. DESIGN -- specItem's left-edge accent, dropped to `none` by an
-#        earlier unify pass, comes back at low opacity (rgba(26,46,48,.18))
-#        against the cream card specifically, echoing the per-group
-#        left-edge tinting the SIGNALS dropdown (fix130) and Settings'
-#        own bounded rows already use. Values sit in navy-on-cream, not
-#        white-on-cream, for correct contrast on the new light card.
-#     3. FUNCTIONALITY -- every value in the new LOCATION/TITLE cards
-#        (district, plot ID, title ID, etc.) gets a small copy icon that
-#        appears on row hover; clicking copies the raw value to the
-#        clipboard and fires the existing toast system. Small thing, but
-#        Title ID and Plot ID are exactly the strings staff re-type into
-#        other systems all day.
+# PATH: fix132.py
+# GOLDEN SEED -- fix132: two changes, both on FolderPage.
+#   1. REVERT fix131's PLOT DETAILS treatment. The cream prefGroupBox
+#      cards didn't land well against the panel's dark gradient -- back
+#      to the original flat, dark spec grid and the original copy-free
+#      spec items. Organisation is kept, but the lightweight way: a
+#      slim LOCATION / TITLE label (the .sectionSubHeader style that
+#      already existed in this file, unused, for exactly this) sits
+#      above each group instead of boxing it.
+#   2. Settings' TAB DOCK, ported onto the Folder page's own section
+#      tabs. OVERVIEW/FINANCIALS/OWNERS/DOCUMENTS/NOTES move from five
+#      separately-bordered floating pills into the one shared grey tray
+#      (#4d5c5a) holding borderless pills that solid-fill on selection
+#      -- Settings' exact tabDock/tab/tabOn construction -- with each
+#      tab keeping its own destination accent (orange/cyan/violet/
+#      slate/red) the way Settings' own dock hints at where a tab leads
+#      before you land there.
 #
 # Surgical find/replace against known-good source text, not a full
 # rewrite. Runs `npm run build` before committing if node_modules is
@@ -68,41 +60,31 @@ def apply_patches(path, patches):
 # ═══ FolderPage.jsx ═══
 apply_patches(FOLDER_JSX, [
     (
-        # 1. FiCopy for the new copy-to-clipboard affordance.
-        "    FiDollarSign, FiActivity, FiHome, FiArchive,\n"
-        "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp\n"
-        "} from 'react-icons/fi';",
-
+        # 1. fix131's FiCopy import reverted -- no longer used.
         "    FiDollarSign, FiActivity, FiHome, FiArchive,\n"
         "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiCopy\n"
         "} from 'react-icons/fi';",
 
-        "FiCopy import added",
+        "    FiDollarSign, FiActivity, FiHome, FiArchive,\n"
+        "FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp\n"
+        "} from 'react-icons/fi';",
+
+        "FiCopy import reverted",
     ),
     (
-        # 2. one shared copy handler, dropped next to the other
-        # single-purpose handlers so it's easy to find.
-        "    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };",
-
+        # 2. fix131's copy handler removed.
         "    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };\n"
         "    const handleCopySpec = (value, label) => { if (!value) return; navigator.clipboard?.writeText(String(value)).then(() => toast(label + ' copied', 'success', 1500)).catch(() => toast('Copy failed', 'error')); };",
 
-        "handleCopySpec handler added",
+        "    const handleToggleProblem = async () => { const was = project.problem; let note = ''; if (!was) { note = window.prompt('Describe the problem (optional):') || ''; } try { await folderPortalService.toggleProblem(id, note); if (!was && note.trim()) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note.trim()); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); } catch { toast('FLAG FAILED', 'error'); } };",
+
+        "handleCopySpec handler removed",
     ),
     (
-        # 3. the flat two-grid layout becomes two named, bounded
-        # LOCATION / TITLE cards, each row gaining a copy button.
-        "                        </>) : (<>\n"
-        "                            <div className={styles.readOnlyGrid}>\n"
-        "                                {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (\n"
-        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
-        "                            </div>\n"
-        "                            {project.landTitle && (<div className={styles.readOnlyGrid}>\n"
-        "                                {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (\n"
-        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
-        "                            </div>)}\n"
-        "                        </>)}",
-
+        # 3. back to the flat, dark spec grid -- no boxes, no copy
+        # buttons -- with a slim LOCATION / TITLE label above each
+        # group using the file's own pre-existing sectionSubHeader
+        # style instead of a bounded card.
         "                        </>) : (<>\n"
         "                            <div className={styles.plotGroupsGrid}>\n"
         "                                <div className={styles.plotGroupBox} data-accent=\"orange\">\n"
@@ -122,24 +104,64 @@ apply_patches(FOLDER_JSX, [
         "                            </div>\n"
         "                        </>)}",
 
-        "PLOT DETAILS view-mode grid split into LOCATION/TITLE group cards w/ copy buttons",
+        "                        </>) : (<>\n"
+        "                            <div className={styles.sectionSubHeader}>LOCATION</div>\n"
+        "                            <div className={styles.readOnlyGrid}>\n"
+        "                                {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (\n"
+        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
+        "                            </div>\n"
+        "                            {project.landTitle && (<>\n"
+        "                            <div className={styles.sectionSubHeader}>TITLE</div>\n"
+        "                            <div className={styles.readOnlyGrid}>\n"
+        "                                {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (\n"
+        "                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}\n"
+        "                            </div>\n"
+        "                            </>)}\n"
+        "                        </>)}",
+
+        "PLOT DETAILS reverted to flat spec grid w/ LOCATION/TITLE sectionSubHeader labels",
+    ),
+    (
+        # 4. per-tab accent map, sitting right next to TABS itself.
+        "    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];",
+
+        "    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];\n"
+        "    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', OWNERS: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };",
+
+        "TAB_ACCENTS map added",
+    ),
+    (
+        # 5. tab bar markup -> Settings' tabDock/tabRow/tab-tabOn
+        # construction. .tabBar itself is left as the outer wrapper
+        # (it's the hook print/media rules already target), now just
+        # holding the dock instead of five loose pills directly.
+        "            <div className={styles.tabBar} role=\"tablist\" aria-label=\"Record sections\">\n"
+        "                {TABS.map(tab => (<button key={tab} role=\"tab\" aria-selected={activeTab === tab}\n"
+        "                    className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab(tab)} title={tab}>\n"
+        "                    <span className={styles.tabFull}>{tab}</span><span className={styles.tabShort}>{tab.substring(0, 2)}</span>\n"
+        "                </button>))}\n"
+        "            </div>",
+
+        "            <div className={styles.tabBar} role=\"tablist\" aria-label=\"Record sections\">\n"
+        "                <div className={styles.tabDock}>\n"
+        "                    <div className={styles.tabRow}>\n"
+        "                        {TABS.map(tab => (<button key={tab} role=\"tab\" aria-selected={activeTab === tab}\n"
+        "                            data-accent={TAB_ACCENTS[tab]}\n"
+        "                            className={activeTab === tab ? styles.tabOn : styles.tab} onClick={() => setActiveTab(tab)} title={tab}>\n"
+        "                            <span className={styles.tabFull}>{tab}</span><span className={styles.tabShort}>{tab.substring(0, 2)}</span>\n"
+        "                        </button>))}\n"
+        "                    </div>\n"
+        "                </div>\n"
+        "            </div>",
+
+        "tab bar markup switched to Settings' tabDock construction",
     ),
 ])
 
 # ═══ FolderPage.module.css ═══
 apply_patches(FOLDER_CSS, [
     (
-        # group-card + copy-button styling, dropped right after the
-        # existing spec grid rules so the two live side by side.
-        ".specValue { color: #fff; font-size: var(--fs-value); font-weight: 700; font-family: 'Space Mono', monospace; line-height: 1.3; word-break: break-all; }\n"
-        "\n"
-        "\n"
-        "/* ═══════════════════════════════════════════════════════════════════\n"
-        "   EDIT INPUT GRID — strict repeat(3,1fr), no auto-fit\n"
-        "   auto-fit collapses columns unpredictably on narrow panels\n"
-        "   ═══════════════════════════════════════════════════════════════════ */",
-
-        ".specValue { color: #fff; font-size: var(--fs-value); font-weight: 700; font-family: 'Space Mono', monospace; line-height: 1.3; word-break: break-all; }\n"
+        # 1. fix131's cream-card block removed outright.
         "\n"
         "\n"
         "/* ═══════════════════════════════════════════════════════════════════\n"
@@ -187,7 +209,70 @@ apply_patches(FOLDER_CSS, [
         "   auto-fit collapses columns unpredictably on narrow panels\n"
         "   ═══════════════════════════════════════════════════════════════════ */",
 
-        "plotGroupsGrid/plotGroupBox/plotGroupLabel + copyBtn rules added",
+        "\n"
+        "\n"
+        "/* ═══════════════════════════════════════════════════════════════════\n"
+        "   EDIT INPUT GRID — strict repeat(3,1fr), no auto-fit\n"
+        "   auto-fit collapses columns unpredictably on narrow panels\n"
+        "   ═══════════════════════════════════════════════════════════════════ */",
+
+        "fix131 plotGroupBox/copyBtn block removed",
+    ),
+    (
+        # 2. Settings' tabDock/tabRow/tab-tabOn construction, dropped
+        # right after the old tabBtn rules so both live together for
+        # anyone diffing the history (tabBtn rules elsewhere in the
+        # file are now unused but left in place, same as every other
+        # superseded-in-place block this file already carries).
+        ".tabBtn:focus-visible {\n"
+        "    outline: 2px solid var(--orange);\n"
+        "    outline-offset: 2px;\n"
+        "}",
+
+        ".tabBtn:focus-visible {\n"
+        "    outline: 2px solid var(--orange);\n"
+        "    outline-offset: 2px;\n"
+        "}\n"
+        "\n"
+        "/* ── TAB DOCK (fix132) — ported from Settings' .tabDock ───────────\n"
+        "   One shared grey tray holding borderless pills that solid-fill on\n"
+        "   selection, each carrying its own destination accent, instead of\n"
+        "   five separately-bordered floating buttons. */\n"
+        ".tabDock {\n"
+        "    flex: 1 1 auto; display: flex; align-items: center; min-width: 0;\n"
+        "    background: #4d5c5a; border: none; border-radius: 8px;\n"
+        "    padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);\n"
+        "    overflow-x: auto; scrollbar-width: none;\n"
+        "}\n"
+        ".tabDock::-webkit-scrollbar { display: none; }\n"
+        ".tabRow { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }\n"
+        ".tab, .tabOn {\n"
+        "    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;\n"
+        "    font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;\n"
+        "    letter-spacing: 1.5px; text-transform: uppercase;\n"
+        "    padding: clamp(7px,0.9vw,9px) clamp(12px,1.6vw,18px); border-radius: 6px; outline: none;\n"
+        "    border: 1.5px solid transparent; background: transparent;\n"
+        "    color: rgba(255,255,255,0.85); white-space: nowrap; flex-shrink: 0; line-height: 1;\n"
+        "    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;\n"
+        "}\n"
+        ".tab[data-accent=\"orange\"]:hover { color: var(--orange); }\n"
+        ".tab[data-accent=\"cyan\"]:hover   { color: var(--cyan); }\n"
+        ".tab[data-accent=\"violet\"]:hover { color: #34d399; }\n"
+        ".tab[data-accent=\"slate\"]:hover  { color: #eab308; }\n"
+        ".tab[data-accent=\"red\"]:hover    { color: var(--red); }\n"
+        ".tabOn { color: #1a2e30; }\n"
+        ".tabOn[data-accent=\"orange\"] { background: var(--orange); border-color: var(--orange); box-shadow: 0 4px 16px rgba(238,140,58,0.32); }\n"
+        ".tabOn[data-accent=\"cyan\"]   { background: var(--cyan);   border-color: var(--cyan);   box-shadow: 0 4px 16px rgba(6,182,212,0.32); }\n"
+        ".tabOn[data-accent=\"violet\"] { background: #34d399; border-color: #34d399; box-shadow: 0 4px 16px rgba(52,211,153,0.32); }\n"
+        ".tabOn[data-accent=\"slate\"]  { background: #eab308; border-color: #eab308; box-shadow: 0 4px 16px rgba(234,179,8,0.32); }\n"
+        ".tabOn[data-accent=\"red\"]    { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 16px rgba(239,68,68,0.32); }\n"
+        ".tabOn:focus-visible, .tab:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: -2px; }\n"
+        "@media (max-width: 480px) {\n"
+        "    .tab, .tabOn { padding: clamp(6px,2vw,8px) clamp(9px,2.6vw,12px); font-size: 9px; }\n"
+        "    .tabDock { padding: 5px; }\n"
+        "}",
+
+        "tabDock/tabRow/tab/tabOn rules added",
     ),
 ])
 
@@ -221,7 +306,7 @@ if not (ident.stdout or "").strip():
     git("config", "user.email", "nyenz@users.noreply.github.com")
 
 git("add", "-A")
-git("commit", "-m", "fix131: PLOT DETAILS reorganised into Settings-style LOCATION/TITLE cards + click-to-copy on values")
+git("commit", "-m", "fix132: revert fix131 PLOT DETAILS cards to flat spec grid w/ LOCATION/TITLE labels; port Settings' tab dock onto Folder page section tabs")
 push = subprocess.run(["git", "push"], cwd=ROOT, capture_output=True, text=True)
 if push.returncode != 0:
     print("push failed, retrying against origin/main explicitly...")
