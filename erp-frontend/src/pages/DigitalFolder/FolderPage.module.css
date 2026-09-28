@@ -612,7 +612,7 @@
    selection, each carrying its own destination accent, instead of
    five separately-bordered floating buttons. */
 .tabDock {
-    flex: 1 1 auto; display: flex; align-items: center; min-width: 0;
+    flex: 0 0 auto; display: flex; align-items: center; max-width: 100%;
     background: #4d5c5a; border: none; border-radius: 8px;
     padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
     overflow-x: auto; scrollbar-width: none;
@@ -653,9 +653,16 @@
     color: var(--orange);
     text-transform: uppercase;
     letter-spacing: 2px;
-    margin-bottom: clamp(10px, 1.3vw, 14px);
-    padding-bottom: clamp(6px, 0.8vw, 9px);
-    border-bottom: 1px solid rgba(238, 140, 58, 0.2);
+    margin-bottom: clamp(9px, 1.2vw, 13px);
+}
+
+/* fix133: LOCATION/LOCATION-style groups get their own wrapper so a
+   divider can sit BETWEEN two groups (specGroupDivided) instead of
+   hanging off a single label with nothing on either side of it. */
+.specGroup { display: flex; flex-direction: column; gap: clamp(9px, 1.2vw, 13px); }
+.specGroupDivided {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: clamp(12px, 1.6vw, 18px);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

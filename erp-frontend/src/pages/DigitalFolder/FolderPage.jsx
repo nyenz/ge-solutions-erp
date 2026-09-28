@@ -621,18 +621,20 @@ useEffect(() => {
                                 <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({ ...buffer, blockRoad: e.target.value.toUpperCase() })} />
                             </div>)}
                         </>) : (<>
-                            <div className={styles.sectionSubHeader}>LOCATION</div>
-                            <div className={styles.readOnlyGrid}>
-                                {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (
-                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
+                            <div className={styles.specGroup}>
+                                <div className={styles.sectionSubHeader}>LOCATION</div>
+                                <div className={styles.readOnlyGrid}>
+                                    {[['DISTRICT', project.district], ['COUNTY', project.county], ['SUB-COUNTY', project.subCounty], ['PARISH', project.parish], ['VILLAGE', project.village], ['AREA', project.area]].map(([l, v], i) => (
+                                        <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
+                                </div>
                             </div>
-                            {project.landTitle && (<>
-                            <div className={styles.sectionSubHeader}>TITLE</div>
-                            <div className={styles.readOnlyGrid}>
-                                {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (
-                                    <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
-                            </div>
-                            </>)}
+                            {project.landTitle && (<div className={`${styles.specGroup} ${styles.specGroupDivided}`}>
+                                <div className={styles.sectionSubHeader}>TITLE</div>
+                                <div className={styles.readOnlyGrid}>
+                                    {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad]].map(([l, v], i) => (
+                                        <div key={i} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
+                                </div>
+                            </div>)}
                         </>)}
                     </div></div>
                 </section>
