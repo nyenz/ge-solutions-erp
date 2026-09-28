@@ -55,36 +55,63 @@ public class DataInitializer implements CommandLineRunner {
         String[] defaults = { "Office", "Fieldwork", "Land Office" };
         for (String name : defaults) expensePresetRepository.save(ExpensePreset.builder().name(name).createdBy("SYSTEM").build());
     }
-    // ---------- ONE-TIME SCENARIO SEED (wipe once, seed once, never again) ----------
+    // ---------- ONE-TIME DEMO DATASET v2 (remove old seed rows once, seed once, never again) ----------
     public void seedScenarioDataOnce() {
         try (Connection conn = dataSource.getConnection()) {
             try (Statement st = conn.createStatement()) {
                 st.execute("CREATE TABLE IF NOT EXISTS scenario_seed_flag (id INTEGER PRIMARY KEY, seeded_at TIMESTAMP NOT NULL DEFAULT now())");
             }
-            boolean seeded;
-            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM scenario_seed_flag"); java.sql.ResultSet rs = ps.executeQuery()) { rs.next(); seeded = rs.getInt(1) > 0; }
-            if (seeded) {
-                int projectRows = 0;
-                try (java.sql.PreparedStatement ps2 = conn.prepareStatement("SELECT COUNT(*) FROM land_projects"); java.sql.ResultSet rs2 = ps2.executeQuery()) { rs2.next(); projectRows = rs2.getInt(1); }
-                if (projectRows > 0) { System.out.println(">>> [SCENARIO] Already seeded -- skipping."); return; }
-                System.out.println(">>> [SCENARIO] Flag set but ledger empty -- self-heal re-seed.");
-            }
-            purgeAll(conn);
+            boolean done;
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM scenario_seed_flag WHERE id = 2"); java.sql.ResultSet rs = ps.executeQuery()) { rs.next(); done = rs.getInt(1) > 0; }
+            if (done) { System.out.println(">>> [SCENARIO] Dataset v2 already seeded -- skipping."); return; }
+            purgeSeedRows(conn);
             seedScenarios();
-            try (Statement st = conn.createStatement()) { st.execute("INSERT INTO scenario_seed_flag (id) VALUES (1)"); }
-            System.out.println(">>> [SCENARIO] Scenario dataset seeded (28 projects).");
+            try (Statement st = conn.createStatement()) { st.execute("INSERT INTO scenario_seed_flag (id) VALUES (2) ON CONFLICT (id) DO NOTHING"); }
+            System.out.println(">>> [SCENARIO] Dataset v2 seeded (22 projects).");
         } catch (Exception e) { System.err.println(">>> [SCENARIO] seed fault: " + e.getMessage()); }
     }
-    private void purgeAll(Connection conn) throws java.sql.SQLException {
-        String[] stmts = {
-            "DELETE FROM notification_reads", "DELETE FROM notifications", "DELETE FROM recovery_notes",
-            "DELETE FROM payment_records", "DELETE FROM follow_up_logs", "DELETE FROM project_documents",
-            "DELETE FROM project_stages", "DELETE FROM project_proprietors", "DELETE FROM land_projects",
-            "DELETE FROM land_titles", "DELETE FROM clients", "DELETE FROM audit_logs",
-            "UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1"
-        };
-        try (Statement st = conn.createStatement()) { for (String s : stmts) { try { st.execute(s); } catch (Exception e) { System.err.println(">>> [SCENARIO] purge skip: " + e.getMessage()); } } }
+    private java.util.List<Object> idList(Connection conn, String sql, java.sql.Array arg) throws java.sql.SQLException {
+        java.util.List<Object> out = new java.util.ArrayList<>();
+        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (arg != null) ps.setArray(1, arg);
+            try (java.sql.ResultSet rs = ps.executeQuery()) { while (rs.next()) out.add(rs.getObject(1)); }
+        }
+        return out;
     }
+    private void purgeBy(Connection conn, String sql, java.sql.Array arg) {
+        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) { ps.setArray(1, arg); ps.executeUpdate(); }
+        catch (Exception e) { System.err.println(">>> [SCENARIO] purge skip: " + e.getMessage()); }
+    }
+    // Deletes only rows that belong to seed clients (old CM9000000000xx ids and new CM99xxxxxxLLLL ids).
+    private void purgeSeedRows(Connection conn) throws java.sql.SQLException {
+        java.util.List<Object> clients = idList(conn, "SELECT id FROM clients WHERE national_id LIKE 'CM9000000000%' OR national_id LIKE 'CM99%'", null);
+        if (clients.isEmpty()) return;
+        java.sql.Array cArr = conn.createArrayOf("uuid", clients.toArray());
+        java.util.List<Object> projects = idList(conn, "SELECT DISTINCT project_id FROM project_proprietors WHERE client_id = ANY(?)", cArr);
+        java.sql.Array pArr = conn.createArrayOf("uuid", projects.toArray());
+        java.util.List<Object> titles = idList(conn, "SELECT title_id FROM land_projects WHERE title_id IS NOT NULL AND id = ANY(?)", pArr);
+        java.sql.Array tArr = conn.createArrayOf("uuid", titles.toArray());
+        String[] byProject = { "payment_records", "follow_up_logs", "project_documents", "project_stages", "payment_schedules" };
+        for (String t : byProject) purgeBy(conn, "DELETE FROM " + t + " WHERE project_id = ANY(?)", pArr);
+        purgeBy(conn, "DELETE FROM recovery_notes WHERE client_id = ANY(?)", cArr);
+        purgeBy(conn, "DELETE FROM project_proprietors WHERE client_id = ANY(?)", cArr);
+        purgeBy(conn, "DELETE FROM land_projects WHERE id = ANY(?)", pArr);
+        purgeBy(conn, "DELETE FROM land_titles WHERE id = ANY(?)", tArr);
+        purgeBy(conn, "DELETE FROM clients WHERE id = ANY(?)", cArr);
+        try (java.sql.PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM land_projects"); java.sql.ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            if (rs.getInt(1) == 0) { try (Statement st = conn.createStatement()) { st.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1"); } }
+        }
+        System.out.println(">>> [SCENARIO] Old seed rows removed.");
+    }
+    // Deterministic fake identifiers: 14-char national ID (CM99 + 6 digits + 4 letters) and 10-digit 07xx phone.
+    private static String nin(int i) {
+        String L = "ABCDEFGHJKLMNPRSTUWXYZ";
+        return "CM99" + String.format("%06d", 120000 + (i * 3719) % 880000)
+                + L.charAt(i % L.length()) + L.charAt((i * 5 + 3) % L.length())
+                + L.charAt((i * 7 + 1) % L.length()) + L.charAt((i * 11 + 2) % L.length());
+    }
+    private static String tel(int i) { return "07" + (i % 2 == 0 ? "01" : "52") + String.format("%06d", 234000 + i * 173); }
     private String d(int daysAgo) { return LocalDate.now().minusDays(daysAgo).toString(); }
     private void flag(UUID pid, String sql) {
         try (Connection conn = dataSource.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement("UPDATE land_projects SET " + sql + " WHERE id = ?")) { ps.setObject(1, pid); ps.executeUpdate(); } catch (Exception e) { System.err.println(">>> [SCENARIO] flag fault: " + e.getMessage()); }
@@ -93,11 +120,11 @@ public class DataInitializer implements CommandLineRunner {
         try (Connection conn = dataSource.getConnection()) {
             java.sql.Timestamp ts = java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(daysAgo));
             try (java.sql.PreparedStatement ps = conn.prepareStatement("UPDATE land_projects SET last_payment_date = ? WHERE id = ?")) { ps.setTimestamp(1, ts); ps.setObject(2, pid); ps.executeUpdate(); }
-            try (java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO payment_records (id, project_id, amount_paid, payment_type, recorded_by, notes, timestamp, balance_after) VALUES (?, ?, ?, ?, 'SYSTEM', 'Scenario seed', ?, 0)")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setBigDecimal(3, java.math.BigDecimal.valueOf(amount)); ps.setString(4, type); ps.setTimestamp(5, ts); ps.executeUpdate(); }
+            try (java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO payment_records (id, project_id, amount_paid, payment_type, recorded_by, notes, timestamp, balance_after) VALUES (?, ?, ?, ?, 'SYSTEM', 'Payment received', ?, 0)")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setBigDecimal(3, java.math.BigDecimal.valueOf(amount)); ps.setString(4, type); ps.setTimestamp(5, ts); ps.executeUpdate(); }
         } catch (Exception e) { System.err.println(">>> [SCENARIO] payment fault: " + e.getMessage()); }
     }
     private void doc(UUID pid, String type, String name) {
-        try (Connection conn = dataSource.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO project_documents (id, project_id, file_name, file_type, file_path, internal_notes, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, 'Scenario doc', 'SYSTEM', now())")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setString(3, name); ps.setString(4, type); ps.setString(5, "https://res.cloudinary.com/dfd115bnz/raw/upload/v1/ge_solutions/demo/" + name); ps.executeUpdate(); } catch (Exception e) { System.err.println(">>> [SCENARIO] doc fault: " + e.getMessage()); }
+        try (Connection conn = dataSource.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement("INSERT INTO project_documents (id, project_id, file_name, file_type, file_path, internal_notes, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, 'Uploaded by front desk', 'SYSTEM', now())")) { ps.setObject(1, UUID.randomUUID()); ps.setObject(2, pid); ps.setString(3, name); ps.setString(4, type); ps.setString(5, "https://res.cloudinary.com/dfd115bnz/raw/upload/v1/ge_solutions/demo/" + name); ps.executeUpdate(); } catch (Exception e) { System.err.println(">>> [SCENARIO] doc fault: " + e.getMessage()); }
     }
     private void fup(UUID pid, String text, int daysAgo) {
         followUpRepository.save(FollowUpLog.builder().projectId(pid).notes(text).recordedBy("SYSTEM").timestamp(LocalDateTime.now().minusDays(daysAgo)).build());
@@ -115,84 +142,69 @@ public class DataInitializer implements CommandLineRunner {
         String FW = "Field Work", DP = "Deed Plan", LCI = "LC Inspection", DLB = "District Land Board Approval", TASD = "Tax Assessment and Stamp Duty", REG = "Registration and Title Issuance";
         String[] ALL = { FW, DP, LCI, DLB, TASD, REG };
         Map<String, UUID> S = new HashMap<>();
-        // INTAKE + LEDGER coverage
-        S.put("s1", seedOne(null, false, false, false, null, null, "B-101", d(40), 3500000, 0, 0, 0, new String[][] { { "MUGISHA JOHN", "CM900000000001", "0772000001" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "WAKISO", "BUSIRO", "KIRA", "NAJJA", "KIWAFU", "Residential" }, "New folder, field work started", idByName));
-        S.put("s2", seedOne(null, false, false, false, null, null, "B-102", d(60), 4200000, 2100000, 0, 0, new String[][] { { "NAKATO SARAH", "CM900000000002", "0772000002" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "KAWEMPE", "BUKOTO", "KISALOSALO", "Mixed Use" }, null, idByName));
-        S.put("s3", seedOne(null, false, false, false, null, null, "B-103", d(90), 3800000, 380000, 0, 0, new String[][] { { "SSEKANDI ROBERT", "CM900000000003", "0772000003" }, { "ACHEN GRACE", "CM900000000004", "0772000004" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "MUKONO", "MUKONO", "MUKONO TOWN", "KIKOOZA", "NAMAVE", "Industrial" }, "Joint owners, critical progress", idByName));
-        S.put("s4", seedOne(null, false, false, false, null, null, "B-104", d(30), 5000000, 1250000, 0, 0, new String[][] { { "OTIM PETER", "CM900000000005", "0772000005" } }, new String[] { FW, "Survey Camp Verification" }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "GULU", "GULU", "LAROO", "LAROO WARD", "BARDEGE", "Residential" }, "Custom stage added", idByName));
-        S.put("s5", seedOne("P-201", false, true, false, "T2026-201", d(50), "B-105", d(70), 4500000, 3150000, 0, 0, new String[][] { { "OKELLO JAMES", "CM900000000006", "0772000006" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "JINJA", "JINJA", "CENTRAL", "MPUMUDDE", "KAGUMBA", "Commercial" }, null, idByName));
-        S.put("s6", seedOne("P-202", false, true, false, "T2026-202", d(45), "B-106", d(80), 4800000, 4800000, 0, 0, new String[][] { { "NAMBATYA FATUMA", "CM900000000007", "0772000007" }, { "TUMWINE ALEX", "CM900000000008", "0772000008" } }, ALL, null, null, new String[] { "MBARARA", "MBARARA", "MBARARA CITY", "KAKOBA", "BUHIMBA", "Residential" }, "Fully paid, awaiting release", idByName));
-        S.put("s7", seedOne("P-203", false, true, false, "T2026-203", d(40), "B-107", d(85), 5200000, 5200000, 0, 0, new String[][] { { "ADONGO MARY", "CM900000000009", "0772000009" } }, ALL, null, "RELEASE", new String[] { "LIRA", "LIRA", "LIRA CITY", "OJWINA", "ADYEL", "Residential" }, "Released to client", idByName));
-        S.put("s8", seedOne("L1985-301", true, true, false, "L1985-301", "1985-06-15", "B-108", d(400), 3500000, 1750000, 0, 0, new String[][] { { "BYARUHANGA CHARLES", "CM900000000010", "0772000010" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "MASAKA", "MASAKA", "MASAKA CITY", "KIMAANYA", "KYESIGA", "Residential" }, "Legacy, 400 days silent, auto-receivable candidate", idByName));
-        S.put("s9", seedOne("L1990-302", true, true, false, "L1990-302", "1990-03-20", "B-109", d(300), 4000000, 800000, 0, 0, new String[][] { { "OPIYO SAMUEL", "CM900000000011", "0772000011" }, { "AKELLO JANET", "CM900000000012", "0772000012" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "MBALE", "MBALE", "MBALE CITY", "INDUSTRIAL", "WANALE", "Industrial" }, "Legacy joint", idByName));
-        // RECEIVABLE family
-        S.put("s10", seedOne("P-301", false, true, true, "T2026-301", d(350), "B-110", d(360), 4500000, 900000, 50000, 50000, new String[][] { { "MUKASA DAVID", "CM900000000013", "0772000013" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "ARUA", "ARUA", "RIVER OLI", "ANYAFIO", "Residential" }, "Receivable, silent", idByName));
-        S.put("s11", seedOne("P-302", false, true, true, "T2026-302", d(320), "B-111", d(330), 5000000, 750000, 50000, 50000, new String[][] { { "NAMBI CHRISTINE", "CM900000000014", "0772000014" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "NEBBI", "NEBBI", "NEBBI TOWN", "PAIDHA", "PANYIMUR", "Agricultural" }, "Receivable, paying", idByName));
-        S.put("s12", seedOne("P-303", false, true, true, "T2026-303", d(300), "B-112", d(310), 3800000, 380000, 50000, 50000, new String[][] { { "OKIROR JOSEPH", "CM900000000015", "0772000015" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "SOROTI", "SOROTI", "SOROTI CITY", "GWERI", "ARAPAI", "Agricultural" }, "Receivable frozen (negotiation)", idByName));
-        S.put("s13", seedOne("P-304", false, true, true, "T2026-304", d(290), "B-113", d(300), 4200000, 420000, 50000, 50000, new String[][] { { "ALUPO SUSAN", "CM900000000016", "0772000016" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "TORORO", "TORORO", "TORORO TOWN", "MOLO", "KADAMA", "Residential" }, "Receivable, deadline passed", idByName));
-        S.put("s14", seedOne("P-305", false, true, false, "T2026-305", d(100), "B-114", d(120), 4700000, 2350000, 0, 0, new String[][] { { "ODONG MOSES", "CM900000000017", "0772000017" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "HOIMA", "HOIMA", "HOIMA CITY", "BUJUMBURA", "KASINGO", "Residential" }, "Problem flag", idByName));
-        S.put("s15", seedOne("P-306", false, true, true, "T2026-306", d(280), "B-115", d(290), 6000000, 3000000, 75000, 75000, new String[][] { { "ATIM REBECCA", "CM900000000018", "0772000018" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "ARUA", "ARUA CITY", "RIVER OLI", "ANYAFIO", "Commercial" }, "Custom storage rate 75k", idByName));
-        // RECOVERY + NOTES coverage
-        S.put("s16", seedOne("P-401", false, true, false, "T2026-401", d(90), "B-116", d(120), 4300000, 2150000, 0, 0, new String[][] { { "KABAGAMBE FRANCIS", "CM900000000019", "0772000019" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "BUSHENYI", "BUSHENYI", "BUSHENYI TOWN", "KAKOBA", "ISHAKA", "Residential" }, null, idByName));
-        S.put("s17", seedOne("P-402", false, true, false, "T2026-402", d(95), "B-117", d(130), 4600000, 2300000, 0, 0, new String[][] { { "NAKIMERA DIANA", "CM900000000020", "0772000020" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "RAKAI", "RAKAI", "RAKAI TOWN", "KALISIZO", "KYOTERA", "Agricultural" }, null, idByName));
-        S.put("s18", seedOne("P-403", false, true, false, "T2026-403", d(88), "B-118", d(140), 5800000, 2900000, 0, 0, new String[][] { { "MWESIGYE PATRICK", "CM900000000021", "0772000021" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KABAROLE", "KABAROLE", "FORT PORTAL", "KARAMBI", "KISIMBA", "Residential" }, null, idByName));
-        S.put("s19", seedOne("P-404", false, true, false, "T2026-404", d(85), "B-119", d(150), 5200000, 2600000, 0, 0, new String[][] { { "ATWIJUKA MARTIN", "CM900000000022", "0772000022" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "SHEEMA", "SHEEMA", "SHEEMA TOWN", "KITAGATA", "KAZINGA", "Mixed Use" }, null, idByName));
-        S.put("s20", seedOne("P-405", false, true, false, "T2026-405", d(80), "B-120", d(160), 4800000, 2400000, 0, 0, new String[][] { { "NSUBUGA RONALD", "CM900000000023", "0772000023" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "LUWEERO", "LUWEERO", "LUWEERO TOWN", "BAMUNANIKA", "WOBULENZI", "Residential" }, null, idByName));
-        S.put("s21", seedOne("P-406", false, true, false, "T2026-406", d(75), "B-121", d(170), 4100000, 2050000, 0, 0, new String[][] { { "ADONG SHARON", "CM900000000024", "0772000024" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "MAKINDYE", "KIBULI", "KIBULI", "Residential" }, null, idByName));
-        S.put("s22", seedOne("P-407", false, true, false, "T2026-407", d(70), "B-122", d(180), 5300000, 2650000, 0, 0, new String[][] { { "OCHOLA BRIAN", "CM900000000025", "0772000025" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "JINJA", "JINJA", "CENTRAL", "MPUMUDDE", "KAGUMBA", "Commercial" }, null, idByName));
-        S.put("s23", seedOne("P-408", false, true, false, "T2026-408", d(65), "B-123", d(190), 3900000, 1950000, 0, 0, new String[][] { { "AKELLO GRACE", "CM900000000026", "0772000026" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "GULU", "GULU", "LAROO", "LAROO WARD", "BARDEGE", "Residential" }, null, idByName));
-        S.put("s24", seedOne("P-409", false, true, false, "T2026-409", d(60), "B-124", d(200), 4400000, 2200000, 0, 0, new String[][] { { "OPIO DANIEL", "CM900000000027", "0772000027" }, { "AUMA JUDITH", "CM900000000028", "0772000028" } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "WAKISO", "BUSIRO", "KIRA", "NAJJA", "KIWAFU", "Residential" }, "Joint - co-owner warning demo", idByName));
-        S.put("s25", seedOne("P-410", false, true, false, "T2026-410", d(55), "B-125", d(210), 4900000, 2450000, 0, 0, new String[][] { { "OKOT SIMON", "CM900000000029", "0772000029" } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KITGUM", "KITGUM", "KITGUM TOWN", "PANDONGO", "PAIMOL", "Agricultural" }, null, idByName));
-        S.put("s26", seedOne("P-411", false, true, false, "T2026-411", d(50), "B-126", d(220), 4000000, 2000000, 0, 0, new String[][] { { "NAMUYANJA RITA", "CM900000000030", "0772000030" } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "MUKONO", "MUKONO", "MUKONO TOWN", "KIKOOZA", "NAMAVE", "Industrial" }, null, idByName));
-        S.put("s27", seedOne(null, false, false, false, null, null, "B-127", d(0), 3600000, 900000, 0, 0, new String[][] { { "KAGWA PETER", "CM900000000031", "0772000031" } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KAMPALA", "KAWEMPE", "BUKOTO", "KISALOSALO", "Mixed Use" }, "Intake today", idByName));
-        S.put("s28", seedOne("P-412", false, true, false, "T2026-412", d(45), "B-128", d(230), 5100000, 3570000, 0, 0, new String[][] { { "NABIRYE MARY", "CM900000000032", "0772000032" } }, new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG }, null, new String[] { "KAMPALA", "KAMPALA", "NAKAWA", "BUGOLOBI", "BUGOLOBI", "Residential" }, "Documents demo", idByName));
+        // INTAKE + IN-PROGRESS
+        S.put("s1", seedOne(null, false, false, false, null, null, "KYADONDO BLOCK 244", d(21), 3200000, 1000000, 0, 0, new String[][] { { "KATO HERBERT", nin(1), tel(1) } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "WAKISO", "KYADONDO", "NANSANA MUNICIPALITY", "NANSANA EAST", "KYEBANDO", "Residential" }, "Deposit received at intake; field work scheduled", idByName));
+        S.put("s2", seedOne(null, false, false, false, null, null, "KYADONDO BLOCK 118", d(55), 4200000, 2100000, 0, 0, new String[][] { { "NABUKENYA ROSE", nin(2), tel(2) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KYADONDO", "MAKINDYE DIVISION", "KANSANGA", "MUYENGA", "Residential" }, null, idByName));
+        S.put("s3", seedOne(null, false, false, false, null, null, "MAWOKOTA BLOCK 302", d(85), 3800000, 1900000, 0, 0, new String[][] { { "SSEMWOGERERE ISAAC", nin(3), tel(3) }, { "NAMULI PROSSY", nin(4), tel(4) } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "MPIGI", "MAWOKOTA", "MPIGI TOWN COUNCIL", "KAFUMU", "KAYABWE", "Agricultural" }, "Joint owners; both must sign the deed plan", idByName));
+        S.put("s4", seedOne("2417", false, true, false, "LRV 3310 FOLIO 14", d(40), "KASHARI BLOCK 96", d(110), 4500000, 3150000, 0, 0, new String[][] { { "BYAMUGISHA INNOCENT", nin(5), tel(5) } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "MBARARA", "KASHARI", "MBARARA CITY NORTH DIVISION", "KAKOBA", "NYAMITANGA", "Residential" }, null, idByName));
+        // FULLY PAID + RELEASED
+        S.put("s5", seedOne("781", false, true, false, "LRV 4102 FOLIO 3", d(35), "ASWA BLOCK 57", d(125), 4800000, 4800000, 0, 0, new String[][] { { "ACHIENG BEATRICE", nin(6), tel(6) } }, ALL, null, null, new String[] { "GULU", "ASWA", "LAYIBI DIVISION", "PECE", "LACOR", "Residential" }, "Fully paid; awaiting release to client", idByName));
+        S.put("s6", seedOne("1204", false, true, false, "LRV 4188 FOLIO 21", d(30), "BUDIOPE BLOCK 88", d(140), 5200000, 5200000, 0, 0, new String[][] { { "TUMUSIIME JOSEPH", nin(7), tel(7) } }, ALL, null, "RELEASE", new String[] { "JINJA", "BUDIOPE", "JINJA CITY SOUTH DIVISION", "WALUKUBA", "MPUMUDDE", "Commercial" }, "Title released to client", idByName));
+        // LEGACY
+        S.put("s7", seedOne("355", true, true, false, "LRV 1120 FOLIO 7", "1985-06-15", "BUDDU BLOCK 61", d(400), 3500000, 1750000, 0, 0, new String[][] { { "LUBEGA MOSES", nin(8), tel(8) } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "MASAKA", "BUDDU", "MASAKA CITY", "KIMAANYA", "KYESIGA", "Residential" }, "Legacy file; client silent for over a year", idByName));
+        S.put("s8", seedOne("412", true, true, false, "LRV 1584 FOLIO 22", "1990-03-20", "BUNGOKHO BLOCK 12", d(300), 4000000, 800000, 0, 0, new String[][] { { "NALUBEGA AGNES", nin(9), tel(9) }, { "KIIZA EMMANUEL", nin(10), tel(10) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "MBALE", "BUNGOKHO", "MBALE CITY", "NAMAKWEKWE", "WANALE", "Industrial" }, "Legacy joint file", idByName));
+        // RECEIVABLE FAMILY
+        S.put("s9", seedOne("1533", false, true, true, "LRV 3890 FOLIO 5", d(350), "AYIVU BLOCK 33", d(360), 4500000, 900000, 50000, 50000, new String[][] { { "APIO DOREEN", nin(11), tel(11) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "AYIVU", "ARUA CITY", "RIVER OLI", "ANYAFIO", "Residential" }, "Receivable; client silent since last payment", idByName));
+        S.put("s10", seedOne("902", false, true, true, "LRV 3902 FOLIO 9", d(320), "PADYERE BLOCK 14", d(330), 5000000, 750000, 50000, 50000, new String[][] { { "MUGENYI STEPHEN", nin(12), tel(12) } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "NEBBI", "PADYERE", "NEBBI TOWN COUNCIL", "PAIDHA", "PANYIMUR", "Agricultural" }, "Receivable; client paying in instalments", idByName));
+        S.put("s11", seedOne("648", false, true, true, "LRV 3915 FOLIO 2", d(300), "SOROTI BLOCK 21", d(310), 3800000, 380000, 50000, 50000, new String[][] { { "NAKAMYA HARRIET", nin(13), tel(13) } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "SOROTI", "SOROTI", "SOROTI CITY EAST DIVISION", "GWERI", "ARAPAI", "Agricultural" }, "Receivable; storage frozen during negotiation", idByName));
+        S.put("s12", seedOne("2210", false, true, true, "LRV 3941 FOLIO 18", d(290), "TORORO BLOCK 45", d(300), 4200000, 420000, 50000, 50000, new String[][] { { "OPOLOT VINCENT", nin(14), tel(14) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "TORORO", "TORORO", "TORORO MUNICIPALITY", "MOLO", "KADAMA", "Residential" }, "Receivable; negotiation deadline passed", idByName));
+        S.put("s13", seedOne("1875", false, true, false, "LRV 4021 FOLIO 11", d(95), "BUGAHYA BLOCK 72", d(115), 4700000, 2350000, 0, 0, new String[][] { { "BWIRE ALFRED", nin(15), tel(15) } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "HOIMA", "BUGAHYA", "HOIMA CITY EAST DIVISION", "KIGOROBYA", "BUJUMBURA", "Residential" }, "Boundary dispute with neighbour; flagged as problem", idByName));
+        S.put("s14", seedOne("3306", false, true, true, "LRV 3960 FOLIO 27", d(280), "AYIVU BLOCK 34", d(290), 6000000, 3000000, 75000, 75000, new String[][] { { "NANTONGO JULIET", nin(16), tel(16) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "ARUA", "AYIVU", "ARUA CITY", "RIVER OLI", "ANYAFIO", "Commercial" }, "Custom storage rate agreed at 75,000", idByName));
+        // RECOVERY COVERAGE
+        S.put("s15", seedOne("1421", false, true, false, "LRV 4050 FOLIO 6", d(85), "IGARA BLOCK 19", d(120), 4300000, 2150000, 0, 0, new String[][] { { "AHIMBISIBWE GILBERT", nin(17), tel(17) } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "BUSHENYI", "IGARA", "BUSHENYI-ISHAKA MUNICIPALITY", "NYAKABIRIZI", "KATUNGURU", "Residential" }, null, idByName));
+        S.put("s16", seedOne("3122", false, true, false, "LRV 4066 FOLIO 13", d(90), "KOOKI BLOCK 27", d(130), 4600000, 2300000, 0, 0, new String[][] { { "OJOK DENIS", nin(18), tel(18) } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "RAKAI", "KOOKI", "RAKAI TOWN COUNCIL", "KALISIZO", "KYOTERA", "Agricultural" }, null, idByName));
+        S.put("s17", seedOne("540", false, true, false, "LRV 4071 FOLIO 1", d(88), "BURAHYA BLOCK 8", d(140), 5800000, 2900000, 0, 0, new String[][] { { "NAMATOVU ESTHER", nin(19), tel(19) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KABAROLE", "BURAHYA", "FORT PORTAL CITY EAST DIVISION", "KARAMBI", "KISIMBA", "Residential" }, null, idByName));
+        S.put("s18", seedOne("2718", false, true, false, "LRV 4085 FOLIO 19", d(80), "SHEEMA BLOCK 41", d(150), 5200000, 2600000, 0, 0, new String[][] { { "MUGISHA ANDREW", nin(20), tel(20) } }, new String[] { FW, DP, LCI }, new String[] { DLB, TASD, REG }, null, new String[] { "SHEEMA", "SHEEMA", "SHEEMA MUNICIPALITY", "KITAGATA", "KAZINGA", "Mixed Use" }, null, idByName));
+        S.put("s19", seedOne("963", false, true, false, "LRV 4090 FOLIO 24", d(75), "KATIKAMU BLOCK 62", d(160), 4800000, 2400000, 0, 0, new String[][] { { "NANKYA SYLVIA", nin(21), tel(21) } }, new String[] { FW, DP, LCI, DLB }, new String[] { TASD, REG }, null, new String[] { "LUWEERO", "KATIKAMU", "LUWEERO TOWN COUNCIL", "BAMUNANIKA", "WOBULENZI", "Residential" }, null, idByName));
+        S.put("s20", seedOne("1187", false, true, false, "LRV 4210 FOLIO 30", d(70), "KYADONDO BLOCK 205", d(170), 4100000, 2050000, 0, 0, new String[][] { { "KAWEESI TIMOTHY", nin(22), tel(22) } }, new String[] { FW, DP }, new String[] { LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KYADONDO", "MAKINDYE DIVISION", "KIBULI", "KIBULI", "Residential" }, null, idByName));
+        // INTAKE TODAY + DOCUMENTS
+        S.put("s21", seedOne(null, false, false, false, null, null, "KYADONDO BLOCK 260", d(0), 3600000, 900000, 0, 0, new String[][] { { "KIGGUNDU SAMUEL", nin(23), tel(23) } }, new String[] { FW }, new String[] { DP, LCI, DLB, TASD, REG }, null, new String[] { "KAMPALA", "KYADONDO", "KAWEMPE DIVISION", "MAKERERE III", "KIKONI", "Mixed Use" }, "Walk-in intake today", idByName));
+        S.put("s22", seedOne("1954", false, true, false, "LRV 4233 FOLIO 12", d(45), "KYADONDO BLOCK 190", d(200), 5100000, 3570000, 0, 0, new String[][] { { "NAKIMULI JOAN", nin(24), tel(24) } }, new String[] { FW, DP, LCI, DLB, TASD }, new String[] { REG }, null, new String[] { "KAMPALA", "KYADONDO", "NAKAWA DIVISION", "BUGOLOBI", "BUGOLOBI", "Residential" }, "Only registration remaining; documents on file", idByName));
         // payments + badges
         backdatePayment(S.get("s2"), 5, 1000000, "STANDARD");
         backdatePayment(S.get("s3"), 60, 380000, "STANDARD");
-        backdatePayment(S.get("s5"), 20, 900000, "STANDARD");
-        backdatePayment(S.get("s8"), 400, 500000, "STANDARD");
-        backdatePayment(S.get("s10"), 300, 400000, "STANDARD");
-        backdatePayment(S.get("s11"), 5, 500000, "RECEIVABLE_PARTIAL");
+        backdatePayment(S.get("s4"), 20, 900000, "STANDARD");
+        backdatePayment(S.get("s7"), 400, 500000, "STANDARD");
+        backdatePayment(S.get("s9"), 300, 400000, "STANDARD");
+        backdatePayment(S.get("s10"), 5, 500000, "RECEIVABLE_PARTIAL");
         // folder flags
-        flag(S.get("s12"), "storage_paused = true, negotiation_deadline = now() + interval '30 days'");
-        flag(S.get("s13"), "negotiation_deadline = now() - interval '5 days'");
-        flag(S.get("s14"), "is_problem = true");
-        flag(S.get("s15"), "storage_fee_override = 75000");
+        flag(S.get("s11"), "storage_paused = true, negotiation_deadline = now() + interval '30 days'");
+        flag(S.get("s12"), "negotiation_deadline = now() - interval '5 days'");
+        flag(S.get("s13"), "is_problem = true");
+        flag(S.get("s14"), "storage_fee_override = 75000");
         // documents
-        doc(S.get("s28"), "DEED_PLAN", "demo-deed-plan.pdf");
-        doc(S.get("s28"), "NIN_SCAN", "demo-nin-scan.jpg");
+        doc(S.get("s22"), "DEED_PLAN", "deed-plan-nakimuli-joan.pdf");
+        doc(S.get("s22"), "NIN_SCAN", "nin-scan-nakimuli-joan.jpg");
         // folder notes
-        fup(S.get("s1"), "Client visited office, asked about stage timeline", 2);
-        fup(S.get("s10"), "Called about storage fees, requested statement", 12);
-        fup(S.get("s24"), "Co-owner AUMA asked to be contacted separately", 1);
+        fup(S.get("s1"), "Client visited the office and asked about the stage timeline", 2);
+        fup(S.get("s9"), "Called about storage fees and requested a statement", 12);
+        fup(S.get("s3"), "Co-owner NAMULI PROSSY asked to be contacted separately", 1);
         // recovery histories
-        note("CM900000000019", "answered call", "POSITIVE", true, 3, "Will pay after harvest", null);
-        touchClient("CM900000000019", 3, 80.0);
-        note("CM900000000020", "answered call", "POSITIVE", true, 1, "First contact this month", null);
-        note("CM900000000020", "committed to pay", "POSITIVE", true, 0, "Promised Friday", null);
-        touchClient("CM900000000020", 0, 85.0);
-        note("CM900000000021", "answered call", "POSITIVE", true, 20, null, null);
-        note("CM900000000021", "failed to pay", "NEGATIVE", false, 18, "Did not honour promise", null);
-        touchClient("CM900000000021", 20, 60.0);
-        note("CM900000000022", "committed to pay", "POSITIVE", true, 10, "Promise date passed", -1);
-        touchClient("CM900000000022", 10, 70.0);
-        note("CM900000000023", "committed to pay", "POSITIVE", true, 5, "Future promise", 7);
-        touchClient("CM900000000023", 5, 75.0);
-        note("CM900000000024", "not picking up", "NEGATIVE", true, 20, null, null);
-        note("CM900000000024", "phone off", "NEGATIVE", true, 16, null, null);
-        touchClient("CM900000000024", 16, 55.0);
-        note("CM900000000025", "answered call", "POSITIVE", true, 35, null, null);
-        note("CM900000000025", "needs site visit", "NEGATIVE", false, 20, "Boundary dispute", null);
-        touchClient("CM900000000025", 35, 65.0);
-        note("CM900000000026", "answered call", "POSITIVE", true, 45, null, null);
-        touchClient("CM900000000026", 45, 70.0);
-        note("CM900000000027", "answered call", "POSITIVE", true, 1, "Reached OPIO only", null);
-        touchClient("CM900000000027", 1, 80.0);
-        note("CM900000000029", "committed to pay", "POSITIVE", true, 30, "Old promise", -20);
-        note("CM900000000029", "failed to pay", "NEGATIVE", false, 18, "Broke promise", null);
-        touchClient("CM900000000029", 30, 35.0);
-        note("CM900000000030", "not picking up", "NEGATIVE", true, 20, null, null);
-        touchClient("CM900000000030", 20, 35.0);
+        note(nin(17), "answered call", "POSITIVE", true, 3, "Will pay after the coffee harvest", null);
+        touchClient(nin(17), 3, 80.0);
+        note(nin(18), "answered call", "POSITIVE", true, 1, "Confirmed he received the balance statement", null);
+        note(nin(18), "committed to pay", "POSITIVE", true, 0, "Promised to pay on Friday", null);
+        touchClient(nin(18), 0, 85.0);
+        note(nin(19), "answered call", "POSITIVE", true, 20, null, null);
+        note(nin(19), "failed to pay", "NEGATIVE", false, 18, "Did not honour the promise made on the call", null);
+        touchClient(nin(19), 20, 60.0);
+        note(nin(20), "committed to pay", "POSITIVE", true, 10, "Promise date has passed", -1);
+        touchClient(nin(20), 10, 70.0);
+        note(nin(21), "committed to pay", "POSITIVE", true, 5, "Will pay once salary comes in", 7);
+        touchClient(nin(21), 5, 75.0);
+        note(nin(22), "not picking up", "NEGATIVE", true, 20, null, null);
+        note(nin(22), "phone off", "NEGATIVE", true, 16, null, null);
+        touchClient(nin(22), 16, 55.0);
     }
     private java.util.UUID seedOne(String plot, boolean legacy, boolean titleAtIntake, boolean receivable,
             String titleId, String titleDate, String block, String startDate, long cost, long paid, long initFee, long monthlyFee,
@@ -217,7 +229,7 @@ public class DataInitializer implements CommandLineRunner {
         b.selectedStages(ss);
         if (note != null) b.notes(java.util.List.of(LandEntryRequest.NoteRequest.builder().content(note).build()));
         LandProject saved = landService.atomicIntake(b.build(), null);
-        if ("RELEASE".equals(release)) { try { landService.authorizeRelease(saved.getId(), "Scenario release"); } catch (Exception e) {} }
+        if ("RELEASE".equals(release)) { try { landService.authorizeRelease(saved.getId(), "Released to client after full payment"); } catch (Exception e) {} }
         return saved.getId();
     }
     // ---------- schema migrations (unchanged) ----------
