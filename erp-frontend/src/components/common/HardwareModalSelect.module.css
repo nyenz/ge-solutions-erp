@@ -1,0 +1,137 @@
+/* PATH: erp-frontend/src/components/common/HardwareModalSelect.module.css
+   fix137 -- dropdown for use inside HardwareModal. The closed box is the
+   same box as .modalInput (HardwareModal.module.css); the open list uses the
+   modal's own dark teal, orange edge and orange selected row. */
+
+.root { position: relative; min-width: 0; }
+
+.trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-top: clamp(5px, 0.6vw, 7px);
+    padding: clamp(11px, 1.4vw, 14px) clamp(12px, 1.6vw, 16px);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(13px, 1.3vw, 15px);
+    font-weight: 700;
+    line-height: 1.25;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.trigger:hover { border-color: rgba(238, 140, 58, 0.45); }
+.trigger:focus-visible,
+.triggerOpen {
+    border-color: rgba(238, 140, 58, 0.7);
+    background: rgba(238, 140, 58, 0.06);
+    box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.14);
+}
+
+/* the smaller box used on each file row */
+.compact {
+    margin-top: 0;
+    padding: clamp(7px, 0.9vw, 9px) clamp(9px, 1.2vw, 12px);
+    font-size: clamp(11px, 1.1vw, 13px);
+}
+
+.disabled { opacity: 0.35; cursor: not-allowed; }
+
+.value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.placeholder {
+    color: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
+    font-weight: 500;
+}
+
+.chevron {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--orange, #EE8C3A);
+    transition: transform 0.2s;
+}
+.triggerOpen .chevron { transform: rotate(180deg); }
+
+/* ── the open list ───────────────────────────────────────────── */
+.panel {
+    position: fixed;
+    z-index: 100001;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--panel-surface-alt, #16292b);
+    border: 1.5px solid rgba(238, 140, 58, 0.55);
+    border-radius: 8px;
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    animation: msOpen 0.14s ease-out;
+}
+.panel::-webkit-scrollbar { display: none; }
+
+.option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: clamp(9px, 1.1vw, 12px) clamp(12px, 1.6vw, 16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-on-dark, rgba(244, 242, 239, 0.82));
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+.option:last-child { border-bottom: none; }
+.optionText {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.optionActive {
+    background: rgba(238, 140, 58, 0.16);
+    color: #ffffff;
+}
+.optionSelected,
+.optionSelected.optionActive {
+    background: var(--orange, #EE8C3A);
+    color: #1a2e30;
+    border-bottom-color: transparent;
+}
+.check { flex-shrink: 0; font-size: 15px; }
+
+.empty {
+    padding: clamp(10px, 1.2vw, 14px) clamp(12px, 1.6vw, 16px);
+    color: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 500;
+}
+
+@keyframes msOpen {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .panel { animation: none; }
+    .trigger, .chevron, .option { transition: none; }
+}

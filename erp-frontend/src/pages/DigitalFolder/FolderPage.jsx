@@ -24,6 +24,7 @@ import predictionService from '../../services/predictionService';
 import clientService from '../../services/clientService';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
+import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './FolderPage.module.css';
@@ -548,6 +549,7 @@ useEffect(() => {
     const docCount = (binder.documents || []).length;
     const UNCATEGORISED = '__NONE__';
     const catLabel = (code) => (docCats.find(c => c.code === code)?.label) || String(code).replace(/_/g, ' ');
+    const catOptions = docCats.map(c => ({ value: c.code, label: c.label }));
     const docGroups = (() => {
         const groups = new Map();
         (binder.documents || []).forEach(d => {
@@ -868,16 +870,10 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
             <HardwareModal isOpen={!!uploadDraft} onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
                 {uploadDraft && (<>
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
-                        <select className={modalStyles.modalInput} value={uploadDraft.batch} onChange={e => setBatchCategory(e.target.value)} aria-label="Category for all files">
-                            <option value="">-- choose category --</option>
-                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                        </select></div>
+                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
                         <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>
-                        <select className={`${modalStyles.modalInput} ${styles.upFileSelect}`} value={f.category} onChange={e => setFileCategory(i, e.target.value)} aria-label={'Category for ' + f.file.name}>
-                            <option value="">-- category --</option>
-                            {docCats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                        </select></div>))}</div>
+                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
                     {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
                         <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
                         <div className={styles.upCatActions}>
