@@ -2,6 +2,9 @@
 /**
  * GOLDEN SEED -- HEADER / NOTIFICATION CENTRE
  *
+ * fix133: the recovery queue is a normal RECOVERY-tinted unread row (same
+ * markup and classes as every other row), not a dark pinned card.
+ *
  * fix131: the dropdown is now a hero (unread count + colour meter + mode,
  * refresh, read) over a dot-chip tray and a day-grouped, icon-free list.
  * Bell dots, chip counts and the hero number are all UNREAD counts computed
@@ -309,17 +312,23 @@ const Header = ({ onToggle }) => {
                                     row in the notifications table -- but it is the most
                                     actionable thing the bell knows, so it pins to the top. */}
                                 {hasPinned && (
-                                    <button type="button" className={styles.notifRowPinned}
-                                        onClick={() => { setNotifOpen(false); navigate('/recovery'); }}>
+                                    <button
+                                        type="button"
+                                        data-group="RECOVERY"
+                                        className={`${styles.notifRow} ${styles.notifUnread}`}
+                                        style={{ '--t': GROUP_COLOR.RECOVERY }}
+                                        onClick={() => { setNotifOpen(false); navigate('/recovery'); }}
+                                    >
                                         <span className={styles.notifBody}>
-                                            <span className={styles.notifPinType}>
-                                                RECOVERY QUEUE
-                                                <time className={styles.notifPinTag}>PINNED</time>
+                                            <span className={styles.notifType}>
+                                                Recovery queue
+                                                <time className={styles.notifTime}>NOW</time>
                                             </span>
-                                            <span className={styles.notifPinMsg}>
+                                            <span className={styles.notifMsg}>
                                                 {staleCount} mission{staleCount > 1 ? 's' : ''} due now
                                             </span>
                                         </span>
+                                        <span className={styles.notifUnreadDot} aria-label="Unread" />
                                     </button>
                                 )}
 

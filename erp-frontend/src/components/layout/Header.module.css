@@ -433,7 +433,7 @@
 
 .notifModeBtn:focus-visible, .notifModeOn:focus-visible, .notifTool:focus-visible,
 .notifChip:focus-visible, .notifChipOn:focus-visible, .notifRow:focus-visible,
-.notifRowPinned:focus-visible, .notifFoot:focus-visible, .notifLink:focus-visible {
+.notifFoot:focus-visible, .notifLink:focus-visible {
     outline: 2px solid #EE8C3A;
     outline-offset: -2px;
 }
@@ -508,7 +508,7 @@
 }
 
 /* -- rows: hairline separators, no icons, no card gaps --------------- */
-.notifRow, .notifRowPinned {
+.notifRow {
     -webkit-appearance: none; appearance: none;
     display: flex; align-items: center; gap: 10px;
     width: 100%;
@@ -546,7 +546,7 @@
     font-weight: 400;
     letter-spacing: 0.5px;
     text-transform: none;
-    color: rgba(26, 46, 48, 0.55);
+    color: #5b6b69;
 }
 .notifMsg {
     font-family: 'Inter', sans-serif;
@@ -563,26 +563,11 @@
     border-radius: 50%;
     background: var(--t, #EE8C3A);
     box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.22);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t, #EE8C3A) 24%, transparent);
 }
 
-/* The recovery queue is pinned and is not a stored row, so it is dark and
-   marked as different rather than pretending to be one of the list. */
-.notifRowPinned {
-    background: linear-gradient(135deg, #2a4a4c, #16292b);
-    border-left-color: #f97316;
-    border-bottom-color: #16292b;
-}
-.notifRowPinned:hover { background: linear-gradient(135deg, #335a5c, #1c3335); }
-.notifPinType {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-    font-family: 'Inter', sans-serif;
-    font-size: clamp(8.5px, 0.9vw, 10px);
-    font-weight: 900;
-    letter-spacing: 1.1px;
-    color: #fdba74;
-}
-.notifPinTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 400; letter-spacing: 1px; color: rgba(255, 255, 255, 0.5); }
-.notifPinMsg { font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.1vw, 13px); font-weight: 600; color: #ffffff; line-height: 1.35; }
+/* fix133: the recovery queue row reuses .notifRow / .notifUnread -- no
+   separate pinned styling. */
 
 .notifEmpty {
     padding: 22px 13px;
