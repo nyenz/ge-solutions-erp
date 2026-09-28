@@ -3,6 +3,7 @@ package com.gesolutions.erp.modules.land.controller;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.common.audit.AuditService;
+import com.gesolutions.erp.modules.notification.service.NotificationService;
 import com.gesolutions.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +22,7 @@ public class FolderPortalController {
 
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     private String op() {
         var a = SecurityContextHolder.getContext().getAuthentication();
@@ -114,11 +116,21 @@ public class FolderPortalController {
     @PostMapping("/toggle-problem")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
-    public Map<String, Object> toggleProblem(@PathVariable UUID id) {
+    public Map<String, Object> toggleProblem(@PathVariable UUID id, @RequestParam(value = "note", required = false) String note) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
         p.setProblem(!p.isProblem());
         projectRepository.save(p);
-        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ".");
+        String why = (note != null && !note.isBlank()) ? note.trim() : "";
+        String plot = (p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null)
+                ? p.getLandTitle().getPlotNumber() : "project #" + p.getProjectIndex();
+        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + (why.isEmpty() ? "" : ": " + why) + ".");
+        if (p.isProblem()) {
+            // fix135: only FLAGGING notifies (clearing is not news). emitRaw, not emit,
+            // because emit() dedupes forever per type+entity and a plot can be flagged twice.
+            notificationService.emitRaw("PROBLEM_FLAGGED", "CRITICAL",
+                    "Plot " + plot + " flagged as a problem by " + op() + (why.isEmpty() ? "." : ": " + why),
+                    "PROJECT", p.getId(), "ALL");
+        }
         return receivable(id);
     }
 

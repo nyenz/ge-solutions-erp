@@ -97,7 +97,7 @@ export const CATALOG = {
     TITLE_COMPLETED:       { label: 'Title completed',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
     NEGOTIATION_DEADLINE:  { label: 'Deadline approaching',  group: GROUPS.PIPELINE, icon: FiClock,       severity: 'WARN' },
     AUTO_RECEIVABLE_365:   { label: 'Auto-flagged receivable', group: GROUPS.PIPELINE, icon: FiAlertTriangle, severity: 'WARN' },
-    PROBLEM_FLAGGED:       { label: 'Flagged as a problem',  group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'WARN' },
+    PROBLEM_FLAGGED:       { label: 'Flagged as a problem',  group: GROUPS.PIPELINE, icon: FiFlag,        severity: 'CRITICAL' },
     DOC_UPLOADED:          { label: 'Document attached',     group: GROUPS.PIPELINE, icon: FiUploadCloud, severity: 'INFO' },
     PROJECT_DELETED:       { label: 'Plot deleted',          group: GROUPS.PIPELINE, icon: FiTrash2,      severity: 'CRITICAL' },
     PROJECT_RESTORED:      { label: 'Plot restored',         group: GROUPS.PIPELINE, icon: FiRotateCcw,   severity: 'POSITIVE' },

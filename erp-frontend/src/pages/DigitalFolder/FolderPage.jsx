@@ -559,6 +559,7 @@ useEffect(() => {
                             : <span className={`${styles.textBadge} ${styles.badgeActive}`}>ACTIVE</span>}
                         {project.landTitle?.isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`}>RELEASED</span>}
                         {project.isLegacy && <span className={`${styles.textBadge} ${styles.badgeLegacy}`}>LEGACY</span>}
+                        {project.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`}>PROBLEM</span>}
                         {project.storagePaused && <span className={`${styles.textBadge} ${styles.badgePaused}`}>STORAGE PAUSED</span>}
                         {project.negotiationDeadline && <span className={`${styles.textBadge} ${styles.badgePaused}`}>NEGOTIATION</span>}
                     </div>

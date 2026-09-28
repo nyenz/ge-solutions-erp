@@ -146,6 +146,9 @@
 .stageDotCurrent{background:var(--orange);box-shadow:0 0 4px var(--orange);}
 .rowReceivable{background:rgba(239,68,68,0.05);}
 .rowCritical{background:rgba(239,68,68,0.07);}
+/* fix135: flagged PROBLEM plots. Same red as the Folder page PROBLEM button/badge. */
+.rowProblem{background:rgba(239,68,68,0.10);}
+.problemTag{align-self:flex-start;display:inline-block;padding:1px clamp(5px,0.6vw,8px);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius-sm,6px);background:rgba(239,68,68,0.12);color:#ef4444;font-family:'Inter',sans-serif;font-weight:900;font-size:clamp(8px,0.8vw,10px);letter-spacing:1px;text-transform:uppercase;}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}
 .indexRow strong{font-family:'Space Mono',monospace;color:#fff;}
 .stack{display:flex;flex-direction:column;gap:2px;}

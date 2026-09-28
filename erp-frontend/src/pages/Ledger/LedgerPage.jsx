@@ -223,6 +223,7 @@ const LedgerPage = () => {
         if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
+        if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem);
         filtered.sort((a, b) => {
             let aVal, bVal;
             if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
@@ -244,7 +245,7 @@ const LedgerPage = () => {
         { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING' },
         { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
         { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
-        { key: 'PAID', label: 'PAID' },
+        { key: 'PAID', label: 'PAID' }, { key: 'PROBLEM', label: 'PROBLEM' },
     ];
 
     return (
@@ -368,13 +369,14 @@ const LedgerPage = () => {
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
-                                        className={isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
+                                        className={proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
                                         <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
                                         <td className={styles.plotCell}>
                                             <div className={styles.indexRow}>
                                                 <PaymentDot proj={proj} />
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
+                                                    {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>
                                             </div>
