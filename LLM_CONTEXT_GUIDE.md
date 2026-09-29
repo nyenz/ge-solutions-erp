@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix152: Audit dark redesign + per-action colours, popup X, HardwareDatePicker, Expenses cream cards, Section 7)
+# Last updated: September 2026 (fix153: Audit light list darker, palette action colours, HardwareDatePicker, Expenses cream cards, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -480,10 +480,10 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
 
 ### Audit list, popup X, date picker, Expenses cream cards (fix152)
-- Audit list is DARK (panel gradient, zebra rows). Small parts use the app orange: clock icons, icon frames, chevrons, and the Cinzel action titles. The cream tray / white card of fix151 is gone.
-- Every action has its OWN left-rail colour: `actionColor(code)` in `auditCatalog.js` (golden-angle hues by catalogue order, hash for unlisted codes). The page sets it as `--rail` on the row; the rail, the hover / selected wash and the opened readout text (`.rawHeader`, `.rawOutput`) all read `var(--rail)`. Do not re-add severity buckets.
-- OPERATOR and PROTOCOL dropdowns on Audit are ALWAYS in the active orange state (All Staff / All Actions included). It is pure CSS on `.hwSelectWrap`.
-- `AuditPage.module.css` was rewritten in fix152: one rule per class, no stacked overrides. Keep it that way.
+- Audit list is the LIGHT catalogue card again (`.logTray` #d8cfbd, `.logCard` #ebe5d8, navy text). Hover is ONE navy tint for every row.
+- OPEN row: head AND readout are the same dark `#1a2e30` (no wash, no seam). Readout text is app orange; the `FORENSIC DATA READOUT` label takes the action colour.
+- Action colour (`actionColor(code)` in `auditCatalog.js`, palette red / green / cyan / amber / violet, dealt out in catalogue order) is set as `--rail` on the row and paints ONLY the left border and the readout label. Nothing else is tinted. Orange is kept out of the palette.
+- OPERATOR and PROTOCOL dropdowns on Audit are ALWAYS in the active orange state (All Staff / All Actions included). Pure CSS on `.hwSelectWrap`.
 - `UnsavedChangesModal` has the X (`modal.closeBtn`, X = KEEP EDITING) plus DISCARD & LEAVE / KEEP EDITING. Those two are decisions, not a CANCEL, so DESIGN RULE 1 is not broken. Esc / backdrop = KEEP EDITING.
 - ONE DATE PICKER: `components/common/HardwareDatePicker.jsx`. The browser calendar cannot be themed, so never use `<input type="date">`. Props: `value` ('yyyy-mm-dd'), `onChange(value)` (a string, NOT an event), `className` (styles the visible field), `block` (fill the parent), `ariaLabel`. Used by Audit, Report Studio, Intake. The one `datetime-local` (Folder page deadline) is still native.
 - Expenses: the Log-an-expense box and the Recent-entries table share one look: darker cream inside `#e3dac8`, a solid 2px cream `#f2ede4` frame, zebra rows, row separators at 20%. Orange text on that cream is `#9a4407`.

@@ -188,7 +188,8 @@ const AuditPage = () => {
                 <div className={styles.timelineStream}>
                     {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
                     {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
-                    {!loading && visibleLogs.map(log => (
+                    {!loading && visibleLogs.length > 0 && (<div className={styles.logTray}><div className={styles.logCard}>
+                    {visibleLogs.map(log => (
                         <div
                             key={log.id}
                             className={`${styles.logRow} ${expandedId === log.id ? styles.expanded : ''}`}
@@ -235,6 +236,7 @@ const AuditPage = () => {
                             </div>
                         </div>
                     ))}
+                    </div></div>)}
                 </div>
 
                 <footer className={styles.pagination} aria-label="Pagination">

@@ -147,18 +147,18 @@ export const friendlyAction = (code) => {
 export const severityOf = (code) => (INDEX[code]?.severity) || 'low';
 
 
-/* fix152: one colour per action. The catalogue order gives every known action its own hue (golden-angle
-   spacing so neighbours never look alike); an unlisted code gets a stable colour from its own name. */
+/* fix153: one colour per action, taken from the app palette only (red, green, cyan, amber, violet; orange is
+   kept out because the opened readout text is orange). Colours are dealt out in catalogue order so neighbours
+   differ; an unlisted code gets a stable colour from its own name. */
+const PALETTE = ['#ef4444', '#10b981', '#06b6d4', '#f59e0b', '#a78bfa'];
 const RAIL = {};
-Object.keys(INDEX).forEach((code, i) => {
-    RAIL[code] = 'hsl(' + Math.round((i * 137.508 + 18) % 360) + ', 72%, 64%)';
-});
+Object.keys(INDEX).forEach((code, i) => { RAIL[code] = PALETTE[i % PALETTE.length]; });
 export const actionColor = (code) => {
     const key = String(code || '');
     if (RAIL[key]) return RAIL[key];
     let h = 0;
-    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
-    return 'hsl(' + h + ', 72%, 64%)';
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % PALETTE.length;
+    return PALETTE[h];
 };
 
 export default ACTION_GROUPS;

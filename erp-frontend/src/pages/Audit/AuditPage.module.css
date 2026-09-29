@@ -1,5 +1,5 @@
 /* PATH: erp-frontend/src/pages/Audit/AuditPage.module.css */
-/* fix152: whole file rewritten. The old file was 570 lines of stacked overrides (pill styles overridden by
+/* fix153: list back on the light catalogue card (slightly darker). fix152: whole file rewritten. The old file was 570 lines of stacked overrides (pill styles overridden by
    "final polish" overridden by fix151). Every rule below is the ONLY rule for its class.
    Look: dark list, orange accents on the small parts, one colour per action (--rail, set by the page). */
 
@@ -146,22 +146,25 @@
 .dateField input { min-width: 108px; border: none; outline: none; background: transparent; font-family: 'Inter', sans-serif; font-size: clamp(10px, 1vw, 12px); font-weight: 700; color: var(--navy); }
 .dateField:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
 
-/* ---- THE LIST: dark, zebra rows, one coloured rail per action ---- */
+/* ---- THE LIST (fix153): the light catalogue card, a little darker; ONE hover colour; ONE dark for the open row ---- */
 .timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); }
 .timelineStream { display: flex; flex-direction: column; }
 
+.logTray { background: #d8cfbd; padding: 10px; }
+.logCard { overflow: hidden; background: #ebe5d8; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
+
+/* --rail is the action's colour (set by the page). It paints ONLY the left border and, when open, the readout label. */
 .logRow {
     --rail: #06b6d4;
     border-left: clamp(3px, 0.4vw, 5px) solid var(--rail);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1.5px solid rgba(26, 46, 48, 0.22);
     background: transparent;
     cursor: pointer; outline: none;
     transition: background 0.18s ease;
 }
 .logRow:last-child { border-bottom: none; }
-.logRow:nth-child(even) { background: rgba(0, 0, 0, 0.18); }
-.logRow:hover { background: rgba(255, 255, 255, 0.05); background: color-mix(in srgb, var(--rail) 10%, transparent); }
-.logRow:focus-visible { outline: 2px solid var(--rail); outline-offset: -2px; }
+.logRow:hover { background: rgba(26, 46, 48, 0.09); }
+.logRow:focus-visible { outline: 2px solid #1a2e30; outline-offset: -2px; }
 
 .logMain {
     display: grid; align-items: start;
@@ -171,34 +174,40 @@
 }
 
 .timeMark { display: flex; flex-direction: column; padding-top: 1px; }
-.clockPair { display: flex; align-items: center; gap: clamp(5px, 0.6vw, 7px); font-family: 'Space Mono', monospace; font-size: var(--fs-time); font-weight: 900; color: #fff; }
-.clockPair svg { flex-shrink: 0; color: var(--orange); }
-.timeMark small { margin: clamp(2px, 0.3vw, 4px) 0 0 clamp(16px, 2vw, 22px); font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+.clockPair { display: flex; align-items: center; gap: clamp(5px, 0.6vw, 7px); font-family: 'Space Mono', monospace; font-size: var(--fs-time); font-weight: 900; color: #1a2e30; }
+.clockPair svg { flex-shrink: 0; color: #5b6f70; }
+.timeMark small { margin: clamp(2px, 0.3vw, 4px) 0 0 clamp(16px, 2vw, 22px); font-family: 'DM Sans', sans-serif; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; color: #1a2e30; opacity: 0.62; }
 
 .actionMark { display: flex; align-items: flex-start; gap: clamp(10px, 1.3vw, 16px); }
-.iconChassis { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: clamp(28px, 3.2vw, 36px); height: clamp(28px, 3.2vw, 36px); background: var(--orange-dim); border: 1px solid var(--orange-border); border-radius: var(--radius-sm); color: var(--orange); font-size: clamp(13px, 1.4vw, 16px); }
+.iconChassis { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: clamp(28px, 3.2vw, 36px); height: clamp(28px, 3.2vw, 36px); background: rgba(26, 46, 48, 0.07); border: 1px solid rgba(26, 46, 48, 0.18); border-radius: var(--radius-sm); color: #5b6f70; font-size: clamp(13px, 1.4vw, 16px); }
 .actionMeta { display: flex; flex-direction: column; gap: clamp(2px, 0.3vw, 3px); min-width: 0; }
-.actionMeta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Cinzel', serif; font-size: var(--fs-action); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange); }
-.actionMeta span { font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 700; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+.actionMeta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'DM Sans', sans-serif; font-size: var(--fs-action); font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: #1a2e30; }
+.actionMeta span { font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; color: rgba(26, 46, 48, 0.6); }
 
 .targetMark { min-width: 0; }
-.targetMark p { margin: 0; overflow-wrap: break-word; word-break: break-word; font-size: var(--fs-target); font-weight: 700; line-height: 1.45; color: rgba(255, 255, 255, 0.82); }
+.targetMark p { margin: 0; overflow-wrap: break-word; word-break: break-word; font-size: var(--fs-target); font-weight: 800; line-height: 1.45; color: rgba(26, 46, 48, 0.82); }
 
-.inspectIcon { justify-self: end; align-self: start; margin-top: 1px; color: var(--orange); font-size: clamp(14px, 1.6vw, 18px); opacity: 0.75; transition: transform 0.2s ease, opacity 0.18s ease; }
-.logRow:hover .inspectIcon { opacity: 1; }
+.inspectIcon { justify-self: end; align-self: start; margin-top: 1px; color: rgba(26, 46, 48, 0.45); font-size: clamp(14px, 1.6vw, 18px); transition: transform 0.2s ease, color 0.15s ease; }
+.logRow:hover .inspectIcon { color: #1a2e30; }
 
-/* SELECTED row: head takes a wash of the row's own colour, chevron flips */
-.logRow.expanded, .logRow.expanded:hover { background: transparent; }
-.logRow.expanded .logMain { background: rgba(255, 255, 255, 0.05); background: color-mix(in srgb, var(--rail) 12%, transparent); }
-.logRow.expanded .inspectIcon { transform: rotate(180deg); opacity: 1; }
+/* OPEN ROW: head and readout are the SAME dark (#1a2e30), no wash, no seam */
+.logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }
+.logRow.expanded .clockPair { color: #fff; }
+.logRow.expanded .clockPair svg { color: #f2ede4; }
+.logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }
+.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }
+.logRow.expanded .actionMeta strong { color: #fff; }
+.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }
+.logRow.expanded .targetMark p { color: #fff; }
+.logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }
 
-/* the extension: near-black readout. Its text shares the row's rail colour. The rail itself runs down through it. */
-.traceDetails { overflow: hidden; background: #0a1214; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.traceDetails { overflow: hidden; background: #1a2e30; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .traceClosed { max-height: 0; }
-.traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--rail) transparent; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-.rawBox { margin: 0; padding: clamp(10px, 1.3vw, 14px) clamp(12px, 1.5vw, 18px); }
-.rawHeader { display: flex; align-items: center; gap: clamp(7px, 0.9vw, 10px); margin-bottom: clamp(10px, 1.3vw, 14px); font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--rail); opacity: 0.85; }
-.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: var(--rail); }
+.traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
+.rawBox { margin: 0; padding: clamp(4px, 0.6vw, 8px) clamp(12px, 1.5vw, 18px) clamp(12px, 1.5vw, 16px); }
+/* the label takes the action colour; the readout text itself is app orange */
+.rawHeader { display: flex; align-items: center; gap: clamp(7px, 0.9vw, 10px); margin-bottom: clamp(8px, 1.1vw, 12px); font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }
+.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: #EE8C3A; }
 
 /* ---- PAGINATION ---- */
 .pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(8px, 1vw, 11px) clamp(12px, 1.5vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); }
