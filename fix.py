@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix156: Audit opened row extension uses the Report Catalogue grey, not orange.
+# GOLDEN SEED -- fix157: Audit opened row back to the dark head (no orange); extension keeps the catalogue grey.
 #
-# 1. Opened row head stays catalogue orange (unchanged).
-# 2. The extension ("FORENSIC DATA READOUT") is the catalogue readout grey-teal #28383a.
-# 3. Readout label = action colour, readout text = app orange (as before fix154).
+# 1. Opened row head: dark navy #1a2e30 again (as before fix154).
+# 2. Extension ("FORENSIC DATA READOUT"): stays the Report Catalogue grey #28383a.
+# 3. Readout label = action colour, readout text = orange. Outer-frame orange hover (fix155) is kept.
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -14,8 +14,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix156"
-COMMIT_MSG = "fix156: audit opened-row extension uses report catalogue grey (#28383a)"
+FIX_NO = "fix157"
+COMMIT_MSG = "fix157: audit opened row back to dark head, extension keeps catalogue grey"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -94,27 +94,63 @@ LOAD_FILES = (AUDIT_CSS,)
 for _p in LOAD_FILES:
     load(_p)
 
-# the opened row HEAD stays catalogue orange; only the extension (readout) goes to the catalogue's dark grey-teal #28383a
-patch(AUDIT_CSS,
-      ".traceDetails { overflow: hidden; background: #EE8C3A;",
-      ".traceDetails { overflow: hidden; background: #28383a;",
-      "Audit CSS: readout background = catalogue readout grey #28383a")
-patch(AUDIT_CSS,
-      "scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }",
-      "scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }",
-      "Audit CSS: readout scrollbar light")
-patch(AUDIT_CSS,
-      "/* fix154: on the orange readout the label and the text are navy */",
-      "/* fix156: readout is the catalogue grey; label takes the action colour, text is app orange */",
-      "Audit CSS: readout comment")
-patch(AUDIT_CSS,
-      "letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }",
-      "letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }",
-      "Audit CSS: readout label back to action colour")
-patch(AUDIT_CSS,
-      "line-height: 1.6; color: #1a2e30; }",
-      "line-height: 1.6; color: #EE8C3A; }",
-      "Audit CSS: readout text back to orange")
+def L(*lines):
+    return "\n".join(lines)
+
+def patch_any(path, olds, new, desc):
+    # works whether the file is in the fix154 state or the fix157 state
+    for o in olds:
+        if o in FILES[path]:
+            FILES[path] = sub(FILES[path], o, new, desc)
+            return
+    FILES[path] = sub(FILES[path], olds[0], new, desc)
+
+# ---- opened row HEAD: back to the dark (#1a2e30) it was in fix153 ----
+HEAD_OLD = L(
+"/* OPEN ROW (fix154): head and readout are the Report Catalogue active-row orange (#EE8C3A), no wash, no seam */",
+".logRow.expanded, .logRow.expanded:hover { background: #EE8C3A; }",
+".logRow.expanded .clockPair { color: #fff; }",
+".logRow.expanded .clockPair svg { color: #fff; }",
+".logRow.expanded .timeMark small { color: #fff; opacity: 0.85; }",
+".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); color: #fff; }",
+".logRow.expanded .actionMeta strong { color: #fff; }",
+".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.88); }",
+".logRow.expanded .targetMark p { color: #fff; }",
+".logRow.expanded .inspectIcon { color: #fff; transform: rotate(180deg); }",
+)
+HEAD_NEW = L(
+"/* OPEN ROW (fix157): head is the dark navy (#1a2e30); the extension below is the Report Catalogue readout grey (#28383a) */",
+".logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }",
+".logRow.expanded .clockPair { color: #fff; }",
+".logRow.expanded .clockPair svg { color: #f2ede4; }",
+".logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }",
+".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }",
+".logRow.expanded .actionMeta strong { color: #fff; }",
+".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }",
+".logRow.expanded .targetMark p { color: #fff; }",
+".logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }",
+)
+patch(AUDIT_CSS, HEAD_OLD, HEAD_NEW, "Audit CSS: opened row head back to dark navy")
+
+# ---- extension: catalogue grey ----
+patch_any(AUDIT_CSS,
+          [".traceDetails { overflow: hidden; background: #EE8C3A;", ".traceDetails { overflow: hidden; background: #1a2e30;"],
+          ".traceDetails { overflow: hidden; background: #28383a;",
+          "Audit CSS: extension = catalogue grey #28383a")
+patch_any(AUDIT_CSS,
+          ["scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }"],
+          "scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }",
+          "Audit CSS: extension scrollbar light")
+
+# ---- readout label = action colour, readout text = orange (as in the screenshot) ----
+patch_any(AUDIT_CSS,
+          ["letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }"],
+          "letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }",
+          "Audit CSS: readout label = action colour")
+patch_any(AUDIT_CSS,
+          ["line-height: 1.6; color: #1a2e30; }"],
+          "line-height: 1.6; color: #EE8C3A; }",
+          "Audit CSS: readout text = orange")
 
 # ============================= EDIT PART 2 END =============================
 

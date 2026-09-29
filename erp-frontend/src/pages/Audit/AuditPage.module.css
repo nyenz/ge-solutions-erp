@@ -192,16 +192,16 @@
 .inspectIcon { justify-self: end; align-self: start; margin-top: 1px; color: rgba(26, 46, 48, 0.45); font-size: clamp(14px, 1.6vw, 18px); transition: transform 0.2s ease, color 0.15s ease; }
 .logRow:hover .inspectIcon { color: #1a2e30; }
 
-/* OPEN ROW (fix154): head and readout are the Report Catalogue active-row orange (#EE8C3A), no wash, no seam */
-.logRow.expanded, .logRow.expanded:hover { background: #EE8C3A; }
+/* OPEN ROW (fix157): head is the dark navy (#1a2e30); the extension below is the Report Catalogue readout grey (#28383a) */
+.logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }
 .logRow.expanded .clockPair { color: #fff; }
-.logRow.expanded .clockPair svg { color: #fff; }
-.logRow.expanded .timeMark small { color: #fff; opacity: 0.85; }
-.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); color: #fff; }
+.logRow.expanded .clockPair svg { color: #f2ede4; }
+.logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }
+.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }
 .logRow.expanded .actionMeta strong { color: #fff; }
-.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.88); }
+.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }
 .logRow.expanded .targetMark p { color: #fff; }
-.logRow.expanded .inspectIcon { color: #fff; transform: rotate(180deg); }
+.logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }
 
 .traceDetails { overflow: hidden; background: #28383a; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .traceClosed { max-height: 0; }
