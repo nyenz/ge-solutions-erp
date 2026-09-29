@@ -1,20 +1,20 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix140: hosting plan added)
+# Last updated: September 2026 (fix141: guide cleaned up to match the code)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
 > ##############################################################
 > David has DECIDED to move the app onto ONE Hetzner server, but it is NOT DONE yet.
-> Nothing has been bought or moved. The full plan is in SECTION 17 at the bottom.
+> Nothing has been bought or moved. The full plan is in SECTION 18 at the bottom.
 >
 > RULES FOR EVERY LLM THAT READS THIS GUIDE:
 > 1. In your FIRST reply of the session, add ONE short line reminding David that the
->    hosting move (Section 17) is still pending and that its "DO THIS FIRST" items
->    are still open. Then carry on with whatever he asked. Do not nag more than once
->    per session.
+>    hosting move (Section 18) is still pending. Then carry on with whatever he
+>    asked. Do not nag more than once per session. (Do NOT nag about passwords or
+>    security -- David chose to leave those for the end.)
 > 2. Do NOT start the move unless David says so.
-> 3. Keep this reminder until Section 17 says "STATUS: DONE". Only a fix script that
->    marks Section 17 as done may remove this block.
+> 3. Keep this reminder until Section 18 says "STATUS: DONE". Only a fix script that
+>    marks Section 18 as done may remove this block.
 > 4. When he does start: ONE step at a time, exact copy-paste commands, plain
 >    English. He is a beginner.
 
@@ -76,12 +76,12 @@
 | Styling | CSS Modules |
 | Routing | React Router |
 | HTTP | Axios |
-| File Storage | Cloudinary (cloud name: dfd115bnz) |
+| File Storage | Cloudinary (details: Section 12) |
 | Deployment | Render free tier |
-| Repo | GitHub (PRIVATE): github.com/nyenz/ge-solutions-erp |
+| Repo | GitHub (currently PUBLIC -- David will switch it to private before real data goes in): github.com/nyenz/ge-solutions-erp |
 
 **URLs:**
-- Backend: https://ge-solutions.onrender.com
+- Backend: https://ge-solutions-api.onrender.com (the app calls it at /api/v1)
 - Frontend: https://golden-seed.onrender.com
 
 **Database:** Host: ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech | Name: neondb | User: neondb_owner
@@ -98,9 +98,10 @@
 - **Storage fee:** UGX 50,000 every 30 days. The 30-day timer only starts once the work becomes Legacy -- not before. This amount can be changed/overridden.
 - **Payment types:** STANDARD, INITIAL_DEPOSIT, RECEIVABLE_PARTIAL.
 - **Identity uniqueness:** NIN is the real uniqueness check per owner. Phone number is no longer used to prevent duplicates.
+- **Phone numbers (fix139):** staff can type a number any normal way (0772 123 456, +256772123456, 772123456). It is checked and saved as +256772123456. Several numbers are separated with "/" (max 3 per person). Wrong length, letters, or made-up numbers (6+ of the same digit in a row, or 7+ counting digits) are refused. A foreign number is allowed only when typed with its + country code. Checked in the browser (`utils/phone.js`) and again on the server (`PhoneUtil.java`) -- keep the two in step. Old numbers already saved are not changed.
 - **Access control:** Payments, receivable management, Reports, and Audit access follow the 4-tier role hierarchy (Programmer, Director, Manager, Secretary) -- not a simple Admin/Root split anymore.
-- **Cloudinary:** All files stored on Cloudinary.
-- **Project deletion:** soft-delete only -- deleting a plot hides it from Ledger/Recovery/Dashboard/Reports but keeps the row, payments, notes, and Cloudinary files intact. Root can restore it from Settings > Recently Deleted Plots.
+- **Files:** all uploads are stored on Cloudinary today (details: Section 12; changes when hosting moves, Section 18).
+- **Project deletion:** soft-delete only -- deleting a plot hides it from Ledger/Recovery/Dashboard/Reports but keeps the row, payments, notes, and Cloudinary files intact. Root can restore it from the Settings > ARCHIVE tab.
 
 ---
 
@@ -127,8 +128,39 @@
 
 ## 7. UI DESIGN STANDARDS
 
+### DESIGN REFERENCE PAGES (READ FIRST -- David's baseline, in priority order)
+**THE CODE IS THE TRUTH.** When you change or create any element, first find the closest match in the pages below (in this order), OPEN that CSS file, and copy its pattern. If this summary and the CSS file disagree, the CSS file wins. Only if nothing matches, ask David.
+
+**1. INTAKE PAGE -- the main baseline for most things.** Files: `pages/Intake/IntakePage.module.css`, `components/ui/CollapsibleSection.module.css`, `components/ui/CornerDecor.module.css`, `components/common/HardwareSelect.module.css`.
+- Panels (`CollapsibleSection`): diagonal navy-teal gradient (`135deg, #3a5a5c -> #2a4a4c -> #213E40`), thin orange border at 20% that goes full orange on hover, 10px radius, soft deep shadow. The header bar is darker (`#162a2c`); a thin 1.5px orange line shows under it ONLY while the panel is open (no glow). Title: Cinzel 700, orange, 2px letter-spacing, uppercase, turns white on hover. The chevron turns orange when open. The body opens with a 0.2s fade-slide. `.accent` = 2px full-orange border for the focused panel. Corner brackets, the tiny glowing dot and the pins come from `CornerDecor`.
+- Dropdown (`HardwareSelect`): white box, 1.5px orange-at-30% border, 6px radius, height `clamp(34px,4.3vw,40px)`, orange chevron that flips. Hover or open = full orange border plus a soft 2px orange ring. The list: white, 1.5px orange border, 6px radius, deep shadow, bold navy options with hairline separators, hover or selected = solid orange with white text, opens with a 0.2s slide, max height 220px, hidden scrollbar. Inside popups use `HardwareModalSelect`.
+- Also copy from Intake: inputs (`.input`, `.textarea`: white, orange border on hover and focus), type buttons (`.typeBtn`, `.typeBtnActive`: dark, active = solid orange with navy text), `.grid2` / `.grid3`, `.dropzone` (dashed orange), `.financialsSummary`, `.noteDateChip`, `.btn` / `.btn.primary`, `.toast`.
+
+**2. LEDGER PAGE -- second priority, especially the table.** File: `pages/Ledger/LedgerPage.module.css`.
+- Table card (`.tablePanel`): gradient `160deg, #1c3335 -> #213E40`, 1.5px orange-at-28% border, 10px radius, bottom corner brackets and pins only.
+- Header row (`.ledgerTable thead th`): sticky INSIDE the table's own scroll box, opaque `#162a2c`, orange text, weight 900, uppercase, 2px letter-spacing, 3px orange bottom border. Sortable headers get an orange wash and white text on hover.
+- Rows: `12px 14px` padding, faint 1px white-6% lines. Hover = white 4% wash plus a 3px orange left edge, no glow. Numbers, phones and indexes are Space Mono. Status words are plain coloured text (no pills). Problem and receivable rows get a faint red tint.
+- Also copy: `.searchInner` (white search box, orange focus ring), `.filterBtn` / `.activeFilter`, `.pagination` / `.pageBtn`, the stage dots (`.stageDot*`), `.legendRow`.
+
+**3. REPORTS PAGE -- lists inside panels, and the light/dark tone play.** Files: `pages/Reports/ReportHub.module.css` (and `ReportStudio.module.css`).
+- List row (`.reportRow`): a 3-column grid = icon frame, title, chevron. Hover = white 3.5% wash and the chevron turns orange. Open row = orange 6% wash plus a 3px orange left edge.
+- Icon frame (`.iconFrame`): small rounded square, orange-tinted fill, thin orange border, orange icon.
+- Light rows on a dark panel (`.libList`): each row is a WHITE card (6px radius) with dark navy text and an orange-tinted hover (7-9%). Small group labels (`.libLabel`): DM Sans 900, 2px letter-spacing, white 60%. The detail drawer (`.detailBox`) is near-black with a 4px orange left edge. Chips: `.libChip`.
+
+**4. RECOVERY PAGE -- popups and the font/colour emphasis.** Files: `components/common/HardwareModal.module.css` (the popup) and `pages/Recovery/RecoveryPortal.module.css`.
+- Popup (`HardwareModal`, used for the CALL LOG window): dark blurred backdrop (`rgba(10,20,25,0.8)` + 6px blur). The card has gradient `160deg, #1c3335 -> #213e40`, 2px orange-at-40% border, 14px radius, deep shadow, 0.25s slide-up. The title is Cinzel orange with a thin orange line under it. Popup inputs are white with an orange border. Use the `modalStyles.*` classes (see Modal Popup Standard below).
+- Emphasis by colour and font: the client name is bold uppercase (Cinzel orange in the card head); the NIN and section labels are orange (`#ffb46b` in the final rules), in Space Mono or tiny DM Sans caps; good = `#34d399`, bad = `#fca5a5`, none = white 50%, written as plain text with a thin underline (no pills); call position = cyan `#67e8f9`; in history, dim details (white 45%) sit next to bright text (white 80%).
+- WARNING: `RecoveryPortal.module.css` has many layered overrides. The LAST rule for a class wins. Read to the end before copying.
+
+**5. SETTINGS PAGE -- section colours tied to the tabs.** File: `pages/settings/SettingsPage.module.css`.
+- The tabs sit in a grey dock (`.tabDock`, `#4d5c5a`, 8px radius). Each tab has its own accent (`data-accent`): orange, cyan, violet, red, slate (variables at the top of the file) -- Appearance, Security, Staff, Danger, Archive. The active tab fills with its accent plus a soft matching glow; hover only tints the text.
+- The card under the tabs recolours its head bar, focus ring and hover glow from ONE variable, `--accent`, so section and tab always match. The card chrome is shared with `ReportStudio.module.css`.
+- Light groups (`.prefGroupBox`): a cream-white surface with dark navy text (65% for secondary text), orange on hover, solid orange when selected. Rank text colours: admin amber `#fbbf24`, manager cyan `#06b6d4`, secretary green `#4ade80`.
+
 ### LAW: LEDGER PAGE IS THE REFERENCE DESIGN -- **This is the master rule everything else follows.**
 Ledger is the closest existing page to the target design language for the whole app. **Every** other list, table, filter bar, search box, dropdown, or empty state **must** default to Ledger's existing pattern unless a subsection below says otherwise.
+
+**SUPERSEDED by "DESIGN REFERENCE PAGES" above:** Intake is now the first baseline and Ledger is second.
 
 ### UI UNIFORMITY RULE -- **Applies everywhere, no exceptions without explicit instruction.**
 Every element of the same type **must** look and behave identically across all pages, regardless of where it appears. Covers: buttons, headings, inputs, dropdowns, tables, lists, badges, modals, pagination, empty states, icons, scrollbars. For every element, the following **must be identical everywhere**: font, color, padding, margin, spacing/gap, border, shadow, hover/active/selected/focus/error states, and responsive behavior.
@@ -160,7 +192,7 @@ Any hover, active, or state-change animation **must** use consistent timing and 
 --radius:        10px
 --radius-sm:     6px
 ```
-Font families: **Cinzel** (serif) for page titles, section headings, modal titles. **Inter** (sans-serif) for body text, labels, buttons, inputs. **Space Mono** for plot numbers and project index values.
+Font families: **Cinzel** (serif) for page titles, section headings, modal titles. **Inter** (sans-serif) for body text, labels, buttons, inputs. **Space Mono** for plot numbers, project index values, phone numbers and other IDs and figures. **DM Sans** (sans-serif, weight 900, small uppercase) for page-header subtitles, small labels and legends on the Reports, Recovery and Settings pages.
 Font sizes and spacing use `clamp()` throughout (see Responsiveness Rule) -- do not hardcode pixel font sizes.
 
 ### Page Header Style (ALL pages must match Dashboard)
@@ -247,7 +279,9 @@ Font sizes and spacing use `clamp()` throughout (see Responsiveness Rule) -- do 
 - Small variant: reduced padding, same colors/states
 
 ### Loading State Style -- CONFIRMED FROM CODE
-- Simple inline text "Loading..." where a value isn't ready yet (e.g. project index before it's assigned). No spinner graphic, no skeleton block.
+- Every "loading...", "syncing..." and "no records" message uses the ONE shared component `components/common/LoadingState.jsx` (`tone="panel"` draws its own dark card; `tone="bare"` when already inside a dark panel; `size="page"` for a whole-page screen). Never write a custom loading message.
+- Only a single small value that is not ready yet (e.g. the project index on the Intake page) shows the inline text "Loading...". No spinner graphic.
+- Skeleton blocks exist only on the Folder page.
 
 ### Toast / Notification Style -- CONFIRMED FROM CODE
 - Info/default: `background: #1a2e30`, `border: 1px solid rgba(238,140,58,0.28)`, white text
@@ -268,6 +302,13 @@ Font sizes and spacing use `clamp()` throughout (see Responsiveness Rule) -- do 
 - 3-column field groups (e.g. short fields like plot number, block): `repeat(auto-fit, minmax(130px, 1fr))`
 - Both auto-collapse to fewer columns on narrow screens automatically -- no manual breakpoint needed for this part
 - Gap between fields: use the standard `--gap-lg` spacing token
+
+### DESIGN RULES (fix58)
+1. X IS THE CLOSER: any popup/modal that shows the animated X must NOT also show a CANCEL button. X = dismiss.
+2. LOADING STATES: use the shared `LoadingState` component (see Loading State Style above), never a custom message.
+3. ATTENTION COLORS: green = healthy/active/paid, orange = pending/backlog, red = debt/danger, amber = paused/negotiation, cyan = released/info. Use consistently app-wide.
+4. INACTIVITY: edit mode auto-saves and deactivates after 5 minutes of no interaction.
+5. RELATED PROJECTS: Owners tab always lists every other project of each owner/joint owner, clickable to navigate.
 
 ### FolderPage Header
 - Uses `.terminalHeader` -- its own unique design, do NOT change to pageHeader
@@ -415,8 +456,8 @@ See Section 10 for the full step-by-step deploy flow.
 
 ## 10. DEPLOYMENT PROCESS
 
-1. Create fix.py AND updated LLM_CONTEXT_ADDENDUM.md -> present both -> David downloads both
-2. David replaces local fix.py AND local LLM_CONTEXT_ADDENDUM.md
+1. Create fix.py -> present it -> David downloads it
+2. David replaces local fix.py
 3. `py fix.py` -> check output for OK/MISSING -- this also commits and pushes automatically
 4. Render -> Events tab -> wait for green tick (5-10 min free tier)
 5. **Only once the full batch is code-complete, and David gives permission** -> test at golden-seed.onrender.com
@@ -454,6 +495,8 @@ See Section 10 for the full step-by-step deploy flow.
 
 ## 12. CLOUDINARY DETAILS
 
+This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It changes when hosting moves (Section 18).
+
 - Cloud name: dfd115bnz
 - Images: resource_type=image
 - PDFs and docs: resource_type=raw, access_mode=public
@@ -463,63 +506,63 @@ See Section 10 for the full step-by-step deploy flow.
 
 ---
 
-## 13. SESSION MANAGEMENT RULES (HOW EVERY SESSION ENDS)
+## 13. GUIDE RULES (HOW THIS GUIDE STAYS TRUE)
 
-Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that file directly for the process. Short version: work stays in the addendum until David confirms it, then moves into Section 14 (or Section 8's Phase Tracker for redesign phases) and is removed from the addendum entirely.
-
-**RULE:** The master guide is NEVER edited for incremental changes each session. All new rules, discoveries, and session notes go into LLM_CONTEXT_ADDENDUM.md only. The ONLY parts of the master guide that ever get updated are Sections 14 and 15.
-
-**EXCEPTION:** Sections 8 and 9 contain permanent reference content (standing process rules, and full architecture plans), not session notes -- so they don't follow the "only Sections 14/15 get updated" rule above. Each still only updates in one specific way: Section 9's process rules change only when David explicitly approves a new permanent rule; Section 8 only updates its own Phase Tracker subsection as work progresses. Everything else in these sections stays locked in once written.
+**RULE (PERMANENT):** THE CODE IS THE SOURCE OF TRUTH. If this guide and the code disagree, the code wins. Fix the guide to match the code (inside a fix.py), never the other way round.
 
 **RULE (PERMANENT):** No fact, design standard, or process step should exist in more than one place in this guide. If something needs to be referenced elsewhere, point to it by section number instead of restating it. Found duplication is a documentation bug -- fix it immediately, the same way a code bug would be fixed.
 
-**RULE (PERMANENT):** When a later section changes a decision made in an earlier one, never delete or silently rewrite the earlier text. Leave it in place and add a short "SUPERSEDED by Section X.Y" note directly under it, pointing to the new authority.
+**RULE (PERMANENT):** When a later section changes a decision made in an earlier one, never delete or silently rewrite the earlier text. Leave it in place and add a short "SUPERSEDED by Section X.Y" note directly under it, pointing to the new authority. (Plain factual errors -- a wrong address, a wrong font -- are simply corrected.)
 
----
+**RULE (PERMANENT):** Guide changes ship inside a fix.py, like any other file change. Section 8 only updates its own Phase Tracker (8.10) as work progresses; Section 9's process rules change only when David explicitly approves a new permanent rule.
 
-## 14. WHAT HAS BEEN COMPLETED
-*(Nothing yet -- list starts fresh from this reset point forward.)*
+*(There is no Section 14: the empty "what has been completed" list was removed. Section numbers were kept so other references stay valid.)*
 
 ---
 
 ## 15. WHAT STILL NEEDS TO BE DONE
-- HOSTING + BACKUP MOVE (pending) -- see Section 17. Remind David once per session.
+- HOSTING + BACKUP MOVE (pending) -- see Section 18. Remind David once per session.
+- SECURITY / JWT changes -- done at the END of the build. Until then ignore security work (the app only holds fake data). Before real client data goes in: reset the Neon password and make the GitHub repo private.
+- DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.
 
 ---
 
 ## 16. KNOWN ISSUES (not blocking)
 - Database columns still use the old name `is_backlog`, `backlog_start_date`, `backlog_start_override`, `backlog_months_billed` for what the code and business rules now call "Receivable" (money owed / overdue payment -- see Section 5). This is kept intentionally for migration safety (renaming risks Hibernate creating new empty columns and stranding historical data). Do not confuse this with the NEW "Backlog" business term (work not yet finished) -- same word, different meaning, only at the raw DB column level. Do not rename these columns without a manual, out-of-band migration run directly against the live DB first.
-## 17. HOSTING + BACKUP PLAN
+- Some code comments (for example in `Role.java`) point to guide sections "17.7" and "17.10". Those sections no longer exist in this guide. Ignore those pointers -- the code is the truth. (Section 18 is the hosting plan.)
+
+---
+## 18. HOSTING + BACKUP PLAN
 
 **STATUS: PENDING -- decided September 2026, NOT started.** (Change to "STATUS: DONE" only when the move is finished and tested.)
 
-### 17.1 What David decided
+### 18.1 What David decided
 - Host the WHOLE app on ONE rented server (a "VPS") at **Hetzner**. Location: **Germany or Finland** (US locations have a tiny traffic allowance).
 - **Backups: kept at the office for now.** The server makes a backup file every night. David copies it down to the office computer and to an external hard drive. Later, add the Hetzner backup add-on so a copy also exists off-site.
 - **Domain: a FREE subdomain for now** (for example a DuckDNS address), NOT a bare IP address like http://95.216.x.x. The padlock (HTTPS) is set up for free. A paid domain (about $10-15 a year) comes later; staff will then switch to the new address.
 - JWT / security changes stay at the END of the build, as before.
 - David still wants to check other things before the move starts.
 
-### 17.2 Why
+### 18.2 Why
 - One bill instead of paying Render + Neon + Cloudinary separately. The free tiers sleep or have small limits.
 - Expected size: about 4000 projects, each with several uploads. The database is small (a few GB). The UPLOADS are the big part.
 - Rewriting the app in another language is NOT recommended. Java + Spring Boot is a good fit for an ERP that handles money. Use an agent/Opus only to speed up the same fix.py work.
 - An office server is NOT recommended (Uganda power cuts, no fixed IP). True offline mode is NOT planned.
 
-### 17.3 Estimated cost (check the Hetzner site before paying -- prices rose in April 2026)
+### 18.3 Estimated cost (check the Hetzner site before paying -- prices rose in April 2026)
 - Server, 4 CPU / 8 GB (about CX33): roughly EUR 6.50 a month, plus about EUR 0.50 for the IP address.
 - Upload disk: roughly EUR 0.05 per GB a month. 200 GB is about EUR 10.
 - Backups: about EUR 4-10 a month.
 - **Total: about $20-30 a month.**
 - Disk size is a GUESS (80-400 GB, assuming 20-100 MB of uploads per project). Ask David for the real average upload size per project before choosing the disk.
 
-### 17.4 DO THIS FIRST (open items)
-- A. **Reset the Neon database password.** render.yaml in the public GitHub repo contains it in plain text. Resetting is the only real fix (the old one stays in git history). Then put the new password only in the host's environment settings, never in a file in the repo.
+### 18.4 DO THIS FIRST (open items)
+- A. **Reset the Neon database password and make the GitHub repo private -- BEFORE real client data goes in.** David chose to leave this for now because the app only holds fake data. render.yaml in the repo contains the password in plain text and the repo is public; the old password stays in git history, so resetting is the only real fix. Then put the new password only in the host's environment settings, never in a file in the repo.
 - B. **docker-compose.yml**: on the real server, remove the public database port (5432) and use a strong password from a private .env file, not the one written in the file.
 - C. Ask David: is the average upload size per project known?
 - D. Ask David: does he have a Visa/Mastercard (or virtual card) that works for international online payments? Hetzner needs one, and new accounts can get extra ID checks.
 
-### 17.5 Setup steps (one time -- do ONE step at a time)
+### 18.5 Setup steps (one time -- do ONE step at a time)
 1. Rent the Hetzner server (Germany or Finland).
 2. Set up the free subdomain and point it at the server.
 3. Install Docker on the server.
@@ -527,7 +570,7 @@ Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that fi
 5. Move the data from Neon, and the old uploads from Cloudinary, onto the new server. (Upload code: CloudinaryStorageServiceImpl.java and FileStorageService.java in the land module.) Set VITE_API_BASE_URL to the new address.
 6. Turn on HTTPS (free), nightly backups, and an uptime alert (a free monitor such as UptimeRobot).
 
-### 17.6 Routine after going live
+### 18.6 Routine after going live
 - Staff: open the web address in Chrome and work as now.
 - Weekly (about 10 min): copy the backup file to the office computer and the external hard drive. Glance at free disk space.
 - Monthly (about 20 min): run security updates, pay the bill, check the backup file exists and looks the right size.
@@ -535,16 +578,8 @@ Full step-by-step rules live in LLM_CONTEXT_ADDENDUM.md's header -- read that fi
 - Shipping a fix: run fix.py on his computer as now (it commits and pushes), then run ONE update command on the server (the LLM gives the exact command).
 - If the site is down: run the restart command the LLM gave him.
 
-### 17.7 Rules for the LLM when helping with this
+### 18.7 Rules for the LLM when helping with this
 - Simple English, outline format, short. Exact copy-paste commands. One step, then wait for him to confirm.
 - Do not ask "A or B" unless it is a real decision.
 - Never write real passwords into any file in the repo or into this guide.
 
----
-
-## DESIGN RULES (fix58)
-1. X IS THE CLOSER: any popup/modal that shows the animated X must NOT also show a CANCEL button. X = dismiss.
-2. LOADING STATES: every page renders the skeleton loader (skeletonPage/skeletonPanel), never plain text.
-3. ATTENTION COLORS: green = healthy/active/paid, orange = pending/backlog, red = debt/danger, amber = paused/negotiation, cyan = released/info. Use consistently app-wide.
-4. INACTIVITY: edit mode auto-saves and deactivates after 5 minutes of no interaction.
-5. RELATED PROJECTS: Owners tab always lists every other project of each owner/joint owner, clickable to navigate.
