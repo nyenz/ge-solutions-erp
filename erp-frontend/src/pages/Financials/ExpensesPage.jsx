@@ -267,7 +267,7 @@ const ExpensesPage = () => {
                     <strong>{presets.length}</strong>
                     <span className={styles.statNote}>one-tap categories</span>
                 </div>
-                <div className={`${styles.statCard} ${styles.statCyan}`}>
+                <div className={`${styles.statCard} ${styles.statWhite}`}>
                     <label>CATEGORIES USED</label>
                     <strong>{knownCategories.length}</strong>
                     <span className={styles.statNote}>all time</span>

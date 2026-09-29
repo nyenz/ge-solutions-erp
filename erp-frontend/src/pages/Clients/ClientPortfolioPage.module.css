@@ -115,14 +115,20 @@
   font-weight: 700; color: #fff; word-break: break-all;
 }
 .statTextValue { font-size: var(--stat-value-sm); }
-.statRed   { border-color: #ef4444; }
+/* fix149: every card rests on orange; hover swaps the border to the card's font colour.
+   These sit AFTER .statClickable:hover so they win at equal specificity. */
+.statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }
+.statCard.statClickable:hover { box-shadow: none; }
+.statRed:hover   { border-color: #ef4444; }
 .statRed   label, .statRed   strong { color: #ef4444; }
-.statGreen { border-color: #22c55e; }
+.statGreen:hover { border-color: #22c55e; }
 .statGreen label, .statGreen strong { color: #22c55e; }
-.statCyan  { border-color: #06b6d4; }
+.statCyan:hover  { border-color: #06b6d4; }
 .statCyan  label, .statCyan  strong { color: #06b6d4; }
-.statAmber { border-color: var(--orange); }
-.statAmber label, .statAmber strong { color: var(--orange); }
+.statAmber:hover { border-color: #EE8C3A; }
+.statAmber label, .statAmber strong { color: #EE8C3A; }
+.statWhite:hover { border-color: #fff; }
+.statWhite label, .statWhite strong { color: #fff; }
 .statNote {
   font-family: 'Inter', sans-serif;
   font-size: var(--stat-note);

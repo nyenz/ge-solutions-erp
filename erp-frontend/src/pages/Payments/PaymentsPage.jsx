@@ -122,17 +122,17 @@ const PaymentsPage = () => {
             </header>
 
             <div className={styles.summaryRow}>
-                <div className={styles.sumCard}>
+                <div className={`${styles.sumCard} ${styles.sumWhite}`}>
                     <label>TOTAL SHOWN</label>
                     <strong>UGX {fmt(totalCollected)}</strong>
                     <span>{filtered.length} records</span>
                 </div>
-                <div className={styles.sumCard} style={{ borderColor: '#22c55e' }}>
+                <div className={`${styles.sumCard} ${styles.sumGreen}`}>
                     <label style={{ color: '#22c55e' }}>TITLE PAYMENTS</label>
                     <strong style={{ color: '#22c55e' }}>UGX {fmt(titleTotal)}</strong>
                     <span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>
                 </div>
-                <div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>
+                <div className={`${styles.sumCard} ${styles.sumRed}`}>
                     <label style={{ color: '#ef4444' }}>RECEIVABLES PAYMENTS</label>
                     <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
                     <span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>

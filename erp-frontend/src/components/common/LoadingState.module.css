@@ -94,6 +94,39 @@
 
 @keyframes lsSpin { to { transform: rotate(360deg); } }
 
+/* ================= fix149: SKELETON LOADER (same look as the Folder page) =================
+   Dark base under a light shimmer, so it only ever reads on a dark surface -- LoadingState
+   always sits on its own navy card (tone=panel) or inside a navy panel (tone=bare). */
+@keyframes lsShimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position:  600px 0; }
+}
+.shellSkel { align-items: stretch; justify-content: flex-start; text-align: left; padding: clamp(14px, 2vw, 22px); }
+.skelStack { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); width: 100%; }
+.skelHud, .skelHeader, .skelLine, .skelRowBar {
+    background-color: #16292b;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 1200px 100%;
+    animation: lsShimmer 1.4s infinite linear;
+}
+.skelHud    { height: clamp(60px, 9vw, 80px); border-radius: 10px; }
+.skelPanel  { border-radius: 10px; overflow: hidden; border: 1.5px solid var(--ls-panel-border); }
+.shellBare .skelPanel { border: none; }
+.skelHeader { height: clamp(36px, 5vw, 48px); border-radius: 0; }
+.skelBody   { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
+.skelLine   { height: clamp(14px, 2vw, 18px); border-radius: 4px; }
+.skelLine:nth-child(odd)  { width: 75%; }
+.skelLine:nth-child(even) { width: 55%; }
+.skelCell   { padding: clamp(10px, 1.4vw, 14px) 16px !important; }
+.skelRowBar { display: block; height: clamp(14px, 2vw, 18px); border-radius: 4px; }
+.srOnly {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+    .skelHud, .skelHeader, .skelLine, .skelRowBar { animation: none; }
+}
+
 /* Respect the OS "reduce motion" setting -- the spinner stops turning but
    stays visible, so the state still reads as "busy". */
 @media (prefers-reduced-motion: reduce) {

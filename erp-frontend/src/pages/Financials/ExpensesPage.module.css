@@ -87,12 +87,16 @@
   font-family: 'Inter', sans-serif; font-size: var(--stat-note);
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
 }
-.statAmber { border-color: var(--orange); }
-.statAmber label, .statAmber strong { color: var(--orange); }
-.statGreen { border-color: #22c55e; }
+/* fix149: every card rests on orange; hover swaps the border to the card's font colour */
+.statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }
+.statAmber:hover { border-color: #EE8C3A; }
+.statAmber label, .statAmber strong { color: #EE8C3A; }
+.statGreen:hover { border-color: #22c55e; }
 .statGreen label, .statGreen strong { color: #22c55e; }
-.statCyan { border-color: #06b6d4; }
+.statCyan:hover { border-color: #06b6d4; }
 .statCyan label, .statCyan strong { color: #06b6d4; }
+.statWhite:hover { border-color: #fff; }
+.statWhite label, .statWhite strong { color: #fff; }
 
 /* -- PRESET ROW -- was a grid of 84px slabs, which made "log an expense"
    the visually heaviest thing in the app. They are buttons now, flowing in

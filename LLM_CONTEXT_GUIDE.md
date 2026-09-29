@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix148: ledger top decor removed + one stat-card spec, Section 7)
+# Last updated: September 2026 (fix149: stat-card hover borders + app-wide skeleton loader, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -478,6 +478,10 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 --ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
+
+### Stat-card borders + skeleton loader (fix149)
+- Stat cards REST on the orange border (#EE8C3A, literal -- `--orange` is re-mapped by `data-tab-accent`). Font colours are unchanged. On HOVER the border becomes the card's own font colour. No two cards on a page share a colour: a duplicate cyan card takes the WHITE font (`statWhite` on Expenses + Client dossier, `sumWhite` on Payment Records). Colour hover rules must sit AFTER `.statClickable:hover`.
+- LOADING: `LoadingState` and `LoadingRow` draw the Folder-page skeleton (dark bars + shimmer), not a spinner. The `label` prop is kept as screen-reader text (`.srOnly`). Any new loading state must go through these two components; `HardwareButton loading` keeps its own small spinner.
 
 ### Ledger decor + stat cards (fix148)
 - Ledger tables (Project Ledger, Client Ledger, Payment Records) carry bottom corner brackets + bottom pins ONLY. No top pins, no top corners. `HardwarePanel` takes `hideTop` (forwarded to `CornerDecor`); Payments passes it. Do not re-add `<Pins pos="top" />` to the two ledger pages.

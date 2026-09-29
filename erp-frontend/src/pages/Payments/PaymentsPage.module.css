@@ -94,7 +94,8 @@
 }
 .sumCard {
     background: var(--panel-bg);
-    border: 1.5px solid var(--orange-border);
+    border: 1.5px solid #EE8C3A;
+    transition: border-color 0.2s ease;
     border-radius: var(--radius);
     padding: clamp(12px, 1.5vw, 18px);
     display: flex;
@@ -104,6 +105,10 @@
 .sumCard label { font-family: 'DM Sans', sans-serif; font-size: var(--stat-label); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value); color: #fff; font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }
+/* fix149: hover border = the card's font colour */
+.sumWhite:hover { border-color: #fff; }
+.sumGreen:hover { border-color: #22c55e; }
+.sumRed:hover   { border-color: #ef4444; }
 
 .searchWrap {
     position: relative;

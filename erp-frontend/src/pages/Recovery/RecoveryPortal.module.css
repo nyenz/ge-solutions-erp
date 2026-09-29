@@ -570,15 +570,17 @@
 /* fix148: count cards = the Payment Records stat card. No drop shadow, no hover-lift,
    same label type; colour comes from statGreen / statCyan / statAmber / statRed. */
 .countsHUD .countCard { box-shadow: none; transform: none; }
-.countsHUD .countCard:hover { transform: none; border-color: var(--orange-border); }
+.countsHUD .countCard { border-color: #EE8C3A; }
+.countsHUD .countCard:hover { transform: none; border-color: #EE8C3A; }
 .countsHUD .countCard label { font-family: 'DM Sans', sans-serif; letter-spacing: 1px; color: rgba(255,255,255,0.5); }
-.countsHUD .statGreen, .countsHUD .statGreen:hover { border-color: #22c55e; }
+/* fix149: border = orange at rest, the card's own font colour on hover */
+.countsHUD .statGreen:hover { border-color: #22c55e; }
 .countsHUD .statGreen label, .countsHUD .statGreen strong { color: #22c55e; }
-.countsHUD .statCyan, .countsHUD .statCyan:hover { border-color: #06b6d4; }
+.countsHUD .statCyan:hover { border-color: #06b6d4; }
 .countsHUD .statCyan label, .countsHUD .statCyan strong { color: #06b6d4; }
-.countsHUD .statAmber, .countsHUD .statAmber:hover { border-color: var(--orange); }
-.countsHUD .statAmber label, .countsHUD .statAmber strong { color: var(--orange); }
-.countsHUD .statRed, .countsHUD .statRed:hover { border-color: #ef4444; }
+.countsHUD .statAmber:hover { border-color: #EE8C3A; }
+.countsHUD .statAmber label, .countsHUD .statAmber strong { color: #EE8C3A; }
+.countsHUD .statRed:hover { border-color: #ef4444; }
 .countsHUD .statRed label, .countsHUD .statRed strong { color: #ef4444; }
 .stickyRail  { margin: 0; padding: 0; }
 .stickyTabs  { padding: 0 !important; margin: 0 !important; gap: var(--ctl-gap); align-items: center; }

@@ -22,27 +22,50 @@ export const LoadingState = ({ label = 'LOADING...', tone = 'panel', size = 'blo
     <div
         className={[
             styles.shell,
+            styles.shellSkel,
             tone === 'bare' ? styles.shellBare : styles.shellPanel,
             size === 'page' ? styles.shellPage : '',
         ].filter(Boolean).join(' ')}
         role="status"
         aria-live="polite"
     >
-        <div className={styles.spinner} aria-hidden="true" />
-        <span className={styles.label}>{label}</span>
+        {/* fix149: the Folder page skeleton is the loading look everywhere */}
+        <div className={styles.skelStack} aria-hidden="true">
+            {size === 'page' && <div className={styles.skelHud} />}
+            <div className={styles.skelPanel}>
+                <div className={styles.skelHeader} />
+                <div className={styles.skelBody}>
+                    <div className={styles.skelLine} />
+                    <div className={styles.skelLine} />
+                    <div className={styles.skelLine} />
+                </div>
+            </div>
+            {size === 'page' && (
+                <div className={styles.skelPanel}>
+                    <div className={styles.skelHeader} />
+                    <div className={styles.skelBody}>
+                        <div className={styles.skelLine} />
+                        <div className={styles.skelLine} />
+                    </div>
+                </div>
+            )}
+        </div>
+        <span className={styles.srOnly}>{label}</span>
     </div>
 );
 
 /** Same thing, but as a table row -- for tbody loading states. */
 export const LoadingRow = ({ colSpan = 1, label = 'LOADING...' }) => (
-    <tr>
-        <td colSpan={colSpan} className={styles.cell}>
-            <span className={styles.cellInner} role="status" aria-live="polite">
-                <span className={styles.spinnerSm} aria-hidden="true" />
-                <span className={styles.label}>{label}</span>
-            </span>
-        </td>
-    </tr>
+    <React.Fragment>
+        {['92%', '70%', '84%'].map((w, i) => (
+            <tr key={i}>
+                <td colSpan={colSpan} className={styles.skelCell}>
+                    <span className={styles.skelRowBar} style={{ width: w }} aria-hidden="true" />
+                    {i === 0 && <span className={styles.srOnly} role="status" aria-live="polite">{label}</span>}
+                </td>
+            </tr>
+        ))}
+    </React.Fragment>
 );
 
 /** No spinner -- the finished "there is nothing here" state. */
