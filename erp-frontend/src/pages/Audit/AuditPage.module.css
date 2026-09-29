@@ -147,13 +147,13 @@
 .dateField:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
 
 /* ---- THE LIST (fix153): the light catalogue card, a little darker; ONE hover colour; ONE dark for the open row ---- */
-.timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.timelineFrame { position: relative; overflow: visible; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
 /* fix155: same orange hover as the other table pages (hwPanel / rowCard): border goes solid orange */
 .timelineFrame:hover { border-color: #EE8C3A; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
 .timelineStream { display: flex; flex-direction: column; }
 
-.logTray { background: #d8cfbd; padding: 10px; }
-.logCard { overflow: hidden; background: #ebe5d8; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
+.logTray { background: #c6bba4; padding: 10px; border-radius: 10px 10px 0 0; }
+.logCard { overflow: hidden; background: #ebe5d8; border: 1px solid #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
 
 /* --rail is the action's colour (set by the page). It paints ONLY the left border and, when open, the readout label. */
 .logRow {
@@ -212,7 +212,7 @@
 .rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: #EE8C3A; }
 
 /* ---- PAGINATION ---- */
-.pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(8px, 1vw, 11px) clamp(12px, 1.5vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(10px, 1.2vw, 14px) clamp(22px, 2.4vw, 30px) clamp(14px, 1.6vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 10px 10px; }
 .pgBtn { display: flex; align-items: center; gap: clamp(5px, 0.6vw, 8px); padding: clamp(6px, 0.8vw, 9px) clamp(11px, 1.4vw, 16px); background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.14); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: var(--fs-btn); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; color: rgba(255, 255, 255, 0.8); cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s; }
 .pgBtn:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); background: rgba(238, 140, 58, 0.08); }
 .pgBtn:disabled { opacity: 0.25; cursor: not-allowed; }

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix157: Audit opened row back to the dark head (no orange); extension keeps the catalogue grey.
+# GOLDEN SEED -- fix158: Audit list frame polish + colour by frequency.
 #
-# 1. Opened row head: dark navy #1a2e30 again (as before fix154).
-# 2. Extension ("FORENSIC DATA READOUT"): stays the Report Catalogue grey #28383a.
-# 3. Readout label = action colour, readout text = orange. Outer-frame orange hover (fix155) is kept.
+# 1. The band between the outer border and the inner table (the tray) is a bit darker.
+# 2. The inner table gets a thin white border.
+# 3. Bottom decor like the other tables: corner brackets + the four orange pins on the bottom edge.
+# 4. Row colours: the 8 everyday actions each have their own obvious colour; all rare actions share a colour per
+#    type (red = destructive/privileged, amber = money/record change, violet = contact history, slate = minor).
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -14,8 +16,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix157"
-COMMIT_MSG = "fix157: audit opened row back to dark head, extension keeps catalogue grey"
+FIX_NO = "fix158"
+COMMIT_MSG = "fix158: audit darker tray, white inner border, bottom corner decor, colour by frequency"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +26,8 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
 AUDIT_CSS = os.path.join(SRC, "pages", "Audit", "AuditPage.module.css")
+AUDIT_JSX = os.path.join(SRC, "pages", "Audit", "AuditPage.jsx")
+AUDIT_CAT = os.path.join(SRC, "pages", "Audit", "auditCatalog.js")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -90,67 +94,42 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (AUDIT_CSS,)
+LOAD_FILES = (AUDIT_JSX, AUDIT_CSS, AUDIT_CAT)
 for _p in LOAD_FILES:
     load(_p)
 
-def L(*lines):
-    return "\n".join(lines)
+# ---- 1. CSS: darker tray, thin white border on the inner card, frame carries the corner decor ----
+patch(AUDIT_CSS,
+      ".timelineFrame { overflow: hidden; background: var(--panel-bg);",
+      ".timelineFrame { position: relative; overflow: visible; background: var(--panel-bg);",
+      "Audit CSS: frame can carry corner brackets + bottom pins")
+patch(AUDIT_CSS,
+      ".logTray { background: #d8cfbd; padding: 10px; }",
+      ".logTray { background: #c6bba4; padding: 10px; border-radius: 10px 10px 0 0; }",
+      "Audit CSS: tray a bit darker (+ round its top since the frame no longer clips)")
+patch(AUDIT_CSS,
+      ".logCard { overflow: hidden; background: #ebe5d8; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }",
+      ".logCard { overflow: hidden; background: #ebe5d8; border: 1px solid #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }",
+      "Audit CSS: thin white border round the inner table")
+patch(AUDIT_CSS,
+      "padding: clamp(8px, 1vw, 11px) clamp(12px, 1.5vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); }",
+      "padding: clamp(10px, 1.2vw, 14px) clamp(22px, 2.4vw, 30px) clamp(14px, 1.6vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 10px 10px; }",
+      "Audit CSS: footer clear of the corner brackets, rounded bottom")
 
-def patch_any(path, olds, new, desc):
-    # works whether the file is in the fix154 state or the fix157 state
-    for o in olds:
-        if o in FILES[path]:
-            FILES[path] = sub(FILES[path], o, new, desc)
-            return
-    FILES[path] = sub(FILES[path], olds[0], new, desc)
+# ---- 2. JSX: same bottom decor the other tables use (corner brackets + orange pins) ----
+patch(AUDIT_JSX,
+      "import { actionColor } from './auditCatalog';",
+      "import { actionColor } from './auditCatalog';\nimport CornerDecor from '../../components/ui/CornerDecor';",
+      "Audit JSX: import CornerDecor")
+patch(AUDIT_JSX,
+      "                </footer>\n            </div>\n        </div>\n    );\n};",
+      "                </footer>\n                <CornerDecor hideTop />\n            </div>\n        </div>\n    );\n};",
+      "Audit JSX: bottom corner brackets + pins on the frame")
 
-# ---- opened row HEAD: back to the dark (#1a2e30) it was in fix153 ----
-HEAD_OLD = L(
-"/* OPEN ROW (fix154): head and readout are the Report Catalogue active-row orange (#EE8C3A), no wash, no seam */",
-".logRow.expanded, .logRow.expanded:hover { background: #EE8C3A; }",
-".logRow.expanded .clockPair { color: #fff; }",
-".logRow.expanded .clockPair svg { color: #fff; }",
-".logRow.expanded .timeMark small { color: #fff; opacity: 0.85; }",
-".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); color: #fff; }",
-".logRow.expanded .actionMeta strong { color: #fff; }",
-".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.88); }",
-".logRow.expanded .targetMark p { color: #fff; }",
-".logRow.expanded .inspectIcon { color: #fff; transform: rotate(180deg); }",
-)
-HEAD_NEW = L(
-"/* OPEN ROW (fix157): head is the dark navy (#1a2e30); the extension below is the Report Catalogue readout grey (#28383a) */",
-".logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }",
-".logRow.expanded .clockPair { color: #fff; }",
-".logRow.expanded .clockPair svg { color: #f2ede4; }",
-".logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }",
-".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }",
-".logRow.expanded .actionMeta strong { color: #fff; }",
-".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }",
-".logRow.expanded .targetMark p { color: #fff; }",
-".logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }",
-)
-patch(AUDIT_CSS, HEAD_OLD, HEAD_NEW, "Audit CSS: opened row head back to dark navy")
-
-# ---- extension: catalogue grey ----
-patch_any(AUDIT_CSS,
-          [".traceDetails { overflow: hidden; background: #EE8C3A;", ".traceDetails { overflow: hidden; background: #1a2e30;"],
-          ".traceDetails { overflow: hidden; background: #28383a;",
-          "Audit CSS: extension = catalogue grey #28383a")
-patch_any(AUDIT_CSS,
-          ["scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }"],
-          "scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }",
-          "Audit CSS: extension scrollbar light")
-
-# ---- readout label = action colour, readout text = orange (as in the screenshot) ----
-patch_any(AUDIT_CSS,
-          ["letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }"],
-          "letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }",
-          "Audit CSS: readout label = action colour")
-patch_any(AUDIT_CSS,
-          ["line-height: 1.6; color: #1a2e30; }"],
-          "line-height: 1.6; color: #EE8C3A; }",
-          "Audit CSS: readout text = orange")
+# ---- 3. Catalogue: own colour for frequent actions, shared type colours for rare ones ----
+CAT_OLD = "/* fix153: one colour per action, taken from the app palette only (red, green, cyan, amber, violet; orange is\n   kept out because the opened readout text is orange). Colours are dealt out in catalogue order so neighbours\n   differ; an unlisted code gets a stable colour from its own name. */\nconst PALETTE = ['#ef4444', '#10b981', '#06b6d4', '#f59e0b', '#a78bfa'];\nconst RAIL = {};\nObject.keys(INDEX).forEach((code, i) => { RAIL[code] = PALETTE[i % PALETTE.length]; });\nexport const actionColor = (code) => {\n    const key = String(code || '');\n    if (RAIL[key]) return RAIL[key];\n    let h = 0;\n    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % PALETTE.length;\n    return PALETTE[h];\n};\n"
+CAT_NEW = '/* fix158: colour by how often an action happens.\n   COMMON  = the actions staff do all day. Each one has its OWN obvious colour.\n   RARE    = everything else. Rare actions share a colour per TYPE (severity), so a red row always means\n             "destructive / privileged", amber = "changes money or a record", violet = contact history, slate = minor.\n   Orange is kept out on purpose (the opened readout text is orange). An unlisted code counts as rare / minor. */\nconst COMMON_COLOR = {\n    RECORD_UPDATED:          \'#3b82f6\',  // blue\n    EDIT_MODE_OPENED:        \'#ec4899\',  // pink\n    DOCUMENT_UPLOADED:       \'#06b6d4\',  // cyan\n    DOCUMENT_CATEGORY_ADDED: \'#84cc16\',  // lime\n    RECEIVABLE_ENTER:        \'#d946ef\',  // fuchsia\n    PAYMENT_RECORDED:        \'#22c55e\',  // green\n    EXPENSE_LOGGED:          \'#6366f1\',  // indigo\n    RECOVERY_NOTE:           \'#14b8a6\',  // teal\n};\nconst RARE_COLOR = {\n    high:  \'#ef4444\',  // red    -- destructive / privileged\n    med:   \'#f59e0b\',  // amber  -- changes money or a record\n    intel: \'#a78bfa\',  // violet -- contact history\n    low:   \'#64748b\',  // slate  -- minor\n};\nexport const actionColor = (code) => {\n    const key = String(code || \'\');\n    if (COMMON_COLOR[key]) return COMMON_COLOR[key];\n    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;\n};\n'
+patch(AUDIT_CAT, CAT_OLD, CAT_NEW, "Catalogue: common actions own colour, rare actions type colour")
 
 # ============================= EDIT PART 2 END =============================
 

@@ -147,18 +147,31 @@ export const friendlyAction = (code) => {
 export const severityOf = (code) => (INDEX[code]?.severity) || 'low';
 
 
-/* fix153: one colour per action, taken from the app palette only (red, green, cyan, amber, violet; orange is
-   kept out because the opened readout text is orange). Colours are dealt out in catalogue order so neighbours
-   differ; an unlisted code gets a stable colour from its own name. */
-const PALETTE = ['#ef4444', '#10b981', '#06b6d4', '#f59e0b', '#a78bfa'];
-const RAIL = {};
-Object.keys(INDEX).forEach((code, i) => { RAIL[code] = PALETTE[i % PALETTE.length]; });
+/* fix158: colour by how often an action happens.
+   COMMON  = the actions staff do all day. Each one has its OWN obvious colour.
+   RARE    = everything else. Rare actions share a colour per TYPE (severity), so a red row always means
+             "destructive / privileged", amber = "changes money or a record", violet = contact history, slate = minor.
+   Orange is kept out on purpose (the opened readout text is orange). An unlisted code counts as rare / minor. */
+const COMMON_COLOR = {
+    RECORD_UPDATED:          '#3b82f6',  // blue
+    EDIT_MODE_OPENED:        '#ec4899',  // pink
+    DOCUMENT_UPLOADED:       '#06b6d4',  // cyan
+    DOCUMENT_CATEGORY_ADDED: '#84cc16',  // lime
+    RECEIVABLE_ENTER:        '#d946ef',  // fuchsia
+    PAYMENT_RECORDED:        '#22c55e',  // green
+    EXPENSE_LOGGED:          '#6366f1',  // indigo
+    RECOVERY_NOTE:           '#14b8a6',  // teal
+};
+const RARE_COLOR = {
+    high:  '#ef4444',  // red    -- destructive / privileged
+    med:   '#f59e0b',  // amber  -- changes money or a record
+    intel: '#a78bfa',  // violet -- contact history
+    low:   '#64748b',  // slate  -- minor
+};
 export const actionColor = (code) => {
     const key = String(code || '');
-    if (RAIL[key]) return RAIL[key];
-    let h = 0;
-    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % PALETTE.length;
-    return PALETTE[h];
+    if (COMMON_COLOR[key]) return COMMON_COLOR[key];
+    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;
 };
 
 export default ACTION_GROUPS;

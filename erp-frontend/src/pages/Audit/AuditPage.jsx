@@ -12,6 +12,7 @@ import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import { actionColor } from './auditCatalog';
+import CornerDecor from '../../components/ui/CornerDecor';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './AuditPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -248,6 +249,7 @@ const AuditPage = () => {
                         NEWER LOGS <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>
+                <CornerDecor hideTop />
             </div>
         </div>
     );
