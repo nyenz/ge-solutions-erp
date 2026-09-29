@@ -136,6 +136,18 @@ public class RecoveryNoteController {
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());
         m.put("subCounty", ps.isEmpty() ? null : ps.get(0).getSubCounty());
         m.put("village", ps.isEmpty() ? null : ps.get(0).getVillage());
+        // fix139: the location of EVERY plot (display lines + one search string)
+        LinkedHashSet<String> places = new LinkedHashSet<>();
+        StringBuilder placeText = new StringBuilder();
+        for (LandProject p : ps) {
+            List<String> parts = new ArrayList<>();
+            for (String s : new String[]{ p.getDistrict(), p.getCounty(), p.getSubCounty(), p.getParish(), p.getVillage() }) {
+                if (s != null && !s.isBlank()) { parts.add(s.trim()); placeText.append(s.trim()).append(' '); }
+            }
+            if (!parts.isEmpty()) places.add(String.join(" - ", parts));
+        }
+        m.put("places", new ArrayList<>(places));
+        m.put("placeText", placeText.toString().trim());
         m.put("lastContactedAt", c.getLastContactedAt());
         m.put("payBadge", payBadge(ps));
         m.put("state", st); m.put("unlock", unlock == null ? null : unlock.toString());
@@ -183,10 +195,13 @@ public class RecoveryNoteController {
         if (c.getFullName() != null) hay.append(c.getFullName()).append(' ');
         if (c.getNationalId() != null) hay.append(c.getNationalId()).append(' ');
         if (c.getPhoneNumber() != null) hay.append(c.getPhoneNumber()).append(' ');
+        for (String f : com.gesolutions.erp.common.util.PhoneUtil.searchForms(c.getPhoneNumber())) hay.append('|').append(f).append('|');
         for (LandProject p : ps) {
             if (p.getProjectIndex() != null) hay.append(p.getProjectIndex()).append(' ');
             if (p.getDistrict() != null) hay.append(p.getDistrict()).append(' ');
             if (p.getSubCounty() != null) hay.append(p.getSubCounty()).append(' ');
+            if (p.getCounty() != null) hay.append(p.getCounty()).append(' ');
+            if (p.getParish() != null) hay.append(p.getParish()).append(' ');
             if (p.getVillage() != null) hay.append(p.getVillage()).append(' ');
         }
         return hay.toString().toLowerCase().replaceAll("\\s+", "").contains(term);
@@ -331,18 +346,29 @@ public class RecoveryNoteController {
     }
     @DeleteMapping("/notes/{id}")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> deleteNote(@PathVariable UUID id, Authentication auth) {
         RecoveryNote n = noteRepo.findById(id).orElse(null);
         if (n == null) return ResponseEntity.ok(Map.of("ok", true));
         Client c = n.getClient();
+        String delWho = n.getAuthor() == null ? "unknown" : n.getAuthor().getUsername();
+        String delWhen = n.getCreatedAt() == null ? "?" : n.getCreatedAt().toLocalDate().toString();
+        String delFor = c == null ? "?" : c.getFullName() + " (NIN " + c.getNationalId() + ")";
+        String[] delDef = tagDef(n.getTag());
         noteRepo.delete(n);
         if (c != null) {
             LocalDateTime newest = null;
             for (RecoveryNote r : noteRepo.findByClientOrderByCreatedAtDesc(c)) if (r.isCountsAsAttempt()) { newest = r.getCreatedAt(); break; }
             c.setLastContactedAt(newest);
+            if (delDef != null) { // put back what logging this call did to the score
+                double undo = "POSITIVE".equals(delDef[1]) ? -1.5 : 2.0;
+                double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
+                c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + undo)));
+            }
             clientRepo.save(c);
         }
-        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag());
+        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
+            + " for " + delFor + ", written by " + delWho + " on " + delWhen);
         return ResponseEntity.ok(Map.of("ok", true));
     }
 @GetMapping("/clients/ledger")

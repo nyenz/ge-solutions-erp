@@ -76,7 +76,7 @@ public class ClientController {
             c.setFullName(body.get("fullName").trim());
         }
         if (body.containsKey("phoneNumber") && body.get("phoneNumber") != null && !body.get("phoneNumber").isBlank()) {
-            c.setPhoneNumber(body.get("phoneNumber").trim());
+            c.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(body.get("phoneNumber")));
         }
         if (body.containsKey("email")) {
             String email = body.get("email");

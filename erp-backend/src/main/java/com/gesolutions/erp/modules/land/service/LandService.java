@@ -478,7 +478,7 @@ public class LandService {
                         ? incoming.getEmail().toLowerCase() : null);
                 person.setHomeAddress(incoming.getAddress());
                 if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
-                    person.setPhoneNumber(incoming.getPhone());
+                    person.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(incoming.getPhone()));
                 }
                 clientRepository.save(person);
                 updatedRegistry.add(person);

@@ -121,6 +121,9 @@ public class ClientService {
      */
     @Transactional
     public Client findOrCreateClientByNin(String fullName, String nin, String phone, String email) {
+        // fix139: one standard phone format (blank is only tolerated for an existing client)
+        String cleanPhone = (phone == null || phone.isBlank()) ? null
+                : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(phone);
         if (nin == null || nin.isBlank()) {
             throw new BusinessException("NIN_REQUIRED: A National ID (NIN) is mandatory for every project owner.");
         }
@@ -144,7 +147,8 @@ public class ClientService {
 
         Client newClient = Client.builder()
                 .fullName(fullName)
-                .phoneNumber(phone)
+                .phoneNumber(cleanPhone != null ? cleanPhone
+                        : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(phone))
                 .nationalId(normalizedNin)
                 .email(email)
                 .monthlyContactCount(0)

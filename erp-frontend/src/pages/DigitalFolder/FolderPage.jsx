@@ -22,6 +22,7 @@ import { useRouterBlock } from '../../components/common/RouterBlocker';
 import recoveryService from '../../services/recoveryService';
 import predictionService from '../../services/predictionService';
 import clientService from '../../services/clientService';
+import { normalizePhones } from '../../utils/phone';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import HardwareModalSelect from '../../components/common/HardwareModalSelect';
@@ -432,6 +433,7 @@ useEffect(() => {
         buf.owners?.forEach((o, i) => {
             if (!o.fullName?.trim()) errors.push('OWNER ' + (i + 1) + ': LEGAL NAME IS REQUIRED');
             if (!o.nationalId?.trim()) errors.push('OWNER ' + (i + 1) + ': NATIONAL ID (NIN) IS REQUIRED');
+            if (o.phone?.trim()) { const ph = normalizePhones(o.phone); if (!ph.ok) errors.push('OWNER ' + (i + 1) + ': ' + ph.error.toUpperCase()); }
         });
         return errors;
     };
@@ -444,7 +446,7 @@ useEffect(() => {
             const fe = {};
             if (hasTitle && !buffer.plotNumber?.trim()) fe.plotNumber = 'Required';
             if (!buffer.district?.trim()) fe.district = 'Required';
-            buffer.owners?.forEach((o, i) => { if (!o.fullName?.trim()) fe['owner_' + i + '_name'] = 'Required'; });
+            buffer.owners?.forEach((o, i) => { if (!o.fullName?.trim()) fe['owner_' + i + '_name'] = 'Required'; if (o.phone?.trim() && !normalizePhones(o.phone).ok) fe['owner_' + i + '_phone'] = 'Check number'; });
             setFieldErrors(fe); toast('VALIDATION FAILED: ' + errors[0], 'error', 6000); return;
         }
         setFieldErrors({}); setCommitting(true);
@@ -810,7 +812,7 @@ useEffect(() => {
                             {isEditing ? buffer.owners.map((o, idx) => (<div key={idx} className={styles.ownerEditCard}>
                                 <SmartInput label={`LEGAL NAME #${idx+1}`} value={o.fullName} showCaps required error={fieldErrors['owner_'+idx+'_name']} onChange={e => handleOwnerChange(idx,'fullName',e.target.value)} />
                                 <SmartInput label="NIN" value={o.nationalId} required onChange={e => handleOwnerChange(idx,'nationalId',e.target.value)} onBlur={e => handleNinBlurCheck(idx, e.target.value)} id={`owner_${idx}_nin`} />
-                                <SmartInput label="PHONE" value={o.phone} onChange={e => handleOwnerChange(idx,'phone',e.target.value)} id={`owner_${idx}_phone`} />
+                                <SmartInput label="PHONE" value={o.phone} error={fieldErrors['owner_'+idx+'_phone']} onChange={e => handleOwnerChange(idx,'phone',e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) handleOwnerChange(idx,'phone',r.value); }} id={`owner_${idx}_phone`} />
                                 <SmartInput label="EMAIL" value={o.email} onChange={e => handleOwnerChange(idx,'email',e.target.value)} id={`owner_${idx}_email`} />
                                 <SmartInput label="ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx,'address',e.target.value)} id={`owner_${idx}_addr`} />
                             </div>)) : project.proprietors.map((p, i) => (<div key={i} className={styles.ownerStaticCard}>

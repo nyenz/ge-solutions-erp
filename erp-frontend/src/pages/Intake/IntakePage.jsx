@@ -11,6 +11,7 @@ import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
+import { normalizePhones } from '../../utils/phone';
 import stageTemplateService from '../../services/stageTemplateService';
 import styles from './IntakePage.module.css';
 
@@ -227,6 +228,8 @@ export default function IntakePage() {
             if (!o.nationalId.trim()) { toast(`Owner ${i + 1}: NIN is required.`, 'error'); return false; }
             if (!o.fullName.trim()) { toast(`Owner ${i + 1}: Full Name is required.`, 'error'); return false; }
             if (!o.phone.trim()) { toast(`Owner ${i + 1}: Phone is required (use / for multiple numbers).`, 'error'); return false; }
+            const ph = normalizePhones(o.phone);
+            if (!ph.ok) { toast(`Owner ${i + 1}: ${ph.error}`, 'error'); return false; }
         }
         if (isTitleSectionVisible) {
             if (!titleId.trim()) { toast('Title ID is required.', 'error'); return false; }
@@ -253,7 +256,7 @@ export default function IntakePage() {
                 totalCost: Number(totalCost) || 0, initialPayment: Number(initialPayment) || 0,
                 isLegacy, titleAtIntake, projectStartDate: projectStartDate || todayISO(),
                 owners: owners.map(o => ({
-                    fullName: o.fullName.trim().toUpperCase(), phone: o.phone.trim(),
+                    fullName: o.fullName.trim().toUpperCase(), phone: normalizePhones(o.phone).value || o.phone.trim(),
                     email: o.email.trim().toLowerCase(), nationalId: o.nationalId.trim().toUpperCase(), address: o.address.trim(),
                 })),
                 // Every stage on the list is sent now, not just the checked
@@ -379,7 +382,7 @@ export default function IntakePage() {
                             </div>
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Phone</label>
-                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} placeholder="0700 000 000 / 0788 000 000" />
+                                <input className={styles.input} value={o.phone} onChange={e => updateOwner(idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) updateOwner(idx, 'phone', r.value); }} placeholder="07XX XXX XXX / 07XX XXX XXX" />
                                 <p className={styles.hint}>Multiple: separate with /</p>
                             </div>
                             <div className={styles.field}>

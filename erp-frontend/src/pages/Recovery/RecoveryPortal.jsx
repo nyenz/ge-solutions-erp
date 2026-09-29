@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
 import { useAuth } from '../../hooks/useAuth';
+import { splitPhones, telHref, prettyPhone, phoneSearchText } from '../../utils/phone';
 import HardwareModal from '../../components/common/HardwareModal';
 import HardwareButton from '../../components/common/HardwareButton';
 import BackToTopButton from '../../components/common/BackToTopButton';
@@ -33,6 +34,7 @@ export default function RecoveryPortal() {
   const [text, setText] = useState('');
   const [coWarn, setCoWarn] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
   const [toasts, setToasts] = useState([]);
   const loadedOnce = useRef(false);
   const { user } = useAuth();
@@ -77,11 +79,18 @@ export default function RecoveryPortal() {
     if (!picked || !sel) return;
     setBusy(true);
     recoveryService.logNote({ clientId: sel.id, tag: picked.tag, text: text })
-      .then((r) => { setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
+      .then((r) => { setBusy(false); setSel(null); toast('Logged.', 'success'); if (r && r.data && r.data.coOwnerWarning) setCoWarn(r.data.coOwnerWarning); load(true); })
       .catch((e) => { setBusy(false); toast((e.response && e.response.data && e.response.data.error) || 'Save failed', 'error'); });
   };
+  const askDelete = (noteId) => {
+    if (confirmDel !== noteId) { setConfirmDel(noteId); setTimeout(() => setConfirmDel((cur) => (cur === noteId ? null : cur)), 3000); return; }
+    setConfirmDel(null);
+    recoveryService.deleteNote(noteId)
+      .then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(true); })
+      .catch(() => toast('Could not delete the note.', 'error'));
+  };
   const term = search.toLowerCase().replace(/\s+/g, '');
-  const rowsF = rows.filter((c) => !term || [c.name, c.nin, c.phone, c.lastTag, c.district, c.village, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
+  const rowsF = rows.filter((c) => !term || [c.name, c.nin, c.phone, phoneSearchText(c.phone), c.lastTag, c.district, c.subCounty, c.village, c.placeText, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
@@ -104,7 +113,7 @@ export default function RecoveryPortal() {
       <div className={styles.stickyTabs} role="tablist" aria-label="Recovery queues">
         <div className={styles.tabSearch}>
           <FiSearch className={styles.searchIcon} aria-hidden="true" />
-          <input type="search" className={styles.searchInput} placeholder="Search name, NIN, phone, index..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search recovery queue" autoComplete="off" />
+          <input type="search" className={styles.searchInput} placeholder="Search name, NIN, phone, index, location..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search recovery queue" autoComplete="off" />
           {search && (<button type="button" className={styles.searchClearBtn} onClick={() => setSearch('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>)}
         </div>
         <div className={styles.tabRow}>
@@ -148,8 +157,8 @@ export default function RecoveryPortal() {
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>CONTACT</label>
                       <span className={styles.nin}>{c.nin}</span>
-                      <span className={styles.monoRow}><FiPhoneCall aria-hidden="true" /><span className={styles.mono}>{c.phone}</span></span>
-                      {c.district && (<span className={styles.loc}><FiMapPin aria-hidden="true" /> {c.district}{c.subCounty ? ' - ' + c.subCounty : ''}{c.village ? ' - ' + c.village : ''}</span>)}
+                      <span className={styles.monoRow}><FiPhoneCall aria-hidden="true" />{splitPhones(c.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} onClick={(e) => e.stopPropagation()} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span>
+                      {(c.places && c.places.length > 0 ? c.places : (c.district ? [c.district + (c.subCounty ? ' - ' + c.subCounty : '') + (c.village ? ' - ' + c.village : '')] : [])).map((pl, i) => (<span key={i} className={styles.loc}><FiMapPin aria-hidden="true" /> {pl}</span>))}
                     </span>
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>PROJECTS ({c.projectCount || (c.projectIds || []).length})</label>
@@ -191,7 +200,7 @@ export default function RecoveryPortal() {
       )}
       <HardwareModal isOpen={!!sel} onClose={() => setSel(null)} title={sel ? 'CALL LOG - ' + sel.name : 'CALL LOG'}>
         {sel && (<>
-          <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span className={styles.mono}>{sel.phone}</span></div>
+          <div className={styles.metaRow}><span className={styles.nin}>{sel.nin}</span><span>{splitPhones(sel.phone).map((ph, i) => (<React.Fragment key={i}>{i > 0 && <span className={styles.mono}> / </span>}<a className={styles.mono} href={telHref(ph)} style={{ textDecoration: 'none' }}>{prettyPhone(ph)}</a></React.Fragment>))}</span></div>
           {sel.unlock && (<div className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(sel.unlock)} - read only.</div>)}
           <div className={styles.tagwall}>
             <label className={styles.wallLabel}>CALL (WE SPOKE)</label>
@@ -220,7 +229,7 @@ export default function RecoveryPortal() {
                 {n.text && <span className={styles.histText}>{n.text}</span>}
                 {canManage && n.source === 'RECOVERY' && n.tag !== 'payment received' && (
                   <button type="button" className={styles.histDelete} aria-label="Delete note"
-                    onClick={() => recoveryService.deleteNote(n.id).then(() => { toast('Note deleted.', 'warn'); recoveryService.getNotes(sel.id).then((r) => setNotes(r.data || [])); load(true); })}>
+                    onClick={() => askDelete(n.id)}>{confirmDel === n.id ? (<span style={{ color: '#ef4444', fontWeight: 700, fontSize: 11, marginRight: 4 }}>SURE?</span>) : null}
                     <FiX aria-hidden="true" />
                   </button>
                 )}
