@@ -12,6 +12,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
+import TabDock from '../../components/common/TabDock';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
@@ -27,12 +28,18 @@ const TYPE_COLORS = {
     RECEIVABLE_PARTIAL: '#ef4444',
 };
 
+const TYPE_FILTERS = [
+    { key: 'ALL',                label: 'ALL TYPES' },
+    { key: 'STANDARD',           label: TYPE_LABELS.STANDARD.toUpperCase() },
+    { key: 'INITIAL_DEPOSIT',    label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase() },
+    { key: 'RECEIVABLE_PARTIAL', label: TYPE_LABELS.RECEIVABLE_PARTIAL.toUpperCase(), accent: 'red' },
+];
+
 const PaymentsPage = () => {
     const navigate = useNavigate();
     const [payments,   setPayments]   = useState([]);
     const [loading,    setLoading]    = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [sortKey,    setSortKey]    = useState('date');
     const [sortDir,    setSortDir]    = useState('desc');
@@ -130,30 +137,25 @@ const PaymentsPage = () => {
                 </div>
             </div>
 
-            <div className={styles.controls}>
-                <div className={styles.searchWrap}>
-                    {!(searchTerm || isSearchFocused) && <FiSearch className={styles.searchIcon} />}
-                    <input type="search"
-                        className={`${styles.searchInput} ${(searchTerm || isSearchFocused) ? styles.searchInputActive : ''}`}
-                        placeholder="Search plot ID, owner name, recorded by..."
-                        value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                        onFocus={() => setIsSearchFocused(true)}
-                        onBlur={() => setIsSearchFocused(false)} />
-                    {searchTerm && (
-                        <button className={styles.clearBtn} onClick={() => setSearchTerm('')}>
-                            <FiX size={14} />
-                        </button>
-                    )}
+            {/* Control cluster -- same structure as the Ledger and Clients pages:
+                search, then the shared TabDock. Only the search bar is sticky. */}
+            <div className={styles.controlHub}>
+                <div className={styles.searchBlock}>
+                    <div className={styles.searchWrap}>
+                        <input type="search"
+                            className={styles.searchInput}
+                            placeholder="Search plot ID, owner name, recorded by..."
+                            aria-label="Search payment records" autoComplete="off"
+                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <FiSearch className={styles.searchIcon} aria-hidden="true" />
+                        {searchTerm && (
+                            <button type="button" className={styles.clearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search">
+                                <FiX size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <div className={styles.filterRow}>
-                    {['ALL', 'STANDARD', 'INITIAL_DEPOSIT', 'RECEIVABLE_PARTIAL'].map(t => (
-                        <button key={t}
-                            className={`${styles.filterBtn} ${typeFilter === t ? styles.filterActive : ''}`}
-                            onClick={() => setTypeFilter(t)}>
-                            {t === 'ALL' ? 'ALL TYPES' : TYPE_LABELS[t]}
-                        </button>
-                    ))}
-                </div>
+                <TabDock items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label="Filter by payment type" />
             </div>
 
             {loading ? (

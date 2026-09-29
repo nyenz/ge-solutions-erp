@@ -504,3 +504,20 @@
   min-width: 108px;
 }
 .dateField:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
+
+
+/* ══ DESIGN PASS: shared page rhythm ═══════════════════════════════
+   Tokens live in index.css. Last rule wins. */
+.pageHeader { padding: var(--hdr-pad); margin-bottom: var(--block-gap); }
+@media (min-width: 641px) {
+    .container { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); }
+}
+.controlHub { margin-bottom: var(--block-gap); }
+
+/* title bar: same type scale and title/subtitle gap as every other page */
+.headerLeft { gap: 3px; }
+.title { line-height: normal; margin: 0; letter-spacing: 2px; }
+@media (min-width: 481px) {
+    .title { font-size: clamp(18px, 2.5vw, 24px); }
+    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
+}

@@ -11,6 +11,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './RecoveryPortal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
+import TabDock from '../../components/common/TabDock';
 const TABS = [
   { key: 'ALL', label: 'ALL DUE' },
   { key: 'CONTACTED', label: 'CONTACTED' },
@@ -110,19 +111,17 @@ export default function RecoveryPortal() {
         <div className={styles.countCard}><label>MONTH'S MISS</label><strong>{stats ? stats.missMonth : '-'}</strong></div>
       </div>
       <div className={styles.stickyRail}>
-      <div className={styles.stickyTabs} role="tablist" aria-label="Recovery queues">
+      <div className={styles.stickyTabs}>
         <div className={styles.tabSearch}>
           <FiSearch className={styles.searchIcon} aria-hidden="true" />
           <input type="search" className={styles.searchInput} placeholder="Search name, NIN, phone, index, location..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search recovery queue" autoComplete="off" />
           {search && (<button type="button" className={styles.searchClearBtn} onClick={() => setSearch('')} aria-label="Clear search"><FiX aria-hidden="true" /></button>)}
         </div>
-        <div className={styles.tabRow}>
-          {TABS.map((t) => (
-            <button key={t.key} role="tab" aria-selected={tab === t.key} className={`${styles.qTab} ${tab === t.key ? styles.qTabActive : ''}`} onClick={() => setTab(t.key)}>
-              {t.label} ({counts ? counts[t.key] : '-'})
-            </button>
-          ))}
-        </div>
+        <TabDock
+          className={styles.dockSlot} mode="tab" label="Recovery queues"
+          items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts ? counts[t.key] : '-' }))}
+          value={tab} onChange={setTab}
+        />
       </div>
       </div>
       <div className={styles.dotLegend} aria-label="Payment dot legend">

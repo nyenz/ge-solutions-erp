@@ -105,24 +105,6 @@
 .sumCard strong { font-family: 'Space Mono', monospace; font-size: var(--stat-value); color: #fff; font-weight: 700; word-break: break-all; }
 .sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }
 
-/* CONTROLS */
-.controls {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-md);
-    margin-bottom: clamp(14px, 2vw, 20px);
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    background: transparent;
-    padding: clamp(8px, 1vw, 12px) 0;
-    margin-left: clamp(-12px, -2vw, -24px);
-    margin-right: clamp(-12px, -2vw, -24px);
-    padding-left: clamp(12px, 2vw, 24px);
-    padding-right: clamp(12px, 2vw, 24px);
-}
-
 .searchWrap {
     position: relative;
     display: flex;
@@ -144,7 +126,6 @@
     height: 100%;
     transition: padding 0.2s ease;
 }
-.searchInputActive { padding-left: 14px !important; }
 .searchInput::placeholder { font-weight: 500; color: rgba(26,46,48,0.3); }
 .clearBtn {
     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -154,43 +135,7 @@
 }
 .clearBtn:hover { color: #1a2e30; background: rgba(26,46,48,0.08); }
 
-/* FILTER ROW */
-.filterRow {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: clamp(6px, 1vw, 10px);
-    padding-bottom: 4px;
-    scrollbar-width: none;
-}
-.filterRow::-webkit-scrollbar { display: none; }
 
-.filterBtn {
-    background: rgba(26, 46, 48, 0.75);
-    border: 1.5px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.85);
-    padding: clamp(7px, 0.9vw, 9px) clamp(12px, 1.5vw, 18px);
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 900;
-    font-size: clamp(9px, 0.95vw, 11px);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-.filterBtn:hover { background: rgba(238, 140, 58, 0.12); color: #EE8C3A; border-color: #EE8C3A; }
-.filterActive {
-    background: #EE8C3A !important;
-    color: #1a2e30 !important;
-    border-color: #EE8C3A !important;
-    box-shadow: 0 0 12px rgba(238, 140, 58, 0.35);
-}
 
 /* TABLE SHELL */
 .tableScroll {
@@ -335,19 +280,12 @@
     .pageHeader {
         border-radius: 0;
     }
-    .controls {
-        margin-left: 0;
-        margin-right: 0;
-        padding-left: clamp(8px, 2vw, 12px);
-        padding-right: clamp(8px, 2vw, 12px);
-    }
     .summaryRow {
         grid-template-columns: 1fr;
         gap: 8px;
         padding: 0 clamp(8px, 2vw, 12px);
     }
     .searchWrap { max-width: 100%; }
-    .filterRow { gap: 6px; }
     .tableScroll { margin: 0; border-radius: 0; }
     .ledgerTable { min-width: 650px; }
 }
@@ -364,5 +302,51 @@
     .ledgerTable { min-width: 600px; }
     .ledgerTable th { font-size: 7px; letter-spacing: 1px; }
     .ledgerTable td { padding: 8px; }
-    .filterBtn { padding: 6px 10px; font-size: 9px; letter-spacing: 1px; }
+}
+
+
+/* ══ DESIGN PASS: shared page rhythm ═══════════════════════════════
+   Payments used its own, roomier numbers (bigger title-bar padding, bigger
+   gaps, full-bleed phone layout, a sticky filter block with negative
+   margins). It now reads the same tokens as Ledger and Clients, so the
+   title bar -> stat cards -> search -> tabs -> table spacing matches.
+   Kept at the END of the file on purpose: last rule wins. */
+.container   { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); }
+.pageHeader  { padding: var(--hdr-pad); margin-bottom: var(--block-gap); }
+.summaryRow  { gap: var(--block-gap); margin-bottom: var(--block-gap); }
+
+.controlHub  { display: flex; flex-direction: column; gap: var(--ctl-gap); margin-bottom: var(--block-gap); }
+/* Search: identical to the Ledger search (sticky, same width, same type). */
+.searchBlock { position: sticky; top: 0; z-index: 30; width: min(100%, clamp(220px, 38vw, 420px)); }
+.searchWrap  { max-width: none; width: 100%; height: clamp(36px, 4.5vw, 44px); }
+.searchIcon  { left: 12px; font-size: 16px; }
+.searchInput {
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 12px;
+    padding: 0 34px 0 41px !important;
+}
+.searchInput::placeholder { color: rgba(26, 46, 48, 0.35); }
+
+@media (max-width: 640px) {
+    .container  { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); }
+    .pageHeader { border-radius: 0 12px 12px 0; }
+    .summaryRow { padding: 0; gap: var(--block-gap); }
+}
+@media (max-width: 480px) {
+    .container  { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); }
+    .summaryRow { padding: 0; }
+}
+
+/* index.css has a global [class*="searchInput"] { text-indent: 26px !important }
+   that stacks on top of the padding above and pushed the placeholder far from
+   its icon. The padding already clears the icon, so cancel the indent here. */
+.searchWrap .searchInput { text-indent: 0 !important; }
+
+.title { line-height: normal; }
+
+/* title bar: same type scale and title/subtitle gap as every other page */
+.headerLeft { gap: 3px; }
+.title { line-height: normal; margin: 0; letter-spacing: 2px; }
+@media (min-width: 481px) {
+    .title { font-size: clamp(18px, 2.5vw, 24px); }
+    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
 }

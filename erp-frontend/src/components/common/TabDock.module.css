@@ -1,0 +1,55 @@
+/* PATH: erp-frontend/src/components/common/TabDock.module.css
+   Shared tab / filter dock. Values are copied 1:1 from the Settings page
+   ".tabDock / .tab / .tabOn" block so both always look the same.
+   The tray is the ONLY box; pills inside it have no box of their own until
+   they are the active one.
+
+   CONTRAST: the tray is dark (#4d5c5a) so pill text is white-ish on it, and
+   the active pill is navy text on solid orange -- same as Settings. */
+.dockRow {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    max-width: 100%; min-width: 0;
+}
+.tabDock {
+    flex: 0 1 auto; min-width: 0; max-width: 100%;
+    display: flex; align-items: center;
+    background: #4d5c5a;
+    border: none; border-radius: 8px;
+    padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+    /* Many filters on a narrow screen: the tray scrolls sideways instead of
+       breaking the pills onto extra rows. */
+    overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+}
+.tabDock::-webkit-scrollbar { display: none; }
+.tabRow { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }
+
+.tab, .tabOn {
+    --accent: #EE8C3A;
+    --accent-glow: rgba(238, 140, 58, 0.32);
+    display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+    white-space: nowrap; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 8px 12px; border-radius: 6px; outline: none;
+    border: 1.5px solid transparent; background: transparent;
+    color: rgba(255, 255, 255, 0.92);
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tab[data-accent="red"],    .tabOn[data-accent="red"]    { --accent: #ef4444; --accent-glow: rgba(239, 68, 68, 0.32); }
+.tab[data-accent="green"],  .tabOn[data-accent="green"]  { --accent: #34d399; --accent-glow: rgba(52, 211, 153, 0.32); }
+.tab[data-accent="yellow"], .tabOn[data-accent="yellow"] { --accent: #eab308; --accent-glow: rgba(234, 179, 8, 0.32); }
+.tab[data-accent="cyan"],   .tabOn[data-accent="cyan"]   { --accent: #22d3ee; --accent-glow: rgba(34, 211, 238, 0.32); }
+
+.tab:hover { color: var(--accent); }
+.tabOn {
+    color: #1a2e30;
+    background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 4px 16px var(--accent-glow);
+}
+.tabOn[data-accent="red"] { color: #fff; }
+.tab:focus-visible, .tabOn:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: -2px; }
+.tabCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
+
+@media (max-width: 480px) {
+    .tab, .tabOn { padding: 7px 10px; font-size: 8px; }
+}

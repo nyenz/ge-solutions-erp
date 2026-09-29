@@ -48,6 +48,26 @@
     --stat-value:    clamp(13px, 1.45vw, 16.5px);
     --stat-value-sm: clamp(11px, 1.2vw,  13px);
     --stat-note:     clamp(7px,  0.8vw,  9px);
+
+    /* ===== PAGE RHYTHM (design pass) ================================
+       ONE spacing scale for the stack every list page shares:
+           page title bar -> stat cards -> search -> tabs/filters -> table
+       Ledger, Clients, Recovery and Expenses already used these exact
+       numbers; Payments, Audit and Reports had drifted roomier, which
+       is why their top sections looked unevenly spaced. Every page now
+       reads from here -- change a number once, every page moves.
+         --page-pad-*   space between the page content and the screen edge
+         --hdr-pad      inside the title bar
+         --block-gap    between two stacked blocks (title bar, stat row,
+                        control cluster, table)
+         --ctl-gap      inside the control cluster (search / tabs / legend)
+       ============================================================== */
+    --page-pad-top:    clamp(12px, 2vh, 22px);
+    --page-pad-x:      clamp(12px, 2vw, 24px);
+    --page-pad-bottom: 28px;
+    --hdr-pad:         clamp(8px, 1.2vw, 14px) clamp(14px, 1.8vw, 22px);
+    --block-gap:       clamp(10px, 1.5vh, 16px);
+    --ctl-gap:         10px;
 }
 
 * {

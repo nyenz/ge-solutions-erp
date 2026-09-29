@@ -52,12 +52,6 @@
 .searchInput::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .searchClearBtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--orange); cursor: pointer; display: flex; padding: 4px; border-radius: 4px; }
 .searchClearBtn:hover { background: rgba(238,140,58,0.15); }
-.filterRail { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-.filterRail::-webkit-scrollbar { display: none; }
-.filterBtn { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); padding: 8px 16px; border-radius: 6px; font-weight: 900; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: all .2s; font-family: 'Inter',sans-serif; }
-.filterBtn:hover { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
-.activeFilter { background: var(--orange) !important; color: #1a2e30 !important; border-color: var(--orange) !important; }
-.filterBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* cards */
 .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr)); gap: clamp(10px,1.4vw,16px); }
@@ -177,9 +171,6 @@
 
 .stickyTabs { position: sticky; top: 0; z-index: 200; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 10px clamp(12px, 2vw, 24px); background: #f4efe8; margin-left: clamp(-12px, -2vw, -24px); margin-right: clamp(-12px, -2vw, -24px); border-bottom: 1px solid rgba(26, 46, 48, 0.08); }
 .stickyTabs::-webkit-scrollbar { display: none; }
-.qTab { background: rgba(26,46,48,0.75); border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); padding: 8px 14px; border-radius: 6px; font-weight: 900; font-size: 10px; letter-spacing: 1.5px; cursor: pointer; white-space: nowrap; font-family: 'Inter',sans-serif; }
-.qTabActive { background: var(--orange) !important; color: #1a2e30 !important; border-color: var(--orange) !important; }
-.qTab:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .list { display: flex; flex-direction: column; gap: 8px; }
 .rowCard { background: linear-gradient(160deg, #1c3335, #213E40); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; }
 .rowOpen { border-color: var(--orange); }
@@ -200,7 +191,7 @@
 /* fix82: unified type scale - 3 text sizes + HUD display number only */
 .cname { font-size: clamp(13px, 1.6vw, 16px); }
 .nin, .mono, .loc, .coLine, .attemptLine, .histText, .lockBanner, .projLink { font-size: clamp(10px, 1.1vw, 12px); }
-.callPos, .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .wallLabel, .histMeta, .qTab, .countCard label { font-size: clamp(8px, 0.9vw, 10px); }
+.callPos, .reason, .dayChip, .chipPos, .chipNeg, .chipNone, .wallLabel, .histMeta, .countCard label { font-size: clamp(8px, 0.9vw, 10px); }
 .countCard strong { font-size: clamp(15px, 1.8vw, 21px); }
 
 /* fix83: standard search width, transparent sticky bar, boxed scrolling list, Ledger type scale */
@@ -211,7 +202,6 @@
 .list::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.5); border-radius: 4px; }
 .refreshing { opacity: 0.55; }
 .dotLegend span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(26,46,48,0.65); }
-.qTab { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
 .countCard label { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px); letter-spacing: 1px; }
 .countCard strong { font-family: 'Space Mono', monospace; font-size: clamp(15px, 1.8vw, 21px); }
 .cname { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: 0.3px; }
@@ -256,8 +246,6 @@
 .tabSearch .searchInput { width: 100%; padding: 8px 30px; border-radius: 6px; border: 1.5px solid rgba(26, 46, 48, 0.15); background: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; color: #1a2e30; }
 .tabSearch .searchInput:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: var(--orange); }
 .tabSearch .searchClearBtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(26, 46, 48, 0.4); cursor: pointer; }
-.qTab { padding: 8px 14px; border-radius: 6px; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
-.qTab:hover { background: rgba(238, 140, 58, 0.12); color: var(--orange); border-color: var(--orange); transform: none; }
 .dotLegend { padding: 4px 2px 6px; gap: 14px; }
 .dotLegend span { gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: normal; color: rgba(26, 46, 48, 0.6); }
 .dotLegend i { box-shadow: none !important; width: 8px; height: 8px; }
@@ -279,7 +267,6 @@
 .tabSearch .searchInput { width: 100%; padding: 8px 30px; border-radius: 6px; border: 1.5px solid rgba(26, 46, 48, 0.15); background: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; color: #1a2e30; }
 .tabSearch .searchInput:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: var(--orange); }
 .tabSearch .searchClearBtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(26, 46, 48, 0.4); cursor: pointer; }
-.qTab { padding: 8px 14px; border-radius: 6px; font-weight: 900; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 1.5px; }
 .dotLegend { padding: 4px 2px 6px; gap: 14px; }
 .dotLegend span { gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: normal; text-transform: none; color: rgba(26, 46, 48, 0.6); }
 .dotLegend i { width: 8px; height: 8px; box-shadow: none !important; }
@@ -336,13 +323,10 @@
 .dotLegend::-webkit-scrollbar { display: none; }
 .dotLegend span { white-space: nowrap; flex-shrink: 0; }
 /* pill row scrolls horizontally inside the rail */
-.tabRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
-.tabRow::-webkit-scrollbar { display: none; }
 /* mobile: search on its own line, filters on their own line */
 @media (max-width: 640px) {
   .stickyTabs { flex-direction: column; align-items: stretch; gap: 6px; }
   .tabSearch { width: 100%; margin-right: 0; flex: none; }
-  .tabRow { width: 100%; flex: none; }
   .countsHUD { grid-template-columns: repeat(2, 1fr); }
   .rowHead { flex-wrap: wrap; gap: 6px 8px; }
   .rowBody { grid-template-columns: 1fr; }
@@ -572,3 +556,51 @@
    source order. */
 .countCard label  { font-size: var(--stat-label); }
 .countCard strong { font-size: var(--stat-value); }
+
+
+/* ══ DESIGN PASS: shared page rhythm + TabDock ═════════════════════
+   Recovery's title -> counters -> tabs -> legend gaps had been squeezed
+   to 4-8px (fix102-104), so this page felt tighter than Ledger and
+   Clients. Same tokens as every other list page now. The queue tabs are
+   the shared <TabDock/> (Settings tab-bar spec). Last rule wins. */
+.container   { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); gap: var(--block-gap); }
+.pageHeader  { padding: var(--hdr-pad); margin: 0; }
+.countsHUD   { margin: 0; }
+.stickyRail  { margin: 0; padding: 0; }
+.stickyTabs  { padding: 0 !important; margin: 0 !important; gap: var(--ctl-gap); align-items: center; }
+.dockSlot    { flex: 1 1 auto; min-width: 0; }
+.dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 0; padding: 0 0 0 4px; }
+.list        { margin: 0; }
+
+/* Search: identical to the Ledger search box */
+.tabSearch { width: clamp(220px, 38vw, 420px); margin-right: 0; }
+.tabSearch .searchIcon { left: 12px; width: 16px; height: 16px; color: var(--orange); }
+.tabSearch .searchInput {
+    height: clamp(36px, 4.5vw, 44px) !important; padding: 0 34px 0 41px !important; border: 1.5px solid #c8d6d7;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: #1a2e30;
+}
+.tabSearch .searchInput::placeholder { color: rgba(26, 46, 48, 0.35); font-weight: 500; }
+.tabSearch .searchInput:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.18); }
+.tabSearch .searchClearBtn { color: var(--orange); }
+
+@media (max-width: 640px) {
+    .stickyTabs { flex-direction: column; align-items: stretch; gap: var(--ctl-gap); }
+    .tabSearch  { width: 100%; }
+    .dockSlot   { flex: none; width: 100%; }
+}
+
+/* cancel the global [class*="searchInput"] text-indent (see index.css) -- the
+   41px left padding above already clears the icon */
+.tabSearch .searchInput { text-indent: 0 !important; }
+
+/* title block: same 3px title/subtitle gap and line-height as the other pages */
+.pageHeader .headerLeft { gap: 3px; }
+.pageHeader .title { line-height: normal; }
+
+/* title bar: same type scale and title/subtitle gap as every other page */
+.pageHeader .headerLeft { gap: 3px; }
+.pageHeader .title { line-height: normal; margin: 0; letter-spacing: 2px; }
+@media (min-width: 481px) {
+    .pageHeader .title { font-size: clamp(18px, 2.5vw, 24px); }
+    .pageHeader .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
+}

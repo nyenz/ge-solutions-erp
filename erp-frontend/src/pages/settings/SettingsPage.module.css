@@ -602,3 +602,18 @@
     .commitBtn     { padding: 8px 14px; font-size: 8px; letter-spacing: 0.5px; }
     .eyeBtn        { font-size: 13px; right: 8px; top: clamp(24px, 6vw, 30px); }
 }
+
+
+/* ══ DESIGN PASS: shared page rhythm ═══════════════════════════════
+   Settings is the reference for the tab dock; it now also shares the
+   page rhythm (title bar size, gaps, top offset) with the list pages. */
+.pageHeader { padding: var(--hdr-pad); margin-bottom: var(--block-gap); }
+.pageHeaderLeft { gap: 3px; }
+.title { line-height: normal; margin: 0; letter-spacing: 2px; }
+@media (min-width: 481px) {
+    .title    { font-size: clamp(18px, 2.5vw, 24px); }
+    .subtitle { font-size: clamp(9px, 0.9vw, 11px); }
+}
+@media (min-width: 641px) {
+    .container { padding-top: var(--page-pad-top); padding-left: var(--page-pad-x); padding-right: var(--page-pad-x); }
+}

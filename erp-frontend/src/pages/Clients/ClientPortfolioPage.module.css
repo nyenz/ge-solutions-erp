@@ -224,3 +224,17 @@
   .headerActions { width: 100%; }
   .backBtn { flex: 1; justify-content: center; }
 }
+
+
+/* ══ DESIGN PASS: shared page rhythm ═══════════════════════════════
+   Tokens live in index.css. Last rule wins. */
+.container  { padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); gap: var(--block-gap); }
+.pageHeader { padding: var(--hdr-pad); }
+
+/* title bar: same type scale and title/subtitle gap as every other page */
+.headerLeft { gap: 3px; }
+.title { line-height: normal; margin: 0; letter-spacing: 2px; }
+@media (min-width: 481px) {
+    .title { font-size: clamp(18px, 2.5vw, 24px); }
+    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
+}

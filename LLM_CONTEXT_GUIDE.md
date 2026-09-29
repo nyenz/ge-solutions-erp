@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix144: seed load fixed, Section 19)
+# Last updated: September 2026 (fix145: design pass -- TabDock + page rhythm, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -458,12 +458,26 @@ Font sizes and spacing use `clamp()` throughout (see Responsiveness Rule) -- do 
 - NEVER use position:absolute on buttons inside the header
 
 ### Filter Button Style (CONFIRMED STANDARD -- ALL pages)
+> **fix145: filters and tabs are now ONE shared component, `src/components/common/TabDock.jsx`.** Ledger, Clients, Payments and Recovery all render it. Do NOT hand-roll filter or tab buttons on a page (no per-page `.filterBtn` / `.qTab`); import `TabDock` instead. It is the Settings-page tab bar turned into a component: one dark tray (`#4d5c5a`, radius 8px, padding 6px), pill buttons inside it, no box of their own until active, the active pill solid accent colour with navy text. Props: `items [{ key, label, count?, icon?, accent?, title? }]`, `value`, `onChange(key)`, `mode` (`'filter'` = aria-pressed buttons, default; `'tab'` = role=tablist), `label` (accessible name), `end` (optional node after the tray), `className`. Per-item `accent` is `orange` (default) | `red` | `green` | `yellow` | `cyan`; use `accent: 'red'` for danger filters (CRITICAL, PROBLEM). Colours and sizes live only in `TabDock.module.css`; change them there and every page follows. The older list below is the historic spec for the look; where it says text-only, TabDock now allows an optional icon.
+
 - Inactive: `background: rgba(26,46,48,0.75)`, `border: 1.5px solid rgba(255,255,255,0.18)`, `color: rgba(255,255,255,0.85)`
 - Hover: `background: rgba(238,140,58,0.12)`, `color: #EE8C3A`, `border-color: var(--orange)`
 - Active/Selected: `background: #EE8C3A`, `color: #1a2e30`, `border-color: #EE8C3A`
 - Font: DM Sans 900, uppercase, letter-spacing 1.5px, font-size clamp(9px,0.95vw,11px)
 - Layout: single horizontal row, flex-direction:ROW, flex-wrap:nowrap, overflow-x:auto, scrollbar hidden
 - NO icons inside filter buttons -- text only
+
+### Page Rhythm (fix145) -- ONE spacing scale for every list page
+The stack every list page shares is: page title bar -> stat cards -> search -> tabs/filters -> table. Its spacing comes from CSS variables at the top of `src/index.css`, so no page invents its own numbers:
+```
+--page-pad-top:    clamp(12px, 2vh, 22px)      /* content to top of screen */
+--page-pad-x:      clamp(12px, 2vw, 24px)      /* content to left/right edge */
+--page-pad-bottom: 28px
+--hdr-pad:         clamp(8px, 1.2vw, 14px) clamp(14px, 1.8vw, 22px)   /* inside the title bar */
+--block-gap:       clamp(10px, 1.5vh, 16px)    /* between two stacked blocks */
+--ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
+```
+Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
 
 ### Table Design Standard
 - Table wraps in: `background: rgba(0,0,0,0.15)`

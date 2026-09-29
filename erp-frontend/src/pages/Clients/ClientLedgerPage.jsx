@@ -12,6 +12,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
+import TabDock from '../../components/common/TabDock';
 
 const matchesSearch = (c, term) => {
     if (!term) return true;
@@ -211,7 +212,7 @@ const ClientLedgerPage = () => {
 
     const FILTERS = [
         { key: 'ALL', label: 'ALL CLIENTS' }, { key: 'OWING', label: 'OWING' },
-        { key: 'RECEIVABLES', label: 'IN RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
+        { key: 'RECEIVABLES', label: 'IN RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
         { key: 'PAID', label: 'PAID UP' }, { key: 'NOPLOTS', label: 'NO PROJECTS' },
     ];
 
@@ -243,13 +244,7 @@ const ClientLedgerPage = () => {
                         {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
                     </div>
                 </div>
-                <div className={styles.filterRail} role="group" aria-label="Filter clients">
-                    {FILTERS.map(f => (
-                        <button key={f.key} onClick={() => setActiveFilter(f.key)}
-                            className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                            aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
-                    ))}
-                </div>
+                <TabDock items={FILTERS} value={activeFilter} onChange={setActiveFilter} label="Filter clients" />
                 <div className={styles.legendRow} aria-label="Legend">
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>

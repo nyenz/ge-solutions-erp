@@ -11,6 +11,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
+import TabDock from '../../components/common/TabDock';
 
 const matchesSearch = (proj, term, stages) => {
     if (!term) return true;
@@ -244,8 +245,8 @@ const LedgerPage = () => {
     const FILTERS = [
         { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING' },
         { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL' },
-        { key: 'PAID', label: 'PAID' }, { key: 'PROBLEM', label: 'PROBLEM' },
+        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
+        { key: 'PAID', label: 'PAID' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
     ];
 
     return (
@@ -277,13 +278,7 @@ const LedgerPage = () => {
                         {searchTerm && (<button className={styles.searchClearBtn} onClick={() => setSearchTerm('')} aria-label="Clear search" type="button"><FiX aria-hidden="true" /></button>)}
                     </div>
                 </div>
-                <div className={styles.filterRail} role="group" aria-label="Filter records">
-                    {FILTERS.map(f => (
-                        <button key={f.key} onClick={() => setActiveFilter(f.key)}
-                            className={`${styles.filterBtn} ${activeFilter === f.key ? styles.activeFilter : ''}`}
-                            aria-pressed={activeFilter === f.key} aria-label={f.label}>{f.label}</button>
-                    ))}
-                </div>
+                <TabDock items={FILTERS} value={activeFilter} onChange={setActiveFilter} label="Filter records" />
                 <div className={styles.legendRow} aria-label="Payment health legend">
                     {Object.entries(BADGE_COLORS).map(([k, c]) => (
                         <span key={k} className={styles.legendItem}>
