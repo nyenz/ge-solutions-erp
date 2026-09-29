@@ -152,7 +152,7 @@
 .timelineFrame:hover { border-color: #EE8C3A; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
 .timelineStream { display: flex; flex-direction: column; }
 
-.logTray { background: #c6bba4; padding: 10px; border-radius: 10px 10px 0 0; }
+.logTray { background: transparent; padding: 10px; border-radius: 10px 10px 0 0; }
 .logCard { overflow: hidden; background: #ebe5d8; border: 1px solid #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
 
 /* --rail is the action's colour (set by the page). It paints ONLY the left border and, when open, the readout label. */

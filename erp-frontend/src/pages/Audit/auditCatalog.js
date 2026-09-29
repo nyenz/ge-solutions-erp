@@ -147,26 +147,24 @@ export const friendlyAction = (code) => {
 export const severityOf = (code) => (INDEX[code]?.severity) || 'low';
 
 
-/* fix158: colour by how often an action happens.
-   COMMON  = the actions staff do all day. Each one has its OWN obvious colour.
-   RARE    = everything else. Rare actions share a colour per TYPE (severity), so a red row always means
-             "destructive / privileged", amber = "changes money or a record", violet = contact history, slate = minor.
-   Orange is kept out on purpose (the opened readout text is orange). An unlisted code counts as rare / minor. */
+/* fix159: simple basic colours. Colour by how often an action happens.
+   COMMON = the actions staff do all day, each with its OWN basic colour (blue, green, yellow, purple, orange, cyan, pink).
+   RARE   = everything else, one shared colour per TYPE: red = destructive / privileged, brown = changes money or a
+            record, teal = contact history, grey = minor. An unlisted code counts as rare / minor. */
 const COMMON_COLOR = {
-    RECORD_UPDATED:          '#3b82f6',  // blue
-    EDIT_MODE_OPENED:        '#ec4899',  // pink
-    DOCUMENT_UPLOADED:       '#06b6d4',  // cyan
-    DOCUMENT_CATEGORY_ADDED: '#84cc16',  // lime
-    RECEIVABLE_ENTER:        '#d946ef',  // fuchsia
-    PAYMENT_RECORDED:        '#22c55e',  // green
-    EXPENSE_LOGGED:          '#6366f1',  // indigo
-    RECOVERY_NOTE:           '#14b8a6',  // teal
+    RECORD_UPDATED:          '#2563eb',  // blue
+    EDIT_MODE_OPENED:        '#9333ea',  // purple
+    DOCUMENT_UPLOADED:       '#eab308',  // yellow
+    DOCUMENT_CATEGORY_ADDED: '#06b6d4',  // cyan
+    RECEIVABLE_ENTER:        '#f97316',  // orange
+    PAYMENT_RECORDED:        '#16a34a',  // green
+    EXPENSE_LOGGED:          '#ec4899',  // pink
 };
 const RARE_COLOR = {
-    high:  '#ef4444',  // red    -- destructive / privileged
-    med:   '#f59e0b',  // amber  -- changes money or a record
-    intel: '#a78bfa',  // violet -- contact history
-    low:   '#64748b',  // slate  -- minor
+    high:  '#dc2626',  // red
+    med:   '#92400e',  // brown
+    intel: '#0d9488',  // teal
+    low:   '#6b7280',  // grey
 };
 export const actionColor = (code) => {
     const key = String(code || '');
