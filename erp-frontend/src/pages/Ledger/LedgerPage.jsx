@@ -306,7 +306,7 @@ const LedgerPage = () => {
                 glowing dot at the tip) renders ONLY on the two bottom
                 corners of THIS card -- no top corner brackets. */}
             <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
-                <Pins pos="top" />
+                {/* fix148: no top pins -- bottom pins + bottom corners only */}
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />
                 <div className={styles.tableScroll} ref={tableScrollRef}>

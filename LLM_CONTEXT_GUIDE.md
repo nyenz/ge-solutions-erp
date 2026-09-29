@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix147: selection-based tab + panel accent colours, Section 7)
+# Last updated: September 2026 (fix148: ledger top decor removed + one stat-card spec, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -478,6 +478,11 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 --ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
+
+### Ledger decor + stat cards (fix148)
+- Ledger tables (Project Ledger, Client Ledger, Payment Records) carry bottom corner brackets + bottom pins ONLY. No top pins, no top corners. `HardwarePanel` takes `hideTop` (forwarded to `CornerDecor`); Payments passes it. Do not re-add `<Pins pos="top" />` to the two ledger pages.
+- One stat-card spec (Payment Records `.sumCard`): 1.5px solid coloured border, label + value in the same colour, no drop shadow, no hover-lift. Palette: green #22c55e, red #ef4444, cyan #06b6d4, orange var(--orange); white/plain only for a neutral grand total. Recovery `.countCard` uses `statGreen | statCyan | statAmber | statRed` (scoped under `.countsHUD`); Expenses and the Client dossier use `.statCard` + `statGreen | statRed | statAmber | statCyan`.
+- New stat card: pick a colour class -- do not leave a card white-on-white unless it is a neutral total.
 
 ### Selection-based accent colours (fix147)
 - Each TabDock item can carry `accent` (`red` | `green` | `yellow` | `cyan`; orange = default). Current map: green = TITLED / PAID / PAID UP / TITLE PAYMENT / CONTACTED; red = CRITICAL / PROBLEM / RECEIVABLES / MISSED; amber = PROCESSING / OWING / LOCKED; cyan = LEGACY / NO PROJECTS / INITIAL DEPOSIT / SITE VISIT.

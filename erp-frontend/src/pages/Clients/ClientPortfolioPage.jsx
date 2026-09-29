@@ -246,13 +246,13 @@ const ClientPortfolioPage = () => {
             <label>STORAGE FEES</label><strong>UGX {fmt(totals.storage)}</strong>
             <span className={styles.statNote}>receivables accrued</span>
           </div>
-          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
+          <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>PROJECTS</label><strong>{totals.count}</strong>
             <span className={styles.statNote}>in this portfolio</span>
           </div>
-          <div className={`${styles.statCard} ${styles.statClickable}`} role="button" tabIndex={0}
+          <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>OWNERSHIP</label><strong className={styles.statTextValue}>{totals.solo} SOLO / {totals.joint} JOINT</strong>

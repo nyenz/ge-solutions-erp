@@ -3,11 +3,11 @@ import React from 'react';
 import CornerDecor from './CornerDecor';
 import styles from './HardwarePanel.module.css';
 
-const HardwarePanel = ({ title, icon: Icon, children, variant = "dark" }) => {
+const HardwarePanel = ({ title, icon: Icon, children, variant = "dark", hideTop = false }) => {
     return (
         <section className={`${styles.panel} ${styles[variant]}`}>
             {/* INJECTS BRACKETS AND PINS AUTOMATICALLY */}
-            <CornerDecor hidePins={variant === "light"} />
+            <CornerDecor hidePins={variant === "light"} hideTop={hideTop} />
             
             {(title || Icon) && (
                 <div className={styles.header}>

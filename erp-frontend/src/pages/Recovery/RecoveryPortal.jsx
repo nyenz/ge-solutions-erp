@@ -105,10 +105,10 @@ export default function RecoveryPortal() {
         </HeaderActions>
       </header>
       <div className={styles.countsHUD}>
-        <div className={styles.countCard}><label>TODAY'S CALLS</label><strong>{stats ? stats.callsToday : '-'}</strong></div>
-        <div className={styles.countCard}><label>MONTH'S CALLS</label><strong>{stats ? stats.callsMonth : '-'}</strong></div>
-        <div className={styles.countCard}><label>LONGEST WAIT</label><strong>{stats ? stats.longestWait : '-'}</strong></div>
-        <div className={styles.countCard}><label>MONTH'S MISS</label><strong>{stats ? stats.missMonth : '-'}</strong></div>
+        <div className={`${styles.countCard} ${styles.statGreen}`}><label>TODAY'S CALLS</label><strong>{stats ? stats.callsToday : '-'}</strong></div>
+        <div className={`${styles.countCard} ${styles.statCyan}`}><label>MONTH'S CALLS</label><strong>{stats ? stats.callsMonth : '-'}</strong></div>
+        <div className={`${styles.countCard} ${styles.statAmber}`}><label>LONGEST WAIT</label><strong>{stats ? stats.longestWait : '-'}</strong></div>
+        <div className={`${styles.countCard} ${styles.statRed}`}><label>MONTH'S MISS</label><strong>{stats ? stats.missMonth : '-'}</strong></div>
       </div>
       <div className={styles.stickyRail}>
       <div className={styles.stickyTabs}>

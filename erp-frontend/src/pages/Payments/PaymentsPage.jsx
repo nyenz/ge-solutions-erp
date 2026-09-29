@@ -173,7 +173,7 @@ const PaymentsPage = () => {
                 <LoadingState label="LOADING PAYMENTS..." />
             ) : (
                 <div className={styles.accentWrap} data-tab-accent={accentOf(TYPE_FILTERS, typeFilter)}>
-                <HardwarePanel variant="dark">
+                <HardwarePanel variant="dark" hideTop>
                     <div className={styles.tableScroll} ref={tableHandoffRef}>
                         <table className={styles.ledgerTable}>
                             <thead>

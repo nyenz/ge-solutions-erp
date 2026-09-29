@@ -258,7 +258,7 @@ const ClientLedgerPage = () => {
                 Only the table's own header row (inside .tableScroll) stays
                 pinned, and only to ITS OWN scroll container. */}
             <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
-                <Pins pos="top" />
+                {/* fix148: no top pins -- bottom pins + bottom corners only */}
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />
                 <div className={styles.tableScroll} ref={tableScrollRef}>

@@ -1,33 +1,31 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix147: layout part 2 (selection-based tab + panel accent colours).
+# GOLDEN SEED -- fix148: ledger decor clean-up + one stat-card spec across pages.
 #
-#   1. TabDock: new `accentOf(items, value)` helper -> the accent of the ACTIVE pill.
-#   2. Tab colours (each pill already glows in its own colour when active):
-#        Ledger    : PROCESSING amber, TITLED green, LEGACY cyan, RECEIVABLES red,
-#                    CRITICAL red, PAID green, PROBLEM red
-#        Payments  : TITLE PAYMENT green, INITIAL DEPOSIT cyan, RECEIVABLES red
-#        Clients   : OWING amber, IN RECEIVABLES red, CRITICAL red, PAID UP green, NO PROJECTS cyan
-#        Recovery  : CONTACTED green, MISSED red, SITE VISIT cyan, LOCKED amber
-#   3. Panel accent: the table panel (Ledger, Clients ledger, Payments) and the Recovery
-#      cards recolour their border, corner brackets, pins, header text/underline and
-#      other orange chrome from the ACTIVE pill, exactly like Settings does with --accent.
-#      Done with one global attribute, data-tab-accent, in index.css (it re-points
-#      --orange / --orange-border / --orange-dim for that subtree only).
-#      ALL / orange pills leave the page looking exactly as it does today.
+# 1. Ledger pages: the TOP border pins ("....") are gone from the Project Ledger and the
+#    Client Ledger. Payments Records no longer draws the top corner brackets or top pins
+#    either (HardwarePanel gets a `hideTop` prop). All three ledgers now carry the same
+#    decor: bottom corner brackets + bottom pins only.
+# 2. Stat cards match the Payment Records card: solid coloured border, coloured label and
+#    value (green / red / cyan / orange), no hover-lift, no drop shadow, same label font.
+#    - Recovery Cockpit: TODAY'S CALLS green, MONTH'S CALLS cyan, LONGEST WAIT orange,
+#      MONTH'S MISS red (they were all plain white before).
+#    - Expenses: PRESETS + CATEGORIES USED cyan; existing green / orange borders now solid.
+#    - Client dossier: PROJECTS + OWNERSHIP cyan; existing red / green / orange now solid.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
 # (mvnw / mvn) and `npm run build` before committing when they are available,
 # and puts every file back exactly as it was if either goes red.
+
 import os
 import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix147"
-COMMIT_MSG = "fix147: layout part 2 - selection-based tab colours + panel accent colours (Ledger, Clients, Payments, Recovery)"
-RUN_GATES = True   # compile + build must be green before commit
+FIX_NO = "fix148"
+COMMIT_MSG = "fix148: ledger top decor removed (Ledger, Clients, Payments) + one stat-card spec (Recovery, Expenses, Client dossier)"
+RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 BACKEND = os.path.join(ROOT, "erp-backend")
@@ -35,16 +33,18 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 TESTJAVA = os.path.join(BACKEND, "src", "test", "java", "com", "gesolutions", "erp")
-
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
-INDEX_CSS = os.path.join(SRC, "index.css")
-TABDOCK_JSX = os.path.join(SRC, "components", "common", "TabDock.jsx")
+
+HWPANEL_JSX = os.path.join(SRC, "components", "ui", "HardwarePanel.jsx")
 LEDGER_JSX = os.path.join(SRC, "pages", "Ledger", "LedgerPage.jsx")
 CLIENTLEDGER_JSX = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.jsx")
 PAY_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
-PAY_CSS = os.path.join(SRC, "pages", "Payments", "PaymentsPage.module.css")
 RECOVERY_JSX = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.jsx")
 RECOVERY_CSS = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.module.css")
+EXP_JSX = os.path.join(SRC, "pages", "Financials", "ExpensesPage.jsx")
+EXP_CSS = os.path.join(SRC, "pages", "Financials", "ExpensesPage.module.css")
+PORTFOLIO_JSX = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.jsx")
+PORTFOLIO_CSS = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.module.css")
 # ============================= EDIT PART 1 END =============================
 
 # ================== DO NOT EDIT: helpers (copy exactly) ====================
@@ -109,139 +109,151 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (INDEX_CSS, TABDOCK_JSX, LEDGER_JSX, CLIENTLEDGER_JSX, PAY_JSX, PAY_CSS,
-              RECOVERY_JSX, RECOVERY_CSS, GUIDE)
+LOAD_FILES = (HWPANEL_JSX, LEDGER_JSX, CLIENTLEDGER_JSX, PAY_JSX,
+              RECOVERY_JSX, RECOVERY_CSS, EXP_JSX, EXP_CSS,
+              PORTFOLIO_JSX, PORTFOLIO_CSS, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
-
 
 def L(*lines):
     return "\n".join(lines)
 
+# ---- 1. Project Ledger + Client Ledger: no top pins ----
+# (bottom pins and both bottom corner brackets stay)
+for _path, _name in ((LEDGER_JSX, "Ledger"), (CLIENTLEDGER_JSX, "Clients")):
+    patch(_path,
+          L("data-tab-accent={accentOf(FILTERS, activeFilter)}>",
+            "                <Pins pos=\"top\" />"),
+          L("data-tab-accent={accentOf(FILTERS, activeFilter)}>",
+            "                {/* fix148: no top pins -- bottom pins + bottom corners only */}"),
+          _name + ": top pins removed")
 
-IMPORT_OLD = "import TabDock from '../../components/common/TabDock';"
-IMPORT_NEW = "import TabDock, { accentOf } from '../../components/common/TabDock';"
-
-# ---- 1. global accent attribute (index.css) ----
-patch(INDEX_CSS,
-      L(":root {", "    --cream: #F4F2EF;"),
-      L("/* fix147: selection-based panel accent. Put data-tab-accent=\"green|red|yellow|cyan\" on a",
-        "   panel and everything inside that uses var(--orange) / var(--orange-border) / var(--orange-dim)",
-        "   recolours -- the same idea as Settings' --accent. No attribute (orange) = unchanged. */",
-        "[data-tab-accent=\"green\"]  { --orange: #34d399; --orange-dim: rgba(52,211,153,0.18);  --orange-border: rgba(52,211,153,0.36); }",
-        "[data-tab-accent=\"red\"]    { --orange: #ef4444; --orange-dim: rgba(239,68,68,0.18);   --orange-border: rgba(239,68,68,0.36); }",
-        "[data-tab-accent=\"yellow\"] { --orange: #eab308; --orange-dim: rgba(234,179,8,0.18);   --orange-border: rgba(234,179,8,0.36); }",
-        "[data-tab-accent=\"cyan\"]   { --orange: #22d3ee; --orange-dim: rgba(34,211,238,0.18);  --orange-border: rgba(34,211,238,0.36); }",
-        "",
-        ":root {",
-        "    --cream: #F4F2EF;"),
-      "index.css: data-tab-accent colour sets")
-
-# ---- 2. TabDock helper ----
-patch(TABDOCK_JSX,
-      "export default TabDock;",
-      L("// fix147: accent of the ACTIVE pill, for tinting the panel below it.",
-        "// 'orange' (or no accent) -> undefined, so the panel keeps its normal look.",
-        "export const accentOf = (items, value) => {",
-        "    const a = (items.find((i) => i.key === value) || {}).accent;",
-        "    return a && a !== 'orange' ? a : undefined;",
-        "};",
-        "",
-        "export default TabDock;"),
-      "TabDock: accentOf helper")
-
-# ---- 3. Ledger ----
-patch(LEDGER_JSX, IMPORT_OLD, IMPORT_NEW, "Ledger: import accentOf")
-patch(LEDGER_JSX, "{ key: 'BACKLOG', label: 'PROCESSING' }",
-      "{ key: 'BACKLOG', label: 'PROCESSING', accent: 'yellow' }", "Ledger: PROCESSING amber")
-patch(LEDGER_JSX, "{ key: 'TITLED', label: 'TITLED' }",
-      "{ key: 'TITLED', label: 'TITLED', accent: 'green' }", "Ledger: TITLED green")
-patch(LEDGER_JSX, "{ key: 'LEGACY', label: 'LEGACY' }",
-      "{ key: 'LEGACY', label: 'LEGACY', accent: 'cyan' }", "Ledger: LEGACY cyan")
-patch(LEDGER_JSX, "{ key: 'RECEIVABLES', label: 'RECEIVABLES' }",
-      "{ key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }", "Ledger: RECEIVABLES red")
-patch(LEDGER_JSX, "{ key: 'PAID', label: 'PAID' }",
-      "{ key: 'PAID', label: 'PAID', accent: 'green' }", "Ledger: PAID green")
-patch(LEDGER_JSX, "<div className={styles.tablePanel}>",
-      "<div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>",
-      "Ledger: panel follows active pill")
-
-# ---- 4. Clients ledger ----
-patch(CLIENTLEDGER_JSX, IMPORT_OLD, IMPORT_NEW, "Clients: import accentOf")
-patch(CLIENTLEDGER_JSX, "{ key: 'OWING', label: 'OWING' }",
-      "{ key: 'OWING', label: 'OWING', accent: 'yellow' }", "Clients: OWING amber")
-patch(CLIENTLEDGER_JSX, "{ key: 'RECEIVABLES', label: 'IN RECEIVABLES' }",
-      "{ key: 'RECEIVABLES', label: 'IN RECEIVABLES', accent: 'red' }", "Clients: IN RECEIVABLES red")
-patch(CLIENTLEDGER_JSX, "{ key: 'PAID', label: 'PAID UP' }",
-      "{ key: 'PAID', label: 'PAID UP', accent: 'green' }", "Clients: PAID UP green")
-patch(CLIENTLEDGER_JSX, "{ key: 'NOPLOTS', label: 'NO PROJECTS' }",
-      "{ key: 'NOPLOTS', label: 'NO PROJECTS', accent: 'cyan' }", "Clients: NO PROJECTS cyan")
-patch(CLIENTLEDGER_JSX, "<div className={styles.tablePanel}>",
-      "<div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>",
-      "Clients: panel follows active pill")
-
-# ---- 5. Payments ----
-patch(PAY_JSX, IMPORT_OLD, IMPORT_NEW, "Payments: import accentOf")
-patch(PAY_JSX, "label: TYPE_LABELS.STANDARD.toUpperCase() }",
-      "label: TYPE_LABELS.STANDARD.toUpperCase(), accent: 'green' }", "Payments: TITLE PAYMENT green")
-patch(PAY_JSX, "label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase() }",
-      "label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase(), accent: 'cyan' }", "Payments: INITIAL DEPOSIT cyan")
+# ---- 2. Payments: HardwarePanel hideTop (no top corners, no top pins) ----
+patch(HWPANEL_JSX,
+      "const HardwarePanel = ({ title, icon: Icon, children, variant = \"dark\" }) => {",
+      "const HardwarePanel = ({ title, icon: Icon, children, variant = \"dark\", hideTop = false }) => {",
+      "HardwarePanel: hideTop prop")
+patch(HWPANEL_JSX,
+      "<CornerDecor hidePins={variant === \"light\"} />",
+      "<CornerDecor hidePins={variant === \"light\"} hideTop={hideTop} />",
+      "HardwarePanel: pass hideTop to CornerDecor")
 patch(PAY_JSX,
-      L("                <div>", "                <HardwarePanel variant=\"dark\">"),
-      L("                <div className={styles.accentWrap} data-tab-accent={accentOf(TYPE_FILTERS, typeFilter)}>",
-        "                <HardwarePanel variant=\"dark\">"),
-      "Payments: panel wrapper follows active pill")
-patch(PAY_CSS,
-      ".thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }",
-      L(".thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }",
-        "",
-        "/* fix147: HardwarePanel hard-codes its orange border, so re-point it from the active pill */",
-        ".accentWrap[data-tab-accent] > section[class] { border-color: var(--orange-border); }",
-        ".accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--orange); }",
-        ".accentWrap[data-tab-accent] .thSortable:hover { background: var(--orange-dim); }"),
-      "Payments CSS: panel border from active pill")
+      "<HardwarePanel variant=\"dark\">",
+      "<HardwarePanel variant=\"dark\" hideTop>",
+      "Payments: table panel without top decor")
 
-# ---- 6. Recovery ----
-patch(RECOVERY_JSX, IMPORT_OLD, IMPORT_NEW, "Recovery: import accentOf")
-patch(RECOVERY_JSX, "{ key: 'CONTACTED', label: 'CONTACTED' }",
-      "{ key: 'CONTACTED', label: 'CONTACTED', accent: 'green' }", "Recovery: CONTACTED green")
-patch(RECOVERY_JSX, "{ key: 'MISSED', label: 'MISSED' }",
-      "{ key: 'MISSED', label: 'MISSED', accent: 'red' }", "Recovery: MISSED red")
-patch(RECOVERY_JSX, "{ key: 'SITE', label: 'SITE VISIT' }",
-      "{ key: 'SITE', label: 'SITE VISIT', accent: 'cyan' }", "Recovery: SITE VISIT cyan")
-patch(RECOVERY_JSX, "{ key: 'LOCKED', label: 'LOCKED' }",
-      "{ key: 'LOCKED', label: 'LOCKED', accent: 'yellow' }", "Recovery: LOCKED amber")
+# ---- 3. Recovery: stat cards use the Payment Records spec ----
 patch(RECOVERY_JSX,
-      "items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts ? counts[t.key] : '-' }))}",
-      "items={TABS.map((t) => ({ key: t.key, label: t.label, accent: t.accent, count: counts ? counts[t.key] : '-' }))}",
-      "Recovery: pass accent to TabDock")
+      "<div className={styles.countCard}><label>TODAY'S CALLS</label>",
+      "<div className={`${styles.countCard} ${styles.statGreen}`}><label>TODAY'S CALLS</label>",
+      "Recovery: TODAY'S CALLS green")
 patch(RECOVERY_JSX,
-      "<div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>",
-      "<div className={`${styles.list} ${loading ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>",
-      "Recovery: card list follows active pill")
+      "<div className={styles.countCard}><label>MONTH'S CALLS</label>",
+      "<div className={`${styles.countCard} ${styles.statCyan}`}><label>MONTH'S CALLS</label>",
+      "Recovery: MONTH'S CALLS cyan")
+patch(RECOVERY_JSX,
+      "<div className={styles.countCard}><label>LONGEST WAIT</label>",
+      "<div className={`${styles.countCard} ${styles.statAmber}`}><label>LONGEST WAIT</label>",
+      "Recovery: LONGEST WAIT orange")
+patch(RECOVERY_JSX,
+      "<div className={styles.countCard}><label>MONTH'S MISS</label>",
+      "<div className={`${styles.countCard} ${styles.statRed}`}><label>MONTH'S MISS</label>",
+      "Recovery: MONTH'S MISS red")
+# .countsHUD .countCard (2 classes) out-ranks every earlier single-class .countCard rule
 patch(RECOVERY_CSS,
-      ".list        { margin: 0; }",
-      L(".list        { margin: 0; }",
+      ".countsHUD   { margin: 0; }",
+      L(".countsHUD   { margin: 0; }",
         "",
-        "/* fix147: the cards' border is hard-coded orange in the rules above, so re-point it from the active pill */",
-        ".list[data-tab-accent] .rowCard { border-color: var(--orange-border); }",
-        ".list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: var(--orange); }"),
-      "Recovery CSS: card border from active pill")
+        "/* fix148: count cards = the Payment Records stat card. No drop shadow, no hover-lift,",
+        "   same label type; colour comes from statGreen / statCyan / statAmber / statRed. */",
+        ".countsHUD .countCard { box-shadow: none; transform: none; }",
+        ".countsHUD .countCard:hover { transform: none; border-color: var(--orange-border); }",
+        ".countsHUD .countCard label { font-family: 'DM Sans', sans-serif; letter-spacing: 1px; color: rgba(255,255,255,0.5); }",
+        ".countsHUD .statGreen, .countsHUD .statGreen:hover { border-color: #22c55e; }",
+        ".countsHUD .statGreen label, .countsHUD .statGreen strong { color: #22c55e; }",
+        ".countsHUD .statCyan, .countsHUD .statCyan:hover { border-color: #06b6d4; }",
+        ".countsHUD .statCyan label, .countsHUD .statCyan strong { color: #06b6d4; }",
+        ".countsHUD .statAmber, .countsHUD .statAmber:hover { border-color: var(--orange); }",
+        ".countsHUD .statAmber label, .countsHUD .statAmber strong { color: var(--orange); }",
+        ".countsHUD .statRed, .countsHUD .statRed:hover { border-color: #ef4444; }",
+        ".countsHUD .statRed label, .countsHUD .statRed strong { color: #ef4444; }"),
+      "Recovery CSS: count card spec + colours")
 
-# ---- 7. guide ----
+# ---- 4. Expenses: cyan on the two plain cards, solid borders ----
+patch(EXP_JSX,
+      L("<div className={styles.statCard}>", "                    <label>PRESETS</label>"),
+      L("<div className={`${styles.statCard} ${styles.statCyan}`}>", "                    <label>PRESETS</label>"),
+      "Expenses: PRESETS cyan")
+patch(EXP_JSX,
+      L("<div className={styles.statCard}>", "                    <label>CATEGORIES USED</label>"),
+      L("<div className={`${styles.statCard} ${styles.statCyan}`}>", "                    <label>CATEGORIES USED</label>"),
+      "Expenses: CATEGORIES USED cyan")
+patch(EXP_CSS,
+      ".statAmber { border-color: rgba(238,140,58,0.55); }",
+      ".statAmber { border-color: var(--orange); }",
+      "Expenses CSS: amber border solid")
+patch(EXP_CSS,
+      L(".statGreen { border-color: rgba(34,197,94,0.55); }",
+        ".statGreen label, .statGreen strong { color: #22c55e; }"),
+      L(".statGreen { border-color: #22c55e; }",
+        ".statGreen label, .statGreen strong { color: #22c55e; }",
+        ".statCyan { border-color: #06b6d4; }",
+        ".statCyan label, .statCyan strong { color: #06b6d4; }"),
+      "Expenses CSS: green solid + cyan")
+
+# ---- 5. Client dossier: cyan on the two plain cards, solid borders ----
+patch(PORTFOLIO_JSX,
+      L("          <div className={`${styles.statCard} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
+        "            onClick={() => scrollToSection('portfolio-panel')}",
+        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
+        "            <label>PROJECTS</label>"),
+      L("          <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
+        "            onClick={() => scrollToSection('portfolio-panel')}",
+        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
+        "            <label>PROJECTS</label>"),
+      "Dossier: PROJECTS cyan")
+patch(PORTFOLIO_JSX,
+      L("          <div className={`${styles.statCard} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
+        "            onClick={() => scrollToSection('portfolio-panel')}",
+        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
+        "            <label>OWNERSHIP</label>"),
+      L("          <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
+        "            onClick={() => scrollToSection('portfolio-panel')}",
+        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
+        "            <label>OWNERSHIP</label>"),
+      "Dossier: OWNERSHIP cyan")
+patch(PORTFOLIO_CSS,
+      ".statRed   { border-color: rgba(239,68,68,0.55); }",
+      ".statRed   { border-color: #ef4444; }",
+      "Dossier CSS: red border solid")
+patch(PORTFOLIO_CSS,
+      ".statAmber { border-color: rgba(238,140,58,0.55); }",
+      ".statAmber { border-color: var(--orange); }",
+      "Dossier CSS: amber border solid")
+patch(PORTFOLIO_CSS,
+      L(".statGreen { border-color: rgba(34,197,94,0.55); }",
+        ".statGreen label, .statGreen strong { color: #22c55e; }"),
+      L(".statGreen { border-color: #22c55e; }",
+        ".statGreen label, .statGreen strong { color: #22c55e; }",
+        ".statCyan  { border-color: #06b6d4; }",
+        ".statCyan  label, .statCyan  strong { color: #06b6d4; }"),
+      "Dossier CSS: green solid + cyan")
+
+# ---- 6. guide ----
 patch(GUIDE,
-      "# Last updated: September 2026 (fix145: design pass -- TabDock + page rhythm, Section 7)",
       "# Last updated: September 2026 (fix147: selection-based tab + panel accent colours, Section 7)",
+      "# Last updated: September 2026 (fix148: ledger top decor removed + one stat-card spec, Section 7)",
       "Guide: header line")
 patch(GUIDE,
-      "### Table scroll + dot legend (fix146)",
-      L("### Selection-based accent colours (fix147)",
-        "- Each TabDock item can carry `accent` (`red` | `green` | `yellow` | `cyan`; orange = default). Current map: green = TITLED / PAID / PAID UP / TITLE PAYMENT / CONTACTED; red = CRITICAL / PROBLEM / RECEIVABLES / MISSED; amber = PROCESSING / OWING / LOCKED; cyan = LEGACY / NO PROJECTS / INITIAL DEPOSIT / SITE VISIT.",
-        "- The panel under the tabs follows the ACTIVE pill: `data-tab-accent={accentOf(ITEMS, value)}` on the panel (`accentOf` is exported from `TabDock.jsx`; it returns `undefined` for orange). The four attribute rules in `index.css` re-point `--orange`, `--orange-border` and `--orange-dim` for that subtree only, so border, corner brackets, pins, header text/underline and anything using `var(--orange)` recolour together -- same idea as Settings' `--accent`. Hard-coded orange (rgba(238,140,58,..)) does NOT follow; use the variables in new CSS. Payments wraps `HardwarePanel` in `.accentWrap` and Recovery tints `.list .rowCard`, because their borders are hard-coded.",
-        "- New page with a TabDock: give the items accents, then put `data-tab-accent` on the panel below it.",
+      "### Selection-based accent colours (fix147)",
+      L("### Ledger decor + stat cards (fix148)",
+        "- Ledger tables (Project Ledger, Client Ledger, Payment Records) carry bottom corner brackets + bottom pins ONLY. No top pins, no top corners. `HardwarePanel` takes `hideTop` (forwarded to `CornerDecor`); Payments passes it. Do not re-add `<Pins pos=\"top\" />` to the two ledger pages.",
+        "- One stat-card spec (Payment Records `.sumCard`): 1.5px solid coloured border, label + value in the same colour, no drop shadow, no hover-lift. Palette: green #22c55e, red #ef4444, cyan #06b6d4, orange var(--orange); white/plain only for a neutral grand total. Recovery `.countCard` uses `statGreen | statCyan | statAmber | statRed` (scoped under `.countsHUD`); Expenses and the Client dossier use `.statCard` + `statGreen | statRed | statAmber | statCyan`.",
+        "- New stat card: pick a colour class -- do not leave a card white-on-white unless it is a neutral total.",
         "",
-        "### Table scroll + dot legend (fix146)"),
-      "Guide: accent colours note")
+        "### Selection-based accent colours (fix147)"),
+      "Guide: fix148 note")
+
 # ============================= EDIT PART 2 END =============================
 
 # ================= DO NOT EDIT: gates, rollback, git (copy exactly) ========

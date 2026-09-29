@@ -262,12 +262,12 @@ const ExpensesPage = () => {
                     <strong>{editableCount}</strong>
                     <span className={styles.statNote}>of {recent.length} in window</span>
                 </div>
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.statCyan}`}>
                     <label>PRESETS</label>
                     <strong>{presets.length}</strong>
                     <span className={styles.statNote}>one-tap categories</span>
                 </div>
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.statCyan}`}>
                     <label>CATEGORIES USED</label>
                     <strong>{knownCategories.length}</strong>
                     <span className={styles.statNote}>all time</span>

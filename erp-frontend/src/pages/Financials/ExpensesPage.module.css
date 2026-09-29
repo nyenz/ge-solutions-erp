@@ -87,10 +87,12 @@
   font-family: 'Inter', sans-serif; font-size: var(--stat-note);
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
 }
-.statAmber { border-color: rgba(238,140,58,0.55); }
+.statAmber { border-color: var(--orange); }
 .statAmber label, .statAmber strong { color: var(--orange); }
-.statGreen { border-color: rgba(34,197,94,0.55); }
+.statGreen { border-color: #22c55e; }
 .statGreen label, .statGreen strong { color: #22c55e; }
+.statCyan { border-color: #06b6d4; }
+.statCyan label, .statCyan strong { color: #06b6d4; }
 
 /* -- PRESET ROW -- was a grid of 84px slabs, which made "log an expense"
    the visually heaviest thing in the app. They are buttons now, flowing in
