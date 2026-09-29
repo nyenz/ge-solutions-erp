@@ -68,6 +68,8 @@
     --hdr-pad:         clamp(8px, 1.2vw, 14px) clamp(14px, 1.8vw, 22px);
     --block-gap:       clamp(10px, 1.5vh, 16px);
     --ctl-gap:         10px;
+    --legend-inset:    clamp(6px, 1vw, 12px);   /* dot legend starts a little inside the left edge */
+    --legend-after:    clamp(8px, 1.2vw, 14px); /* extra breathing room between the dots and the table */
 }
 
 * {

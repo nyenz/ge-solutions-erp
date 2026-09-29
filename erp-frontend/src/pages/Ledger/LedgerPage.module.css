@@ -198,4 +198,4 @@
 .pageHeader  { padding: var(--hdr-pad); margin-bottom: var(--block-gap); }
 .controlHub  { padding: 0; gap: var(--ctl-gap); margin-bottom: var(--block-gap); }
 .searchBlock { padding: 0; }
-.legendRow   { margin: 0; padding: 0 0 0 4px; }
+.legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }

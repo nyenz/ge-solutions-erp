@@ -13,6 +13,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import TabDock from '../../components/common/TabDock';
+import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
@@ -37,6 +38,7 @@ const TYPE_FILTERS = [
 
 const PaymentsPage = () => {
     const navigate = useNavigate();
+    const tableHandoffRef = useTableScrollHandoff();
     const [payments,   setPayments]   = useState([]);
     const [loading,    setLoading]    = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -140,6 +142,7 @@ const PaymentsPage = () => {
             {/* Control cluster -- same structure as the Ledger and Clients pages:
                 search, then the shared TabDock. Only the search bar is sticky. */}
             <div className={styles.controlHub}>
+                <div className={styles.controlRow}>
                 <div className={styles.searchBlock}>
                     <div className={styles.searchWrap}>
                         <input type="search"
@@ -155,7 +158,15 @@ const PaymentsPage = () => {
                         )}
                     </div>
                 </div>
-                <TabDock items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label="Filter by payment type" />
+                <TabDock className={styles.dockSlot} items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label="Filter by payment type" />
+                </div>
+                <div className={styles.legendRow} aria-label="Payment type legend">
+                    {Object.entries(TYPE_COLORS).map(([k, c]) => (
+                        <span key={k} className={styles.legendItem}>
+                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {TYPE_LABELS[k]}
+                        </span>
+                    ))}
+                </div>
             </div>
 
             {loading ? (
@@ -163,7 +174,7 @@ const PaymentsPage = () => {
             ) : (
                 <div>
                 <HardwarePanel variant="dark">
-                    <div className={styles.tableScroll}>
+                    <div className={styles.tableScroll} ref={tableHandoffRef}>
                         <table className={styles.ledgerTable}>
                             <thead>
                                 <tr>
@@ -223,6 +234,7 @@ const PaymentsPage = () => {
                                         <td className={styles.ownerCell}>{pay.ownerName || '---'}</td>
                                         <td>
                                             <span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>
+                                                <i className={styles.legendDot} style={{ background: TYPE_COLORS[pay.paymentType] || '#888', boxShadow: `0 0 4px ${TYPE_COLORS[pay.paymentType] || '#888'}` }} aria-hidden="true" />
                                                 {pay.paymentType === 'RECEIVABLE_PARTIAL' && <FiAlertOctagon size={9} />}
                                                 {TYPE_LABELS[pay.paymentType] || pay.paymentType}
                                             </span>

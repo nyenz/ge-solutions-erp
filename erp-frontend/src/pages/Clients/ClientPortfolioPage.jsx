@@ -21,6 +21,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './ClientPortfolioPage.module.css';
+import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { LoadingState } from '../../components/common/LoadingState';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -62,6 +63,8 @@ const IndexCell = ({ p }) => (<span className={styles.mono}>{p.index || '---'}</
 const emptyForm = { name: '', phone: '', email: '', address: '' };
 
 const ClientPortfolioPage = () => {
+  const projectTableRef = useTableScrollHandoff();
+  const healthTableRef = useTableScrollHandoff();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -262,7 +265,7 @@ const ClientPortfolioPage = () => {
       <CollapsibleSection icon={<FiFolder aria-hidden="true" />} title="PROJECT PORTFOLIO"
         right={<span className={styles.panelCornerBadge}>{totals.count} {totals.count === 1 ? 'PROJECT' : 'PROJECTS'}</span>}>
         <CornerDecor hideTop />
-        <div className={styles.tableScroll}>
+        <div className={styles.tableScroll} ref={projectTableRef}>
           <table className={styles.ledgerTable}>
             <thead><tr>
               <th onClick={() => handleSort('index')} className={styles.sortable} aria-sort={sortConfig.key === 'index' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderSortIcon('index')}</th>
@@ -327,7 +330,7 @@ const ClientPortfolioPage = () => {
         <div id="health-panel">
         <CollapsibleSection icon={<FiCreditCard aria-hidden="true" />} title="PAYMENT HEALTH PER PROJECT">
           <CornerDecor hideTop />
-          <div className={styles.tableScroll}>
+          <div className={styles.tableScroll} ref={healthTableRef}>
             <table className={styles.ledgerTable}>
               <thead><tr>
                 <th onClick={() => handleHealthSort('index')} className={styles.sortable} aria-sort={healthSort.key === 'index' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderHealthSortIcon('index')}</th>

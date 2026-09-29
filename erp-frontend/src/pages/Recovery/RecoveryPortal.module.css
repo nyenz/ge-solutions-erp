@@ -569,7 +569,7 @@
 .stickyRail  { margin: 0; padding: 0; }
 .stickyTabs  { padding: 0 !important; margin: 0 !important; gap: var(--ctl-gap); align-items: center; }
 .dockSlot    { flex: 1 1 auto; min-width: 0; }
-.dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 0; padding: 0 0 0 4px; }
+.dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }
 .list        { margin: 0; }
 
 /* Search: identical to the Ledger search box */

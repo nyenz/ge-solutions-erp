@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
-# PATH: fixNNN.py
-# FIX TEMPLATE -- structure reference + commit-only runner.
+# PATH: fix.py
+# GOLDEN SEED -- fix146: layout part 1 (Payments controls + dots, legend spacing, shared table scroll).
 #
-# With EDIT PART 2 left empty (as it is here) this script changes NO files. It only:
-#   1. runs the backend compile + frontend build gates (if RUN_GATES and the tools exist),
-#   2. git add -A, git commit, git push (retries against origin/main).
-# Use it when the code was already written by hand or by an earlier fix and you just want it committed.
+#   1. Payments: search box and TabDock filters now sit on ONE line (like Recovery).
+#   2. Payments: new dots legend (title / deposit / receivables) + a dot in each row's Type cell.
+#   3. Dot legends on Ledger, Clients ledger, Recovery and Payments start a little inside the
+#      left edge and have more room before the table (two tokens in index.css).
+#   4. The Project Ledger scroll behaviour is now a shared hook (useTableScrollHandoff) and
+#      applied to Payments, Client portfolio (both tables) and Expenses (recent entries):
+#      table scrolls in its own box, header pinned to that box, page-first-down / table-first-up.
 #
-# To use it as a full fix: fill EDIT PART 2 with newfile(...) and patch(...) calls (examples below).
-# Atomic: every patch is matched in memory first; if any is MISSING nothing is written or committed.
-# If a gate goes red, every file this script touched is put back exactly as it was.
+# NOT in this fix: tab colours + panel accent colours (that is part 2).
+#
+# Atomic: every patch for every file is matched in memory first; if any one is
+# MISSING nothing is written and nothing is committed. Runs the backend compile
+# (mvnw / mvn) and `npm run build` before committing when they are available,
+# and puts every file back exactly as it was if either goes red.
 import os
 import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fixNNN"
-COMMIT_MSG = "fixNNN: short description of what changed"
-RUN_GATES = True   # False for docs-only fixes: skips compile + build
+FIX_NO = "fix146"
+COMMIT_MSG = "fix146: layout part 1 - payments search+tabs one line + dots legend, legend inset/spacing, shared table scroll behaviour"
+RUN_GATES = True   # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 BACKEND = os.path.join(ROOT, "erp-backend")
@@ -27,8 +33,17 @@ JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 TESTJAVA = os.path.join(BACKEND, "src", "test", "java", "com", "gesolutions", "erp")
 
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
-# one variable per file this fix touches, e.g.:
-# INIT_JAVA = os.path.join(JAVA, "config", "DataInitializer.java")
+INDEX_CSS = os.path.join(SRC, "index.css")
+HOOK = os.path.join(SRC, "hooks", "useTableScrollHandoff.js")
+PAY_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
+PAY_CSS = os.path.join(SRC, "pages", "Payments", "PaymentsPage.module.css")
+LEDGER_CSS = os.path.join(SRC, "pages", "Ledger", "LedgerPage.module.css")
+CLIENTLEDGER_CSS = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.module.css")
+RECOVERY_CSS = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.module.css")
+PORT_JSX = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.jsx")
+PORT_CSS = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.module.css")
+EXP_JSX = os.path.join(SRC, "pages", "Financials", "ExpensesPage.jsx")
+EXP_CSS = os.path.join(SRC, "pages", "Financials", "ExpensesPage.module.css")
 # ============================= EDIT PART 1 END =============================
 
 # ================== DO NOT EDIT: helpers (copy exactly) ====================
@@ -93,25 +108,269 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-# Leave this section empty for a commit-only run.
-LOAD_FILES = ()
+LOAD_FILES = (INDEX_CSS, PAY_JSX, PAY_CSS, LEDGER_CSS, CLIENTLEDGER_CSS, RECOVERY_CSS,
+              PORT_JSX, PORT_CSS, EXP_JSX, EXP_CSS, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
-# ---- new files (format only) ----
-# newfile(SOME_PATH,
-#         "\n".join([
-#             "line 1 of the file",
-#             "line 2 of the file",
-#             "",
-#         ]),
-#         "label shown in the log", "MARKER text that proves it is already applied")
 
-# ---- patches (format only) ----
-# patch(SOME_PATH,
-#       "exact old text",
-#       "new text",
-#       "description shown in the log")
+def L(*lines):
+    return "\n".join(lines)
+
+
+# ---- 1. shared scroll hook (the Ledger behaviour, as a reusable callback ref) ----
+newfile(HOOK,
+        L(
+            "// PATH: erp-frontend/src/hooks/useTableScrollHandoff.js",
+            "// fix146: the Project Ledger scroll behaviour as ONE shared hook.",
+            "//   scrolling DOWN -> the page scrolls first, the table takes over at the page bottom",
+            "//   scrolling UP   -> the table scrolls first, the page takes over at the table top",
+            "// Usage:  const tableRef = useTableScrollHandoff();  <div className={styles.tableScroll} ref={tableRef}>",
+            "// It is a callback ref, so it also works when the table only appears after loading.",
+            "// Pair it with CSS: .tableScroll { max-height; overflow:auto; overscroll-behavior:contain }",
+            "// and a sticky <th> (see LedgerPage.module.css).",
+            "import { useCallback, useRef } from 'react';",
+            "",
+            "function findScrollParent(el) {",
+            "    let node = el ? el.parentElement : null;",
+            "    while (node && node !== document.body && node !== document.documentElement) {",
+            "        const overflowY = window.getComputedStyle(node).overflowY;",
+            "        if (overflowY === 'auto' || overflowY === 'scroll') return node;",
+            "        node = node.parentElement;",
+            "    }",
+            "    return document.scrollingElement || document.documentElement;",
+            "}",
+            "",
+            "function attach(tableScroll) {",
+            "    const pageScroll = findScrollParent(tableScroll);",
+            "    const EDGE_TOLERANCE = 2;",
+            "    const MAX_STEP_PX = 120;",
+            "    const pageAtTop = () => pageScroll.scrollTop <= EDGE_TOLERANCE;",
+            "    const pageAtBottom = () =>",
+            "        pageScroll.scrollTop + pageScroll.clientHeight >= pageScroll.scrollHeight - EDGE_TOLERANCE;",
+            "    const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;",
+            "    const tableAtBottom = () =>",
+            "        tableScroll.scrollTop + tableScroll.clientHeight >= tableScroll.scrollHeight - EDGE_TOLERANCE;",
+            "    const normalizeWheelDelta = (e) => {",
+            "        if (e.deltaMode === 1) return e.deltaY * 16;",
+            "        if (e.deltaMode === 2) return e.deltaY * window.innerHeight;",
+            "        return e.deltaY;",
+            "    };",
+            "    const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);",
+            "    const routeDelta = (deltaY, e) => {",
+            "        if (deltaY > 0) {",
+            "            if (!pageAtBottom()) { pageScroll.scrollTop += clampStep(deltaY); e.preventDefault(); return; }",
+            "            if (tableAtBottom()) return;",
+            "            tableScroll.scrollTop += clampStep(deltaY);",
+            "            e.preventDefault();",
+            "        } else if (deltaY < 0) {",
+            "            if (!tableAtTop()) { tableScroll.scrollTop += clampStep(deltaY); e.preventDefault(); return; }",
+            "            if (pageAtTop()) return;",
+            "            pageScroll.scrollTop += clampStep(deltaY);",
+            "            e.preventDefault();",
+            "        }",
+            "    };",
+            "    const handleWheel = (e) => routeDelta(normalizeWheelDelta(e), e);",
+            "    let touchLastY = 0;",
+            "    const handleTouchStart = (e) => { touchLastY = e.touches[0].clientY; };",
+            "    const handleTouchMove = (e) => {",
+            "        const currentY = e.touches[0].clientY;",
+            "        const deltaY = touchLastY - currentY;",
+            "        touchLastY = currentY;",
+            "        routeDelta(deltaY, e);",
+            "    };",
+            "    tableScroll.addEventListener('wheel', handleWheel, { passive: false });",
+            "    tableScroll.addEventListener('touchstart', handleTouchStart, { passive: true });",
+            "    tableScroll.addEventListener('touchmove', handleTouchMove, { passive: false });",
+            "    return () => {",
+            "        tableScroll.removeEventListener('wheel', handleWheel);",
+            "        tableScroll.removeEventListener('touchstart', handleTouchStart);",
+            "        tableScroll.removeEventListener('touchmove', handleTouchMove);",
+            "    };",
+            "}",
+            "",
+            "export default function useTableScrollHandoff() {",
+            "    const cleanupRef = useRef(null);",
+            "    return useCallback((node) => {",
+            "        if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }",
+            "        if (node) cleanupRef.current = attach(node);",
+            "    }, []);",
+            "}",
+            "",
+        ),
+        "shared table scroll hook", "useTableScrollHandoff")
+
+# ---- 2. two shared spacing tokens for the dot legend ----
+patch(INDEX_CSS,
+      "    --ctl-gap:         10px;\n}",
+      L("    --ctl-gap:         10px;",
+        "    --legend-inset:    clamp(6px, 1vw, 12px);   /* dot legend starts a little inside the left edge */",
+        "    --legend-after:    clamp(8px, 1.2vw, 14px); /* extra breathing room between the dots and the table */",
+        "}"),
+      "index.css: legend inset + spacing tokens")
+
+# ---- 3. bring back the inset + spacing on Ledger, Clients, Recovery ----
+patch(LEDGER_CSS,
+      ".legendRow   { margin: 0; padding: 0 0 0 4px; }",
+      ".legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
+      "Ledger: legend inset + spacing before the table")
+patch(CLIENTLEDGER_CSS,
+      ".legendRow   { margin: 0; padding: 0 0 0 4px; }",
+      ".legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
+      "Clients ledger: legend inset + spacing before the table")
+patch(RECOVERY_CSS,
+      ".dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 0; padding: 0 0 0 4px; }",
+      ".dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
+      "Recovery: legend inset + spacing before the list")
+
+# ---- 4. Payments page JSX: search + tabs on one line, dots legend, dot in Type column, scroll hook ----
+patch(PAY_JSX,
+      "import TabDock from '../../components/common/TabDock';",
+      L("import TabDock from '../../components/common/TabDock';",
+        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
+      "Payments: import scroll hook")
+patch(PAY_JSX,
+      L("const PaymentsPage = () => {", "    const navigate = useNavigate();"),
+      L("const PaymentsPage = () => {", "    const navigate = useNavigate();",
+        "    const tableHandoffRef = useTableScrollHandoff();"),
+      "Payments: use scroll hook")
+patch(PAY_JSX,
+      L("            <div className={styles.controlHub}>",
+        "                <div className={styles.searchBlock}>"),
+      L("            <div className={styles.controlHub}>",
+        "                <div className={styles.controlRow}>",
+        "                <div className={styles.searchBlock}>"),
+      "Payments: open one-line control row")
+patch(PAY_JSX,
+      L("                <TabDock items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label=\"Filter by payment type\" />",
+        "            </div>"),
+      L("                <TabDock className={styles.dockSlot} items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label=\"Filter by payment type\" />",
+        "                </div>",
+        "                <div className={styles.legendRow} aria-label=\"Payment type legend\">",
+        "                    {Object.entries(TYPE_COLORS).map(([k, c]) => (",
+        "                        <span key={k} className={styles.legendItem}>",
+        "                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {TYPE_LABELS[k]}",
+        "                        </span>",
+        "                    ))}",
+        "                </div>",
+        "            </div>"),
+      "Payments: close control row + dots legend")
+patch(PAY_JSX,
+      "<span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>",
+      L("<span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>",
+        "                                                <i className={styles.legendDot} style={{ background: TYPE_COLORS[pay.paymentType] || '#888', boxShadow: `0 0 4px ${TYPE_COLORS[pay.paymentType] || '#888'}` }} aria-hidden=\"true\" />"),
+      "Payments: dot in the Type column")
+patch(PAY_JSX,
+      "<div className={styles.tableScroll}>",
+      "<div className={styles.tableScroll} ref={tableHandoffRef}>",
+      "Payments: table scroll ref")
+
+# ---- 5. Payments CSS ----
+patch(PAY_CSS,
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}"),
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}",
+        "",
+        "/* == fix146: Recovery-style control row, dots legend, Ledger scroll box == */",
+        ".controlRow { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }",
+        ".controlRow .searchBlock { flex: 0 0 auto; }",
+        ".dockSlot { flex: 1 1 auto; min-width: 0; }",
+        "@media (max-width: 640px) {",
+        "    .controlRow { flex-direction: column; align-items: stretch; }",
+        "    .controlRow .searchBlock { width: 100%; }",
+        "    .dockSlot { flex: none; width: 100%; }",
+        "}",
+        "",
+        "/* dots legend: one line, scrolls sideways, sits a little inside, breathes before the table */",
+        ".legendRow { display: flex; flex-wrap: nowrap; gap: 14px; margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }",
+        ".legendRow::-webkit-scrollbar { display: none; }",
+        ".legendItem { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: rgba(26, 46, 48, 0.6); white-space: nowrap; flex-shrink: 0; }",
+        ".legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }",
+        "",
+        "/* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */",
+        ".tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }",
+        ".tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }",
+        ".ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
+      "Payments CSS: control row, legend, scroll box")
+
+# ---- 6. Client portfolio (2 tables) and Expenses (recent entries): same scroll behaviour ----
+patch(PORT_JSX,
+      "import styles from './ClientPortfolioPage.module.css';",
+      L("import styles from './ClientPortfolioPage.module.css';",
+        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
+      "Portfolio: import scroll hook")
+patch(PORT_JSX,
+      "const ClientPortfolioPage = () => {",
+      L("const ClientPortfolioPage = () => {",
+        "  const projectTableRef = useTableScrollHandoff();",
+        "  const healthTableRef = useTableScrollHandoff();"),
+      "Portfolio: use scroll hooks")
+patch(PORT_JSX,
+      L("        <div className={styles.tableScroll}>", "          <table className={styles.ledgerTable}>"),
+      L("        <div className={styles.tableScroll} ref={projectTableRef}>", "          <table className={styles.ledgerTable}>"),
+      "Portfolio: project table scroll ref")
+patch(PORT_JSX,
+      L("          <div className={styles.tableScroll}>", "            <table className={styles.ledgerTable}>"),
+      L("          <div className={styles.tableScroll} ref={healthTableRef}>", "            <table className={styles.ledgerTable}>"),
+      "Portfolio: health table scroll ref")
+patch(PORT_CSS,
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}"),
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}",
+        "",
+        "/* fix146: same table scroll behaviour as the Project Ledger */",
+        ".tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }",
+        ".ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
+      "Portfolio CSS: scroll box + sticky header")
+
+patch(EXP_JSX,
+      "import styles from './ExpensesPage.module.css';",
+      L("import styles from './ExpensesPage.module.css';",
+        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
+      "Expenses: import scroll hook")
+patch(EXP_JSX,
+      "const ExpensesPage = () => {",
+      L("const ExpensesPage = () => {",
+        "    const recentTableRef = useTableScrollHandoff();"),
+      "Expenses: use scroll hook")
+patch(EXP_JSX,
+      "<div className={styles.tableScroll}>",
+      "<div className={styles.tableScroll} ref={recentTableRef}>",
+      "Expenses: table scroll ref")
+patch(EXP_CSS,
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}"),
+      L("@media (min-width: 481px) {",
+        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
+        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
+        "}",
+        "",
+        "/* fix146: same table scroll behaviour as the Project Ledger */",
+        ".tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }",
+        ".ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
+      "Expenses CSS: scroll box + sticky header")
+
+# ---- 7. guide note ----
+patch(GUIDE,
+      "### Table Design Standard",
+      L("### Table scroll + dot legend (fix146)",
+        "- Every list table scrolls inside its own box: `.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain }`, header cells `position: sticky; top: 0` (pinned to that box), and the shared hook `src/hooks/useTableScrollHandoff.js` (`const ref = useTableScrollHandoff(); <div ref={ref} className={styles.tableScroll}>`). Down = page first, up = table first. Ledger and ClientLedger still carry their own inline copy of the same logic.",
+        "- Dot legends sit slightly inside (`--legend-inset`) and have extra room before the table (`--legend-after`); both tokens live in `index.css`. Payments now has a legend for its three payment-type dots, and its search + TabDock share one line (`.controlRow`), like Recovery.",
+        "",
+        "### Table Design Standard"),
+      "Guide: table scroll + legend note")
 # ============================= EDIT PART 2 END =============================
 
 # ================= DO NOT EDIT: gates, rollback, git (copy exactly) ========

@@ -350,3 +350,24 @@
     .title { font-size: clamp(18px, 2.5vw, 24px); }
     .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
 }
+
+/* == fix146: Recovery-style control row, dots legend, Ledger scroll box == */
+.controlRow { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }
+.controlRow .searchBlock { flex: 0 0 auto; }
+.dockSlot { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 640px) {
+    .controlRow { flex-direction: column; align-items: stretch; }
+    .controlRow .searchBlock { width: 100%; }
+    .dockSlot { flex: none; width: 100%; }
+}
+
+/* dots legend: one line, scrolls sideways, sits a little inside, breathes before the table */
+.legendRow { display: flex; flex-wrap: nowrap; gap: 14px; margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.legendRow::-webkit-scrollbar { display: none; }
+.legendItem { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: rgba(26, 46, 48, 0.6); white-space: nowrap; flex-shrink: 0; }
+.legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+/* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */
+.tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
+.tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--orange); }

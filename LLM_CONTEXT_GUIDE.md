@@ -479,6 +479,10 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
 
+### Table scroll + dot legend (fix146)
+- Every list table scrolls inside its own box: `.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain }`, header cells `position: sticky; top: 0` (pinned to that box), and the shared hook `src/hooks/useTableScrollHandoff.js` (`const ref = useTableScrollHandoff(); <div ref={ref} className={styles.tableScroll}>`). Down = page first, up = table first. Ledger and ClientLedger still carry their own inline copy of the same logic.
+- Dot legends sit slightly inside (`--legend-inset`) and have extra room before the table (`--legend-after`); both tokens live in `index.css`. Payments now has a legend for its three payment-type dots, and its search + TabDock share one line (`.controlRow`), like Recovery.
+
 ### Table Design Standard
 - Table wraps in: `background: rgba(0,0,0,0.15)`
 - Header row: `background: #162a2c`

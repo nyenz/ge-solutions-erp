@@ -238,3 +238,7 @@
     .title { font-size: clamp(18px, 2.5vw, 24px); }
     .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
 }
+
+/* fix146: same table scroll behaviour as the Project Ledger */
+.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
+.ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }

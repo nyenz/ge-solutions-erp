@@ -23,6 +23,7 @@ import { useToasts, useConfirm } from '../../components/common/useFeedback';
 import { ToastStack, ConfirmDialog } from '../../components/common/Feedback';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ExpensesPage.module.css';
+import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -41,6 +42,7 @@ const hoursLeft = (createdAt) => {
 };
 
 const ExpensesPage = () => {
+    const recentTableRef = useTableScrollHandoff();
     const { user } = useAuth();
     const isDirector = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
 
@@ -313,7 +315,7 @@ const ExpensesPage = () => {
                     <FiInfo size={12} aria-hidden="true" />
                     You can edit your own entries for {EDIT_WINDOW_HOURS} hours. After that they lock.
                 </p>
-                <div className={styles.tableScroll}>
+                <div className={styles.tableScroll} ref={recentTableRef}>
                     <table className={styles.ledgerTable}>
                         <thead>
                             <tr>
