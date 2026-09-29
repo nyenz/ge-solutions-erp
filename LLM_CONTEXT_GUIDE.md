@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix143: seed dataset v3, Section 19)
+# Last updated: September 2026 (fix144: seed load fixed, Section 19)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -1103,4 +1103,6 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 - `currentStageIndex` is 1 at intake, 5 if entered as receivable, and moves only by manual override. The seed copies that.
 - Running receivables are billed `days / 30` months. A plot with an expired negotiation deadline must NOT be marked paused, because the nightly job skips paused plots before it checks the deadline.
 - Document links are placeholders. Opening a seeded document shows not-found; that is expected.
+- The database keeps the role list it was created with (`users_role_check`), so a role added to the Role enum is rejected on insert until the constraint is rebuilt. `roleCheckSql()` in DataInitializer rebuilds it from `Role.values()` on every start; nothing extra to do when a role is added. (This is why the first v3 load failed in fix143.)
+- The old seed is purged in its own committed transaction before the new one loads. If the load fails, the ledger stays empty until the next successful start. Look for `[SCENARIO] seed fault` in the Render log; the load retries on every start until it succeeds.
 

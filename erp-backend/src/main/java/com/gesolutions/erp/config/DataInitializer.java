@@ -1,15 +1,6 @@
 package com.gesolutions.erp.config;
-import com.gesolutions.erp.modules.client.model.RecoveryNote;
-import com.gesolutions.erp.modules.client.repository.ClientRepository;
-import com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository;
 import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
-import com.gesolutions.erp.modules.land.dto.LandEntryRequest;
-import com.gesolutions.erp.modules.land.model.FollowUpLog;
-import com.gesolutions.erp.modules.land.model.LandProject;
-import com.gesolutions.erp.modules.land.model.StageTemplate;
-import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
-import com.gesolutions.erp.modules.land.service.LandService;
 import com.gesolutions.erp.modules.land.service.StageTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,9 +10,6 @@ import org.springframework.stereotype.Component;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Statement;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -29,10 +17,6 @@ public class DataInitializer implements CommandLineRunner {
     private final DataSource dataSource;
     private final StageTemplateService stageTemplateService;
     private final ExpensePresetRepository expensePresetRepository;
-    private final LandService landService;
-    private final ClientRepository clientRepository;
-    private final RecoveryNoteRepository recoveryNoteRepository;
-    private final FollowUpRepository followUpRepository;
     private final ScenarioSeeder scenarioSeeder;
         @Value("${ADMIN_EMAIL}") private String adminEmail;
     @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
@@ -64,6 +48,20 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     // ---------- schema migrations (unchanged) ----------
+    // fix144: the database keeps the role list it was created with (users_role_check), so a role
+    // added to the Role enum later (Director, Secretary) is rejected on insert. Rebuilt from the
+    // enum on every start so the two can never drift apart again.
+    private static String roleCheckSql() {
+        StringBuilder sb = new StringBuilder("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN (");
+        boolean first = true;
+        for (com.gesolutions.erp.modules.auth.model.Role r : com.gesolutions.erp.modules.auth.model.Role.values()) {
+            if (!first) sb.append(", ");
+            sb.append('\'').append(r.name()).append('\'');
+            first = false;
+        }
+        return sb.append("))").toString();
+    }
+
     private void runSchemaMigrations() throws Exception {
         String[] migrations = {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
@@ -96,7 +94,9 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS area VARCHAR(100)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
-            "ALTER TABLE notifications DROP COLUMN IF EXISTS is_read"
+            "ALTER TABLE notifications DROP COLUMN IF EXISTS is_read",
+            "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check",
+            roleCheckSql()
         };
         Connection conn = null;
         Statement stmt = null;
