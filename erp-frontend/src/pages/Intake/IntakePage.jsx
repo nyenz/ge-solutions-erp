@@ -8,6 +8,7 @@ import {
     FiEdit3, FiBookmark, FiX, FiCopy, FiFile, FiEye, FiRefreshCw, FiCalendar
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
@@ -349,8 +350,7 @@ export default function IntakePage() {
                         </div>
                         <div className={styles.field}>
                             <label className={styles.label}>Date Started</label>
-                            <input type="date" className={styles.input} value={projectStartDate}
-                                onChange={e => { setProjectStartDate(e.target.value); markDirty(); }} />
+                            <HardwareDatePicker block className={styles.input} value={projectStartDate} ariaLabel="Date started" onChange={v => { setProjectStartDate(v); markDirty(); }} />
                             <p className={styles.hint}>Defaults to today, edit if work started earlier</p>
                         </div>
                     </div>
@@ -419,7 +419,7 @@ export default function IntakePage() {
                             </div>
                             <div className={styles.field}>
                                 <label className={`${styles.label} ${styles.required}`}>Title Date</label>
-                                <input type="date" className={styles.input} value={titleIssueDate} onChange={e => { setTitleIssueDate(e.target.value); markDirty(); }} />
+                                <HardwareDatePicker block className={styles.input} value={titleIssueDate} ariaLabel="Title date" onChange={v => { setTitleIssueDate(v); markDirty(); }} />
                             </div>
                         </div>
                     </CollapsibleSection>

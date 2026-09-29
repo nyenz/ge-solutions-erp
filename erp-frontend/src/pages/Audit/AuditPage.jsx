@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Audit/AuditPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    FiShield, FiSearch, FiActivity, FiClock,
+    FiSearch, FiActivity, FiClock, FiRefreshCw,
     FiDatabase, FiChevronDown, FiX, FiFilter,
     FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser, FiDownloadCloud
 } from 'react-icons/fi';
@@ -10,7 +10,8 @@ import settingsService from '../../services/settingsService';
 import HardwareSelect from '../../components/common/HardwareSelect';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import { useRouterBlock } from '../../components/common/RouterBlocker';
-import { FiRefreshCw } from 'react-icons/fi';
+import HardwareDatePicker from '../../components/common/HardwareDatePicker';
+import { actionColor } from './auditCatalog';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './AuditPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -92,14 +93,7 @@ const AuditPage = () => {
         URL.revokeObjectURL(url);
     };
 
-    const getSeverityClass = action => {
-        const a = action?.toUpperCase() || '';
-        if (a.includes('DELETE') || a.includes('OVERRIDE') || a.includes('SUSPEND')) return styles.severityHigh;
-        if (a.includes('REWRITE') || a.includes('UPDATE')  || a.includes('PAYMENT')) return styles.severityMed;
-        if (a.includes('RECOVERY') || a.includes('MISSION'))                          return styles.severityIntel;
-        return styles.severityLow;
-    };
-
+    // Row colour: every action has its own, see actionColor() in auditCatalog.js
     const getFriendlyAction = action => {
         if (action === 'RECOVERY_MISSION_COMPLETE') return 'CALL LOG';
         if (action === 'RECOVERY_SYNC')             return 'CALL LOGGED';
@@ -157,7 +151,7 @@ const AuditPage = () => {
                     )}
                 </div>
                 <div className={styles.filterGrid}>
-                    <div className={`${styles.hwSelectWrap} ${(filters.operator && filters.operator !== 'ALL STAFF') ? styles.hwSelectWrapActive : ''}`}>
+                    <div className={styles.hwSelectWrap}>
                         <HardwareSelect
                             label="OPERATOR ID"
                             options={operatorOptions}
@@ -165,7 +159,7 @@ const AuditPage = () => {
                             onChange={val => setFilters({...filters, operator: val})}
                         />
                     </div>
-                    <div className={`${styles.hwSelectWrap} ${(filters.action && filters.action !== 'ALL ACTIONS') ? styles.hwSelectWrapActive : ''}`}>
+                    <div className={styles.hwSelectWrap}>
                         <HardwareSelect
                             label="PROTOCOL CLASS"
                             options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'EDIT RECORD', 'STAGE OVERRIDE', 'INTAKE']}
@@ -175,13 +169,11 @@ const AuditPage = () => {
                     </div>
                     <label className={styles.dateField}>
                         <span>FROM</span>
-                        <input type="date" value={filters.from} aria-label="From date"
-                            onChange={e => setFilters({...filters, from: e.target.value})} />
+                        <HardwareDatePicker value={filters.from} ariaLabel="From date" onChange={v => setFilters({...filters, from: v})} />
                     </label>
                     <label className={styles.dateField}>
                         <span>TO</span>
-                        <input type="date" value={filters.to} aria-label="To date"
-                            onChange={e => setFilters({...filters, to: e.target.value})} />
+                        <HardwareDatePicker value={filters.to} ariaLabel="To date" onChange={v => setFilters({...filters, to: v})} />
                     </label>
                     <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:'', from:'', to:''})} aria-label="Reset all filters">
                         <FiFilter aria-hidden="true" /> RESET FILTERS
@@ -196,11 +188,11 @@ const AuditPage = () => {
                 <div className={styles.timelineStream}>
                     {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
                     {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
-                    {!loading && visibleLogs.length > 0 && (<div className={styles.logTray}><div className={styles.logCard}>
-                    {visibleLogs.map(log => (
+                    {!loading && visibleLogs.map(log => (
                         <div
                             key={log.id}
-                            className={`${styles.logRow} ${getSeverityClass(log.action)} ${expandedId === log.id ? styles.expanded : ''}`}
+                            className={`${styles.logRow} ${expandedId === log.id ? styles.expanded : ''}`}
+                            style={{ '--rail': actionColor(log.action) }}
                             onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
                             role="button"
                             tabIndex={0}
@@ -227,7 +219,7 @@ const AuditPage = () => {
                                     </div>
                                 </div>
                                 <div className={styles.targetMark}>
-                                    <p>{log.details.length > 85 ? log.details.substring(0, 85) + '...' : log.details}</p>
+                                    <p>{(log.details || '').length > 85 ? log.details.substring(0, 85) + '...' : (log.details || '')}</p>
                                 </div>
                                 <div className={styles.inspectIcon} aria-hidden="true">
                                     <FiChevronDown />
@@ -243,7 +235,6 @@ const AuditPage = () => {
                             </div>
                         </div>
                     ))}
-                    </div></div>)}
                 </div>
 
                 <footer className={styles.pagination} aria-label="Pagination">

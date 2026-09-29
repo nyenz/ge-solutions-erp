@@ -199,7 +199,7 @@
 
 /* LOG AN EXPENSE: the preset buttons live on a cream card */
 .presetRow {
-  background: #f2ede4; border: 1px solid rgba(26,46,48,0.14);
+  background: #e3dac8; border: 2px solid #f2ede4; /* fix152: darker inside, cream frame outside */
   border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);
 }
 .presetRow .presetBtn, .presetRow .presetBtnOther {
@@ -211,21 +211,23 @@
 }
 
 /* RECENT ENTRIES: the table lives on a cream card (header row stays navy + orange) */
-.tableScroll { background: #f2ede4; border: 1px solid rgba(26,46,48,0.14); border-radius: var(--radius-sm); }
-.ledgerTable tbody td { color: #1a2e30; border-bottom: 1px solid rgba(26,46,48,0.1); }
+.tableScroll { background: #e3dac8; border: 2px solid #f2ede4; border-radius: var(--radius-sm); }
+.ledgerTable tbody td { color: #1a2e30; border-bottom: 1px solid rgba(26,46,48,0.2); }
 .ledgerTable tbody tr:last-child td { border-bottom: none; }
-.ledgerTable tbody tr.row:hover { background: rgba(26,46,48,0.07); }
-.ledgerTable tbody td.dateCell  { color: rgba(26,46,48,0.68); }
+/* fix152: every second row a shade darker, so a row can be followed across the table */
+.ledgerTable tbody tr.row:nth-child(even) td { background: rgba(26,46,48,0.075); }
+.ledgerTable tbody tr.row:hover td { background: rgba(26,46,48,0.14); }
+.ledgerTable tbody td.dateCell  { color: rgba(26,46,48,0.78); }
 .ledgerTable tbody td.moneyCell { color: #b91c1c; }
 .ledgerTable tbody td.metaCell  { color: rgba(26,46,48,0.82); }
 .ledgerTable tbody td.notesCell { color: rgba(26,46,48,0.72); }
 .ledgerTable tbody td.emptyCell { color: rgba(26,46,48,0.7); }
 .noNote { color: rgba(26,46,48,0.45); }
-.categoryTag { color: #b45309; }
-.editedBadge { color: #b45309; }
+.categoryTag { color: #9a4407; }
+.editedBadge { color: #9a4407; }
 .spentByTag { color: rgba(26,46,48,0.72); }
 .lockedTag { color: rgba(26,46,48,0.66); }
-.editIconBtn { background: rgba(238,140,58,0.2); color: #b45309; }
+.editIconBtn { background: rgba(238,140,58,0.2); color: #9a4407; }
 .editIconBtn:hover { background: rgba(238,140,58,0.34); border-color: #EE8C3A; }
 .deleteIconBtn { background: rgba(239,68,68,0.14); color: #b91c1c; }
 .deleteIconBtn:hover { background: rgba(239,68,68,0.28); border-color: #ef4444; }

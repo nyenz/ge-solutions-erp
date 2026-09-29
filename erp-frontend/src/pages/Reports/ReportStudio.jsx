@@ -13,6 +13,7 @@ import {
 } from './reportData';
 import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
 import CornerDecor from '../../components/ui/CornerDecor';
+import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import styles from './ReportStudio.module.css';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
@@ -565,9 +566,9 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
               </div>
               {period === 'CUSTOM' && (
                 <div className={styles.customRange}>
-                  <input type="date" value={from} onChange={e => setFrom(e.target.value)} aria-label="From date" />
+                  <HardwareDatePicker value={from} onChange={setFrom} ariaLabel="From date" />
                   <span>to</span>
-                  <input type="date" value={to} onChange={e => setTo(e.target.value)} aria-label="To date" />
+                  <HardwareDatePicker value={to} onChange={setTo} ariaLabel="To date" />
                 </div>
               )}
               {appliedDef && !appliedDef.period && <span className={styles.snapHint}>snapshot -- as at today, period ignored</span>}

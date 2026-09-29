@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/components/common/UnsavedChangesModal.jsx
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FiAlertTriangle, FiSave, FiLogOut } from 'react-icons/fi';
+import { FiAlertTriangle, FiSave, FiLogOut, FiX } from 'react-icons/fi';
 import modal from './HardwareModal.module.css';
 import styles from './UnsavedChangesModal.module.css';
 
@@ -10,7 +10,8 @@ import styles from './UnsavedChangesModal.module.css';
  *
  * Built on the HardwareModal popup standard: same backdrop, card, Cinzel title
  * with the orange hairline, modalFooter and modalBtnPrimary / modalBtnSecondary.
- * DESIGN RULE 1 (X is the closer) -> no X here, two explicit buttons instead.
+ * fix152: the X is back (same closeBtn as the Recovery CALL LOG popup). X = KEEP EDITING, the safe choice.
+ * The two buttons are real decisions (leave / stay), not a CANCEL, so DESIGN RULE 1 still holds.
  * Backdrop click and Esc both mean KEEP EDITING (the safe choice).
  *
  * Props:
@@ -35,6 +36,9 @@ const UnsavedChangesModal = ({ isOpen, onStay, onLeave, context = 'this form' })
                 <header className={modal.header}>
                     <FiAlertTriangle className={styles.warnIcon} aria-hidden="true" />
                     <span id="ucm-title" className={modal.title}>UNSAVED CHANGES</span>
+                    <button type="button" className={modal.closeBtn} onClick={onStay} aria-label="Close and keep editing">
+                        <FiX aria-hidden="true" />
+                    </button>
                 </header>
 
                 <div className={`${modal.modalInfoBox} ${styles.warnBox}`}>

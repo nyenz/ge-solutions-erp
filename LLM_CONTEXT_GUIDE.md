@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix151: Audit list from Report Catalogue + unsaved-changes popup on HardwareModal standard, Section 7)
+# Last updated: September 2026 (fix152: Audit dark redesign + per-action colours, popup X, HardwareDatePicker, Expenses cream cards, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -479,10 +479,14 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
 
-### Audit list + unsaved-changes popup (fix151)
-- Audit log rows sit as one white card (`.logCard`) on a cream `#f2ede4` tray (`.logTray`), hairline dividers, navy text -- the Report Catalogue look WITHOUT its orange. Hover = navy tint. The SELECTED (open) row head is solid navy `#1a2e30` with light text and a flipped chevron; the extension uses the catalogue readout colour `#28383a`.
-- One left line only: the severity rail on `.logRow` (red/orange/green/cyan) runs through the extension. `.rawBox` has no border-left. Do not add one back.
-- `UnsavedChangesModal` is built from `HardwareModal.module.css` classes (backdrop, modalBody, header, title, modalInfoBox, modalFooter, modalBtnPrimary/Secondary). No X (DESIGN RULE 1); two buttons; Esc / backdrop = KEEP EDITING. Props unchanged.
+### Audit list, popup X, date picker, Expenses cream cards (fix152)
+- Audit list is DARK (panel gradient, zebra rows). Small parts use the app orange: clock icons, icon frames, chevrons, and the Cinzel action titles. The cream tray / white card of fix151 is gone.
+- Every action has its OWN left-rail colour: `actionColor(code)` in `auditCatalog.js` (golden-angle hues by catalogue order, hash for unlisted codes). The page sets it as `--rail` on the row; the rail, the hover / selected wash and the opened readout text (`.rawHeader`, `.rawOutput`) all read `var(--rail)`. Do not re-add severity buckets.
+- OPERATOR and PROTOCOL dropdowns on Audit are ALWAYS in the active orange state (All Staff / All Actions included). It is pure CSS on `.hwSelectWrap`.
+- `AuditPage.module.css` was rewritten in fix152: one rule per class, no stacked overrides. Keep it that way.
+- `UnsavedChangesModal` has the X (`modal.closeBtn`, X = KEEP EDITING) plus DISCARD & LEAVE / KEEP EDITING. Those two are decisions, not a CANCEL, so DESIGN RULE 1 is not broken. Esc / backdrop = KEEP EDITING.
+- ONE DATE PICKER: `components/common/HardwareDatePicker.jsx`. The browser calendar cannot be themed, so never use `<input type="date">`. Props: `value` ('yyyy-mm-dd'), `onChange(value)` (a string, NOT an event), `className` (styles the visible field), `block` (fill the parent), `ariaLabel`. Used by Audit, Report Studio, Intake. The one `datetime-local` (Folder page deadline) is still native.
+- Expenses: the Log-an-expense box and the Recent-entries table share one look: darker cream inside `#e3dac8`, a solid 2px cream `#f2ede4` frame, zebra rows, row separators at 20%. Orange text on that cream is `#9a4407`.
 
 ### Settings inner boxes + Expenses cream cards (fix150)
 - Settings > Appearance: `.prefGroupBox .prefRow` (the boxes around each setting's text) is a navy tint on the cream card: fill 7.5%, border 18%, hover 12%. Nudge these three numbers to go lighter/darker.
