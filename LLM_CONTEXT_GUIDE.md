@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix142: real design code and the fix.py template added)
+# Last updated: September 2026 (fix143: seed dataset v3, Section 19)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -1079,4 +1079,28 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 - Simple English, outline format, short. Exact copy-paste commands. One step, then wait for him to confirm.
 - Do not ask "A or B" unless it is a real decision.
 - Never write real passwords into any file in the repo or into this guide.
+
+---
+
+## 19. SEED DATA (DATASET v3, fix143)
+
+**Where it lives.** `config/ScenarioData.java` (pure data, no Spring), `config/ScenarioSeeder.java` (removes old seeds, loads v3), `config/DataInitializer.java` (`seedScenarioDataOnce()` only calls `scenarioSeeder.seedOnce()`). It runs once per database: flag row `id = 3` in `scenario_seed_flag`. To load it again, delete that row or use the wipe endpoint. The purge is one transaction and the load is a second one, so a failed load rolls back and retries on the next start.
+
+**What it holds.** 57 projects covering every situation in the app (entry modes, tenures, folders at every stage, titled, receivables and all four exits, PROBLEM flags, soft deletes, joint owners, recovery states), 61 people, 8 demo staff, 143 expenses, back-dated payments, receipts, audit lines and bell notifications. Every date is written as "days ago", so the data is always fresh. Project keys start with f_ (folder), t_ (folder to titled), n_ (new title), l_ (legacy), r_ (receivable), x_ (receivable exit), p_ d_ o_ (problem, deleted, owners).
+
+**How seed rows are recognised (never widen this).**
+- v3 people have a NIN like `CMS3` + 6 digits + 4 letters. Real NINs never have a letter in position 3. v1 people start `CM9000000000`. v2 people are matched by their 24 exact NINs (`v2Nins()` in ScenarioSeeder).
+- NEVER purge with `LIKE 'CM99%'`. That is how every real NIN of a man born in 1999 starts.
+- A project is deleted only when ALL its owners are seed people.
+- Demo staff are `demo.*` with a random password nobody knows, so nobody can sign in as them. Seed audit lines, expenses, expense presets and custom document categories are recognised by `performed_by` / `recorded_by` / `created_by` LIKE `demo.%`. Scheduler-style lines use performer `SYSTEM` and are purged by action name or because they contain a seed person's name.
+- Never write `admin_root` as the author of a seed row: it could not be purged.
+
+**Rules when adding or changing a scenario.**
+- Run `ScenarioData.selfCheck()` after every edit (it also runs as `ScenarioDataTest`). It refuses overpayment, wrong storage-fee months, duplicate plots and unknown owners or staff.
+- Phones must already be in the stored form from Section 7 / `PhoneUtil` (`+256772123456`, several joined with " / "). The unit test checks this with the real `PhoneUtil`.
+- Every payment made on the folder screen has a receipt document (category PAYMENT_RECEIPT, named like the app names it). Only the intake deposit is exempt.
+- Recovery tags must be one of: answered call, not picking up, not going through, wrong number. The system note is `payment received` (tone INFO, not an attempt).
+- `currentStageIndex` is 1 at intake, 5 if entered as receivable, and moves only by manual override. The seed copies that.
+- Running receivables are billed `days / 30` months. A plot with an expired negotiation deadline must NOT be marked paused, because the nightly job skips paused plots before it checks the deadline.
+- Document links are placeholders. Opening a seeded document shows not-found; that is expected.
 
