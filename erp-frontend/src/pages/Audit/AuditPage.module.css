@@ -521,3 +521,49 @@
     .title { font-size: clamp(18px, 2.5vw, 24px); }
     .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }
 }
+
+/* ================= fix151: AUDIT LIST FROM THE REPORT CATALOGUE =================
+   Same idea as ReportStudio .catList / .groupBody / .row / .readout: the rows sit as ONE white card on a
+   cream #f2ede4 tray with hairline dividers, and an opened row drops into the dark #28383a readout.
+   DIFFERENCES ON PURPOSE: no orange anywhere on the list (hover = navy tint, selected = solid navy), and ONE
+   left line only -- the severity rail on .logRow, which now runs down through the readout. */
+.logTray { background: #f2ede4; padding: 10px; }
+.logCard { border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(26,46,48,0.14); }
+
+.logRow { border-bottom: 1.5px solid rgba(26,46,48,0.16); }
+.logRow:last-child { border-bottom: none; }
+.logRow:hover { background: rgba(26,46,48,0.06); }
+.logRow:focus-visible { background: rgba(26,46,48,0.06); outline: 2px solid #1a2e30; outline-offset: -2px; }
+
+/* text on the white card is navy */
+.clockPair { color: #1a2e30; }
+.clockPair svg { color: #5b6f70; }
+.timeMark small { color: #1a2e30; opacity: 0.6; }
+.iconChassis { background: rgba(26,46,48,0.06); border-color: rgba(26,46,48,0.16); color: #5b6f70; }
+.actionMeta strong { color: #1a2e30; }
+.actionMeta span { color: rgba(26,46,48,0.55); }
+.severityHigh  .actionMeta strong { color: #b91c1c; }
+.severityIntel .actionMeta strong { color: #047857; }
+.targetMark p { color: rgba(26,46,48,0.8); }
+.inspectIcon { color: rgba(26,46,48,0.4); transition: transform 0.2s ease, color 0.15s ease; }
+.logRow:hover .inspectIcon { color: #1a2e30; }
+
+/* SELECTED (the open row): solid navy head, light text, flipped chevron -- no orange */
+.logRow.expanded, .logRow.expanded:hover { background: transparent; }
+.logRow.expanded .logMain { background: #1a2e30; }
+.logRow.expanded .clockPair { color: #fff; }
+.logRow.expanded .clockPair svg { color: #f2ede4; }
+.logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }
+.logRow.expanded .iconChassis { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #f2ede4; }
+.logRow.expanded .actionMeta strong { color: #fff; }
+.logRow.expanded .actionMeta span { color: rgba(255,255,255,0.6); }
+.logRow.expanded.severityHigh  .actionMeta strong { color: #fca5a5; }
+.logRow.expanded.severityIntel .actionMeta strong { color: #6ee7b7; }
+.logRow.expanded .targetMark p { color: #fff; }
+.logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }
+
+/* the extension: the catalogue's readout colour, and no second left line */
+.traceDetails { background: #28383a; }
+.traceOpen { border-top: 1px solid rgba(255,255,255,0.08); overflow-y: auto; scrollbar-width: thin; }
+.rawBox { border-left: none; margin: 0; padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,18px); }
+

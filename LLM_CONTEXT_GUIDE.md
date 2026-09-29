@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix150: Settings inner boxes darker + Expenses cream inner cards, Section 7)
+# Last updated: September 2026 (fix151: Audit list from Report Catalogue + unsaved-changes popup on HardwareModal standard, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -478,6 +478,11 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 --ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
+
+### Audit list + unsaved-changes popup (fix151)
+- Audit log rows sit as one white card (`.logCard`) on a cream `#f2ede4` tray (`.logTray`), hairline dividers, navy text -- the Report Catalogue look WITHOUT its orange. Hover = navy tint. The SELECTED (open) row head is solid navy `#1a2e30` with light text and a flipped chevron; the extension uses the catalogue readout colour `#28383a`.
+- One left line only: the severity rail on `.logRow` (red/orange/green/cyan) runs through the extension. `.rawBox` has no border-left. Do not add one back.
+- `UnsavedChangesModal` is built from `HardwareModal.module.css` classes (backdrop, modalBody, header, title, modalInfoBox, modalFooter, modalBtnPrimary/Secondary). No X (DESIGN RULE 1); two buttons; Esc / backdrop = KEEP EDITING. Props unchanged.
 
 ### Settings inner boxes + Expenses cream cards (fix150)
 - Settings > Appearance: `.prefGroupBox .prefRow` (the boxes around each setting's text) is a navy tint on the cream card: fill 7.5%, border 18%, hover 12%. Nudge these three numbers to go lighter/darker.

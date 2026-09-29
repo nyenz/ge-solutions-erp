@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     FiShield, FiSearch, FiActivity, FiClock,
-    FiDatabase, FiMaximize2, FiX, FiFilter,
+    FiDatabase, FiChevronDown, FiX, FiFilter,
     FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser, FiDownloadCloud
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
@@ -196,7 +196,8 @@ const AuditPage = () => {
                 <div className={styles.timelineStream}>
                     {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
                     {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
-                    {!loading && visibleLogs.map(log => (
+                    {!loading && visibleLogs.length > 0 && (<div className={styles.logTray}><div className={styles.logCard}>
+                    {visibleLogs.map(log => (
                         <div
                             key={log.id}
                             className={`${styles.logRow} ${getSeverityClass(log.action)} ${expandedId === log.id ? styles.expanded : ''}`}
@@ -229,7 +230,7 @@ const AuditPage = () => {
                                     <p>{log.details.length > 85 ? log.details.substring(0, 85) + '...' : log.details}</p>
                                 </div>
                                 <div className={styles.inspectIcon} aria-hidden="true">
-                                    {expandedId === log.id ? <FiX /> : <FiMaximize2 />}
+                                    <FiChevronDown />
                                 </div>
                             </div>
                             <div className={`${styles.traceDetails} ${expandedId === log.id ? styles.traceOpen : styles.traceClosed}`}>
@@ -242,6 +243,7 @@ const AuditPage = () => {
                             </div>
                         </div>
                     ))}
+                    </div></div>)}
                 </div>
 
                 <footer className={styles.pagination} aria-label="Pagination">
