@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix155: Audit outer frame gets the orange hover used on the other table pages.
+# GOLDEN SEED -- fix156: Audit opened row extension uses the Report Catalogue grey, not orange.
 #
-# 1. The dark outer border around the audit list turns solid orange on hover (same as hwPanel / rowCard elsewhere),
-#    with the same deepened shadow and a 0.2s transition.
+# 1. Opened row head stays catalogue orange (unchanged).
+# 2. The extension ("FORENSIC DATA READOUT") is the catalogue readout grey-teal #28383a.
+# 3. Readout label = action colour, readout text = app orange (as before fix154).
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -13,8 +14,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix155"
-COMMIT_MSG = "fix155: audit outer frame orange hover like other table pages"
+FIX_NO = "fix156"
+COMMIT_MSG = "fix156: audit opened-row extension uses report catalogue grey (#28383a)"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -93,14 +94,27 @@ LOAD_FILES = (AUDIT_CSS,)
 for _p in LOAD_FILES:
     load(_p)
 
-FRAME_OLD = ".timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); }"
-FRAME_NEW = "\n".join([
-".timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }",
-"/* fix155: same orange hover as the other table pages (hwPanel / rowCard): border goes solid orange */",
-".timelineFrame:hover { border-color: #EE8C3A; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }",
-])
-
-patch(AUDIT_CSS, FRAME_OLD, FRAME_NEW, "Audit CSS: outer frame orange hover")
+# the opened row HEAD stays catalogue orange; only the extension (readout) goes to the catalogue's dark grey-teal #28383a
+patch(AUDIT_CSS,
+      ".traceDetails { overflow: hidden; background: #EE8C3A;",
+      ".traceDetails { overflow: hidden; background: #28383a;",
+      "Audit CSS: readout background = catalogue readout grey #28383a")
+patch(AUDIT_CSS,
+      "scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }",
+      "scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }",
+      "Audit CSS: readout scrollbar light")
+patch(AUDIT_CSS,
+      "/* fix154: on the orange readout the label and the text are navy */",
+      "/* fix156: readout is the catalogue grey; label takes the action colour, text is app orange */",
+      "Audit CSS: readout comment")
+patch(AUDIT_CSS,
+      "letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }",
+      "letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }",
+      "Audit CSS: readout label back to action colour")
+patch(AUDIT_CSS,
+      "line-height: 1.6; color: #1a2e30; }",
+      "line-height: 1.6; color: #EE8C3A; }",
+      "Audit CSS: readout text back to orange")
 
 # ============================= EDIT PART 2 END =============================
 
