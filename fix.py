@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix154: Audit opened row takes the Report Catalogue orange.
+# GOLDEN SEED -- fix155: Audit outer frame gets the orange hover used on the other table pages.
 #
-# 1. Opened audit row (head AND "FORENSIC DATA READOUT" part) is the catalogue's active-row orange #EE8C3A.
-#    Same look as "NEW TITLES ENTERED" in the Report Catalogue: white head text on orange.
-# 2. The readout part (label + text) is navy #1a2e30 so it stays readable on the orange.
-# 3. Left action-colour rail is untouched.
+# 1. The dark outer border around the audit list turns solid orange on hover (same as hwPanel / rowCard elsewhere),
+#    with the same deepened shadow and a 0.2s transition.
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -15,8 +13,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix154"
-COMMIT_MSG = "fix154: audit opened row + readout use the report catalogue orange"
+FIX_NO = "fix155"
+COMMIT_MSG = "fix155: audit outer frame orange hover like other table pages"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -95,60 +93,14 @@ LOAD_FILES = (AUDIT_CSS,)
 for _p in LOAD_FILES:
     load(_p)
 
-def L(*lines):
-    return "\n".join(lines)
+FRAME_OLD = ".timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); }"
+FRAME_NEW = "\n".join([
+".timelineFrame { overflow: hidden; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }",
+"/* fix155: same orange hover as the other table pages (hwPanel / rowCard): border goes solid orange */",
+".timelineFrame:hover { border-color: #EE8C3A; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }",
+])
 
-CSS_OLD_OPEN = L(
-"/* OPEN ROW: head and readout are the SAME dark (#1a2e30), no wash, no seam */",
-".logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }",
-".logRow.expanded .clockPair { color: #fff; }",
-".logRow.expanded .clockPair svg { color: #f2ede4; }",
-".logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }",
-".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }",
-".logRow.expanded .actionMeta strong { color: #fff; }",
-".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }",
-".logRow.expanded .targetMark p { color: #fff; }",
-".logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }",
-"",
-".traceDetails { overflow: hidden; background: #1a2e30; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }",
-".traceClosed { max-height: 0; }",
-".traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }",
-)
-
-CSS_NEW_OPEN = L(
-"/* OPEN ROW (fix154): head and readout are the Report Catalogue active-row orange (#EE8C3A), no wash, no seam */",
-".logRow.expanded, .logRow.expanded:hover { background: #EE8C3A; }",
-".logRow.expanded .clockPair { color: #fff; }",
-".logRow.expanded .clockPair svg { color: #fff; }",
-".logRow.expanded .timeMark small { color: #fff; opacity: 0.85; }",
-".logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); color: #fff; }",
-".logRow.expanded .actionMeta strong { color: #fff; }",
-".logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.88); }",
-".logRow.expanded .targetMark p { color: #fff; }",
-".logRow.expanded .inspectIcon { color: #fff; transform: rotate(180deg); }",
-"",
-".traceDetails { overflow: hidden; background: #EE8C3A; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }",
-".traceClosed { max-height: 0; }",
-".traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }",
-)
-
-CSS_OLD_RAW = L(
-"/* the label takes the action colour; the readout text itself is app orange */",
-)
-CSS_NEW_RAW = L(
-"/* fix154: on the orange readout the label and the text are navy */",
-)
-
-RAWHEADER_OLD = "letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }"
-RAWHEADER_NEW = "letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }"
-
-RAWOUT_OLD = "line-height: 1.6; color: #EE8C3A; }"
-RAWOUT_NEW = "line-height: 1.6; color: #1a2e30; }"
-
-patch(AUDIT_CSS, CSS_OLD_OPEN, CSS_NEW_OPEN, "Audit CSS: opened row + readout use catalogue orange")
-patch(AUDIT_CSS, CSS_OLD_RAW, CSS_NEW_RAW, "Audit CSS: readout comment")
-patch(AUDIT_CSS, RAWHEADER_OLD, RAWHEADER_NEW, "Audit CSS: readout label navy")
-patch(AUDIT_CSS, RAWOUT_OLD, RAWOUT_NEW, "Audit CSS: readout text navy")
+patch(AUDIT_CSS, FRAME_OLD, FRAME_NEW, "Audit CSS: outer frame orange hover")
 
 # ============================= EDIT PART 2 END =============================
 
