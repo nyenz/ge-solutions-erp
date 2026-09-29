@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix149: stat-card hover borders + app-wide skeleton loader, Section 7)
+# Last updated: September 2026 (fix150: Settings inner boxes darker + Expenses cream inner cards, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -478,6 +478,10 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 --ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
+
+### Settings inner boxes + Expenses cream cards (fix150)
+- Settings > Appearance: `.prefGroupBox .prefRow` (the boxes around each setting's text) is a navy tint on the cream card: fill 7.5%, border 18%, hover 12%. Nudge these three numbers to go lighter/darker.
+- Expenses: the LOG AN EXPENSE preset row and the RECENT ENTRIES table sit on a cream `#f2ede4` card inside the navy panel (the Settings light-group idea). Text on cream is navy; orange/red text is the darker `#b45309` / `#b91c1c`. Table cell colour rules must be written `.ledgerTable tbody td.xCell` or they lose to the white `td` rule. Stat cards and modals stay navy.
 
 ### Stat-card borders + skeleton loader (fix149)
 - Stat cards REST on the orange border (#EE8C3A, literal -- `--orange` is re-mapped by `data-tab-accent`). Font colours are unchanged. On HOVER the border becomes the card's own font colour. No two cards on a page share a colour: a duplicate cyan card takes the WHITE font (`statWhite` on Expenses + Client dossier, `sumWhite` on Payment Records). Colour hover rules must sit AFTER `.statClickable:hover`.

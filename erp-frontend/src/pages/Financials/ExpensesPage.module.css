@@ -191,6 +191,45 @@
 }
 .amountInput:focus { outline: none; border-color: var(--orange); }
 
+/* ================= fix150: LIGHTER INNER SURFACES =================
+   Idea taken from Settings > Appearance (.prefGroupBox): the outer panel stays navy, but the
+   content sits on a cream #f2ede4 card with a soft navy border. Text on cream is navy; orange /
+   red TEXT uses the darker #b45309 / #b91c1c so it keeps its contrast on the light surface.
+   Cell rules carry `td.` so they beat `.ledgerTable tbody td` (which sets white). */
+
+/* LOG AN EXPENSE: the preset buttons live on a cream card */
+.presetRow {
+  background: #f2ede4; border: 1px solid rgba(26,46,48,0.14);
+  border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);
+}
+.presetRow .presetBtn, .presetRow .presetBtnOther {
+  border: 1.5px solid rgba(26,46,48,0.2); background: rgba(255,255,255,0.65); color: rgba(26,46,48,0.85);
+}
+.presetRow .presetBtnOther { border-style: dashed; }
+.presetRow .presetBtn:hover, .presetRow .presetBtnOther:hover {
+  background: rgba(238,140,58,0.16); border-color: #EE8C3A; color: #EE8C3A;
+}
+
+/* RECENT ENTRIES: the table lives on a cream card (header row stays navy + orange) */
+.tableScroll { background: #f2ede4; border: 1px solid rgba(26,46,48,0.14); border-radius: var(--radius-sm); }
+.ledgerTable tbody td { color: #1a2e30; border-bottom: 1px solid rgba(26,46,48,0.1); }
+.ledgerTable tbody tr:last-child td { border-bottom: none; }
+.ledgerTable tbody tr.row:hover { background: rgba(26,46,48,0.07); }
+.ledgerTable tbody td.dateCell  { color: rgba(26,46,48,0.68); }
+.ledgerTable tbody td.moneyCell { color: #b91c1c; }
+.ledgerTable tbody td.metaCell  { color: rgba(26,46,48,0.82); }
+.ledgerTable tbody td.notesCell { color: rgba(26,46,48,0.72); }
+.ledgerTable tbody td.emptyCell { color: rgba(26,46,48,0.7); }
+.noNote { color: rgba(26,46,48,0.45); }
+.categoryTag { color: #b45309; }
+.editedBadge { color: #b45309; }
+.spentByTag { color: rgba(26,46,48,0.72); }
+.lockedTag { color: rgba(26,46,48,0.66); }
+.editIconBtn { background: rgba(238,140,58,0.2); color: #b45309; }
+.editIconBtn:hover { background: rgba(238,140,58,0.34); border-color: #EE8C3A; }
+.deleteIconBtn { background: rgba(239,68,68,0.14); color: #b91c1c; }
+.deleteIconBtn:hover { background: rgba(239,68,68,0.28); border-color: #ef4444; }
+
 /* -- RESPONSIVE -- same breakpoints the dossier uses -- */
 @media (max-width: 700px) {
   .ledgerTable { min-width: 600px; }

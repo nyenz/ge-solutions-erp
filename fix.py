@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix149: stat-card borders (orange rest, font-colour hover, no duplicate colours) + skeleton loader app-wide.
+# GOLDEN SEED -- fix150: Settings inner boxes a touch darker + Expenses page lightened with the Settings cream-card idea.
 #
-# 1. Stat cards (Recovery Cockpit, Payment Records, Expenses, Client dossier):
-#    - every card RESTS on the orange border; the font colours stay exactly as they were
-#    - on HOVER the border switches to that card's own font colour (green / red / cyan / orange / white)
-#    - no two cards on a page share a colour: the duplicate cyan card gets the WHITE font
-#      (Expenses: CATEGORIES USED, Dossier: OWNERSHIP) -- like TOTAL SHOWN on Payment Records
-#    - Payment Records loses its inline border colours (they moved into sumGreen / sumRed classes)
-# 2. Loading: the shimmering skeleton from the Folder page is now THE loading state everywhere.
-#    LoadingState + LoadingRow (used by Dashboard, Recovery, Payments, Ledger, Client Ledger,
-#    Client dossier, Expenses, Audit, Settings) draw skeleton bars instead of a spinner. The
-#    label stays for screen readers. Folder page keeps its own skeleton (already the reference).
+# 1. Settings > Appearance: the inner boxes that surround each setting's text (.prefGroupBox .prefRow)
+#    go a tiny bit darker -- fill 5% -> 7.5%, border 14% -> 18%, hover 9% -> 12% (navy tint on the cream card).
+# 2. Expenses: the two big panels stay navy, but what sits INSIDE them now borrows the Settings
+#    light-group look (cream #f2ede4 card, soft navy border, white-ish buttons with orange hover):
+#      - LOG AN EXPENSE: the preset buttons sit on a cream card (NEW PRESET stays solid orange)
+#      - RECENT ENTRIES: the table sits on a cream card; header row stays navy/orange, body rows are
+#        navy text on cream, with darker orange / red text so it stays readable on the light surface.
+#    Stat cards, page header, hints and modals are untouched.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -23,8 +21,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix149"
-COMMIT_MSG = "fix149: stat cards orange rest border + font-colour hover + no duplicate colours; skeleton loader app-wide"
+FIX_NO = "fix150"
+COMMIT_MSG = "fix150: settings inner boxes slightly darker; expenses panels lightened with cream inner cards"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -35,15 +33,8 @@ JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 TESTJAVA = os.path.join(BACKEND, "src", "test", "java", "com", "gesolutions", "erp")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 
-RECOVERY_CSS = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.module.css")
-PAY_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
-PAY_CSS = os.path.join(SRC, "pages", "Payments", "PaymentsPage.module.css")
-EXP_JSX = os.path.join(SRC, "pages", "Financials", "ExpensesPage.jsx")
+SETTINGS_CSS = os.path.join(SRC, "pages", "settings", "SettingsPage.module.css")
 EXP_CSS = os.path.join(SRC, "pages", "Financials", "ExpensesPage.module.css")
-PORTFOLIO_JSX = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.jsx")
-PORTFOLIO_CSS = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.module.css")
-LOADING_JSX = os.path.join(SRC, "components", "common", "LoadingState.jsx")
-LOADING_CSS = os.path.join(SRC, "components", "common", "LoadingState.module.css")
 # ============================= EDIT PART 1 END =============================
 
 # ================== DO NOT EDIT: helpers (copy exactly) ====================
@@ -108,253 +99,83 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (RECOVERY_CSS, PAY_JSX, PAY_CSS, EXP_JSX, EXP_CSS,
-              PORTFOLIO_JSX, PORTFOLIO_CSS, LOADING_JSX, LOADING_CSS, GUIDE)
+LOAD_FILES = (SETTINGS_CSS, EXP_CSS, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
 def L(*lines):
     return "\n".join(lines)
 
-# Literal hexes on purpose: --orange is re-mapped by [data-tab-accent] on some pages,
-# and the REST border must always be the brand orange.
+# ---- 1. Settings: inner boxes a tiny bit darker ----
+patch(SETTINGS_CSS,
+      L("  border: 1px solid rgba(26,46,48,0.14); border-radius: 6px;",
+        "  background: rgba(26,46,48,0.05);"),
+      L("  border: 1px solid rgba(26,46,48,0.18); border-radius: 6px;",
+        "  background: rgba(26,46,48,0.075);"),
+      "Settings CSS: inner box fill + border a touch darker")
+patch(SETTINGS_CSS,
+      ".prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.09); border-color: rgba(26,46,48,0.22); }",
+      ".prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.12); border-color: rgba(26,46,48,0.26); }",
+      "Settings CSS: inner box hover a touch darker")
 
-# ---- 1. Recovery Cockpit: orange rest, font-colour hover ----
-patch(RECOVERY_CSS,
-      ".countsHUD .countCard:hover { transform: none; border-color: var(--orange-border); }",
-      L(".countsHUD .countCard { border-color: #EE8C3A; }",
-        ".countsHUD .countCard:hover { transform: none; border-color: #EE8C3A; }"),
-      "Recovery CSS: count cards rest on orange")
-patch(RECOVERY_CSS,
-      L(".countsHUD .statGreen, .countsHUD .statGreen:hover { border-color: #22c55e; }",
-        ".countsHUD .statGreen label, .countsHUD .statGreen strong { color: #22c55e; }",
-        ".countsHUD .statCyan, .countsHUD .statCyan:hover { border-color: #06b6d4; }",
-        ".countsHUD .statCyan label, .countsHUD .statCyan strong { color: #06b6d4; }",
-        ".countsHUD .statAmber, .countsHUD .statAmber:hover { border-color: var(--orange); }",
-        ".countsHUD .statAmber label, .countsHUD .statAmber strong { color: var(--orange); }",
-        ".countsHUD .statRed, .countsHUD .statRed:hover { border-color: #ef4444; }",
-        ".countsHUD .statRed label, .countsHUD .statRed strong { color: #ef4444; }"),
-      L("/* fix149: border = orange at rest, the card's own font colour on hover */",
-        ".countsHUD .statGreen:hover { border-color: #22c55e; }",
-        ".countsHUD .statGreen label, .countsHUD .statGreen strong { color: #22c55e; }",
-        ".countsHUD .statCyan:hover { border-color: #06b6d4; }",
-        ".countsHUD .statCyan label, .countsHUD .statCyan strong { color: #06b6d4; }",
-        ".countsHUD .statAmber:hover { border-color: #EE8C3A; }",
-        ".countsHUD .statAmber label, .countsHUD .statAmber strong { color: #EE8C3A; }",
-        ".countsHUD .statRed:hover { border-color: #ef4444; }",
-        ".countsHUD .statRed label, .countsHUD .statRed strong { color: #ef4444; }"),
-      "Recovery CSS: hover border = font colour")
-
-# ---- 2. Payment Records: TOTAL SHOWN white, TITLE green, RECEIVABLES red ----
-patch(PAY_JSX,
-      L("<div className={styles.sumCard}>", "                    <label>TOTAL SHOWN</label>"),
-      L("<div className={`${styles.sumCard} ${styles.sumWhite}`}>", "                    <label>TOTAL SHOWN</label>"),
-      "Payments: TOTAL SHOWN white class")
-patch(PAY_JSX,
-      "<div className={styles.sumCard} style={{ borderColor: '#22c55e' }}>",
-      "<div className={`${styles.sumCard} ${styles.sumGreen}`}>",
-      "Payments: TITLE PAYMENTS green class (inline border gone)")
-patch(PAY_JSX,
-      "<div className={styles.sumCard} style={{ borderColor: '#ef4444' }}>",
-      "<div className={`${styles.sumCard} ${styles.sumRed}`}>",
-      "Payments: RECEIVABLES red class (inline border gone)")
-patch(PAY_CSS,
-      L(".sumCard {",
-        "    background: var(--panel-bg);",
-        "    border: 1.5px solid var(--orange-border);"),
-      L(".sumCard {",
-        "    background: var(--panel-bg);",
-        "    border: 1.5px solid #EE8C3A;",
-        "    transition: border-color 0.2s ease;"),
-      "Payments CSS: sum cards rest on orange")
-patch(PAY_CSS,
-      ".sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }",
-      L(".sumCard span { font-size: var(--stat-note); color: rgba(255,255,255,0.35); }",
-        "/* fix149: hover border = the card's font colour */",
-        ".sumWhite:hover { border-color: #fff; }",
-        ".sumGreen:hover { border-color: #22c55e; }",
-        ".sumRed:hover   { border-color: #ef4444; }"),
-      "Payments CSS: hover colours")
-
-# ---- 3. Expenses: CATEGORIES USED goes white (PRESETS keeps cyan) ----
-patch(EXP_JSX,
-      L("<div className={`${styles.statCard} ${styles.statCyan}`}>", "                    <label>CATEGORIES USED</label>"),
-      L("<div className={`${styles.statCard} ${styles.statWhite}`}>", "                    <label>CATEGORIES USED</label>"),
-      "Expenses: CATEGORIES USED white")
+# ---- 2. Expenses: cream inner cards (Settings light-group idea) ----
 patch(EXP_CSS,
-      L(".statAmber { border-color: var(--orange); }",
-        ".statAmber label, .statAmber strong { color: var(--orange); }",
-        ".statGreen { border-color: #22c55e; }",
-        ".statGreen label, .statGreen strong { color: #22c55e; }",
-        ".statCyan { border-color: #06b6d4; }",
-        ".statCyan label, .statCyan strong { color: #06b6d4; }"),
-      L("/* fix149: every card rests on orange; hover swaps the border to the card's font colour */",
-        ".statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }",
-        ".statAmber:hover { border-color: #EE8C3A; }",
-        ".statAmber label, .statAmber strong { color: #EE8C3A; }",
-        ".statGreen:hover { border-color: #22c55e; }",
-        ".statGreen label, .statGreen strong { color: #22c55e; }",
-        ".statCyan:hover { border-color: #06b6d4; }",
-        ".statCyan label, .statCyan strong { color: #06b6d4; }",
-        ".statWhite:hover { border-color: #fff; }",
-        ".statWhite label, .statWhite strong { color: #fff; }"),
-      "Expenses CSS: orange rest + hover colours + white")
-
-# ---- 4. Client dossier: OWNERSHIP goes white (PROJECTS keeps cyan) ----
-patch(PORTFOLIO_JSX,
-      L("          <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
-        "            onClick={() => scrollToSection('portfolio-panel')}",
-        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
-        "            <label>OWNERSHIP</label>"),
-      L("          <div className={`${styles.statCard} ${styles.statWhite} ${styles.statClickable}`} role=\"button\" tabIndex={0}",
-        "            onClick={() => scrollToSection('portfolio-panel')}",
-        "            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>",
-        "            <label>OWNERSHIP</label>"),
-      "Dossier: OWNERSHIP white")
-patch(PORTFOLIO_CSS,
-      L(".statRed   { border-color: #ef4444; }",
-        ".statRed   label, .statRed   strong { color: #ef4444; }",
-        ".statGreen { border-color: #22c55e; }",
-        ".statGreen label, .statGreen strong { color: #22c55e; }",
-        ".statCyan  { border-color: #06b6d4; }",
-        ".statCyan  label, .statCyan  strong { color: #06b6d4; }",
-        ".statAmber { border-color: var(--orange); }",
-        ".statAmber label, .statAmber strong { color: var(--orange); }"),
-      L("/* fix149: every card rests on orange; hover swaps the border to the card's font colour.",
-        "   These sit AFTER .statClickable:hover so they win at equal specificity. */",
-        ".statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }",
-        ".statCard.statClickable:hover { box-shadow: none; }",
-        ".statRed:hover   { border-color: #ef4444; }",
-        ".statRed   label, .statRed   strong { color: #ef4444; }",
-        ".statGreen:hover { border-color: #22c55e; }",
-        ".statGreen label, .statGreen strong { color: #22c55e; }",
-        ".statCyan:hover  { border-color: #06b6d4; }",
-        ".statCyan  label, .statCyan  strong { color: #06b6d4; }",
-        ".statAmber:hover { border-color: #EE8C3A; }",
-        ".statAmber label, .statAmber strong { color: #EE8C3A; }",
-        ".statWhite:hover { border-color: #fff; }",
-        ".statWhite label, .statWhite strong { color: #fff; }"),
-      "Dossier CSS: orange rest + hover colours + white")
-
-# ---- 5. Skeleton loader everywhere (LoadingState + LoadingRow) ----
-patch(LOADING_JSX,
-      L("            styles.shell,",
-        "            tone === 'bare' ? styles.shellBare : styles.shellPanel,",
-        "            size === 'page' ? styles.shellPage : '',"),
-      L("            styles.shell,",
-        "            styles.shellSkel,",
-        "            tone === 'bare' ? styles.shellBare : styles.shellPanel,",
-        "            size === 'page' ? styles.shellPage : '',"),
-      "LoadingState: skeleton shell class")
-patch(LOADING_JSX,
-      L("        <div className={styles.spinner} aria-hidden=\"true\" />",
-        "        <span className={styles.label}>{label}</span>",
-        "    </div>",
-        ");",
+      "/* -- RESPONSIVE -- same breakpoints the dossier uses -- */",
+      L("/* ================= fix150: LIGHTER INNER SURFACES =================",
+        "   Idea taken from Settings > Appearance (.prefGroupBox): the outer panel stays navy, but the",
+        "   content sits on a cream #f2ede4 card with a soft navy border. Text on cream is navy; orange /",
+        "   red TEXT uses the darker #b45309 / #b91c1c so it keeps its contrast on the light surface.",
+        "   Cell rules carry `td.` so they beat `.ledgerTable tbody td` (which sets white). */",
         "",
-        "/** Same thing, but as a table row"),
-      L("        {/* fix149: the Folder page skeleton is the loading look everywhere */}",
-        "        <div className={styles.skelStack} aria-hidden=\"true\">",
-        "            {size === 'page' && <div className={styles.skelHud} />}",
-        "            <div className={styles.skelPanel}>",
-        "                <div className={styles.skelHeader} />",
-        "                <div className={styles.skelBody}>",
-        "                    <div className={styles.skelLine} />",
-        "                    <div className={styles.skelLine} />",
-        "                    <div className={styles.skelLine} />",
-        "                </div>",
-        "            </div>",
-        "            {size === 'page' && (",
-        "                <div className={styles.skelPanel}>",
-        "                    <div className={styles.skelHeader} />",
-        "                    <div className={styles.skelBody}>",
-        "                        <div className={styles.skelLine} />",
-        "                        <div className={styles.skelLine} />",
-        "                    </div>",
-        "                </div>",
-        "            )}",
-        "        </div>",
-        "        <span className={styles.srOnly}>{label}</span>",
-        "    </div>",
-        ");",
+        "/* LOG AN EXPENSE: the preset buttons live on a cream card */",
+        ".presetRow {",
+        "  background: #f2ede4; border: 1px solid rgba(26,46,48,0.14);",
+        "  border-radius: var(--radius-sm); padding: clamp(10px,1.3vw,14px) clamp(12px,1.5vw,16px);",
+        "}",
+        ".presetRow .presetBtn, .presetRow .presetBtnOther {",
+        "  border: 1.5px solid rgba(26,46,48,0.2); background: rgba(255,255,255,0.65); color: rgba(26,46,48,0.85);",
+        "}",
+        ".presetRow .presetBtnOther { border-style: dashed; }",
+        ".presetRow .presetBtn:hover, .presetRow .presetBtnOther:hover {",
+        "  background: rgba(238,140,58,0.16); border-color: #EE8C3A; color: #EE8C3A;",
+        "}",
         "",
-        "/** Same thing, but as a table row"),
-      "LoadingState: skeleton bars replace the spinner")
-patch(LOADING_JSX,
-      L("export const LoadingRow = ({ colSpan = 1, label = 'LOADING...' }) => (",
-        "    <tr>",
-        "        <td colSpan={colSpan} className={styles.cell}>",
-        "            <span className={styles.cellInner} role=\"status\" aria-live=\"polite\">",
-        "                <span className={styles.spinnerSm} aria-hidden=\"true\" />",
-        "                <span className={styles.label}>{label}</span>",
-        "            </span>",
-        "        </td>",
-        "    </tr>",
-        ");"),
-      L("export const LoadingRow = ({ colSpan = 1, label = 'LOADING...' }) => (",
-        "    <React.Fragment>",
-        "        {['92%', '70%', '84%'].map((w, i) => (",
-        "            <tr key={i}>",
-        "                <td colSpan={colSpan} className={styles.skelCell}>",
-        "                    <span className={styles.skelRowBar} style={{ width: w }} aria-hidden=\"true\" />",
-        "                    {i === 0 && <span className={styles.srOnly} role=\"status\" aria-live=\"polite\">{label}</span>}",
-        "                </td>",
-        "            </tr>",
-        "        ))}",
-        "    </React.Fragment>",
-        ");"),
-      "LoadingRow: skeleton rows replace the spinner row")
-patch(LOADING_CSS,
-      "@keyframes lsSpin { to { transform: rotate(360deg); } }",
-      L("@keyframes lsSpin { to { transform: rotate(360deg); } }",
+        "/* RECENT ENTRIES: the table lives on a cream card (header row stays navy + orange) */",
+        ".tableScroll { background: #f2ede4; border: 1px solid rgba(26,46,48,0.14); border-radius: var(--radius-sm); }",
+        ".ledgerTable tbody td { color: #1a2e30; border-bottom: 1px solid rgba(26,46,48,0.1); }",
+        ".ledgerTable tbody tr:last-child td { border-bottom: none; }",
+        ".ledgerTable tbody tr.row:hover { background: rgba(26,46,48,0.07); }",
+        ".ledgerTable tbody td.dateCell  { color: rgba(26,46,48,0.68); }",
+        ".ledgerTable tbody td.moneyCell { color: #b91c1c; }",
+        ".ledgerTable tbody td.metaCell  { color: rgba(26,46,48,0.82); }",
+        ".ledgerTable tbody td.notesCell { color: rgba(26,46,48,0.72); }",
+        ".ledgerTable tbody td.emptyCell { color: rgba(26,46,48,0.7); }",
+        ".noNote { color: rgba(26,46,48,0.45); }",
+        ".categoryTag { color: #b45309; }",
+        ".editedBadge { color: #b45309; }",
+        ".spentByTag { color: rgba(26,46,48,0.72); }",
+        ".lockedTag { color: rgba(26,46,48,0.66); }",
+        ".editIconBtn { background: rgba(238,140,58,0.2); color: #b45309; }",
+        ".editIconBtn:hover { background: rgba(238,140,58,0.34); border-color: #EE8C3A; }",
+        ".deleteIconBtn { background: rgba(239,68,68,0.14); color: #b91c1c; }",
+        ".deleteIconBtn:hover { background: rgba(239,68,68,0.28); border-color: #ef4444; }",
         "",
-        "/* ================= fix149: SKELETON LOADER (same look as the Folder page) =================",
-        "   Dark base under a light shimmer, so it only ever reads on a dark surface -- LoadingState",
-        "   always sits on its own navy card (tone=panel) or inside a navy panel (tone=bare). */",
-        "@keyframes lsShimmer {",
-        "    0%   { background-position: -600px 0; }",
-        "    100% { background-position:  600px 0; }",
-        "}",
-        ".shellSkel { align-items: stretch; justify-content: flex-start; text-align: left; padding: clamp(14px, 2vw, 22px); }",
-        ".skelStack { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); width: 100%; }",
-        ".skelHud, .skelHeader, .skelLine, .skelRowBar {",
-        "    background-color: #16292b;",
-        "    background-image: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%);",
-        "    background-size: 1200px 100%;",
-        "    animation: lsShimmer 1.4s infinite linear;",
-        "}",
-        ".skelHud    { height: clamp(60px, 9vw, 80px); border-radius: 10px; }",
-        ".skelPanel  { border-radius: 10px; overflow: hidden; border: 1.5px solid var(--ls-panel-border); }",
-        ".shellBare .skelPanel { border: none; }",
-        ".skelHeader { height: clamp(36px, 5vw, 48px); border-radius: 0; }",
-        ".skelBody   { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }",
-        ".skelLine   { height: clamp(14px, 2vw, 18px); border-radius: 4px; }",
-        ".skelLine:nth-child(odd)  { width: 75%; }",
-        ".skelLine:nth-child(even) { width: 55%; }",
-        ".skelCell   { padding: clamp(10px, 1.4vw, 14px) 16px !important; }",
-        ".skelRowBar { display: block; height: clamp(14px, 2vw, 18px); border-radius: 4px; }",
-        ".srOnly {",
-        "    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;",
-        "    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;",
-        "}",
-        "@media (prefers-reduced-motion: reduce) {",
-        "    .skelHud, .skelHeader, .skelLine, .skelRowBar { animation: none; }",
-        "}"),
-      "LoadingState CSS: skeleton styles")
+        "/* -- RESPONSIVE -- same breakpoints the dossier uses -- */"),
+      "Expenses CSS: cream inner cards for presets + table")
 
-# ---- 6. guide ----
+# ---- 3. guide ----
 patch(GUIDE,
-      "# Last updated: September 2026 (fix148: ledger top decor removed + one stat-card spec, Section 7)",
       "# Last updated: September 2026 (fix149: stat-card hover borders + app-wide skeleton loader, Section 7)",
+      "# Last updated: September 2026 (fix150: Settings inner boxes darker + Expenses cream inner cards, Section 7)",
       "Guide: header line")
 patch(GUIDE,
-      "### Ledger decor + stat cards (fix148)",
-      L("### Stat-card borders + skeleton loader (fix149)",
-        "- Stat cards REST on the orange border (#EE8C3A, literal -- `--orange` is re-mapped by `data-tab-accent`). Font colours are unchanged. On HOVER the border becomes the card's own font colour. No two cards on a page share a colour: a duplicate cyan card takes the WHITE font (`statWhite` on Expenses + Client dossier, `sumWhite` on Payment Records). Colour hover rules must sit AFTER `.statClickable:hover`.",
-        "- LOADING: `LoadingState` and `LoadingRow` draw the Folder-page skeleton (dark bars + shimmer), not a spinner. The `label` prop is kept as screen-reader text (`.srOnly`). Any new loading state must go through these two components; `HardwareButton loading` keeps its own small spinner.",
+      "### Stat-card borders + skeleton loader (fix149)",
+      L("### Settings inner boxes + Expenses cream cards (fix150)",
+        "- Settings > Appearance: `.prefGroupBox .prefRow` (the boxes around each setting's text) is a navy tint on the cream card: fill 7.5%, border 18%, hover 12%. Nudge these three numbers to go lighter/darker.",
+        "- Expenses: the LOG AN EXPENSE preset row and the RECENT ENTRIES table sit on a cream `#f2ede4` card inside the navy panel (the Settings light-group idea). Text on cream is navy; orange/red text is the darker `#b45309` / `#b91c1c`. Table cell colour rules must be written `.ledgerTable tbody td.xCell` or they lose to the white `td` rule. Stat cards and modals stay navy.",
         "",
-        "### Ledger decor + stat cards (fix148)"),
-      "Guide: fix149 note")
+        "### Stat-card borders + skeleton loader (fix149)"),
+      "Guide: fix150 note")
 
 # ============================= EDIT PART 2 END =============================
 

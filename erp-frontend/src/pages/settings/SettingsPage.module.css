@@ -559,12 +559,12 @@
   border-bottom: 2px solid var(--accent, var(--orange));
 }
 .prefGroupBox .prefRow {
-  border: 1px solid rgba(26,46,48,0.14); border-radius: 6px;
-  background: rgba(26,46,48,0.05);
+  border: 1px solid rgba(26,46,48,0.18); border-radius: 6px;
+  background: rgba(26,46,48,0.075);
   margin: 0 0 clamp(7px,0.9vw,10px); padding: clamp(9px,1.2vw,12px);
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.09); border-color: rgba(26,46,48,0.22); }
+.prefGroupBox .prefRow:hover { background: rgba(26,46,48,0.12); border-color: rgba(26,46,48,0.26); }
 .prefGroupBox .prefRow:last-child { margin-bottom: 0; }
 .prefGroupBox .prefLabel strong { color: #1a2e30; }
 .prefGroupBox .prefLabel span { color: rgba(26,46,48,0.65); }
