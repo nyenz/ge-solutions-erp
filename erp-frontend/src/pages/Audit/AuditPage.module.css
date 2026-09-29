@@ -190,24 +190,24 @@
 .inspectIcon { justify-self: end; align-self: start; margin-top: 1px; color: rgba(26, 46, 48, 0.45); font-size: clamp(14px, 1.6vw, 18px); transition: transform 0.2s ease, color 0.15s ease; }
 .logRow:hover .inspectIcon { color: #1a2e30; }
 
-/* OPEN ROW: head and readout are the SAME dark (#1a2e30), no wash, no seam */
-.logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }
+/* OPEN ROW (fix154): head and readout are the Report Catalogue active-row orange (#EE8C3A), no wash, no seam */
+.logRow.expanded, .logRow.expanded:hover { background: #EE8C3A; }
 .logRow.expanded .clockPair { color: #fff; }
-.logRow.expanded .clockPair svg { color: #f2ede4; }
-.logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }
-.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }
+.logRow.expanded .clockPair svg { color: #fff; }
+.logRow.expanded .timeMark small { color: #fff; opacity: 0.85; }
+.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); color: #fff; }
 .logRow.expanded .actionMeta strong { color: #fff; }
-.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }
+.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.88); }
 .logRow.expanded .targetMark p { color: #fff; }
-.logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }
+.logRow.expanded .inspectIcon { color: #fff; transform: rotate(180deg); }
 
-.traceDetails { overflow: hidden; background: #1a2e30; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.traceDetails { overflow: hidden; background: #EE8C3A; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .traceClosed { max-height: 0; }
-.traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
+.traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(26, 46, 48, 0.45) transparent; }
 .rawBox { margin: 0; padding: clamp(4px, 0.6vw, 8px) clamp(12px, 1.5vw, 18px) clamp(12px, 1.5vw, 16px); }
-/* the label takes the action colour; the readout text itself is app orange */
-.rawHeader { display: flex; align-items: center; gap: clamp(7px, 0.9vw, 10px); margin-bottom: clamp(8px, 1.1vw, 12px); font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }
-.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: #EE8C3A; }
+/* fix154: on the orange readout the label and the text are navy */
+.rawHeader { display: flex; align-items: center; gap: clamp(7px, 0.9vw, 10px); margin-bottom: clamp(8px, 1.1vw, 12px); font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #1a2e30; }
+.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: #1a2e30; }
 
 /* ---- PAGINATION ---- */
 .pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(8px, 1vw, 11px) clamp(12px, 1.5vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); }
