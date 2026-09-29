@@ -12,7 +12,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
-import TabDock from '../../components/common/TabDock';
+import TabDock, { accentOf } from '../../components/common/TabDock';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -31,8 +31,8 @@ const TYPE_COLORS = {
 
 const TYPE_FILTERS = [
     { key: 'ALL',                label: 'ALL TYPES' },
-    { key: 'STANDARD',           label: TYPE_LABELS.STANDARD.toUpperCase() },
-    { key: 'INITIAL_DEPOSIT',    label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase() },
+    { key: 'STANDARD',           label: TYPE_LABELS.STANDARD.toUpperCase(), accent: 'green' },
+    { key: 'INITIAL_DEPOSIT',    label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase(), accent: 'cyan' },
     { key: 'RECEIVABLE_PARTIAL', label: TYPE_LABELS.RECEIVABLE_PARTIAL.toUpperCase(), accent: 'red' },
 ];
 
@@ -172,7 +172,7 @@ const PaymentsPage = () => {
             {loading ? (
                 <LoadingState label="LOADING PAYMENTS..." />
             ) : (
-                <div>
+                <div className={styles.accentWrap} data-tab-accent={accentOf(TYPE_FILTERS, typeFilter)}>
                 <HardwarePanel variant="dark">
                     <div className={styles.tableScroll} ref={tableHandoffRef}>
                         <table className={styles.ledgerTable}>

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix146: layout part 1 (Payments controls + dots, legend spacing, shared table scroll).
+# GOLDEN SEED -- fix147: layout part 2 (selection-based tab + panel accent colours).
 #
-#   1. Payments: search box and TabDock filters now sit on ONE line (like Recovery).
-#   2. Payments: new dots legend (title / deposit / receivables) + a dot in each row's Type cell.
-#   3. Dot legends on Ledger, Clients ledger, Recovery and Payments start a little inside the
-#      left edge and have more room before the table (two tokens in index.css).
-#   4. The Project Ledger scroll behaviour is now a shared hook (useTableScrollHandoff) and
-#      applied to Payments, Client portfolio (both tables) and Expenses (recent entries):
-#      table scrolls in its own box, header pinned to that box, page-first-down / table-first-up.
-#
-# NOT in this fix: tab colours + panel accent colours (that is part 2).
+#   1. TabDock: new `accentOf(items, value)` helper -> the accent of the ACTIVE pill.
+#   2. Tab colours (each pill already glows in its own colour when active):
+#        Ledger    : PROCESSING amber, TITLED green, LEGACY cyan, RECEIVABLES red,
+#                    CRITICAL red, PAID green, PROBLEM red
+#        Payments  : TITLE PAYMENT green, INITIAL DEPOSIT cyan, RECEIVABLES red
+#        Clients   : OWING amber, IN RECEIVABLES red, CRITICAL red, PAID UP green, NO PROJECTS cyan
+#        Recovery  : CONTACTED green, MISSED red, SITE VISIT cyan, LOCKED amber
+#   3. Panel accent: the table panel (Ledger, Clients ledger, Payments) and the Recovery
+#      cards recolour their border, corner brackets, pins, header text/underline and
+#      other orange chrome from the ACTIVE pill, exactly like Settings does with --accent.
+#      Done with one global attribute, data-tab-accent, in index.css (it re-points
+#      --orange / --orange-border / --orange-dim for that subtree only).
+#      ALL / orange pills leave the page looking exactly as it does today.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -21,8 +25,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix146"
-COMMIT_MSG = "fix146: layout part 1 - payments search+tabs one line + dots legend, legend inset/spacing, shared table scroll behaviour"
+FIX_NO = "fix147"
+COMMIT_MSG = "fix147: layout part 2 - selection-based tab colours + panel accent colours (Ledger, Clients, Payments, Recovery)"
 RUN_GATES = True   # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -34,16 +38,13 @@ TESTJAVA = os.path.join(BACKEND, "src", "test", "java", "com", "gesolutions", "e
 
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 INDEX_CSS = os.path.join(SRC, "index.css")
-HOOK = os.path.join(SRC, "hooks", "useTableScrollHandoff.js")
+TABDOCK_JSX = os.path.join(SRC, "components", "common", "TabDock.jsx")
+LEDGER_JSX = os.path.join(SRC, "pages", "Ledger", "LedgerPage.jsx")
+CLIENTLEDGER_JSX = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.jsx")
 PAY_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
 PAY_CSS = os.path.join(SRC, "pages", "Payments", "PaymentsPage.module.css")
-LEDGER_CSS = os.path.join(SRC, "pages", "Ledger", "LedgerPage.module.css")
-CLIENTLEDGER_CSS = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.module.css")
+RECOVERY_JSX = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.jsx")
 RECOVERY_CSS = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.module.css")
-PORT_JSX = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.jsx")
-PORT_CSS = os.path.join(SRC, "pages", "Clients", "ClientPortfolioPage.module.css")
-EXP_JSX = os.path.join(SRC, "pages", "Financials", "ExpensesPage.jsx")
-EXP_CSS = os.path.join(SRC, "pages", "Financials", "ExpensesPage.module.css")
 # ============================= EDIT PART 1 END =============================
 
 # ================== DO NOT EDIT: helpers (copy exactly) ====================
@@ -108,8 +109,8 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (INDEX_CSS, PAY_JSX, PAY_CSS, LEDGER_CSS, CLIENTLEDGER_CSS, RECOVERY_CSS,
-              PORT_JSX, PORT_CSS, EXP_JSX, EXP_CSS, GUIDE)
+LOAD_FILES = (INDEX_CSS, TABDOCK_JSX, LEDGER_JSX, CLIENTLEDGER_JSX, PAY_JSX, PAY_CSS,
+              RECOVERY_JSX, RECOVERY_CSS, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
@@ -118,259 +119,129 @@ def L(*lines):
     return "\n".join(lines)
 
 
-# ---- 1. shared scroll hook (the Ledger behaviour, as a reusable callback ref) ----
-newfile(HOOK,
-        L(
-            "// PATH: erp-frontend/src/hooks/useTableScrollHandoff.js",
-            "// fix146: the Project Ledger scroll behaviour as ONE shared hook.",
-            "//   scrolling DOWN -> the page scrolls first, the table takes over at the page bottom",
-            "//   scrolling UP   -> the table scrolls first, the page takes over at the table top",
-            "// Usage:  const tableRef = useTableScrollHandoff();  <div className={styles.tableScroll} ref={tableRef}>",
-            "// It is a callback ref, so it also works when the table only appears after loading.",
-            "// Pair it with CSS: .tableScroll { max-height; overflow:auto; overscroll-behavior:contain }",
-            "// and a sticky <th> (see LedgerPage.module.css).",
-            "import { useCallback, useRef } from 'react';",
-            "",
-            "function findScrollParent(el) {",
-            "    let node = el ? el.parentElement : null;",
-            "    while (node && node !== document.body && node !== document.documentElement) {",
-            "        const overflowY = window.getComputedStyle(node).overflowY;",
-            "        if (overflowY === 'auto' || overflowY === 'scroll') return node;",
-            "        node = node.parentElement;",
-            "    }",
-            "    return document.scrollingElement || document.documentElement;",
-            "}",
-            "",
-            "function attach(tableScroll) {",
-            "    const pageScroll = findScrollParent(tableScroll);",
-            "    const EDGE_TOLERANCE = 2;",
-            "    const MAX_STEP_PX = 120;",
-            "    const pageAtTop = () => pageScroll.scrollTop <= EDGE_TOLERANCE;",
-            "    const pageAtBottom = () =>",
-            "        pageScroll.scrollTop + pageScroll.clientHeight >= pageScroll.scrollHeight - EDGE_TOLERANCE;",
-            "    const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;",
-            "    const tableAtBottom = () =>",
-            "        tableScroll.scrollTop + tableScroll.clientHeight >= tableScroll.scrollHeight - EDGE_TOLERANCE;",
-            "    const normalizeWheelDelta = (e) => {",
-            "        if (e.deltaMode === 1) return e.deltaY * 16;",
-            "        if (e.deltaMode === 2) return e.deltaY * window.innerHeight;",
-            "        return e.deltaY;",
-            "    };",
-            "    const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);",
-            "    const routeDelta = (deltaY, e) => {",
-            "        if (deltaY > 0) {",
-            "            if (!pageAtBottom()) { pageScroll.scrollTop += clampStep(deltaY); e.preventDefault(); return; }",
-            "            if (tableAtBottom()) return;",
-            "            tableScroll.scrollTop += clampStep(deltaY);",
-            "            e.preventDefault();",
-            "        } else if (deltaY < 0) {",
-            "            if (!tableAtTop()) { tableScroll.scrollTop += clampStep(deltaY); e.preventDefault(); return; }",
-            "            if (pageAtTop()) return;",
-            "            pageScroll.scrollTop += clampStep(deltaY);",
-            "            e.preventDefault();",
-            "        }",
-            "    };",
-            "    const handleWheel = (e) => routeDelta(normalizeWheelDelta(e), e);",
-            "    let touchLastY = 0;",
-            "    const handleTouchStart = (e) => { touchLastY = e.touches[0].clientY; };",
-            "    const handleTouchMove = (e) => {",
-            "        const currentY = e.touches[0].clientY;",
-            "        const deltaY = touchLastY - currentY;",
-            "        touchLastY = currentY;",
-            "        routeDelta(deltaY, e);",
-            "    };",
-            "    tableScroll.addEventListener('wheel', handleWheel, { passive: false });",
-            "    tableScroll.addEventListener('touchstart', handleTouchStart, { passive: true });",
-            "    tableScroll.addEventListener('touchmove', handleTouchMove, { passive: false });",
-            "    return () => {",
-            "        tableScroll.removeEventListener('wheel', handleWheel);",
-            "        tableScroll.removeEventListener('touchstart', handleTouchStart);",
-            "        tableScroll.removeEventListener('touchmove', handleTouchMove);",
-            "    };",
-            "}",
-            "",
-            "export default function useTableScrollHandoff() {",
-            "    const cleanupRef = useRef(null);",
-            "    return useCallback((node) => {",
-            "        if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }",
-            "        if (node) cleanupRef.current = attach(node);",
-            "    }, []);",
-            "}",
-            "",
-        ),
-        "shared table scroll hook", "useTableScrollHandoff")
+IMPORT_OLD = "import TabDock from '../../components/common/TabDock';"
+IMPORT_NEW = "import TabDock, { accentOf } from '../../components/common/TabDock';"
 
-# ---- 2. two shared spacing tokens for the dot legend ----
+# ---- 1. global accent attribute (index.css) ----
 patch(INDEX_CSS,
-      "    --ctl-gap:         10px;\n}",
-      L("    --ctl-gap:         10px;",
-        "    --legend-inset:    clamp(6px, 1vw, 12px);   /* dot legend starts a little inside the left edge */",
-        "    --legend-after:    clamp(8px, 1.2vw, 14px); /* extra breathing room between the dots and the table */",
-        "}"),
-      "index.css: legend inset + spacing tokens")
+      L(":root {", "    --cream: #F4F2EF;"),
+      L("/* fix147: selection-based panel accent. Put data-tab-accent=\"green|red|yellow|cyan\" on a",
+        "   panel and everything inside that uses var(--orange) / var(--orange-border) / var(--orange-dim)",
+        "   recolours -- the same idea as Settings' --accent. No attribute (orange) = unchanged. */",
+        "[data-tab-accent=\"green\"]  { --orange: #34d399; --orange-dim: rgba(52,211,153,0.18);  --orange-border: rgba(52,211,153,0.36); }",
+        "[data-tab-accent=\"red\"]    { --orange: #ef4444; --orange-dim: rgba(239,68,68,0.18);   --orange-border: rgba(239,68,68,0.36); }",
+        "[data-tab-accent=\"yellow\"] { --orange: #eab308; --orange-dim: rgba(234,179,8,0.18);   --orange-border: rgba(234,179,8,0.36); }",
+        "[data-tab-accent=\"cyan\"]   { --orange: #22d3ee; --orange-dim: rgba(34,211,238,0.18);  --orange-border: rgba(34,211,238,0.36); }",
+        "",
+        ":root {",
+        "    --cream: #F4F2EF;"),
+      "index.css: data-tab-accent colour sets")
 
-# ---- 3. bring back the inset + spacing on Ledger, Clients, Recovery ----
-patch(LEDGER_CSS,
-      ".legendRow   { margin: 0; padding: 0 0 0 4px; }",
-      ".legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
-      "Ledger: legend inset + spacing before the table")
-patch(CLIENTLEDGER_CSS,
-      ".legendRow   { margin: 0; padding: 0 0 0 4px; }",
-      ".legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
-      "Clients ledger: legend inset + spacing before the table")
-patch(RECOVERY_CSS,
-      ".dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 0; padding: 0 0 0 4px; }",
-      ".dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }",
-      "Recovery: legend inset + spacing before the list")
+# ---- 2. TabDock helper ----
+patch(TABDOCK_JSX,
+      "export default TabDock;",
+      L("// fix147: accent of the ACTIVE pill, for tinting the panel below it.",
+        "// 'orange' (or no accent) -> undefined, so the panel keeps its normal look.",
+        "export const accentOf = (items, value) => {",
+        "    const a = (items.find((i) => i.key === value) || {}).accent;",
+        "    return a && a !== 'orange' ? a : undefined;",
+        "};",
+        "",
+        "export default TabDock;"),
+      "TabDock: accentOf helper")
 
-# ---- 4. Payments page JSX: search + tabs on one line, dots legend, dot in Type column, scroll hook ----
-patch(PAY_JSX,
-      "import TabDock from '../../components/common/TabDock';",
-      L("import TabDock from '../../components/common/TabDock';",
-        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
-      "Payments: import scroll hook")
-patch(PAY_JSX,
-      L("const PaymentsPage = () => {", "    const navigate = useNavigate();"),
-      L("const PaymentsPage = () => {", "    const navigate = useNavigate();",
-        "    const tableHandoffRef = useTableScrollHandoff();"),
-      "Payments: use scroll hook")
-patch(PAY_JSX,
-      L("            <div className={styles.controlHub}>",
-        "                <div className={styles.searchBlock}>"),
-      L("            <div className={styles.controlHub}>",
-        "                <div className={styles.controlRow}>",
-        "                <div className={styles.searchBlock}>"),
-      "Payments: open one-line control row")
-patch(PAY_JSX,
-      L("                <TabDock items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label=\"Filter by payment type\" />",
-        "            </div>"),
-      L("                <TabDock className={styles.dockSlot} items={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter} label=\"Filter by payment type\" />",
-        "                </div>",
-        "                <div className={styles.legendRow} aria-label=\"Payment type legend\">",
-        "                    {Object.entries(TYPE_COLORS).map(([k, c]) => (",
-        "                        <span key={k} className={styles.legendItem}>",
-        "                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {TYPE_LABELS[k]}",
-        "                        </span>",
-        "                    ))}",
-        "                </div>",
-        "            </div>"),
-      "Payments: close control row + dots legend")
-patch(PAY_JSX,
-      "<span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>",
-      L("<span className={styles.typeBadge} style={{ color: TYPE_COLORS[pay.paymentType] || '#888' }}>",
-        "                                                <i className={styles.legendDot} style={{ background: TYPE_COLORS[pay.paymentType] || '#888', boxShadow: `0 0 4px ${TYPE_COLORS[pay.paymentType] || '#888'}` }} aria-hidden=\"true\" />"),
-      "Payments: dot in the Type column")
-patch(PAY_JSX,
-      "<div className={styles.tableScroll}>",
-      "<div className={styles.tableScroll} ref={tableHandoffRef}>",
-      "Payments: table scroll ref")
+# ---- 3. Ledger ----
+patch(LEDGER_JSX, IMPORT_OLD, IMPORT_NEW, "Ledger: import accentOf")
+patch(LEDGER_JSX, "{ key: 'BACKLOG', label: 'PROCESSING' }",
+      "{ key: 'BACKLOG', label: 'PROCESSING', accent: 'yellow' }", "Ledger: PROCESSING amber")
+patch(LEDGER_JSX, "{ key: 'TITLED', label: 'TITLED' }",
+      "{ key: 'TITLED', label: 'TITLED', accent: 'green' }", "Ledger: TITLED green")
+patch(LEDGER_JSX, "{ key: 'LEGACY', label: 'LEGACY' }",
+      "{ key: 'LEGACY', label: 'LEGACY', accent: 'cyan' }", "Ledger: LEGACY cyan")
+patch(LEDGER_JSX, "{ key: 'RECEIVABLES', label: 'RECEIVABLES' }",
+      "{ key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }", "Ledger: RECEIVABLES red")
+patch(LEDGER_JSX, "{ key: 'PAID', label: 'PAID' }",
+      "{ key: 'PAID', label: 'PAID', accent: 'green' }", "Ledger: PAID green")
+patch(LEDGER_JSX, "<div className={styles.tablePanel}>",
+      "<div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>",
+      "Ledger: panel follows active pill")
 
-# ---- 5. Payments CSS ----
+# ---- 4. Clients ledger ----
+patch(CLIENTLEDGER_JSX, IMPORT_OLD, IMPORT_NEW, "Clients: import accentOf")
+patch(CLIENTLEDGER_JSX, "{ key: 'OWING', label: 'OWING' }",
+      "{ key: 'OWING', label: 'OWING', accent: 'yellow' }", "Clients: OWING amber")
+patch(CLIENTLEDGER_JSX, "{ key: 'RECEIVABLES', label: 'IN RECEIVABLES' }",
+      "{ key: 'RECEIVABLES', label: 'IN RECEIVABLES', accent: 'red' }", "Clients: IN RECEIVABLES red")
+patch(CLIENTLEDGER_JSX, "{ key: 'PAID', label: 'PAID UP' }",
+      "{ key: 'PAID', label: 'PAID UP', accent: 'green' }", "Clients: PAID UP green")
+patch(CLIENTLEDGER_JSX, "{ key: 'NOPLOTS', label: 'NO PROJECTS' }",
+      "{ key: 'NOPLOTS', label: 'NO PROJECTS', accent: 'cyan' }", "Clients: NO PROJECTS cyan")
+patch(CLIENTLEDGER_JSX, "<div className={styles.tablePanel}>",
+      "<div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>",
+      "Clients: panel follows active pill")
+
+# ---- 5. Payments ----
+patch(PAY_JSX, IMPORT_OLD, IMPORT_NEW, "Payments: import accentOf")
+patch(PAY_JSX, "label: TYPE_LABELS.STANDARD.toUpperCase() }",
+      "label: TYPE_LABELS.STANDARD.toUpperCase(), accent: 'green' }", "Payments: TITLE PAYMENT green")
+patch(PAY_JSX, "label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase() }",
+      "label: TYPE_LABELS.INITIAL_DEPOSIT.toUpperCase(), accent: 'cyan' }", "Payments: INITIAL DEPOSIT cyan")
+patch(PAY_JSX,
+      L("                <div>", "                <HardwarePanel variant=\"dark\">"),
+      L("                <div className={styles.accentWrap} data-tab-accent={accentOf(TYPE_FILTERS, typeFilter)}>",
+        "                <HardwarePanel variant=\"dark\">"),
+      "Payments: panel wrapper follows active pill")
 patch(PAY_CSS,
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}"),
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}",
+      ".thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }",
+      L(".thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }",
         "",
-        "/* == fix146: Recovery-style control row, dots legend, Ledger scroll box == */",
-        ".controlRow { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }",
-        ".controlRow .searchBlock { flex: 0 0 auto; }",
-        ".dockSlot { flex: 1 1 auto; min-width: 0; }",
-        "@media (max-width: 640px) {",
-        "    .controlRow { flex-direction: column; align-items: stretch; }",
-        "    .controlRow .searchBlock { width: 100%; }",
-        "    .dockSlot { flex: none; width: 100%; }",
-        "}",
-        "",
-        "/* dots legend: one line, scrolls sideways, sits a little inside, breathes before the table */",
-        ".legendRow { display: flex; flex-wrap: nowrap; gap: 14px; margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }",
-        ".legendRow::-webkit-scrollbar { display: none; }",
-        ".legendItem { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: rgba(26, 46, 48, 0.6); white-space: nowrap; flex-shrink: 0; }",
-        ".legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }",
-        "",
-        "/* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */",
-        ".tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }",
-        ".tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }",
-        ".ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
-      "Payments CSS: control row, legend, scroll box")
+        "/* fix147: HardwarePanel hard-codes its orange border, so re-point it from the active pill */",
+        ".accentWrap[data-tab-accent] > section[class] { border-color: var(--orange-border); }",
+        ".accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--orange); }",
+        ".accentWrap[data-tab-accent] .thSortable:hover { background: var(--orange-dim); }"),
+      "Payments CSS: panel border from active pill")
 
-# ---- 6. Client portfolio (2 tables) and Expenses (recent entries): same scroll behaviour ----
-patch(PORT_JSX,
-      "import styles from './ClientPortfolioPage.module.css';",
-      L("import styles from './ClientPortfolioPage.module.css';",
-        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
-      "Portfolio: import scroll hook")
-patch(PORT_JSX,
-      "const ClientPortfolioPage = () => {",
-      L("const ClientPortfolioPage = () => {",
-        "  const projectTableRef = useTableScrollHandoff();",
-        "  const healthTableRef = useTableScrollHandoff();"),
-      "Portfolio: use scroll hooks")
-patch(PORT_JSX,
-      L("        <div className={styles.tableScroll}>", "          <table className={styles.ledgerTable}>"),
-      L("        <div className={styles.tableScroll} ref={projectTableRef}>", "          <table className={styles.ledgerTable}>"),
-      "Portfolio: project table scroll ref")
-patch(PORT_JSX,
-      L("          <div className={styles.tableScroll}>", "            <table className={styles.ledgerTable}>"),
-      L("          <div className={styles.tableScroll} ref={healthTableRef}>", "            <table className={styles.ledgerTable}>"),
-      "Portfolio: health table scroll ref")
-patch(PORT_CSS,
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}"),
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}",
+# ---- 6. Recovery ----
+patch(RECOVERY_JSX, IMPORT_OLD, IMPORT_NEW, "Recovery: import accentOf")
+patch(RECOVERY_JSX, "{ key: 'CONTACTED', label: 'CONTACTED' }",
+      "{ key: 'CONTACTED', label: 'CONTACTED', accent: 'green' }", "Recovery: CONTACTED green")
+patch(RECOVERY_JSX, "{ key: 'MISSED', label: 'MISSED' }",
+      "{ key: 'MISSED', label: 'MISSED', accent: 'red' }", "Recovery: MISSED red")
+patch(RECOVERY_JSX, "{ key: 'SITE', label: 'SITE VISIT' }",
+      "{ key: 'SITE', label: 'SITE VISIT', accent: 'cyan' }", "Recovery: SITE VISIT cyan")
+patch(RECOVERY_JSX, "{ key: 'LOCKED', label: 'LOCKED' }",
+      "{ key: 'LOCKED', label: 'LOCKED', accent: 'yellow' }", "Recovery: LOCKED amber")
+patch(RECOVERY_JSX,
+      "items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts ? counts[t.key] : '-' }))}",
+      "items={TABS.map((t) => ({ key: t.key, label: t.label, accent: t.accent, count: counts ? counts[t.key] : '-' }))}",
+      "Recovery: pass accent to TabDock")
+patch(RECOVERY_JSX,
+      "<div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>",
+      "<div className={`${styles.list} ${loading ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>",
+      "Recovery: card list follows active pill")
+patch(RECOVERY_CSS,
+      ".list        { margin: 0; }",
+      L(".list        { margin: 0; }",
         "",
-        "/* fix146: same table scroll behaviour as the Project Ledger */",
-        ".tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }",
-        ".ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
-      "Portfolio CSS: scroll box + sticky header")
+        "/* fix147: the cards' border is hard-coded orange in the rules above, so re-point it from the active pill */",
+        ".list[data-tab-accent] .rowCard { border-color: var(--orange-border); }",
+        ".list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: var(--orange); }"),
+      "Recovery CSS: card border from active pill")
 
-patch(EXP_JSX,
-      "import styles from './ExpensesPage.module.css';",
-      L("import styles from './ExpensesPage.module.css';",
-        "import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';"),
-      "Expenses: import scroll hook")
-patch(EXP_JSX,
-      "const ExpensesPage = () => {",
-      L("const ExpensesPage = () => {",
-        "    const recentTableRef = useTableScrollHandoff();"),
-      "Expenses: use scroll hook")
-patch(EXP_JSX,
-      "<div className={styles.tableScroll}>",
-      "<div className={styles.tableScroll} ref={recentTableRef}>",
-      "Expenses: table scroll ref")
-patch(EXP_CSS,
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}"),
-      L("@media (min-width: 481px) {",
-        "    .title { font-size: clamp(18px, 2.5vw, 24px); }",
-        "    .subtitle   { font-size: clamp(9px, 0.9vw, 11px); }",
-        "}",
-        "",
-        "/* fix146: same table scroll behaviour as the Project Ledger */",
-        ".tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }",
-        ".ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }"),
-      "Expenses CSS: scroll box + sticky header")
-
-# ---- 7. guide note ----
+# ---- 7. guide ----
 patch(GUIDE,
-      "### Table Design Standard",
-      L("### Table scroll + dot legend (fix146)",
-        "- Every list table scrolls inside its own box: `.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain }`, header cells `position: sticky; top: 0` (pinned to that box), and the shared hook `src/hooks/useTableScrollHandoff.js` (`const ref = useTableScrollHandoff(); <div ref={ref} className={styles.tableScroll}>`). Down = page first, up = table first. Ledger and ClientLedger still carry their own inline copy of the same logic.",
-        "- Dot legends sit slightly inside (`--legend-inset`) and have extra room before the table (`--legend-after`); both tokens live in `index.css`. Payments now has a legend for its three payment-type dots, and its search + TabDock share one line (`.controlRow`), like Recovery.",
+      "# Last updated: September 2026 (fix145: design pass -- TabDock + page rhythm, Section 7)",
+      "# Last updated: September 2026 (fix147: selection-based tab + panel accent colours, Section 7)",
+      "Guide: header line")
+patch(GUIDE,
+      "### Table scroll + dot legend (fix146)",
+      L("### Selection-based accent colours (fix147)",
+        "- Each TabDock item can carry `accent` (`red` | `green` | `yellow` | `cyan`; orange = default). Current map: green = TITLED / PAID / PAID UP / TITLE PAYMENT / CONTACTED; red = CRITICAL / PROBLEM / RECEIVABLES / MISSED; amber = PROCESSING / OWING / LOCKED; cyan = LEGACY / NO PROJECTS / INITIAL DEPOSIT / SITE VISIT.",
+        "- The panel under the tabs follows the ACTIVE pill: `data-tab-accent={accentOf(ITEMS, value)}` on the panel (`accentOf` is exported from `TabDock.jsx`; it returns `undefined` for orange). The four attribute rules in `index.css` re-point `--orange`, `--orange-border` and `--orange-dim` for that subtree only, so border, corner brackets, pins, header text/underline and anything using `var(--orange)` recolour together -- same idea as Settings' `--accent`. Hard-coded orange (rgba(238,140,58,..)) does NOT follow; use the variables in new CSS. Payments wraps `HardwarePanel` in `.accentWrap` and Recovery tints `.list .rowCard`, because their borders are hard-coded.",
+        "- New page with a TabDock: give the items accents, then put `data-tab-accent` on the panel below it.",
         "",
-        "### Table Design Standard"),
-      "Guide: table scroll + legend note")
+        "### Table scroll + dot legend (fix146)"),
+      "Guide: accent colours note")
 # ============================= EDIT PART 2 END =============================
 
 # ================= DO NOT EDIT: gates, rollback, git (copy exactly) ========

@@ -11,7 +11,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
-import TabDock from '../../components/common/TabDock';
+import TabDock, { accentOf } from '../../components/common/TabDock';
 
 const matchesSearch = (proj, term, stages) => {
     if (!term) return true;
@@ -243,10 +243,10 @@ const LedgerPage = () => {
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
     const FILTERS = [
-        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING' },
-        { key: 'TITLED', label: 'TITLED' }, { key: 'LEGACY', label: 'LEGACY' },
-        { key: 'RECEIVABLES', label: 'RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
-        { key: 'PAID', label: 'PAID' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
+        { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING', accent: 'yellow' },
+        { key: 'TITLED', label: 'TITLED', accent: 'green' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
+        { key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
+        { key: 'PAID', label: 'PAID', accent: 'green' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
     ];
 
     return (
@@ -305,7 +305,7 @@ const LedgerPage = () => {
                 card; the bracket-style corner decor (with a small
                 glowing dot at the tip) renders ONLY on the two bottom
                 corners of THIS card -- no top corner brackets. */}
-            <div className={styles.tablePanel}>
+            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />

@@ -11,13 +11,13 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './RecoveryPortal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
-import TabDock from '../../components/common/TabDock';
+import TabDock, { accentOf } from '../../components/common/TabDock';
 const TABS = [
   { key: 'ALL', label: 'ALL DUE' },
-  { key: 'CONTACTED', label: 'CONTACTED' },
-  { key: 'MISSED', label: 'MISSED' },
-  { key: 'SITE', label: 'SITE VISIT' },
-  { key: 'LOCKED', label: 'LOCKED' },
+  { key: 'CONTACTED', label: 'CONTACTED', accent: 'green' },
+  { key: 'MISSED', label: 'MISSED', accent: 'red' },
+  { key: 'SITE', label: 'SITE VISIT', accent: 'cyan' },
+  { key: 'LOCKED', label: 'LOCKED', accent: 'yellow' },
 ];
 function fmtD(s) { if (!s) return 'NEVER'; const d = new Date(s); const p = (x) => String(x).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); }
 export default function RecoveryPortal() {
@@ -119,7 +119,7 @@ export default function RecoveryPortal() {
         </div>
         <TabDock
           className={styles.dockSlot} mode="tab" label="Recovery queues"
-          items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts ? counts[t.key] : '-' }))}
+          items={TABS.map((t) => ({ key: t.key, label: t.label, accent: t.accent, count: counts ? counts[t.key] : '-' }))}
           value={tab} onChange={setTab}
         />
       </div>
@@ -132,7 +132,7 @@ export default function RecoveryPortal() {
       {loading && rows.length === 0 ? (
         <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
-        <div className={`${styles.list} ${loading ? styles.refreshing : ''}`}>
+        <div className={`${styles.list} ${loading ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>
           {rowsF.map((c) => {
             const isOpen = openId === c.id;
             return (

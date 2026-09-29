@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: September 2026 (fix145: design pass -- TabDock + page rhythm, Section 7)
+# Last updated: September 2026 (fix147: selection-based tab + panel accent colours, Section 7)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -478,6 +478,11 @@ The stack every list page shares is: page title bar -> stat cards -> search -> t
 --ctl-gap:         10px                        /* inside the search / tabs / legend cluster */
 ```
 Ledger, Clients, Recovery and Expenses already used these numbers; Payments, Audit and Reports had drifted roomier and now read from the same variables. When adding a list page, use the variables (`padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom)`, `gap: var(--block-gap)`), do not type new pixel values. Change a number once in `index.css` and every page moves.
+
+### Selection-based accent colours (fix147)
+- Each TabDock item can carry `accent` (`red` | `green` | `yellow` | `cyan`; orange = default). Current map: green = TITLED / PAID / PAID UP / TITLE PAYMENT / CONTACTED; red = CRITICAL / PROBLEM / RECEIVABLES / MISSED; amber = PROCESSING / OWING / LOCKED; cyan = LEGACY / NO PROJECTS / INITIAL DEPOSIT / SITE VISIT.
+- The panel under the tabs follows the ACTIVE pill: `data-tab-accent={accentOf(ITEMS, value)}` on the panel (`accentOf` is exported from `TabDock.jsx`; it returns `undefined` for orange). The four attribute rules in `index.css` re-point `--orange`, `--orange-border` and `--orange-dim` for that subtree only, so border, corner brackets, pins, header text/underline and anything using `var(--orange)` recolour together -- same idea as Settings' `--accent`. Hard-coded orange (rgba(238,140,58,..)) does NOT follow; use the variables in new CSS. Payments wraps `HardwarePanel` in `.accentWrap` and Recovery tints `.list .rowCard`, because their borders are hard-coded.
+- New page with a TabDock: give the items accents, then put `data-tab-accent` on the panel below it.
 
 ### Table scroll + dot legend (fix146)
 - Every list table scrolls inside its own box: `.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain }`, header cells `position: sticky; top: 0` (pinned to that box), and the shared hook `src/hooks/useTableScrollHandoff.js` (`const ref = useTableScrollHandoff(); <div ref={ref} className={styles.tableScroll}>`). Down = page first, up = table first. Ledger and ClientLedger still carry their own inline copy of the same logic.

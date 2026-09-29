@@ -1,6 +1,14 @@
 /* PATH: erp-frontend/src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 
+/* fix147: selection-based panel accent. Put data-tab-accent="green|red|yellow|cyan" on a
+   panel and everything inside that uses var(--orange) / var(--orange-border) / var(--orange-dim)
+   recolours -- the same idea as Settings' --accent. No attribute (orange) = unchanged. */
+[data-tab-accent="green"]  { --orange: #34d399; --orange-dim: rgba(52,211,153,0.18);  --orange-border: rgba(52,211,153,0.36); }
+[data-tab-accent="red"]    { --orange: #ef4444; --orange-dim: rgba(239,68,68,0.18);   --orange-border: rgba(239,68,68,0.36); }
+[data-tab-accent="yellow"] { --orange: #eab308; --orange-dim: rgba(234,179,8,0.18);   --orange-border: rgba(234,179,8,0.36); }
+[data-tab-accent="cyan"]   { --orange: #22d3ee; --orange-dim: rgba(34,211,238,0.18);  --orange-border: rgba(34,211,238,0.36); }
+
 :root {
     --cream: #F4F2EF;
     --navy: #213E40;

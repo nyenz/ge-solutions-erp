@@ -12,7 +12,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
-import TabDock from '../../components/common/TabDock';
+import TabDock, { accentOf } from '../../components/common/TabDock';
 
 const matchesSearch = (c, term) => {
     if (!term) return true;
@@ -211,9 +211,9 @@ const ClientLedgerPage = () => {
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
     const FILTERS = [
-        { key: 'ALL', label: 'ALL CLIENTS' }, { key: 'OWING', label: 'OWING' },
-        { key: 'RECEIVABLES', label: 'IN RECEIVABLES' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
-        { key: 'PAID', label: 'PAID UP' }, { key: 'NOPLOTS', label: 'NO PROJECTS' },
+        { key: 'ALL', label: 'ALL CLIENTS' }, { key: 'OWING', label: 'OWING', accent: 'yellow' },
+        { key: 'RECEIVABLES', label: 'IN RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
+        { key: 'PAID', label: 'PAID UP', accent: 'green' }, { key: 'NOPLOTS', label: 'NO PROJECTS', accent: 'cyan' },
     ];
 
     const cols = isDirector ? 8 : 7;
@@ -257,7 +257,7 @@ const ClientLedgerPage = () => {
             {/* Table panel -- NOT sticky itself, scrolls away with the page.
                 Only the table's own header row (inside .tableScroll) stays
                 pinned, and only to ITS OWN scroll container. */}
-            <div className={styles.tablePanel}>
+            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
                 <Pins pos="top" />
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />

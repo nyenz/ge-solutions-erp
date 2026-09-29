@@ -572,6 +572,10 @@
 .dotLegend   { margin: calc(var(--ctl-gap) - var(--block-gap)) 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }
 .list        { margin: 0; }
 
+/* fix147: the cards' border is hard-coded orange in the rules above, so re-point it from the active pill */
+.list[data-tab-accent] .rowCard { border-color: var(--orange-border); }
+.list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: var(--orange); }
+
 /* Search: identical to the Ledger search box */
 .tabSearch { width: clamp(220px, 38vw, 420px); margin-right: 0; }
 .tabSearch .searchIcon { left: 12px; width: 16px; height: 16px; color: var(--orange); }

@@ -181,6 +181,11 @@
 .thSortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
 .thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }
 
+/* fix147: HardwarePanel hard-codes its orange border, so re-point it from the active pill */
+.accentWrap[data-tab-accent] > section[class] { border-color: var(--orange-border); }
+.accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--orange); }
+.accentWrap[data-tab-accent] .thSortable:hover { background: var(--orange-dim); }
+
 /* TABLE BODY */
 .ledgerTable td {
     padding: clamp(9px, 1.3vw, 14px) clamp(12px, 1.8vw, 20px);
