@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix163: REVERT A SAVED TITLE BACK TO STAGES (step 2 of the Folder page backbone plan).
+# GOLDEN SEED -- fix164: FEE NEGOTIATION SAFETY (step 3 of the Folder page backbone plan). Apply AFTER fix163.
 #
-#  1. New director/admin-only action REVERT TO STAGES on the Folder page (needs a reason, audited as TITLE_REVERTED).
-#     Backend: LandService.revertTitle + PATCH /land/projects/{id}/revert-title.
-#  2. It deletes the saved title (frees the unique plot number), un-ticks the final stage, puts the project back to ACTIVE,
-#     and keeps the old title values (plot, title ID, tenure, block, date) in the audit line.
-#  3. It is REFUSED (on the server, not just hidden in the page) when: the title was handed over (undo that first),
-#     the project is Receivable or Legacy, or the project was created as New Title / Legacy Title (no stages to go back to).
-#  4. The stage checklist no longer disappears once a title exists. It stays visible, read-only, with a fresh reload
-#     when the title appears or goes. Titled projects with no stages show no empty panel.
-#  5. LLM_CONTEXT_GUIDE.md Section 15 records the 6-step plan status (1 done, 2 done, 3 partly, 4-6 to do).
+#  1. SAVE RATE and PAUSE FEES on the Folder page now open the reason popup. A rate change or a new pause date needs a
+#     reason of 5+ characters; the audit line shows OLD -> NEW and the reason. RESUME FEES needs no reason.
+#  2. They send only what changed, so saving a rate can no longer silently clear a pause (and vice versa).
+#  3. A negative monthly rate is refused on the server.
+#  4. The older endpoints storage-pause / storage-rate / storage-fees on LandController (no page uses them, but the server
+#     accepted them with no reason -- storage-fees could set the accumulated fees to any figure) now require `reason`.
+#     The rate audit also shows the real previous rate (it used to print the new one).
+#  5. LLM_CONTEXT_GUIDE.md Section 15 records the step 3 status.
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -20,8 +19,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix163"
-COMMIT_MSG = "fix163: revert a saved title back to stages (director/admin, reason, audited) + stage checklist stays visible after titling"
+FIX_NO = "fix164"
+COMMIT_MSG = "fix164: every storage-rate / pause / fee adjustment needs a reason (page + server), old -> new audit"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -30,10 +29,10 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
 FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
-LAND_SVC = os.path.join(SRC, "services", "landService.js")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp", "modules", "land")
 LAND_SERVICE = os.path.join(JAVA, "service", "LandService.java")
 LAND_CTRL = os.path.join(JAVA, "controller", "LandController.java")
+PORTAL_CTRL = os.path.join(JAVA, "controller", "FolderPortalController.java")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -100,171 +99,180 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (FOLDER_JSX, LAND_SVC, LAND_SERVICE, LAND_CTRL, GUIDE)
+LOAD_FILES = (FOLDER_JSX, LAND_SERVICE, LAND_CTRL, PORTAL_CTRL, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
 
-# =========================== PART A -- BACKEND: revert a saved title back to stages ===========================
+# =========================== PART A -- BACKEND: every fee change needs a reason ===========================
 
-# A1. LandService needs the title repository so the title row can really be deleted (frees the unique plot number).
+# A1. Folder settings endpoint (the one the page uses): rate change or new pause date needs a reason; negative rate refused;
+#     audit shows OLD -> NEW and the reason.
+patch(PORTAL_CTRL,
+"""        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        if (body.containsKey("rate")) {
+            p.setStorageFeeOverride(body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate")));
+        }
+        if (body.containsKey("deadline")) {
+            p.setNegotiationDeadline(body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline")));
+        }
+        projectRepository.save(p);
+        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
+                + " (monthly rate: " + (p.getStorageFeeOverride() != null ? "UGX " + p.getStorageFeeOverride().toPlainString() : "default")
+                + ", fees paused until: " + (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toString() : "not paused") + ").");""",
+"""        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        // fix164: a rate change or a NEW pause date needs a written reason and is audited as OLD -> NEW.
+        // Clearing a pause (RESUME FEES) needs no reason.
+        BigDecimal oldRate = p.getStorageFeeOverride();
+        LocalDateTime oldDeadline = p.getNegotiationDeadline();
+        BigDecimal newRate = oldRate;
+        LocalDateTime newDeadline = oldDeadline;
+        if (body.containsKey("rate")) {
+            newRate = body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate"));
+            if (newRate != null && newRate.signum() < 0) {
+                throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
+            }
+        }
+        if (body.containsKey("deadline")) {
+            newDeadline = body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline"));
+        }
+        boolean rateChanged = (oldRate == null) != (newRate == null)
+                || (oldRate != null && newRate != null && oldRate.compareTo(newRate) != 0);
+        boolean pauseSet = newDeadline != null && !newDeadline.equals(oldDeadline);
+        String why = body.get("reason") == null ? "" : body.get("reason").trim();
+        if ((rateChanged || pauseSet) && why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the rate or pause is changing (at least 5 characters).");
+        }
+        p.setStorageFeeOverride(newRate);
+        p.setNegotiationDeadline(newDeadline);
+        projectRepository.save(p);
+        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
+                + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default")
+                + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
+                + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toString() : "not paused")
+                + " -> " + (newDeadline != null ? newDeadline.toString() : "not paused") + ")"
+                + (why.isEmpty() ? "" : ". Reason: " + why));""",
+"FolderPortalController.settings: reason required for a rate change or new pause; old -> new audit")
+
+# A2. The three older fee endpoints (no page uses them, but the server allowed them with no reason -- e.g. set the
+#     accumulated fees to any figure). They now need a reason too.
+patch(LAND_CTRL,
+"""    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
+                                                   @RequestParam boolean paused) {
+        landService.setStoragePaused(id, paused);""",
+"""    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
+                                                   @RequestParam boolean paused,
+                                                   @RequestParam String reason) {
+        landService.setStoragePaused(id, paused, reason);""",
+"LandController: storage-pause needs a reason")
+patch(LAND_CTRL,
+"""    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal rate) {
+        landService.setStorageFeeOverride(id, rate);""",
+"""    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal rate,
+                                               @RequestParam String reason) {
+        landService.setStorageFeeOverride(id, rate, reason);""",
+"LandController: storage-rate needs a reason")
+patch(LAND_CTRL,
+"""    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount) {
+        landService.setAccumulatedFees(id, amount);""",
+"""    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam String reason) {
+        landService.setAccumulatedFees(id, amount, reason);""",
+"LandController: storage-fees needs a reason")
+
 patch(LAND_SERVICE,
-"""    private final ProjectStageRepository projectStageRepository;
-""",
-"""    private final ProjectStageRepository projectStageRepository;
-    private final LandTitleRepository landTitleRepository;
-""",
-"LandService: inject LandTitleRepository")
-
-# A2. The revert itself: director/admin only, reason, refuses unsafe cases, audits the old title values.
-patch(LAND_SERVICE,
-"""            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
-    }
-""",
-"""            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
-    }
-
-    // fix163: REVERT A SAVED TITLE BACK TO STAGES.
-    // Director/admin only. Needs a reason. Refused when the title was handed over, when the project is
-    // Receivable or Legacy, and when the project was created as New Title / Legacy Title (it has no stages).
-    // The title row is deleted (this frees the plot number); the old values are kept in the audit line.
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void revertTitle(UUID id, String reason) {
+"""    public void setStoragePaused(UUID projectId, boolean paused) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));""",
+"""    public void setStoragePaused(UUID projectId, boolean paused, String reason) {
         String why = reason == null ? "" : reason.trim();
         if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the title is being reverted (at least 5 characters).");
+            throw new BusinessException("REASON_REQUIRED: Write why the storage fees are being paused or resumed (at least 5 characters).");
         }
-        LandProject project = projectRepository.findById(id)
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));""",
+"LandService.setStoragePaused: reason required")
+patch(LAND_SERVICE,
+"""action.toLowerCase() + " monthly storage fees for plot: \"""",
+"""action.toLowerCase() + " monthly storage fees (reason: " + why + ") for plot: \"""",
+"LandService.setStoragePaused: reason in audit")
+
+patch(LAND_SERVICE,
+"""    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {
+        LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        LandTitle title = project.getLandTitle();
-        if (title == null) {
-            throw new BusinessException("REVERT_DENIED: This project has no saved title to revert.");
+        project.setStorageFeeOverride(rate);
+        projectRepository.save(project);
+        auditService.logAction("STORAGE_RATE_CHANGED",
+            "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
+            + " for plot: " + plotLabel(project)
+            + " (previously UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");""",
+"""    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the monthly storage rate is changing (at least 5 characters).");
         }
-        if (title.isReleased()) {
-            throw new BusinessException("REVERT_DENIED: The title was handed over. Undo the hand-over first.");
+        if (rate != null && rate.signum() < 0) {
+            throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
         }
-        if (project.isReceivable() || project.isLegacy()) {
-            throw new BusinessException("REVERT_DENIED: A Receivable or Legacy project cannot be reverted to stages.");
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        java.math.BigDecimal previous = project.getStorageFeeOverride();
+        project.setStorageFeeOverride(rate);
+        projectRepository.save(project);
+        auditService.logAction("STORAGE_RATE_CHANGED",
+            "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
+            + " for plot: " + plotLabel(project)
+            + " (previously UGX " + (previous != null ? previous : "50000 (default)") + "). Reason: " + why);""",
+"LandService.setStorageFeeOverride: reason required, audit shows the real previous rate")
+
+patch(LAND_SERVICE,
+"""    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));""",
+"""    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the accumulated fees are being adjusted (at least 5 characters).");
         }
-        java.util.List<com.gesolutions.erp.modules.land.model.ProjectStage> stages =
-                projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
-        if (stages.isEmpty()) {
-            throw new BusinessException("REVERT_DENIED: This project was created with its title (New Title / Legacy Title), so it has no stages to go back to.");
+        if (amount == null || amount.signum() < 0) {
+            throw new BusinessException("FEES_INVALID: The accumulated fees cannot be negative.");
         }
-        String oldValues = "plot " + title.getPlotNumber() + ", title ID " + title.getTitleId()
-                + ", tenure " + title.getTenure() + ", block " + title.getBlockRoad()
-                + ", title date " + title.getTitleIssueDate();
-        project.setLandTitle(null);
-        project.setStatus("ACTIVE");
-        projectRepository.saveAndFlush(project);
-        landTitleRepository.delete(title);
-        com.gesolutions.erp.modules.land.model.ProjectStage last = stages.get(stages.size() - 1);
-        if (last.isCompleted()) {
-            last.setCompleted(false);
-            last.setCompletedAt(null);
-            projectStageRepository.save(last);
-        }
-        auditService.logAction("TITLE_REVERTED",
-            "Operator [" + getCurrentOperator() + "] reverted the saved title of project " + project.getProjectIndex()
-            + " back to stages. Old title: " + oldValues + ". Reason: " + why);
-    }
-""",
-"LandService: revertTitle (director/admin, reason, audited, deletes the title row, un-ticks last stage)")
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));""",
+"LandService.setAccumulatedFees: reason required, no negative figure")
+patch(LAND_SERVICE,
+"""+ " to UGX " + amount + " for plot: " + plotLabel(project));""",
+"""+ " to UGX " + amount + " for plot: " + plotLabel(project) + ". Reason: " + why);""",
+"LandService.setAccumulatedFees: reason in audit")
 
-# A3. Endpoint
-patch(LAND_CTRL,
-"""        landService.undoRelease(id, reason);
-        return ResponseEntity.ok().build();
-    }
-""",
-"""        landService.undoRelease(id, reason);
-        return ResponseEntity.ok().build();
-    }
-
-    // fix163: revert a saved title back to the stage checklist
-    @PatchMapping("/projects/{id}/revert-title")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> revertTitle(@PathVariable UUID id, @RequestParam String reason) {
-        landService.revertTitle(id, reason);
-        return ResponseEntity.ok().build();
-    }
-""",
-"LandController: PATCH /projects/{id}/revert-title")
-
-# =========================== PART B -- FRONTEND ===========================
-
-# B1. service call
-patch(LAND_SVC,
-"""    undoRelease: async (projectId, reason) => {
-        await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
-    },
-""",
-"""    undoRelease: async (projectId, reason) => {
-        await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
-    },
-
-    // fix163: revert a saved title back to stages
-    revertTitle: async (projectId, reason) => {
-        await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
-    },
-""",
-"landService.js: revertTitle")
-
-# B2. the stage panel tells the page how many stages the project has (so titled New Title projects show no empty panel)
+# =========================== PART B -- FRONTEND: SAVE RATE and PAUSE FEES ask for a reason ===========================
 patch(FOLDER_JSX,
-"({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle }, ref) => {",
-"({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle, onLoaded }, ref) => {",
-"Folder: stage panel takes onLoaded")
+"""<HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE RATE</HardwareButton>""",
+"""<HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => openReasonModal({ kind: 'RATE', title: 'CHANGE MONTHLY STORAGE RATE', confirmLabel: 'SAVE RATE',
+                                            info: 'New monthly rate: ' + (rateFee ? 'UGX ' + fmt(Number(rateFee)) : 'the default (UGX 50,000)') + '. It applies to future months only; fees already added stay as they are. Write why it is changing (for example the agreed figure after negotiation).' })}>SAVE RATE</HardwareButton>""",
+"Folder: SAVE RATE opens the reason popup")
 patch(FOLDER_JSX,
-"const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);",
-"const loadStages = useCallback(async () => { try { const list = await stageTemplateService.getProjectStages(projectId) || []; setStages(list); if (onLoaded) onLoaded(list.length); } catch {} finally { setLoading(false); } }, [projectId, onLoaded]);",
-"Folder: stage panel reports its stage count")
-
-# B3. page state
+"""<HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>PAUSE FEES</HardwareButton>""",
+"""<HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => { if (!rateDeadline) { toast('PICK THE DATE THE PAUSE ENDS FIRST', 'error'); return; } openReasonModal({ kind: 'PAUSE', title: 'PAUSE STORAGE FEES', confirmLabel: 'PAUSE FEES',
+                                            info: 'No new storage fees will be added until ' + String(rateDeadline).slice(0, 10) + '. Write why (for example the client is negotiating).' }); }}>PAUSE FEES</HardwareButton>""",
+"Folder: PAUSE FEES opens the reason popup")
 patch(FOLDER_JSX,
-"const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');",
-"const [stageCount, setStageCount] = useState(0);\n    const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');",
-"Folder: stageCount state")
-
-# B4. the stage list stays visible (read-only) after a title exists; hidden only if the project has no stages
-patch(FOLDER_JSX,
-"""{!project.landTitle && (
-<section className={styles.hwPanel} aria-label="Stage Checklist\"""",
-"""{(
-<section className={styles.hwPanel} aria-label="Stage Checklist\"""",
-"Folder: stage panel no longer disappears once a title exists")
-patch(FOLDER_JSX,
-"style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle) ? { display: 'none' } : {}}>",
-"style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle || (project.landTitle && stageCount < 1)) ? { display: 'none' } : {}}>",
-"Folder: hide the stage panel only for titled projects that have no stages")
-patch(FOLDER_JSX,
-"<StageChecklistPanel ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing} canRemove={isDirector && isEditing} toast={toast} confirm={confirm}",
-"<StageChecklistPanel key={project.landTitle ? 'titled' : 'folder'} ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing && !project.landTitle} canRemove={isDirector && isEditing && !project.landTitle} toast={toast} confirm={confirm} onLoaded={setStageCount}",
-"Folder: stage panel read-only when titled, reloads when the title appears or goes")
-
-# B5. REVERT TO STAGES button (director/admin), next to the hand-over buttons
-patch(FOLDER_JSX,
-"{canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}",
-"""{canMoney && project.landTitle && !project.landTitle.isReleased && !project.isLegacy && !isReceivable && stageCount > 0 && (
-                            <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
-                                onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
-                                    info: 'This removes the saved title (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the final stage, so the project goes back to the stage checklist. The old title values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo in the title, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REVERT TO STAGES</button>)}
-                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}""",
-"Folder: REVERT TO STAGES button")
-
-# B6. the reason popup runs it
-patch(FOLDER_JSX,
-"else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }",
-"else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }\n            else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }",
-"Folder: reason popup runs REVERT_TITLE")
+"else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }",
+"""else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
+            else if (m.kind === 'RATE') { await folderPortalService.settings(id, { rate: rateFee, reason: why }); toast('Monthly storage rate saved.', 'success'); }
+            else if (m.kind === 'PAUSE') { await folderPortalService.settings(id, { deadline: rateDeadline, reason: why }); setFreezeOpen(false); toast('Storage fees paused.', 'info'); }""",
+"Folder: reason popup runs RATE and PAUSE")
 
 # =========================== PART C -- GUIDE ===========================
 patch(GUIDE,
-"- DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.",
-"""- DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.
-- FOLDER PAGE BACKBONE PLAN (David's 6 steps): 1 money loopholes = DONE (fix162). 2 revert a saved title to stages = DONE (fix163: director/admin, reason, audited; `LandService.revertTitle`, `PATCH /land/projects/{id}/revert-title`; refused after hand-over, on Receivable/Legacy projects and on New Title/Legacy Title projects that have no stages; the title row is deleted and its old values go into the TITLE_REVERTED audit line; the stage checklist now stays visible read-only after titling). 3 fee negotiation = PARTLY (REDUCE FEES done; still to do: changeable 50,000 default, a reason on every rate change). 4 real call logs = TO DO (must reuse the Recovery notes / 2-14 lock; add promise date, promised amount, next follow-up date). 5 RELEASE + PROBLEM improvements (show reason and who flagged it) = TO DO. 6 per-plot history tab = TO DO.""",
-"Guide: Section 15 backbone plan status")
+"3 fee negotiation = PARTLY (REDUCE FEES done; still to do: changeable 50,000 default, a reason on every rate change).",
+"3 fee negotiation = DONE except an editable global default (fix164: REDUCE/WAIVE/rate change/pause all need a reason of 5+ characters and audit old -> new; the older `storage-pause`, `storage-rate` and `storage-fees` endpoints on LandController now also need `reason`; SAVE RATE and PAUSE FEES send only what changed, so saving a rate can no longer silently clear a pause). The 50,000 default is still a constant in ReceivableSchedulerService (a global editable default needs a settings table -- David to decide).",
+"Guide: Section 15 step 3 status")
 
 # ============================= EDIT PART 2 END =============================
 

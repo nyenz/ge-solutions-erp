@@ -483,6 +483,8 @@ useEffect(() => {
         try {
             if (m.kind === 'REVERSE') { await landService.reversePayment(id, m.paymentId, why); toast('Payment reversed.', 'warn'); }
             else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
+            else if (m.kind === 'RATE') { await folderPortalService.settings(id, { rate: rateFee, reason: why }); toast('Monthly storage rate saved.', 'success'); }
+            else if (m.kind === 'PAUSE') { await folderPortalService.settings(id, { deadline: rateDeadline, reason: why }); setFreezeOpen(false); toast('Storage fees paused.', 'info'); }
             else if (m.kind === 'WAIVE') { await folderPortalService.exit(id, 'WAIVE', why); toast('Storage fees waived.', 'success'); }
             else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }
             else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }
@@ -812,7 +814,8 @@ useEffect(() => {
                                 <div className={styles.inputGrid3}>
                                     <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} hint="Blank = default 50,000" />
                                     <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>&nbsp;</label></div>
-                                        <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>SAVE RATE</HardwareButton></div>
+                                        <HardwareButton type="button" icon={FiSave} loading={recvBusy} onClick={() => openReasonModal({ kind: 'RATE', title: 'CHANGE MONTHLY STORAGE RATE', confirmLabel: 'SAVE RATE',
+                                            info: 'New monthly rate: ' + (rateFee ? 'UGX ' + fmt(Number(rateFee)) : 'the default (UGX 50,000)') + '. It applies to future months only; fees already added stay as they are. Write why it is changing (for example the agreed figure after negotiation).' })}>SAVE RATE</HardwareButton></div>
                                 </div>
                                 <div className={styles.recvActionRow}>
                                     {project.negotiationDeadline ? (<>
@@ -820,7 +823,8 @@ useEffect(() => {
                                         <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> RESUME FEES</button>
                                     </>) : freezeOpen ? (<>
                                         <input type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} />
-                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>PAUSE FEES</HardwareButton>
+                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => { if (!rateDeadline) { toast('PICK THE DATE THE PAUSE ENDS FIRST', 'error'); return; } openReasonModal({ kind: 'PAUSE', title: 'PAUSE STORAGE FEES', confirmLabel: 'PAUSE FEES',
+                                            info: 'No new storage fees will be added until ' + String(rateDeadline).slice(0, 10) + '. Write why (for example the client is negotiating).' }); }}>PAUSE FEES</HardwareButton>
                                         <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
                                     </>) : (
                                         <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> PAUSE FEES UNTIL A DATE</button>

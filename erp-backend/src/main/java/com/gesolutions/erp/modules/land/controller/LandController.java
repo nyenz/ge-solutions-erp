@@ -241,24 +241,27 @@ public class LandController {
     @PatchMapping("/projects/{id}/storage-pause")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
-                                                   @RequestParam boolean paused) {
-        landService.setStoragePaused(id, paused);
+                                                   @RequestParam boolean paused,
+                                                   @RequestParam String reason) {
+        landService.setStoragePaused(id, paused, reason);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/projects/{id}/storage-rate")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal rate) {
-        landService.setStorageFeeOverride(id, rate);
+                                               @RequestParam java.math.BigDecimal rate,
+                                               @RequestParam String reason) {
+        landService.setStorageFeeOverride(id, rate, reason);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/projects/{id}/storage-fees")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal amount) {
-        landService.setAccumulatedFees(id, amount);
+                                               @RequestParam java.math.BigDecimal amount,
+                                               @RequestParam String reason) {
+        landService.setAccumulatedFees(id, amount, reason);
         return ResponseEntity.ok().build();
     }
 

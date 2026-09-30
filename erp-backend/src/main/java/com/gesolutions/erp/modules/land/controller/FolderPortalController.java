@@ -173,16 +173,37 @@ public class FolderPortalController {
     @Transactional
     public Map<String, Object> settings(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        // fix164: a rate change or a NEW pause date needs a written reason and is audited as OLD -> NEW.
+        // Clearing a pause (RESUME FEES) needs no reason.
+        BigDecimal oldRate = p.getStorageFeeOverride();
+        LocalDateTime oldDeadline = p.getNegotiationDeadline();
+        BigDecimal newRate = oldRate;
+        LocalDateTime newDeadline = oldDeadline;
         if (body.containsKey("rate")) {
-            p.setStorageFeeOverride(body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate")));
+            newRate = body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate"));
+            if (newRate != null && newRate.signum() < 0) {
+                throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
+            }
         }
         if (body.containsKey("deadline")) {
-            p.setNegotiationDeadline(body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline")));
+            newDeadline = body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline"));
         }
+        boolean rateChanged = (oldRate == null) != (newRate == null)
+                || (oldRate != null && newRate != null && oldRate.compareTo(newRate) != 0);
+        boolean pauseSet = newDeadline != null && !newDeadline.equals(oldDeadline);
+        String why = body.get("reason") == null ? "" : body.get("reason").trim();
+        if ((rateChanged || pauseSet) && why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the rate or pause is changing (at least 5 characters).");
+        }
+        p.setStorageFeeOverride(newRate);
+        p.setNegotiationDeadline(newDeadline);
         projectRepository.save(p);
         auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
-                + " (monthly rate: " + (p.getStorageFeeOverride() != null ? "UGX " + p.getStorageFeeOverride().toPlainString() : "default")
-                + ", fees paused until: " + (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toString() : "not paused") + ").");
+                + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default")
+                + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
+                + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toString() : "not paused")
+                + " -> " + (newDeadline != null ? newDeadline.toString() : "not paused") + ")"
+                + (why.isEmpty() ? "" : ". Reason: " + why));
         return receivable(id);
     }
 }

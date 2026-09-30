@@ -922,34 +922,53 @@ public class LandService {
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setStoragePaused(UUID projectId, boolean paused) {
+    public void setStoragePaused(UUID projectId, boolean paused, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the storage fees are being paused or resumed (at least 5 characters).");
+        }
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         project.setStoragePaused(paused);
         projectRepository.save(project);
         String action = paused ? "PAUSED" : "RESUMED";
         auditService.logAction("STORAGE_FEE_" + action,
-            "Operator [" + getCurrentOperator() + "] " + action.toLowerCase() + " monthly storage fees for plot: "
+            "Operator [" + getCurrentOperator() + "] " + action.toLowerCase() + " monthly storage fees (reason: " + why + ") for plot: "
             + plotLabel(project)
             + " (monthly rate: UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
     }
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate) {
+    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the monthly storage rate is changing (at least 5 characters).");
+        }
+        if (rate != null && rate.signum() < 0) {
+            throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
+        }
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        java.math.BigDecimal previous = project.getStorageFeeOverride();
         project.setStorageFeeOverride(rate);
         projectRepository.save(project);
         auditService.logAction("STORAGE_RATE_CHANGED",
             "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
             + " for plot: " + plotLabel(project)
-            + " (previously UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
+            + " (previously UGX " + (previous != null ? previous : "50000 (default)") + "). Reason: " + why);
     }
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount) {
+    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the accumulated fees are being adjusted (at least 5 characters).");
+        }
+        if (amount == null || amount.signum() < 0) {
+            throw new BusinessException("FEES_INVALID: The accumulated fees cannot be negative.");
+        }
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         java.math.BigDecimal old = project.getStorageFeesAccumulated();
@@ -957,7 +976,7 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("STORAGE_FEES_ADJUSTED",
             "Operator [" + getCurrentOperator() + "] manually adjusted accumulated storage fees from UGX " + old
-            + " to UGX " + amount + " for plot: " + plotLabel(project));
+            + " to UGX " + amount + " for plot: " + plotLabel(project) + ". Reason: " + why);
     }
 
     @Transactional
