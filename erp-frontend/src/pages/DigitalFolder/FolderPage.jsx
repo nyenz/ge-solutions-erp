@@ -228,6 +228,7 @@ if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current
     return (<div className={styles.stageList}>
         {canEdit && (<div className={styles.stageListTop}>
             <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving}><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>
+            <span className={styles.inputHint}>Ticks save the moment you click them. CANCEL does not undo them.</span>
         </div>)}
         {stages.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
         {stages.map((stage, i) => {
@@ -457,15 +458,15 @@ useEffect(() => {
         } catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
         finally { setCommitting(false); }
     };
-    const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees unfrozen.', 'info'); } catch { toast('UNFREEZE FAILED', 'error'); } };
-    const handleRelease = async () => { const ok = await confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title released.', 'success'); } catch (err) { toast(err.response?.data?.message || 'RELEASE FAILED', 'error', 8000); } };
+    const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees resumed.', 'info'); } catch { toast('RESUME FAILED', 'error'); } };
+    const handleRelease = async () => { const ok = await confirm('HAND OVER TITLE', 'Confirm the client has received the title deed. This marks the plot RELEASED and is recorded in the audit log. It cannot be undone from this page.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title handed over. Plot is now RELEASED.', 'success'); } catch (err) { toast(err.response?.data?.message || 'HAND OVER FAILED', 'error', 8000); } };
     const runToggleProblem = async (text) => { const was = project.problem; const note = (text || '').trim(); try { await folderPortalService.toggleProblem(id, note); if (!was && note) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); return true; } catch { toast('FLAG FAILED', 'error'); return false; } };
     // fix138: flagging opens the Golden Seed PROBLEM window (no browser prompt); clearing stays one click
     const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };
     const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };
     const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
-    const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
+    const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
     const handleNinBlurCheck = async (idx, val) => {
         if (!val.trim()) return;
@@ -531,9 +532,9 @@ useEffect(() => {
     const askReceivable = async (action) => {
         const msgs = {
             ENTER: ['MOVE TO RECEIVABLES', 'Freeze the balance and start monthly storage fees (default UGX 50,000). Continue?', 'warn'],
-            SET_ASIDE: ['SET ASIDE', 'Stop fee accumulation but KEEP the fee record so the client can be re-entered later. Continue?', 'warn'],
-            CAPITALIZE: ['CAPITALIZE FEES', 'Add accumulated storage fees to the total plot value. Continue?', 'warn'],
-            WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees. This cannot be undone. Continue?', 'danger'],
+            SET_ASIDE: ['SET ASIDE', 'Take this project out of receivables and stop new fees. The fee record is KEPT (hidden) so the project can be moved back later. Continue?', 'warn'],
+            CAPITALIZE: ['ADD FEES TO COST', 'Add the accumulated storage fees to the total cost and take this project out of receivables. Continue?', 'warn'],
+            WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees and take this project out of receivables. This cannot be undone. Continue?', 'danger'],
             SETTINGS: ['SAVE SETTINGS', 'Update the monthly rate / freeze deadline for this project. Continue?', 'warn'],
         };
         const m = msgs[action];
@@ -638,17 +639,18 @@ useEffect(() => {
                         {project.isLegacy && <span className={`${styles.textBadge} ${styles.badgeLegacy}`}>LEGACY</span>}
                         {project.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`}>PROBLEM</span>}
                         {project.storagePaused && <span className={`${styles.textBadge} ${styles.badgePaused}`}>STORAGE PAUSED</span>}
-                        {project.negotiationDeadline && <span className={`${styles.textBadge} ${styles.badgePaused}`}>NEGOTIATION</span>}
+                        {project.negotiationDeadline && <span className={`${styles.textBadge} ${styles.badgePaused}`}>FEES PAUSED</span>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
                     {!isEditing && (<div className={styles.ctrlGroup}>
                         <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>
-                        {canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> PAYMENT</button>}
+                        {canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
                         {canMoney && project.landTitle && (project.landTitle.isReleased
-                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled><FiCheckCircle aria-hidden="true" /> RELEASED</button>
-                            : <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>)}
-                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'PROBLEM ✓' : 'PROBLEM'}</button>}
+                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
+                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountPaid < totalValue}
+                                title={amountPaid < totalValue ? 'Cannot hand over yet: UGX ' + fmt(totalValue - amountPaid) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot.' : 'Flag this plot as having a problem and alert staff.'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
@@ -737,12 +739,12 @@ useEffect(() => {
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT OWED</label><span className={styles.autoCalcBadge}>AUTO</span></div>
                                     <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled /></div>
                             </div>) : isReceivable ? (<div className={styles.moneyStatsRow}>
-                                <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
+                                <div className={styles.statBox}><label>TOTAL COST</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label><strong style={{ color: 'var(--fs-red)' }}>UGX {fmt(storageFees)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
                                 <div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
                             </div>) : (<div className={styles.moneyStatsRow}>
-                                <div className={styles.statBox}><label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>
+                                <div className={styles.statBox}><label>TOTAL COST</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label><strong style={{ color: 'var(--fs-green)' }}>UGX {fmt(amountPaid)}</strong></div>
                                 <div className={`${styles.statBox} ${amountOwed > 0 ? styles.statRed : styles.statGreen}`}><label>AMOUNT OWED</label><strong>UGX {fmt(activeAmountOwed)}</strong></div>
                             </div>)}
@@ -754,13 +756,13 @@ useEffect(() => {
 <CornerDecor hideTop />
                         {!isReceivable ? (
                             <div className={styles.recvActionRow}>
-                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>}
-                                <span className={styles.inputHint}>Storage fees apply only after a project is moved to receivables.</span>
+                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>MOVE TO RECEIVABLES</HardwareButton>}
+                                <span className={styles.inputHint}>Receivables = clients who still owe after the work is done. Moving this project there freezes the balance and starts a monthly storage fee (UGX 50,000 unless you set another rate), added every 30 days.</span>
                             </div>
                         ) : (<>
                             <div className={styles.moneyStatsRow}>
                                 <div className={`${styles.statBox} ${styles.statRed}`}><label>STORAGE FEES</label><strong>UGX {fmt(storageFees)}</strong></div>
-                                <div className={styles.statBox}><label>COMBINED TOTAL</label><strong>UGX {fmt(totalValue + storageFees)}</strong></div>
+                                <div className={styles.statBox}><label>COST + FEES</label><strong>UGX {fmt(totalValue + storageFees)}</strong></div>
                                 <div className={`${styles.statBox} ${styles.statRed}`}><label>TOTAL OWED</label><strong>UGX {fmt(receivableAmountOwed)}</strong></div>
                             </div>
                             {canMoney && (<div className={styles.storageBlock}>
@@ -771,24 +773,25 @@ useEffect(() => {
                                 </div>
                                 <div className={styles.recvActionRow}>
                                     {project.negotiationDeadline ? (<>
-                                        <span className={styles.frozenChip}>FROZEN UNTIL {String(project.negotiationDeadline).slice(0, 10)}</span>
-                                        <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> UNFREEZE</button>
+                                        <span className={styles.frozenChip}>FEES PAUSED UNTIL {String(project.negotiationDeadline).slice(0, 10)}</span>
+                                        <button type="button" className={styles.ghostBtn} onClick={handleUnfreeze}><FiUnlock aria-hidden="true" /> RESUME FEES</button>
                                     </>) : freezeOpen ? (<>
                                         <input type="datetime-local" className={styles.dtInput} value={rateDeadline} onChange={e => setRateDeadline(e.target.value)} />
-                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>CONFIRM FREEZE</HardwareButton>
+                                        <HardwareButton type="button" icon={FiCheckCircle} loading={recvBusy} onClick={() => askReceivable('SETTINGS')}>PAUSE FEES</HardwareButton>
                                         <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(false)}><FiX aria-hidden="true" /> CANCEL</button>
                                     </>) : (
-                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> FREEZE FEES</button>
+                                        <button type="button" className={styles.ghostBtn} onClick={() => setFreezeOpen(true)}><FiClock aria-hidden="true" /> PAUSE FEES UNTIL A DATE</button>
                                     )}
                                 </div>
                             </div>)}
                             <div className={styles.recvActionRow}>
                                 {canMoney && (<>
-                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE</HardwareButton>
-                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> CAPITALIZE</button>
-                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE</button>
+                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE (KEEP FEES)</HardwareButton>
+                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
+                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
                                 </>)}
                             </div>
+                            {canMoney && <div className={styles.inputHint}>SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables.</div>}
                         </>)}
                     </div></div>
                 </section>

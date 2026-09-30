@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix159: basic colours, unsaved-changes popup without the duplicate button, tray = frame dark.
+# GOLDEN SEED -- fix161: Folder page wording + feedback: RELEASE / PROBLEM / stage ticks / Financials / Storage.
 #
-# 1. Action colours are simple basics: blue, purple, yellow, cyan, orange, green, pink for the everyday actions;
-#    rare actions share one colour per type (red / brown / teal / grey).
-# 2. Unsaved-changes popup: the X stays, the KEEP EDITING button is removed (only DISCARD & LEAVE remains).
-# 3. The band between the outer border and the inner table is now the frame's own dark colour.
+# 1. RELEASE -> HAND OVER TITLE. Greyed out (with the reason on hover) until the title is fully paid, instead of
+#    letting you press it and get a hidden "Arrears Detected" error. Done state reads HANDED OVER.
+# 2. PROBLEM -> FLAG PROBLEM / CLEAR PROBLEM (the old "PROBLEM v" looked like "all good"). PAYMENT -> RECORD PAYMENT.
+# 3. Stage ticks: a hint says they save the instant you click and CANCEL does not undo them; the CANCEL popup says the same.
+# 4. Financials: "PLOT VALUE" -> "TOTAL COST" (same word as edit mode), "COMBINED TOTAL" -> "COST + FEES".
+# 5. Storage: plain-words buttons, hints, and confirm texts (all three exits also END the receivable).
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -15,8 +17,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix159"
-COMMIT_MSG = "fix159: basic action colours, unsaved popup keeps X only, tray takes frame dark"
+FIX_NO = "fix161"
+COMMIT_MSG = "fix161: folder page wording (hand over title, flag problem), stage tick hint, financial + storage clarity"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -24,10 +26,8 @@ BACKEND = os.path.join(ROOT, "erp-backend")
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
-AUDIT_CSS = os.path.join(SRC, "pages", "Audit", "AuditPage.module.css")
-AUDIT_JSX = os.path.join(SRC, "pages", "Audit", "AuditPage.jsx")
-MODAL_JSX = os.path.join(SRC, "components", "common", "UnsavedChangesModal.jsx")
-AUDIT_CAT = os.path.join(SRC, "pages", "Audit", "auditCatalog.js")
+FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
+FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -94,38 +94,78 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (AUDIT_CSS, AUDIT_CAT, MODAL_JSX)
+LOAD_FILES = (FOLDER_JSX, FOLDER_CSS)
 for _p in LOAD_FILES:
     load(_p)
 
-# ---- 1. Simple basic colours ----
-CAT_OLD = '/* fix158: colour by how often an action happens.\n   COMMON  = the actions staff do all day. Each one has its OWN obvious colour.\n   RARE    = everything else. Rare actions share a colour per TYPE (severity), so a red row always means\n             "destructive / privileged", amber = "changes money or a record", violet = contact history, slate = minor.\n   Orange is kept out on purpose (the opened readout text is orange). An unlisted code counts as rare / minor. */\nconst COMMON_COLOR = {\n    RECORD_UPDATED:          \'#3b82f6\',  // blue\n    EDIT_MODE_OPENED:        \'#ec4899\',  // pink\n    DOCUMENT_UPLOADED:       \'#06b6d4\',  // cyan\n    DOCUMENT_CATEGORY_ADDED: \'#84cc16\',  // lime\n    RECEIVABLE_ENTER:        \'#d946ef\',  // fuchsia\n    PAYMENT_RECORDED:        \'#22c55e\',  // green\n    EXPENSE_LOGGED:          \'#6366f1\',  // indigo\n    RECOVERY_NOTE:           \'#14b8a6\',  // teal\n};\nconst RARE_COLOR = {\n    high:  \'#ef4444\',  // red    -- destructive / privileged\n    med:   \'#f59e0b\',  // amber  -- changes money or a record\n    intel: \'#a78bfa\',  // violet -- contact history\n    low:   \'#64748b\',  // slate  -- minor\n};\nexport const actionColor = (code) => {\n    const key = String(code || \'\');\n    if (COMMON_COLOR[key]) return COMMON_COLOR[key];\n    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;\n};\n'
-CAT_NEW = "/* fix159: simple basic colours. Colour by how often an action happens.\n   COMMON = the actions staff do all day, each with its OWN basic colour (blue, green, yellow, purple, orange, cyan, pink).\n   RARE   = everything else, one shared colour per TYPE: red = destructive / privileged, brown = changes money or a\n            record, teal = contact history, grey = minor. An unlisted code counts as rare / minor. */\nconst COMMON_COLOR = {\n    RECORD_UPDATED:          '#2563eb',  // blue\n    EDIT_MODE_OPENED:        '#9333ea',  // purple\n    DOCUMENT_UPLOADED:       '#eab308',  // yellow\n    DOCUMENT_CATEGORY_ADDED: '#06b6d4',  // cyan\n    RECEIVABLE_ENTER:        '#f97316',  // orange\n    PAYMENT_RECORDED:        '#16a34a',  // green\n    EXPENSE_LOGGED:          '#ec4899',  // pink\n};\nconst RARE_COLOR = {\n    high:  '#dc2626',  // red\n    med:   '#92400e',  // brown\n    intel: '#0d9488',  // teal\n    low:   '#6b7280',  // grey\n};\nexport const actionColor = (code) => {\n    const key = String(code || '');\n    if (COMMON_COLOR[key]) return COMMON_COLOR[key];\n    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;\n};\n"
-patch(AUDIT_CAT, CAT_OLD, CAT_NEW, "Catalogue: simple basic colours")
+J = FOLDER_JSX
 
-# ---- 2. The band between the outer border and the inner table = the frame's own dark ----
-patch(AUDIT_CSS,
-      ".logTray { background: #c6bba4; padding: 10px;",
-      ".logTray { background: transparent; padding: 10px;",
-      "Audit CSS: tray takes the dark of the outer frame")
+# ---- 1. RELEASE -> HAND OVER TITLE ----
+patch(J, "confirm('RELEASE TITLE', 'Mark this title as released to the client? This records the handover.', 'warn')",
+         "confirm('HAND OVER TITLE', 'Confirm the client has received the title deed. This marks the plot RELEASED and is recorded in the audit log. It cannot be undone from this page.', 'warn')",
+         "Release: confirm popup")
+patch(J, "toast('Title released.', 'success');", "toast('Title handed over. Plot is now RELEASED.', 'success');", "Release: success toast")
+patch(J, "'RELEASE FAILED'", "'HAND OVER FAILED'", "Release: error toast")
+patch(J,
+"""                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled><FiCheckCircle aria-hidden="true" /> RELEASED</button>
+                            : <button className={styles.releaseBtn} onClick={handleRelease}><FiCheckCircle aria-hidden="true" /> RELEASE</button>)}""",
+"""                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
+                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountPaid < totalValue}
+                                title={amountPaid < totalValue ? 'Cannot hand over yet: UGX ' + fmt(totalValue - amountPaid) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}""",
+"Release: button (greyed until fully paid, reason on hover)")
+patch(FOLDER_CSS, ".releaseBtn:hover{background:#06b6d4;color:#1a2e30;}",
+      ".releaseBtn:hover:not(:disabled){background:#06b6d4;color:#1a2e30;}\n.releaseBtn:disabled:not(.releaseBtnDone){opacity:0.45;cursor:not-allowed;border-style:dashed;}",
+      "Release: greyed-out style")
 
-# ---- 3. Unsaved-changes popup: X stays, KEEP EDITING button goes ----
-patch(MODAL_JSX,
-      "import { FiAlertTriangle, FiSave, FiLogOut, FiX } from 'react-icons/fi';",
-      "import { FiAlertTriangle, FiLogOut, FiX } from 'react-icons/fi';",
-      "Modal: drop unused FiSave import")
-patch(MODAL_JSX,
-      " * The two buttons are real decisions (leave / stay), not a CANCEL, so DESIGN RULE 1 still holds.",
-      " * fix159: the KEEP EDITING button is gone (it duplicated the X). The only button left is DISCARD & LEAVE.",
-      "Modal: header note")
-patch(MODAL_JSX,
-      "onClick={onStay} aria-label=\"Close and keep editing\">",
-      "onClick={onStay} autoFocus aria-label=\"Close and keep editing\">",
-      "Modal: X takes the default focus (safe choice)")
-patch(MODAL_JSX,
-      "DISCARD &amp; LEAVE\n                    </button>\n                    <button className={modal.modalBtnPrimary} onClick={onStay} autoFocus\n                        aria-label=\"Stay on page and keep editing\">\n                        <FiSave aria-hidden=\"true\" /> KEEP EDITING\n                    </button>\n                </div>\n\n                <div className={modal.footerGlow} />",
-      "DISCARD &amp; LEAVE\n                    </button>\n                </div>\n\n                <div className={modal.footerGlow} />",
-      "Modal: remove KEEP EDITING button")
+# ---- 2. PROBLEM + PAYMENT wording ----
+patch(J, "onClick={handleToggleProblem}><FiAlertTriangle aria-hidden=\"true\" /> {project.problem ? 'PROBLEM ✓' : 'PROBLEM'}</button>",
+         "onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot.' : 'Flag this plot as having a problem and alert staff.'}><FiAlertTriangle aria-hidden=\"true\" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>",
+         "Problem: button wording")
+patch(J, "<FiDollarSign aria-hidden=\"true\" /> PAYMENT</button>", "<FiDollarSign aria-hidden=\"true\" /> RECORD PAYMENT</button>", "Payment: button wording")
+
+# ---- 3. Stage ticks: tell the truth ----
+patch(J, "<FiRefreshCw aria-hidden=\"true\" /> RESTORE DEFAULTS</button>\n        </div>)}",
+         "<FiRefreshCw aria-hidden=\"true\" /> RESTORE DEFAULTS</button>\n            <span className={styles.inputHint}>Ticks save the moment you click them. CANCEL does not undo them.</span>\n        </div>)}",
+         "Stages: save-instantly hint")
+patch(J, "confirm('DISCARD CHANGES', 'All unsaved changes will be lost.', 'warn')",
+         "confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn')",
+         "Stages: cancel popup tells the truth")
+
+# ---- 4. Financials: one word for one thing ----
+patch(J, "<label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>\n                                <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label>",
+         "<label>TOTAL COST</label><strong>UGX {fmt(totalValue)}</strong></div>\n                                <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label>",
+         "Financials: receivable card label")
+patch(J, "<label>PLOT VALUE</label><strong>UGX {fmt(totalValue)}</strong></div>\n                                <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label>",
+         "<label>TOTAL COST</label><strong>UGX {fmt(totalValue)}</strong></div>\n                                <div className={styles.statBox}><label style={{ color: 'var(--fs-green)' }}>PAID</label>",
+         "Financials: active card label")
+patch(J, "<label>COMBINED TOTAL</label>", "<label>COST + FEES</label>", "Financials: storage card label")
+
+# ---- 5. Storage: plain words ----
+patch(J, "onClick={() => askReceivable('ENTER')}>+ RECEIVABLES</HardwareButton>", "onClick={() => askReceivable('ENTER')}>MOVE TO RECEIVABLES</HardwareButton>", "Storage: enter button")
+patch(J, "Storage fees apply only after a project is moved to receivables.",
+         "Receivables = clients who still owe after the work is done. Moving this project there freezes the balance and starts a monthly storage fee (UGX 50,000 unless you set another rate), added every 30 days.",
+         "Storage: what receivables means")
+patch(J, ">SET ASIDE</HardwareButton>", ">SET ASIDE (KEEP FEES)</HardwareButton>", "Storage: set aside label")
+patch(J, "<FiCreditCard aria-hidden=\"true\" /> CAPITALIZE</button>", "<FiCreditCard aria-hidden=\"true\" /> ADD FEES TO COST</button>", "Storage: capitalize label")
+patch(J, "<FiTrash2 aria-hidden=\"true\" /> WAIVE</button>\n                                </>)}\n                            </div>",
+         "<FiTrash2 aria-hidden=\"true\" /> WAIVE FEES</button>\n                                </>)}\n                            </div>\n                            {canMoney && <div className={styles.inputHint}>SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables.</div>}",
+         "Storage: waive label + exits hint")
+patch(J, "SET_ASIDE: ['SET ASIDE', 'Stop fee accumulation but KEEP the fee record so the client can be re-entered later. Continue?', 'warn'],",
+         "SET_ASIDE: ['SET ASIDE', 'Take this project out of receivables and stop new fees. The fee record is KEPT (hidden) so the project can be moved back later. Continue?', 'warn'],",
+         "Storage: set aside popup")
+patch(J, "CAPITALIZE: ['CAPITALIZE FEES', 'Add accumulated storage fees to the total plot value. Continue?', 'warn'],",
+         "CAPITALIZE: ['ADD FEES TO COST', 'Add the accumulated storage fees to the total cost and take this project out of receivables. Continue?', 'warn'],",
+         "Storage: capitalize popup")
+patch(J, "WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees. This cannot be undone. Continue?', 'danger'],",
+         "WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees and take this project out of receivables. This cannot be undone. Continue?', 'danger'],",
+         "Storage: waive popup")
+patch(J, "FROZEN UNTIL {String(project.negotiationDeadline).slice(0, 10)}", "FEES PAUSED UNTIL {String(project.negotiationDeadline).slice(0, 10)}", "Storage: paused chip")
+patch(J, "<FiUnlock aria-hidden=\"true\" /> UNFREEZE</button>", "<FiUnlock aria-hidden=\"true\" /> RESUME FEES</button>", "Storage: resume button")
+patch(J, "onClick={() => askReceivable('SETTINGS')}>CONFIRM FREEZE</HardwareButton>", "onClick={() => askReceivable('SETTINGS')}>PAUSE FEES</HardwareButton>", "Storage: confirm pause")
+patch(J, "<FiClock aria-hidden=\"true\" /> FREEZE FEES</button>", "<FiClock aria-hidden=\"true\" /> PAUSE FEES UNTIL A DATE</button>", "Storage: pause button")
+patch(J, "toast('Fees unfrozen.', 'info')", "toast('Fees resumed.', 'info')", "Storage: resume toast")
+patch(J, "toast('UNFREEZE FAILED', 'error')", "toast('RESUME FAILED', 'error')", "Storage: resume error")
+patch(J, ">NEGOTIATION</span>", ">FEES PAUSED</span>", "Header badge: NEGOTIATION -> FEES PAUSED")
 
 # ============================= EDIT PART 2 END =============================
 
