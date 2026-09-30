@@ -187,6 +187,14 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
+    // fix163: revert a saved title back to the stage checklist
+    @PatchMapping("/projects/{id}/revert-title")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> revertTitle(@PathVariable UUID id, @RequestParam String reason) {
+        landService.revertTitle(id, reason);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/projects/{id}/payments/{paymentId}/reverse")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> reversePayment(@PathVariable UUID id, @PathVariable UUID paymentId,

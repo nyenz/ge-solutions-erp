@@ -132,6 +132,11 @@ const landService = {
         await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
     },
 
+    // fix163: revert a saved title back to stages
+    revertTitle: async (projectId, reason) => {
+        await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
+    },
+
     // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
     getDirectorDashboard: async (period = 'WEEK') => {
         const response = await api.get('/dashboard/director', { params: { period } });

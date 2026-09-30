@@ -150,7 +150,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 /* STAGE CHECKLIST - Intake mirror (fix117): Intake/Recovery button tones,
    first stage auto-ticked, first & last stages locked from delete,
    RESTORE DEFAULTS like Intake, insert-below never after the last stage. */
-const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle }, ref) => {
+const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle, onLoaded }, ref) => {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [addingStage, setAddingStage] = useState(false);
@@ -159,7 +159,7 @@ const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, 
     const [insertAfterName, setInsertAfterName] = useState('');
     const [saving, setSaving] = useState(false);
     const autoTicked = useRef(false);
-    const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);
+    const loadStages = useCallback(async () => { try { const list = await stageTemplateService.getProjectStages(projectId) || []; setStages(list); if (onLoaded) onLoaded(list.length); } catch {} finally { setLoading(false); } }, [projectId, onLoaded]);
     useEffect(() => { loadStages(); }, [loadStages]);
     useEffect(() => {
         if (!canEdit || autoTicked.current || loading || !stages.length) return;
@@ -303,6 +303,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', OWNERS: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
     const [payModal, setPayModal] = useState({ open: false });
+    const [stageCount, setStageCount] = useState(0);
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     // fix138: receipt for the payment being recorded + the PROBLEM window
@@ -484,6 +485,7 @@ useEffect(() => {
             else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
             else if (m.kind === 'WAIVE') { await folderPortalService.exit(id, 'WAIVE', why); toast('Storage fees waived.', 'success'); }
             else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }
+            else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }
             await loadFolderData();
             setReasonModal(x => ({ ...x, open: false }));
         } catch (err) { toast('FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
@@ -683,6 +685,10 @@ useEffect(() => {
                               </>)
                             : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountOwed > 0}
                                 title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                        {canMoney && project.landTitle && !project.landTitle.isReleased && !project.isLegacy && !isReceivable && stageCount > 0 && (
+                            <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
+                                onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
+                                    info: 'This removes the saved title (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the final stage, so the project goes back to the stage checklist. The old title values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo in the title, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REVERT TO STAGES</button>)}
                         {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot.' : 'Flag this plot as having a problem and alert staff.'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
@@ -751,12 +757,12 @@ useEffect(() => {
                         </>)}
                     </div></div>
                 </section>
-                {!project.landTitle && (
-<section className={styles.hwPanel} aria-label="Stage Checklist" style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle) ? { display: 'none' } : {}}>
+                {(
+<section className={styles.hwPanel} aria-label="Stage Checklist" style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle || (project.landTitle && stageCount < 1)) ? { display: 'none' } : {}}>
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
-                        <StageChecklistPanel ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing} canRemove={isDirector && isEditing} toast={toast} confirm={confirm}
+                        <StageChecklistPanel key={project.landTitle ? 'titled' : 'folder'} ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing && !project.landTitle} canRemove={isDirector && isEditing && !project.landTitle} toast={toast} confirm={confirm} onLoaded={setStageCount}
                             onLastStageToggle={(done) => touchedSetBuffer(p => ({ ...p, convertToTitle: done }))} />
                     </div></div>
                 </section>

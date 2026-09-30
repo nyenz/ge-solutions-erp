@@ -40,6 +40,7 @@ public class LandService {
     private final ProjectIndexService projectIndexService;
     private final StageTemplateService stageTemplateService;
     private final ProjectStageRepository projectStageRepository;
+    private final LandTitleRepository landTitleRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
@@ -869,6 +870,52 @@ public class LandService {
         projectRepository.save(project);
         auditService.logAction("TITLE_RELEASE_UNDONE",
             "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
+    }
+
+    // fix163: REVERT A SAVED TITLE BACK TO STAGES.
+    // Director/admin only. Needs a reason. Refused when the title was handed over, when the project is
+    // Receivable or Legacy, and when the project was created as New Title / Legacy Title (it has no stages).
+    // The title row is deleted (this frees the plot number); the old values are kept in the audit line.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void revertTitle(UUID id, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the title is being reverted (at least 5 characters).");
+        }
+        LandProject project = projectRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        LandTitle title = project.getLandTitle();
+        if (title == null) {
+            throw new BusinessException("REVERT_DENIED: This project has no saved title to revert.");
+        }
+        if (title.isReleased()) {
+            throw new BusinessException("REVERT_DENIED: The title was handed over. Undo the hand-over first.");
+        }
+        if (project.isReceivable() || project.isLegacy()) {
+            throw new BusinessException("REVERT_DENIED: A Receivable or Legacy project cannot be reverted to stages.");
+        }
+        java.util.List<com.gesolutions.erp.modules.land.model.ProjectStage> stages =
+                projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
+        if (stages.isEmpty()) {
+            throw new BusinessException("REVERT_DENIED: This project was created with its title (New Title / Legacy Title), so it has no stages to go back to.");
+        }
+        String oldValues = "plot " + title.getPlotNumber() + ", title ID " + title.getTitleId()
+                + ", tenure " + title.getTenure() + ", block " + title.getBlockRoad()
+                + ", title date " + title.getTitleIssueDate();
+        project.setLandTitle(null);
+        project.setStatus("ACTIVE");
+        projectRepository.saveAndFlush(project);
+        landTitleRepository.delete(title);
+        com.gesolutions.erp.modules.land.model.ProjectStage last = stages.get(stages.size() - 1);
+        if (last.isCompleted()) {
+            last.setCompleted(false);
+            last.setCompletedAt(null);
+            projectStageRepository.save(last);
+        }
+        auditService.logAction("TITLE_REVERTED",
+            "Operator [" + getCurrentOperator() + "] reverted the saved title of project " + project.getProjectIndex()
+            + " back to stages. Old title: " + oldValues + ". Reason: " + why);
     }
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────

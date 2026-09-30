@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix162: close the money loopholes on the Folder page + apply the Audit/Expenses look (old fix160).
+# GOLDEN SEED -- fix163: REVERT A SAVED TITLE BACK TO STAGES (step 2 of the Folder page backbone plan).
 #
-# MONEY (backend + folder page):
-#  1. AMOUNT PAID is locked in edit mode. The server ignores it too. It moves only via RECORD PAYMENT or REVERSE.
-#  2. Changing TOTAL COST needs a written reason (audited); cost cannot go below what is paid; a stale form is refused.
-#  3. REVERSE a payment (director/admin, reason, audited). The original stays; a negative REVERSAL line is added.
-#  4. REDUCE storage fees to an agreed lower total (reason, audited). WAIVE now needs a reason. Rate/pause audit shows values.
-#  5. UNDO a hand-over (director/admin, reason, audited). Hand-over is director/admin-only on the server too,
-#     and is blocked while storage fees are still owed.
-#  6. TITLE READY: UNDO and CANCEL now really un-tick the last stage (the checklist stays mounted while hidden).
-# LOOK (was fix160, never applied): peach hover + alternating rows on Audit and Expenses, thinner Audit border,
-#     inner border like Expenses, six basic action colours by group.
+#  1. New director/admin-only action REVERT TO STAGES on the Folder page (needs a reason, audited as TITLE_REVERTED).
+#     Backend: LandService.revertTitle + PATCH /land/projects/{id}/revert-title.
+#  2. It deletes the saved title (frees the unique plot number), un-ticks the final stage, puts the project back to ACTIVE,
+#     and keeps the old title values (plot, title ID, tenure, block, date) in the audit line.
+#  3. It is REFUSED (on the server, not just hidden in the page) when: the title was handed over (undo that first),
+#     the project is Receivable or Legacy, or the project was created as New Title / Legacy Title (no stages to go back to).
+#  4. The stage checklist no longer disappears once a title exists. It stays visible, read-only, with a fresh reload
+#     when the title appears or goes. Titled projects with no stages show no empty panel.
+#  5. LLM_CONTEXT_GUIDE.md Section 15 records the 6-step plan status (1 done, 2 done, 3 partly, 4-6 to do).
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -21,8 +20,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix162"
-COMMIT_MSG = "fix162: money loopholes closed (locked paid amount, cost reason, reverse payment, reduce/waive fees with reason, undo hand-over) + audit/expenses look"
+FIX_NO = "fix163"
+COMMIT_MSG = "fix163: revert a saved title back to stages (director/admin, reason, audited) + stage checklist stays visible after titling"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -31,17 +30,10 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
 FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
-FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
-AUDIT_CSS = os.path.join(SRC, "pages", "Audit", "AuditPage.module.css")
-AUDIT_CAT = os.path.join(SRC, "pages", "Audit", "auditCatalog.js")
-EXP_CSS = os.path.join(SRC, "pages", "Financials", "ExpensesPage.module.css")
-FOLDER_SVC = os.path.join(SRC, "services", "folderPortalService.js")
 LAND_SVC = os.path.join(SRC, "services", "landService.js")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp", "modules", "land")
 LAND_SERVICE = os.path.join(JAVA, "service", "LandService.java")
 LAND_CTRL = os.path.join(JAVA, "controller", "LandController.java")
-PORTAL_CTRL = os.path.join(JAVA, "controller", "FolderPortalController.java")
-ENTRY_DTO = os.path.join(JAVA, "dto", "LandEntryRequest.java")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -108,458 +100,171 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (FOLDER_JSX, FOLDER_CSS, AUDIT_CSS, AUDIT_CAT, EXP_CSS, FOLDER_SVC, LAND_SVC,
-              LAND_SERVICE, LAND_CTRL, PORTAL_CTRL, ENTRY_DTO)
+LOAD_FILES = (FOLDER_JSX, LAND_SVC, LAND_SERVICE, LAND_CTRL, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
 
-# =========================== PART A -- BACKEND (money can only move through recorded actions) ===========================
+# =========================== PART A -- BACKEND: revert a saved title back to stages ===========================
 
-# A1. The edit form can no longer overwrite AMOUNT PAID; a cost change needs a reason; stale forms are refused.
+# A1. LandService needs the title repository so the title row can really be deleted (frees the unique plot number).
 patch(LAND_SERVICE,
-"""        BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
-        project.setTotalCost(newTotalCost);
-        project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
-        project.setLegacy(request.isLegacy());""",
-"""        BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal oldTotalCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal currentPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+"""    private final ProjectStageRepository projectStageRepository;
+""",
+"""    private final ProjectStageRepository projectStageRepository;
+    private final LandTitleRepository landTitleRepository;
+""",
+"LandService: inject LandTitleRepository")
 
-        // fix162 EDIT CONFLICT: the form remembers the cost it was loaded with. If somebody else changed the
-        // cost in the meantime, refuse instead of silently overwriting their change.
-        if (request.getExpectedTotalCost() != null && request.getExpectedTotalCost().compareTo(oldTotalCost) != 0) {
-            throw new BusinessException("EDIT_CONFLICT: The total cost was changed by someone else (it is now UGX "
-                    + oldTotalCost.toPlainString() + "). Reload this folder and try again.");
-        }
-        // fix162 COST CHANGE: needs a written reason, cannot go below what is already paid, and is audited.
-        if (newTotalCost.compareTo(oldTotalCost) != 0) {
-            String costWhy = request.getCostChangeReason() != null ? request.getCostChangeReason().trim() : "";
-            if (costWhy.length() < 5) {
-                throw new BusinessException("COST_REASON_REQUIRED: Write why the total cost is changing (at least 5 characters).");
-            }
-            if (newTotalCost.compareTo(currentPaid) < 0) {
-                throw new BusinessException("COST_BELOW_PAID: The new cost (UGX " + newTotalCost.toPlainString()
-                        + ") is lower than the UGX " + currentPaid.toPlainString()
-                        + " already paid. Reverse the extra payment first.");
-            }
-            auditService.logAction("COST_CHANGED",
-                "Operator [" + getCurrentOperator() + "] changed total cost on " + plotLabel(project)
-                + " from UGX " + oldTotalCost.toPlainString() + " to UGX " + newTotalCost.toPlainString()
-                + ". Reason: " + costWhy);
-        }
-        project.setTotalCost(newTotalCost);
-        // fix162 AMOUNT PAID is never taken from the edit form. It only moves through RECORD PAYMENT and REVERSE.
-        project.setLegacy(request.isLegacy());""",
-"Java: edit form cannot overwrite amount paid; cost change needs a reason; stale form refused")
-
-# A2. Release: directors/admins only on the server too, and storage fees count as money owed.
+# A2. The revert itself: director/admin only, reason, refuses unsafe cases, audits the old title values.
 patch(LAND_SERVICE,
-"""    @Transactional
-    public void authorizeRelease(UUID id, String managerNote) {
-        LandProject project = projectRepository.findById(id).orElseThrow();
-        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
-            throw new BusinessException("RELEASE DENIED: Arrears Detected.");
-        }""",
-"""    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void authorizeRelease(UUID id, String managerNote) {
-        LandProject project = projectRepository.findById(id).orElseThrow();
-        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
-            throw new BusinessException("RELEASE DENIED: Arrears Detected.");
-        }
-        // fix162: storage fees still owed are arrears too.
-        if (project.isReceivable() && project.receivableTotalOwed().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException("RELEASE DENIED: Storage fees are still owed on this project.");
-        }""",
-"Java: release is director/admin only and blocked while storage fees are owed")
-
-# A3. New: reverse a payment, undo a hand-over (both need a reason, both are audited).
-patch(LAND_SERVICE, '    // ─── READ METHODS ─────────────────────────────────────────────────────────',
-"""    // fix162: REVERSE A PAYMENT. The original line stays in the history; a negative REVERSAL line is added,
-    // so every total, report and the audit trail stay honest.
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void reversePayment(UUID projectId, UUID paymentId, String reason) {
-        String why = reason == null ? "" : reason.trim();
-        if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why this payment is being reversed (at least 5 characters).");
-        }
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        PaymentRecord original = paymentRecordRepository.findById(paymentId)
-                .orElseThrow(() -> new BusinessException("PAYMENT_NOT_FOUND"));
-        if (!projectId.equals(original.getProjectId())) {
-            throw new BusinessException("PAYMENT_NOT_FOUND: That payment does not belong to this project.");
-        }
-        if ("REVERSAL".equals(original.getPaymentType()) || original.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("REVERSAL_BLOCKED: A reversal cannot be reversed. Record a new payment instead.");
-        }
-        String marker = "[REVERSAL OF " + paymentId + "]";
-        for (PaymentRecord r : paymentRecordRepository.findByProjectIdOrderByTimestampDesc(projectId)) {
-            if (r.getNotes() != null && r.getNotes().startsWith(marker)) {
-                throw new BusinessException("REVERSAL_BLOCKED: This payment was already reversed.");
-            }
-        }
-        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
-            throw new BusinessException("REVERSAL_BLOCKED: The title has been handed over. Undo the hand-over first.");
-        }
-        BigDecimal paid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
-        if (original.getAmountPaid().compareTo(paid) > 0) {
-            throw new BusinessException("REVERSAL_BLOCKED: Reversing UGX " + original.getAmountPaid().toPlainString()
-                    + " would take the total paid below zero.");
-        }
-        project.setAmountPaid(paid.subtract(original.getAmountPaid()));
-        BigDecimal balanceAfter = project.isReceivable()
-                ? project.receivableTotalOwed()
-                : project.getTotalCost().subtract(project.getAmountPaid());
-        PaymentRecord reversal = PaymentRecord.builder()
-                .projectId(projectId)
-                .amountPaid(original.getAmountPaid().negate())
-                .paymentType("REVERSAL")
-                .recordedBy(getCurrentOperator())
-                .notes(marker + " " + why)
-                .balanceAfter(balanceAfter)
-                .build();
-        paymentRecordRepository.save(reversal);
-        projectRepository.save(project);
-        auditService.logAction("PAYMENT_REVERSED",
-            "Operator [" + getCurrentOperator() + "] reversed UGX " + original.getAmountPaid().toPlainString()
-            + " on " + plotLabel(project) + ". Reason: " + why);
+"""            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
+    }
+""",
+"""            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
 
-    // fix162: UNDO A HAND-OVER (the title goes back to "not handed over"). Reason required, audited.
+    // fix163: REVERT A SAVED TITLE BACK TO STAGES.
+    // Director/admin only. Needs a reason. Refused when the title was handed over, when the project is
+    // Receivable or Legacy, and when the project was created as New Title / Legacy Title (it has no stages).
+    // The title row is deleted (this frees the plot number); the old values are kept in the audit line.
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void undoRelease(UUID id, String reason) {
+    public void revertTitle(UUID id, String reason) {
         String why = reason == null ? "" : reason.trim();
         if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the hand-over is being undone (at least 5 characters).");
+            throw new BusinessException("REASON_REQUIRED: Write why the title is being reverted (at least 5 characters).");
         }
         LandProject project = projectRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        if (project.getLandTitle() == null || !project.getLandTitle().isReleased()) {
-            throw new BusinessException("UNDO_DENIED: This title has not been handed over.");
+        LandTitle title = project.getLandTitle();
+        if (title == null) {
+            throw new BusinessException("REVERT_DENIED: This project has no saved title to revert.");
         }
-        project.getLandTitle().setReleased(false);
-        project.setStatus(project.isReceivable() ? "RECEIVABLE" : "ACTIVE");
-        projectRepository.save(project);
-        auditService.logAction("TITLE_RELEASE_UNDONE",
-            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
+        if (title.isReleased()) {
+            throw new BusinessException("REVERT_DENIED: The title was handed over. Undo the hand-over first.");
+        }
+        if (project.isReceivable() || project.isLegacy()) {
+            throw new BusinessException("REVERT_DENIED: A Receivable or Legacy project cannot be reverted to stages.");
+        }
+        java.util.List<com.gesolutions.erp.modules.land.model.ProjectStage> stages =
+                projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
+        if (stages.isEmpty()) {
+            throw new BusinessException("REVERT_DENIED: This project was created with its title (New Title / Legacy Title), so it has no stages to go back to.");
+        }
+        String oldValues = "plot " + title.getPlotNumber() + ", title ID " + title.getTitleId()
+                + ", tenure " + title.getTenure() + ", block " + title.getBlockRoad()
+                + ", title date " + title.getTitleIssueDate();
+        project.setLandTitle(null);
+        project.setStatus("ACTIVE");
+        projectRepository.saveAndFlush(project);
+        landTitleRepository.delete(title);
+        com.gesolutions.erp.modules.land.model.ProjectStage last = stages.get(stages.size() - 1);
+        if (last.isCompleted()) {
+            last.setCompleted(false);
+            last.setCompletedAt(null);
+            projectStageRepository.save(last);
+        }
+        auditService.logAction("TITLE_REVERTED",
+            "Operator [" + getCurrentOperator() + "] reverted the saved title of project " + project.getProjectIndex()
+            + " back to stages. Old title: " + oldValues + ". Reason: " + why);
     }
-
-""" + '    // ─── READ METHODS ─────────────────────────────────────────────────────────',
-"Java: reversePayment + undoRelease")
-
-# A4. Controller: release locked to directors/admins; new endpoints.
-patch(LAND_CTRL,
-"""    @PatchMapping("/projects/{id}/release")
-    public ResponseEntity<Void> authorizeRelease(""",
-"""    @PatchMapping("/projects/{id}/release")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> authorizeRelease(""",
-"Controller: release is director/admin only")
-patch(LAND_CTRL,
-"""    @PostMapping("/projects/{id}/receivable")
 """,
-"""    @PatchMapping("/projects/{id}/undo-release")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> undoRelease(@PathVariable UUID id, @RequestParam String reason) {
-        landService.undoRelease(id, reason);
+"LandService: revertTitle (director/admin, reason, audited, deletes the title row, un-ticks last stage)")
+
+# A3. Endpoint
+patch(LAND_CTRL,
+"""        landService.undoRelease(id, reason);
+        return ResponseEntity.ok().build();
+    }
+""",
+"""        landService.undoRelease(id, reason);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/projects/{id}/payments/{paymentId}/reverse")
+    // fix163: revert a saved title back to the stage checklist
+    @PatchMapping("/projects/{id}/revert-title")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> reversePayment(@PathVariable UUID id, @PathVariable UUID paymentId,
-                                               @RequestParam String reason) {
-        landService.reversePayment(id, paymentId, reason);
+    public ResponseEntity<Void> revertTitle(@PathVariable UUID id, @RequestParam String reason) {
+        landService.revertTitle(id, reason);
         return ResponseEntity.ok().build();
     }
-
-    @PostMapping("/projects/{id}/receivable")
 """,
-"Controller: undo-release + reverse-payment endpoints")
+"LandController: PATCH /projects/{id}/revert-title")
 
-# A5. Request DTO: the two new fields.
-patch(ENTRY_DTO,
-"""    private BigDecimal totalCost;
-    private BigDecimal initialPayment;
-""",
-"""    private BigDecimal totalCost;
-    private BigDecimal initialPayment;
+# =========================== PART B -- FRONTEND ===========================
 
-    // fix162 money safety: why the total cost changed, and the cost this form was loaded with (edit-conflict guard)
-    private String costChangeReason;
-    private BigDecimal expectedTotalCost;
-""",
-"DTO: costChangeReason + expectedTotalCost")
-
-# A6. Fees: waive needs a reason; new REDUCE-FEES action; rate/pause changes show their values in the audit.
-patch(PORTAL_CTRL,
-"""        String action = body.getOrDefault("action", "SET_ASIDE");
-        BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
-        if ("WAIVE".equals(action)) {
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ".");""",
-"""        String action = body.getOrDefault("action", "SET_ASIDE");
-        BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
-        String reason = body.get("reason") != null ? body.get("reason").trim() : "";
-        if ("WAIVE".equals(action)) {
-            if (reason.length() < 5) {
-                throw new BusinessException("REASON_REQUIRED: Write why these fees are being waived (at least 5 characters).");
-            }
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ". Reason: " + reason);""",
-"Portal: waive needs a reason")
-patch(PORTAL_CTRL,
-"""    @PostMapping("/receivable/settings")
-""",
-"""    // fix162: REDUCE the accumulated storage fees to an agreed lower total (negotiation). Reason required, audited.
-    @PostMapping("/receivable/reduce-fees")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
-    @Transactional
-    public Map<String, Object> reduceFees(@PathVariable UUID id, @RequestBody Map<String, String> body) {
-        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        String why = body.get("reason") != null ? body.get("reason").trim() : "";
-        if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the fees are being reduced (at least 5 characters).");
-        }
-        BigDecimal current = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
-        BigDecimal target;
-        try {
-            target = new BigDecimal(String.valueOf(body.get("newFees")).trim());
-        } catch (Exception e) {
-            throw new BusinessException("FEES_INVALID: Enter the new total storage fees as a number.");
-        }
-        if (target.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("FEES_INVALID: The new total cannot be below zero.");
-        }
-        if (target.compareTo(current) >= 0) {
-            throw new BusinessException("FEES_INVALID: The new total must be lower than the current UGX " + current.toPlainString() + ".");
-        }
-        p.setStorageFeesAccumulated(target);
-        projectRepository.save(p);
-        auditService.logAction("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
-                + " from UGX " + current.toPlainString() + " to UGX " + target.toPlainString() + ". Reason: " + why);
-        return receivable(id);
-    }
-
-    @PostMapping("/receivable/settings")
-""",
-"Portal: reduce-fees endpoint")
-patch(PORTAL_CTRL,
-"""auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex() + ".");""",
-"""auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
-                + " (monthly rate: " + (p.getStorageFeeOverride() != null ? "UGX " + p.getStorageFeeOverride().toPlainString() : "default")
-                + ", fees paused until: " + (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toString() : "not paused") + ").");""",
-"Portal: settings audit shows the values")
-
-# =========================== PART B -- FOLDER PAGE ===========================
-
-# B1. services
-patch(FOLDER_SVC,
-"""  exit: (id, action) => api.post(`/land/portal/${id}/receivable/exit`, { action }).then(r => r.data),""",
-"""  exit: (id, action, reason) => api.post(`/land/portal/${id}/receivable/exit`, reason ? { action, reason } : { action }).then(r => r.data),
-  reduceFees: (id, newFees, reason) => api.post(`/land/portal/${id}/receivable/reduce-fees`, { newFees: String(newFees), reason }).then(r => r.data),""",
-"Service: exit takes a reason; reduceFees")
+# B1. service call
 patch(LAND_SVC,
-"""    // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'""",
-"""    // fix162: money safety
-    reversePayment: async (projectId, paymentId, reason) => {
-        await api.post(`/land/projects/${projectId}/payments/${paymentId}/reverse`, null, { params: { reason } });
+"""    undoRelease: async (projectId, reason) => {
+        await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
     },
-
-    undoRelease: async (projectId, reason) => {
+""",
+"""    undoRelease: async (projectId, reason) => {
         await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
     },
 
-    // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'""",
-"Service: reversePayment + undoRelease")
+    // fix163: revert a saved title back to stages
+    revertTitle: async (projectId, reason) => {
+        await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
+    },
+""",
+"landService.js: revertTitle")
 
-# B2. one reason window for: reverse payment / reduce fees / waive fees / undo hand-over
+# B2. the stage panel tells the page how many stages the project has (so titled New Title projects show no empty panel)
 patch(FOLDER_JSX,
-"const [problemModal, setProblemModal] = useState({ open: false, note: '' });",
-"""const [problemModal, setProblemModal] = useState({ open: false, note: '' });
-    // fix162: ONE reason window for the money actions that need a written reason
-    const [reasonModal, setReasonModal] = useState({ open: false, kind: '', title: '', info: '', confirmLabel: '', amountLabel: '', amount: '', reason: '', paymentId: null });
-    const [reasonBusy, setReasonBusy] = useState(false);""",
-"Folder: reason window state")
+"({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle }, ref) => {",
+"({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle, onLoaded }, ref) => {",
+"Folder: stage panel takes onLoaded")
 patch(FOLDER_JSX,
-"    const handleUnlock = async () => { touchedRef.current = false;",
-"""    const openReasonModal = (cfg) => setReasonModal({ open: true, kind: '', title: '', info: '', confirmLabel: 'CONFIRM', amountLabel: '', amount: '', reason: '', paymentId: null, ...cfg });
-    const closeReasonModal = () => { if (!reasonBusy) setReasonModal(m => ({ ...m, open: false })); };
-    const submitReasonModal = async () => {
-        if (reasonBusy) return;
-        const m = reasonModal; const why = (m.reason || '').trim();
-        if (why.length < 5) { toast('WRITE THE REASON (AT LEAST 5 CHARACTERS)', 'error'); return; }
-        if (m.kind === 'REDUCE' && (m.amount === '' || Number(m.amount) < 0 || Number(m.amount) >= storageFees)) { toast('ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES', 'error', 6000); return; }
-        setReasonBusy(true);
-        try {
-            if (m.kind === 'REVERSE') { await landService.reversePayment(id, m.paymentId, why); toast('Payment reversed.', 'warn'); }
-            else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
-            else if (m.kind === 'WAIVE') { await folderPortalService.exit(id, 'WAIVE', why); toast('Storage fees waived.', 'success'); }
-            else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }
-            await loadFolderData();
-            setReasonModal(x => ({ ...x, open: false }));
-        } catch (err) { toast('FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setReasonBusy(false); }
-    };
-    const handleUnlock = async () => { touchedRef.current = false;""",
-"Folder: reason window handlers")
+"const loadStages = useCallback(async () => { try { setStages(await stageTemplateService.getProjectStages(projectId) || []); } catch {} finally { setLoading(false); } }, [projectId]);",
+"const loadStages = useCallback(async () => { try { const list = await stageTemplateService.getProjectStages(projectId) || []; setStages(list); if (onLoaded) onLoaded(list.length); } catch {} finally { setLoading(false); } }, [projectId, onLoaded]);",
+"Folder: stage panel reports its stage count")
 
+# B3. page state
 patch(FOLDER_JSX,
-"<HardwareModal isOpen={problemModal.open}",
-"""<HardwareModal isOpen={reasonModal.open} onClose={closeReasonModal} title={reasonModal.title}>
-                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>{reasonModal.info}</div>
-                {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
-                    <input type="number" min="0" className={modalStyles.modalInput} value={reasonModal.amount} autoFocus aria-label="New total storage fees"
-                        onChange={e => setReasonModal(m => ({ ...m, amount: e.target.value }))} /></div>)}
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>REASON (REQUIRED - SAVED IN THE AUDIT LOG)</label>
-                    <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder="e.g. Client paid in the wrong account..." aria-label="Reason"
-                        onChange={e => setReasonModal(m => ({ ...m, reason: e.target.value }))} />
-                    <span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeReasonModal} disabled={reasonBusy}>CANCEL</button>
-                    <HardwareButton type="button" variant="danger" onClick={submitReasonModal} loading={reasonBusy} icon={FiAlertTriangle}>{reasonModal.confirmLabel}</HardwareButton>
-                </div>
-            </HardwareModal>
-<HardwareModal isOpen={problemModal.open}""",
-"Folder: reason window markup")
+"const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');",
+"const [stageCount, setStageCount] = useState(0);\n    const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');",
+"Folder: stageCount state")
 
-# B3. Payment History: REVERSE + REVERSED / REVERSAL labels
+# B4. the stage list stays visible (read-only) after a title exists; hidden only if the project has no stages
 patch(FOLDER_JSX,
-"    const paymentCount = payments.length;",
-"""    const paymentCount = payments.length;
-    // fix162: which payments have been reversed (a REVERSAL line points at its original by id)
-    const reversedIds = new Set(payments.filter(p => p.paymentType === 'REVERSAL' && p.notes)
-        .map(p => { const m = String(p.notes).match(/^\\[REVERSAL OF ([0-9a-fA-F-]{36})\\]/); return m ? m[1] : null; }).filter(Boolean));""",
-"Folder: reversed payments set")
+"""{!project.landTitle && (
+<section className={styles.hwPanel} aria-label="Stage Checklist\"""",
+"""{(
+<section className={styles.hwPanel} aria-label="Stage Checklist\"""",
+"Folder: stage panel no longer disappears once a title exists")
 patch(FOLDER_JSX,
-"""<div className={styles.payMeta}><span className={styles.payType}>{pay.paymentType}</span><span className={styles.payBy}>by {pay.recordedBy}</span></div></div>
-                                    <div className={styles.payRowRight}><div className={styles.payDate}>{new Date(pay.timestamp).toLocaleDateString()}</div></div>""",
-"""<div className={styles.payMeta}><span className={styles.payType}>{pay.paymentType}</span><span className={styles.payBy}>by {pay.recordedBy}</span>
-                                        {reversedIds.has(pay.id) && <span className={styles.payReversed}>REVERSED</span>}
-                                        {pay.paymentType === 'REVERSAL' && pay.notes && <span className={styles.payBy}>{String(pay.notes).replace(/^\\[REVERSAL OF [^\\]]*\\]\\s*/, '')}</span>}</div></div>
-                                    <div className={styles.payRowRight}><div className={styles.payDate}>{new Date(pay.timestamp).toLocaleDateString()}</div>
-                                        {canMoney && pay.paymentType !== 'REVERSAL' && Number(pay.amountPaid) > 0 && !reversedIds.has(pay.id) && !project.landTitle?.isReleased && (
-                                            <button type="button" className={styles.reverseBtn} title="Cancel this payment. The original line stays; a negative REVERSAL line is added."
-                                                onClick={() => openReasonModal({ kind: 'REVERSE', paymentId: pay.id, title: 'REVERSE PAYMENT', confirmLabel: 'REVERSE PAYMENT',
-                                                    info: 'This cancels UGX ' + fmt(pay.amountPaid) + ' paid on ' + new Date(pay.timestamp).toLocaleDateString() + '. The original line stays in the history, a negative REVERSAL line is added, and the amount paid goes down by the same amount.' })}>REVERSE</button>)}
-                                    </div>""",
-"Folder: payment rows show REVERSE / REVERSED / REVERSAL")
+"style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle) ? { display: 'none' } : {}}>",
+"style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle || (project.landTitle && stageCount < 1)) ? { display: 'none' } : {}}>",
+"Folder: hide the stage panel only for titled projects that have no stages")
+patch(FOLDER_JSX,
+"<StageChecklistPanel ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing} canRemove={isDirector && isEditing} toast={toast} confirm={confirm}",
+"<StageChecklistPanel key={project.landTitle ? 'titled' : 'folder'} ref={stageChecklistRef} projectId={id} canEdit={canEdit && isEditing && !project.landTitle} canRemove={isDirector && isEditing && !project.landTitle} toast={toast} confirm={confirm} onLoaded={setStageCount}",
+"Folder: stage panel read-only when titled, reloads when the title appears or goes")
 
-# B4. AMOUNT PAID is locked in edit mode; a changed TOTAL COST asks for a reason
+# B5. REVERT TO STAGES button (director/admin), next to the hand-over buttons
 patch(FOLDER_JSX,
-"""<CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({ ...buffer, initialPayment: v })} />""",
-"""<div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT PAID</label><span className={styles.autoCalcBadge}>LOCKED</span></div>
-                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={(Number(buffer.initialPayment) || 0).toLocaleString()} disabled />
-                                    <span className={styles.inputHint}>Changes only through RECORD PAYMENT, or REVERSE in Payment History.</span></div>""",
-"Folder: amount paid locked in edit mode")
-patch(FOLDER_JSX,
-"    const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);",
-"""    const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
-    const costChanged = isEditing && (Number(buffer?.totalCost) || 0) !== (Number(project?.totalCost) || 0);""",
-"Folder: costChanged flag")
-patch(FOLDER_JSX,
-"""<input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled /></div>
-                            </div>) : isReceivable""",
-"""<input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled /></div>
-                                {costChanged && (<SmartInput label="REASON FOR COST CHANGE" value={buffer.costChangeReason || ''} required error={fieldErrors.costChangeReason}
-                                    onChange={e => touchedSetBuffer({ ...buffer, costChangeReason: e.target.value })} />)}
-                            </div>) : isReceivable""",
-"Folder: reason field appears when the cost changes")
-patch(FOLDER_JSX,
-"        setFieldErrors({}); setCommitting(true);",
-"""        if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
-            setFieldErrors({ costChangeReason: 'Required' }); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); return;
-        }
-        setFieldErrors({}); setCommitting(true);""",
-"Folder: block save until the cost-change reason is written")
-patch(FOLDER_JSX,
-"await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0 });",
-"await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });",
-"Folder: save sends the reason and the cost this form was loaded with")
+"{canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}",
+"""{canMoney && project.landTitle && !project.landTitle.isReleased && !project.isLegacy && !isReceivable && stageCount > 0 && (
+                            <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
+                                onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
+                                    info: 'This removes the saved title (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the final stage, so the project goes back to the stage checklist. The old title values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo in the title, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REVERT TO STAGES</button>)}
+                        {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem}""",
+"Folder: REVERT TO STAGES button")
 
-# B5. Storage: WAIVE goes through the reason window; REDUCE FEES button
+# B6. the reason popup runs it
 patch(FOLDER_JSX,
-"""onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>""",
-"""onClick={() => openReasonModal({ kind: 'WAIVE', title: 'WAIVE STORAGE FEES', confirmLabel: 'WAIVE FEES',
-                                        info: 'This forgives ALL UGX ' + fmt(storageFees) + ' of storage fees and takes this project out of receivables. It cannot be undone.' })} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
-                                    {storageFees > 0 && <button type="button" className={styles.ghostBtn} onClick={() => openReasonModal({ kind: 'REDUCE', title: 'REDUCE STORAGE FEES', confirmLabel: 'REDUCE FEES', amountLabel: 'NEW TOTAL STORAGE FEES (UGX)',
-                                        info: 'The client negotiated a lower fee. Current fees are UGX ' + fmt(storageFees) + '. Type the agreed lower total; the project stays in receivables.' })} disabled={recvBusy}><FiDollarSign aria-hidden="true" /> REDUCE FEES</button>}""",
-"Folder: waive uses the reason window; REDUCE FEES button")
-patch(FOLDER_JSX,
-"SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables.",
-"SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables. REDUCE FEES keeps it in.",
-"Folder: exits hint mentions REDUCE FEES")
+"else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }",
+"else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }\n            else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }",
+"Folder: reason popup runs REVERT_TITLE")
 
-# B6. Hand-over: greyed until NOTHING is owed (fees count), and an UNDO for directors
-patch(FOLDER_JSX,
-"""                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
-                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountPaid < totalValue}
-                                title={amountPaid < totalValue ? 'Cannot hand over yet: UGX ' + fmt(totalValue - amountPaid) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}""",
-"""                            ? (<>
-                                <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
-                                <button type="button" className={styles.ghostBtn} title="Mark the title as NOT handed over again (reason required)."
-                                    onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
-                                        info: 'This marks the title as NOT handed over again and puts the plot back to ACTIVE. Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
-                              </>)
-                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountOwed > 0}
-                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}""",
-"Folder: hand-over waits for storage fees too; UNDO button")
-
-# B7. Stage panel stays mounted while TITLE READY is on, so UNDO / CANCEL can really un-tick the last stage
-patch(FOLDER_JSX,
-"""                {!project.landTitle && !buffer.convertToTitle && (
-<section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>""",
-"""                {!project.landTitle && (
-<section className={styles.hwPanel} aria-label="Stage Checklist" style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle) ? { display: 'none' } : {}}>""",
-"Folder: stage checklist stays mounted (hidden) while TITLE READY is on")
-patch(FOLDER_JSX,
-"if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };",
-"if (ok) { if (buffer.convertToTitle && !project.landTitle) { try { await stageChecklistRef.current?.setLastStageCompletion(false); } catch {} } touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };",
-"Folder: CANCEL also un-ticks the last stage if TITLE READY was switched on")
-
-# B8. styles
-patch(FOLDER_CSS,
-".releaseBtnDone{background:#10b981;border-color:#10b981;color:#fff;opacity:0.9;cursor:default;}",
-""".releaseBtnDone{background:#10b981;border-color:#10b981;color:#fff;opacity:0.9;cursor:default;}
-.payReversed{margin-left:8px;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,0.16);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;font-size:9px;font-weight:900;letter-spacing:1px;}
-.reverseBtn{margin-top:6px;padding:3px 9px;border-radius:5px;background:transparent;border:1px solid rgba(239,68,68,0.45);color:#fca5a5;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;}
-.reverseBtn:hover{background:#ef4444;color:#fff;border-color:#ef4444;}""",
-"Folder CSS: reverse button + REVERSED tag")
-
-# =========================== PART C -- LOOK (Audit + Expenses; skipped automatically if already applied) ===========================
-# ---- 1. Audit: subtler outer border, inner border = Expenses table's (2px #f2ede4) ----
-patch(AUDIT_CSS,
-      "background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius);",
-      "background: var(--panel-bg); border: 1px solid var(--orange-border); border-radius: var(--radius);",
-      "Audit CSS: outer border thinner (2px -> 1px)")
-patch(AUDIT_CSS,
-      "background: #ebe5d8; border: 1px solid #fff; border-radius: 10px;",
-      "background: #ebe5d8; border: 2px solid #f2ede4; border-radius: 10px;",
-      "Audit CSS: inner border same thickness/colour as Expenses table")
-
-# ---- 2. Audit: zebra rows + peach hover (zebra BEFORE hover BEFORE .expanded so the order of wins is right) ----
-patch(AUDIT_CSS,
-      ".logRow:hover { background: rgba(26, 46, 48, 0.09); }",
-      ".logRow:nth-child(even) { background: rgba(26, 46, 48, 0.09); }\n.logRow:hover { background: rgba(238, 140, 58, 0.26); }",
-      "Audit CSS: alternating rows + peach hover")
-
-# ---- 3. Expenses: stronger zebra + peach hover ----
-patch(EXP_CSS,
-      ".ledgerTable tbody tr.row:nth-child(even) td { background: rgba(26,46,48,0.075); }",
-      ".ledgerTable tbody tr.row:nth-child(even) td { background: rgba(26,46,48,0.12); }",
-      "Expenses CSS: alternating rows a little stronger")
-patch(EXP_CSS,
-      ".ledgerTable tbody tr.row:hover td { background: rgba(26,46,48,0.14); }",
-      ".ledgerTable tbody tr.row:hover td { background: rgba(238,140,58,0.26); }",
-      "Expenses CSS: peach hover")
-
-# ---- 4. Colour by group ----
-CAT_OLD = "/* fix159: simple basic colours. Colour by how often an action happens.\n   COMMON = the actions staff do all day, each with its OWN basic colour (blue, green, yellow, purple, orange, cyan, pink).\n   RARE   = everything else, one shared colour per TYPE: red = destructive / privileged, brown = changes money or a\n            record, teal = contact history, grey = minor. An unlisted code counts as rare / minor. */\nconst COMMON_COLOR = {\n    RECORD_UPDATED:          '#2563eb',  // blue\n    EDIT_MODE_OPENED:        '#9333ea',  // purple\n    DOCUMENT_UPLOADED:       '#eab308',  // yellow\n    DOCUMENT_CATEGORY_ADDED: '#06b6d4',  // cyan\n    RECEIVABLE_ENTER:        '#f97316',  // orange\n    PAYMENT_RECORDED:        '#16a34a',  // green\n    EXPENSE_LOGGED:          '#ec4899',  // pink\n};\nconst RARE_COLOR = {\n    high:  '#dc2626',  // red\n    med:   '#92400e',  // brown\n    intel: '#0d9488',  // teal\n    low:   '#6b7280',  // grey\n};\nexport const actionColor = (code) => {\n    const key = String(code || '');\n    if (COMMON_COLOR[key]) return COMMON_COLOR[key];\n    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;\n};\n"
-CAT_NEW = "/* fix160: colour by GROUP. Six basic colours, one per family of actions:\n   blue   = RECORDS + DOCUMENTS   green  = MONEY          orange = RECEIVABLES\n   purple = PIPELINE              yellow = CONTACT & NOTES  red    = ACCESS & STAFF\n   An unlisted code is neutral grey. */\nconst GROUP_COLOR = {\n    'RECORDS':         '#2563eb',\n    'DOCUMENTS':       '#2563eb',\n    'MONEY':           '#16a34a',\n    'RECEIVABLES':     '#f97316',\n    'PIPELINE':        '#9333ea',\n    'CONTACT & NOTES': '#eab308',\n    'ACCESS & STAFF':  '#dc2626',\n};\nconst GROUP_OF = {};\nACTION_GROUPS.forEach(g => g.actions.forEach(a => { GROUP_OF[a.code] = g.group; }));\nexport const actionColor = (code) => GROUP_COLOR[GROUP_OF[String(code || '')]] || '#6b7280';\n"
-patch(AUDIT_CAT, CAT_OLD, CAT_NEW, "Catalogue: six basic colours, one per group")
-
+# =========================== PART C -- GUIDE ===========================
+patch(GUIDE,
+"- DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.",
+"""- DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.
+- FOLDER PAGE BACKBONE PLAN (David's 6 steps): 1 money loopholes = DONE (fix162). 2 revert a saved title to stages = DONE (fix163: director/admin, reason, audited; `LandService.revertTitle`, `PATCH /land/projects/{id}/revert-title`; refused after hand-over, on Receivable/Legacy projects and on New Title/Legacy Title projects that have no stages; the title row is deleted and its old values go into the TITLE_REVERTED audit line; the stage checklist now stays visible read-only after titling). 3 fee negotiation = PARTLY (REDUCE FEES done; still to do: changeable 50,000 default, a reason on every rate change). 4 real call logs = TO DO (must reuse the Recovery notes / 2-14 lock; add promise date, promised amount, next follow-up date). 5 RELEASE + PROBLEM improvements (show reason and who flagged it) = TO DO. 6 per-plot history tab = TO DO.""",
+"Guide: Section 15 backbone plan status")
 
 # ============================= EDIT PART 2 END =============================
 
