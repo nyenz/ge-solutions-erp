@@ -147,13 +147,13 @@
 .dateField:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(238, 140, 58, 0.16); }
 
 /* ---- THE LIST (fix153): the light catalogue card, a little darker; ONE hover colour; ONE dark for the open row ---- */
-.timelineFrame { position: relative; overflow: visible; background: var(--panel-bg); border: 2px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.timelineFrame { position: relative; overflow: visible; background: var(--panel-bg); border: 1px solid var(--orange-border); border-radius: var(--radius); box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
 /* fix155: same orange hover as the other table pages (hwPanel / rowCard): border goes solid orange */
 .timelineFrame:hover { border-color: #EE8C3A; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
 .timelineStream { display: flex; flex-direction: column; }
 
 .logTray { background: transparent; padding: 10px; border-radius: 10px 10px 0 0; }
-.logCard { overflow: hidden; background: #ebe5d8; border: 1px solid #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
+.logCard { overflow: hidden; background: #ebe5d8; border: 2px solid #f2ede4; border-radius: 10px; box-shadow: 0 2px 8px rgba(26, 46, 48, 0.2); }
 
 /* --rail is the action's colour (set by the page). It paints ONLY the left border and, when open, the readout label. */
 .logRow {
@@ -165,7 +165,8 @@
     transition: background 0.18s ease;
 }
 .logRow:last-child { border-bottom: none; }
-.logRow:hover { background: rgba(26, 46, 48, 0.09); }
+.logRow:nth-child(even) { background: rgba(26, 46, 48, 0.09); }
+.logRow:hover { background: rgba(238, 140, 58, 0.26); }
 .logRow:focus-visible { outline: 2px solid #1a2e30; outline-offset: -2px; }
 
 .logMain {

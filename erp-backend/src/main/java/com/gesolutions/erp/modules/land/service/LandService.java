@@ -487,8 +487,33 @@ public class LandService {
         }
 
         BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal oldTotalCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal currentPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+
+        // fix162 EDIT CONFLICT: the form remembers the cost it was loaded with. If somebody else changed the
+        // cost in the meantime, refuse instead of silently overwriting their change.
+        if (request.getExpectedTotalCost() != null && request.getExpectedTotalCost().compareTo(oldTotalCost) != 0) {
+            throw new BusinessException("EDIT_CONFLICT: The total cost was changed by someone else (it is now UGX "
+                    + oldTotalCost.toPlainString() + "). Reload this folder and try again.");
+        }
+        // fix162 COST CHANGE: needs a written reason, cannot go below what is already paid, and is audited.
+        if (newTotalCost.compareTo(oldTotalCost) != 0) {
+            String costWhy = request.getCostChangeReason() != null ? request.getCostChangeReason().trim() : "";
+            if (costWhy.length() < 5) {
+                throw new BusinessException("COST_REASON_REQUIRED: Write why the total cost is changing (at least 5 characters).");
+            }
+            if (newTotalCost.compareTo(currentPaid) < 0) {
+                throw new BusinessException("COST_BELOW_PAID: The new cost (UGX " + newTotalCost.toPlainString()
+                        + ") is lower than the UGX " + currentPaid.toPlainString()
+                        + " already paid. Reverse the extra payment first.");
+            }
+            auditService.logAction("COST_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed total cost on " + plotLabel(project)
+                + " from UGX " + oldTotalCost.toPlainString() + " to UGX " + newTotalCost.toPlainString()
+                + ". Reason: " + costWhy);
+        }
         project.setTotalCost(newTotalCost);
-        project.setAmountPaid(request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO);
+        // fix162 AMOUNT PAID is never taken from the edit form. It only moves through RECORD PAYMENT and REVERSE.
         project.setLegacy(request.isLegacy());
 
         // FIX 1: If in receivable, keep originalDebt in sync with totalCost changes.
@@ -746,10 +771,15 @@ public class LandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void authorizeRelease(UUID id, String managerNote) {
         LandProject project = projectRepository.findById(id).orElseThrow();
         if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
             throw new BusinessException("RELEASE DENIED: Arrears Detected.");
+        }
+        // fix162: storage fees still owed are arrears too.
+        if (project.isReceivable() && project.receivableTotalOwed().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("RELEASE DENIED: Storage fees are still owed on this project.");
         }
         // PHASE B (Section 18.9.1): landTitle can now be null.
         // Releasing implies a title exists to hand over -- silently
@@ -767,6 +797,78 @@ public class LandService {
         notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
             "Title for " + plotLabel(project) + " released to the client.",
             "PROJECT", project.getId(), "ROLE_DIRECTOR");
+    }
+
+    // fix162: REVERSE A PAYMENT. The original line stays in the history; a negative REVERSAL line is added,
+    // so every total, report and the audit trail stay honest.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void reversePayment(UUID projectId, UUID paymentId, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why this payment is being reversed (at least 5 characters).");
+        }
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        PaymentRecord original = paymentRecordRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException("PAYMENT_NOT_FOUND"));
+        if (!projectId.equals(original.getProjectId())) {
+            throw new BusinessException("PAYMENT_NOT_FOUND: That payment does not belong to this project.");
+        }
+        if ("REVERSAL".equals(original.getPaymentType()) || original.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("REVERSAL_BLOCKED: A reversal cannot be reversed. Record a new payment instead.");
+        }
+        String marker = "[REVERSAL OF " + paymentId + "]";
+        for (PaymentRecord r : paymentRecordRepository.findByProjectIdOrderByTimestampDesc(projectId)) {
+            if (r.getNotes() != null && r.getNotes().startsWith(marker)) {
+                throw new BusinessException("REVERSAL_BLOCKED: This payment was already reversed.");
+            }
+        }
+        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
+            throw new BusinessException("REVERSAL_BLOCKED: The title has been handed over. Undo the hand-over first.");
+        }
+        BigDecimal paid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+        if (original.getAmountPaid().compareTo(paid) > 0) {
+            throw new BusinessException("REVERSAL_BLOCKED: Reversing UGX " + original.getAmountPaid().toPlainString()
+                    + " would take the total paid below zero.");
+        }
+        project.setAmountPaid(paid.subtract(original.getAmountPaid()));
+        BigDecimal balanceAfter = project.isReceivable()
+                ? project.receivableTotalOwed()
+                : project.getTotalCost().subtract(project.getAmountPaid());
+        PaymentRecord reversal = PaymentRecord.builder()
+                .projectId(projectId)
+                .amountPaid(original.getAmountPaid().negate())
+                .paymentType("REVERSAL")
+                .recordedBy(getCurrentOperator())
+                .notes(marker + " " + why)
+                .balanceAfter(balanceAfter)
+                .build();
+        paymentRecordRepository.save(reversal);
+        projectRepository.save(project);
+        auditService.logAction("PAYMENT_REVERSED",
+            "Operator [" + getCurrentOperator() + "] reversed UGX " + original.getAmountPaid().toPlainString()
+            + " on " + plotLabel(project) + ". Reason: " + why);
+    }
+
+    // fix162: UNDO A HAND-OVER (the title goes back to "not handed over"). Reason required, audited.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void undoRelease(UUID id, String reason) {
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the hand-over is being undone (at least 5 characters).");
+        }
+        LandProject project = projectRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.getLandTitle() == null || !project.getLandTitle().isReleased()) {
+            throw new BusinessException("UNDO_DENIED: This title has not been handed over.");
+        }
+        project.getLandTitle().setReleased(false);
+        project.setStatus(project.isReceivable() ? "RECEIVABLE" : "ACTIVE");
+        projectRepository.save(project);
+        auditService.logAction("TITLE_RELEASE_UNDONE",
+            "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────

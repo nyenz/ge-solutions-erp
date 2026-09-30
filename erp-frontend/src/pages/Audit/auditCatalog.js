@@ -147,29 +147,21 @@ export const friendlyAction = (code) => {
 export const severityOf = (code) => (INDEX[code]?.severity) || 'low';
 
 
-/* fix159: simple basic colours. Colour by how often an action happens.
-   COMMON = the actions staff do all day, each with its OWN basic colour (blue, green, yellow, purple, orange, cyan, pink).
-   RARE   = everything else, one shared colour per TYPE: red = destructive / privileged, brown = changes money or a
-            record, teal = contact history, grey = minor. An unlisted code counts as rare / minor. */
-const COMMON_COLOR = {
-    RECORD_UPDATED:          '#2563eb',  // blue
-    EDIT_MODE_OPENED:        '#9333ea',  // purple
-    DOCUMENT_UPLOADED:       '#eab308',  // yellow
-    DOCUMENT_CATEGORY_ADDED: '#06b6d4',  // cyan
-    RECEIVABLE_ENTER:        '#f97316',  // orange
-    PAYMENT_RECORDED:        '#16a34a',  // green
-    EXPENSE_LOGGED:          '#ec4899',  // pink
+/* fix160: colour by GROUP. Six basic colours, one per family of actions:
+   blue   = RECORDS + DOCUMENTS   green  = MONEY          orange = RECEIVABLES
+   purple = PIPELINE              yellow = CONTACT & NOTES  red    = ACCESS & STAFF
+   An unlisted code is neutral grey. */
+const GROUP_COLOR = {
+    'RECORDS':         '#2563eb',
+    'DOCUMENTS':       '#2563eb',
+    'MONEY':           '#16a34a',
+    'RECEIVABLES':     '#f97316',
+    'PIPELINE':        '#9333ea',
+    'CONTACT & NOTES': '#eab308',
+    'ACCESS & STAFF':  '#dc2626',
 };
-const RARE_COLOR = {
-    high:  '#dc2626',  // red
-    med:   '#92400e',  // brown
-    intel: '#0d9488',  // teal
-    low:   '#6b7280',  // grey
-};
-export const actionColor = (code) => {
-    const key = String(code || '');
-    if (COMMON_COLOR[key]) return COMMON_COLOR[key];
-    return RARE_COLOR[severityOf(key)] || RARE_COLOR.low;
-};
+const GROUP_OF = {};
+ACTION_GROUPS.forEach(g => g.actions.forEach(a => { GROUP_OF[a.code] = g.group; }));
+export const actionColor = (code) => GROUP_COLOR[GROUP_OF[String(code || '')]] || '#6b7280';
 
 export default ACTION_GROUPS;

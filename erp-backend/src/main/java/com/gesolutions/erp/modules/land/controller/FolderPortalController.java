@@ -97,8 +97,12 @@ public class FolderPortalController {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
         String action = body.getOrDefault("action", "SET_ASIDE");
         BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
+        String reason = body.get("reason") != null ? body.get("reason").trim() : "";
         if ("WAIVE".equals(action)) {
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ".");
+            if (reason.length() < 5) {
+                throw new BusinessException("REASON_REQUIRED: Write why these fees are being waived (at least 5 characters).");
+            }
+            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ". Reason: " + reason);
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
         } else if ("CAPITALIZE".equals(action)) {
             p.setTotalCost((p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO).add(fees));
@@ -134,6 +138,36 @@ public class FolderPortalController {
         return receivable(id);
     }
 
+    // fix162: REDUCE the accumulated storage fees to an agreed lower total (negotiation). Reason required, audited.
+    @PostMapping("/receivable/reduce-fees")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> reduceFees(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        String why = body.get("reason") != null ? body.get("reason").trim() : "";
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why the fees are being reduced (at least 5 characters).");
+        }
+        BigDecimal current = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
+        BigDecimal target;
+        try {
+            target = new BigDecimal(String.valueOf(body.get("newFees")).trim());
+        } catch (Exception e) {
+            throw new BusinessException("FEES_INVALID: Enter the new total storage fees as a number.");
+        }
+        if (target.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("FEES_INVALID: The new total cannot be below zero.");
+        }
+        if (target.compareTo(current) >= 0) {
+            throw new BusinessException("FEES_INVALID: The new total must be lower than the current UGX " + current.toPlainString() + ".");
+        }
+        p.setStorageFeesAccumulated(target);
+        projectRepository.save(p);
+        auditService.logAction("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
+                + " from UGX " + current.toPlainString() + " to UGX " + target.toPlainString() + ". Reason: " + why);
+        return receivable(id);
+    }
+
     @PostMapping("/receivable/settings")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
@@ -146,7 +180,9 @@ public class FolderPortalController {
             p.setNegotiationDeadline(body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline")));
         }
         projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex() + ".");
+        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
+                + " (monthly rate: " + (p.getStorageFeeOverride() != null ? "UGX " + p.getStorageFeeOverride().toPlainString() : "default")
+                + ", fees paused until: " + (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toString() : "not paused") + ").");
         return receivable(id);
     }
 }

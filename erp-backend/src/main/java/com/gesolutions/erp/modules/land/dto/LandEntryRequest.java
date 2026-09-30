@@ -34,6 +34,10 @@ public class LandEntryRequest {
     private BigDecimal totalCost;
     private BigDecimal initialPayment;
 
+    // fix162 money safety: why the total cost changed, and the cost this form was loaded with (edit-conflict guard)
+    private String costChangeReason;
+    private BigDecimal expectedTotalCost;
+
     // Legacy fields -- kept to avoid breaking existing data, no longer used in new logic
     private BigDecimal weeklyInstallment;
     private String planType;

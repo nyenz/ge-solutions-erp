@@ -310,6 +310,9 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const payReceiptRef = useRef(null);
     useEffect(() => { if (!payModal.open) setPayReceipt(null); }, [payModal.open]);
     const [problemModal, setProblemModal] = useState({ open: false, note: '' });
+    // fix162: ONE reason window for the money actions that need a written reason
+    const [reasonModal, setReasonModal] = useState({ open: false, kind: '', title: '', info: '', confirmLabel: '', amountLabel: '', amount: '', reason: '', paymentId: null });
+    const [reasonBusy, setReasonBusy] = useState(false);
     const [probBusy, setProbBusy] = useState(false);
     const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, related: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
@@ -450,9 +453,12 @@ useEffect(() => {
             buffer.owners?.forEach((o, i) => { if (!o.fullName?.trim()) fe['owner_' + i + '_name'] = 'Required'; if (o.phone?.trim() && !normalizePhones(o.phone).ok) fe['owner_' + i + '_phone'] = 'Check number'; });
             setFieldErrors(fe); toast('VALIDATION FAILED: ' + errors[0], 'error', 6000); return;
         }
+        if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
+            setFieldErrors({ costChangeReason: 'Required' }); toast('WRITE WHY THE TOTAL COST CHANGED (AT LEAST 5 CHARACTERS)', 'error', 6000); return;
+        }
         setFieldErrors({}); setCommitting(true);
         try {
-            await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0 });
+            await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });
             predictionService.learn(buffer); touchedRef.current = false; setIsEditing(false);
             await loadFolderData(); toast('Changes saved successfully', 'success');
         } catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
@@ -465,8 +471,26 @@ useEffect(() => {
     const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };
     const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };
     const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };
+    const openReasonModal = (cfg) => setReasonModal({ open: true, kind: '', title: '', info: '', confirmLabel: 'CONFIRM', amountLabel: '', amount: '', reason: '', paymentId: null, ...cfg });
+    const closeReasonModal = () => { if (!reasonBusy) setReasonModal(m => ({ ...m, open: false })); };
+    const submitReasonModal = async () => {
+        if (reasonBusy) return;
+        const m = reasonModal; const why = (m.reason || '').trim();
+        if (why.length < 5) { toast('WRITE THE REASON (AT LEAST 5 CHARACTERS)', 'error'); return; }
+        if (m.kind === 'REDUCE' && (m.amount === '' || Number(m.amount) < 0 || Number(m.amount) >= storageFees)) { toast('ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES', 'error', 6000); return; }
+        setReasonBusy(true);
+        try {
+            if (m.kind === 'REVERSE') { await landService.reversePayment(id, m.paymentId, why); toast('Payment reversed.', 'warn'); }
+            else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
+            else if (m.kind === 'WAIVE') { await folderPortalService.exit(id, 'WAIVE', why); toast('Storage fees waived.', 'success'); }
+            else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }
+            await loadFolderData();
+            setReasonModal(x => ({ ...x, open: false }));
+        } catch (err) { toast('FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+        finally { setReasonBusy(false); }
+    };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
-    const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn'); if (ok) { touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
+    const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn'); if (ok) { if (buffer.convertToTitle && !project.landTitle) { try { await stageChecklistRef.current?.setLastStageCompletion(false); } catch {} } touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
     const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
     const handleNinBlurCheck = async (idx, val) => {
         if (!val.trim()) return;
@@ -591,6 +615,9 @@ useEffect(() => {
     })();
     const noteCount = (binder.notes || []).length;
     const paymentCount = payments.length;
+    // fix162: which payments have been reversed (a REVERSAL line points at its original by id)
+    const reversedIds = new Set(payments.filter(p => p.paymentType === 'REVERSAL' && p.notes)
+        .map(p => { const m = String(p.notes).match(/^\[REVERSAL OF ([0-9a-fA-F-]{36})\]/); return m ? m[1] : null; }).filter(Boolean));
     const totalValue = Number(project?.totalCost || 0);
     const amountPaid = Number(project?.amountPaid || 0);
     const storageFees = Number(project?.storageFeesAccumulated || 0);
@@ -598,6 +625,7 @@ useEffect(() => {
     const activeAmountOwed = Math.max(0, totalValue - amountPaid);
     const amountOwed = isReceivable ? receivableAmountOwed : activeAmountOwed;
     const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
+    const costChanged = isEditing && (Number(buffer?.totalCost) || 0) !== (Number(project?.totalCost) || 0);
     const lastPay = project?.lastPaymentDate ? new Date(project.lastPaymentDate) : null;
     const daysSincePay = lastPay ? Math.floor((Date.now() - lastPay.getTime()) / 86400000) : null;
     const statusBadge = isReceivable ? ['RECEIVABLE', 'badgeRecv']
@@ -647,9 +675,14 @@ useEffect(() => {
                         <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>
                         {canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
                         {canMoney && project.landTitle && (project.landTitle.isReleased
-                            ? <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
-                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountPaid < totalValue}
-                                title={amountPaid < totalValue ? 'Cannot hand over yet: UGX ' + fmt(totalValue - amountPaid) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                            ? (<>
+                                <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
+                                <button type="button" className={styles.ghostBtn} title="Mark the title as NOT handed over again (reason required)."
+                                    onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
+                                        info: 'This marks the title as NOT handed over again and puts the plot back to ACTIVE. Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
+                              </>)
+                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountOwed > 0}
+                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot.' : 'Flag this plot as having a problem and alert staff.'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
@@ -718,8 +751,8 @@ useEffect(() => {
                         </>)}
                     </div></div>
                 </section>
-                {!project.landTitle && !buffer.convertToTitle && (
-<section className={styles.hwPanel} aria-label="Stage Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
+                {!project.landTitle && (
+<section className={styles.hwPanel} aria-label="Stage Checklist" style={(activeTab !== 'OVERVIEW' || buffer.convertToTitle) ? { display: 'none' } : {}}>
                     <DrawerHeader label="STAGE CHECKLIST" isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
                     <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
 <CornerDecor hideTop />
@@ -735,9 +768,13 @@ useEffect(() => {
 <CornerDecor hideTop />
                             {isEditing ? (<div className={styles.inputGrid3}>
                                 <CurrencyInput label="TOTAL COST" value={buffer.totalCost} onChange={v => touchedSetBuffer({ ...buffer, totalCost: v })} />
-                                <CurrencyInput label="AMOUNT PAID" value={buffer.initialPayment} error={fieldErrors.initialPayment} onChange={v => touchedSetBuffer({ ...buffer, initialPayment: v })} />
+                                <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT PAID</label><span className={styles.autoCalcBadge}>LOCKED</span></div>
+                                    <input className={`${styles.hwInput} ${styles.calcInput}`} value={(Number(buffer.initialPayment) || 0).toLocaleString()} disabled />
+                                    <span className={styles.inputHint}>Changes only through RECORD PAYMENT, or REVERSE in Payment History.</span></div>
                                 <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>AMOUNT OWED</label><span className={styles.autoCalcBadge}>AUTO</span></div>
                                     <input className={`${styles.hwInput} ${styles.calcInput}`} value={arrearsEdit.toLocaleString()} disabled /></div>
+                                {costChanged && (<SmartInput label="REASON FOR COST CHANGE" value={buffer.costChangeReason || ''} required error={fieldErrors.costChangeReason}
+                                    onChange={e => touchedSetBuffer({ ...buffer, costChangeReason: e.target.value })} />)}
                             </div>) : isReceivable ? (<div className={styles.moneyStatsRow}>
                                 <div className={styles.statBox}><label>TOTAL COST</label><strong>UGX {fmt(totalValue)}</strong></div>
                                 <div className={styles.statBox}><label style={{ color: 'var(--fs-red)' }}>+ STORAGE FEES</label><strong style={{ color: 'var(--fs-red)' }}>UGX {fmt(storageFees)}</strong></div>
@@ -788,10 +825,13 @@ useEffect(() => {
                                 {canMoney && (<>
                                     <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE (KEEP FEES)</HardwareButton>
                                     <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
-                                    <button type="button" className={styles.dangerBtn} onClick={() => askReceivable('WAIVE')} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
+                                    <button type="button" className={styles.dangerBtn} onClick={() => openReasonModal({ kind: 'WAIVE', title: 'WAIVE STORAGE FEES', confirmLabel: 'WAIVE FEES',
+                                        info: 'This forgives ALL UGX ' + fmt(storageFees) + ' of storage fees and takes this project out of receivables. It cannot be undone.' })} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
+                                    {storageFees > 0 && <button type="button" className={styles.ghostBtn} onClick={() => openReasonModal({ kind: 'REDUCE', title: 'REDUCE STORAGE FEES', confirmLabel: 'REDUCE FEES', amountLabel: 'NEW TOTAL STORAGE FEES (UGX)',
+                                        info: 'The client negotiated a lower fee. Current fees are UGX ' + fmt(storageFees) + '. Type the agreed lower total; the project stays in receivables.' })} disabled={recvBusy}><FiDollarSign aria-hidden="true" /> REDUCE FEES</button>}
                                 </>)}
                             </div>
-                            {canMoney && <div className={styles.inputHint}>SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables.</div>}
+                            {canMoney && <div className={styles.inputHint}>SET ASIDE, ADD FEES TO COST and WAIVE FEES each take this project OUT of receivables. REDUCE FEES keeps it in.</div>}
                         </>)}
                     </div></div>
                 </section>
@@ -802,8 +842,15 @@ useEffect(() => {
                             {paymentCount === 0 ? (<div className={styles.emptyState}><FiDollarSign className={styles.emptyIcon} aria-hidden="true" /><span>NO PAYMENTS RECORDED YET</span></div>) : (
                                 <div className={styles.paymentList}>{payments.map((pay, i) => (<div key={pay.id || i} id={'payment-' + pay.id} className={styles.paymentRow}>
                                     <div className={styles.payRowLeft}><div className={styles.payAmount}>UGX {fmt(pay.amountPaid)}</div>
-                                        <div className={styles.payMeta}><span className={styles.payType}>{pay.paymentType}</span><span className={styles.payBy}>by {pay.recordedBy}</span></div></div>
-                                    <div className={styles.payRowRight}><div className={styles.payDate}>{new Date(pay.timestamp).toLocaleDateString()}</div></div>
+                                        <div className={styles.payMeta}><span className={styles.payType}>{pay.paymentType}</span><span className={styles.payBy}>by {pay.recordedBy}</span>
+                                        {reversedIds.has(pay.id) && <span className={styles.payReversed}>REVERSED</span>}
+                                        {pay.paymentType === 'REVERSAL' && pay.notes && <span className={styles.payBy}>{String(pay.notes).replace(/^\[REVERSAL OF [^\]]*\]\s*/, '')}</span>}</div></div>
+                                    <div className={styles.payRowRight}><div className={styles.payDate}>{new Date(pay.timestamp).toLocaleDateString()}</div>
+                                        {canMoney && pay.paymentType !== 'REVERSAL' && Number(pay.amountPaid) > 0 && !reversedIds.has(pay.id) && !project.landTitle?.isReleased && (
+                                            <button type="button" className={styles.reverseBtn} title="Cancel this payment. The original line stays; a negative REVERSAL line is added."
+                                                onClick={() => openReasonModal({ kind: 'REVERSE', paymentId: pay.id, title: 'REVERSE PAYMENT', confirmLabel: 'REVERSE PAYMENT',
+                                                    info: 'This cancels UGX ' + fmt(pay.amountPaid) + ' paid on ' + new Date(pay.timestamp).toLocaleDateString() + '. The original line stays in the history, a negative REVERSAL line is added, and the amount paid goes down by the same amount.' })}>REVERSE</button>)}
+                                    </div>
                                 </div>))}</div>)}
                         </div></div>
                     </section>
@@ -940,6 +987,20 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                     <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts.</span></div>
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
+                </div>
+            </HardwareModal>
+<HardwareModal isOpen={reasonModal.open} onClose={closeReasonModal} title={reasonModal.title}>
+                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>{reasonModal.info}</div>
+                {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
+                    <input type="number" min="0" className={modalStyles.modalInput} value={reasonModal.amount} autoFocus aria-label="New total storage fees"
+                        onChange={e => setReasonModal(m => ({ ...m, amount: e.target.value }))} /></div>)}
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>REASON (REQUIRED - SAVED IN THE AUDIT LOG)</label>
+                    <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder="e.g. Client paid in the wrong account..." aria-label="Reason"
+                        onChange={e => setReasonModal(m => ({ ...m, reason: e.target.value }))} />
+                    <span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>
+                <div className={modalStyles.modalFooter}>
+                    <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeReasonModal} disabled={reasonBusy}>CANCEL</button>
+                    <HardwareButton type="button" variant="danger" onClick={submitReasonModal} loading={reasonBusy} icon={FiAlertTriangle}>{reasonModal.confirmLabel}</HardwareButton>
                 </div>
             </HardwareModal>
 <HardwareModal isOpen={problemModal.open} onClose={closeProblemModal} title={'FLAG PROBLEM - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>

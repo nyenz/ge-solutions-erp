@@ -172,10 +172,26 @@ public class LandController {
     }
 
     @PatchMapping("/projects/{id}/release")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> authorizeRelease(
             @PathVariable UUID id,
             @RequestParam(required = false) String managerNote) {
         landService.authorizeRelease(id, managerNote);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/projects/{id}/undo-release")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> undoRelease(@PathVariable UUID id, @RequestParam String reason) {
+        landService.undoRelease(id, reason);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{id}/payments/{paymentId}/reverse")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<Void> reversePayment(@PathVariable UUID id, @PathVariable UUID paymentId,
+                                               @RequestParam String reason) {
+        landService.reversePayment(id, paymentId, reason);
         return ResponseEntity.ok().build();
     }
 

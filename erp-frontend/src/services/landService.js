@@ -123,6 +123,15 @@ const landService = {
         });
     },
 
+    // fix162: money safety
+    reversePayment: async (projectId, paymentId, reason) => {
+        await api.post(`/land/projects/${projectId}/payments/${paymentId}/reverse`, null, { params: { reason } });
+    },
+
+    undoRelease: async (projectId, reason) => {
+        await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
+    },
+
     // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
     getDirectorDashboard: async (period = 'WEEK') => {
         const response = await api.get('/dashboard/director', { params: { period } });

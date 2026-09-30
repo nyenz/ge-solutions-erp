@@ -215,8 +215,8 @@
 .ledgerTable tbody td { color: #1a2e30; border-bottom: 1px solid rgba(26,46,48,0.2); }
 .ledgerTable tbody tr:last-child td { border-bottom: none; }
 /* fix152: every second row a shade darker, so a row can be followed across the table */
-.ledgerTable tbody tr.row:nth-child(even) td { background: rgba(26,46,48,0.075); }
-.ledgerTable tbody tr.row:hover td { background: rgba(26,46,48,0.14); }
+.ledgerTable tbody tr.row:nth-child(even) td { background: rgba(26,46,48,0.12); }
+.ledgerTable tbody tr.row:hover td { background: rgba(238,140,58,0.26); }
 .ledgerTable tbody td.dateCell  { color: rgba(26,46,48,0.78); }
 .ledgerTable tbody td.moneyCell { color: #b91c1c; }
 .ledgerTable tbody td.metaCell  { color: rgba(26,46,48,0.82); }
