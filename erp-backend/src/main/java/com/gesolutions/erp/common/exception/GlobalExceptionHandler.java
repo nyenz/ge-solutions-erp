@@ -66,7 +66,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Map<String, Object>> handleMissingParams(MissingServletRequestParameterException ex) {
         System.err.println(">>> [PROTOCOL_FAULT]: Missing mandatory parameter: " + ex.getParameterName());
-        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required data missing.");
+        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required data missing: " + ex.getParameterName() + ".");
+    }
+
+    // fix165: a missing file part and a wrongly typed value used to fall into the generic 500 "Core error".
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingPart(org.springframework.web.multipart.support.MissingServletRequestPartException ex) {
+        System.err.println(">>> [PROTOCOL_FAULT]: Missing file part: " + ex.getRequestPartName());
+        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required file missing: " + ex.getRequestPartName() + ".");
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        System.err.println(">>> [DATA_FAULT]: Bad value for " + ex.getName());
+        return buildResponse(HttpStatus.BAD_REQUEST, "DATA_FORMAT_ERROR", "Invalid value for " + ex.getName() + ".");
     }
 
     // --- 4. DIGITAL VAULT FAULTS ---
@@ -100,7 +113,7 @@ public class GlobalExceptionHandler {
         // Sends the FULL technical history to the Render Logs tab
         System.err.println("!!! CRITICAL_SYSTEM_FAULT_DETECTED !!!");
         ex.printStackTrace(); 
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "SYSTEM_CRITICAL_FAULT", "Core error. Look at Render Logs for Trace.");
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "SYSTEM_CRITICAL_FAULT", "Core error (" + ex.getClass().getSimpleName() + "). Look at Render Logs for Trace.");
     }
 
     /**

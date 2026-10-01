@@ -12,7 +12,14 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   getNotes:  (clientId) => api.get('/recovery/clients/' + clientId + '/notes'),
   logNote:   (payload) => api.post('/recovery/notes', payload),
   deleteNote: (noteId) => api.delete('/recovery/notes/' + noteId),
-  recordPayment: (projectId, amount, notes) => api.post(`/land/projects/${projectId}/payment`, null, { params: { amount, notes } }),
+  // fix165: a payment is sent TOGETHER with its receipt file; the server refuses it without one.
+  recordPayment: (projectId, amount, notes, receipt) => {
+    const fd = new FormData();
+    fd.append('amount', String(amount));
+    if (notes) fd.append('notes', notes);
+    if (receipt) fd.append('receipt', receipt, receipt.name);
+    return api.post(`/land/projects/${projectId}/payment`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
   getNotifications: () => api.get('/notifications').then(r => r.data),
   getUnreadCount: () => api.get('/notifications/unread-count').then(r => r.data.unread),
   markRead: (id) => api.post('/notifications/' + id + '/read'),

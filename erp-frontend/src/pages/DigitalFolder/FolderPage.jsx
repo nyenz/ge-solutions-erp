@@ -31,9 +31,27 @@ import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 
-// fix138: every payment needs its receipt scan filed under Payment Receipts.
-// Set to false to make the receipt optional.
+// fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
+// Do not set this to false: the server would still refuse the payment.
 const RECEIPT_REQUIRED = true;
+const NOTE_MAX = 2000;
+const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
+// fix165: ONE place that turns any failed request into a sentence a person can read.
+// Always shows the server's own words and the HTTP number, so a popup error is never just "FAILED".
+const errText = (err) => {
+    const st = err && err.response && err.response.status;
+    if (!st) return 'NO REPLY FROM THE SERVER (internet is down, or the server is waking up). Nothing was saved. Wait a few seconds and try again.';
+    const d = err.response.data;
+    let msg = '';
+    if (d && typeof d === 'object') msg = d.message || d.error || '';
+    else if (typeof d === 'string' && d.length < 300) msg = d;
+    if (!msg) msg = err.message || 'Unknown error';
+    return msg + ' (HTTP ' + st + ')';
+};
+// fix165: red error box that sits INSIDE a popup, so a failure is read where the work is being done.
+const ModalError = ({ text }) => (text ? (<div className={styles.modalErr} role="alert">
+    <FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{text}</span></div>) : null);
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const useToast = () => {
@@ -41,7 +59,9 @@ const useToast = () => {
     const toast = useCallback((message, type = 'info', duration = 4000) => {
         const id = Date.now() + Math.random();
         setToasts(prev => [...prev, { id, message, type }]);
-        if (duration > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+        // fix165: an error stays on screen for at least 12 seconds (or until closed) so it can be read
+        const ms = type === 'error' && duration > 0 ? Math.max(duration, 12000) : duration;
+        if (ms > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ms);
     }, []);
     const dismissToast = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);
     return { toasts, toast, dismissToast };
@@ -302,6 +322,7 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', OWNERS: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
+    const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);
     const [payModal, setPayModal] = useState({ open: false });
     const [stageCount, setStageCount] = useState(0);
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
@@ -309,12 +330,15 @@ const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans witho
     // fix138: receipt for the payment being recorded + the PROBLEM window
     const [payReceipt, setPayReceipt] = useState(null);
     const payReceiptRef = useRef(null);
-    useEffect(() => { if (!payModal.open) setPayReceipt(null); }, [payModal.open]);
+    const [payErr, setPayErr] = useState('');
+    useEffect(() => { if (!payModal.open) { setPayReceipt(null); setPayErr(''); } }, [payModal.open]);
     const [problemModal, setProblemModal] = useState({ open: false, note: '' });
     // fix162: ONE reason window for the money actions that need a written reason
     const [reasonModal, setReasonModal] = useState({ open: false, kind: '', title: '', info: '', confirmLabel: '', amountLabel: '', amount: '', reason: '', paymentId: null });
     const [reasonBusy, setReasonBusy] = useState(false);
     const [probBusy, setProbBusy] = useState(false);
+    const [probErr, setProbErr] = useState('');
+    const [reasonErr, setReasonErr] = useState('');
     const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, owners: true, related: true, docs: true, stagesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -372,6 +396,7 @@ useEffect(() => {
         const params = new URLSearchParams(location.search);
         const action = params.get('action');
         if (!action || !binder) return;
+        if (!canEdit && (action === 'pay' || action === 'storage')) { toast('Only a manager or director can record payments.', 'error', 6000); return; }
         if (action === 'pay') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('TITLE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
         else if (action === 'storage') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('STORAGE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
     }, [location.search, binder]);
@@ -462,24 +487,37 @@ useEffect(() => {
             await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });
             predictionService.learn(buffer); touchedRef.current = false; setIsEditing(false);
             await loadFolderData(); toast('Changes saved successfully', 'success');
-        } catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+        } catch (err) { toast('SAVE FAILED: ' + errText(err), 'error', 12000); }
         finally { setCommitting(false); }
     };
-    const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees resumed.', 'info'); } catch { toast('RESUME FAILED', 'error'); } };
-    const handleRelease = async () => { const ok = await confirm('HAND OVER TITLE', 'Confirm the client has received the title deed. This marks the plot RELEASED and is recorded in the audit log. It cannot be undone from this page.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title handed over. Plot is now RELEASED.', 'success'); } catch (err) { toast(err.response?.data?.message || 'HAND OVER FAILED', 'error', 8000); } };
-    const runToggleProblem = async (text) => { const was = project.problem; const note = (text || '').trim(); try { await folderPortalService.toggleProblem(id, note); if (!was && note) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); return true; } catch { toast('FLAG FAILED', 'error'); return false; } };
+    const handleUnfreeze = async () => { try { await folderPortalService.settings(id, { deadline: '' }); setRateDeadline(''); setFreezeOpen(false); await loadFolderData(); toast('Fees resumed.', 'info'); } catch (err) { toast('RESUME FAILED: ' + errText(err), 'error', 12000); } };
+    const handleRelease = async () => { const ok = await confirm('HAND OVER TITLE', 'Confirm the client has received the title deed. This marks the plot RELEASED and is recorded in the audit log. It cannot be undone from this page.', 'warn'); if (!ok) return; try { await landService.authorizeRelease(id, 'Released from folder page'); await loadFolderData(); toast('Title handed over. Plot is now RELEASED.', 'success'); } catch (err) { toast('HAND OVER FAILED: ' + errText(err), 'error', 12000); } };
+    // fix165: a PROBLEM flag must say what the problem is (5+ characters). The flag and its note are saved
+    // as two steps; if the note step fails the flag stays and the person is told exactly that.
+    const runToggleProblem = async (text) => {
+        const was = project.problem; const note = (text || '').trim();
+        if (!was && note.length < 5) { const m = 'WRITE WHAT THE PROBLEM IS (AT LEAST 5 CHARACTERS).'; setProbErr(m); toast(m, 'error', 8000); return false; }
+        try { await folderPortalService.toggleProblem(id, note); }
+        catch (err) { const m = errText(err); setProbErr(m); toast('FLAG FAILED: ' + m, 'error', 12000); return false; }
+        let noteSaved = true;
+        if (!was && note) { try { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } catch { noteSaved = false; } }
+        await loadFolderData();
+        if (!was && !noteSaved) toast('Flagged as PROBLEM, but the note did NOT save. Add it again from the NOTES tab.', 'warn', 12000);
+        else toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn');
+        return true;
+    };
     // fix138: flagging opens the Golden Seed PROBLEM window (no browser prompt); clearing stays one click
-    const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };
-    const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };
+    const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProbErr(''); setProblemModal({ open: true, note: '' }); } };
+    const closeProblemModal = () => { if (!probBusy) { setProbErr(''); setProblemModal({ open: false, note: '' }); } };
     const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };
-    const openReasonModal = (cfg) => setReasonModal({ open: true, kind: '', title: '', info: '', confirmLabel: 'CONFIRM', amountLabel: '', amount: '', reason: '', paymentId: null, ...cfg });
-    const closeReasonModal = () => { if (!reasonBusy) setReasonModal(m => ({ ...m, open: false })); };
+    const openReasonModal = (cfg) => { setReasonErr(''); setReasonModal({ open: true, kind: '', title: '', info: '', confirmLabel: 'CONFIRM', amountLabel: '', amount: '', reason: '', paymentId: null, ...cfg }); };
+    const closeReasonModal = () => { if (!reasonBusy) { setReasonErr(''); setReasonModal(m => ({ ...m, open: false })); } };
     const submitReasonModal = async () => {
         if (reasonBusy) return;
         const m = reasonModal; const why = (m.reason || '').trim();
-        if (why.length < 5) { toast('WRITE THE REASON (AT LEAST 5 CHARACTERS)', 'error'); return; }
-        if (m.kind === 'REDUCE' && (m.amount === '' || Number(m.amount) < 0 || Number(m.amount) >= storageFees)) { toast('ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES', 'error', 6000); return; }
-        setReasonBusy(true);
+        if (why.length < 5) { const m = 'WRITE THE REASON (AT LEAST 5 CHARACTERS).'; setReasonErr(m); toast(m, 'error'); return; }
+        if (m.kind === 'REDUCE' && (m.amount === '' || Number(m.amount) < 0 || Number(m.amount) >= storageFees)) { const m = 'ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES.'; setReasonErr(m); toast(m, 'error', 6000); return; }
+        setReasonBusy(true); setReasonErr('');
         try {
             if (m.kind === 'REVERSE') { await landService.reversePayment(id, m.paymentId, why); toast('Payment reversed.', 'warn'); }
             else if (m.kind === 'REDUCE') { await folderPortalService.reduceFees(id, m.amount, why); toast('Storage fees reduced.', 'success'); }
@@ -490,7 +528,7 @@ useEffect(() => {
             else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }
             await loadFolderData();
             setReasonModal(x => ({ ...x, open: false }));
-        } catch (err) { toast('FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+        } catch (err) { const m = errText(err); setReasonErr(m); toast('NOT DONE: ' + m, 'error', 12000); }
         finally { setReasonBusy(false); }
     };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
@@ -515,7 +553,20 @@ useEffect(() => {
         const owners = buffer.owners.map((o, i) => { if (i !== idx) return o; let v = val; if (field === 'fullName') v = val.toUpperCase(); if (field === 'nationalId') v = val.toUpperCase().replace(/\s/g, ''); if (field === 'email') v = val.toLowerCase().replace(/\s/g, ''); return { ...o, [field]: v }; });
         touchedRef.current = true; setBuffer(p => ({ ...p, owners }));
     };
-    const handleVaultAction = (files) => { if (!files?.length) return; setUploadDraft({ batch: '', files: files.map(file => ({ file, category: '' })) }); };
+    // fix165: wrong type / empty / oversized files are turned away here with the reason, before any upload starts
+    const handleVaultAction = (files) => {
+        if (!files?.length) return;
+        const ok = []; const bad = [];
+        files.forEach(f => {
+            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');
+            else if (!f.size) bad.push(f.name + ' (the file is empty)');
+            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');
+            else ok.push(f);
+        });
+        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error', 12000);
+        if (!ok.length) return;
+        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });
+    };
     const closeUploadDraft = () => { if (committing) return; setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
     const setBatchCategory = (code) => setUploadDraft(d => d && ({ batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
     const setFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
@@ -529,11 +580,11 @@ useEffect(() => {
             setNewCatName(''); setNewCatOpen(false);
             setUploadDraft(d => d && ({ ...d, batch: d.batch || cat.code, files: d.files.map(f => (f.category ? f : { ...f, category: cat.code })) }));
             toast('Category "' + cat.label + '" ready', 'success', 3000);
-        } catch { toast('COULD NOT ADD CATEGORY', 'error', 6000); } finally { setCatBusy(false); }
+        } catch (err) { const m = errText(err); setUploadDraft(d => d && ({ ...d, error: 'COULD NOT ADD CATEGORY: ' + m })); toast('COULD NOT ADD CATEGORY: ' + m, 'error', 12000); } finally { setCatBusy(false); }
     };
     const handleUploadConfirm = async () => {
         if (!uploadDraft || committing) return;
-        if (uploadDraft.files.some(f => !f.category)) { toast('Pick a category for every file', 'warn', 4000); return; }
+        if (uploadDraft.files.some(f => !f.category)) { const m = 'PICK A CATEGORY FOR EVERY FILE.'; setUploadDraft(d => d && ({ ...d, error: m })); toast(m, 'warn', 6000); return; }
         const count = uploadDraft.files.length;
         setCommitting(true);
         try {
@@ -541,11 +592,32 @@ useEffect(() => {
             setUploadDraft(null); setNewCatOpen(false); setNewCatName('');
             await loadFolderData();
             toast(count + ' document(s) uploaded', 'success', 3000);
-        } catch { toast('INGESTION FAILED', 'error', 8000); } finally { setCommitting(false); }
+        } catch (err) { const m = errText(err); setUploadDraft(d => d && ({ ...d, error: m })); toast('UPLOAD FAILED: ' + m, 'error', 12000); } finally { setCommitting(false); }
     };
-    const handleDeleteDoc = async (docId, fileName) => { const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"?', 'danger'); if (!ok) return; try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };
-    const handleNoteSave = async () => { if (!noteModal.content.trim()) return; try { if (noteModal.id) await landService.editStandaloneNote(noteModal.id, noteModal.content); else await landService.addStandaloneNote(id, noteModal.content); setNoteModal({ open: false, id: null, content: '' }); await loadFolderData(); toast('Note saved', 'success', 3000); } catch { toast('SAVE FAILED', 'error'); } };
-    const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this entry?', 'danger'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };
+    const handleDeleteDoc = async (docId, fileName) => { const ok = await confirm('DELETE DOCUMENT', 'Delete "' + fileName + '"?', 'danger'); if (!ok) return; try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch (err) { toast('DOCUMENT NOT DELETED: ' + errText(err), 'error', 12000); } };
+    // fix165: the note popup shows its own errors (the server's words), cannot be thrown away by a stray click
+    // outside it, asks before discarding typed text, and a note over 2000 characters is refused before sending.
+    const noteOriginal = () => (noteModal.id ? ((binder?.notes || []).find(n => n.id === noteModal.id) || {}).notes || '' : '');
+    const closeNoteModal = async () => {
+        if (noteBusy) return;
+        const dirty = noteModal.content.trim() !== '' && noteModal.content !== noteOriginal();
+        if (dirty) { const ok = await confirm('DISCARD NOTE', 'This note is not saved. Close it and lose what you typed?', 'warn'); if (!ok) return; }
+        setNoteErr(''); setNoteModal({ open: false, id: null, content: '' });
+    };
+    const handleNoteSave = async () => {
+        if (noteBusy) return;
+        const text = noteModal.content.trim();
+        if (text.length < 2) { setNoteErr('WRITE THE NOTE FIRST (AT LEAST 2 CHARACTERS).'); return; }
+        if (text.length > NOTE_MAX) { setNoteErr('TOO LONG: ' + text.length + ' CHARACTERS. THE LIMIT IS ' + NOTE_MAX + '.'); return; }
+        setNoteBusy(true); setNoteErr('');
+        try {
+            if (noteModal.id) await landService.editStandaloneNote(noteModal.id, text); else await landService.addStandaloneNote(id, text);
+            setNoteModal({ open: false, id: null, content: '' });
+            await loadFolderData(); toast('Note saved', 'success', 3000);
+        } catch (err) { const m = errText(err); setNoteErr(m); toast('NOTE NOT SAVED: ' + m, 'error', 12000); }
+        finally { setNoteBusy(false); }
+    };
+    const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this entry?', 'danger'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch (err) { toast('NOTE NOT DELETED: ' + errText(err), 'error', 12000); } };
     const runReceivableAction = async (action) => {
         setRecvBusy(true);
         try {
@@ -569,27 +641,28 @@ useEffect(() => {
         const ok = await confirm(m[0], m[1], m[2]);
         if (ok) runReceivableAction(action);
     };
+    // fix165: the payment and its receipt travel to the server TOGETHER and are saved in ONE step. The server refuses a
+    // payment with no receipt (wrong type, empty, over 10 MB) and rolls the payment back if the receipt cannot be filed.
     const handleRecordPayment = async () => {
-        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
-        if (RECEIPT_REQUIRED && !payReceipt) { toast('ATTACH THE PAYMENT RECEIPT', 'error'); return; }
-        setPaying(true);
+        if (paying) return;
+        const amt = Number(payAmount);
+        const fail = (m) => { setPayErr(m); toast(m, 'error', 8000); };
+        if (!payAmount || !Number.isFinite(amt) || amt <= 0) { fail('ENTER A VALID AMOUNT.'); return; }
+        if (!Number.isInteger(amt)) { fail('ENTER WHOLE SHILLINGS ONLY (NO DECIMALS).'); return; }
+        if (amt > Math.max(0, amountOwed)) { fail('OVERPAYMENT: THIS PROJECT ONLY OWES UGX ' + fmt(amountOwed) + '. YOU TYPED UGX ' + fmt(amt) + '.'); return; }
+        if (RECEIPT_REQUIRED && !payReceipt) { fail('ATTACH THE PAYMENT RECEIPT. A PAYMENT CANNOT BE SAVED WITHOUT IT.'); return; }
+        if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { fail('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
+        if (!payReceipt.size) { fail('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
+        if (payReceipt.size > 10 * 1024 * 1024) { fail('THE RECEIPT IS OVER 10 MB. USE A SMALLER SCAN.'); return; }
+        setPaying(true); setPayErr('');
         try {
             const fullNotes = payType === 'STORAGE' ? ('[STORAGE FEE PAYMENT] ' + payNotes).trim() : payNotes;
-            await recoveryService.recordPayment(id, payAmount, fullNotes);
-            // fix138: file the receipt in Documents > Payment Receipts (payment is already saved at this point)
-            let receiptOk = true;
-            if (payReceipt) {
-                try {
-                    const ext = (payReceipt.name.match(/\.[A-Za-z0-9]{1,6}$/) || [''])[0];
-                    const stamp = new Date().toISOString().slice(0, 10);
-                    const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + Number(payAmount) + ' - ' + stamp + ext;
-                    await landService.addExtraDocuments(id, [new File([payReceipt], receiptName, { type: payReceipt.type })], ['PAYMENT_RECEIPT']);
-                } catch { receiptOk = false; }
-            }
+            const stamp = new Date().toISOString().slice(0, 10);
+            const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
+            await recoveryService.recordPayment(id, amt, fullNotes, new File([payReceipt], receiptName, { type: payReceipt.type }));
             await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');
-            if (receiptOk) toast(payReceipt ? 'Payment recorded. Receipt filed under Payment Receipts.' : 'Payment recorded successfully', 'success', 4500);
-            else toast('Payment recorded, but the RECEIPT DID NOT UPLOAD. Add it from Documents > Payment Receipts.', 'warn', 9000);
-        } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+            toast('Payment recorded. Receipt filed under Payment Receipts.', 'success', 4500);
+        } catch (err) { const m = errText(err); setPayErr(m); toast('PAYMENT NOT SAVED: ' + m, 'error', 12000); }
         finally { setPaying(false); }
     };
     const getDocUrl = (filePath) => { if (!filePath) return '#'; if (filePath.startsWith('http')) return filePath; const parts = filePath.split(/ge_uploads[/]/); const rel = parts.length > 1 ? parts[1] : filePath; const base = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1'; return base + '/vault/' + rel.replace(/\\/g, '/'); };
@@ -923,7 +996,7 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                             <div className={styles.compactVault}>{docGroups.map(([cat, docs]) => (<React.Fragment key={cat}><div className={styles.docGroupLabel}>{cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)}<span className={styles.docGroupCount}>{docs.length}</span></div>{docs.map((doc) => (<div key={doc.id} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
                                 <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)}>{doc.fileName}</button>
-                                {isEditing && canEdit && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
+                                {isEditing && canEdit && doc.category !== 'PAYMENT_RECEIPT' && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
                             </div>))}</React.Fragment>))}</div>
                             {canUploadDocs && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()}>+ ADD SCANS</button>}
                         </>)}
@@ -955,8 +1028,9 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value = ''; }} />
             <UnsavedChangesModal isOpen={guardModalOpen} onStay={handleStay} onLeave={handleLeave} context="Plot Record Edit" />
             <NinMismatchModal isOpen={!!ninMismatch} existingName={ninMismatch?.existingName} enteredName={ninMismatch?.enteredName} onConfirm={handleNinMismatchConfirm} onReject={handleNinMismatchReject} />
-            <HardwareModal isOpen={!!uploadDraft} onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
+            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
                 {uploadDraft && (<>
+                    <ModalError text={uploadDraft.error} />
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
@@ -975,31 +1049,34 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                 </>)}
             </HardwareModal>
             <ConfirmModal state={confirmState} onAnswer={handleAnswer} />
-            <HardwareModal isOpen={noteModal.open} onClose={() => { setNoteModal({ open: false, id: null, content: '' }); }} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
-                <div className={modalStyles.modalField}><textarea className={modalStyles.modalTextarea} value={noteModal.content} onChange={e => setNoteModal({ ...noteModal, content: e.target.value })} placeholder="Enter interaction note..." aria-label="Note content" /></div>
+            <HardwareModal isOpen={noteModal.open} lockBackdrop onClose={closeNoteModal} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
+                <ModalError text={noteErr} />
+                <div className={modalStyles.modalField}><textarea className={modalStyles.modalTextarea} value={noteModal.content} onChange={e => { setNoteModal({ ...noteModal, content: e.target.value }); if (noteErr) setNoteErr(''); }} placeholder="Enter interaction note..." aria-label="Note content" />
+                    <span className={styles.probCount}>{noteModal.content.trim().length}/{NOTE_MAX}</span></div>
                 <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave}><FiSave aria-hidden="true" /> SAVE ENTRY</button>
+                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave} disabled={noteBusy}><FiSave aria-hidden="true" /> {noteBusy ? 'SAVING...' : 'SAVE ENTRY'}</button>
                 </div>
             </HardwareModal>
-            <HardwareModal isOpen={payModal.open} onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={'RECORD PAYMENT - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>
+            <HardwareModal isOpen={payModal.open} lockBackdrop onClose={() => { setPayModal({ open: false }); setPayType('TITLE'); setPayAmount(''); setPayNotes(''); }} title={'RECORD PAYMENT - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>
                 {isReceivable && (<div className={styles.payTypeRow}><div className={styles.payTypeButtons}>
                     <button type="button" className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`} onClick={() => setPayType('TITLE')}><FiHome size={12} /> TITLE PAYMENT</button>
                     <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => setPayType('STORAGE')}><FiArchive size={12} /> STORAGE FEE</button>
                 </div></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
-                    <input type="number" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(Math.max(0, amountOwed))} value={payAmount} onChange={e => setPayAmount(e.target.value)} /></div>
+                    <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(Math.max(0, amountOwed))} value={payAmount} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} onChange={e => setPayNotes(e.target.value)} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT{RECEIPT_REQUIRED ? ' (REQUIRED)' : ' (OPTIONAL)'}</label>
                     <input ref={payReceiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} onChange={e => { const f = e.target.files && e.target.files[0]; if (f) setPayReceipt(f); e.target.value = ''; }} />
                     {payReceipt ? (<div className={styles.recFile}><FiFileText aria-hidden="true" /><span className={styles.recName} title={payReceipt.name}>{payReceipt.name}</span><button type="button" className={styles.recRemove} onClick={() => setPayReceipt(null)} aria-label="Remove receipt"><FiX aria-hidden="true" /></button></div>)
                         : (<button type="button" className={styles.addDocBtn} onClick={() => payReceiptRef.current && payReceiptRef.current.click()}><FiPaperclip aria-hidden="true" />&nbsp;ATTACH RECEIPT SCAN</button>)}
-                    <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts.</span></div>
+                    <span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts. PDF, JPG, PNG or WEBP, up to 10 MB. The payment is NOT saved without it.</span></div>
+                <ModalError text={payErr} />
                 <div className={modalStyles.modalFooter}>
                     <HardwareButton type="button" onClick={handleRecordPayment} loading={paying} icon={FiDollarSign}>CONFIRM</HardwareButton>
                 </div>
             </HardwareModal>
-<HardwareModal isOpen={reasonModal.open} onClose={closeReasonModal} title={reasonModal.title}>
+<HardwareModal isOpen={reasonModal.open} lockBackdrop onClose={closeReasonModal} title={reasonModal.title}>
                 <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>{reasonModal.info}</div>
                 {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
                     <input type="number" min="0" className={modalStyles.modalInput} value={reasonModal.amount} autoFocus aria-label="New total storage fees"
@@ -1008,16 +1085,18 @@ onKeyDown={e => { if (e.key === 'Enter') navigate('/land/projects/' + r.projectI
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder="e.g. Client paid in the wrong account..." aria-label="Reason"
                         onChange={e => setReasonModal(m => ({ ...m, reason: e.target.value }))} />
                     <span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>
+                <ModalError text={reasonErr} />
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeReasonModal} disabled={reasonBusy}>CANCEL</button>
                     <HardwareButton type="button" variant="danger" onClick={submitReasonModal} loading={reasonBusy} icon={FiAlertTriangle}>{reasonModal.confirmLabel}</HardwareButton>
                 </div>
             </HardwareModal>
-<HardwareModal isOpen={problemModal.open} onClose={closeProblemModal} title={'FLAG PROBLEM - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>
+<HardwareModal isOpen={problemModal.open} lockBackdrop onClose={closeProblemModal} title={'FLAG PROBLEM - ' + (project.landTitle?.plotNumber || project.projectIndex || 'FOLDER')}>
                 <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies staff. What you write below goes into the notes and the audit trail.</div>
-                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (OPTIONAL)</label>
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (REQUIRED)</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => setProblemModal(m => ({ ...m, note: e.target.value }))} />
                     <span className={styles.probCount}>{problemModal.note.length}/500</span></div>
+                <ModalError text={probErr} />
                 <div className={modalStyles.modalFooter}>
                     <button type="button" className={modalStyles.modalBtnSecondary} onClick={closeProblemModal} disabled={probBusy}>CANCEL</button>
                     <HardwareButton type="button" variant="danger" onClick={handleProblemConfirm} loading={probBusy} icon={FiAlertTriangle}>FLAG PROBLEM</HardwareButton>

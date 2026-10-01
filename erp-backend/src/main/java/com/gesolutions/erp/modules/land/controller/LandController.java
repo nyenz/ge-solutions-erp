@@ -115,6 +115,7 @@ public class LandController {
             @RequestParam("scans") MultipartFile[] scans,
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "categories", required = false) List<String> categories) throws Exception {
+        landService.requireScanFiles(scans);
         landService.addScansToProject(id, scans, category, categories);
         return ResponseEntity.ok().build();
     }
@@ -127,14 +128,19 @@ public class LandController {
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PostMapping("/projects/{id}/notes")
-    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
-        landService.logNewNote(id, content);
+    public ResponseEntity<Void> addNote(@PathVariable UUID id,
+                                        @RequestParam(required = false) String content,
+                                        @RequestBody(required = false) java.util.Map<String, String> body) {
+        // fix165: the text normally arrives in the body; the old ?content= form still works
+        landService.logNewNote(id, content != null ? content : (body == null ? null : body.get("content")));
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/notes/{noteId}")
-    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId, @RequestParam String content) {
-        landService.updateNote(noteId, content);
+    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId,
+                                           @RequestParam(required = false) String content,
+                                           @RequestBody(required = false) java.util.Map<String, String> body) {
+        landService.updateNote(noteId, content != null ? content : (body == null ? null : body.get("content")));
         return ResponseEntity.ok().build();
     }
 
@@ -230,11 +236,13 @@ public class LandController {
         return ResponseEntity.ok(landService.getProjectPayments(id));
     }
 
-    @PostMapping("/projects/{id}/payment")
+    // fix165: the ONLY way to record a payment is with its receipt file (multipart). The old no-receipt form is gone.
+    @PostMapping(value = "/projects/{id}/payment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal amount,
-                                               @RequestParam(required = false) String notes) {
-        landService.recordPayment(id, amount, notes);
+                                               @RequestParam(required = false) String notes,
+                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt) throws Exception {
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt);
         return ResponseEntity.ok().build();
     }
 

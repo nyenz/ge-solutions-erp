@@ -118,6 +118,13 @@ public class LandService {
 
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        // fix165: no money can be recorded against a deleted project, and no fractions of a shilling.
+        if (project.isDeleted()) {
+            throw new BusinessException("PAYMENT_BLOCKED: This project is deleted. Restore it first.");
+        }
+        if (amount.stripTrailingZeros().scale() > 0) {
+            throw new BusinessException("PAYMENT_FAULT: Enter whole shillings only (no decimals).");
+        }
 
         // STAGE 1 FIX: block overpayment -- work out what is still owed
         // using the same logic already used below for balanceAfter.
@@ -180,6 +187,41 @@ public class LandService {
             + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
             + " | Amount owed after: UGX " + balanceAfter);
+    }
+
+    // fix165: A PAYMENT CAN NEVER EXIST WITHOUT ITS RECEIPT. The receipt is checked first, the payment is recorded,
+    // then the receipt is filed under Payment Receipts -- all in ONE transaction. If the receipt cannot be filed
+    // (storage down, bad file) the payment is rolled back too, so there is never a payment with no receipt.
+    @Transactional(rollbackFor = Exception.class)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt) throws Exception {
+        if (receipt == null || receipt.isEmpty()) {
+            throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
+        }
+        if (receipt.getSize() > 10L * 1024L * 1024L) {
+            throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
+        }
+        requireScanFiles(new MultipartFile[] { receipt });
+        recordPayment(projectId, amount, notes);
+        addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
+    }
+
+    // fix165: only real scans (PDF / JPG / PNG / WEBP), never an empty file, can be filed into a folder.
+    public void requireScanFiles(MultipartFile[] scans) {
+        if (scans == null || scans.length == 0) {
+            throw new BusinessException("FILE_REQUIRED: Choose at least one file.");
+        }
+        for (MultipartFile f : scans) {
+            if (f == null || f.isEmpty()) {
+                throw new BusinessException("FILE_EMPTY: One of the files is empty (0 bytes). Scan or photograph it again.");
+            }
+            String name = f.getOriginalFilename() == null ? "" : f.getOriginalFilename().toLowerCase();
+            int dot = name.lastIndexOf('.');
+            String ext = dot >= 0 ? name.substring(dot + 1) : "";
+            if (!Set.of("pdf", "jpg", "jpeg", "png", "webp").contains(ext)) {
+                throw new BusinessException("FILE_TYPE_BLOCKED: \"" + f.getOriginalFilename() + "\" is not allowed. Use PDF, JPG, PNG or WEBP.");
+            }
+        }
     }
 
     // ─── RECEIVABLE MANAGEMENT ───────────────────────────────────────────────────
@@ -661,34 +703,64 @@ public class LandService {
         return result;
     }
 
+    // fix165: notes. A note on a project that has no title yet used to crash the server (it read the plot number of a
+    // title that did not exist), so adding a note or flagging a PROBLEM on a folder failed. Text is now checked and
+    // the audit line keeps the old words when a note is edited or deleted.
+    private static final int NOTE_MAX_CHARS = 2000;
+
+    private String cleanNoteText(String content) {
+        String c = content == null ? "" : content.trim();
+        if (c.length() < 2) {
+            throw new BusinessException("NOTE_REQUIRED: Write the note first (at least 2 characters).");
+        }
+        if (c.length() > NOTE_MAX_CHARS) {
+            throw new BusinessException("NOTE_TOO_LONG: A note can be at most " + NOTE_MAX_CHARS
+                    + " characters (this one is " + c.length() + ").");
+        }
+        return c;
+    }
+
+    private String shortText(String s) {
+        if (s == null) return "";
+        String t = s.replace('\n', ' ').trim();
+        return t.length() > 160 ? t.substring(0, 160) + "..." : t;
+    }
+
     @Transactional
     public void logNewNote(UUID projectId, String content) {
-        LandProject project = projectRepository.findById(projectId).orElseThrow();
+        String text = cleanNoteText(content);
+        LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
         FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
-                .notes(content)
+                .notes(text)
                 .recordedBy(getCurrentOperator())
                 .build();
         followUpRepository.save(entry);
         auditService.logAction("NOTE_ADDED",
-            "Operator [" + getCurrentOperator() + "] added note to plot: "
-            + project.getLandTitle().getPlotNumber());
+            "Operator [" + getCurrentOperator() + "] added note to " + plotLabel(project) + ": " + shortText(text));
     }
 
     @Transactional
     public void updateNote(UUID noteId, String content) {
-        FollowUpLog log = followUpRepository.findById(noteId).orElseThrow();
-        log.setNotes(content);
+        String text = cleanNoteText(content);
+        FollowUpLog log = followUpRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
+        String before = log.getNotes();
+        log.setNotes(text);
         followUpRepository.save(log);
         auditService.logAction("NOTE_UPDATED",
-            "Operator [" + getCurrentOperator() + "] updated a log entry.");
+            "Operator [" + getCurrentOperator() + "] edited a note. WAS: " + shortText(before) + " | NOW: " + shortText(text));
     }
 
     @Transactional
     public void removeNote(UUID noteId) {
-        followUpRepository.deleteById(noteId);
+        FollowUpLog log = followUpRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
+        String before = log.getNotes();
+        followUpRepository.delete(log);
         auditService.logAction("NOTE_DELETED",
-            "Operator [" + getCurrentOperator() + "] deleted a log entry.");
+            "Operator [" + getCurrentOperator() + "] deleted a note: " + shortText(before));
     }
 
     // ─── DOCUMENTS ────────────────────────────────────────────────────────────
@@ -745,7 +817,12 @@ public class LandService {
 
     @Transactional
     public void removeDocument(UUID docId) {
-        ProjectDocument doc = documentRepository.findById(docId).orElseThrow();
+        ProjectDocument doc = documentRepository.findById(docId)
+                .orElseThrow(() -> new BusinessException("DOCUMENT_NOT_FOUND: This document no longer exists."));
+        // fix165: a payment receipt is evidence of money received. It can never be deleted (reverse the payment instead).
+        if ("PAYMENT_RECEIPT".equals(doc.getCategory())) {
+            throw new BusinessException("RECEIPT_LOCKED: A payment receipt cannot be deleted. If the payment was a mistake, REVERSE it in Payment History; the receipt stays as proof.");
+        }
         fileStorageService.deleteFile(doc.getFilePath());
         documentRepository.delete(doc);
         auditService.logAction("DOCUMENT_DELETED",

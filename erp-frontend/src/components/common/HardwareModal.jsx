@@ -8,12 +8,12 @@ import styles from './HardwareModal.module.css';
  * GOLDEN SEED - HARDWARE MODAL PORTAL
  * Breaks out of DOM hierarchy to ensure the note popup is always on top.
  */
-const HardwareModal = ({ isOpen, onClose, title, children }) => {
+const HardwareModal = ({ isOpen, onClose, title, children, lockBackdrop = false }) => {
     if (!isOpen) return null;
 
     // We attach the modal to the 'root' or a specific portal div to prevent clipping
     return createPortal(
-        <div className={styles.backdrop} onClick={onClose}>
+        <div className={styles.backdrop} onClick={lockBackdrop ? undefined : onClose}>
             <div className={styles.modalBody} onClick={(e) => e.stopPropagation()}>
                 
                 <header className={styles.header}>

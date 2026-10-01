@@ -122,6 +122,10 @@ public class FolderPortalController {
     @Transactional
     public Map<String, Object> toggleProblem(@PathVariable UUID id, @RequestParam(value = "note", required = false) String note) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        // fix165: flagging a PROBLEM must say what the problem is. Clearing it needs no words.
+        if (!p.isProblem() && (note == null || note.trim().length() < 5)) {
+            throw new BusinessException("REASON_REQUIRED: Write what the problem is (at least 5 characters).");
+        }
         p.setProblem(!p.isProblem());
         projectRepository.save(p);
         String why = (note != null && !note.isBlank()) ? note.trim() : "";

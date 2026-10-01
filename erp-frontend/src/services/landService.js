@@ -60,11 +60,12 @@ const landService = {
     },
 
     addStandaloneNote: async (projectId, content) => {
-        await api.post(`/land/projects/${projectId}/notes`, null, { params: { content } });
+        // fix165: the note travels in the request body (a long note in the web address was refused by the server)
+        await api.post(`/land/projects/${projectId}/notes`, { content });
     },
 
     editStandaloneNote: async (noteId, content) => {
-        await api.put(`/land/notes/${noteId}`, null, { params: { content } });
+        await api.put(`/land/notes/${noteId}`, { content });
     },
 
     deleteStandaloneNote: async (noteId) => {

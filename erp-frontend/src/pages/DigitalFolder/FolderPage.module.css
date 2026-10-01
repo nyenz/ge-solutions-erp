@@ -68,13 +68,22 @@
     position: fixed;
     bottom: clamp(24px, 3vh, 40px);
     right:  clamp(16px, 2.5vw, 28px);
-    z-index: 99999;
+    z-index: 100002; /* fix165: above every popup (popups are 99999), so an error is never hidden behind one */
     display: flex;
     flex-direction: column-reverse;
     gap: clamp(6px, 1vw, 10px);
     max-width: clamp(280px, 90vw, 400px);
     pointer-events: none;
 }
+
+.modalErr {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: rgba(239, 68, 68, 0.14); border: 1.5px solid rgba(239, 68, 68, 0.6); border-radius: 8px;
+    padding: 10px 12px; margin: 0 0 14px;
+    color: #fecaca; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 800; line-height: 1.5;
+    word-break: break-word;
+}
+.modalErrIcon { flex: 0 0 auto; margin-top: 2px; color: #f87171; }
 
 .toast {
     display: flex;
@@ -997,7 +1006,7 @@
 .confirmOverlay {
     position: fixed;
     inset: 0;
-    z-index: 99998; /* below saving overlay (99000) but above all page content */
+    z-index: 100001; /* fix165: above popups so a confirm opened from inside a popup is visible */
     background: rgba(10, 20, 22, 0.75);
     backdrop-filter: blur(4px);
     display: flex;
