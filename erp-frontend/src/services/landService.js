@@ -22,8 +22,9 @@ const landService = {
         return response.data;
     },
 
-    purgeAsset: async (projectId) => {
-        await api.delete(`/land/projects/${projectId}`);
+    // fix166: deleting a project needs a written reason (5+ characters)
+    purgeAsset: async (projectId, reason) => {
+        await api.delete(`/land/projects/${projectId}`, { params: { reason } });
     },
 
     getDeletedProjects: async () => {

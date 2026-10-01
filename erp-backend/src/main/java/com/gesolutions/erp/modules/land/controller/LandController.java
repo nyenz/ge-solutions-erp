@@ -84,8 +84,8 @@ public class LandController {
 
     @DeleteMapping("/projects/{id}")
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id) {
-        landService.nuclearDelete(id);
+    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id, @RequestParam String reason) {
+        landService.nuclearDelete(id, reason);
         return ResponseEntity.noContent().build();
     }
 

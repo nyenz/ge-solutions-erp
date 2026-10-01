@@ -232,6 +232,9 @@ public class LandService {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
 
+        if (project.isDeleted()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is deleted. Restore it first.");
+        }
         if (project.isReceivable()) {
             throw new BusinessException("RECEIVABLE_FAULT: Plot is already in receivable.");
         }
@@ -462,11 +465,50 @@ public class LandService {
 
     // ─── FULL UPDATE ──────────────────────────────────────────────────────────
 
+    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log.
+    private String fix166TitleLine(LandTitle t) {
+        if (t == null) return "no title";
+        return "plot " + t.getPlotNumber() + ", title ID " + t.getTitleId() + ", tenure " + t.getTenure() + ", block " + t.getBlockRoad();
+    }
+
+    private String fix166OwnersLine(LandProject p) {
+        if (p.getProprietors() == null || p.getProprietors().isEmpty()) return "none";
+        return p.getProprietors().stream()
+                .map(c -> c.getFullName() + " (NIN " + c.getNationalId() + ")")
+                .sorted()
+                .collect(java.util.stream.Collectors.joining("; "));
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public LandProject updateProjectFull(UUID projectId, LandEntryRequest request) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
         LandTitle title = project.getLandTitle();
+
+        // fix166 EDIT GUARDS (the page checks these too, but the server must not trust the page):
+        // a deleted project and a handed-over title cannot be edited; district, plot and tenure cannot be blanked;
+        // a project cannot lose all its owners.
+        if (project.isDeleted()) {
+            throw new BusinessException("EDIT_BLOCKED: This project is deleted. Restore it first.");
+        }
+        if (title != null && title.isReleased()) {
+            throw new BusinessException("EDIT_LOCKED: The title has been handed over, so this record is locked. A director must UNDO the hand-over (with a reason) before anything can be changed.");
+        }
+        if (request.getDistrict() == null || request.getDistrict().isBlank()) {
+            throw new BusinessException("DISTRICT_REQUIRED: The district cannot be empty.");
+        }
+        if (title != null && (request.getPlotNumber() == null || request.getPlotNumber().isBlank())) {
+            throw new BusinessException("PLOT_REQUIRED: A titled project must keep its plot number.");
+        }
+        if (title != null && (request.getTenure() == null || request.getTenure().isBlank())) {
+            throw new BusinessException("TENURE_REQUIRED: A titled project must keep its tenure.");
+        }
+        if (request.getOwners() != null && request.getOwners().isEmpty()
+                && project.getProprietors() != null && !project.getProprietors().isEmpty()) {
+            throw new BusinessException("OWNER_REQUIRED: A project must keep at least one owner.");
+        }
+        final String fix166OldTitle = fix166TitleLine(title);
+        final String fix166OldOwners = fix166OwnersLine(project);
 
         // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields
         // are provided but no title exists yet. Otherwise update existing title.
@@ -570,6 +612,19 @@ public class LandService {
         auditService.logAction("RECORD_UPDATED",
             "Operator [" + getCurrentOperator() + "] modified Binder: "
             + plotLabel(project));
+        // fix166: a change of plot / title ID / tenure / block, or of the owners, is written with OLD -> NEW.
+        String fix166NewTitle = fix166TitleLine(project.getLandTitle());
+        if (!fix166OldTitle.equals(fix166NewTitle)) {
+            auditService.logAction("TITLE_FIELDS_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed the title details of project #" + project.getProjectIndex()
+                + ". Old: " + fix166OldTitle + " -> New: " + fix166NewTitle);
+        }
+        String fix166NewOwners = fix166OwnersLine(project);
+        if (!fix166OldOwners.equals(fix166NewOwners)) {
+            auditService.logAction("OWNERS_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed the owners of project #" + project.getProjectIndex()
+                + ". Old: " + fix166OldOwners + " -> New: " + fix166NewOwners);
+        }
         return saved;
     }
 
@@ -581,8 +636,16 @@ public class LandService {
 
     @Transactional
     @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public void nuclearDelete(UUID id) {
+    public void nuclearDelete(UUID id, String reason) {
+        // fix166: deleting a project needs a written reason, and an already-deleted project cannot be "deleted" again.
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why this project is being deleted (at least 5 characters).");
+        }
         LandProject project = projectRepository.findById(id).orElseThrow();
+        if (project.isDeleted()) {
+            throw new BusinessException("ALREADY_DELETED: This project is already deleted.");
+        }
         String plotNo = plotLabel(project);
 
         project.setDeleted(true);
@@ -590,7 +653,7 @@ public class LandService {
         projectRepository.save(project);
 
         auditService.logAction("RECORD_DELETED",
-            "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo);
+            "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
         /* fix71: CRITICAL was a severity the frontend rendered and the backend
            never emitted. Deleting a plot is exactly what it is for. emitRaw,
            not emit: emit de-duplicates on (type, entityId) forever, so a plot
@@ -823,17 +886,37 @@ public class LandService {
         if ("PAYMENT_RECEIPT".equals(doc.getCategory())) {
             throw new BusinessException("RECEIPT_LOCKED: A payment receipt cannot be deleted. If the payment was a mistake, REVERSE it in Payment History; the receipt stays as proof.");
         }
+        // fix166: documents of a deleted project or of a handed-over title are locked, and the audit line says whose folder.
+        LandProject docProject = doc.getProjectId() == null ? null : projectRepository.findById(doc.getProjectId()).orElse(null);
+        if (docProject != null && docProject.isDeleted()) {
+            throw new BusinessException("DOCUMENT_LOCKED: This project is deleted. Restore it first.");
+        }
+        if (docProject != null && docProject.getLandTitle() != null && docProject.getLandTitle().isReleased()) {
+            throw new BusinessException("DOCUMENT_LOCKED: The title has been handed over, so its documents cannot be deleted. A director must UNDO the hand-over first.");
+        }
         fileStorageService.deleteFile(doc.getFilePath());
         documentRepository.delete(doc);
         auditService.logAction("DOCUMENT_DELETED",
-            "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName());
+            "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()
+            + (doc.getCategory() != null ? " (" + doc.getCategory() + ")" : "")
+            + (docProject != null ? " from " + plotLabel(docProject) : ""));
     }
 
     // ─── STAGE / RELEASE ──────────────────────────────────────────────────────
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void manualRealityOverride(UUID id, int targetStage) {
         LandProject project = projectRepository.findById(id).orElseThrow();
+        // fix166: any manager could push ANY number in (negative, 999) and overwrite the status of a
+        // receivable / handed-over / deleted project. Now director-only, 1..5 only, and those projects are refused.
+        if (targetStage < 1 || targetStage > 5) {
+            throw new BusinessException("STAGE_INVALID: The stage must be a number from 1 to 5.");
+        }
+        if (project.isDeleted() || project.isReceivable()
+                || (project.getLandTitle() != null && project.getLandTitle().isReleased())) {
+            throw new BusinessException("STAGE_LOCKED: The stage of a deleted, receivable or handed-over project cannot be changed.");
+        }
         int oldStage = project.getCurrentStageIndex();
         project.setCurrentStageIndex(targetStage);
         if (targetStage >= 5) project.setStatus("COMPLETED");
@@ -852,6 +935,16 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void authorizeRelease(UUID id, String managerNote) {
         LandProject project = projectRepository.findById(id).orElseThrow();
+        // fix166: no hand-over of a deleted project, no second hand-over, and none while the plot is flagged as a PROBLEM.
+        if (project.isDeleted()) {
+            throw new BusinessException("RELEASE DENIED: This project is deleted. Restore it first.");
+        }
+        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
+            throw new BusinessException("RELEASE DENIED: This title has already been handed over.");
+        }
+        if (project.isProblem()) {
+            throw new BusinessException("RELEASE DENIED: This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.");
+        }
         if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
             throw new BusinessException("RELEASE DENIED: Arrears Detected.");
         }

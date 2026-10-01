@@ -178,6 +178,7 @@ const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, 
     const [insertAfterId, setInsertAfterId] = useState(null);
     const [insertAfterName, setInsertAfterName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [toggling, setToggling] = useState(false);
     const autoTicked = useRef(false);
     const loadStages = useCallback(async () => { try { const list = await stageTemplateService.getProjectStages(projectId) || []; setStages(list); if (onLoaded) onLoaded(list.length); } catch {} finally { setLoading(false); } }, [projectId, onLoaded]);
     useEffect(() => { loadStages(); }, [loadStages]);
@@ -208,6 +209,8 @@ const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, 
 } catch (err) { await loadStages(); cancelInsert(); toast && toast('POSITION UPDATE FAILED (HTTP ' + (err.response?.status || 'network') + ') - stage added at the end.', 'error', 9000); } finally { setSaving(false); }
     };
     const handleToggleComplete = async (stage, isLast) => {
+        if (toggling) return;   // fix166: a double click used to send two ticks and flip the stage back
+        setToggling(true);
         const next = !stage.isCompleted;
         try {
             await stageTemplateService.toggleStageCompletion(projectId, stage.id, next);
@@ -217,7 +220,8 @@ const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, 
             // back to the stage checklist. See onLastStageToggle in the
             // parent for what this actually does.
             if (isLast && onLastStageToggle) onLastStageToggle(next);
-        } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); }
+        } catch (err) { await loadStages(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error', 12000); }
+        finally { setToggling(false); }
     };
     // Lets the parent's single "TITLE READY" button drive the last stage's
     // tick too, so one button covers both "title is ready" and "final stage
@@ -238,11 +242,15 @@ if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current
         setSaving(true);
         try {
             const tpls = await stageTemplateService.getTemplate() || [];
-            await Promise.all(stages.map(s => stageTemplateService.removeStage(projectId, s.id)));
+            if (!tpls.length) { toast && toast('The master checklist is empty, so nothing was changed.', 'error', 9000); return; }
+            // fix166: the new list is added FIRST and the old one removed AFTER, so a failure half-way can never leave
+            // the project with NO stages (it used to delete every stage first and only then try to add the new ones).
+            const oldIds = stages.map(s => s.id);
             await stageTemplateService.attachStages(projectId, tpls.map((t, i) => ({ stageTemplateId: t.id, isCustom: false, cost: 0, isCompleted: i === 0 })));
+            for (const sid of oldIds) { await stageTemplateService.removeStage(projectId, sid); }
             autoTicked.current = true;
             await loadStages(); cancelInsert(); toast && toast('Default stages restored.', 'success');
-        } catch { await loadStages(); toast && toast('Failed to restore defaults', 'error'); } finally { setSaving(false); }
+        } catch (err) { await loadStages(); toast && toast('DEFAULTS NOT RESTORED: ' + errText(err), 'error', 12000); } finally { setSaving(false); }
     };
     if (loading) return null;
     return (<div className={styles.stageList}>
@@ -256,7 +264,7 @@ if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace the current
             const isLast = i === stages.length - 1;
             return (<React.Fragment key={stage.id}>
                 <label className={`${styles.stageItem} ${stage.isCompleted ? styles.stageItemChecked : ''}`}>
-                    <input type="checkbox" className={styles.stageCheckbox} checked={!!stage.isCompleted} disabled={!canEdit}
+                    <input type="checkbox" className={styles.stageCheckbox} checked={!!stage.isCompleted} disabled={!canEdit || toggling}
                         onChange={() => handleToggleComplete(stage, isLast)} aria-label={`Mark ${stage.stageName} complete`} />
                     <span className={styles.stageItemName}>{stage.stageName}</span>
                     <span className={styles.stageActions}>
@@ -398,14 +406,16 @@ useEffect(() => {
         if (!action || !binder) return;
         if (!canEdit && (action === 'pay' || action === 'storage')) { toast('Only a manager or director can record payments.', 'error', 6000); return; }
         if (action === 'pay') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('TITLE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
-        else if (action === 'storage') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType('STORAGE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
+        else if (action === 'storage') { setActiveTab('FINANCIALS'); setTimeout(() => { setPayType(binder.project?.isReceivable ? 'STORAGE' : 'TITLE'); setPayAmount(''); setPayNotes(''); setPayModal({ open: true }); }, 400); }
     }, [location.search, binder]);
     useEffect(() => {
         const t = setInterval(() => {
             if (!isEditing || committing) return;
-            if (Date.now() - lastActiveRef.current > 5 * 60 * 1000) {
+            // fix166: the page used to SAVE EVERYTHING BY ITSELF after 5 minutes of silence, whatever half-finished
+            // thing was typed (a cost, an owner, a plot number). Nothing is saved without a click now; it only reminds.
+            if (Date.now() - lastActiveRef.current > 10 * 60 * 1000) {
                 lastActiveRef.current = Date.now();
-                handleCommit();
+                toast('You have unsaved edits open. Nothing is saved automatically - press SAVE, or CANCEL to throw them away.', 'warn', 15000);
             }
         }, 15000);
         return () => clearInterval(t);
@@ -507,7 +517,7 @@ useEffect(() => {
         return true;
     };
     // fix138: flagging opens the Golden Seed PROBLEM window (no browser prompt); clearing stays one click
-    const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProbErr(''); setProblemModal({ open: true, note: '' }); } };
+    const handleToggleProblem = () => { if (project.problem) { openReasonModal({ kind: 'CLEAR_PROBLEM', title: 'CLEAR PROBLEM FLAG', confirmLabel: 'CLEAR FLAG', info: 'This removes the PROBLEM flag from this plot. Write why it is no longer a problem; your words go into the notes and the audit log.' }); } else { setProbErr(''); setProblemModal({ open: true, note: '' }); } };
     const closeProblemModal = () => { if (!probBusy) { setProbErr(''); setProblemModal({ open: false, note: '' }); } };
     const handleProblemConfirm = async () => { if (probBusy) return; setProbBusy(true); const ok = await runToggleProblem(problemModal.note); setProbBusy(false); if (ok) setProblemModal({ open: false, note: '' }); };
     const openReasonModal = (cfg) => { setReasonErr(''); setReasonModal({ open: true, kind: '', title: '', info: '', confirmLabel: 'CONFIRM', amountLabel: '', amount: '', reason: '', paymentId: null, ...cfg }); };
@@ -525,6 +535,22 @@ useEffect(() => {
             else if (m.kind === 'PAUSE') { await folderPortalService.settings(id, { deadline: rateDeadline, reason: why }); setFreezeOpen(false); toast('Storage fees paused.', 'info'); }
             else if (m.kind === 'WAIVE') { await folderPortalService.exit(id, 'WAIVE', why); toast('Storage fees waived.', 'success'); }
             else if (m.kind === 'UNDO_RELEASE') { await landService.undoRelease(id, why); toast('Hand-over undone.', 'warn'); }
+            else if (m.kind === 'ENTER') { await folderPortalService.enter(id, why); toast('Moved to receivables.', 'success'); }
+            else if (m.kind === 'SET_ASIDE') { await folderPortalService.exit(id, 'SET_ASIDE', why); toast('Receivable set aside - record retained.', 'success'); }
+            else if (m.kind === 'CAPITALIZE') { await folderPortalService.exit(id, 'CAPITALIZE', why); toast('Storage fees added to the total cost.', 'success'); }
+            else if (m.kind === 'CLEAR_PROBLEM') {
+                await folderPortalService.toggleProblem(id, why);
+                try { await landService.addStandaloneNote(id, '[PROBLEM CLEARED] ' + why); } catch { toast('Flag cleared, but the note did NOT save. Add it again from the NOTES tab.', 'warn', 12000); }
+                toast('Problem flag removed.', 'info');
+            }
+            else if (m.kind === 'DELETE') {
+                await landService.purgeAsset(id, why);
+                touchedRef.current = false; setIsEditing(false);
+                setReasonModal(x => ({ ...x, open: false }));
+                toast('Project deleted. The root user can restore it from Settings > Archive.', 'warn', 6000);
+                setTimeout(() => navigate('/land/projects'), 1500);
+                return;
+            }
             else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); setStageCount(0); toast('Title reverted. The project is back to stages.', 'warn'); }
             await loadFolderData();
             setReasonModal(x => ({ ...x, open: false }));
@@ -533,7 +559,9 @@ useEffect(() => {
     };
     const handleUnlock = async () => { touchedRef.current = false; setIsEditing(true); try { await landService.logDossierUnlock(id); } catch {} };
     const handleAbort = async () => { const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are.', 'warn'); if (ok) { if (buffer.convertToTitle && !project.landTitle) { try { await stageChecklistRef.current?.setLastStageCompletion(false); } catch {} } touchedRef.current = false; setIsEditing(false); setFieldErrors({}); loadFolderData(); } };
-    const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };
+    // fix166: DELETE is a soft delete (the root user can restore it), so it no longer claims "permanent"; it needs a written reason.
+    const handleNuclearPurge = () => openReasonModal({ kind: 'DELETE', title: 'DELETE THIS PROJECT', confirmLabel: 'DELETE PROJECT',
+        info: 'This takes the whole project (payments, notes and documents included) out of every list. It is NOT erased: the root user can restore it from Settings > Archive. Write why it is being deleted.' });
     const handleNinBlurCheck = async (idx, val) => {
         if (!val.trim()) return;
         try {
@@ -618,29 +646,8 @@ useEffect(() => {
         finally { setNoteBusy(false); }
     };
     const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this entry?', 'danger'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch (err) { toast('NOTE NOT DELETED: ' + errText(err), 'error', 12000); } };
-    const runReceivableAction = async (action) => {
-        setRecvBusy(true);
-        try {
-            if (action === 'ENTER') await folderPortalService.enter(id);
-            else if (action === 'SETTINGS') await folderPortalService.settings(id, { rate: rateFee, deadline: rateDeadline });
-            else await folderPortalService.exit(id, action);
-            await loadFolderData();
-            toast(action === 'WAIVE' ? 'Storage fees waived.' : action === 'CAPITALIZE' ? 'Storage fees capitalized.' : action === 'SET_ASIDE' ? 'Receivable set aside — record retained.' : action === 'ENTER' ? 'Moved to receivables.' : 'Receivable settings saved.', 'success');
-        } catch (err) { toast('RECEIVABLE ACTION FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setRecvBusy(false); }
-    };
-    const askReceivable = async (action) => {
-        const msgs = {
-            ENTER: ['MOVE TO RECEIVABLES', 'Freeze the balance and start monthly storage fees (default UGX 50,000). Continue?', 'warn'],
-            SET_ASIDE: ['SET ASIDE', 'Take this project out of receivables and stop new fees. The fee record is KEPT (hidden) so the project can be moved back later. Continue?', 'warn'],
-            CAPITALIZE: ['ADD FEES TO COST', 'Add the accumulated storage fees to the total cost and take this project out of receivables. Continue?', 'warn'],
-            WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees and take this project out of receivables. This cannot be undone. Continue?', 'danger'],
-            SETTINGS: ['SAVE SETTINGS', 'Update the monthly rate / freeze deadline for this project. Continue?', 'warn'],
-        };
-        const m = msgs[action];
-        const ok = await confirm(m[0], m[1], m[2]);
-        if (ok) runReceivableAction(action);
-    };
+    // fix166: runReceivableAction / askReceivable are gone. Every receivable move (enter, set aside, add fees to cost,
+    // waive, reduce, rate, pause) now goes through the ONE reason window and the server refuses it without a reason.
     // fix165: the payment and its receipt travel to the server TOGETHER and are saved in ONE step. The server refuses a
     // payment with no receipt (wrong type, empty, over 10 MB) and rolls the payment back if the receipt cannot be filed.
     const handleRecordPayment = async () => {
@@ -750,7 +757,7 @@ useEffect(() => {
                 <div className={styles.ctrlZone}>
                     {!isEditing && (<div className={styles.ctrlGroup}>
                         <button className={styles.printBtn} onClick={() => window.print()} aria-label="Print record"><FiPrinter aria-hidden="true" /></button>
-                        {canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
+                        {canEdit && <button className={styles.ctrlBtnPay} disabled={amountOwed <= 0} title={amountOwed <= 0 ? 'Nothing is owed on this project.' : 'Record a payment with its receipt.'} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}><FiDollarSign aria-hidden="true" /> RECORD PAYMENT</button>}
                         {canMoney && project.landTitle && (project.landTitle.isReleased
                             ? (<>
                                 <button className={`${styles.releaseBtn} ${styles.releaseBtnDone}`} disabled title="The client has received the title deed."><FiCheckCircle aria-hidden="true" /> HANDED OVER</button>
@@ -758,14 +765,14 @@ useEffect(() => {
                                     onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
                                         info: 'This marks the title as NOT handed over again and puts the plot back to ACTIVE. Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
                               </>)
-                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountOwed > 0}
-                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                            : <button className={styles.releaseBtn} onClick={handleRelease} disabled={amountOwed > 0 || !!project.problem}
+                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : 'Record that the client has received the title deed.'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canMoney && project.landTitle && !project.landTitle.isReleased && !project.isLegacy && !isReceivable && stageCount > 0 && (
                             <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
                                     info: 'This removes the saved title (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the final stage, so the project goes back to the stage checklist. The old title values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo in the title, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REVERT TO STAGES</button>)}
                         {canEdit && <button className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot.' : 'Flag this plot as having a problem and alert staff.'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
-                        {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}><FiUnlock aria-hidden="true" /> EDIT</button>}
+                        {canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={!!project.landTitle?.isReleased} title={project.landTitle?.isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
                         {isRoot && <button className={styles.purgeBtn} onClick={handleNuclearPurge}><FiTrash2 aria-hidden="true" /> DELETE</button>}
@@ -874,7 +881,8 @@ useEffect(() => {
 <CornerDecor hideTop />
                         {!isReceivable ? (
                             <div className={styles.recvActionRow}>
-                                {canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>MOVE TO RECEIVABLES</HardwareButton>}
+                                {canMoney && !project.landTitle?.isReleased && amountOwed > 0 && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => openReasonModal({ kind: 'ENTER', title: 'MOVE TO RECEIVABLES', confirmLabel: 'MOVE TO RECEIVABLES',
+                                    info: 'This freezes the balance (UGX ' + fmt(amountOwed) + ' owed) and starts a monthly storage fee of UGX 50,000 unless a different rate is set, added every 30 days. Write why this project is moving to receivables.' })}>MOVE TO RECEIVABLES</HardwareButton>}
                                 <span className={styles.inputHint}>Receivables = clients who still owe after the work is done. Moving this project there freezes the balance and starts a monthly storage fee (UGX 50,000 unless you set another rate), added every 30 days.</span>
                             </div>
                         ) : (<>
@@ -906,8 +914,10 @@ useEffect(() => {
                             </div>)}
                             <div className={styles.recvActionRow}>
                                 {canMoney && (<>
-                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE (KEEP FEES)</HardwareButton>
-                                    <button type="button" className={styles.ghostBtn} onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
+                                    <HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => openReasonModal({ kind: 'SET_ASIDE', title: 'SET ASIDE', confirmLabel: 'SET ASIDE',
+                                        info: 'This takes the project out of receivables and stops new fees. The UGX ' + fmt(storageFees) + ' of fees is KEPT (hidden) so the project can be moved back later. Write why.' })}>SET ASIDE (KEEP FEES)</HardwareButton>
+                                    <button type="button" className={styles.ghostBtn} onClick={() => openReasonModal({ kind: 'CAPITALIZE', title: 'ADD FEES TO COST', confirmLabel: 'ADD FEES TO COST',
+                                        info: 'This adds the UGX ' + fmt(storageFees) + ' of storage fees to the total cost (UGX ' + fmt(totalValue) + ' becomes UGX ' + fmt(totalValue + storageFees) + ') and takes the project out of receivables. Write why.' })} disabled={recvBusy}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
                                     <button type="button" className={styles.dangerBtn} onClick={() => openReasonModal({ kind: 'WAIVE', title: 'WAIVE STORAGE FEES', confirmLabel: 'WAIVE FEES',
                                         info: 'This forgives ALL UGX ' + fmt(storageFees) + ' of storage fees and takes this project out of receivables. It cannot be undone.' })} disabled={recvBusy}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
                                     {storageFees > 0 && <button type="button" className={styles.ghostBtn} onClick={() => openReasonModal({ kind: 'REDUCE', title: 'REDUCE STORAGE FEES', confirmLabel: 'REDUCE FEES', amountLabel: 'NEW TOTAL STORAGE FEES (UGX)',

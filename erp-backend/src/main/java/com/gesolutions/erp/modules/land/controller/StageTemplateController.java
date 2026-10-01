@@ -97,6 +97,7 @@ return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, id
     public ResponseEntity<ProjectStage> toggleStageCompletion(
             @PathVariable UUID projectId, @PathVariable UUID stageId,
             @RequestParam boolean completed) {
+        stageTemplateService.requireStageEditable(projectId, stageId);
         return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));
     }
 
@@ -106,11 +107,13 @@ return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, id
             @RequestBody Map<String, Object> body) {
         BigDecimal cost = body.get("cost") != null ? new BigDecimal(body.get("cost").toString()) : null;
         String notes = (String) body.get("notes");
+        stageTemplateService.requireStageEditable(projectId, stageId);
         return ResponseEntity.ok(stageTemplateService.updateStageCostAndNotes(stageId, cost, notes));
     }
 
     @DeleteMapping("/land/projects/{projectId}/stages/{stageId}")
     public ResponseEntity<Void> removeStage(@PathVariable UUID projectId, @PathVariable UUID stageId) {
+        stageTemplateService.requireStageEditable(projectId, stageId);
         stageTemplateService.removeProjectStage(stageId);
         return ResponseEntity.noContent().build();
     }

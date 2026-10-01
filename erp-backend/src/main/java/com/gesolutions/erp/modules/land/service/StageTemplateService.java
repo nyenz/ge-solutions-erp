@@ -26,6 +26,26 @@ public class StageTemplateService {
     private final StageTemplateRepository templateRepository;
     private final ProjectStageRepository projectStageRepository;
     private final AuditService auditService;
+    private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepository;
+
+    // fix166: the stage endpoints used to ignore the project in the web address: any stage id could be ticked or removed
+    // through ANY project, including a deleted project or a title that was already handed over. Now the stage must
+    // belong to that project and the project must be open.
+    public void requireStageEditable(UUID projectId, UUID stageId) {
+        ProjectStage stage = projectStageRepository.findById(stageId)
+                .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
+        if (stage.getProjectId() == null || !stage.getProjectId().equals(projectId)) {
+            throw new BusinessException("STAGE_MISMATCH: That stage does not belong to this project.");
+        }
+        com.gesolutions.erp.modules.land.model.LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.isDeleted()) {
+            throw new BusinessException("STAGE_LOCKED: This project is deleted. Restore it first.");
+        }
+        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
+            throw new BusinessException("STAGE_LOCKED: The title has been handed over, so its stages are locked. A director must UNDO the hand-over first.");
+        }
+    }
 
     private static final String[] DEFAULT_STAGES = {
         "Field Work",

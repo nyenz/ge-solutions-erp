@@ -1,29 +1,43 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix165: FOLDER PAGE NON-NEGOTIABLES + POPUP ERRORS. Apply AFTER fix164.
+# GOLDEN SEED -- fix166: FOLDER PAGE LOOPHOLES. Apply AFTER fix165.
 #
-#  1. A PAYMENT CAN NO LONGER EXIST WITHOUT ITS RECEIPT. The payment and the receipt file now travel to the server in
-#     ONE request and are saved in ONE step (server refuses: no file, empty file, wrong type, over 10 MB; if the
-#     receipt cannot be filed the payment is rolled back). Before, the page saved the payment first and uploaded the
-#     receipt after, and the server never checked.
-#  2. A payment receipt can never be deleted (button hidden, server refuses). Reverse the payment instead.
-#  3. Payments: whole shillings only, never on a deleted project, overpayment checked on the page too.
-#  4. POPUP ERRORS CAN BE SEEN. Error toasts used to sit BEHIND popups (same layer, drawn earlier), so a failed note
-#     save looked like "nothing happened". Now: toasts sit above popups and stay 12 seconds; every popup (note,
-#     payment, reason, problem, upload) also shows a red error box inside itself with the server's own words + the
-#     HTTP number; the vague "SAVE FAILED" / "FLAG FAILED" / "INGESTION FAILED" messages now say why. The server's
-#     generic "Core error" now names the kind of crash, and missing-file / bad-value requests give a clear 400.
-#  5. NOTES: adding a note (or flagging a PROBLEM) on a project that has no title yet CRASHED the server (it read the
-#     plot number of a title that does not exist). Fixed. Notes are 2-2000 characters, sent in the request body (a
-#     long note in the web address was refused), and the audit line keeps the old words on edit / delete.
-#  6. PROBLEM flag needs a reason of 5+ characters (page + server). If the flag saves but its note does not, the
-#     page now says so instead of "FLAG FAILED".
-#  7. Popups that hold typed text no longer close (and throw the text away) when you click outside them; closing an
-#     unsaved note asks first. Uploads only take PDF / JPG / PNG / WEBP, not empty, under 50 MB (page + server).
-#  8. The ?action=pay link no longer opens the payment popup for roles that cannot record payments.
-#  9. LLM_CONTEXT_GUIDE.md Section 15 records all of this.
+# MONEY / RECEIVABLES
+#  1. MOVE TO RECEIVABLES was open to managers (the page showed it to them, the other receivable buttons are director-only),
+#     had NO checks and NO reason. Calling it twice restarted the billing clock; calling it on a handed-over or fully paid
+#     project overwrote its status. Now: director only, reason (5+), refused if deleted / already receivable / handed over /
+#     nothing owed.
+#  2. Receivable EXIT (set aside / add fees to cost / waive): works only on a project that IS in receivables, only the 3
+#     known actions (an unknown word used to fall through to SET ASIDE), and ALL THREE need a reason. ADD FEES TO COST
+#     changes the total cost -- the audit line now shows old -> new cost.
+#  3. REDUCE FEES / rate / pause: only on a receivable project. A pause must end in the future and within 365 days (a pause
+#     to the year 2999 switched billing off for ever). A bad rate or date is a clear 400, not a server crash.
 #
-# NOT in this fix: Intake initial payment (no receipt rule there yet), who-flagged-it display, call logs, history tab.
+# RECORD LOCKS
+#  4. A HANDED-OVER TITLE IS NOW LOCKED. Before, a manager could still change the plot number, tenure, owners and total
+#     cost of a released title, delete its documents, and un-tick its stages. Server refuses all of it (a director must
+#     UNDO the hand-over, with a reason). A deleted project is locked the same way.
+#  5. The server now refuses a blank district / plot / tenure and removing every owner (only the page checked before).
+#  6. Changes to plot / title ID / tenure / block and to the OWNERS are audited OLD -> NEW (before: just "modified Binder").
+#  7. Stage endpoints ignored the project in the web address: any stage id could be ticked / removed through any project.
+#     Now the stage must belong to that project and the project must be open.
+#
+# WORKFLOW
+#  8. THE PAGE SAVED BY ITSELF after 5 idle minutes (half-typed cost, owner, plot number and all). Removed; it only warns.
+#  9. HAND OVER is refused while the plot is flagged PROBLEM (page + server), when deleted, and when already handed over.
+# 10. CLEARING a PROBLEM flag needs a reason (5+). Anyone could wipe a flag a director raised with one click.
+# 11. DELETE needs a reason, refuses an already-deleted project, and no longer says "PERMANENTLY erase" (it is a soft
+#     delete: root can restore it from Settings > Archive).
+# 12. reality-override (stage number) was open to every manager with no limits (negative, 999) and could overwrite the
+#     status of a receivable / handed-over project. Now director/admin only, 1..5 only, refused on locked projects.
+# 13. Stage tick could double-fire on a double click (flipped back). RESTORE DEFAULTS deleted every stage BEFORE adding the
+#     new ones, so one failure left the project with NO stages; it now adds first, removes after.
+# 14. RECORD PAYMENT button disabled when nothing is owed; EDIT disabled after hand-over; ?action=storage only means a
+#     storage payment on a receivable project.
+# 15. LLM_CONTEXT_GUIDE.md records all of this.
+#
+# NOT in this fix: call logs with promise dates, who-flagged-it display, per-plot history tab, a reason on hand-over,
+# an editable global storage-fee default (needs a settings table), server-side "edit conflict" for fields other than cost.
 #
 # Atomic: every patch is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 # Runs the backend compile and `npm run build` before committing when available, and rolls back if either goes red.
@@ -33,8 +47,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix165"
-COMMIT_MSG = "fix165: payment+receipt saved together (receipt mandatory, undeletable), popup errors visible, note crash fixed, problem needs reason"
+FIX_NO = "fix166"
+COMMIT_MSG = "fix166: folder page loopholes closed (no idle auto-save, handed-over title locked, receivables director-only + reasons, problem clear + delete need reasons, stage guards, audit old->new)"
 RUN_GATES = True  # compile + build must be green before commit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,14 +58,13 @@ SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
 FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
-FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
-MODAL_JSX = os.path.join(SRC, "components", "common", "HardwareModal.jsx")
 LAND_SVC_JS = os.path.join(SRC, "services", "landService.js")
-RECOVERY_SVC_JS = os.path.join(SRC, "services", "recoveryService.js")
+PORTAL_SVC_JS = os.path.join(SRC, "services", "folderPortalService.js")
 LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
 LAND_CTRL = os.path.join(JAVA, "modules", "land", "controller", "LandController.java")
 PORTAL_CTRL = os.path.join(JAVA, "modules", "land", "controller", "FolderPortalController.java")
-EXC = os.path.join(JAVA, "common", "exception", "GlobalExceptionHandler.java")
+STAGE_SVC = os.path.join(JAVA, "modules", "land", "service", "StageTemplateService.java")
+STAGE_CTRL = os.path.join(JAVA, "modules", "land", "controller", "StageTemplateController.java")
 GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -118,663 +131,572 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (FOLDER_JSX, FOLDER_CSS, MODAL_JSX, LAND_SVC_JS, RECOVERY_SVC_JS, LAND_SERVICE, LAND_CTRL, PORTAL_CTRL, EXC, GUIDE)
+LOAD_FILES = (FOLDER_JSX, LAND_SVC_JS, PORTAL_SVC_JS, LAND_SERVICE, LAND_CTRL, PORTAL_CTRL, STAGE_SVC, STAGE_CTRL, GUIDE)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(FOLDER_JSX,
-r"""// fix138: every payment needs its receipt scan filed under Payment Receipts.
-// Set to false to make the receipt optional.
-const RECEIPT_REQUIRED = true;
-""",
-r"""// fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
-// Do not set this to false: the server would still refuse the payment.
-const RECEIPT_REQUIRED = true;
-const NOTE_MAX = 2000;
-const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
-const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
-// fix165: ONE place that turns any failed request into a sentence a person can read.
-// Always shows the server's own words and the HTTP number, so a popup error is never just "FAILED".
-const errText = (err) => {
-    const st = err && err.response && err.response.status;
-    if (!st) return 'NO REPLY FROM THE SERVER (internet is down, or the server is waking up). Nothing was saved. Wait a few seconds and try again.';
-    const d = err.response.data;
-    let msg = '';
-    if (d && typeof d === 'object') msg = d.message || d.error || '';
-    else if (typeof d === 'string' && d.length < 300) msg = d;
-    if (!msg) msg = err.message || 'Unknown error';
-    return msg + ' (HTTP ' + st + ')';
-};
-// fix165: red error box that sits INSIDE a popup, so a failure is read where the work is being done.
-const ModalError = ({ text }) => (text ? (<div className={styles.modalErr} role="alert">
-    <FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{text}</span></div>) : null);
-""",
-'fix165: shared helpers (errText, ModalError, constants)')
+patch(LAND_SERVICE,
+r"""        LandProject project = projectRepository.findById(id).orElseThrow();
+        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
+            throw new BusinessException("RELEASE DENIED: Arrears Detected.");
+        }""",
+r"""        LandProject project = projectRepository.findById(id).orElseThrow();
+        // fix166: no hand-over of a deleted project, no second hand-over, and none while the plot is flagged as a PROBLEM.
+        if (project.isDeleted()) {
+            throw new BusinessException("RELEASE DENIED: This project is deleted. Restore it first.");
+        }
+        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
+            throw new BusinessException("RELEASE DENIED: This title has already been handed over.");
+        }
+        if (project.isProblem()) {
+            throw new BusinessException("RELEASE DENIED: This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.");
+        }
+        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
+            throw new BusinessException("RELEASE DENIED: Arrears Detected.");
+        }""",
+'fix166: hand-over refused when deleted / already handed over / PROBLEM flag up')
 
-patch(FOLDER_JSX,
-r"""        if (duration > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);""",
-r"""        // fix165: an error stays on screen for at least 12 seconds (or until closed) so it can be read
-        const ms = type === 'error' && duration > 0 ? Math.max(duration, 12000) : duration;
-        if (ms > 0) setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ms);""",
-'fix165: error toasts stay at least 12 seconds')
+patch(LAND_SERVICE,
+r"""    @Transactional(rollbackFor = Exception.class)
+    public LandProject updateProjectFull(UUID projectId, LandEntryRequest request) {""",
+r"""    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log.
+    private String fix166TitleLine(LandTitle t) {
+        if (t == null) return "no title";
+        return "plot " + t.getPlotNumber() + ", title ID " + t.getTitleId() + ", tenure " + t.getTenure() + ", block " + t.getBlockRoad();
+    }
 
-patch(FOLDER_JSX,
-r"""    const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });""",
-r"""    const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
-    const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);""",
-'fix165: note popup error + busy state')
+    private String fix166OwnersLine(LandProject p) {
+        if (p.getProprietors() == null || p.getProprietors().isEmpty()) return "none";
+        return p.getProprietors().stream()
+                .map(c -> c.getFullName() + " (NIN " + c.getNationalId() + ")")
+                .sorted()
+                .collect(java.util.stream.Collectors.joining("; "));
+    }
 
-patch(FOLDER_JSX,
-r"""    useEffect(() => { if (!payModal.open) setPayReceipt(null); }, [payModal.open]);""",
-r"""    const [payErr, setPayErr] = useState('');
-    useEffect(() => { if (!payModal.open) { setPayReceipt(null); setPayErr(''); } }, [payModal.open]);""",
-'fix165: payment popup error state, cleared when it closes')
+    @Transactional(rollbackFor = Exception.class)
+    public LandProject updateProjectFull(UUID projectId, LandEntryRequest request) {""",
+'fix166: audit helper lines for title + owners')
 
-patch(FOLDER_JSX,
-r"""    const [probBusy, setProbBusy] = useState(false);""",
-r"""    const [probBusy, setProbBusy] = useState(false);
-    const [probErr, setProbErr] = useState('');
-    const [reasonErr, setReasonErr] = useState('');""",
-'fix165: problem + reason popup error state')
+patch(LAND_SERVICE,
+r"""        LandTitle title = project.getLandTitle();
 
-patch(FOLDER_JSX,
-r"""        if (action === 'pay') { setActiveTab('FINANCIALS');""",
-r"""        if (!canEdit && (action === 'pay' || action === 'storage')) { toast('Only a manager or director can record payments.', 'error', 6000); return; }
-        if (action === 'pay') { setActiveTab('FINANCIALS');""",
-'fix165: the ?action=pay link no longer opens the payment popup for roles that cannot pay')
+        // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields""",
+r"""        LandTitle title = project.getLandTitle();
 
-patch(FOLDER_JSX,
-r"""catch (err) { toast('SAVE FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setCommitting(false); }""",
-r"""catch (err) { toast('SAVE FAILED: ' + errText(err), 'error', 12000); }
-        finally { setCommitting(false); }""",
-'fix165: record SAVE error shows server words + HTTP number')
+        // fix166 EDIT GUARDS (the page checks these too, but the server must not trust the page):
+        // a deleted project and a handed-over title cannot be edited; district, plot and tenure cannot be blanked;
+        // a project cannot lose all its owners.
+        if (project.isDeleted()) {
+            throw new BusinessException("EDIT_BLOCKED: This project is deleted. Restore it first.");
+        }
+        if (title != null && title.isReleased()) {
+            throw new BusinessException("EDIT_LOCKED: The title has been handed over, so this record is locked. A director must UNDO the hand-over (with a reason) before anything can be changed.");
+        }
+        if (request.getDistrict() == null || request.getDistrict().isBlank()) {
+            throw new BusinessException("DISTRICT_REQUIRED: The district cannot be empty.");
+        }
+        if (title != null && (request.getPlotNumber() == null || request.getPlotNumber().isBlank())) {
+            throw new BusinessException("PLOT_REQUIRED: A titled project must keep its plot number.");
+        }
+        if (title != null && (request.getTenure() == null || request.getTenure().isBlank())) {
+            throw new BusinessException("TENURE_REQUIRED: A titled project must keep its tenure.");
+        }
+        if (request.getOwners() != null && request.getOwners().isEmpty()
+                && project.getProprietors() != null && !project.getProprietors().isEmpty()) {
+            throw new BusinessException("OWNER_REQUIRED: A project must keep at least one owner.");
+        }
+        final String fix166OldTitle = fix166TitleLine(title);
+        final String fix166OldOwners = fix166OwnersLine(project);
 
-patch(FOLDER_JSX,
-r"""} catch { toast('RESUME FAILED', 'error'); } };""",
-r"""} catch (err) { toast('RESUME FAILED: ' + errText(err), 'error', 12000); } };""",
-'fix165: RESUME FEES error shows the reason')
+        // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields""",
+'fix166: server-side edit guards (deleted / handed over / blanks / no owners)')
 
-patch(FOLDER_JSX,
-r"""toast(err.response?.data?.message || 'HAND OVER FAILED', 'error', 8000);""",
-r"""toast('HAND OVER FAILED: ' + errText(err), 'error', 12000);""",
-'fix165: HAND OVER error shows HTTP number')
+patch(LAND_SERVICE,
+r"""        LandProject saved = projectRepository.save(project);
+        auditService.logAction("RECORD_UPDATED",
+            "Operator [" + getCurrentOperator() + "] modified Binder: "
+            + plotLabel(project));
+        return saved;""",
+r"""        LandProject saved = projectRepository.save(project);
+        auditService.logAction("RECORD_UPDATED",
+            "Operator [" + getCurrentOperator() + "] modified Binder: "
+            + plotLabel(project));
+        // fix166: a change of plot / title ID / tenure / block, or of the owners, is written with OLD -> NEW.
+        String fix166NewTitle = fix166TitleLine(project.getLandTitle());
+        if (!fix166OldTitle.equals(fix166NewTitle)) {
+            auditService.logAction("TITLE_FIELDS_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed the title details of project #" + project.getProjectIndex()
+                + ". Old: " + fix166OldTitle + " -> New: " + fix166NewTitle);
+        }
+        String fix166NewOwners = fix166OwnersLine(project);
+        if (!fix166OldOwners.equals(fix166NewOwners)) {
+            auditService.logAction("OWNERS_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed the owners of project #" + project.getProjectIndex()
+                + ". Old: " + fix166OldOwners + " -> New: " + fix166NewOwners);
+        }
+        return saved;""",
+'fix166: audit title + owner changes as OLD -> NEW')
 
-patch(FOLDER_JSX,
-r"""    const runToggleProblem = async (text) => { const was = project.problem; const note = (text || '').trim(); try { await folderPortalService.toggleProblem(id, note); if (!was && note) { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } await loadFolderData(); toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn'); return true; } catch { toast('FLAG FAILED', 'error'); return false; } };""",
-r"""    // fix165: a PROBLEM flag must say what the problem is (5+ characters). The flag and its note are saved
-    // as two steps; if the note step fails the flag stays and the person is told exactly that.
-    const runToggleProblem = async (text) => {
-        const was = project.problem; const note = (text || '').trim();
-        if (!was && note.length < 5) { const m = 'WRITE WHAT THE PROBLEM IS (AT LEAST 5 CHARACTERS).'; setProbErr(m); toast(m, 'error', 8000); return false; }
-        try { await folderPortalService.toggleProblem(id, note); }
-        catch (err) { const m = errText(err); setProbErr(m); toast('FLAG FAILED: ' + m, 'error', 12000); return false; }
-        let noteSaved = true;
-        if (!was && note) { try { await landService.addStandaloneNote(id, '[PROBLEM] ' + note); } catch { noteSaved = false; } }
-        await loadFolderData();
-        if (!was && !noteSaved) toast('Flagged as PROBLEM, but the note did NOT save. Add it again from the NOTES tab.', 'warn', 12000);
-        else toast(was ? 'Problem flag removed.' : 'Flagged as PROBLEM.', was ? 'info' : 'warn');
-        return true;
-    };""",
-'fix165: PROBLEM flag needs a reason, partial failure is reported')
-
-patch(FOLDER_JSX,
-r"""const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProblemModal({ open: true, note: '' }); } };
-    const closeProblemModal = () => { if (!probBusy) setProblemModal({ open: false, note: '' }); };""",
-r"""const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else { setProbErr(''); setProblemModal({ open: true, note: '' }); } };
-    const closeProblemModal = () => { if (!probBusy) { setProbErr(''); setProblemModal({ open: false, note: '' }); } };""",
-'fix165: problem popup clears its error when opened/closed')
-
-patch(FOLDER_JSX,
-r"""    const openReasonModal = (cfg) => setReasonModal({ open: true,""",
-r"""    const openReasonModal = (cfg) => { setReasonErr(''); setReasonModal({ open: true,""",
-'fix165: reason popup opens with a clean error box (part 1)')
-
-patch(FOLDER_JSX,
-r"""paymentId: null, ...cfg });""",
-r"""paymentId: null, ...cfg }); };""",
-'fix165: reason popup opens with a clean error box (part 2)')
-
-patch(FOLDER_JSX,
-r"""    const closeReasonModal = () => { if (!reasonBusy) setReasonModal(m => ({ ...m, open: false })); };""",
-r"""    const closeReasonModal = () => { if (!reasonBusy) { setReasonErr(''); setReasonModal(m => ({ ...m, open: false })); } };""",
-'fix165: reason popup clears its error on close')
-
-patch(FOLDER_JSX,
-r"""        if (why.length < 5) { toast('WRITE THE REASON (AT LEAST 5 CHARACTERS)', 'error'); return; }""",
-r"""        if (why.length < 5) { const m = 'WRITE THE REASON (AT LEAST 5 CHARACTERS).'; setReasonErr(m); toast(m, 'error'); return; }""",
-'fix165: reason popup shows the missing-reason message inside the popup')
-
-patch(FOLDER_JSX,
-r"""{ toast('ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES', 'error', 6000); return; }""",
-r"""{ const m = 'ENTER A NEW TOTAL THAT IS LOWER THAN THE CURRENT FEES.'; setReasonErr(m); toast(m, 'error', 6000); return; }""",
-'fix165: reduce-fees validation message inside the popup')
-
-patch(FOLDER_JSX,
-r"""        setReasonBusy(true);
-        try {
-            if (m.kind === 'REVERSE')""",
-r"""        setReasonBusy(true); setReasonErr('');
-        try {
-            if (m.kind === 'REVERSE')""",
-'fix165: reason popup clears old error before sending')
-
-patch(FOLDER_JSX,
-r"""catch (err) { toast('FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setReasonBusy(false); }""",
-r"""catch (err) { const m = errText(err); setReasonErr(m); toast('NOT DONE: ' + m, 'error', 12000); }
-        finally { setReasonBusy(false); }""",
-'fix165: reason popup shows the server error inside the popup')
-
-patch(FOLDER_JSX,
-r"""    const handleNoteSave = async () => { if (!noteModal.content.trim()) return; try { if (noteModal.id) await landService.editStandaloneNote(noteModal.id, noteModal.content); else await landService.addStandaloneNote(id, noteModal.content); setNoteModal({ open: false, id: null, content: '' }); await loadFolderData(); toast('Note saved', 'success', 3000); } catch { toast('SAVE FAILED', 'error'); } };""",
-r"""    // fix165: the note popup shows its own errors (the server's words), cannot be thrown away by a stray click
-    // outside it, asks before discarding typed text, and a note over 2000 characters is refused before sending.
-    const noteOriginal = () => (noteModal.id ? ((binder?.notes || []).find(n => n.id === noteModal.id) || {}).notes || '' : '');
-    const closeNoteModal = async () => {
-        if (noteBusy) return;
-        const dirty = noteModal.content.trim() !== '' && noteModal.content !== noteOriginal();
-        if (dirty) { const ok = await confirm('DISCARD NOTE', 'This note is not saved. Close it and lose what you typed?', 'warn'); if (!ok) return; }
-        setNoteErr(''); setNoteModal({ open: false, id: null, content: '' });
-    };
-    const handleNoteSave = async () => {
-        if (noteBusy) return;
-        const text = noteModal.content.trim();
-        if (text.length < 2) { setNoteErr('WRITE THE NOTE FIRST (AT LEAST 2 CHARACTERS).'); return; }
-        if (text.length > NOTE_MAX) { setNoteErr('TOO LONG: ' + text.length + ' CHARACTERS. THE LIMIT IS ' + NOTE_MAX + '.'); return; }
-        setNoteBusy(true); setNoteErr('');
-        try {
-            if (noteModal.id) await landService.editStandaloneNote(noteModal.id, text); else await landService.addStandaloneNote(id, text);
-            setNoteModal({ open: false, id: null, content: '' });
-            await loadFolderData(); toast('Note saved', 'success', 3000);
-        } catch (err) { const m = errText(err); setNoteErr(m); toast('NOTE NOT SAVED: ' + m, 'error', 12000); }
-        finally { setNoteBusy(false); }
-    };""",
-'fix165: note popup errors, discard guard, length check')
-
-patch(FOLDER_JSX,
-r"""try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };""",
-r"""try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch (err) { toast('NOTE NOT DELETED: ' + errText(err), 'error', 12000); } };""",
-'fix165: delete-note error shows reason')
-
-patch(FOLDER_JSX,
-r"""try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch { toast('DELETE FAILED', 'error'); } };""",
-r"""try { await landService.deleteDocument(docId); await loadFolderData(); toast('Document removed', 'warn', 3000); } catch (err) { toast('DOCUMENT NOT DELETED: ' + errText(err), 'error', 12000); } };""",
-'fix165: delete-document error shows reason')
-
-patch(FOLDER_JSX,
-r"""{isEditing && canEdit && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>""",
-r"""{isEditing && canEdit && doc.category !== 'PAYMENT_RECEIPT' && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)}>""",
-'fix165: payment receipts have no delete button')
-
-patch(FOLDER_JSX,
-r"""    const handleVaultAction = (files) => { if (!files?.length) return; setUploadDraft({ batch: '', files: files.map(file => ({ file, category: '' })) }); };""",
-r"""    // fix165: wrong type / empty / oversized files are turned away here with the reason, before any upload starts
-    const handleVaultAction = (files) => {
-        if (!files?.length) return;
-        const ok = []; const bad = [];
-        files.forEach(f => {
-            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');
-            else if (!f.size) bad.push(f.name + ' (the file is empty)');
-            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');
-            else ok.push(f);
-        });
-        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error', 12000);
-        if (!ok.length) return;
-        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });
-    };""",
-'fix165: upload picker refuses wrong type / empty / oversized files with the reason')
-
-patch(FOLDER_JSX,
-r"""        if (uploadDraft.files.some(f => !f.category)) { toast('Pick a category for every file', 'warn', 4000); return; }""",
-r"""        if (uploadDraft.files.some(f => !f.category)) { const m = 'PICK A CATEGORY FOR EVERY FILE.'; setUploadDraft(d => d && ({ ...d, error: m })); toast(m, 'warn', 6000); return; }""",
-'fix165: upload popup shows the missing-category message inside the popup')
-
-patch(FOLDER_JSX,
-r"""        } catch { toast('INGESTION FAILED', 'error', 8000); } finally { setCommitting(false); }""",
-r"""        } catch (err) { const m = errText(err); setUploadDraft(d => d && ({ ...d, error: m })); toast('UPLOAD FAILED: ' + m, 'error', 12000); } finally { setCommitting(false); }""",
-'fix165: upload popup shows the server error inside the popup')
-
-patch(FOLDER_JSX,
-r"""} catch { toast('COULD NOT ADD CATEGORY', 'error', 6000); } finally { setCatBusy(false); }""",
-r"""} catch (err) { const m = errText(err); setUploadDraft(d => d && ({ ...d, error: 'COULD NOT ADD CATEGORY: ' + m })); toast('COULD NOT ADD CATEGORY: ' + m, 'error', 12000); } finally { setCatBusy(false); }""",
-'fix165: add-category error shows reason')
-
-patch(FOLDER_JSX,
-r"""    const handleRecordPayment = async () => {
-        if (!payAmount || Number(payAmount) <= 0) { toast('ENTER A VALID AMOUNT', 'error'); return; }
-        if (RECEIPT_REQUIRED && !payReceipt) { toast('ATTACH THE PAYMENT RECEIPT', 'error'); return; }
-        setPaying(true);
-        try {
-            const fullNotes = payType === 'STORAGE' ? ('[STORAGE FEE PAYMENT] ' + payNotes).trim() : payNotes;
-            await recoveryService.recordPayment(id, payAmount, fullNotes);
-            // fix138: file the receipt in Documents > Payment Receipts (payment is already saved at this point)
-            let receiptOk = true;
-            if (payReceipt) {
-                try {
-                    const ext = (payReceipt.name.match(/\.[A-Za-z0-9]{1,6}$/) || [''])[0];
-                    const stamp = new Date().toISOString().slice(0, 10);
-                    const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + Number(payAmount) + ' - ' + stamp + ext;
-                    await landService.addExtraDocuments(id, [new File([payReceipt], receiptName, { type: payReceipt.type })], ['PAYMENT_RECEIPT']);
-                } catch { receiptOk = false; }
-            }
-            await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');
-            if (receiptOk) toast(payReceipt ? 'Payment recorded. Receipt filed under Payment Receipts.' : 'Payment recorded successfully', 'success', 4500);
-            else toast('Payment recorded, but the RECEIPT DID NOT UPLOAD. Add it from Documents > Payment Receipts.', 'warn', 9000);
-        } catch (err) { toast('PAYMENT FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
-        finally { setPaying(false); }
-    };""",
-r"""    // fix165: the payment and its receipt travel to the server TOGETHER and are saved in ONE step. The server refuses a
-    // payment with no receipt (wrong type, empty, over 10 MB) and rolls the payment back if the receipt cannot be filed.
-    const handleRecordPayment = async () => {
-        if (paying) return;
-        const amt = Number(payAmount);
-        const fail = (m) => { setPayErr(m); toast(m, 'error', 8000); };
-        if (!payAmount || !Number.isFinite(amt) || amt <= 0) { fail('ENTER A VALID AMOUNT.'); return; }
-        if (!Number.isInteger(amt)) { fail('ENTER WHOLE SHILLINGS ONLY (NO DECIMALS).'); return; }
-        if (amt > Math.max(0, amountOwed)) { fail('OVERPAYMENT: THIS PROJECT ONLY OWES UGX ' + fmt(amountOwed) + '. YOU TYPED UGX ' + fmt(amt) + '.'); return; }
-        if (RECEIPT_REQUIRED && !payReceipt) { fail('ATTACH THE PAYMENT RECEIPT. A PAYMENT CANNOT BE SAVED WITHOUT IT.'); return; }
-        if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { fail('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
-        if (!payReceipt.size) { fail('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
-        if (payReceipt.size > 10 * 1024 * 1024) { fail('THE RECEIPT IS OVER 10 MB. USE A SMALLER SCAN.'); return; }
-        setPaying(true); setPayErr('');
-        try {
-            const fullNotes = payType === 'STORAGE' ? ('[STORAGE FEE PAYMENT] ' + payNotes).trim() : payNotes;
-            const stamp = new Date().toISOString().slice(0, 10);
-            const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
-            await recoveryService.recordPayment(id, amt, fullNotes, new File([payReceipt], receiptName, { type: payReceipt.type }));
-            await loadFolderData(); setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE');
-            toast('Payment recorded. Receipt filed under Payment Receipts.', 'success', 4500);
-        } catch (err) { const m = errText(err); setPayErr(m); toast('PAYMENT NOT SAVED: ' + m, 'error', 12000); }
-        finally { setPaying(false); }
-    };""",
-'fix165: payment + receipt saved together; every check shown inside the popup')
-
-patch(FOLDER_JSX,
-r"""<HardwareModal isOpen={!!uploadDraft} onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
-                {uploadDraft && (<>""",
-r"""<HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
-                {uploadDraft && (<>
-                    <ModalError text={uploadDraft.error} />""",
-'fix165: upload popup: error box + backdrop click no longer closes it')
-
-patch(FOLDER_JSX,
-r"""            <HardwareModal isOpen={noteModal.open} onClose={() => { setNoteModal({ open: false, id: null, content: '' }); }} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
-                <div className={modalStyles.modalField}><textarea className={modalStyles.modalTextarea} value={noteModal.content} onChange={e => setNoteModal({ ...noteModal, content: e.target.value })} placeholder="Enter interaction note..." aria-label="Note content" /></div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave}><FiSave aria-hidden="true" /> SAVE ENTRY</button>
-                </div>""",
-r"""            <HardwareModal isOpen={noteModal.open} lockBackdrop onClose={closeNoteModal} title={noteModal.id ? 'EDIT NOTE' : 'ADD NOTE'}>
-                <ModalError text={noteErr} />
-                <div className={modalStyles.modalField}><textarea className={modalStyles.modalTextarea} value={noteModal.content} onChange={e => { setNoteModal({ ...noteModal, content: e.target.value }); if (noteErr) setNoteErr(''); }} placeholder="Enter interaction note..." aria-label="Note content" />
-                    <span className={styles.probCount}>{noteModal.content.trim().length}/{NOTE_MAX}</span></div>
-                <div className={modalStyles.modalFooter}>
-                    <button type="button" className={modalStyles.modalBtnPrimary} onClick={handleNoteSave} disabled={noteBusy}><FiSave aria-hidden="true" /> {noteBusy ? 'SAVING...' : 'SAVE ENTRY'}</button>
-                </div>""",
-'fix165: note popup layout (error box, counter, no double submit)')
-
-patch(FOLDER_JSX,
-r"""<HardwareModal isOpen={payModal.open} onClose=""",
-r"""<HardwareModal isOpen={payModal.open} lockBackdrop onClose=""",
-'fix165: payment popup: backdrop click no longer closes it')
-
-patch(FOLDER_JSX,
-r"""<input type="number" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(Math.max(0, amountOwed))} value={payAmount} onChange={e => setPayAmount(e.target.value)} />""",
-r"""<input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(Math.max(0, amountOwed))} value={payAmount} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} />""",
-'fix165: payment amount accepts whole shillings only')
-
-patch(FOLDER_JSX,
-r"""<span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts.</span></div>""",
-r"""<span className={styles.recHint}>Saved in this folder's Documents under Payment Receipts. PDF, JPG, PNG or WEBP, up to 10 MB. The payment is NOT saved without it.</span></div>
-                <ModalError text={payErr} />""",
-'fix165: payment popup error box + receipt hint')
-
-patch(FOLDER_JSX,
-r"""<HardwareModal isOpen={reasonModal.open} onClose={closeReasonModal}""",
-r"""<HardwareModal isOpen={reasonModal.open} lockBackdrop onClose={closeReasonModal}""",
-'fix165: reason popup: backdrop click no longer closes it')
-
-patch(FOLDER_JSX,
-r"""<span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>""",
-r"""<span className={styles.probCount}>{reasonModal.reason.length}/300</span></div>
-                <ModalError text={reasonErr} />""",
-'fix165: reason popup error box')
-
-patch(FOLDER_JSX,
-r"""<HardwareModal isOpen={problemModal.open} onClose={closeProblemModal}""",
-r"""<HardwareModal isOpen={problemModal.open} lockBackdrop onClose={closeProblemModal}""",
-'fix165: problem popup: backdrop click no longer closes it')
-
-patch(FOLDER_JSX,
-r"""WHAT IS THE PROBLEM? (OPTIONAL)""",
-r"""WHAT IS THE PROBLEM? (REQUIRED)""",
-'fix165: problem description is now required')
-
-patch(FOLDER_JSX,
-r"""<span className={styles.probCount}>{problemModal.note.length}/500</span></div>""",
-r"""<span className={styles.probCount}>{problemModal.note.length}/500</span></div>
-                <ModalError text={probErr} />""",
-'fix165: problem popup error box')
-
-patch(FOLDER_CSS,
-r"""    z-index: 99999;
-    display: flex;
-    flex-direction: column-reverse;""",
-r"""    z-index: 100002; /* fix165: above every popup (popups are 99999), so an error is never hidden behind one */
-    display: flex;
-    flex-direction: column-reverse;""",
-'fix165: error toasts now sit ABOVE popups')
-
-patch(FOLDER_CSS,
-r"""    z-index: 99998; /* below saving overlay (99000) but above all page content */""",
-r"""    z-index: 100001; /* fix165: above popups so a confirm opened from inside a popup is visible */""",
-'fix165: confirm window sits above popups')
-
-patch(FOLDER_CSS,
-r""".toast {
-    display: flex;""",
-r""".modalErr {
-    display: flex; align-items: flex-start; gap: 8px;
-    background: rgba(239, 68, 68, 0.14); border: 1.5px solid rgba(239, 68, 68, 0.6); border-radius: 8px;
-    padding: 10px 12px; margin: 0 0 14px;
-    color: #fecaca; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 800; line-height: 1.5;
-    word-break: break-word;
-}
-.modalErrIcon { flex: 0 0 auto; margin-top: 2px; color: #f87171; }
-
-.toast {
-    display: flex;""",
-'fix165: red error box style for popups')
-
-patch(MODAL_JSX,
-r"""const HardwareModal = ({ isOpen, onClose, title, children }) => {""",
-r"""const HardwareModal = ({ isOpen, onClose, title, children, lockBackdrop = false }) => {""",
-'fix165: HardwareModal can ignore backdrop clicks (lockBackdrop)')
-
-patch(MODAL_JSX,
-r"""<div className={styles.backdrop} onClick={onClose}>""",
-r"""<div className={styles.backdrop} onClick={lockBackdrop ? undefined : onClose}>""",
-'fix165: backdrop click closes only popups that are not locked')
-
-patch(LAND_SVC_JS,
-r"""        await api.post(`/land/projects/${projectId}/notes`, null, { params: { content } });""",
-r"""        // fix165: the note travels in the request body (a long note in the web address was refused by the server)
-        await api.post(`/land/projects/${projectId}/notes`, { content });""",
-'fix165: add note sends the text in the body')
-
-patch(LAND_SVC_JS,
-r"""        await api.put(`/land/notes/${noteId}`, null, { params: { content } });""",
-r"""        await api.put(`/land/notes/${noteId}`, { content });""",
-'fix165: edit note sends the text in the body')
-
-patch(RECOVERY_SVC_JS,
-r"""  recordPayment: (projectId, amount, notes) => api.post(`/land/projects/${projectId}/payment`, null, { params: { amount, notes } }),""",
-r"""  // fix165: a payment is sent TOGETHER with its receipt file; the server refuses it without one.
-  recordPayment: (projectId, amount, notes, receipt) => {
-    const fd = new FormData();
-    fd.append('amount', String(amount));
-    if (notes) fd.append('notes', notes);
-    if (receipt) fd.append('receipt', receipt, receipt.name);
-    return api.post(`/land/projects/${projectId}/payment`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-  },""",
-'fix165: recordPayment sends the receipt file with the payment')
+patch(LAND_SERVICE,
+r"""        fileStorageService.deleteFile(doc.getFilePath());
+        documentRepository.delete(doc);
+        auditService.logAction("DOCUMENT_DELETED",
+            "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName());""",
+r"""        // fix166: documents of a deleted project or of a handed-over title are locked, and the audit line says whose folder.
+        LandProject docProject = doc.getProjectId() == null ? null : projectRepository.findById(doc.getProjectId()).orElse(null);
+        if (docProject != null && docProject.isDeleted()) {
+            throw new BusinessException("DOCUMENT_LOCKED: This project is deleted. Restore it first.");
+        }
+        if (docProject != null && docProject.getLandTitle() != null && docProject.getLandTitle().isReleased()) {
+            throw new BusinessException("DOCUMENT_LOCKED: The title has been handed over, so its documents cannot be deleted. A director must UNDO the hand-over first.");
+        }
+        fileStorageService.deleteFile(doc.getFilePath());
+        documentRepository.delete(doc);
+        auditService.logAction("DOCUMENT_DELETED",
+            "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()
+            + (doc.getCategory() != null ? " (" + doc.getCategory() + ")" : "")
+            + (docProject != null ? " from " + plotLabel(docProject) : ""));""",
+'fix166: document delete locked on deleted / handed-over projects, audit names the plot')
 
 patch(LAND_SERVICE,
 r"""    @Transactional
-    public void logNewNote(UUID projectId, String content) {
-        LandProject project = projectRepository.findById(projectId).orElseThrow();
-        FollowUpLog entry = FollowUpLog.builder()
-                .projectId(projectId)
-                .notes(content)
-                .recordedBy(getCurrentOperator())
-                .build();
-        followUpRepository.save(entry);
-        auditService.logAction("NOTE_ADDED",
-            "Operator [" + getCurrentOperator() + "] added note to plot: "
-            + project.getLandTitle().getPlotNumber());
-    }
-
-    @Transactional
-    public void updateNote(UUID noteId, String content) {
-        FollowUpLog log = followUpRepository.findById(noteId).orElseThrow();
-        log.setNotes(content);
-        followUpRepository.save(log);
-        auditService.logAction("NOTE_UPDATED",
-            "Operator [" + getCurrentOperator() + "] updated a log entry.");
-    }
-
-    @Transactional
-    public void removeNote(UUID noteId) {
-        followUpRepository.deleteById(noteId);
-        auditService.logAction("NOTE_DELETED",
-            "Operator [" + getCurrentOperator() + "] deleted a log entry.");
-    }""",
-r"""    // fix165: notes. A note on a project that has no title yet used to crash the server (it read the plot number of a
-    // title that did not exist), so adding a note or flagging a PROBLEM on a folder failed. Text is now checked and
-    // the audit line keeps the old words when a note is edited or deleted.
-    private static final int NOTE_MAX_CHARS = 2000;
-
-    private String cleanNoteText(String content) {
-        String c = content == null ? "" : content.trim();
-        if (c.length() < 2) {
-            throw new BusinessException("NOTE_REQUIRED: Write the note first (at least 2 characters).");
+    public void manualRealityOverride(UUID id, int targetStage) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        int oldStage = project.getCurrentStageIndex();""",
+r"""    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void manualRealityOverride(UUID id, int targetStage) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        // fix166: any manager could push ANY number in (negative, 999) and overwrite the status of a
+        // receivable / handed-over / deleted project. Now director-only, 1..5 only, and those projects are refused.
+        if (targetStage < 1 || targetStage > 5) {
+            throw new BusinessException("STAGE_INVALID: The stage must be a number from 1 to 5.");
         }
-        if (c.length() > NOTE_MAX_CHARS) {
-            throw new BusinessException("NOTE_TOO_LONG: A note can be at most " + NOTE_MAX_CHARS
-                    + " characters (this one is " + c.length() + ").");
+        if (project.isDeleted() || project.isReceivable()
+                || (project.getLandTitle() != null && project.getLandTitle().isReleased())) {
+            throw new BusinessException("STAGE_LOCKED: The stage of a deleted, receivable or handed-over project cannot be changed.");
         }
-        return c;
-    }
-
-    private String shortText(String s) {
-        if (s == null) return "";
-        String t = s.replace('\n', ' ').trim();
-        return t.length() > 160 ? t.substring(0, 160) + "..." : t;
-    }
-
-    @Transactional
-    public void logNewNote(UUID projectId, String content) {
-        String text = cleanNoteText(content);
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
-        FollowUpLog entry = FollowUpLog.builder()
-                .projectId(projectId)
-                .notes(text)
-                .recordedBy(getCurrentOperator())
-                .build();
-        followUpRepository.save(entry);
-        auditService.logAction("NOTE_ADDED",
-            "Operator [" + getCurrentOperator() + "] added note to " + plotLabel(project) + ": " + shortText(text));
-    }
-
-    @Transactional
-    public void updateNote(UUID noteId, String content) {
-        String text = cleanNoteText(content);
-        FollowUpLog log = followUpRepository.findById(noteId)
-                .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
-        String before = log.getNotes();
-        log.setNotes(text);
-        followUpRepository.save(log);
-        auditService.logAction("NOTE_UPDATED",
-            "Operator [" + getCurrentOperator() + "] edited a note. WAS: " + shortText(before) + " | NOW: " + shortText(text));
-    }
-
-    @Transactional
-    public void removeNote(UUID noteId) {
-        FollowUpLog log = followUpRepository.findById(noteId)
-                .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
-        String before = log.getNotes();
-        followUpRepository.delete(log);
-        auditService.logAction("NOTE_DELETED",
-            "Operator [" + getCurrentOperator() + "] deleted a note: " + shortText(before));
-    }""",
-'fix165: notes: no crash without a title, validated, old words kept in the audit')
+        int oldStage = project.getCurrentStageIndex();""",
+'fix166: reality-override director-only, bounded, refused on locked projects')
 
 patch(LAND_SERVICE,
-r"""        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+r"""        if (project.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: Plot is already in receivable.");
+        }""",
+r"""        if (project.isDeleted()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is deleted. Restore it first.");
+        }
+        if (project.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: Plot is already in receivable.");
+        }""",
+'fix166: moveToReceivable refuses a deleted project')
 
-        // STAGE 1 FIX: block overpayment""",
-r"""        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        // fix165: no money can be recorded against a deleted project, and no fractions of a shilling.
+patch(LAND_SERVICE,
+r"""    public void nuclearDelete(UUID id) {
+        LandProject project = projectRepository.findById(id).orElseThrow();
+        String plotNo = plotLabel(project);""",
+r"""    public void nuclearDelete(UUID id, String reason) {
+        // fix166: deleting a project needs a written reason, and an already-deleted project cannot be "deleted" again.
+        String why = reason == null ? "" : reason.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why this project is being deleted (at least 5 characters).");
+        }
+        LandProject project = projectRepository.findById(id).orElseThrow();
         if (project.isDeleted()) {
-            throw new BusinessException("PAYMENT_BLOCKED: This project is deleted. Restore it first.");
+            throw new BusinessException("ALREADY_DELETED: This project is already deleted.");
         }
-        if (amount.stripTrailingZeros().scale() > 0) {
-            throw new BusinessException("PAYMENT_FAULT: Enter whole shillings only (no decimals).");
-        }
-
-        // STAGE 1 FIX: block overpayment""",
-'fix165: payments refused on deleted projects and for fractions of a shilling')
+        String plotNo = plotLabel(project);""",
+'fix166: delete needs a reason, no double delete')
 
 patch(LAND_SERVICE,
-r"""            + " | Amount owed after: UGX " + balanceAfter);
-    }
-""",
-r"""            + " | Amount owed after: UGX " + balanceAfter);
-    }
-
-    // fix165: A PAYMENT CAN NEVER EXIST WITHOUT ITS RECEIPT. The receipt is checked first, the payment is recorded,
-    // then the receipt is filed under Payment Receipts -- all in ONE transaction. If the receipt cannot be filed
-    // (storage down, bad file) the payment is rolled back too, so there is never a payment with no receipt.
-    @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt) throws Exception {
-        if (receipt == null || receipt.isEmpty()) {
-            throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
-        }
-        if (receipt.getSize() > 10L * 1024L * 1024L) {
-            throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
-        }
-        requireScanFiles(new MultipartFile[] { receipt });
-        recordPayment(projectId, amount, notes);
-        addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
-    }
-
-    // fix165: only real scans (PDF / JPG / PNG / WEBP), never an empty file, can be filed into a folder.
-    public void requireScanFiles(MultipartFile[] scans) {
-        if (scans == null || scans.length == 0) {
-            throw new BusinessException("FILE_REQUIRED: Choose at least one file.");
-        }
-        for (MultipartFile f : scans) {
-            if (f == null || f.isEmpty()) {
-                throw new BusinessException("FILE_EMPTY: One of the files is empty (0 bytes). Scan or photograph it again.");
-            }
-            String name = f.getOriginalFilename() == null ? "" : f.getOriginalFilename().toLowerCase();
-            int dot = name.lastIndexOf('.');
-            String ext = dot >= 0 ? name.substring(dot + 1) : "";
-            if (!Set.of("pdf", "jpg", "jpeg", "png", "webp").contains(ext)) {
-                throw new BusinessException("FILE_TYPE_BLOCKED: \"" + f.getOriginalFilename() + "\" is not allowed. Use PDF, JPG, PNG or WEBP.");
-            }
-        }
-    }
-""",
-'fix165: recordPaymentWithReceipt (payment + receipt, one transaction) and scan-file check')
-
-patch(LAND_SERVICE,
-r"""        ProjectDocument doc = documentRepository.findById(docId).orElseThrow();
-        fileStorageService.deleteFile(doc.getFilePath());""",
-r"""        ProjectDocument doc = documentRepository.findById(docId)
-                .orElseThrow(() -> new BusinessException("DOCUMENT_NOT_FOUND: This document no longer exists."));
-        // fix165: a payment receipt is evidence of money received. It can never be deleted (reverse the payment instead).
-        if ("PAYMENT_RECEIPT".equals(doc.getCategory())) {
-            throw new BusinessException("RECEIPT_LOCKED: A payment receipt cannot be deleted. If the payment was a mistake, REVERSE it in Payment History; the receipt stays as proof.");
-        }
-        fileStorageService.deleteFile(doc.getFilePath());""",
-'fix165: payment receipts cannot be deleted')
+r""""Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo);""",
+r""""Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);""",
+'fix166: delete reason goes into the audit line')
 
 patch(LAND_CTRL,
-r"""    @PostMapping("/projects/{id}/payment")
-    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal amount,
-                                               @RequestParam(required = false) String notes) {
-        landService.recordPayment(id, amount, notes);
-        return ResponseEntity.ok().build();
-    }""",
-r"""    // fix165: the ONLY way to record a payment is with its receipt file (multipart). The old no-receipt form is gone.
-    @PostMapping(value = "/projects/{id}/payment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal amount,
-                                               @RequestParam(required = false) String notes,
-                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt);
-        return ResponseEntity.ok().build();
-    }""",
-'fix165: payment endpoint requires the receipt file')
-
-patch(LAND_CTRL,
-r"""    public ResponseEntity<Void> addNote(@PathVariable UUID id, @RequestParam String content) {
-        landService.logNewNote(id, content);""",
-r"""    public ResponseEntity<Void> addNote(@PathVariable UUID id,
-                                        @RequestParam(required = false) String content,
-                                        @RequestBody(required = false) java.util.Map<String, String> body) {
-        // fix165: the text normally arrives in the body; the old ?content= form still works
-        landService.logNewNote(id, content != null ? content : (body == null ? null : body.get("content")));""",
-'fix165: add note accepts the text in the body')
-
-patch(LAND_CTRL,
-r"""    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId, @RequestParam String content) {
-        landService.updateNote(noteId, content);""",
-r"""    public ResponseEntity<Void> updateNote(@PathVariable UUID noteId,
-                                           @RequestParam(required = false) String content,
-                                           @RequestBody(required = false) java.util.Map<String, String> body) {
-        landService.updateNote(noteId, content != null ? content : (body == null ? null : body.get("content")));""",
-'fix165: edit note accepts the text in the body')
-
-patch(LAND_CTRL,
-r"""        landService.addScansToProject(id, scans, category, categories);""",
-r"""        landService.requireScanFiles(scans);
-        landService.addScansToProject(id, scans, category, categories);""",
-'fix165: uploads refuse empty / wrong-type files with a clear message')
+r"""    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id) {
+        landService.nuclearDelete(id);""",
+r"""    public ResponseEntity<Void> purgeAsset(@PathVariable UUID id, @RequestParam String reason) {
+        landService.nuclearDelete(id, reason);""",
+'fix166: DELETE /land/projects/{id} takes a reason')
 
 patch(PORTAL_CTRL,
-r"""        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        p.setProblem(!p.isProblem());""",
-r"""        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        // fix165: flagging a PROBLEM must say what the problem is. Clearing it needs no words.
-        if (!p.isProblem() && (note == null || note.trim().length() < 5)) {
-            throw new BusinessException("REASON_REQUIRED: Write what the problem is (at least 5 characters).");
+r"""    @PostMapping("/receivable/enter")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> enter(@PathVariable UUID id) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        p.setReceivable(true);""",
+r"""    @PostMapping("/receivable/enter")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
+    @Transactional
+    public Map<String, Object> enter(@PathVariable UUID id, @RequestBody(required = false) Map<String, String> body) {
+        LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
+        // fix166: starting storage fees is a money action -> director only (like every other receivable control), with a
+        // written reason. Before: a manager could call it, it had no checks, and calling it AGAIN on a project already in
+        // receivables restarted the billing clock; calling it on a handed-over or fully paid project overwrote its status.
+        String enterWhy = (body != null && body.get("reason") != null) ? body.get("reason").trim() : "";
+        if (enterWhy.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why this project is moving to receivables (at least 5 characters).");
         }
-        p.setProblem(!p.isProblem());""",
-'fix165: server refuses a PROBLEM flag with no reason')
+        if (p.isDeleted()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is deleted. Restore it first.");
+        }
+        if (p.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is already in receivables.");
+        }
+        if (p.getLandTitle() != null && p.getLandTitle().isReleased()) {
+            throw new BusinessException("RECEIVABLE_FAULT: The title has been handed over. Undo the hand-over first.");
+        }
+        BigDecimal enterOwed = (p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO)
+                .add(p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO)
+                .subtract(p.getAmountPaid() != null ? p.getAmountPaid() : BigDecimal.ZERO);
+        if (enterOwed.signum() <= 0) {
+            throw new BusinessException("RECEIVABLE_FAULT: Nothing is owed on this project, so it cannot go to receivables.");
+        }
+        p.setReceivable(true);""",
+'fix166: enter receivables = director only, reason, not twice / deleted / handed over / nothing owed')
 
-patch(EXC,
-r"""    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingParams(MissingServletRequestParameterException ex) {
-        System.err.println(">>> [PROTOCOL_FAULT]: Missing mandatory parameter: " + ex.getParameterName());
-        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required data missing.");
+patch(PORTAL_CTRL,
+r"""auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables.");""",
+r"""auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);""",
+'fix166: receivable-enter audit line carries the debt and the reason')
+
+patch(PORTAL_CTRL,
+r"""        String reason = body.get("reason") != null ? body.get("reason").trim() : "";
+        if ("WAIVE".equals(action)) {""",
+r"""        String reason = body.get("reason") != null ? body.get("reason").trim() : "";
+        // fix166: only the three known actions (an unknown word used to fall through to SET_ASIDE), only on a project that
+        // IS in receivables (before, WAIVE / ADD-TO-COST on a normal project zeroed or moved retained fees and forced its
+        // status to ACTIVE), and every one of them needs a written reason (ADD FEES TO COST changes the total cost).
+        if (!"WAIVE".equals(action) && !"CAPITALIZE".equals(action) && !"SET_ASIDE".equals(action)) {
+            throw new BusinessException("ACTION_INVALID: Unknown receivable action.");
+        }
+        if (!p.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is not in receivables.");
+        }
+        if (reason.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write why (at least 5 characters).");
+        }
+        if ("WAIVE".equals(action)) {""",
+'fix166: receivable exit = known action, must be receivable, reason for all three')
+
+patch(PORTAL_CTRL,
+r"""            p.setTotalCost((p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO).add(fees));
+            p.setStorageFeesAccumulated(BigDecimal.ZERO);
+            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees + " into total cost on #" + p.getProjectIndex() + ".");""",
+r"""            BigDecimal costBefore = p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO;
+            p.setTotalCost(costBefore.add(fees));
+            p.setStorageFeesAccumulated(BigDecimal.ZERO);
+            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees + " into total cost on #" + p.getProjectIndex()
+                    + " (total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(fees).toPlainString() + "). Reason: " + reason);""",
+'fix166: capitalize audit = old -> new cost + reason')
+
+patch(PORTAL_CTRL,
+r"""auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (fees UGX " + fees + " retained, billing stopped).");""",
+r"""auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (fees UGX " + fees + " retained, billing stopped). Reason: " + reason);""",
+'fix166: set-aside audit carries the reason')
+
+patch(PORTAL_CTRL,
+r"""            throw new BusinessException("REASON_REQUIRED: Write why the fees are being reduced (at least 5 characters).");
+        }""",
+r"""            throw new BusinessException("REASON_REQUIRED: Write why the fees are being reduced (at least 5 characters).");
+        }
+        if (!p.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is not in receivables.");
+        }""",
+'fix166: reduce-fees only on a receivable project')
+
+patch(PORTAL_CTRL,
+r"""            newRate = body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate"));""",
+r"""            try {
+                newRate = body.get("rate") == null || body.get("rate").isBlank() ? null : new BigDecimal(body.get("rate").trim());
+            } catch (NumberFormatException e) {
+                throw new BusinessException("RATE_INVALID: Enter the monthly storage rate as a plain number.");
+            }""",
+'fix166: a bad rate is a clear 400, not a crash')
+
+patch(PORTAL_CTRL,
+r"""            newDeadline = body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline"));""",
+r"""            try {
+                newDeadline = body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline").trim());
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new BusinessException("PAUSE_INVALID: The pause date is not a valid date and time.");
+            }""",
+'fix166: a bad pause date is a clear 400, not a crash')
+
+patch(PORTAL_CTRL,
+r"""        boolean pauseSet = newDeadline != null && !newDeadline.equals(oldDeadline);""",
+r"""        boolean pauseSet = newDeadline != null && !newDeadline.equals(oldDeadline);
+        // fix166: a pause must end in the future and not more than a year away (a pause to the year 2999 switched billing
+        // off for ever), and rate / pause only make sense on a project that is in receivables.
+        if (pauseSet && !newDeadline.isAfter(LocalDateTime.now())) {
+            throw new BusinessException("PAUSE_INVALID: The pause must end in the future.");
+        }
+        if (pauseSet && newDeadline.isAfter(LocalDateTime.now().plusDays(365))) {
+            throw new BusinessException("PAUSE_INVALID: A pause cannot be longer than 365 days. Pause again later if more time is needed.");
+        }
+        if ((rateChanged || pauseSet) && !p.isReceivable()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is not in receivables.");
+        }""",
+'fix166: pause window + rate only on receivable projects')
+
+patch(PORTAL_CTRL,
+r"""        if (!p.isProblem() && (note == null || note.trim().length() < 5)) {
+            throw new BusinessException("REASON_REQUIRED: Write what the problem is (at least 5 characters).");
+        }""",
+r"""        // fix166: CLEARING a flag needs words too (anyone could silently wipe a flag a director raised), and a deleted project is not touched.
+        if (p.isDeleted()) {
+            throw new BusinessException("PLOT_DELETED: This project is deleted. Restore it first.");
+        }
+        if (note == null || note.trim().length() < 5) {
+            throw new BusinessException(p.isProblem()
+                    ? "REASON_REQUIRED: Write why the problem flag is being cleared (at least 5 characters)."
+                    : "REASON_REQUIRED: Write what the problem is (at least 5 characters).");
+        }""",
+'fix166: clearing a PROBLEM flag needs a reason')
+
+patch(STAGE_SVC,
+r"""    private final AuditService auditService;""",
+r"""    private final AuditService auditService;
+    private final com.gesolutions.erp.modules.land.repository.LandProjectRepository projectRepository;
+
+    // fix166: the stage endpoints used to ignore the project in the web address: any stage id could be ticked or removed
+    // through ANY project, including a deleted project or a title that was already handed over. Now the stage must
+    // belong to that project and the project must be open.
+    public void requireStageEditable(UUID projectId, UUID stageId) {
+        ProjectStage stage = projectStageRepository.findById(stageId)
+                .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
+        if (stage.getProjectId() == null || !stage.getProjectId().equals(projectId)) {
+            throw new BusinessException("STAGE_MISMATCH: That stage does not belong to this project.");
+        }
+        com.gesolutions.erp.modules.land.model.LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.isDeleted()) {
+            throw new BusinessException("STAGE_LOCKED: This project is deleted. Restore it first.");
+        }
+        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
+            throw new BusinessException("STAGE_LOCKED: The title has been handed over, so its stages are locked. A director must UNDO the hand-over first.");
+        }
     }""",
-r"""    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingParams(MissingServletRequestParameterException ex) {
-        System.err.println(">>> [PROTOCOL_FAULT]: Missing mandatory parameter: " + ex.getParameterName());
-        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required data missing: " + ex.getParameterName() + ".");
-    }
+'fix166: stage guard (belongs to this project, project open)')
 
-    // fix165: a missing file part and a wrongly typed value used to fall into the generic 500 "Core error".
-    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingPart(org.springframework.web.multipart.support.MissingServletRequestPartException ex) {
-        System.err.println(">>> [PROTOCOL_FAULT]: Missing file part: " + ex.getRequestPartName());
-        return buildResponse(HttpStatus.BAD_REQUEST, "PROTOCOL_INCOMPLETE", "Required file missing: " + ex.getRequestPartName() + ".");
-    }
+patch(STAGE_CTRL,
+r"""        return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));""",
+r"""        stageTemplateService.requireStageEditable(projectId, stageId);
+        return ResponseEntity.ok(stageTemplateService.toggleStageCompletion(stageId, completed));""",
+'fix166: tick/untick guarded')
 
-    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<Map<String, Object>> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
-        System.err.println(">>> [DATA_FAULT]: Bad value for " + ex.getName());
-        return buildResponse(HttpStatus.BAD_REQUEST, "DATA_FORMAT_ERROR", "Invalid value for " + ex.getName() + ".");
-    }""",
-'fix165: missing file / bad value return a clear 400 instead of a generic 500')
+patch(STAGE_CTRL,
+r"""        return ResponseEntity.ok(stageTemplateService.updateStageCostAndNotes(stageId, cost, notes));""",
+r"""        stageTemplateService.requireStageEditable(projectId, stageId);
+        return ResponseEntity.ok(stageTemplateService.updateStageCostAndNotes(stageId, cost, notes));""",
+'fix166: stage cost edit guarded')
 
-patch(EXC,
-r"""Core error. Look at Render Logs""",
-r"""Core error (" + ex.getClass().getSimpleName() + "). Look at Render Logs""",
-'fix165: the generic 500 message now names the kind of crash')
+patch(STAGE_CTRL,
+r"""        stageTemplateService.removeProjectStage(stageId);""",
+r"""        stageTemplateService.requireStageEditable(projectId, stageId);
+        stageTemplateService.removeProjectStage(stageId);""",
+'fix166: stage remove guarded')
+
+patch(LAND_SVC_JS,
+r"""    purgeAsset: async (projectId) => {
+        await api.delete(`/land/projects/${projectId}`);
+    },""",
+r"""    // fix166: deleting a project needs a written reason (5+ characters)
+    purgeAsset: async (projectId, reason) => {
+        await api.delete(`/land/projects/${projectId}`, { params: { reason } });
+    },""",
+'fix166: purgeAsset sends the reason')
+
+patch(PORTAL_SVC_JS,
+r"""  enter:    (id) => api.post(`/land/portal/${id}/receivable/enter`).then(r => r.data),""",
+r"""  enter:    (id, reason) => api.post(`/land/portal/${id}/receivable/enter`, { reason }).then(r => r.data),""",
+'fix166: enter receivables sends the reason')
+
+patch(FOLDER_JSX,
+r"""            if (Date.now() - lastActiveRef.current > 5 * 60 * 1000) {
+                lastActiveRef.current = Date.now();
+                handleCommit();
+            }""",
+r"""            // fix166: the page used to SAVE EVERYTHING BY ITSELF after 5 minutes of silence, whatever half-finished
+            // thing was typed (a cost, an owner, a plot number). Nothing is saved without a click now; it only reminds.
+            if (Date.now() - lastActiveRef.current > 10 * 60 * 1000) {
+                lastActiveRef.current = Date.now();
+                toast('You have unsaved edits open. Nothing is saved automatically - press SAVE, or CANCEL to throw them away.', 'warn', 15000);
+            }""",
+'fix166: idle timer no longer auto-saves, it only warns')
+
+patch(FOLDER_JSX,
+r"""setTimeout(() => { setPayType('STORAGE'); setPayAmount('');""",
+r"""setTimeout(() => { setPayType(binder.project?.isReceivable ? 'STORAGE' : 'TITLE'); setPayAmount('');""",
+'fix166: ?action=storage only means storage when the project is in receivables')
+
+patch(FOLDER_JSX,
+r"""    const [saving, setSaving] = useState(false);
+    const autoTicked = useRef(false);""",
+r"""    const [saving, setSaving] = useState(false);
+    const [toggling, setToggling] = useState(false);
+    const autoTicked = useRef(false);""",
+'fix166: stage tick busy flag')
+
+patch(FOLDER_JSX,
+r"""    const handleToggleComplete = async (stage, isLast) => {
+        const next = !stage.isCompleted;
+        try {
+            await stageTemplateService.toggleStageCompletion(projectId, stage.id, next);
+            await loadStages();
+            // Ticking the final stage means the title is now ready -- hand
+            // off to the title panel. Unticking it (a correction) hands
+            // back to the stage checklist. See onLastStageToggle in the
+            // parent for what this actually does.
+            if (isLast && onLastStageToggle) onLastStageToggle(next);
+        } catch (err) { toast && toast('Failed to update stage (HTTP ' + (err.response?.status || 'network') + ')', 'error'); }
+    };""",
+r"""    const handleToggleComplete = async (stage, isLast) => {
+        if (toggling) return;   // fix166: a double click used to send two ticks and flip the stage back
+        setToggling(true);
+        const next = !stage.isCompleted;
+        try {
+            await stageTemplateService.toggleStageCompletion(projectId, stage.id, next);
+            await loadStages();
+            // Ticking the final stage means the title is now ready -- hand
+            // off to the title panel. Unticking it (a correction) hands
+            // back to the stage checklist. See onLastStageToggle in the
+            // parent for what this actually does.
+            if (isLast && onLastStageToggle) onLastStageToggle(next);
+        } catch (err) { await loadStages(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error', 12000); }
+        finally { setToggling(false); }
+    };""",
+'fix166: stage tick cannot double-fire, error shows the server words')
+
+patch(FOLDER_JSX,
+r"""checked={!!stage.isCompleted} disabled={!canEdit}""",
+r"""checked={!!stage.isCompleted} disabled={!canEdit || toggling}""",
+'fix166: checkbox locked while a tick is saving')
+
+patch(FOLDER_JSX,
+r"""            const tpls = await stageTemplateService.getTemplate() || [];
+            await Promise.all(stages.map(s => stageTemplateService.removeStage(projectId, s.id)));
+            await stageTemplateService.attachStages(projectId, tpls.map((t, i) => ({ stageTemplateId: t.id, isCustom: false, cost: 0, isCompleted: i === 0 })));""",
+r"""            const tpls = await stageTemplateService.getTemplate() || [];
+            if (!tpls.length) { toast && toast('The master checklist is empty, so nothing was changed.', 'error', 9000); return; }
+            // fix166: the new list is added FIRST and the old one removed AFTER, so a failure half-way can never leave
+            // the project with NO stages (it used to delete every stage first and only then try to add the new ones).
+            const oldIds = stages.map(s => s.id);
+            await stageTemplateService.attachStages(projectId, tpls.map((t, i) => ({ stageTemplateId: t.id, isCustom: false, cost: 0, isCompleted: i === 0 })));
+            for (const sid of oldIds) { await stageTemplateService.removeStage(projectId, sid); }""",
+'fix166: RESTORE DEFAULTS adds before it removes')
+
+patch(FOLDER_JSX,
+r"""        } catch { await loadStages(); toast && toast('Failed to restore defaults', 'error'); } finally { setSaving(false); }""",
+r"""        } catch (err) { await loadStages(); toast && toast('DEFAULTS NOT RESTORED: ' + errText(err), 'error', 12000); } finally { setSaving(false); }""",
+'fix166: restore-defaults error shows the server words')
+
+patch(FOLDER_JSX,
+r"""const handleToggleProblem = () => { if (project.problem) { runToggleProblem(''); } else {""",
+r"""const handleToggleProblem = () => { if (project.problem) { openReasonModal({ kind: 'CLEAR_PROBLEM', title: 'CLEAR PROBLEM FLAG', confirmLabel: 'CLEAR FLAG', info: 'This removes the PROBLEM flag from this plot. Write why it is no longer a problem; your words go into the notes and the audit log.' }); } else {""",
+'fix166: clearing a PROBLEM flag opens the reason window')
+
+patch(FOLDER_JSX,
+r"""            else if (m.kind === 'REVERT_TITLE') {""",
+r"""            else if (m.kind === 'ENTER') { await folderPortalService.enter(id, why); toast('Moved to receivables.', 'success'); }
+            else if (m.kind === 'SET_ASIDE') { await folderPortalService.exit(id, 'SET_ASIDE', why); toast('Receivable set aside - record retained.', 'success'); }
+            else if (m.kind === 'CAPITALIZE') { await folderPortalService.exit(id, 'CAPITALIZE', why); toast('Storage fees added to the total cost.', 'success'); }
+            else if (m.kind === 'CLEAR_PROBLEM') {
+                await folderPortalService.toggleProblem(id, why);
+                try { await landService.addStandaloneNote(id, '[PROBLEM CLEARED] ' + why); } catch { toast('Flag cleared, but the note did NOT save. Add it again from the NOTES tab.', 'warn', 12000); }
+                toast('Problem flag removed.', 'info');
+            }
+            else if (m.kind === 'DELETE') {
+                await landService.purgeAsset(id, why);
+                touchedRef.current = false; setIsEditing(false);
+                setReasonModal(x => ({ ...x, open: false }));
+                toast('Project deleted. The root user can restore it from Settings > Archive.', 'warn', 6000);
+                setTimeout(() => navigate('/land/projects'), 1500);
+                return;
+            }
+            else if (m.kind === 'REVERT_TITLE') {""",
+'fix166: reason window handles ENTER / SET_ASIDE / CAPITALIZE / CLEAR_PROBLEM / DELETE')
+
+patch(FOLDER_JSX,
+r"""    const handleNuclearPurge = async () => { const ok = await confirm('DELETE', 'PERMANENTLY erase this entire archive entry. Cannot be undone.', 'danger'); if (!ok) return; try { await landService.purgeAsset(id); toast('Record permanently deleted', 'warn', 3000); setTimeout(() => navigate('/land/projects'), 1500); } catch { toast('Delete failed', 'error'); } };""",
+r"""    // fix166: DELETE is a soft delete (the root user can restore it), so it no longer claims "permanent"; it needs a written reason.
+    const handleNuclearPurge = () => openReasonModal({ kind: 'DELETE', title: 'DELETE THIS PROJECT', confirmLabel: 'DELETE PROJECT',
+        info: 'This takes the whole project (payments, notes and documents included) out of every list. It is NOT erased: the root user can restore it from Settings > Archive. Write why it is being deleted.' });""",
+'fix166: DELETE needs a reason, wording is honest')
+
+patch(FOLDER_JSX,
+r"""    const runReceivableAction = async (action) => {
+        setRecvBusy(true);
+        try {
+            if (action === 'ENTER') await folderPortalService.enter(id);
+            else if (action === 'SETTINGS') await folderPortalService.settings(id, { rate: rateFee, deadline: rateDeadline });
+            else await folderPortalService.exit(id, action);
+            await loadFolderData();
+            toast(action === 'WAIVE' ? 'Storage fees waived.' : action === 'CAPITALIZE' ? 'Storage fees capitalized.' : action === 'SET_ASIDE' ? 'Receivable set aside — record retained.' : action === 'ENTER' ? 'Moved to receivables.' : 'Receivable settings saved.', 'success');
+        } catch (err) { toast('RECEIVABLE ACTION FAILED: ' + (err.response?.data?.message || err.message), 'error', 8000); }
+        finally { setRecvBusy(false); }
+    };
+    const askReceivable = async (action) => {
+        const msgs = {
+            ENTER: ['MOVE TO RECEIVABLES', 'Freeze the balance and start monthly storage fees (default UGX 50,000). Continue?', 'warn'],
+            SET_ASIDE: ['SET ASIDE', 'Take this project out of receivables and stop new fees. The fee record is KEPT (hidden) so the project can be moved back later. Continue?', 'warn'],
+            CAPITALIZE: ['ADD FEES TO COST', 'Add the accumulated storage fees to the total cost and take this project out of receivables. Continue?', 'warn'],
+            WAIVE: ['WAIVE FEES', 'Permanently forgive the accumulated storage fees and take this project out of receivables. This cannot be undone. Continue?', 'danger'],
+            SETTINGS: ['SAVE SETTINGS', 'Update the monthly rate / freeze deadline for this project. Continue?', 'warn'],
+        };
+        const m = msgs[action];
+        const ok = await confirm(m[0], m[1], m[2]);
+        if (ok) runReceivableAction(action);
+    };""",
+r"""    // fix166: runReceivableAction / askReceivable are gone. Every receivable move (enter, set aside, add fees to cost,
+    // waive, reduce, rate, pause) now goes through the ONE reason window and the server refuses it without a reason.""",
+'fix166: remove the old reason-less receivable actions')
+
+patch(FOLDER_JSX,
+r"""{canEdit && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => askReceivable('ENTER')}>MOVE TO RECEIVABLES</HardwareButton>}""",
+r"""{canMoney && !project.landTitle?.isReleased && amountOwed > 0 && <HardwareButton type="button" icon={FiAlertOctagon} loading={recvBusy} onClick={() => openReasonModal({ kind: 'ENTER', title: 'MOVE TO RECEIVABLES', confirmLabel: 'MOVE TO RECEIVABLES',
+                                    info: 'This freezes the balance (UGX ' + fmt(amountOwed) + ' owed) and starts a monthly storage fee of UGX 50,000 unless a different rate is set, added every 30 days. Write why this project is moving to receivables.' })}>MOVE TO RECEIVABLES</HardwareButton>}""",
+'fix166: MOVE TO RECEIVABLES director-only, reason, hidden when handed over / nothing owed')
+
+patch(FOLDER_JSX,
+r"""<HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => askReceivable('SET_ASIDE')}>SET ASIDE (KEEP FEES)</HardwareButton>""",
+r"""<HardwareButton type="button" icon={FiArchive} loading={recvBusy} onClick={() => openReasonModal({ kind: 'SET_ASIDE', title: 'SET ASIDE', confirmLabel: 'SET ASIDE',
+                                        info: 'This takes the project out of receivables and stops new fees. The UGX ' + fmt(storageFees) + ' of fees is KEPT (hidden) so the project can be moved back later. Write why.' })}>SET ASIDE (KEEP FEES)</HardwareButton>""",
+'fix166: SET ASIDE needs a reason')
+
+patch(FOLDER_JSX,
+r"""onClick={() => askReceivable('CAPITALIZE')} disabled={recvBusy}>""",
+r"""onClick={() => openReasonModal({ kind: 'CAPITALIZE', title: 'ADD FEES TO COST', confirmLabel: 'ADD FEES TO COST',
+                                        info: 'This adds the UGX ' + fmt(storageFees) + ' of storage fees to the total cost (UGX ' + fmt(totalValue) + ' becomes UGX ' + fmt(totalValue + storageFees) + ') and takes the project out of receivables. Write why.' })} disabled={recvBusy}>""",
+'fix166: ADD FEES TO COST needs a reason, shows the old and new cost')
+
+patch(FOLDER_JSX,
+r"""onClick={handleRelease} disabled={amountOwed > 0}""",
+r"""onClick={handleRelease} disabled={amountOwed > 0 || !!project.problem}""",
+'fix166: HAND OVER disabled while the plot is flagged PROBLEM')
+
+patch(FOLDER_JSX,
+r"""title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : 'Record that the client has received the title deed.'}""",
+r"""title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : 'Record that the client has received the title deed.'}""",
+'fix166: hand-over tooltip explains the PROBLEM block')
+
+patch(FOLDER_JSX,
+r"""{canEdit && <button className={styles.ctrlBtnPay} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>""",
+r"""{canEdit && <button className={styles.ctrlBtnPay} disabled={amountOwed <= 0} title={amountOwed <= 0 ? 'Nothing is owed on this project.' : 'Record a payment with its receipt.'} onClick={() => { setPayModal({ open: true }); setPayAmount(''); setPayNotes(''); }}>""",
+'fix166: RECORD PAYMENT disabled when nothing is owed')
+
+patch(FOLDER_JSX,
+r"""{canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock}>""",
+r"""{canEdit && <button className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={!!project.landTitle?.isReleased} title={project.landTitle?.isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}>""",
+'fix166: EDIT locked once the title is handed over')
 
 patch(GUIDE,
-r"""5 RELEASE + PROBLEM improvements (show reason and who flagged it) = TO DO. 6 per-plot history tab = TO DO.""",
-r"""5 RELEASE + PROBLEM improvements = PARTLY (fix165: a PROBLEM flag needs a reason of 5+ characters, page + server; still TO DO: show who flagged it and when, and a reason on hand-over). 6 per-plot history tab = TO DO.
-- FOLDER PAGE NON-NEGOTIABLES (fix165): (1) a payment is saved ONLY together with its receipt file: `POST /land/projects/{id}/payment` is multipart, `LandService.recordPaymentWithReceipt` checks the file (PDF/JPG/PNG/WEBP, not empty, under 10 MB), records the payment and files the receipt under PAYMENT_RECEIPT in ONE transaction (receipt fails = payment rolled back). (2) a PAYMENT_RECEIPT document can never be deleted (reverse the payment instead). (3) whole shillings only; nothing can be paid on a deleted project. (4) every popup shows its own errors inside the popup using `errText(err)` + `<ModalError/>` in FolderPage.jsx (server words + HTTP number); error toasts sit above popups (z-index 100002) and stay 12 s. (5) popups with typed text (note, payment, reason, problem, upload) do not close on a backdrop click (`lockBackdrop` prop on HardwareModal); closing an unsaved note asks first. (6) notes: 2-2000 characters, sent in the request body, the audit line keeps the old words on edit/delete; adding a note to a project with no title no longer crashes the server. (7) uploads only accept PDF/JPG/PNG/WEBP, not empty, under 50 MB (page + server).""",
-'fix165: guide records the new non-negotiables')
+r"""(7) uploads only accept PDF/JPG/PNG/WEBP, not empty, under 50 MB (page + server).""",
+r"""(7) uploads only accept PDF/JPG/PNG/WEBP, not empty, under 50 MB (page + server).
+- FOLDER PAGE LOOPHOLES CLOSED (fix166): (1) the page no longer AUTO-SAVES after 5 idle minutes (it only warns after 10). (2) A handed-over title is LOCKED: `updateProjectFull`, document delete, stage tick/remove/cost and the reality-override refuse it (director UNDO first); a deleted project is locked the same way. (3) Server now refuses blank district / plot / tenure and removing every owner; plot, title ID, tenure, block and owner changes are audited OLD -> NEW (`TITLE_FIELDS_CHANGED`, `OWNERS_CHANGED`). (4) HAND OVER is refused while the plot is flagged PROBLEM, when deleted, and when already handed over. (5) Clearing a PROBLEM flag needs a reason of 5+ characters (reason window `CLEAR_PROBLEM`, saved as a note + audit). (6) Receivables: MOVE TO RECEIVABLES is director-only (`FolderPortalController.enter` was open to managers, had no checks, restarted billing when called twice and overwrote the status of handed-over projects) and needs a reason; SET ASIDE and ADD FEES TO COST need a reason (capitalize audit shows old -> new cost); `exit`, `reduce-fees` and rate/pause only work on a project that IS in receivables; unknown exit actions are refused; a pause must end in the future and within 365 days; bad rate/date = clear 400. The old reason-less `runReceivableAction`/`askReceivable` are deleted. (7) DELETE needs a reason (`DELETE /land/projects/{id}?reason=`), refuses an already-deleted project, and the page no longer says "permanent" (it is a soft delete, root can restore). (8) `PATCH .../reality-override` is director/admin only, stage 1..5 only, refused on deleted / receivable / handed-over projects. (9) Stage endpoints check the stage belongs to the project in the web address (`StageTemplateService.requireStageEditable`). (10) Stage tick cannot double-fire; RESTORE DEFAULTS adds the new stages before removing the old (a failure can no longer leave zero stages). (11) RECORD PAYMENT is disabled when nothing is owed; EDIT is disabled after hand-over; `?action=storage` only means a storage payment on a receivable project.""",
+'fix166: guide records the loopholes closed')
 
 # ============================= EDIT PART 2 END =============================
 
