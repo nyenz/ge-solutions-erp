@@ -344,3 +344,6 @@
   -webkit-box-shadow: 0 0 0 1000px rgba(33, 62, 64, 0.99) inset;
   -webkit-text-fill-color: #ffffff !important;
 }
+
+/* fix167: a popup opened on top of another popup (confirm). Above the first one, darkens it, NO blur. */
+.backdropStacked { z-index: 100001; background: rgba(10, 20, 25, 0.55); backdrop-filter: none; -webkit-backdrop-filter: none; }

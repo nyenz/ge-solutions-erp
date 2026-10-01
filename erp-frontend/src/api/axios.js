@@ -28,6 +28,14 @@ function resetIdleTimer() {
 }
 
 // Timer resets on every API call via the request interceptor below.
+// fix167: ...and on every click or key press, so someone typing a long edit is not logged out (losing it)
+// just because the page has not talked to the server for 30 minutes.
+if (typeof window !== 'undefined') {
+    let lastPoke = 0;
+    const poke = () => { const t = Date.now(); if (t - lastPoke > 15000) { lastPoke = t; resetIdleTimer(); } };
+    window.addEventListener('click', poke, { passive: true });
+    window.addEventListener('keydown', poke, { passive: true });
+}
 
 // REQUEST INTERCEPTOR: attach token + reset idle clock on every call
 api.interceptors.request.use(

@@ -83,14 +83,24 @@ public class StageTemplateController {
     @PostMapping("/land/projects/{projectId}/stages")
     public ResponseEntity<List<ProjectStage>> attachStages(
             @PathVariable UUID projectId, @RequestBody List<ProjectStageRequest> requests) {
+        stageTemplateService.requireProjectStagesEditable(projectId); // fix167
         return ResponseEntity.ok(stageTemplateService.attachStagesToProject(projectId, requests));
     }
-@PutMapping("/land/projects/{projectId}/stages/reorder")
-public ResponseEntity<List<ProjectStage>> reorderProjectStages(
-@PathVariable UUID projectId, @RequestBody List<String> orderedIds) {
-List<UUID> ids = orderedIds.stream().map(UUID::fromString).toList();
-return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, ids));
-}
+
+    @PutMapping("/land/projects/{projectId}/stages/reorder")
+    public ResponseEntity<List<ProjectStage>> reorderProjectStages(
+            @PathVariable UUID projectId, @RequestBody List<String> orderedIds) {
+        stageTemplateService.requireProjectStagesEditable(projectId); // fix167
+        List<UUID> ids = orderedIds.stream().map(UUID::fromString).toList();
+        return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, ids));
+    }
+
+    // fix167: RESTORE DEFAULTS for one project, in one server step (director only)
+    @PostMapping("/land/projects/{projectId}/stages/restore-defaults")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public ResponseEntity<List<ProjectStage>> restoreProjectDefaults(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(stageTemplateService.restoreProjectDefaults(projectId));
+    }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     @PatchMapping("/land/projects/{projectId}/stages/{stageId}/complete")
@@ -111,7 +121,9 @@ return ResponseEntity.ok(stageTemplateService.reorderProjectStages(projectId, id
         return ResponseEntity.ok(stageTemplateService.updateStageCostAndNotes(stageId, cost, notes));
     }
 
+    // fix167: removing a stage is director-only on the server too (the page already hid the bin from managers)
     @DeleteMapping("/land/projects/{projectId}/stages/{stageId}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> removeStage(@PathVariable UUID projectId, @PathVariable UUID stageId) {
         stageTemplateService.requireStageEditable(projectId, stageId);
         stageTemplateService.removeProjectStage(stageId);

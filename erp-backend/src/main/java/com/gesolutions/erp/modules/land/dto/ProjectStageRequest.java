@@ -1,6 +1,8 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/dto/ProjectStageRequest.java
 package com.gesolutions.erp.modules.land.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import java.math.BigDecimal;
 
@@ -23,6 +25,12 @@ public class ProjectStageRequest {
     private String stageName;
     private BigDecimal cost;
     private String notes;
+    // fix167: Lombok turns "isCompleted" into the JSON name "completed", so the Intake page's
+    // isCompleted / isCustom were never read and every stage arrived NOT ticked. Both spellings work now.
+    @JsonProperty("isCustom")
+    @JsonAlias({"custom"})
     private boolean isCustom;
+    @JsonProperty("isCompleted")
+    @JsonAlias({"completed"})
     private boolean isCompleted;
 }

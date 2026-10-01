@@ -30,6 +30,9 @@ public class LandController {
 
     private final LandService landService;
     private final ProjectStageRepository projectStageRepository;
+    // fix167: the app's own JSON reader (knows dates, ignores extra fields). A bare "new ObjectMapper()" refused
+    // every New Project save that carried a date or a stage list.
+    private final ObjectMapper objectMapper;
 
     // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
     // stacked on ONE method, so /next-index never registered (404) and the
@@ -65,8 +68,7 @@ public class LandController {
     public ResponseEntity<LandProject> ingestTitle(
             @RequestPart("data") String jsonData,
             @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        LandEntryRequest request = mapper.readValue(jsonData, LandEntryRequest.class);
+        LandEntryRequest request = objectMapper.readValue(jsonData, LandEntryRequest.class);
         return ResponseEntity.ok(landService.atomicIntake(request, scans));
     }
 
@@ -177,6 +179,7 @@ public class LandController {
         return ResponseEntity.ok(landService.bulkMarkTitleProduced(projectIds));
     }
 
+    // fix167: a hand-over needs a note (who collected the title, how they were identified): 5+ characters.
     @PatchMapping("/projects/{id}/release")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> authorizeRelease(
@@ -209,27 +212,8 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/projects/{id}/receivable")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> moveToReceivable(@PathVariable UUID id) {
-        landService.moveToReceivable(id);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/projects/{id}/exit-receivable")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> exitReceivable(@PathVariable UUID id,
-                                            @RequestParam(defaultValue = "false") boolean capitalizeFees) {
-        landService.exitReceivable(id, capitalizeFees);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/projects/{id}/exit-receivable-capitalize")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> exitReceivableCapitalize(@PathVariable UUID id) {
-        landService.exitReceivable(id, true);
-        return ResponseEntity.ok().build();
-    }
+    // fix167: the old receivable endpoints (/receivable, /exit-receivable, /exit-receivable-capitalize) are gone.
+    // They skipped every rule (no reason, no checks). Use /land/portal/{id}/receivable/... (FolderPortalController).
 
     @GetMapping("/projects/{id}/payments")
     public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
@@ -237,55 +221,20 @@ public class LandController {
     }
 
     // fix165: the ONLY way to record a payment is with its receipt file (multipart). The old no-receipt form is gone.
+    // fix167: also says WHICH owner paid (payerId, required when there is more than one owner) and what the money is
+    // for (allocation TITLE or STORAGE).
     @PostMapping(value = "/projects/{id}/payment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> recordPayment(@PathVariable UUID id,
                                                @RequestParam java.math.BigDecimal amount,
                                                @RequestParam(required = false) String notes,
+                                               @RequestParam(value = "payerId", required = false) UUID payerId,
+                                               @RequestParam(value = "allocation", required = false) String allocation,
                                                @RequestParam(value = "receipt", required = false) MultipartFile receipt) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt);
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation);
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("/projects/{id}/storage-pause")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> toggleStoragePause(@PathVariable UUID id,
-                                                   @RequestParam boolean paused,
-                                                   @RequestParam String reason) {
-        landService.setStoragePaused(id, paused, reason);
-        return ResponseEntity.ok().build();
-    }
-
-    @PatchMapping("/projects/{id}/storage-rate")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> setStorageRate(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal rate,
-                                               @RequestParam String reason) {
-        landService.setStorageFeeOverride(id, rate, reason);
-        return ResponseEntity.ok().build();
-    }
-
-    @PatchMapping("/projects/{id}/storage-fees")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> setStorageFees(@PathVariable UUID id,
-                                               @RequestParam java.math.BigDecimal amount,
-                                               @RequestParam String reason) {
-        landService.setAccumulatedFees(id, amount, reason);
-        return ResponseEntity.ok().build();
-    }
-
-    @PatchMapping("/projects/{id}/negotiation-deadline")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> setNegotiationDeadline(@PathVariable UUID id,
-                                                        @RequestParam(required = false) String deadline) {
-        landService.setNegotiationDeadline(id, deadline);
-        return ResponseEntity.ok().build();
-    }
-
-    @PatchMapping("/projects/{id}/receivable-start")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Void> setReceivableStartOverride(@PathVariable UUID id,
-                                                         @RequestParam String startDate) {
-        landService.setReceivableStartOverride(id, startDate);
-        return ResponseEntity.ok().build();
-    }
+    // fix167: the old storage endpoints (/storage-pause, /storage-rate, /storage-fees, /negotiation-deadline,
+    // /receivable-start) are gone. They had no 365-day limit, no receivable check, and two of them needed no reason.
+    // Every storage-fee change now goes through /land/portal/{id}/receivable/settings or /reduce-fees.
 }

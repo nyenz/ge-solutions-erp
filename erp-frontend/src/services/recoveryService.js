@@ -13,10 +13,13 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   logNote:   (payload) => api.post('/recovery/notes', payload),
   deleteNote: (noteId) => api.delete('/recovery/notes/' + noteId),
   // fix165: a payment is sent TOGETHER with its receipt file; the server refuses it without one.
-  recordPayment: (projectId, amount, notes, receipt) => {
+  // fix167: also WHO paid (payerId) and what for (allocation TITLE or STORAGE)
+  recordPayment: (projectId, amount, notes, receipt, payerId, allocation) => {
     const fd = new FormData();
     fd.append('amount', String(amount));
     if (notes) fd.append('notes', notes);
+    if (payerId) fd.append('payerId', payerId);
+    if (allocation) fd.append('allocation', allocation);
     if (receipt) fd.append('receipt', receipt, receipt.name);
     return api.post(`/land/projects/${projectId}/payment`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
   },

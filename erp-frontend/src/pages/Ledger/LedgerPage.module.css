@@ -199,3 +199,6 @@
 .controlHub  { padding: 0; gap: var(--ctl-gap); margin-bottom: var(--block-gap); }
 .searchBlock { padding: 0; }
 .legendRow   { margin: 0 0 var(--legend-after); padding: 0 0 0 var(--legend-inset); }
+
+/* fix167: RELEASED is cyan everywhere (attention colours: cyan = released) */
+.tagReleased{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;color:#06b6d4;}

@@ -23,6 +23,7 @@ public class FolderPortalController {
     private final LandProjectRepository projectRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final com.gesolutions.erp.modules.land.repository.FollowUpRepository followUpRepository;
 
     private String op() {
         var a = SecurityContextHolder.getContext().getAuthentication();
@@ -44,17 +45,22 @@ public class FolderPortalController {
         m.put("startDate", p.getReceivableStartDate());
         m.put("backlog", p.getLandTitle() == null);
         m.put("problem", p.isProblem());
+        m.put("storagePaid", p.storagePaidSafe());
+        m.put("storageUnpaid", p.storageUnpaid());
         return m;
     }
 
+    // fix167: one database query (it used to load EVERY project), deleted projects left out, and each row says
+    // whether the plot is handed over or flagged as a problem.
     @GetMapping("/portfolio")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> portfolio(@PathVariable UUID id) {
         LandProject current = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
         List<Map<String, Object>> out = new ArrayList<>();
-        if (current.getProprietors() == null) return out;
-        for (LandProject other : projectRepository.findAll()) {
-            if (other.getId().equals(id) || other.getProprietors() == null) continue;
+        if (current.getProprietors() == null || current.getProprietors().isEmpty()) return out;
+        List<UUID> ownerIds = new ArrayList<>();
+        for (var o : current.getProprietors()) ownerIds.add(o.getId());
+        for (LandProject other : projectRepository.findRelatedByOwners(ownerIds, id)) {
             for (var owner : current.getProprietors()) {
                 if (other.getProprietors().stream().anyMatch(c -> c.getId().equals(owner.getId()))) {
                     Map<String, Object> m = new HashMap<>();
@@ -62,10 +68,11 @@ public class FolderPortalController {
                     m.put("index", other.getProjectIndex());
                     m.put("plot", other.getLandTitle() != null ? other.getLandTitle().getPlotNumber() : null);
                     m.put("titled", other.getLandTitle() != null);
+                    m.put("released", other.getLandTitle() != null && other.getLandTitle().isReleased());
                     m.put("receivable", other.isReceivable());
+                    m.put("problem", other.isProblem());
                     m.put("sharedOwner", owner.getFullName());
                     out.add(m);
-                    break;
                 }
             }
         }
@@ -119,66 +126,103 @@ public class FolderPortalController {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
         String action = body.getOrDefault("action", "SET_ASIDE");
         BigDecimal fees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : BigDecimal.ZERO;
+        BigDecimal feesPaid = p.storagePaidSafe();
+        BigDecimal feesUnpaid = p.storageUnpaid();
+        BigDecimal costBefore = p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO;
         String reason = body.get("reason") != null ? body.get("reason").trim() : "";
-        // fix166: only the three known actions (an unknown word used to fall through to SET_ASIDE), only on a project that
-        // IS in receivables (before, WAIVE / ADD-TO-COST on a normal project zeroed or moved retained fees and forced its
-        // status to ACTIVE), and every one of them needs a written reason (ADD FEES TO COST changes the total cost).
+        // fix166: only the three known actions, only on a project in receivables, always with a reason.
+        // fix167: WAIVE and ADD FEES TO COST also work on fees kept by an earlier SET ASIDE (before, those fees could
+        // only be cleared by moving the project back into receivables, and a hand-over silently ignored them).
         if (!"WAIVE".equals(action) && !"CAPITALIZE".equals(action) && !"SET_ASIDE".equals(action)) {
             throw new BusinessException("ACTION_INVALID: Unknown receivable action.");
         }
-        if (!p.isReceivable()) {
+        if (p.isDeleted()) {
+            throw new BusinessException("RECEIVABLE_FAULT: This project is deleted. Restore it first.");
+        }
+        boolean keptFees = !p.isReceivable() && feesUnpaid.signum() > 0;
+        if (!p.isReceivable() && !(keptFees && !"SET_ASIDE".equals(action))) {
             throw new BusinessException("RECEIVABLE_FAULT: This project is not in receivables.");
         }
         if (reason.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write why (at least 5 characters).");
         }
+        // fix167 money rule: once a project is out of receivables its storage-fee PAYMENTS count toward the total cost
+        // (the paid fees are moved into the cost), so "owed = cost - paid" stays right. Only UNPAID fees are waived,
+        // added to the cost, or kept aside.
         if ("WAIVE".equals(action)) {
-            if (reason.length() < 5) {
-                throw new BusinessException("REASON_REQUIRED: Write why these fees are being waived (at least 5 characters).");
-            }
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + fees + " on #" + p.getProjectIndex() + ". Reason: " + reason);
+            p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
+            p.setStorageFeesPaid(BigDecimal.ZERO);
+            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
+                    + (feesPaid.signum() > 0 ? " (UGX " + feesPaid.toPlainString() + " already paid toward fees stays counted: total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(feesPaid).toPlainString() + ")" : "")
+                    + ". Reason: " + reason);
         } else if ("CAPITALIZE".equals(action)) {
-            BigDecimal costBefore = p.getTotalCost() != null ? p.getTotalCost() : BigDecimal.ZERO;
             p.setTotalCost(costBefore.add(fees));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
-            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees + " into total cost on #" + p.getProjectIndex()
+            p.setStorageFeesPaid(BigDecimal.ZERO);
+            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
                     + " (total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(fees).toPlainString() + "). Reason: " + reason);
         } else {
-            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (fees UGX " + fees + " retained, billing stopped). Reason: " + reason);
+            p.setTotalCost(costBefore.add(feesPaid));
+            p.setStorageFeesAccumulated(feesUnpaid);
+            p.setStorageFeesPaid(BigDecimal.ZERO);
+            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
+                    + " of unpaid fees kept, billing stopped"
+                    + (feesPaid.signum() > 0 ? "; UGX " + feesPaid.toPlainString() + " of paid fees moved into the total cost" : "") + "). Reason: " + reason);
         }
+        if (p.getStoragePausedAt() != null || p.getNegotiationDeadline() != null || p.isStoragePaused()) p.endStoragePause(LocalDateTime.now());
         p.setReceivable(false);
-        p.setStatus("ACTIVE");
+        if (!(p.getLandTitle() != null && p.getLandTitle().isReleased())) p.setStatus("ACTIVE");
         projectRepository.save(p);
         return receivable(id);
     }
 
+    // fix167: the page says what it WANTS (flag=true to flag, flag=false to clear). Before, two people clicking at the
+    // same time made the second click silently clear the first person's flag. Who flagged it, when and why is stored.
     @PostMapping("/toggle-problem")
     @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
-    public Map<String, Object> toggleProblem(@PathVariable UUID id, @RequestParam(value = "note", required = false) String note) {
+    public Map<String, Object> toggleProblem(@PathVariable UUID id,
+                                             @RequestParam(value = "note", required = false) String note,
+                                             @RequestParam(value = "flag", required = false) Boolean flag) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        // fix165: flagging a PROBLEM must say what the problem is. Clearing it needs no words.
-        // fix166: CLEARING a flag needs words too (anyone could silently wipe a flag a director raised), and a deleted project is not touched.
         if (p.isDeleted()) {
             throw new BusinessException("PLOT_DELETED: This project is deleted. Restore it first.");
+        }
+        boolean want = flag != null ? flag : !p.isProblem();
+        if (want == p.isProblem()) {
+            throw new BusinessException(want
+                    ? "ALREADY_FLAGGED: Someone else flagged this plot as a PROBLEM a moment ago. Reload the page."
+                    : "ALREADY_CLEARED: Someone else cleared this PROBLEM flag a moment ago. Reload the page.");
         }
         if (note == null || note.trim().length() < 5) {
             throw new BusinessException(p.isProblem()
                     ? "REASON_REQUIRED: Write why the problem flag is being cleared (at least 5 characters)."
                     : "REASON_REQUIRED: Write what the problem is (at least 5 characters).");
         }
-        p.setProblem(!p.isProblem());
+        String why = note.trim();
+        p.setProblem(want);
+        if (want) {
+            p.setProblemBy(op());
+            p.setProblemAt(LocalDateTime.now());
+            p.setProblemNote(why);
+        } else {
+            p.setProblemBy(null);
+            p.setProblemAt(null);
+            p.setProblemNote(null);
+        }
         projectRepository.save(p);
-        String why = (note != null && !note.isBlank()) ? note.trim() : "";
+        // fix167: the note is written in the SAME step as the flag (it used to be a second call from the page that could fail alone)
+        followUpRepository.save(com.gesolutions.erp.modules.land.model.FollowUpLog.builder().projectId(p.getId())
+                .notes((want ? "[PROBLEM] " : "[PROBLEM CLEARED] ") + why).recordedBy(op()).build());
         String plot = (p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null)
                 ? p.getLandTitle().getPlotNumber() : "project #" + p.getProjectIndex();
-        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (p.isProblem() ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + (why.isEmpty() ? "" : ": " + why) + ".");
-        if (p.isProblem()) {
+        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
+        if (want) {
             // fix135: only FLAGGING notifies (clearing is not news). emitRaw, not emit,
             // because emit() dedupes forever per type+entity and a plot can be flagged twice.
             notificationService.emitRaw("PROBLEM_FLAGGED", "CRITICAL",
-                    "Plot " + plot + " flagged as a problem by " + op() + (why.isEmpty() ? "." : ": " + why),
+                    "Plot " + plot + " flagged as a problem by " + op() + ": " + why,
                     "PROJECT", p.getId(), "ALL");
         }
         return receivable(id);
@@ -210,6 +254,11 @@ public class FolderPortalController {
         if (target.compareTo(current) >= 0) {
             throw new BusinessException("FEES_INVALID: The new total must be lower than the current UGX " + current.toPlainString() + ".");
         }
+        // fix167: fees the client already paid cannot be reduced away (reverse that payment first)
+        if (target.compareTo(p.storagePaidSafe()) < 0) {
+            throw new BusinessException("FEES_INVALID: UGX " + p.storagePaidSafe().toPlainString()
+                    + " of storage fees is already paid, so the new total cannot be lower than that.");
+        }
         p.setStorageFeesAccumulated(target);
         projectRepository.save(p);
         auditService.logAction("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
@@ -217,15 +266,18 @@ public class FolderPortalController {
         return receivable(id);
     }
 
+    // fix164 + fix167: change the monthly rate and / or pause the fees until a date, or resume them.
+    //   rate: blank = the default 50,000; 0 = no more fees (it used to turn silently into 50,000).
+    //   pause: must end in the future and within 365 days. Every change, RESUME included, needs a reason.
+    //   A pause now really skips those months: when it ends the billing clock moves forward by the paused days.
     @PostMapping("/receivable/settings")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_DIRECTOR')")
     @Transactional
     public Map<String, Object> settings(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         LandProject p = projectRepository.findById(id).orElseThrow(() -> new BusinessException("NOT_FOUND"));
-        // fix164: a rate change or a NEW pause date needs a written reason and is audited as OLD -> NEW.
-        // Clearing a pause (RESUME FEES) needs no reason.
         BigDecimal oldRate = p.getStorageFeeOverride();
         LocalDateTime oldDeadline = p.getNegotiationDeadline();
+        boolean wasPaused = oldDeadline != null || p.isStoragePaused();
         BigDecimal newRate = oldRate;
         LocalDateTime newDeadline = oldDeadline;
         if (body.containsKey("rate")) {
@@ -237,41 +289,57 @@ public class FolderPortalController {
             if (newRate != null && newRate.signum() < 0) {
                 throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
             }
+            if (newRate != null && newRate.stripTrailingZeros().scale() > 0) {
+                throw new BusinessException("RATE_INVALID: Whole shillings only.");
+            }
         }
+        boolean resume = false;
         if (body.containsKey("deadline")) {
-            try {
-                newDeadline = body.get("deadline") == null || body.get("deadline").isBlank() ? null : LocalDateTime.parse(body.get("deadline").trim());
-            } catch (java.time.format.DateTimeParseException e) {
-                throw new BusinessException("PAUSE_INVALID: The pause date is not a valid date and time.");
+            String d = body.get("deadline");
+            if (d == null || d.isBlank()) {
+                newDeadline = null;
+                resume = wasPaused;
+            } else {
+                try {
+                    String t = d.trim();
+                    newDeadline = t.length() == 10 ? java.time.LocalDate.parse(t).atTime(23, 59, 59) : LocalDateTime.parse(t);
+                } catch (java.time.format.DateTimeParseException e) {
+                    throw new BusinessException("PAUSE_INVALID: The pause date is not a valid date.");
+                }
             }
         }
         boolean rateChanged = (oldRate == null) != (newRate == null)
                 || (oldRate != null && newRate != null && oldRate.compareTo(newRate) != 0);
         boolean pauseSet = newDeadline != null && !newDeadline.equals(oldDeadline);
-        // fix166: a pause must end in the future and not more than a year away (a pause to the year 2999 switched billing
-        // off for ever), and rate / pause only make sense on a project that is in receivables.
         if (pauseSet && !newDeadline.isAfter(LocalDateTime.now())) {
             throw new BusinessException("PAUSE_INVALID: The pause must end in the future.");
         }
         if (pauseSet && newDeadline.isAfter(LocalDateTime.now().plusDays(365))) {
             throw new BusinessException("PAUSE_INVALID: A pause cannot be longer than 365 days. Pause again later if more time is needed.");
         }
-        if ((rateChanged || pauseSet) && !p.isReceivable()) {
+        if ((rateChanged || pauseSet || resume) && !p.isReceivable()) {
             throw new BusinessException("RECEIVABLE_FAULT: This project is not in receivables.");
         }
+        if (!rateChanged && !pauseSet && !resume) {
+            throw new BusinessException("NOTHING_CHANGED: The rate and the pause are already set like that.");
+        }
         String why = body.get("reason") == null ? "" : body.get("reason").trim();
-        if ((rateChanged || pauseSet) && why.length() < 5) {
+        if (why.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write why the rate or pause is changing (at least 5 characters).");
         }
         p.setStorageFeeOverride(newRate);
-        p.setNegotiationDeadline(newDeadline);
+        if (resume) {
+            p.endStoragePause(LocalDateTime.now());
+        } else if (pauseSet) {
+            if (p.getStoragePausedAt() == null) p.setStoragePausedAt(LocalDateTime.now());
+            p.setNegotiationDeadline(newDeadline);
+        }
         projectRepository.save(p);
         auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
-                + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default")
-                + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
-                + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toString() : "not paused")
-                + " -> " + (newDeadline != null ? newDeadline.toString() : "not paused") + ")"
-                + (why.isEmpty() ? "" : ". Reason: " + why));
+                + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default") + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
+                + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toLocalDate().toString() : (p.isStoragePaused() ? "paused" : "not paused"))
+                + " -> " + (resume ? "RESUMED now" : (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toLocalDate().toString() : "not paused")) + ")"
+                + ". Reason: " + why);
         return receivable(id);
     }
 }

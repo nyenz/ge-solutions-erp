@@ -41,18 +41,23 @@ public class ReceivableSchedulerService {
 
         for (LandProject plot : receivablePlots) {
             if (plot.getReceivableStartDate() == null) continue;
-            if (plot.isStoragePaused()) continue; // fees paused by admin
-
-            // Auto-pause if negotiation deadline is in the future; auto-resume if it has passed
+            // fix167: a pause now SKIPS the paused months. While paused nothing is billed; when the pause ends the
+            // billing clock moves forward by the paused days (LandProject.endStoragePause). Before, every paused month
+            // was billed in one lump the night the pause ended, so a pause saved the client nothing.
+            if (plot.isStoragePaused() && plot.getNegotiationDeadline() == null) {
+                if (plot.getStoragePausedAt() == null) { plot.setStoragePausedAt(now); projectRepository.save(plot); }
+                continue; // old open-ended pause: stays paused until a director resumes it
+            }
             if (plot.getNegotiationDeadline() != null) {
+                if (plot.getStoragePausedAt() == null) { plot.setStoragePausedAt(now); projectRepository.save(plot); }
                 if (now.isBefore(plot.getNegotiationDeadline())) {
-                    continue; // still within negotiation window
-                } else {
-                    // Deadline has passed -- auto-resume fees and clear deadline
-                    plot.setStoragePaused(false);
-                    plot.setNegotiationDeadline(null);
-                    projectRepository.save(plot);
+                    continue; // still paused
                 }
+                LocalDateTime ended = plot.getNegotiationDeadline();
+                plot.endStoragePause(ended);
+                projectRepository.save(plot);
+                auditService.logAction("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + ended.toLocalDate()
+                        + " for " + ownerLabel(plot) + ". Billing restarts; the paused days are not charged.");
             }
 
             long daysSinceReceivable = ChronoUnit.DAYS.between(plot.getReceivableStartDate(), now);
@@ -66,8 +71,13 @@ public class ReceivableSchedulerService {
 
             if (alreadyBilled >= periodsOwed) continue;
 
-            BigDecimal monthlyRate = (plot.getStorageFeeOverride() != null && plot.getStorageFeeOverride().compareTo(BigDecimal.ZERO) > 0)
-                    ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
+            // fix167: a rate set to 0 means NO fee (it used to fall back to 50,000 without telling anyone)
+            BigDecimal monthlyRate = plot.getStorageFeeOverride() != null ? plot.getStorageFeeOverride() : DEFAULT_MONTHLY_FEE;
+            if (monthlyRate.signum() == 0) {
+                plot.setReceivableMonthsBilled((int) periodsOwed);
+                projectRepository.save(plot);
+                continue;
+            }
 
             BigDecimal currentFees = plot.getStorageFeesAccumulated() != null
                     ? plot.getStorageFeesAccumulated() : BigDecimal.ZERO;
@@ -99,11 +109,16 @@ public class ReceivableSchedulerService {
         for (LandProject plot : candidates) {
             BigDecimal outstanding = plot.getTotalCost().subtract(plot.getAmountPaid());
             if (outstanding.compareTo(BigDecimal.ZERO) <= 0) continue;
+            if (plot.getLandTitle() != null && plot.getLandTitle().isReleased()) continue;
 
+            // fix167: fees kept by an earlier SET ASIDE are kept (they used to be wiped to 0), and the month counter
+            // starts again from 0 (it used to keep the old count, so the first months were never billed).
             plot.setReceivable(true);
             plot.setReceivableStartDate(LocalDateTime.now());
+            plot.setReceivableMonthsBilled(0);
             plot.setOriginalDebt(outstanding);
-            plot.setStorageFeesAccumulated(BigDecimal.ZERO);
+            if (plot.getStorageFeesAccumulated() == null) plot.setStorageFeesAccumulated(BigDecimal.ZERO);
+            plot.setStorageFeesPaid(BigDecimal.ZERO);
             plot.setStatus("RECEIVABLE");
             projectRepository.save(plot);
 

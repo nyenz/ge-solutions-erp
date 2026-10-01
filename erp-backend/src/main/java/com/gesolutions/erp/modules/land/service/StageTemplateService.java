@@ -45,6 +45,55 @@ public class StageTemplateService {
         if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
             throw new BusinessException("STAGE_LOCKED: The title has been handed over, so its stages are locked. A director must UNDO the hand-over first.");
         }
+        // fix167: once a title is saved the checklist is a record. Use REVERT TO STAGES (director) to reopen it.
+        if (project.getLandTitle() != null) {
+            throw new BusinessException("STAGE_LOCKED: This project already has its title, so the stage list is locked. A director can use REVERT TO STAGES first.");
+        }
+    }
+
+    // fix167: adding or re-ordering stages from the folder page has the same locks as ticking one
+    public void requireProjectStagesEditable(UUID projectId) {
+        com.gesolutions.erp.modules.land.model.LandProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.isDeleted()) {
+            throw new BusinessException("STAGE_LOCKED: This project is deleted. Restore it first.");
+        }
+        if (project.getLandTitle() != null) {
+            throw new BusinessException("STAGE_LOCKED: This project already has its title, so the stage list is locked. A director can use REVERT TO STAGES first.");
+        }
+    }
+
+    // fix167: RESTORE DEFAULTS in ONE step on the server: the project's stages are replaced by the master checklist
+    // (first stage ticked). All or nothing, director only, audited with the old list.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public List<ProjectStage> restoreProjectDefaults(UUID projectId) {
+        requireProjectStagesEditable(projectId);
+        List<StageTemplate> tpls = templateRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+        if (tpls.isEmpty()) {
+            throw new BusinessException("TEMPLATE_EMPTY: The master checklist is empty, so nothing was changed.");
+        }
+        List<ProjectStage> old = projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
+        StringBuilder was = new StringBuilder();
+        for (ProjectStage st : old) {
+            if (was.length() > 0) was.append(", ");
+            was.append(st.getStageName()).append(st.isCompleted() ? " (done)" : "");
+        }
+        projectStageRepository.deleteAll(old);
+        projectStageRepository.flush();
+        int order = 0;
+        for (StageTemplate t : tpls) {
+            boolean first = order == 0;
+            projectStageRepository.save(ProjectStage.builder()
+                    .projectId(projectId).stageName(t.getStageName())
+                    .cost(t.getDefaultCost() != null ? t.getDefaultCost() : BigDecimal.ZERO)
+                    .isCustom(false).isCompleted(first).completedAt(first ? LocalDateTime.now() : null)
+                    .completedBy(first ? getCurrentOperator() : null)
+                    .displayOrder(order++).build());
+        }
+        auditService.logAction("PROJECT_STAGES_RESTORED",
+            "Operator [" + getCurrentOperator() + "] restored the default stages on project: " + projectId + ". Old list: " + was);
+        return projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
     }
 
     private static final String[] DEFAULT_STAGES = {
@@ -152,9 +201,12 @@ public class StageTemplateService {
                 name = template.getStageName();
                 cost = req.getCost() != null ? req.getCost() : template.getDefaultCost();
             }
+            // fix167: a stage ticked on New Project arrives ticked, with when and by whom
             created.add(projectStageRepository.save(ProjectStage.builder()
                     .projectId(projectId).stageName(name).cost(cost).notes(req.getNotes())
                     .isCustom(req.isCustom()).isCompleted(req.isCompleted())
+                    .completedAt(req.isCompleted() ? LocalDateTime.now() : null)
+                    .completedBy(req.isCompleted() ? getCurrentOperator() : null)
                     .displayOrder(startOrder + (i++))
                     .build()));
         }
@@ -190,6 +242,7 @@ return projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
                 .orElseThrow(() -> new BusinessException("PROJECT_STAGE_NOT_FOUND"));
         stage.setCompleted(completed);
         stage.setCompletedAt(completed ? LocalDateTime.now() : null);
+        stage.setCompletedBy(completed ? getCurrentOperator() : null);
         ProjectStage saved = projectStageRepository.save(stage);
         auditService.logAction("PROJECT_STAGE_STATUS_CHANGED",
             "Operator [" + getCurrentOperator() + "] marked stage \"" + stage.getStageName()

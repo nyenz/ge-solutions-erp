@@ -49,6 +49,12 @@ const stageTemplateService = {
         return response.data;
     },
 
+    // fix167: RESTORE DEFAULTS for one project in one server step (director only)
+    restoreProjectDefaults: async (projectId) => {
+        const response = await api.post(`/land/projects/${projectId}/stages/restore-defaults`);
+        return response.data;
+    },
+
     attachStages: async (projectId, stageRequests) => {
         const response = await api.post(`/land/projects/${projectId}/stages`, stageRequests);
         return response.data;

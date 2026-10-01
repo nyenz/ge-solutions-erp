@@ -184,13 +184,36 @@ public class LandProject {
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
 
+    // fix167: sent as "isLegacy" (Lombok alone named it "legacy": the LEGACY badge never showed and every EDIT + SAVE wiped the flag)
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("isLegacy")
     @Column(name = "is_legacy", nullable = false)
     private boolean isLegacy = false;
 
     @Builder.Default
     @Column(name = "is_problem", nullable = false)
     private boolean problem = false;
+
+    // fix167: who flagged the PROBLEM, when, and what it is (shown on the folder page)
+    @Column(name = "problem_by", length = 100)
+    private String problemBy;
+
+    @Column(name = "problem_at")
+    private LocalDateTime problemAt;
+
+    @Column(name = "problem_note", columnDefinition = "TEXT")
+    private String problemNote;
+
+    // fix167: when the current storage-fee pause started. When the pause ends the billing clock is moved
+    // forward by the paused days, so a pause really saves the client those months (it used to bill them all at once).
+    @Column(name = "storage_paused_at")
+    private LocalDateTime storagePausedAt;
+
+    // fix167: how much of storageFeesAccumulated has been PAID (payments recorded as STORAGE). amountPaid still holds
+    // every shilling received; this only splits it, so the page can show "fees paid" and "fees still owed".
+    // It goes back to 0 whenever the project leaves receivables (the paid fees are then moved into the total cost).
+    @Column(name = "storage_fees_paid", precision = 15, scale = 2)
+    private BigDecimal storageFeesPaid;
 
     @Builder.Default
     @Column(name = "current_stage_index", nullable = false)
@@ -228,6 +251,29 @@ public class LandProject {
         BigDecimal fees  = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
         BigDecimal paid  = amountPaid != null ? amountPaid : BigDecimal.ZERO;
         return value.add(fees).subtract(paid).max(BigDecimal.ZERO);
+    }
+
+    // fix167: storage fees paid so far (null in old rows = 0)
+    public BigDecimal storagePaidSafe() {
+        return storageFeesPaid != null ? storageFeesPaid : BigDecimal.ZERO;
+    }
+
+    // fix167: storage fees not yet paid (never below 0)
+    public BigDecimal storageUnpaid() {
+        BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
+        return fees.subtract(storagePaidSafe()).max(BigDecimal.ZERO);
+    }
+
+    // fix167: ends a storage-fee pause. The billing clock (receivableStartDate) moves forward by the paused days, so the
+    // months inside the pause are never billed. Before, the nightly job billed every paused month the day the pause ended.
+    public void endStoragePause(LocalDateTime endAt) {
+        if (storagePausedAt != null && receivableStartDate != null && endAt != null && endAt.isAfter(storagePausedAt)) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(storagePausedAt, endAt);
+            if (days > 0) receivableStartDate = receivableStartDate.plusDays(days);
+        }
+        storagePausedAt = null;
+        storagePaused = false;
+        negotiationDeadline = null;
     }
 
     public BigDecimal activeTotalOwed() {

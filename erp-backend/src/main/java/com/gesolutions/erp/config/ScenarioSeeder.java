@@ -55,11 +55,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * GOLDEN SEED -- SCENARIO SEEDER (dataset v3).
+ * GOLDEN SEED -- SCENARIO SEEDER (dataset v4, fix167).
  *
- * Runs once (flag id = 3 in scenario_seed_flag). Step 1 removes every earlier
- * seed (v1, v2, and v3 itself if the flag was cleared) -- and ONLY seed rows:
- * a client counts as seed when its NIN is CMS3xxxxxxxxxx (v3), CM9000000000xx
+ * Runs once (flag id = 4 in scenario_seed_flag). Step 1 removes every earlier
+ * seed (v1, v2, v3, and v4 itself if the flag was cleared) -- and ONLY seed rows:
+ * a client counts as seed when its NIN is CMS4/CMS3xxxxxxxxxx (v4/v3), CM9000000000xx
  * (v1) or one of the 24 exact v2 NINs. Real NINs never have a letter in the
  * third position and the v2 list is matched exactly, so real people are never
  * touched. Step 2 loads ScenarioData with every date back-dated so charts,
@@ -74,7 +74,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ScenarioSeeder {
 
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
     private static final int BELL_DAYS = 45;
     private static final String DEMO_LIKE = "demo.%";
 
@@ -183,7 +183,7 @@ public class ScenarioSeeder {
     private void purge(JdbcTemplate jdbc) {
         List<String> nins = new ArrayList<>();
         for (String n : v2Nins()) nins.add("'" + n + "'");
-        List<String> clientIds = uuids(jdbc, "SELECT id FROM clients WHERE national_id LIKE 'CMS3%' OR national_id LIKE 'CM9000000000%' OR national_id IN (" + String.join(",", nins) + ")");
+        List<String> clientIds = uuids(jdbc, "SELECT id FROM clients WHERE national_id LIKE 'CMS4%' OR national_id LIKE 'CMS3%' OR national_id LIKE 'CM9000000000%' OR national_id IN (" + String.join(",", nins) + ")");
         List<String> names = jdbc.query("SELECT full_name FROM clients WHERE id IN (" + ids(clientIds) + ")", (rs, i) -> rs.getString(1));
         List<String> projectIds = clientIds.isEmpty() ? new ArrayList<>() : uuids(jdbc,
                 "SELECT project_id FROM project_proprietors GROUP BY project_id HAVING bool_and(client_id IN (" + ids(clientIds) + "))");
@@ -205,7 +205,7 @@ public class ScenarioSeeder {
 
         // audit lines written by demo staff, plus lines the old seeds wrote as SYSTEM
         jdbc.update("DELETE FROM audit_logs WHERE performed_by LIKE '" + DEMO_LIKE + "'");
-        jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND action IN ('INTAKE','RECEIVABLE_TRIGGER','PROJECT_STAGES_ATTACHED','CLIENT_ARCHIVE','DOCUMENT_UPLOADED')");
+        jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND action IN ('INTAKE','RECEIVABLE_TRIGGER','PROJECT_STAGES_ATTACHED','CLIENT_ARCHIVE','DOCUMENT_UPLOADED','STORAGE_FEE_RESUMED')");
         for (String n : names) jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND details LIKE ?", "%" + n + "%");
 
         if (!projectIds.isEmpty()) {
@@ -388,18 +388,22 @@ public class ScenarioSeeder {
                     .titleId(s.pendingTitle ? null : s.titleId)
                     .projectStartDate(now.toLocalDate().minusDays(s.startAgo))
                     .titleIssueDate(s.pendingTitle ? null : now.toLocalDate().minusDays(s.issuedAgo))
-                    .isReleased(s.releasedAgo >= 0)
+                    .isReleased(s.releasedNow())
+                    .releasedAt(s.releasedNow() ? at(s.releasedAgo, s.key + "X") : null)
+                    .releasedBy(s.releasedNow() ? ScenarioData.DIRECTOR : null)
+                    .releaseNote(s.releasedNow() ? releaseNote(s) : null)
                     .createdAt(at(createdAgo, s.key + "T"))
                     .build();
         }
 
         // --- money on the project row
         boolean recvNow = s.receivableNow();
-        long totalCost = s.cost + ("CAPITALIZE".equals(s.exit) ? s.feesAccrued() : 0);
+        long totalCost = s.storedCost();
         long debt = s.origDebt >= 0 ? s.origDebt : Math.max(0, s.cost - s.paidBeforeReceivable());
         LocalDateTime lastPay = null;
         for (ScenarioData.Pay p : s.pays) {
-            LocalDateTime t = at(s.payAgo(p), s.key + p.amount);
+            if (p.reversed()) continue;
+            LocalDateTime t = at(s.payAgo(p), s.key + p.amount + p.ago);
             if (lastPay == null || t.isAfter(lastPay)) lastPay = t;
         }
 
@@ -416,22 +420,28 @@ public class ScenarioSeeder {
                 .currentStageIndex(s.stageIndex())
                 .status(s.status())
                 .lastPaymentDate(lastPay)
-                .problem(s.problemAgo >= 0)
-                .storagePaused(s.paused)
+                .problem(s.problemNow())
+                .problemBy(s.problemNow() ? ScenarioData.MGR1 : null)
+                .problemAt(s.problemNow() ? at(s.problemAgo, s.key + "P") : null)
+                .problemNote(s.problemNow() ? s.problemNote : null)
+                .storagePaused(s.activePause())
+                .storagePausedAt(s.activePause() ? at(s.pauseAgo, s.key + "Z") : null)
                 .deleted(s.deletedAgo >= 0 && s.restoredAgo < 0)
                 .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null);
         if (s.recvAgo >= 0) {
             b.originalDebt(BigDecimal.valueOf(debt))
-             .storageFeesAccumulated(BigDecimal.valueOf(s.feesStored()))
+             .storageFeesAccumulated(BigDecimal.valueOf(s.storedFees()))
+             .storageFeesPaid(BigDecimal.valueOf(s.storedFeesPaid()))
              .receivableMonthsBilled(Math.max(0, s.billed));
-            if (recvNow || "SET_ASIDE".equals(s.exit) || "WAIVE".equals(s.exit) || "CAPITALIZE".equals(s.exit)) {
-                // the folder screen never clears the start date when a plot leaves receivables
-                b.receivableStartDate(at(s.recvAgo, s.key + "R"));
+            if (s.exit == null || !"PAID_OFF".equals(s.exit)) {
+                // the folder screen never clears the start date when a plot leaves receivables.
+                // fix167: a pause that already ended moved the billing clock forward by the paused days.
+                b.receivableStartDate(at(s.clockAgo(), s.key + "R"));
             }
             if (recvNow && s.startOverride) b.receivableStartOverride(at(s.recvAgo, s.key + "R"));
         }
         if (s.customRate && recvNow) b.storageFeeOverride(BigDecimal.valueOf(s.rate));
-        if (s.deadlineIn != null) b.negotiationDeadline(now.toLocalDate().plusDays(s.deadlineIn).atTime(23, 59, 59));
+        if (s.activePause() && s.deadlineIn != null) b.negotiationDeadline(now.toLocalDate().plusDays(s.deadlineIn).atTime(23, 59, 59));
 
         Set<Client> owners = new HashSet<>();
         StringBuilder ownerNames = new StringBuilder();
@@ -491,13 +501,26 @@ public class ScenarioSeeder {
                                     : "Operator [" + n.by + "] logged call for plot: " + lbl + " (owner reached: " + ownerId + ")", n.by, t);
         }
 
-        // --- problem flag
+        // --- problem flag (and fix167: flagged-then-cleared history)
         if (s.problemAgo >= 0) {
             String by = ScenarioData.MGR1;
             LocalDateTime t = at(s.problemAgo, s.key + "P");
-            followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[PROBLEM] " + s.problemNote).recordedBy(by).timestamp(t.plusMinutes(1)).build());
+            followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[PROBLEM] " + s.problemNote).recordedBy(by).timestamp(t).build());
             audit("PROBLEM_FLAG", "Operator [" + by + "] flagged PROBLEM on #" + index + ": " + s.problemNote + ".", by, t);
             bell("PROBLEM_FLAGGED", "CRITICAL", "Plot " + lbl + " flagged as a problem by " + by + ": " + s.problemNote, "PROJECT", pid, "ALL", t);
+            if (s.problemClearedAgo >= 0) {
+                String cb = ScenarioData.DIRECTOR;
+                LocalDateTime c = at(s.problemClearedAgo, s.key + "PC");
+                followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[PROBLEM CLEARED] " + s.clearNote).recordedBy(cb).timestamp(c).build());
+                audit("PROBLEM_FLAG", "Operator [" + cb + "] cleared PROBLEM on #" + index + ": " + s.clearNote + ".", cb, c);
+            }
+        }
+
+        // --- fix167: title reverted to stages
+        if (s.revertAgo >= 0) {
+            LocalDateTime t = at(s.revertAgo, s.key + "RV");
+            audit("TITLE_REVERTED", "Operator [" + ScenarioData.DIRECTOR + "] reverted the saved title of project " + index
+                    + " back to stages. Old title: plot " + s.revertedPlot + ", title ID LRV 0000 FOLIO 0, tenure FREEHOLD. Reason: Typed on the wrong project.", ScenarioData.DIRECTOR, t);
         }
 
         // --- title produced in bulk (details still to be typed in)
@@ -513,12 +536,19 @@ public class ScenarioSeeder {
             bell("STAGE_ADVANCED", "POSITIVE", lbl + " moved from stage 1 to stage " + s.overrideTo + " by " + by + ".", "PROJECT", pid, "ROLE_MANAGER", t);
         }
 
-        // --- release
+        // --- release (fix167: with a hand-over note, and the undo history)
         if (s.releasedAgo >= 0) {
-            String by = ScenarioData.MGR1;
+            String by = ScenarioData.DIRECTOR;
             LocalDateTime t = at(s.releasedAgo, s.key + "X");
-            audit("TITLE_RELEASED", "Operator [" + by + "] authorized handover for Plot: " + s.plot, by, t);
+            followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[HANDED OVER] " + releaseNote(s)).recordedBy(by).timestamp(t).build());
+            audit("TITLE_RELEASED", "Operator [" + by + "] authorized handover for Plot: " + s.plot + ". Note: " + releaseNote(s), by, t);
             bell("TITLE_COMPLETED", "POSITIVE", "Title for " + lbl + " released to the client.", "PROJECT", pid, "ROLE_DIRECTOR", t);
+            if (s.undoReleaseAgo >= 0) {
+                LocalDateTime u = at(s.undoReleaseAgo, s.key + "XU");
+                String why = "Hand-over was recorded on the wrong plot.";
+                followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[HAND-OVER UNDONE] " + why).recordedBy(by).timestamp(u).build());
+                audit("TITLE_RELEASE_UNDONE", "Operator [" + by + "] undid the hand-over of " + lbl + ". Reason: " + why, by, u);
+            }
         }
 
         // --- soft delete / restore
@@ -534,17 +564,22 @@ public class ScenarioSeeder {
         }
     }
 
+    private String releaseNote(ScenarioData.Spec s) {
+        return "Collected in person by " + clients.get(s.owners[0]).getFullName() + "; National ID checked against the card.";
+    }
+
     private static String slug(String v) {
         return v.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
     }
 
-    private void addDocument(UUID pid, String index, String cat, String fileName, String mime, String by, LocalDateTime when) {
-        documentRepository.save(ProjectDocument.builder()
+    private ProjectDocument addDocument(UUID pid, String index, String cat, String fileName, String mime, String by, LocalDateTime when) {
+        ProjectDocument doc = documentRepository.save(ProjectDocument.builder()
                 .projectId(pid).fileName(fileName).fileType(mime).category(cat)
                 .filePath("https://res.cloudinary.com/dfd115bnz/raw/upload/v1/ge_solutions/demo/" + index + "/" + fileName)
                 .internalNotes(null).uploadedBy(by).uploadedAt(when).build());
         audit("DOCUMENT_UPLOADED", "Operator [" + by + "] uploaded 1 document(s) to plot: " + pid + " [" + (cat == null ? "UNCATEGORISED" : cat) + "]", by, when);
         bell("DOC_UPLOADED", "INFO", "1 document(s) attached to project #" + index + " by " + by + ".", "PROJECT", pid, "ROLE_MANAGER", when);
+        return doc;
     }
 
     // ---- stages --------------------------------------------------------
@@ -554,25 +589,32 @@ public class ScenarioSeeder {
         int attached = ScenarioData.STAGES.length + s.custom.size();
         audit("PROJECT_STAGES_ATTACHED", "Operator [" + staff + "] attached " + attached + " stage(s) to project: " + pid, staff, entryAt.plusMinutes(1));
         String[] crew = { ScenarioData.MGR1, ScenarioData.MGR2, ScenarioData.ADMIN };
+        int atIntake = s.ticksAtIntake();
         for (int k = 0; k < ScenarioData.STAGES.length; k++) {
             boolean done = k < s.done;
             LocalDateTime doneAt = null;
-            if (done) {
+            String who = null;
+            if (done && k < atIntake) {
+                // fix167: ticked on the New Project page -> saved at intake, by the intake staff
+                doneAt = entryAt;
+                who = staff;
+            } else if (done) {
                 int ago;
-                if (s.done >= 6) ago = span - (k + 1) * (span - s.issuedAgo) / s.done;
+                if (s.done >= 6 && s.issuedAgo >= 0) ago = span - (k + 1) * (span - s.issuedAgo) / s.done;
                 else ago = span - (k + 1) * span / (s.done + 2);
-                doneAt = at(Math.max(0, Math.min(span, ago)), s.key + "S" + k);
+                doneAt = at(Math.max(0, Math.min(span - 1, ago)), s.key + "S" + k);
+                who = crew[k % 3];
+                audit("PROJECT_STAGE_STATUS_CHANGED", "Operator [" + who + "] marked stage \"" + ScenarioData.STAGES[k] + "\" as COMPLETE on project: " + pid, who, doneAt);
             }
             stageRepository.save(ProjectStage.builder().projectId(pid).stageName(ScenarioData.STAGES[k]).cost(BigDecimal.ZERO)
-                    .isCustom(false).isCompleted(done).displayOrder(order++).completedAt(doneAt).createdAt(entryAt).build());
-            if (done) audit("PROJECT_STAGE_STATUS_CHANGED", "Operator [" + crew[k % 3] + "] marked stage \"" + ScenarioData.STAGES[k] + "\" as COMPLETE on project: " + pid, crew[k % 3], doneAt);
+                    .isCustom(false).isCompleted(done).displayOrder(order++).completedAt(doneAt).completedBy(who).createdAt(entryAt).build());
         }
         int ci = 0;
         for (ScenarioData.Custom c : s.custom) {
             LocalDateTime addedAt = at(Math.max(0, span / 2), s.key + "C" + ci);
             LocalDateTime doneAt = c.done ? addedAt.plusDays(3).isAfter(now) ? now.minusMinutes(10) : addedAt.plusDays(3) : null;
             stageRepository.save(ProjectStage.builder().projectId(pid).stageName(c.name).cost(BigDecimal.valueOf(c.cost))
-                    .isCustom(true).isCompleted(c.done).displayOrder(order++).completedAt(doneAt).createdAt(addedAt).build());
+                    .isCustom(true).isCompleted(c.done).displayOrder(order++).completedAt(doneAt).completedBy(c.done ? ScenarioData.MGR2 : null).createdAt(addedAt).build());
             audit("PROJECT_STAGES_ATTACHED", "Operator [" + ScenarioData.MGR2 + "] attached 1 stage(s) to project: " + pid, ScenarioData.MGR2, addedAt);
             if (c.done) audit("PROJECT_STAGE_STATUS_CHANGED", "Operator [" + ScenarioData.MGR2 + "] marked stage \"" + c.name + "\" as COMPLETE on project: " + pid, ScenarioData.MGR2, doneAt);
             ci++;
@@ -580,6 +622,8 @@ public class ScenarioSeeder {
     }
 
     // ---- payments ------------------------------------------------------
+    // fix167: each payment says which owner paid and whether it was for the TITLE or STORAGE fees; reversed payments
+    // get their negative REVERSAL line; the receipt document is linked to its payment.
     private void seedPayments(ScenarioData.Spec s, UUID pid, String index, String lbl, String owner1, String staff) {
         List<ScenarioData.Pay> ordered = new ArrayList<>(s.pays);
         ordered.sort((a, b) -> Integer.compare(s.payAgo(b), s.payAgo(a)));
@@ -589,29 +633,40 @@ public class ScenarioSeeder {
             String by = p.by != null ? p.by : staff;
             String type = s.payType(p);
             running += p.amount;
-            long costEff = s.cost + ("CAPITALIZE".equals(s.exit) && ago <= s.exitAgo ? s.feesAccrued() : 0);
+            long costEff = s.cost + ("CAPITALIZE".equals(s.exit) && ago <= s.exitAgo ? s.feesNet() : 0);
             long fees = s.paidWhileReceivable(p) ? s.feesAt(ago) : 0;
             long after = Math.max(0, costEff + fees - running);
-            LocalDateTime t = at(ago, s.key + p.amount);
+            LocalDateTime t = at(ago, s.key + p.amount + p.ago);
             String notes = p.note != null ? p.note : "Payment received";
-            paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(p.amount))
-                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).balanceAfter(BigDecimal.valueOf(after)).build());
+            Client payer = clients.get(p.payer != null ? p.payer : s.owners[0]);
+            String kind = p.storage ? "Storage Fee" : "Title Payment";
+            ProjectDocument receipt = null;
+            if (p.receipt || p.ago >= 0) {
+                boolean photo = Math.abs((s.key + p.amount).hashCode()) % 3 == 0;
+                String fname = "Receipt - " + kind + " - UGX " + p.amount + " - " + t.toLocalDate() + (photo ? ".jpg" : ".pdf");
+                receipt = addDocument(pid, index, ScenarioData.PR, fname, photo ? "image/jpeg" : "application/pdf", by, t.plusMinutes(4));
+            }
+            PaymentRecord saved = paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(p.amount))
+                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).balanceAfter(BigDecimal.valueOf(after))
+                    .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName())
+                    .receiptDocumentId(receipt != null ? receipt.getId() : null).build());
             if (p.ago >= 0) {
-                audit("PAYMENT_RECORDED", "Operator [" + by + "] recorded UGX " + p.amount + " for plot: " + lbl + " | Type: " + type + " | Amount owed after: UGX " + after, by, t);
-                for (String o : s.owners) {
-                    recoveryNoteRepository.save(RecoveryNote.builder().client(clients.get(o)).author(null).tag("payment received").tone("INFO")
-                            .countsAsAttempt(false).text("Paid UGX " + p.amount + " on " + t.toLocalDate()).createdAt(t).build());
-                }
+                audit("PAYMENT_RECORDED", "Operator [" + by + "] recorded UGX " + p.amount + " for plot: " + lbl + " | Type: " + type
+                        + " | For: " + (p.storage ? "STORAGE" : "TITLE") + " | Paid by: " + payer.getFullName() + " | Amount owed after: UGX " + after, by, t);
+                recoveryNoteRepository.save(RecoveryNote.builder().client(payer).author(null).tag("payment received").tone("INFO")
+                        .countsAsAttempt(false).text("Paid UGX " + p.amount + " on " + t.toLocalDate() + (p.storage ? " (storage fees)" : "")).createdAt(t).build());
                 if ("RECEIVABLE_PARTIAL".equals(type)) {
                     bell("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + p.amount + " received on " + lbl + ".", "PROJECT", pid, "ROLE_DIRECTOR", t);
                 }
             }
-            // the folder screen will not save a payment without its receipt scan; the intake deposit is exempt
-            if (p.receipt || p.ago >= 0) {
-                String kind = notes.startsWith("[STORAGE FEE PAYMENT]") ? "Storage Fee" : "Title Payment";
-                boolean photo = Math.abs((s.key + p.amount).hashCode()) % 3 == 0;
-                String fname = "Receipt - " + kind + " - UGX " + p.amount + " - " + t.toLocalDate() + (photo ? ".jpg" : ".pdf");
-                addDocument(pid, index, ScenarioData.PR, fname, photo ? "image/jpeg" : "application/pdf", by, t.plusMinutes(4));
+            if (p.reversed()) {
+                running -= p.amount;
+                LocalDateTime rt = at(p.reversedAgo, s.key + "REV" + p.amount);
+                paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(-p.amount))
+                        .paymentType("REVERSAL").recordedBy(p.reverseBy).notes("[REVERSAL OF " + saved.getId() + "] " + p.reverseWhy)
+                        .timestamp(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
+                        .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName()).build());
+                audit("PAYMENT_REVERSED", "Operator [" + p.reverseBy + "] reversed UGX " + p.amount + " on " + lbl + ". Reason: " + p.reverseWhy, p.reverseBy, rt);
             }
         }
     }
@@ -632,23 +687,34 @@ public class ScenarioSeeder {
             audit("RECEIVABLE_START_OVERRIDDEN", "Operator [" + ScenarioData.ADMIN + "] set receivable start date to " + start.toLocalDate() + " for plot: " + lbl, ScenarioData.ADMIN, at(s.entry(), s.key + "V"));
         }
         if (s.customRate) {
-            audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + ".", admin, start.plusDays(1).isAfter(now) ? start : start.plusDays(1));
+            audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + " (monthly rate: default -> UGX " + s.rate
+                    + "). Reason: Agreed with the client.", admin, start.plusDays(1).isAfter(now) ? start : start.plusDays(1));
         }
-        if (s.deadlineIn != null) {
-            int setAgo = s.deadlineIn >= 0 ? 20 : 30;
-            LocalDateTime t = at(setAgo, s.key + "N");
-            String date = now.toLocalDate().plusDays(s.deadlineIn).toString();
-            audit("NEGOTIATION_DEADLINE_SET", "Operator [" + admin + "] set negotiation deadline to " + date + " for plot: " + lbl + " -- storage fees paused until then.", admin, t);
-            if (s.deadlineIn >= -3 && s.deadlineIn <= 4) {
+        if (s.activePause()) {
+            LocalDateTime t = at(s.pauseAgo, s.key + "Z");
+            String date = s.deadlineIn != null ? now.toLocalDate().plusDays(s.deadlineIn).toString() : "no end date";
+            audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + " (fees paused until: not paused -> " + date + "). Reason: Client is negotiating.", admin, t);
+            if (s.deadlineIn != null && s.deadlineIn <= 4) {
                 bell("NEGOTIATION_DEADLINE", "WARN", "Negotiation deadline for " + lbl + " is within 3 days.", "PROJECT", pid, "ROLE_MANAGER", at(1, s.key + "W"));
             }
         }
+        if (s.pastPauseFrom >= 0) {
+            audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + " (fees paused until: not paused -> "
+                    + now.toLocalDate().minusDays(s.pastPauseTo) + "). Reason: Client is negotiating.", admin, at(s.pastPauseFrom, s.key + "PP"));
+            audit("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + now.toLocalDate().minusDays(s.pastPauseTo) + " for " + owner1
+                    + ". Billing restarts; the paused days are not charged.", "SYSTEM", at(s.pastPauseTo, s.key + "PE"));
+        }
+        for (ScenarioData.Reduce r : s.reductions) {
+            LocalDateTime t = at(r.ago, s.key + "RD" + r.amount);
+            audit("FEES_REDUCED", "Operator [" + admin + "] reduced storage fees on #" + index + " by UGX " + r.amount + ". Reason: " + r.why, admin, t);
+        }
 
-        // the nightly job's monthly bills
-        int endAgo = s.exit == null ? 0 : s.exitAgo;
+        // the nightly job's monthly bills (fix167: counted from the billing clock, which a finished pause moved forward)
+        int endAgo = s.exit == null ? (s.activePause() ? s.pauseAgo : 0) : s.exitAgo;
+        int clock = s.exit == null ? s.clockAgo() : s.recvAgo;
         long total = s.initFee;
         for (int m = 1; m <= Math.max(0, s.billed); m++) {
-            int ago = s.recvAgo - 30 * m;
+            int ago = clock - 30 * m;
             if (ago < endAgo) break;
             total += s.rate;
             LocalDateTime t = at(ago, s.key + "F" + m);
@@ -659,19 +725,19 @@ public class ScenarioSeeder {
 
         if (s.exit != null) {
             LocalDateTime t = at(s.exitAgo, s.key + "E");
-            long fees = s.feesAccrued();
+            long fees = s.feesNet();
             switch (s.exit) {
                 case "PAID_OFF":
                     audit("RECEIVABLE_EXIT", "Operator [" + ScenarioData.DIRECTOR + "] - Plot " + lbl + " EXITED RECEIVABLE after full payment clearance.", ScenarioData.DIRECTOR, t.plusMinutes(1));
                     break;
                 case "WAIVE":
-                    audit("FEES_WAIVED", "Operator [" + admin + "] waived UGX " + fees + " on #" + index + ".", admin, t);
+                    audit("FEES_WAIVED", "Operator [" + admin + "] waived UGX " + (fees - s.storagePaid()) + " of unpaid storage fees on #" + index + ". Reason: Settlement agreed with the client.", admin, t);
                     break;
                 case "CAPITALIZE":
-                    audit("FEES_CAPITALIZED", "Operator [" + admin + "] capitalized UGX " + fees + " into total cost on #" + index + ".", admin, t);
+                    audit("FEES_CAPITALIZED", "Operator [" + admin + "] capitalized UGX " + fees + " of storage fees into total cost on #" + index + ". Reason: Client will pay the fees with the balance.", admin, t);
                     break;
                 default:
-                    audit("RECEIVABLE_SET_ASIDE", "Operator [" + admin + "] set aside #" + index + " (fees UGX " + fees + " retained, billing stopped).", admin, t);
+                    audit("RECEIVABLE_SET_ASIDE", "Operator [" + admin + "] set aside #" + index + " (UGX " + s.storedFees() + " of unpaid fees kept, billing stopped). Reason: Court case pending.", admin, t);
             }
         }
     }

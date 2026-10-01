@@ -1,6 +1,7 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/land/model/ProjectStage.java
 package com.gesolutions.erp.modules.land.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -56,12 +57,19 @@ public class ProjectStage {
      * button, rather than picked from the master StageTemplate checklist.
      */
     @Builder.Default
+    @JsonProperty("isCustom")
     @Column(name = "is_custom", nullable = false)
     private boolean isCustom = false;
 
+    // fix167: sent to the page as "isCompleted" (Lombok alone named it "completed", so the folder page showed every stage unticked)
     @Builder.Default
+    @JsonProperty("isCompleted")
     @Column(name = "is_completed", nullable = false)
     private boolean isCompleted = false;
+
+    // fix167: who ticked the stage (shown when hovering a ticked stage on the folder page)
+    @Column(name = "completed_by", length = 100)
+    private String completedBy;
 
     @Builder.Default
     @Column(name = "display_order", nullable = false)

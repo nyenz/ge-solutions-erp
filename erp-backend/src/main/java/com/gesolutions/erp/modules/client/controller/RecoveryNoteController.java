@@ -131,6 +131,10 @@ public class RecoveryNoteController {
                 cos.add(cm);
             }
         }
+        // fix167: which of this person's plots are flagged PROBLEM, so the call card warns before anyone calls
+        List<String> probIds = new ArrayList<>();
+        for (LandProject p : ps) if (p.isProblem()) probIds.add(p.getId().toString());
+        m.put("problemIds", probIds); m.put("problem", !probIds.isEmpty());
         m.put("indexes", idx); m.put("projectIds", pids); m.put("coNames", co);
         m.put("coOwners", cos); m.put("projectCount", ps.size());
         m.put("district", ps.isEmpty() ? null : ps.get(0).getDistrict());

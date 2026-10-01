@@ -52,6 +52,11 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
     List<LandProject> findAutoReceivableCandidates(LocalDateTime cutoff);
 
+    // fix167: other live (not deleted) projects that share at least one owner -- the Related Projects list
+    @Query("SELECT DISTINCT p FROM LandProject p JOIN p.proprietors c WHERE c.id IN :ownerIds AND p.id <> :projectId AND p.deleted = false")
+    List<LandProject> findRelatedByOwners(@org.springframework.data.repository.query.Param("ownerIds") java.util.Collection<UUID> ownerIds,
+                                          @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
     // All plots currently in receivable
     @Query("SELECT p FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false")
     List<LandProject> findAllReceivablePlots();

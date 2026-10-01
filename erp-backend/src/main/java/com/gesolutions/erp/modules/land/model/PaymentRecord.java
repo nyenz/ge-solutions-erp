@@ -47,4 +47,18 @@ public class PaymentRecord {
     // Snapshot of balance AFTER this payment was applied
     @Column(name = "balance_after", precision = 15, scale = 2)
     private BigDecimal balanceAfter;
+
+    // fix167: WHICH owner paid (joint owners are tracked one by one), WHAT the money is for
+    // (TITLE = the work, STORAGE = storage fees) and the receipt document filed with it.
+    @Column(name = "payer_client_id")
+    private UUID payerClientId;
+
+    @Column(name = "payer_name", length = 200)
+    private String payerName;
+
+    @Column(name = "allocation", length = 20)
+    private String allocation;
+
+    @Column(name = "receipt_document_id")
+    private UUID receiptDocumentId;
 }

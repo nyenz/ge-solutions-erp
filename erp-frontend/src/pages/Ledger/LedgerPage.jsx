@@ -391,7 +391,7 @@ const LedgerPage = () => {
                                         <td>
                                             <div className={styles.statusGroup}>
                                                 {isReceivable && <span className={styles.tagReceivable}>RECEIVABLES</span>}
-                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagPaid}>RELEASED</span>}
+                                                {!isReceivable && proj.landTitle?.isReleased && <span className={styles.tagReleased} title="The title has been handed over to the client.">RELEASED</span>}
                                                 {!isReceivable && !proj.landTitle?.isReleased && (proj.amountPaid || 0) >= (proj.totalCost || 0) && <span className={styles.tagPaid}>FULLY PAID</span>}
                                                 {!isReceivable && (proj.amountPaid || 0) < (proj.totalCost || 0) && <span className={styles.tagStandard}>ACTIVE</span>}
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}

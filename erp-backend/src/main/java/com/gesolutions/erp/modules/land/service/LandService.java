@@ -109,9 +109,13 @@ public class LandService {
 
     // ─── PAYMENT RECORDING ────────────────────────────────────────────────────
 
+    // fix167: a payment now says WHO paid (one owner of the project) and WHAT it pays for:
+    //   TITLE   = the work (total cost). Cannot go over what is still owed on the work.
+    //   STORAGE = storage fees. Only on a project in receivables, and never more than the fees not yet paid.
+    // Joint owners: when a project has more than one owner the payer MUST be named, so each owner's money is tracked.
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void recordPayment(UUID projectId, BigDecimal amount, String notes) {
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
         }
@@ -126,29 +130,54 @@ public class LandService {
             throw new BusinessException("PAYMENT_FAULT: Enter whole shillings only (no decimals).");
         }
 
-        // STAGE 1 FIX: block overpayment -- work out what is still owed
-        // using the same logic already used below for balanceAfter.
-        BigDecimal currentlyOwed = project.isReceivable()
-                ? project.receivableTotalOwed()
-                : project.getTotalCost().subtract(project.getAmountPaid());
-        if (amount.compareTo(currentlyOwed) > 0) {
-            throw new BusinessException("OVERPAYMENT_BLOCKED: This project only owes UGX "
-                    + currentlyOwed + ". You tried to record UGX " + amount + ".");
+        String kind = allocation == null || allocation.isBlank() ? "TITLE" : allocation.trim().toUpperCase();
+        if (!"TITLE".equals(kind) && !"STORAGE".equals(kind)) {
+            throw new BusinessException("PAYMENT_FAULT: A payment is either for the TITLE work or for STORAGE fees.");
+        }
+
+        // who paid
+        Client payer = null;
+        Set<Client> owners = project.getProprietors() != null ? project.getProprietors() : new HashSet<>();
+        if (payerId != null) {
+            for (Client c : owners) if (c.getId().equals(payerId)) payer = c;
+            if (payer == null) throw new BusinessException("PAYER_INVALID: The person who paid must be one of this project's owners.");
+        } else if (owners.size() == 1) {
+            payer = owners.iterator().next();
+        } else if (owners.size() > 1) {
+            throw new BusinessException("PAYER_REQUIRED: This project has " + owners.size() + " owners. Pick which owner paid.");
+        }
+
+        BigDecimal cost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal paidNow = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
+        BigDecimal titlePaid = paidNow.subtract(project.storagePaidSafe());
+        if ("STORAGE".equals(kind)) {
+            if (!project.isReceivable()) {
+                throw new BusinessException("PAYMENT_FAULT: Storage fees can only be paid while the project is in receivables.");
+            }
+            BigDecimal feesLeft = project.storageUnpaid();
+            if (amount.compareTo(feesLeft) > 0) {
+                throw new BusinessException("OVERPAYMENT_BLOCKED: Only UGX " + feesLeft.toPlainString()
+                        + " of storage fees is unpaid. You tried to record UGX " + amount.toPlainString() + ".");
+            }
+        } else {
+            BigDecimal workLeft = cost.subtract(titlePaid).max(BigDecimal.ZERO);
+            if (amount.compareTo(workLeft) > 0) {
+                throw new BusinessException("OVERPAYMENT_BLOCKED: Only UGX " + workLeft.toPlainString()
+                        + " is owed on the title work. You tried to record UGX " + amount.toPlainString()
+                        + (project.isReceivable() ? ". Record the rest as a STORAGE FEE payment." : "."));
+            }
         }
 
         String operator = getCurrentOperator();
         String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
 
-        BigDecimal newAmountPaid = project.getAmountPaid().add(amount);
-        project.setAmountPaid(newAmountPaid);
+        project.setAmountPaid(paidNow.add(amount));
+        if ("STORAGE".equals(kind)) project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
         project.setLastPaymentDate(LocalDateTime.now());
 
-        BigDecimal balanceAfter;
-        if (project.isReceivable()) {
-            balanceAfter = project.receivableTotalOwed();
-        } else {
-            balanceAfter = project.getTotalCost().subtract(newAmountPaid);
-        }
+        BigDecimal balanceAfter = project.isReceivable()
+                ? project.receivableTotalOwed()
+                : project.getTotalCost().subtract(project.getAmountPaid());
 
         PaymentRecord record = PaymentRecord.builder()
                 .projectId(projectId)
@@ -157,17 +186,25 @@ public class LandService {
                 .recordedBy(operator)
                 .notes(notes)
                 .balanceAfter(balanceAfter)
+                .allocation(kind)
+                .payerClientId(payer != null ? payer.getId() : null)
+                .payerName(payer != null ? payer.getFullName() : null)
                 .build();
-        paymentRecordRepository.save(record);
+        record = paymentRecordRepository.save(record);
 
-        // Auto-exit receivable if fully paid
+        // Auto-exit receivable if fully paid. fix167: the (now fully paid) fees move into the total cost, so the
+        // project leaves receivables with total cost = everything it was charged and nothing owed.
         if (project.isReceivable() && balanceAfter.compareTo(BigDecimal.ZERO) <= 0) {
+            BigDecimal fees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
+            project.setTotalCost(project.getTotalCost().add(fees));
+            project.setStorageFeesAccumulated(BigDecimal.ZERO);
+            project.setStorageFeesPaid(BigDecimal.ZERO);
             project.setReceivable(false);
             project.setStatus("ACTIVE");
             projectRepository.save(project);
             auditService.logAction("RECEIVABLE_EXIT",
-                "Operator [" + operator + "] — Plot " + plotLabel(project)
-                + " EXITED RECEIVABLE after full payment clearance.");
+                "Operator [" + operator + "] -- Plot " + plotLabel(project)
+                + " EXITED RECEIVABLE after full payment clearance (UGX " + fees.toPlainString() + " of paid storage fees moved into the total cost).");
         } else {
             projectRepository.save(project);
         }
@@ -175,26 +212,32 @@ public class LandService {
         if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
             notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
         }
-        if (project.getProprietors() != null) {
-            for (com.gesolutions.erp.modules.client.model.Client owner : project.getProprietors()) {
-                recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
-                    .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
-                    .text("Paid UGX " + amount + " on " + java.time.LocalDate.now()).build());
-            }
+        // fix167: the "payment received" line goes on the recovery card of the owner who PAID (not on every owner)
+        java.util.List<Client> noteFor = new java.util.ArrayList<>();
+        if (payer != null) noteFor.add(payer); else noteFor.addAll(owners);
+        for (Client owner : noteFor) {
+            recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
+                .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
+                .text("Paid UGX " + amount + " on " + java.time.LocalDate.now() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
         }
         auditService.logAction("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
+            + " | For: " + kind
+            + (payer != null ? " | Paid by: " + payer.getFullName() : "")
             + " | Amount owed after: UGX " + balanceAfter);
+        return record;
     }
 
     // fix165: A PAYMENT CAN NEVER EXIST WITHOUT ITS RECEIPT. The receipt is checked first, the payment is recorded,
     // then the receipt is filed under Payment Receipts -- all in ONE transaction. If the receipt cannot be filed
     // (storage down, bad file) the payment is rolled back too, so there is never a payment with no receipt.
+    // fix167: the payment line remembers its receipt document, so the page can open it from Payment History.
     @Transactional(rollbackFor = Exception.class)
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt) throws Exception {
+    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
+                                         UUID payerId, String allocation) throws Exception {
         if (receipt == null || receipt.isEmpty()) {
             throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
         }
@@ -202,8 +245,12 @@ public class LandService {
             throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
         }
         requireScanFiles(new MultipartFile[] { receipt });
-        recordPayment(projectId, amount, notes);
-        addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
+        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation);
+        List<ProjectDocument> filed = addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
+        if (!filed.isEmpty()) {
+            record.setReceiptDocumentId(filed.get(0).getId());
+            paymentRecordRepository.save(record);
+        }
     }
 
     // fix165: only real scans (PDF / JPG / PNG / WEBP), never an empty file, can be filed into a folder.
@@ -224,79 +271,8 @@ public class LandService {
         }
     }
 
-    // ─── RECEIVABLE MANAGEMENT ───────────────────────────────────────────────────
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void moveToReceivable(UUID projectId) {
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        if (project.isDeleted()) {
-            throw new BusinessException("RECEIVABLE_FAULT: This project is deleted. Restore it first.");
-        }
-        if (project.isReceivable()) {
-            throw new BusinessException("RECEIVABLE_FAULT: Plot is already in receivable.");
-        }
-
-        BigDecimal outstanding = project.getTotalCost().subtract(project.getAmountPaid());
-        if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("RECEIVABLE_FAULT: Plot has no outstanding balance.");
-        }
-
-        project.setReceivable(true);
-        project.setReceivableStartDate(LocalDateTime.now());
-        project.setOriginalDebt(outstanding);
-        project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setStatus("RECEIVABLE");
-        projectRepository.save(project);
-
-        auditService.logAction("RECEIVABLE_TRIGGER",
-            "Operator [" + getCurrentOperator() + "] manually moved plot "
-            + plotLabel(project)
-            + " to RECEIVABLE. Original debt frozen at: UGX " + outstanding);
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void exitReceivable(UUID projectId, boolean capitalizeFees) {
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-
-        if (!project.isReceivable()) {
-            throw new BusinessException("RECEIVABLE_FAULT: Plot is not in receivable.");
-        }
-
-        BigDecimal titleCost   = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal totalPaid   = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
-        BigDecimal storageFees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
-
-        if (capitalizeFees && storageFees.compareTo(BigDecimal.ZERO) > 0) {
-            // ADD TO TOTAL VALUE: client owes titleCost + storageFees going forward
-            // amountPaid stays as-is; amount owed = (titleCost + fees) - paid
-            project.setTotalCost(titleCost.add(storageFees));
-        } else {
-            // WAIVE FEES: reset amountPaid to only what was paid toward the title
-            // Cap paid at titleCost so client cannot over-pay on exit
-            BigDecimal titlePaymentPortion = totalPaid.min(titleCost);
-            project.setAmountPaid(titlePaymentPortion);
-        }
-
-        project.setReceivable(false);
-        project.setReceivableStartDate(null);
-        project.setOriginalDebt(BigDecimal.ZERO);
-        project.setStorageFeesAccumulated(BigDecimal.ZERO);
-        project.setReceivableMonthsBilled(0);
-        project.setStatus("ACTIVE");
-        projectRepository.save(project);
-
-        String feeAction = capitalizeFees ? "Storage fees ADDED TO TOTAL VALUE (UGX " + storageFees + ")" : "Storage fees WAIVED";
-        auditService.logAction("RECEIVABLE_EXIT",
-            "Operator [" + getCurrentOperator() + "] removed plot "
-            + plotLabel(project)
-            + " from RECEIVABLE. " + feeAction
-            + ". Title total value: UGX " + project.getTotalCost() + ".");
-    }
+    // fix167: moveToReceivable / exitReceivable are gone (their endpoints skipped every rule).
+    // Receivable moves live in FolderPortalController (enter / exit / reduce-fees / settings).
 
     // ─── INTAKE ───────────────────────────────────────────────────────────────
 
@@ -428,7 +404,10 @@ public class LandService {
             projectRepository.save(saved);
         }
 
-        if (request.getSelectedStages() != null && !request.getSelectedStages().isEmpty()) {
+        // fix167: New Title and Legacy Title projects have no stage checklist (guide 8.9.1). The page used to send
+        // the whole default list for them too, so every titled entry got 6 stray stages.
+        if (!request.isLegacy() && !request.isTitleAtIntake()
+                && request.getSelectedStages() != null && !request.getSelectedStages().isEmpty()) {
             stageTemplateService.attachStagesToProject(saved.getId(), request.getSelectedStages());
         }
 
@@ -514,6 +493,10 @@ public class LandService {
         // are provided but no title exists yet. Otherwise update existing title.
         boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
         if (title == null && hasTitleFields) {
+            // fix167: a title saved from the folder page needs the same details as one typed on New Project
+            if (request.getTitleId() == null || request.getTitleId().isBlank()) {
+                throw new BusinessException("TITLE_ID_REQUIRED: Type the title ID before saving the title.");
+            }
             title = LandTitle.builder()
                     .titleId(request.getTitleId())
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
@@ -599,7 +582,8 @@ public class LandService {
         }
         project.setTotalCost(newTotalCost);
         // fix162 AMOUNT PAID is never taken from the edit form. It only moves through RECORD PAYMENT and REVERSE.
-        project.setLegacy(request.isLegacy());
+        // fix167: the entry mode (Legacy Title) is permanent. EDIT used to overwrite it with what the page sent,
+        // and the page never received the flag, so every save wiped it.
 
         // FIX 1: If in receivable, keep originalDebt in sync with totalCost changes.
         // originalDebt = new title cost minus payments already made toward the title.
@@ -789,11 +773,33 @@ public class LandService {
         return t.length() > 160 ? t.substring(0, 160) + "..." : t;
     }
 
+    // fix167: notes the system writes for a PROBLEM flag, a cleared flag or a hand-over are evidence, like a receipt:
+    // they cannot be edited or deleted (the audit log keeps them too).
+    private static boolean isEvidenceNote(String text) {
+        if (text == null) return false;
+        String t = text.trim();
+        return t.startsWith("[PROBLEM]") || t.startsWith("[PROBLEM CLEARED]") || t.startsWith("[HANDED OVER]") || t.startsWith("[HAND-OVER UNDONE]");
+    }
+
+    private void requireNoteEditable(FollowUpLog log) {
+        if (isEvidenceNote(log.getNotes())) {
+            throw new BusinessException("NOTE_LOCKED: This note was written by the system for a PROBLEM flag or a hand-over. It is kept as a record and cannot be changed.");
+        }
+        if (log.getProjectId() != null) {
+            projectRepository.findById(log.getProjectId()).ifPresent(p -> {
+                if (p.isDeleted()) throw new BusinessException("NOTE_LOCKED: This project is deleted. Restore it first.");
+            });
+        }
+    }
+
     @Transactional
     public void logNewNote(UUID projectId, String content) {
         String text = cleanNoteText(content);
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
+        if (project.isDeleted()) {
+            throw new BusinessException("NOTE_BLOCKED: This project is deleted. Restore it first.");
+        }
         FollowUpLog entry = FollowUpLog.builder()
                 .projectId(projectId)
                 .notes(text)
@@ -809,6 +815,10 @@ public class LandService {
         String text = cleanNoteText(content);
         FollowUpLog log = followUpRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
+        requireNoteEditable(log);
+        if (isEvidenceNote(text)) {
+            throw new BusinessException("NOTE_INVALID: A note cannot start with a system label like [PROBLEM] or [HANDED OVER].");
+        }
         String before = log.getNotes();
         log.setNotes(text);
         followUpRepository.save(log);
@@ -820,6 +830,7 @@ public class LandService {
     public void removeNote(UUID noteId) {
         FollowUpLog log = followUpRepository.findById(noteId)
                 .orElseThrow(() -> new BusinessException("NOTE_NOT_FOUND: This note no longer exists (someone may have deleted it)."));
+        requireNoteEditable(log);
         String before = log.getNotes();
         followUpRepository.delete(log);
         auditService.logAction("NOTE_DELETED",
@@ -829,8 +840,8 @@ public class LandService {
     // ─── DOCUMENTS ────────────────────────────────────────────────────────────
 
     @Transactional
-    public void addScansToProject(UUID projectId, MultipartFile[] scans) throws Exception {
-        addScansToProject(projectId, scans, null, null);
+    public List<ProjectDocument> addScansToProject(UUID projectId, MultipartFile[] scans) throws Exception {
+        return addScansToProject(projectId, scans, null, null);
     }
 
     /**
@@ -840,7 +851,14 @@ public class LandService {
      * any file is stored so a bad name can never leave half a batch behind.
      */
     @Transactional
-    public void addScansToProject(UUID projectId, MultipartFile[] scans, String batchCategory, List<String> fileCategories) throws Exception {
+    public List<ProjectDocument> addScansToProject(UUID projectId, MultipartFile[] scans, String batchCategory, List<String> fileCategories) throws Exception {
+        // fix167: nothing can be filed into a deleted project
+        LandProject target = projectRepository.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
+        if (target.isDeleted()) {
+            throw new BusinessException("UPLOAD_BLOCKED: This project is deleted. Restore it first.");
+        }
+        List<ProjectDocument> saved = new ArrayList<>();
         String batchCode = documentCategoryService.requireCode(batchCategory);
         String[] cats = new String[scans.length];
         for (int i = 0; i < scans.length; i++) {
@@ -859,7 +877,7 @@ public class LandService {
                     .filePath(path)
                     .uploadedBy(getCurrentOperator())
                     .build();
-            documentRepository.save(doc);
+            saved.add(documentRepository.save(doc));
         }
         auditService.logAction("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
@@ -876,6 +894,7 @@ public class LandService {
             scans.length + " document(s) attached to " + docPlotLabel
             + " by " + getCurrentOperator() + ".",
             "PROJECT", projectId, "ROLE_MANAGER");
+        return saved;
     }
 
     @Transactional
@@ -934,6 +953,11 @@ public class LandService {
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void authorizeRelease(UUID id, String managerNote) {
+        // fix167: a hand-over must say who collected the title and how (5+ characters). Saved on the title, as a note and in the audit log.
+        String why = managerNote == null ? "" : managerNote.trim();
+        if (why.length() < 5) {
+            throw new BusinessException("REASON_REQUIRED: Write who collected the title and how they were identified (at least 5 characters).");
+        }
         LandProject project = projectRepository.findById(id).orElseThrow();
         // fix166: no hand-over of a deleted project, no second hand-over, and none while the plot is flagged as a PROBLEM.
         if (project.isDeleted()) {
@@ -946,25 +970,33 @@ public class LandService {
             throw new BusinessException("RELEASE DENIED: This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.");
         }
         if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
-            throw new BusinessException("RELEASE DENIED: Arrears Detected.");
+            throw new BusinessException("RELEASE DENIED: UGX " + project.getTotalCost().subtract(project.getAmountPaid()).toPlainString() + " is still owed on the title work.");
         }
         // fix162: storage fees still owed are arrears too.
         if (project.isReceivable() && project.receivableTotalOwed().compareTo(BigDecimal.ZERO) > 0) {
             throw new BusinessException("RELEASE DENIED: Storage fees are still owed on this project.");
         }
+        // fix167: fees kept by SET ASIDE are still on the project even though it left receivables
+        if (!project.isReceivable() && project.storageUnpaid().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("RELEASE DENIED: UGX " + project.storageUnpaid().toPlainString()
+                    + " of set-aside storage fees is still on this project. A director must WAIVE them or ADD them to the cost first.");
+        }
         // PHASE B (Section 18.9.1): landTitle can now be null.
-        // Releasing implies a title exists to hand over -- silently
-        // succeeding when there is nothing to release would be
-        // misleading to staff, so this fails loudly instead of NPE-ing.
         if (project.getLandTitle() == null) {
             throw new BusinessException("RELEASE DENIED: This project has no title to release yet.");
         }
-        project.getLandTitle().setReleased(true);
+        LandTitle t = project.getLandTitle();
+        t.setReleased(true);
+        t.setReleasedAt(LocalDateTime.now());
+        t.setReleasedBy(getCurrentOperator());
+        t.setReleaseNote(why);
         project.setStatus("RELEASED");
         projectRepository.save(project);
+        followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
+                .notes("[HANDED OVER] " + why).recordedBy(getCurrentOperator()).build());
         auditService.logAction("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
-            + project.getLandTitle().getPlotNumber());
+            + t.getPlotNumber() + ". Note: " + why);
         notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
             "Title for " + plotLabel(project) + " released to the client.",
             "PROJECT", project.getId(), "ROLE_DIRECTOR");
@@ -981,6 +1013,9 @@ public class LandService {
         }
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.isDeleted()) {
+            throw new BusinessException("REVERSAL_BLOCKED: This project is deleted. Restore it first.");
+        }
         PaymentRecord original = paymentRecordRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException("PAYMENT_NOT_FOUND"));
         if (!projectId.equals(original.getProjectId())) {
@@ -1004,6 +1039,10 @@ public class LandService {
                     + " would take the total paid below zero.");
         }
         project.setAmountPaid(paid.subtract(original.getAmountPaid()));
+        // fix167: a reversed STORAGE payment while still in receivables makes those fees unpaid again
+        if ("STORAGE".equals(original.getAllocation()) && project.isReceivable()) {
+            project.setStorageFeesPaid(project.storagePaidSafe().subtract(original.getAmountPaid()).max(BigDecimal.ZERO));
+        }
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
                 : project.getTotalCost().subtract(project.getAmountPaid());
@@ -1014,6 +1053,9 @@ public class LandService {
                 .recordedBy(getCurrentOperator())
                 .notes(marker + " " + why)
                 .balanceAfter(balanceAfter)
+                .allocation(original.getAllocation())
+                .payerClientId(original.getPayerClientId())
+                .payerName(original.getPayerName())
                 .build();
         paymentRecordRepository.save(reversal);
         projectRepository.save(project);
@@ -1032,12 +1074,20 @@ public class LandService {
         }
         LandProject project = projectRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (project.isDeleted()) {
+            throw new BusinessException("UNDO_DENIED: This project is deleted. Restore it first.");
+        }
         if (project.getLandTitle() == null || !project.getLandTitle().isReleased()) {
             throw new BusinessException("UNDO_DENIED: This title has not been handed over.");
         }
         project.getLandTitle().setReleased(false);
+        project.getLandTitle().setReleasedAt(null);
+        project.getLandTitle().setReleasedBy(null);
+        project.getLandTitle().setReleaseNote(null);
         project.setStatus(project.isReceivable() ? "RECEIVABLE" : "ACTIVE");
         projectRepository.save(project);
+        followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
+                .notes("[HAND-OVER UNDONE] " + why).recordedBy(getCurrentOperator()).build());
         auditService.logAction("TITLE_RELEASE_UNDONE",
             "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
@@ -1090,108 +1140,8 @@ public class LandService {
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────
 
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setStoragePaused(UUID projectId, boolean paused, String reason) {
-        String why = reason == null ? "" : reason.trim();
-        if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the storage fees are being paused or resumed (at least 5 characters).");
-        }
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        project.setStoragePaused(paused);
-        projectRepository.save(project);
-        String action = paused ? "PAUSED" : "RESUMED";
-        auditService.logAction("STORAGE_FEE_" + action,
-            "Operator [" + getCurrentOperator() + "] " + action.toLowerCase() + " monthly storage fees (reason: " + why + ") for plot: "
-            + plotLabel(project)
-            + " (monthly rate: UGX " + (project.getStorageFeeOverride() != null ? project.getStorageFeeOverride() : "50000 (default)") + ")");
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setStorageFeeOverride(UUID projectId, java.math.BigDecimal rate, String reason) {
-        String why = reason == null ? "" : reason.trim();
-        if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the monthly storage rate is changing (at least 5 characters).");
-        }
-        if (rate != null && rate.signum() < 0) {
-            throw new BusinessException("RATE_INVALID: The monthly storage rate cannot be negative.");
-        }
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        java.math.BigDecimal previous = project.getStorageFeeOverride();
-        project.setStorageFeeOverride(rate);
-        projectRepository.save(project);
-        auditService.logAction("STORAGE_RATE_CHANGED",
-            "Operator [" + getCurrentOperator() + "] changed monthly storage fee to UGX " + rate
-            + " for plot: " + plotLabel(project)
-            + " (previously UGX " + (previous != null ? previous : "50000 (default)") + "). Reason: " + why);
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setAccumulatedFees(UUID projectId, java.math.BigDecimal amount, String reason) {
-        String why = reason == null ? "" : reason.trim();
-        if (why.length() < 5) {
-            throw new BusinessException("REASON_REQUIRED: Write why the accumulated fees are being adjusted (at least 5 characters).");
-        }
-        if (amount == null || amount.signum() < 0) {
-            throw new BusinessException("FEES_INVALID: The accumulated fees cannot be negative.");
-        }
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        java.math.BigDecimal old = project.getStorageFeesAccumulated();
-        project.setStorageFeesAccumulated(amount);
-        projectRepository.save(project);
-        auditService.logAction("STORAGE_FEES_ADJUSTED",
-            "Operator [" + getCurrentOperator() + "] manually adjusted accumulated storage fees from UGX " + old
-            + " to UGX " + amount + " for plot: " + plotLabel(project) + ". Reason: " + why);
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setNegotiationDeadline(UUID projectId, String deadlineStr) {
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        if (deadlineStr == null || deadlineStr.isBlank()) {
-            project.setNegotiationDeadline(null);
-            // Resume fees if deadline cleared
-            project.setStoragePaused(false);
-            auditService.logAction("NEGOTIATION_DEADLINE_CLEARED",
-                "Operator [" + getCurrentOperator() + "] cleared negotiation deadline for plot: "
-                + plotLabel(project) + " -- storage fees resumed.");
-        } else {
-            java.time.LocalDateTime deadline = java.time.LocalDate.parse(deadlineStr)
-                    .atTime(23, 59, 59);
-            project.setNegotiationDeadline(deadline);
-            // Auto-pause fees while negotiating
-            project.setStoragePaused(true);
-            if (deadline.isAfter(java.time.LocalDateTime.now().minusDays(3)) && deadline.isBefore(java.time.LocalDateTime.now().plusDays(4))) {
-                notificationService.emitRaw("NEGOTIATION_DEADLINE", "WARN", "Negotiation deadline for " + plotLabel(project) + " is within 3 days.", "PROJECT", projectId, "ROLE_MANAGER");
-            }
-            auditService.logAction("NEGOTIATION_DEADLINE_SET",
-                "Operator [" + getCurrentOperator() + "] set negotiation deadline to " + deadlineStr
-                + " for plot: " + plotLabel(project)
-                + " -- storage fees paused until then.");
-        }
-        projectRepository.save(project);
-    }
-
-    @Transactional
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void setReceivableStartOverride(UUID projectId, String startDateStr) {
-        LandProject project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        java.time.LocalDateTime startDate = java.time.LocalDate.parse(startDateStr).atStartOfDay();
-        project.setReceivableStartOverride(startDate);
-        // Apply the override to the actual receivable start date so fees calculate from correct date
-        project.setReceivableStartDate(startDate);
-        projectRepository.save(project);
-        auditService.logAction("RECEIVABLE_START_OVERRIDDEN",
-            "Operator [" + getCurrentOperator() + "] set receivable start date to " + startDateStr
-            + " for plot: " + plotLabel(project));
-    }
+    // fix167: setStoragePaused / setStorageFeeOverride / setAccumulatedFees / setNegotiationDeadline /
+    // setReceivableStartOverride are gone with their endpoints. FolderPortalController.settings and reduceFees replace them.
 
     @Transactional(readOnly = true)
     public List<ProjectDocument> getProjectDocuments(UUID projectId) {

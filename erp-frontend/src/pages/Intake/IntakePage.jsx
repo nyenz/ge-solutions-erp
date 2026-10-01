@@ -264,7 +264,8 @@ export default function IntakePage() {
                 // ones -- an unchecked stage is still real work ahead on this
                 // project, and the folder page needs it as a pending row, not
                 // a stage that silently never existed.
-                selectedStages: stageList.map(s => {
+                // fix167: New Title / Legacy Title have no checklist, so no stages are sent for them
+                selectedStages: !showStages ? [] : stageList.map(s => {
                     const m = masterTemplates.find(t => t.name === s.name);
                     const isCompleted = !!checked[s.name];
                     return m

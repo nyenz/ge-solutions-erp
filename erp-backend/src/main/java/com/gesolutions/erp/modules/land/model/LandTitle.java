@@ -59,9 +59,21 @@ public class LandTitle {
     @Column(name = "title_issue_date")
     private LocalDate titleIssueDate;
 
+    // fix167: sent as "isReleased" (Lombok alone named it "released", so no page ever saw a hand-over)
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("isReleased")
     @Column(name = "is_released", nullable = false)
     private boolean isReleased = false;
+
+    // fix167: when the title was handed over, by whom, and the hand-over note (who collected it)
+    @Column(name = "released_at")
+    private LocalDateTime releasedAt;
+
+    @Column(name = "released_by", length = 100)
+    private String releasedBy;
+
+    @Column(name = "release_note", columnDefinition = "TEXT")
+    private String releaseNote;
 
     @Column(name = "created_at", updatable = false)
     @Builder.Default

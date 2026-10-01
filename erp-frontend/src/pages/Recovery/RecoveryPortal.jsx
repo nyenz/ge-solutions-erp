@@ -146,6 +146,7 @@ export default function RecoveryPortal() {
                     <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
                     <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
                     {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
+                    {c.problem && <span className={styles.chipNeg} title="One of this client's plots is flagged as a PROBLEM. Open the folder to read what it is before calling.">PROBLEM</span>}
                     {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}
                     <span className={styles.reason}>{c.reason}</span>
                     <FiChevronDown className={`${styles.chev} ${isOpen ? styles.chevOpen : ''}`} aria-hidden="true" />
@@ -162,7 +163,7 @@ export default function RecoveryPortal() {
                     <span className={styles.secBlock}>
                       <label className={styles.secLabel}>PROJECTS ({c.projectCount || (c.projectIds || []).length})</label>
                       <span className={styles.projLine}>
-                        {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()}>#{c.indexes[i] || pid}</a>))}
+                        {(c.projectIds || []).map((pid, i) => (<a key={pid} className={styles.projLink} href={'/folder/' + pid} onClick={(e) => e.stopPropagation()} title={(c.problemIds || []).includes(pid) ? 'This plot is flagged as a PROBLEM' : 'Open this folder'} style={(c.problemIds || []).includes(pid) ? { color: '#f87171' } : undefined}>#{c.indexes[i] || pid}{(c.problemIds || []).includes(pid) ? ' (PROBLEM)' : ''}</a>))}
                       </span>
                       {(c.coOwners || []).length > 0 && (
                         <span className={styles.coLine}>

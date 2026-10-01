@@ -73,12 +73,6 @@ const landService = {
         await api.delete(`/land/notes/${noteId}`);
     },
 
-    setRealityStage: async (projectId, targetStage) => {
-        await api.patch(`/land/projects/${projectId}/reality-override`, null, {
-            params: { targetStage }
-        });
-    },
-
     getGlobalLedger: async (page = 0, size = 50) => {
         const response = await api.get('/land/ledger', { params: { page, size } });
         return response.data;
@@ -106,23 +100,12 @@ const landService = {
         return response.data;
     },
 
-    moveToReceivable: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/receivable`);
-    },
+    // fix167: moveToReceivable / exitReceivable / getPaymentHistory / setRealityStage removed (unused; the old
+    // receivable endpoints are gone -- receivable moves go through folderPortalService).
 
-    exitReceivable: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/exit-receivable`);
-    },
-
-    getPaymentHistory: async (projectId) => {
-        const response = await api.get(`/land/projects/${projectId}/payments`);
-        return response.data;
-    },
-
+    // fix167: a hand-over needs a note (who collected the title): 5+ characters
     authorizeRelease: async (projectId, managerNote) => {
-        await api.patch(`/land/projects/${projectId}/release`, null, {
-            params: managerNote ? { managerNote } : {}
-        });
+        await api.patch(`/land/projects/${projectId}/release`, null, { params: { managerNote } });
     },
 
     // fix162: money safety
