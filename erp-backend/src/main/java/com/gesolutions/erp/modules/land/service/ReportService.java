@@ -257,8 +257,9 @@ public class ReportService {
             java.math.BigDecimal storageFees = p.getStorageFeesAccumulated() != null ? p.getStorageFeesAccumulated() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal amountPaid = p.getAmountPaid() != null ? p.getAmountPaid() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal totalOwed = origDebt.add(storageFees).subtract(amountPaid);
+            // fix172: counted in the same whole 30-day periods the nightly fee job bills (calendar months drifted from it)
             long months = p.getReceivableStartDate() != null
-                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now())
+                ? java.time.temporal.ChronoUnit.DAYS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now()) / 30L
                 : 0;
             String receivableStart = p.getReceivableStartDate() != null
                 ? p.getReceivableStartDate().toLocalDate().toString() : "UNKNOWN";

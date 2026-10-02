@@ -65,6 +65,13 @@ public class LandEntryRequest {
     private java.math.BigDecimal initialStorageFee;
     // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)
     private java.math.BigDecimal initialStorageFeePaid;
+    // fix172: optional date the client last paid (for the money entered as already paid at intake). Empty = today.
+    private LocalDate lastPaidDate;
+    // fix172: Legacy Title only. The date the project went into receivables; the months since then are billed at intake.
+    private LocalDate receivablesSince;
+    // fix172: WHICH owner paid the intake money (the NIN typed in the Owners section). Needed when there is more than one owner.
+    private String initialPaymentPayerNin;
+    private String initialStorageFeePaidPayerNin;
 
     // PHASE 4: Optional stage checklist selected at intake. If omitted,
     // no stages are attached and staff can add them later from the

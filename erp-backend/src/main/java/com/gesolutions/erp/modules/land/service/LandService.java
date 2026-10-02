@@ -319,9 +319,46 @@ public class LandService {
         if (initialFeesPaid.stripTrailingZeros().scale() > 0) {
             throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_PAID_INVALID: Enter whole shillings only for the storage fees already paid.");
         }
-        if (initialFeesPaid.compareTo(initialFees) > 0) {
+        // fix172: "in receivables since". The months that went by before today are billed NOW (counted the same way the nightly
+        // fee job counts them: whole 30-day periods) and the billing clock starts at that date, so nothing is billed twice.
+        LocalDate receivablesSince = request.getReceivablesSince();
+        BigDecimal feeRate = (request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().signum() > 0)
+                ? request.getMonthlyStorageFee() : new BigDecimal("50000");
+        int backlogMonths = 0;
+        LocalDateTime receivableClock = LocalDateTime.now();
+        if (receivablesSince != null) {
+            if (!(startAsReceivable && outstanding.signum() > 0)) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("SINCE_NOT_APPLICABLE: An In Receivables Since date only applies to a project that goes into receivables. "
+                        + "This title work is already fully paid, so clear the date.");
+            }
+            if (receivablesSince.isAfter(LocalDate.now().plusDays(1))) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("SINCE_IN_FUTURE: The In Receivables Since date cannot be in the future.");
+            }
+            long daysGone = Math.max(0L, java.time.temporal.ChronoUnit.DAYS.between(receivablesSince, LocalDate.now()));
+            if (daysGone > 10950L) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("SINCE_TOO_OLD: The In Receivables Since date is more than 30 years ago. Check the year.");
+            }
+            backlogMonths = (int) (daysGone / 30L);
+            receivableClock = receivablesSince.atStartOfDay();
+        }
+        BigDecimal backlogFees = feeRate.multiply(BigDecimal.valueOf(backlogMonths));
+        if (initialFeesPaid.compareTo(initialFees.add(backlogFees)) > 0) {
             throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX " + initialFeesPaid.toPlainString()
-                    + ") cannot be more than the initial storage fee (UGX " + initialFees.toPlainString() + ").");
+                    + ") cannot be more than the fees charged (UGX " + initialFees.add(backlogFees).toPlainString() + ": initial storage fee UGX "
+                    + initialFees.toPlainString() + " plus UGX " + backlogFees.toPlainString() + " backlog).");
+        }
+
+        // fix172: optional "date last paid" for the money entered as already paid. Empty keeps the old behaviour (paid today).
+        LocalDate lastPaidDate = request.getLastPaidDate();
+        LocalDateTime paidAt = null;
+        if (lastPaidDate != null) {
+            if (lastPaidDate.isAfter(LocalDate.now().plusDays(1))) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("DATE_PAID_IN_FUTURE: The date last paid cannot be in the future.");
+            }
+            if (initialPayment.signum() == 0 && initialFeesPaid.signum() == 0) {
+                throw new com.gesolutions.erp.common.exception.BusinessException("DATE_PAID_NO_PAYMENT: A date last paid needs a payment amount. Enter the payment, or clear the date.");
+            }
+            paidAt = lastPaidDate.isBefore(LocalDate.now()) ? lastPaidDate.atTime(12, 0) : LocalDateTime.now();
         }
         if (!(startAsReceivable && outstanding.signum() > 0) && (initialFees.signum() > 0 || initialFeesPaid.signum() > 0)) {
             throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. "
@@ -385,9 +422,10 @@ public class LandService {
 
         if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
             builder.isReceivable(true)
-                   .receivableStartDate(LocalDateTime.now())
+                   .receivableStartDate(receivableClock)   // fix172: the In Receivables Since date, or now
+                   .receivableMonthsBilled(backlogMonths)   // fix172: those months are billed below, so the nightly job must not bill them again
                    .originalDebt(outstanding)
-                   .storageFeesAccumulated(initialFees)
+                   .storageFeesAccumulated(initialFees.add(backlogFees))   // fix172: typed fee + the backlog months
                    .storageFeesPaid(initialFeesPaid);   // fix171
             if (request.getMonthlyStorageFee() != null
                     && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0) {
@@ -397,6 +435,8 @@ public class LandService {
 
         LandProject project = builder.build();
 
+        // fix172: the owners by NIN, so the owner who paid the intake money can be named
+        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
         if (request.getOwners() != null) {
             for (LandEntryRequest.OwnerRequest o : request.getOwners()) {
                 if (o.getNationalId() == null || o.getNationalId().isBlank()) {
@@ -405,8 +445,20 @@ public class LandService {
                 Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
                 c.setHomeAddress(o.getAddress());
                 project.addProprietor(c);
+                ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
             }
         }
+
+        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single owner is the payer,
+        // joint owners must say which one paid. Checked before anything is saved.
+        Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
+        Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
+        StringBuilder fix172Note = new StringBuilder();
+        if (titlePayer != null) fix172Note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
+        if (feesPayer != null) fix172Note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
+        if (lastPaidDate != null) fix172Note.append(" | Date last paid ").append(lastPaidDate);
+        if (receivablesSince != null) fix172Note.append(" | In receivables since ").append(receivablesSince)
+                .append(" (").append(backlogMonths).append(" month(s) of fees billed at intake)");
 
         LandProject saved = projectRepository.save(project);
 
@@ -420,12 +472,15 @@ public class LandService {
                     .amountPaid(initialPayment)
                     .paymentType("INITIAL_DEPOSIT")
                     .recordedBy(getCurrentOperator())
-                    .notes("Initial deposit at intake")
+                    .notes(paidAt != null ? "Initial deposit at intake (paid on " + lastPaidDate + ")" : "Initial deposit at intake")
                     .balanceAfter(balanceAtIntake)
                     .allocation("TITLE")
+                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid
+                    .payerName(titlePayer != null ? titlePayer.getFullName() : null)
+                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())   // fix172: the date it was really paid
                     .build();
             paymentRecordRepository.save(initialRecord);
-            saved.setLastPaymentDate(LocalDateTime.now());
+            saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more
             projectRepository.save(saved);
         }
         if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {
@@ -436,11 +491,19 @@ public class LandService {
                     .amountPaid(initialFeesPaid)
                     .paymentType("INITIAL_DEPOSIT")
                     .recordedBy(getCurrentOperator())
-                    .notes("Storage fees already paid before entry (recorded at intake)")
+                    .notes(paidAt != null ? "Storage fees already paid before entry (paid on " + lastPaidDate + ")" : "Storage fees already paid before entry (recorded at intake)")
                     .balanceAfter(balanceAtIntake)
                     .allocation("STORAGE")
+                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid
+                    .payerName(feesPayer != null ? feesPayer.getFullName() : null)
+                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())
                     .build();
             paymentRecordRepository.save(feesRecord);
+            if (paidAt != null) {
+                // fix172: only when the operator gave a date. No date = still unknown = the recovery badge stays untouched.
+                saved.setLastPaymentDate(paidAt);
+                projectRepository.save(saved);
+            }
         }
 
         // fix167: New Title and Legacy Title projects have no stage checklist (guide 8.9.1). The page used to send
@@ -470,19 +533,40 @@ public class LandService {
         notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
         auditService.logAction("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
-            + plotOrIndex + receivableNote);
+            + plotOrIndex + receivableNote + fix172Note);
 
         if (startAsReceivable) {
             auditService.logAction("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
                 + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
-                + ". Storage fees: UGX " + initialFees + " (UGX " + initialFeesPaid + " already paid).");
+                + ". Storage fees: UGX " + initialFees.add(backlogFees)
+                + (backlogMonths > 0 ? " (incl. UGX " + backlogFees + " backlog for " + backlogMonths + " month(s) since " + receivablesSince + ")" : "")
+                + " (UGX " + initialFeesPaid + " already paid).");
         }
 
         return saved;
     }
 
     // ─── FULL UPDATE ──────────────────────────────────────────────────────────
+
+    // fix172: finds the owner who paid money entered at intake. One owner = that owner. Joint owners = the payer must be
+    // named, and must be one of the owners typed on the form. No money entered = no payer needed.
+    private Client fix172ResolvePayer(java.util.Map<String, Client> ownersByNin, String payerNin, BigDecimal amount, String what) {
+        if (amount == null || amount.signum() <= 0) return null;
+        String key = payerNin == null ? "" : payerNin.trim().toUpperCase();
+        if (!key.isEmpty()) {
+            Client hit = ownersByNin.get(key);
+            if (hit == null) {
+                throw new BusinessException("PAYER_INVALID: The owner who paid the " + what + " must be one of the owners on this form.");
+            }
+            return hit;
+        }
+        if (ownersByNin.size() == 1) return ownersByNin.values().iterator().next();
+        if (ownersByNin.size() > 1) {
+            throw new BusinessException("PAYER_REQUIRED: This project has " + ownersByNin.size() + " owners. Pick which owner paid the " + what + ".");
+        }
+        return null;
+    }
 
     // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log.
     private String fix166TitleLine(LandTitle t) {

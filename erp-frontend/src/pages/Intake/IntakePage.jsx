@@ -28,6 +28,17 @@ const DEFAULT_MONTHLY_STORAGE_FEE = 50000;
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const todayDMY = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+// fix172: today as yyyy-mm-dd in the user's own time zone (todayISO above is UTC and can be yesterday early in the morning)
+const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// fix172: whole 30-day months between an "in receivables since" date (yyyy-mm-dd) and today, the same count the nightly fee job uses
+const monthsSince = (iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    if (!m) return 0;
+    const start = new Date(+m[1], +m[2] - 1, +m[3]);
+    const t = new Date();
+    const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    return Math.max(0, Math.floor(Math.round((today - start) / 86400000) / 30));
+};
 const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';
 const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
 const loadPresets = () => { try { const r = localStorage.getItem(PRESET_STORAGE_KEY); return r ? JSON.parse(r) : []; } catch { return []; } };
@@ -75,6 +86,10 @@ export default function IntakePage() {
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
     const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171
+    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172: optional, empty = paid today
+    const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
+    const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which owner (row number) paid the initial payment
+    const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which owner paid the storage fees
     const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
@@ -243,14 +258,24 @@ export default function IntakePage() {
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
         // fix171: the same checks the server makes, so the message shows before anything is sent
         if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }
+        // fix172: the optional dates, and which owner paid the intake money
+        const paidAny = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);
+        if (lastPaidDate && lastPaidDate > localISO()) { toast('Date Last Paid cannot be in the future.', 'error'); return false; }
+        if (lastPaidDate && !paidAny) { toast('Date Last Paid needs a payment amount. Enter the payment, or clear the date.', 'error'); return false; }
+        if (isLegacy && receivablesSince && receivablesSince > localISO()) { toast('In Receivables Since cannot be in the future.', 'error'); return false; }
+        if (owners.length > 1) {
+            if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') { toast('Pick which owner paid the Initial Payment.', 'error'); return false; }
+            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') { toast('Pick which owner paid the Storage Fees Already Paid.', 'error'); return false; }
+        }
         if (isLegacy) {
             const feeCharged = Number(initialStorageFee) || 0;
             const feePaid = Number(initialStorageFeePaid) || 0;
             if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }
             if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }
-            if (feePaid > feeCharged) { toast('Storage Fees Already Paid cannot be more than the Initial Storage Fee.', 'error'); return false; }
-            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0)) {
-                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes.', 'error'); return false;
+            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;
+            if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }
+            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {
+                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;
             }
         }
         if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
@@ -300,6 +325,12 @@ export default function IntakePage() {
                 payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;
                 payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
             }
+            // fix172: the optional dates, and which owner paid the intake money (sent as that owner's NIN)
+            if (lastPaidDate) payload.lastPaidDate = lastPaidDate;
+            if (isLegacy && receivablesSince) payload.receivablesSince = receivablesSince;
+            const ninOf = (idx) => (idx !== '' && owners[idx]) ? owners[idx].nationalId.trim().toUpperCase() : '';
+            if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
+            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
             await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
             dirtyRef.current = false; setDirty(false);
             return true;
@@ -321,6 +352,7 @@ export default function IntakePage() {
         setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
         setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
+        setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
         setChecked({ [DEFAULT_STAGES[0]]: true });
@@ -330,9 +362,24 @@ export default function IntakePage() {
 
     // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)
     const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
-    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;
+    // fix172: backlog fees = whole 30-day months since the In Receivables Since date x the monthly fee (only while the title work is not fully paid)
+    const backlogMonths = isLegacy && titleLeft > 0 && receivablesSince ? monthsSince(receivablesSince) : 0;
+    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
+    const backlogFees = backlogMonths * backlogRate;
+    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) + backlogFees : 0;
     const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));
     const amountOwed = titleLeft + (titleLeft > 0 ? feesCharged - feesPaidNow : 0);
+    // fix172: removing an owner must not leave a payer pointing at the wrong person
+    const removeOwner = (idx) => {
+        setOwners(p => p.filter((_, i) => i !== idx));
+        const shift = (cur) => (cur === '' || cur === idx ? '' : cur > idx ? cur - 1 : cur);
+        setTitlePayerIdx(shift); setFeesPayerIdx(shift);
+        markDirty();
+    };
+    const ownerLabels = owners.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'OWNER ' + (i + 1)));
+    const pickOwner = (setter) => (label) => { setter(ownerLabels.indexOf(label)); markDirty(); };
+    const titlePaidNow = (Number(initialPayment) || 0) > 0;
+    const feesPaidEntered = isLegacy && (Number(initialStorageFeePaid) || 0) > 0;
     let n = 0;
     const nIndex = ++n, nOwners = ++n;
     const nTitle = isTitleSectionVisible ? ++n : null;
@@ -409,7 +456,7 @@ export default function IntakePage() {
                                 <input className={styles.input} value={o.email} onChange={e => updateOwner(idx, 'email', e.target.value)} />
                             </div>
                             <button type="button" className={`${styles.btn} ${styles.deleteBtn}`}
-                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}
+                                onClick={() => removeOwner(idx)}
                                 disabled={owners.length === 1} aria-label="Remove owner">
                                 <FiTrash2 />
                             </button>
@@ -561,6 +608,22 @@ export default function IntakePage() {
                             {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}
                         </div>
                     </div>
+                    {(titlePaidNow || feesPaidEntered) && (
+                        <div className={styles.grid2}>
+                            {owners.length > 1 && titlePaidNow && (
+                                <div className={styles.field}>
+                                    <HardwareSelect label="Initial Payment Paid By" required placeholder="Choose the owner" options={ownerLabels} value={ownerLabels[titlePayerIdx] || ''} onChange={pickOwner(setTitlePayerIdx)} />
+                                    <p className={styles.hint}>The owner who paid the title work money. Each owner's payments are tracked on a joint project.</p>
+                                </div>
+                            )}
+                            <div className={styles.field}>
+                                <label className={styles.label}>Date Last Paid</label>
+                                <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel="Date last paid" onChange={v => { setLastPaidDate(v); markDirty(); }} />
+                                {lastPaidDate && <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}
+                                <p className={styles.hint}>Optional. The day the client last paid. Left empty it counts as paid today, which locks recovery calls for 30 days.</p>
+                            </div>
+                        </div>
+                    )}
                     {isLegacy && (
                         <>
                             <h3 className={styles.subheading}><FiArchive size={13} /> Storage Fees</h3>
@@ -577,7 +640,24 @@ export default function IntakePage() {
                                 <div className={styles.field}>
                                     <label className={styles.label}>Storage Fees Already Paid</label>
                                     <input type="number" min="0" className={styles.input} value={initialStorageFeePaid} onChange={e => { setInitialStorageFeePaid(e.target.value); markDirty(); }} />
-                                    <p className={styles.hint}>Part of the Initial Storage Fee the client has already paid. Counted toward the fees, not the title work, and it does not count as a recent payment.</p>
+                                    <p className={styles.hint}>Part of the fees charged (Initial Storage Fee plus backlog fees) that the client has already paid. Counted toward the fees, not the title work. It only counts as a recent payment if you set a Date Last Paid.</p>
+                                </div>
+                                {owners.length > 1 && feesPaidEntered && (
+                                    <div className={styles.field}>
+                                        <HardwareSelect label="Storage Fees Paid By" required placeholder="Choose the owner" options={ownerLabels} value={ownerLabels[feesPayerIdx] || ''} onChange={pickOwner(setFeesPayerIdx)} />
+                                        <p className={styles.hint}>The owner who paid these storage fees.</p>
+                                    </div>
+                                )}
+                                <div className={styles.field}>
+                                    <label className={styles.label}>In Receivables Since</label>
+                                    <HardwareDatePicker block className={styles.input} value={receivablesSince} ariaLabel="In receivables since" onChange={v => { setReceivablesSince(v); markDirty(); }} />
+                                    {receivablesSince && <button type="button" className={styles.clearLink} onClick={() => { setReceivablesSince(''); markDirty(); }}>Clear date</button>}
+                                    <p className={styles.hint}>
+                                        Optional. If this project was already unpaid before today, pick the day it went into receivables.{' '}
+                                        {backlogMonths > 0
+                                            ? `${backlogMonths} month(s) x UGX ${backlogRate.toLocaleString()} = UGX ${backlogFees.toLocaleString()} backlog fees are added now. If you already typed those months into Initial Storage Fee, lower it so they are not counted twice.`
+                                            : 'Fees are counted from that date. Empty = counted from today.'}
+                                    </p>
                                 </div>
                             </div>
                         </>
@@ -586,6 +666,7 @@ export default function IntakePage() {
                         <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
                         <div className={styles.finRow}><span>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</span><span>{Number(initialPayment) || 0}</span></div>
                         {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        {isLegacy && backlogMonths > 0 && <div className={styles.finRow}><span>Backlog Storage Fees ({backlogMonths} mo)</span><span>{backlogFees}</span></div>}
                         {isLegacy && <div className={styles.finRow}><span>Storage Fees Already Paid</span><span>{Number(initialStorageFeePaid) || 0}</span></div>}
                         <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                     </div>

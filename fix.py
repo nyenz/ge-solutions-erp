@@ -1,34 +1,28 @@
 #!/usr/bin/env python3
-# PATH: fix171.py
-# GOLDEN SEED -- fix171: "Storage fees already paid" at intake, wired through every page and report.
+# PATH: fix172.py
+# GOLDEN SEED -- fix172: three intake gaps for projects that already existed before they were keyed in.
 #
-# THE PROBLEM: a Legacy Title / receivable project could be entered with an Initial Storage Fee (fees already charged),
-# but there was NO way to say how much of it the client had already paid. Anything typed as Initial Payment counted as
-# TITLE-work money, so the folder showed too little work owed and too many fees unpaid (e.g. cost 1,000,000 + fees
-# 200,000 already paid showed 800,000 work left and 200,000 fees unpaid). The only workaround, recording a STORAGE
-# payment afterwards, was dated today, which set the last-payment date and locked the client from recovery calls.
+# THE PROBLEMS:
+#   1. The title payment typed at intake always stamped TODAY as the last-payment date. A legacy project paid years ago
+#      turned green and locked recovery calls for 30 days.
+#   2. Fee counting started on the entry date. Months before that only existed if someone typed them into Initial Storage Fee.
+#   3. The intake deposit lines did not say which owner paid, so per-owner tracking on joint projects missed that money.
 #
-#   1. INTAKE: new box "Storage Fees Already Paid" (Legacy Title, under the Storage Fees heading). It is counted as paid
-#      toward the FEES (storageFeesPaid), never toward the title work, and it does NOT set the last-payment date.
-#      Initial Payment is now clearly labelled as TITLE WORK. The summary shows fees charged, fees paid and an Amount
-#      Owed that includes the unpaid fees (before it ignored fees completely).
-#   2. SERVER CHECKS: fees paid cannot exceed the initial fee, whole shillings, no negatives, initial payment cannot
-#      exceed the total cost, and storage fees on a project that would not be in receivables (title already fully paid)
-#      are now REFUSED with a clear message instead of being silently dropped.
-#   3. PAYMENT HISTORY: the intake writes two honest lines, "DEPOSIT AT INTAKE / TITLE" and "DEPOSIT AT INTAKE / STORAGE
-#      FEES", each with the balance after intake (fees included). Reversing the storage line works like any storage payment.
-#   4. EDIT FOLDER: changing the cost of a receivable project compared the new cost with ALL money paid (fees included)
-#      and set the frozen debt from it; both now use the TITLE money only, so a paid fee can no longer block a cost
-#      change or shrink the debt.
-#   5. PROGRESS AND CRITICAL: the Ledger progress bar and the CRITICAL rule now count TITLE money only, so paid fees
-#      never make a project look "paid up" (they would have, now that fees can be entered as paid).
-#   6. SHOWN EVERYWHERE: Ledger and Client Ledger fee lines say "(UGX x paid)"; Payments page puts intake storage
-#      deposits under the receivables card and labels them STORAGE FEES; Report Studio gets Storage Fees Paid / Unpaid
-#      for projects and Storage Fees Paid for clients, and its Balance Owed / Percent Paid now include fees correctly;
-#      the Receivable Breakdown CSV gets two new last columns (STORAGE_FEES_PAID, STORAGE_FEES_UNPAID).
+# WHAT CHANGES:
+#   1. INTAKE: new optional "Date Last Paid" (shows once a payment amount is entered). It becomes the last-payment date and the
+#      date on the intake deposit lines in Payment History. Left empty = exactly as before. Refused if in the future or if no
+#      payment was entered.
+#   2. INTAKE (Legacy Title): new optional "In Receivables Since". The billing clock starts on that date, the whole 30-day months
+#      already gone are billed at intake (months x monthly fee) and counted as billed, so the nightly job never bills them
+#      twice. The page shows the backlog fees in the summary, and "Storage Fees Already Paid" may now go up to initial fee +
+#      backlog fees.
+#   3. INTAKE: new "Paid By" owner pick for the initial payment and for the storage fees already paid (required when the
+#      project has more than one owner, automatic when it has one). It is written on the deposit lines, so the folder shows
+#      "paid by <owner>" for them like for every later payment.
+#   4. Receivable Breakdown CSV: MONTHS_IN_RECEIVABLE is counted in the same 30-day periods the fees are billed in.
 #
-# NOT in this fix: any change to how fees accrue, a date for older payments (listed as an open point), any database
-# change (storage_fees_paid already exists).
+# NOT in this fix: any change to how fees accrue, a way to change these dates after the project is saved, splitting one
+# deposit between two owners, any database change (all columns already exist).
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -40,8 +34,8 @@ import sys
 
 # ============================ EDIT PART 1 START ============================
 # Names, and one variable per file this fix touches.
-FIX_NO = "fix171"
-COMMIT_MSG = "fix171: Storage Fees Already Paid at intake, wired through folder/ledger/payments/reports; edit-cost and progress/critical now use title money only"
+FIX_NO = "fix172"
+COMMIT_MSG = "fix172: intake Date Last Paid, In Receivables Since (backlog fees), and which owner paid the intake money"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -51,15 +45,10 @@ SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
 F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
-F_LEDGER_JSX = os.path.join(SRC, "pages", "Ledger", "LedgerPage.jsx")
-F_CLIENTLEDGER_JSX = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.jsx")
-F_PAYMENTS_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
-F_REPORTDATA_JS = os.path.join(SRC, "pages", "Reports", "reportData.js")
-F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
+F_INTAKE_CSS = os.path.join(SRC, "pages", "Intake", "IntakePage.module.css")
 F_ENTRY_DTO = os.path.join(JAVA, "modules", "land", "dto", "LandEntryRequest.java")
 F_LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
 F_REPORT_SERVICE = os.path.join(JAVA, "modules", "land", "service", "ReportService.java")
-F_NOTE_CTRL = os.path.join(JAVA, "modules", "client", "controller", "RecoveryNoteController.java")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -125,78 +114,81 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (F_ENTRY_DTO, F_LAND_SERVICE, F_NOTE_CTRL, F_REPORT_SERVICE, F_INTAKE_JSX, F_LEDGER_JSX, F_CLIENTLEDGER_JSX, F_PAYMENTS_JSX, F_REPORTDATA_JS, F_FOLDER_JSX, F_GUIDE,)
+LOAD_FILES = (F_ENTRY_DTO, F_LAND_SERVICE, F_REPORT_SERVICE, F_INTAKE_JSX, F_INTAKE_CSS, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
 patch(F_ENTRY_DTO,
       "\n".join([
-          "    private java.math.BigDecimal initialStorageFee;"
-      ]),
-      "\n".join([
-          "    private java.math.BigDecimal initialStorageFee;",
           "    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)",
           "    private java.math.BigDecimal initialStorageFeePaid;"
       ]),
-      "DTO: initialStorageFeePaid")
+      "\n".join([
+          "    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)",
+          "    private java.math.BigDecimal initialStorageFeePaid;",
+          "    // fix172: optional date the client last paid (for the money entered as already paid at intake). Empty = today.",
+          "    private LocalDate lastPaidDate;",
+          "    // fix172: Legacy Title only. The date the project went into receivables; the months since then are billed at intake.",
+          "    private LocalDate receivablesSince;",
+          "    // fix172: WHICH owner paid the intake money (the NIN typed in the Owners section). Needed when there is more than one owner.",
+          "    private String initialPaymentPayerNin;",
+          "    private String initialStorageFeePaidPayerNin;"
+      ]),
+      "DTO: lastPaidDate, receivablesSince, payer of the intake money")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
-          "",
-          "        boolean startAsReceivable = request.isStartAsReceivable();"
-      ]),
-      "\n".join([
-          "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
-          "",
-          "        boolean startAsReceivable = request.isStartAsReceivable();",
-          "",
-          "        // fix171: storage fees already charged / already paid at intake, checked here because the server must not trust the page",
-          "        BigDecimal initialFees = request.getInitialStorageFee() != null ? request.getInitialStorageFee() : BigDecimal.ZERO;",
-          "        BigDecimal initialFeesPaid = request.getInitialStorageFeePaid() != null ? request.getInitialStorageFeePaid() : BigDecimal.ZERO;",
-          "        if (initialPayment.signum() < 0 || initialFees.signum() < 0 || initialFeesPaid.signum() < 0) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"AMOUNT_INVALID: Payments and storage fees cannot be negative.\");",
-          "        }",
-          "        if (initialPayment.compareTo(totalCost) > 0) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"INITIAL_PAYMENT_TOO_HIGH: The initial payment (UGX \" + initialPayment.toPlainString()",
-          "                    + \") is more than the total cost (UGX \" + totalCost.toPlainString() + \").\");",
-          "        }",
-          "        if (initialFeesPaid.stripTrailingZeros().scale() > 0) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_INVALID: Enter whole shillings only for the storage fees already paid.\");",
-          "        }",
           "        if (initialFeesPaid.compareTo(initialFees) > 0) {",
           "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX \" + initialFeesPaid.toPlainString()",
           "                    + \") cannot be more than the initial storage fee (UGX \" + initialFees.toPlainString() + \").\");",
-          "        }",
-          "        if (!(startAsReceivable && outstanding.signum() > 0) && (initialFees.signum() > 0 || initialFeesPaid.signum() > 0)) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. \"",
-          "                    + \"This title work is already fully paid, so clear the storage fee boxes.\");",
           "        }"
       ]),
-      "Intake: validate the storage fees charged / already paid")
+      "\n".join([
+          "        // fix172: \"in receivables since\". The months that went by before today are billed NOW (counted the same way the nightly",
+          "        // fee job counts them: whole 30-day periods) and the billing clock starts at that date, so nothing is billed twice.",
+          "        LocalDate receivablesSince = request.getReceivablesSince();",
+          "        BigDecimal feeRate = (request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().signum() > 0)",
+          "                ? request.getMonthlyStorageFee() : new BigDecimal(\"50000\");",
+          "        int backlogMonths = 0;",
+          "        LocalDateTime receivableClock = LocalDateTime.now();",
+          "        if (receivablesSince != null) {",
+          "            if (!(startAsReceivable && outstanding.signum() > 0)) {",
+          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_NOT_APPLICABLE: An In Receivables Since date only applies to a project that goes into receivables. \"",
+          "                        + \"This title work is already fully paid, so clear the date.\");",
+          "            }",
+          "            if (receivablesSince.isAfter(LocalDate.now().plusDays(1))) {",
+          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_IN_FUTURE: The In Receivables Since date cannot be in the future.\");",
+          "            }",
+          "            long daysGone = Math.max(0L, java.time.temporal.ChronoUnit.DAYS.between(receivablesSince, LocalDate.now()));",
+          "            if (daysGone > 10950L) {",
+          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_TOO_OLD: The In Receivables Since date is more than 30 years ago. Check the year.\");",
+          "            }",
+          "            backlogMonths = (int) (daysGone / 30L);",
+          "            receivableClock = receivablesSince.atStartOfDay();",
+          "        }",
+          "        BigDecimal backlogFees = feeRate.multiply(BigDecimal.valueOf(backlogMonths));",
+          "        if (initialFeesPaid.compareTo(initialFees.add(backlogFees)) > 0) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX \" + initialFeesPaid.toPlainString()",
+          "                    + \") cannot be more than the fees charged (UGX \" + initialFees.add(backlogFees).toPlainString() + \": initial storage fee UGX \"",
+          "                    + initialFees.toPlainString() + \" plus UGX \" + backlogFees.toPlainString() + \" backlog).\");",
+          "        }",
+          "",
+          "        // fix172: optional \"date last paid\" for the money entered as already paid. Empty keeps the old behaviour (paid today).",
+          "        LocalDate lastPaidDate = request.getLastPaidDate();",
+          "        LocalDateTime paidAt = null;",
+          "        if (lastPaidDate != null) {",
+          "            if (lastPaidDate.isAfter(LocalDate.now().plusDays(1))) {",
+          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"DATE_PAID_IN_FUTURE: The date last paid cannot be in the future.\");",
+          "            }",
+          "            if (initialPayment.signum() == 0 && initialFeesPaid.signum() == 0) {",
+          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"DATE_PAID_NO_PAYMENT: A date last paid needs a payment amount. Enter the payment, or clear the date.\");",
+          "            }",
+          "            paidAt = lastPaidDate.isBefore(LocalDate.now()) ? lastPaidDate.atTime(12, 0) : LocalDateTime.now();",
+          "        }"
+      ]),
+      "Intake: In Receivables Since (backlog months billed) and Date Last Paid checks")
 
 patch(F_LAND_SERVICE,
-      "\n".join([
-          "                .totalCost(totalCost)",
-          "                .amountPaid(initialPayment)",
-          "                .isLegacy(request.isLegacy())"
-      ]),
-      "\n".join([
-          "                .totalCost(totalCost)",
-          "                .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)",
-          "                .isLegacy(request.isLegacy())"
-      ]),
-      "Intake: total paid = title payment + storage fees already paid")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "            BigDecimal initialFees = request.getInitialStorageFee() != null",
-          "                    ? request.getInitialStorageFee() : BigDecimal.ZERO;",
-          "            builder.isReceivable(true)",
-          "                   .receivableStartDate(LocalDateTime.now())",
-          "                   .originalDebt(outstanding)",
-          "                   .storageFeesAccumulated(initialFees);"
-      ]),
       "\n".join([
           "            builder.isReceivable(true)",
           "                   .receivableStartDate(LocalDateTime.now())",
@@ -204,375 +196,410 @@ patch(F_LAND_SERVICE,
           "                   .storageFeesAccumulated(initialFees)",
           "                   .storageFeesPaid(initialFeesPaid);   // fix171"
       ]),
-      "Intake: store the fees already paid on the project")
+      "\n".join([
+          "            builder.isReceivable(true)",
+          "                   .receivableStartDate(receivableClock)   // fix172: the In Receivables Since date, or now",
+          "                   .receivableMonthsBilled(backlogMonths)   // fix172: those months are billed below, so the nightly job must not bill them again",
+          "                   .originalDebt(outstanding)",
+          "                   .storageFeesAccumulated(initialFees.add(backlogFees))   // fix172: typed fee + the backlog months",
+          "                   .storageFeesPaid(initialFeesPaid);   // fix171"
+      ]),
+      "Intake: billing clock starts at the In Receivables Since date, backlog fees added")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "        // Record initial payment if any",
-          "        if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {",
-          "            PaymentRecord initialRecord = PaymentRecord.builder()",
-          "                    .projectId(saved.getId())",
-          "                    .amountPaid(initialPayment)",
-          "                    .paymentType(\"INITIAL_DEPOSIT\")",
-          "                    .recordedBy(getCurrentOperator())",
-          "                    .notes(\"Initial deposit at intake\")",
-          "                    .balanceAfter(outstanding)",
-          "                    .build();",
-          "            paymentRecordRepository.save(initialRecord);",
-          "            saved.setLastPaymentDate(LocalDateTime.now());",
-          "            projectRepository.save(saved);",
-          "        }"
+          "        if (request.getOwners() != null) {",
+          "            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {"
       ]),
       "\n".join([
+          "        // fix172: the owners by NIN, so the owner who paid the intake money can be named",
+          "        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();",
+          "        if (request.getOwners() != null) {",
+          "            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {"
+      ]),
+      "Intake: remember each owner by NIN")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "                c.setHomeAddress(o.getAddress());",
+          "                project.addProprietor(c);"
+      ]),
+      "\n".join([
+          "                c.setHomeAddress(o.getAddress());",
+          "                project.addProprietor(c);",
+          "                ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172"
+      ]),
+      "Intake: fill the owner-by-NIN list")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "        LandProject saved = projectRepository.save(project);",
+          "",
           "        // Record initial payment if any",
-          "        // fix171: the balance shown on the history lines includes the storage fees, and the money that was paid",
-          "        // toward fees gets its OWN line (allocation STORAGE) so the folder, payments page and reports can tell them apart.",
-          "        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : outstanding;",
-          "        if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {",
-          "            PaymentRecord initialRecord = PaymentRecord.builder()",
-          "                    .projectId(saved.getId())",
-          "                    .amountPaid(initialPayment)",
-          "                    .paymentType(\"INITIAL_DEPOSIT\")",
-          "                    .recordedBy(getCurrentOperator())",
+          ""
+      ]),
+      "\n".join([
+          "        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single owner is the payer,",
+          "        // joint owners must say which one paid. Checked before anything is saved.",
+          "        Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, \"initial payment\");",
+          "        Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, \"storage fees already paid\");",
+          "        StringBuilder fix172Note = new StringBuilder();",
+          "        if (titlePayer != null) fix172Note.append(\" | Initial payment paid by \").append(titlePayer.getFullName());",
+          "        if (feesPayer != null) fix172Note.append(\" | Storage fees paid by \").append(feesPayer.getFullName());",
+          "        if (lastPaidDate != null) fix172Note.append(\" | Date last paid \").append(lastPaidDate);",
+          "        if (receivablesSince != null) fix172Note.append(\" | In receivables since \").append(receivablesSince)",
+          "                .append(\" (\").append(backlogMonths).append(\" month(s) of fees billed at intake)\");",
+          "",
+          "        LandProject saved = projectRepository.save(project);",
+          "",
+          "        // Record initial payment if any",
+          ""
+      ]),
+      "Intake: find who paid the title money and the fees money")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
           "                    .notes(\"Initial deposit at intake\")",
           "                    .balanceAfter(balanceAtIntake)",
           "                    .allocation(\"TITLE\")",
           "                    .build();",
           "            paymentRecordRepository.save(initialRecord);",
           "            saved.setLastPaymentDate(LocalDateTime.now());",
-          "            projectRepository.save(saved);",
-          "        }",
-          "        if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {",
-          "            // deliberately NOT setting lastPaymentDate: this money was paid before the project was entered, on an",
-          "            // unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.",
-          "            PaymentRecord feesRecord = PaymentRecord.builder()",
-          "                    .projectId(saved.getId())",
-          "                    .amountPaid(initialFeesPaid)",
-          "                    .paymentType(\"INITIAL_DEPOSIT\")",
-          "                    .recordedBy(getCurrentOperator())",
+          "            projectRepository.save(saved);"
+      ]),
+      "\n".join([
+          "                    .notes(paidAt != null ? \"Initial deposit at intake (paid on \" + lastPaidDate + \")\" : \"Initial deposit at intake\")",
+          "                    .balanceAfter(balanceAtIntake)",
+          "                    .allocation(\"TITLE\")",
+          "                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid",
+          "                    .payerName(titlePayer != null ? titlePayer.getFullName() : null)",
+          "                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())   // fix172: the date it was really paid",
+          "                    .build();",
+          "            paymentRecordRepository.save(initialRecord);",
+          "            saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more",
+          "            projectRepository.save(saved);"
+      ]),
+      "Intake: title deposit line carries the payer and the real payment date")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
           "                    .notes(\"Storage fees already paid before entry (recorded at intake)\")",
           "                    .balanceAfter(balanceAtIntake)",
           "                    .allocation(\"STORAGE\")",
           "                    .build();",
-          "            paymentRecordRepository.save(feesRecord);",
-          "        }"
+          "            paymentRecordRepository.save(feesRecord);"
       ]),
-      "Intake: separate TITLE and STORAGE deposit lines, fees line keeps the last-payment date untouched")
+      "\n".join([
+          "                    .notes(paidAt != null ? \"Storage fees already paid before entry (paid on \" + lastPaidDate + \")\" : \"Storage fees already paid before entry (recorded at intake)\")",
+          "                    .balanceAfter(balanceAtIntake)",
+          "                    .allocation(\"STORAGE\")",
+          "                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid",
+          "                    .payerName(feesPayer != null ? feesPayer.getFullName() : null)",
+          "                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())",
+          "                    .build();",
+          "            paymentRecordRepository.save(feesRecord);",
+          "            if (paidAt != null) {",
+          "                // fix172: only when the operator gave a date. No date = still unknown = the recovery badge stays untouched.",
+          "                saved.setLastPaymentDate(paidAt);",
+          "                projectRepository.save(saved);",
+          "            }"
+      ]),
+      "Intake: storage-fees line carries the payer and the real payment date")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "                + plotOrIndex + \" as RECEIVABLE at intake. Debt: UGX \" + outstanding);"
+          "            + plotOrIndex + receivableNote);"
       ]),
       "\n".join([
-          "                + plotOrIndex + \" as RECEIVABLE at intake. Title debt: UGX \" + outstanding",
+          "            + plotOrIndex + receivableNote + fix172Note);"
+      ]),
+      "Intake: audit line names the payers and the dates")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
           "                + \". Storage fees: UGX \" + initialFees + \" (UGX \" + initialFeesPaid + \" already paid).\");"
       ]),
-      "Intake: audit line names the storage fees and what was already paid")
+      "\n".join([
+          "                + \". Storage fees: UGX \" + initialFees.add(backlogFees)",
+          "                + (backlogMonths > 0 ? \" (incl. UGX \" + backlogFees + \" backlog for \" + backlogMonths + \" month(s) since \" + receivablesSince + \")\" : \"\")",
+          "                + \" (UGX \" + initialFeesPaid + \" already paid).\");"
+      ]),
+      "Intake: receivable audit line shows the backlog fees")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "            if (newTotalCost.compareTo(currentPaid) < 0) {",
-          "                throw new BusinessException(\"COST_BELOW_PAID: The new cost (UGX \" + newTotalCost.toPlainString()",
-          "                        + \") is lower than the UGX \" + currentPaid.toPlainString()"
+          "    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log."
       ]),
       "\n".join([
-          "            // fix171: only the money paid toward the TITLE work counts here (paid storage fees are not part of the cost)",
-          "            BigDecimal titlePaidNow = currentPaid.subtract(project.storagePaidSafe()).max(BigDecimal.ZERO);",
-          "            if (newTotalCost.compareTo(titlePaidNow) < 0) {",
-          "                throw new BusinessException(\"COST_BELOW_PAID: The new cost (UGX \" + newTotalCost.toPlainString()",
-          "                        + \") is lower than the UGX \" + titlePaidNow.toPlainString()"
+          "    // fix172: finds the owner who paid money entered at intake. One owner = that owner. Joint owners = the payer must be",
+          "    // named, and must be one of the owners typed on the form. No money entered = no payer needed.",
+          "    private Client fix172ResolvePayer(java.util.Map<String, Client> ownersByNin, String payerNin, BigDecimal amount, String what) {",
+          "        if (amount == null || amount.signum() <= 0) return null;",
+          "        String key = payerNin == null ? \"\" : payerNin.trim().toUpperCase();",
+          "        if (!key.isEmpty()) {",
+          "            Client hit = ownersByNin.get(key);",
+          "            if (hit == null) {",
+          "                throw new BusinessException(\"PAYER_INVALID: The owner who paid the \" + what + \" must be one of the owners on this form.\");",
+          "            }",
+          "            return hit;",
+          "        }",
+          "        if (ownersByNin.size() == 1) return ownersByNin.values().iterator().next();",
+          "        if (ownersByNin.size() > 1) {",
+          "            throw new BusinessException(\"PAYER_REQUIRED: This project has \" + ownersByNin.size() + \" owners. Pick which owner paid the \" + what + \".\");",
+          "        }",
+          "        return null;",
+          "    }",
+          "",
+          "    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log."
       ]),
-      "Edit folder: cost cannot go below the TITLE money paid (fees excluded)")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "            project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));"
-      ]),
-      "\n".join([
-          "            project.setOriginalDebt(newTotalCost.subtract(amtPaid.subtract(project.storagePaidSafe())).max(BigDecimal.ZERO));   // fix171: title money only"
-      ]),
-      "Edit folder: frozen debt ignores paid storage fees")
-
-patch(F_NOTE_CTRL,
-      "\n".join([
-          "m.put(\"storage\", storage);"
-      ]),
-      "\n".join([
-          "m.put(\"storage\", storage);",
-          "m.put(\"storagePaid\", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::storagePaidSafe).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));"
-      ]),
-      "Client ledger: storage fees paid per client")
+      "Intake: helper that finds the paying owner")
 
 patch(F_REPORT_SERVICE,
       "\n".join([
-          "MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED\").append(NEW_LINE);"
+          "            long months = p.getReceivableStartDate() != null",
+          "                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now())",
+          "                : 0;"
       ]),
       "\n".join([
-          "MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED,STORAGE_FEES_PAID,STORAGE_FEES_UNPAID\").append(NEW_LINE);"
+          "            // fix172: counted in the same whole 30-day periods the nightly fee job bills (calendar months drifted from it)",
+          "            long months = p.getReceivableStartDate() != null",
+          "                ? java.time.temporal.ChronoUnit.DAYS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now()) / 30L",
+          "                : 0;"
       ]),
-      "Receivable CSV: two new last columns (header)")
-
-patch(F_REPORT_SERVICE,
-      "\n".join([
-          "               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(NEW_LINE);"
-      ]),
-      "\n".join([
-          "               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(CSV_DIVIDER)",
-          "               .append(p.storagePaidSafe()).append(CSV_DIVIDER)",
-          "               .append(p.storageUnpaid()).append(NEW_LINE);"
-      ]),
-      "Receivable CSV: two new last columns (rows)")
+      "Receivable CSV: months in receivables counted in 30-day periods like the billing")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "    const [initialStorageFee, setInitialStorageFee] = useState(0);"
+          "const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';"
       ]),
       "\n".join([
-          "    const [initialStorageFee, setInitialStorageFee] = useState(0);",
+          "// fix172: today as yyyy-mm-dd in the user's own time zone (todayISO above is UTC and can be yesterday early in the morning)",
+          "const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };",
+          "// fix172: whole 30-day months between an \"in receivables since\" date (yyyy-mm-dd) and today, the same count the nightly fee job uses",
+          "const monthsSince = (iso) => {",
+          "    const m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(iso || '');",
+          "    if (!m) return 0;",
+          "    const start = new Date(+m[1], +m[2] - 1, +m[3]);",
+          "    const t = new Date();",
+          "    const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());",
+          "    return Math.max(0, Math.floor(Math.round((today - start) / 86400000) / 30));",
+          "};",
+          "const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';"
+      ]),
+      "Intake page: date helpers")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
           "    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171"
       ]),
-      "Intake: state for storage fees already paid")
+      "\n".join([
+          "    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171",
+          "    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172: optional, empty = paid today",
+          "    const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only",
+          "    const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which owner (row number) paid the initial payment",
+          "    const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which owner paid the storage fees"
+      ]),
+      "Intake page: new fields")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }"
+          "        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }"
       ]),
       "\n".join([
-          "        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }",
-          "        // fix171: the same checks the server makes, so the message shows before anything is sent",
           "        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }",
-          "        if (isLegacy) {",
-          "            const feeCharged = Number(initialStorageFee) || 0;",
-          "            const feePaid = Number(initialStorageFeePaid) || 0;",
-          "            if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }",
-          "            if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }",
+          "        // fix172: the optional dates, and which owner paid the intake money",
+          "        const paidAny = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);",
+          "        if (lastPaidDate && lastPaidDate > localISO()) { toast('Date Last Paid cannot be in the future.', 'error'); return false; }",
+          "        if (lastPaidDate && !paidAny) { toast('Date Last Paid needs a payment amount. Enter the payment, or clear the date.', 'error'); return false; }",
+          "        if (isLegacy && receivablesSince && receivablesSince > localISO()) { toast('In Receivables Since cannot be in the future.', 'error'); return false; }",
+          "        if (owners.length > 1) {",
+          "            if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') { toast('Pick which owner paid the Initial Payment.', 'error'); return false; }",
+          "            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') { toast('Pick which owner paid the Storage Fees Already Paid.', 'error'); return false; }",
+          "        }"
+      ]),
+      "Intake page: checks for the dates and the payer")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
           "            if (feePaid > feeCharged) { toast('Storage Fees Already Paid cannot be more than the Initial Storage Fee.', 'error'); return false; }",
           "            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0)) {",
           "                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes.', 'error'); return false;",
-          "            }",
-          "        }"
+          "            }"
       ]),
-      "Intake: validation for the new field")
+      "\n".join([
+          "            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;",
+          "            if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }",
+          "            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {",
+          "                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;",
+          "            }"
+      ]),
+      "Intake page: fees paid may include the backlog fees; fully paid title refuses the since date")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                payload.initialStorageFee = Number(initialStorageFee) || 0;"
+          "            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));"
       ]),
       "\n".join([
-          "                payload.initialStorageFee = Number(initialStorageFee) || 0;",
-          "                payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;"
+          "            // fix172: the optional dates, and which owner paid the intake money (sent as that owner's NIN)",
+          "            if (lastPaidDate) payload.lastPaidDate = lastPaidDate;",
+          "            if (isLegacy && receivablesSince) payload.receivablesSince = receivablesSince;",
+          "            const ninOf = (idx) => (idx !== '' && owners[idx]) ? owners[idx].nationalId.trim().toUpperCase() : '';",
+          "            if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);",
+          "            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);",
+          "            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));"
       ]),
-      "Intake: send the new field")
+      "Intake page: send the dates and the payer")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "setInitialStorageFee(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
+          "setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
       ]),
       "\n".join([
-          "setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
+          "setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);",
+          "        setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172"
       ]),
-      "Intake: clear the new field on reset")
+      "Intake page: Save + duplicate clears the new fields")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));"
+          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;"
       ]),
       "\n".join([
-          "    // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)",
-          "    const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));",
-          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;",
-          "    const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));",
-          "    const amountOwed = titleLeft + (titleLeft > 0 ? feesCharged - feesPaidNow : 0);"
+          "    // fix172: backlog fees = whole 30-day months since the In Receivables Since date x the monthly fee (only while the title work is not fully paid)",
+          "    const backlogMonths = isLegacy && titleLeft > 0 && receivablesSince ? monthsSince(receivablesSince) : 0;",
+          "    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;",
+          "    const backlogFees = backlogMonths * backlogRate;",
+          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) + backlogFees : 0;"
       ]),
-      "Intake: Amount Owed includes unpaid storage fees")
+      "Intake page: backlog fees in the summary maths")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                            <label className={`${styles.label} ${styles.required}`}>Initial Payment</label>",
-          "                            <input type=\"number\" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />"
+          "    let n = 0;",
+          "    const nIndex = ++n, nOwners = ++n;"
       ]),
       "\n".join([
-          "                            <label className={`${styles.label} ${styles.required}`}>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</label>",
-          "                            <input type=\"number\" min=\"0\" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />",
-          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}"
+          "    // fix172: removing an owner must not leave a payer pointing at the wrong person",
+          "    const removeOwner = (idx) => {",
+          "        setOwners(p => p.filter((_, i) => i !== idx));",
+          "        const shift = (cur) => (cur === '' || cur === idx ? '' : cur > idx ? cur - 1 : cur);",
+          "        setTitlePayerIdx(shift); setFeesPayerIdx(shift);",
+          "        markDirty();",
+          "    };",
+          "    const ownerLabels = owners.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'OWNER ' + (i + 1)));",
+          "    const pickOwner = (setter) => (label) => { setter(ownerLabels.indexOf(label)); markDirty(); };",
+          "    const titlePaidNow = (Number(initialPayment) || 0) > 0;",
+          "    const feesPaidEntered = isLegacy && (Number(initialStorageFeePaid) || 0) > 0;",
+          "    let n = 0;",
+          "    const nIndex = ++n, nOwners = ++n;"
       ]),
-      "Intake: Initial Payment is labelled as title work")
+      "Intake page: owner list helpers for the payer pick")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>",
-          "                                </div>",
-          "                            </div>",
-          "                        </>"
+          "                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}"
       ]),
       "\n".join([
-          "                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>",
-          "                                </div>",
+          "                                onClick={() => removeOwner(idx)}"
+      ]),
+      "Intake page: removing an owner keeps the payer pick right")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}",
+          "                        </div>",
+          "                    </div>",
+          "                    {isLegacy && ("
+      ]),
+      "\n".join([
+          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}",
+          "                        </div>",
+          "                    </div>",
+          "                    {(titlePaidNow || feesPaidEntered) && (",
+          "                        <div className={styles.grid2}>",
+          "                            {owners.length > 1 && titlePaidNow && (",
           "                                <div className={styles.field}>",
-          "                                    <label className={styles.label}>Storage Fees Already Paid</label>",
-          "                                    <input type=\"number\" min=\"0\" className={styles.input} value={initialStorageFeePaid} onChange={e => { setInitialStorageFeePaid(e.target.value); markDirty(); }} />",
+          "                                    <HardwareSelect label=\"Initial Payment Paid By\" required placeholder=\"Choose the owner\" options={ownerLabels} value={ownerLabels[titlePayerIdx] || ''} onChange={pickOwner(setTitlePayerIdx)} />",
+          "                                    <p className={styles.hint}>The owner who paid the title work money. Each owner's payments are tracked on a joint project.</p>",
+          "                                </div>",
+          "                            )}",
+          "                            <div className={styles.field}>",
+          "                                <label className={styles.label}>Date Last Paid</label>",
+          "                                <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel=\"Date last paid\" onChange={v => { setLastPaidDate(v); markDirty(); }} />",
+          "                                {lastPaidDate && <button type=\"button\" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}",
+          "                                <p className={styles.hint}>Optional. The day the client last paid. Left empty it counts as paid today, which locks recovery calls for 30 days.</p>",
+          "                            </div>",
+          "                        </div>",
+          "                    )}",
+          "                    {isLegacy && ("
+      ]),
+      "Intake page: Date Last Paid and Paid By (initial payment)")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
           "                                    <p className={styles.hint}>Part of the Initial Storage Fee the client has already paid. Counted toward the fees, not the title work, and it does not count as a recent payment.</p>",
           "                                </div>",
           "                            </div>",
-          "                        </>"
+          "                        </>",
+          "                    )}"
       ]),
-      "Intake: the new Storage Fees Already Paid box")
+      "\n".join([
+          "                                    <p className={styles.hint}>Part of the fees charged (Initial Storage Fee plus backlog fees) that the client has already paid. Counted toward the fees, not the title work. It only counts as a recent payment if you set a Date Last Paid.</p>",
+          "                                </div>",
+          "                                {owners.length > 1 && feesPaidEntered && (",
+          "                                    <div className={styles.field}>",
+          "                                        <HardwareSelect label=\"Storage Fees Paid By\" required placeholder=\"Choose the owner\" options={ownerLabels} value={ownerLabels[feesPayerIdx] || ''} onChange={pickOwner(setFeesPayerIdx)} />",
+          "                                        <p className={styles.hint}>The owner who paid these storage fees.</p>",
+          "                                    </div>",
+          "                                )}",
+          "                                <div className={styles.field}>",
+          "                                    <label className={styles.label}>In Receivables Since</label>",
+          "                                    <HardwareDatePicker block className={styles.input} value={receivablesSince} ariaLabel=\"In receivables since\" onChange={v => { setReceivablesSince(v); markDirty(); }} />",
+          "                                    {receivablesSince && <button type=\"button\" className={styles.clearLink} onClick={() => { setReceivablesSince(''); markDirty(); }}>Clear date</button>}",
+          "                                    <p className={styles.hint}>",
+          "                                        Optional. If this project was already unpaid before today, pick the day it went into receivables.{' '}",
+          "                                        {backlogMonths > 0",
+          "                                            ? `${backlogMonths} month(s) x UGX ${backlogRate.toLocaleString()} = UGX ${backlogFees.toLocaleString()} backlog fees are added now. If you already typed those months into Initial Storage Fee, lower it so they are not counted twice.`",
+          "                                            : 'Fees are counted from that date. Empty = counted from today.'}",
+          "                                    </p>",
+          "                                </div>",
+          "                            </div>",
+          "                        </>",
+          "                    )}"
+      ]),
+      "Intake page: In Receivables Since and Paid By (storage fees)")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>",
           "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}"
       ]),
       "\n".join([
-          "                        <div className={styles.finRow}><span>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</span><span>{Number(initialPayment) || 0}</span></div>",
           "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}",
-          "                        {isLegacy && <div className={styles.finRow}><span>Storage Fees Already Paid</span><span>{Number(initialStorageFeePaid) || 0}</span></div>}"
+          "                        {isLegacy && backlogMonths > 0 && <div className={styles.finRow}><span>Backlog Storage Fees ({backlogMonths} mo)</span><span>{backlogFees}</span></div>}"
       ]),
-      "Intake: summary shows the fees paid")
+      "Intake page: backlog fees row in the summary")
 
-patch(F_LEDGER_JSX,
+patch(F_INTAKE_CSS,
       "\n".join([
-          "const isCriticalProject = (p) => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25;"
+          ".finRow.total { color: var(--orange); font-size: clamp(13px,1.4vw,17px); border-top: 1px solid rgba(238,140,58,0.25); padding-top: var(--gap-md); }"
       ]),
       "\n".join([
-          "// fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)",
-          "const titlePaidOf = (p) => Math.max(0, (p.amountPaid || 0) - (p.storageFeesPaid || 0));",
-          "const isCriticalProject = (p) => (p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25;"
+          ".finRow.total { color: var(--orange); font-size: clamp(13px,1.4vw,17px); border-top: 1px solid rgba(238,140,58,0.25); padding-top: var(--gap-md); }",
+          "/* fix172: small \"clear\" link under an optional date */",
+          ".clearLink { background: none; border: none; padding: 2px 0; margin-top: 2px; color: var(--orange); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-align: left; cursor: pointer; }",
+          ".clearLink:hover { text-decoration: underline; }"
       ]),
-      "Ledger: critical rule uses title money only")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;"
-      ]),
-      "\n".join([
-          "const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;"
-      ]),
-      "Ledger: progress bar uses title money only")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "<div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>"
-      ]),
-      "\n".join([
-          "<div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees{Number(proj.storageFeesPaid || 0) > 0 ? ' (UGX ' + Number(proj.storageFeesPaid).toLocaleString() + ' paid)' : ''}</div>"
-      ]),
-      "Ledger: fee line says how much is paid")
-
-patch(F_CLIENTLEDGER_JSX,
-      "\n".join([
-          "                                const storageFees = Number(c.storage || 0);"
-      ]),
-      "\n".join([
-          "                                const storageFees = Number(c.storage || 0);",
-          "                                const storagePaid = Number(c.storagePaid || 0);"
-      ]),
-      "Client Ledger: storage paid per client")
-
-patch(F_CLIENTLEDGER_JSX,
-      "\n".join([
-          "<div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees</div>"
-      ]),
-      "\n".join([
-          "<div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees{storagePaid > 0 ? ' (UGX ' + storagePaid.toLocaleString() + ' paid)' : ''}</div>"
-      ]),
-      "Client Ledger: fee line says how much is paid")
-
-patch(F_PAYMENTS_JSX,
-      "\n".join([
-          "    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);",
-          "    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);"
-      ]),
-      "\n".join([
-          "    // fix171: a payment belongs to the RECEIVABLES card when it was made in receivables OR is storage-fee money (this",
-          "    // includes storage fees recorded at intake, and a reversal of a storage payment)",
-          "    const inReceivables  = (p) => p.paymentType === 'RECEIVABLE_PARTIAL' || p.allocation === 'STORAGE';",
-          "    const titleTotal     = useMemo(() => filtered.filter(p => !inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);",
-          "    const storageTotal   = useMemo(() => filtered.filter(p => inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);"
-      ]),
-      "Payments: cards classify storage money correctly")
-
-patch(F_PAYMENTS_JSX,
-      "\n".join([
-          "<span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>"
-      ]),
-      "\n".join([
-          "<span>{filtered.filter(p => !inReceivables(p)).length} records</span>"
-      ]),
-      "Payments: title card record count")
-
-patch(F_PAYMENTS_JSX,
-      "\n".join([
-          "<span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>"
-      ]),
-      "\n".join([
-          "<span>{filtered.filter(p => inReceivables(p)).length} records</span>"
-      ]),
-      "Payments: receivables card record count")
-
-patch(F_PAYMENTS_JSX,
-      "\n".join([
-          "                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}",
-          "                                            </span>"
-      ]),
-      "\n".join([
-          "                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}",
-          "                                                {pay.allocation === 'STORAGE' ? ' - STORAGE FEES' : ''}",
-          "                                            </span>"
-      ]),
-      "Payments: storage lines are labelled")
-
-patch(F_REPORTDATA_JS,
-      "\n".join([
-          "  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),",
-          "  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),"
-      ]),
-      "\n".join([
-          "  // fix171: a project in receivables also owes its storage fees, and paid fees are not part of the title cost",
-          "  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) + (p.isReceivable ? num(p.storageFeesAccumulated) : 0) - num(p.amountPaid)), { money: true }),",
-          "  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),",
-          "  f('storagePaid', 'Storage Fees Paid', 'money', p => num(p.storageFeesPaid), { money: true }),",
-          "  f('storageUnpaid', 'Storage Fees Unpaid', 'money', p => Math.max(0, num(p.storageFeesAccumulated) - num(p.storageFeesPaid)), { money: true }),"
-      ]),
-      "Reports: project balance includes fees; paid / unpaid fee fields")
-
-patch(F_REPORTDATA_JS,
-      "\n".join([
-          "  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),"
-      ]),
-      "\n".join([
-          "  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round(((num(p.amountPaid) - num(p.storageFeesPaid)) / num(p.totalCost)) * 100) : 0), { money: true }),"
-      ]),
-      "Reports: project percent paid counts title money only")
-
-patch(F_REPORTDATA_JS,
-      "\n".join([
-          "  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),"
-      ]),
-      "\n".join([
-          "  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),",
-          "  f('storagePaid', 'Storage Fees Paid', 'money', c => num(c.storagePaid), { money: true }),"
-      ]),
-      "Reports: client storage fees paid")
-
-patch(F_FOLDER_JSX,
-      "\n".join([
-          "initialPayment: String(data.project?.amountPaid || 0),"
-      ]),
-      "\n".join([
-          "initialPayment: String(Math.max(0, Number(data.project?.amountPaid || 0) - Number(data.project?.storageFeesPaid || 0))),"
-      ]),
-      "Folder edit form: the paid figure shown is the TITLE money (fees excluded)")
+      "Intake CSS: clear-date link")
 
 patch(F_GUIDE,
       "\n".join([
-          "- **Storage fee rules (fix167):**"
+          "- **Storage fees already paid at intake (fix171):**"
       ]),
       "\n".join([
-          "- **Storage fees already paid at intake (fix171):** a Legacy Title entry has `Initial Payment (Title Work)`, `Initial Storage Fee` (fees already charged) and `Storage Fees Already Paid` (`initialStorageFeePaid`). The paid fees go to `storageFeesPaid` and into `amountPaid`, never into the title work, and do NOT set `lastPaymentDate` (the date is unknown, so the recovery badge / 30-day lock are not triggered). Two history lines are written (INITIAL_DEPOSIT, allocation TITLE and STORAGE). Server rules: fees paid <= initial fee, whole shillings, initial payment <= total cost, and storage fees are refused when the title is already fully paid (no receivable). Anything that shows progress or CRITICAL must use TITLE money = `amountPaid - storageFeesPaid`.",
-          "- **Storage fee rules (fix167):**"
+          "- **Intake dates and payer (fix172):** (1) `lastPaidDate` (optional): the day the client last paid. It sets `lastPaymentDate` and the timestamp of the intake deposit lines; empty keeps the old rule (title deposit = today, fees-only = no date). Refused when in the future or when no payment amount was entered. (2) `receivablesSince` (Legacy Title only, optional): `receivableStartDate` becomes that date, the whole 30-day months since then are billed at intake (months x monthly fee, added to `storageFeesAccumulated`) and `receivableMonthsBilled` is set to that count so the nightly job does not bill them again. `Storage Fees Already Paid` may now be up to initial fee + backlog fees. If staff already typed those months into Initial Storage Fee they must lower it (the page says so). (3) `initialPaymentPayerNin` / `initialStorageFeePaidPayerNin`: which owner (by NIN) paid the intake money; written to `payerClientId` / `payerName` on the deposit lines. One owner = automatic, joint owners = required (`PAYER_REQUIRED`). One payer per line; a deposit split between owners is not supported at intake. The server allows a date one day ahead of its own clock (server time zone vs Kampala). The Receivable Breakdown CSV now counts MONTHS_IN_RECEIVABLE in 30-day periods like the billing.",
+          "- **Storage fees already paid at intake (fix171):**"
       ]),
-      "Guide: storage fees already paid")
+      "Guide: intake dates and payer")
 
 
 # ============================= EDIT PART 2 END =============================
