@@ -38,12 +38,13 @@ export default function RecoveryPortal() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [toasts, setToasts] = useState([]);
   const loadedOnce = useRef(false);
+  const searchRef = useRef('');
   const { user } = useAuth();
   const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
   const load = useCallback((silent) => {
     if (!silent) setLoading(!loadedOnce.current);
-    Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
+    Promise.all([recoveryService.getQueues(searchRef.current), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
       .then((r) => {
         setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
         const list = r[1].data || r[1];
@@ -64,6 +65,7 @@ export default function RecoveryPortal() {
   }, [tab, toast]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    searchRef.current = search;
     const t = setTimeout(() => {
       recoveryService.getQueues(search).then((r) => setCounts(r.data || r)).catch(() => {});
     }, 250);

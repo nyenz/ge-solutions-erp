@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -164,7 +165,10 @@ public class LandController {
     public ResponseEntity<Page<LandProject>> getLedger(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));
+        // fix169: an unsorted findAll can repeat or skip rows between pages; sort by id so paging is stable.
+        // Size is capped so one call cannot ask for the whole table in one go.
+        int safeSize = Math.min(Math.max(size, 1), 500);
+        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(Math.max(page, 0), safeSize, Sort.by("id"))));
     }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")

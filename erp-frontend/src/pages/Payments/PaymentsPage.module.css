@@ -175,7 +175,7 @@
     color: var(--orange);
     text-transform: uppercase;
     letter-spacing: 2px;
-    border-bottom: 3px solid var(--orange);
+    border-bottom: 3px solid #EE8C3A;
     white-space: nowrap;
     user-select: none;
     position: sticky;
@@ -187,8 +187,8 @@
 .thSortable:hover { background: rgba(238, 140, 58, 0.07); color: #fff; }
 
 /* fix147: HardwarePanel hard-codes its orange border, so re-point it from the active pill */
-.accentWrap[data-tab-accent] > section[class] { border-color: var(--orange-border); }
-.accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--orange); }
+.accentWrap[data-tab-accent] > section[class] { border-color: rgba(238, 140, 58, 0.2); }
+.accentWrap[data-tab-accent] > section[class]:hover { border-color: #EE8C3A; }
 .accentWrap[data-tab-accent] .thSortable:hover { background: var(--orange-dim); }
 
 /* TABLE BODY */
@@ -209,7 +209,7 @@
 }
 .dataRow:hover {
     background: rgba(255, 255, 255, 0.05);
-    border-left-color: var(--orange);
+    border-left-color: #EE8C3A;
 }
 .dataRow:focus-visible {
     background: rgba(238, 140, 58, 0.07);
@@ -380,4 +380,4 @@
 /* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */
 .tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--orange); }
+.ledgerTable th { z-index: 5; box-shadow: 0 1px 0 #EE8C3A; }

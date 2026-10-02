@@ -37,6 +37,12 @@ const getPaymentBadge = (proj) => {
 const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
 const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
 const PAGE_SIZE = 15;
+// fix169: the WHOLE ledger is loaded (200 rows per request, every page) and then filtered, sorted and paged
+// here in the browser. Before, only one server page of 15 rows was fetched and the filters ran on those 15.
+const LOAD_SIZE = 200;
+// fix169: ONE rule for CRITICAL, used by the filter AND by the red tag on each row (they used to disagree:
+// receivables showed the tag but were left out of the filter).
+const isCriticalProject = (p) => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25;
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
@@ -191,14 +197,24 @@ const LedgerPage = () => {
     const fetchLedger = useCallback(async (attempt = 0) => {
         setLoading(true); setLoadError(false);
         try {
-            const data = await landService.getGlobalLedger(page, PAGE_SIZE);
-            setProjects(data.content || []); setLoading(false);
+            // fix169: walk every server page so filters / search / sort see ALL projects, not 15 of them.
+            const all = [];
+            const seen = new Set();
+            for (let p = 0; p < 60; p += 1) {
+                const data = await landService.getGlobalLedger(p, LOAD_SIZE);
+                const rows = (data && data.content) || [];
+                rows.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); all.push(r); } });
+                if (rows.length < LOAD_SIZE || (data && data.last)) break;
+            }
+            setProjects(all); setLoading(false);
         } catch {
             if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }
             setLoadError(true); setLoading(false);
         }
-    }, [page]);
+    }, []);
     useEffect(() => { fetchLedger(); }, [fetchLedger]);
+    // fix169: a new search / filter / sort always starts from the first page of results
+    useEffect(() => { setPage(0); }, [searchTerm, activeFilter, sortConfig]);
 
     // STAGES COLUMN (fix47): one bulk call per page hydrates each
     // row's stage list -- exactly the stages (template + custom)
@@ -207,8 +223,11 @@ const LedgerPage = () => {
     useEffect(() => {
         const ids = projects.map(p => p.id).filter(Boolean);
         if (!ids.length) { setStageMap({}); return; }
-        landService.getStagesBulk(ids)
-            .then(list => {
+        const chunks = [];
+        for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+        Promise.all(chunks.map(c => landService.getStagesBulk(c)))
+            .then(lists => {
+                const list = lists.flat();
                 const m = {};
                 (list || []).forEach(s => { (m[s.projectId] = m[s.projectId] || []).push(s); });
                 setStageMap(m);
@@ -223,7 +242,7 @@ const LedgerPage = () => {
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
         if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);
+        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalProject);
         if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem);
         filtered.sort((a, b) => {
             let aVal, bVal;
@@ -237,6 +256,9 @@ const LedgerPage = () => {
         });
         return filtered;
     }, [projects, searchTerm, activeFilter, sortConfig, stageMap]);
+
+    // fix169: pages are cut from the FILTERED list, so every filter spans the whole ledger
+    const pageData = useMemo(() => processedData.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [processedData, page]);
 
     const handleSort = (key) => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
     const renderSortIcon = (key) => sortConfig.key !== key ? null
@@ -347,12 +369,12 @@ const LedgerPage = () => {
                                     {searchTerm ? `NO RECORDS MATCH "${searchTerm.toUpperCase()}"` : 'NO RECORDS FOUND'}
                                 </td></tr>
                             )}
-                            {!loading && !loadError && processedData.map((proj, i) => {
+                            {!loading && !loadError && pageData.map((proj, i) => {
                                 const isReceivable = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
                                 const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
-                                const isCritical = pct < 25 && proj.totalCost > 0;
+                                const isCritical = isCriticalProject(proj);
                                 const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
                                 const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
                                 const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
@@ -439,7 +461,7 @@ const LedgerPage = () => {
                         RANGE {page + 1}
                         {processedData.length > 0 && <span className={styles.recordCount}> — {processedData.length} RECORDS</span>}
                     </span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={processedData.length < PAGE_SIZE} aria-label="Next page" className={styles.pageBtn}>
+                    <button onClick={() => setPage(p => p + 1)} disabled={(page + 1) * PAGE_SIZE >= processedData.length} aria-label="Next page" className={styles.pageBtn}>
                         NEXT <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>

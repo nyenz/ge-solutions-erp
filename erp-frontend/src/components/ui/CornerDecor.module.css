@@ -4,7 +4,7 @@
     position: absolute;
     width: 14px;
     height: 14px;
-    border: 1.5px solid var(--orange);
+    border: 1.5px solid #EE8C3A;
     opacity: 0.55;
     pointer-events: none;
 }
@@ -46,7 +46,7 @@
 .pin {
     width: 3px;
     height: 5px;
-    background: var(--orange);
+    background: #EE8C3A;
     box-shadow: 0 0 5px rgba(238, 140, 58, 0.4);
     border-radius: 1px;
 }

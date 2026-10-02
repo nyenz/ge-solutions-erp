@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/pages/Audit/AuditPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FiSearch, FiActivity, FiClock, FiRefreshCw,
     FiDatabase, FiChevronDown, FiX, FiFilter,
@@ -35,7 +35,9 @@ const AuditPage = () => {
             .catch(() => {});
     }, []);
 
+    const reqRef = useRef(0);
     const fetchForensics = useCallback(async () => {
+        const myReq = ++reqRef.current;   // fix169: only the newest request may update the screen
         setLoading(true);
         try {
             let activeAction = filters.action;
@@ -45,20 +47,29 @@ const AuditPage = () => {
             if (activeAction === 'ALL ACTIONS')      activeAction = null;
             const activeOperator = filters.operator === 'ALL STAFF' ? null : filters.operator;
 
-            const data = filters.search
-                ? await auditService.investigateKeyword(filters.search, page)
-                : await auditService.searchForensics({ operator: activeOperator, action: activeAction }, page);
+            // fix169: keyword, operator, action and dates all go to the server TOGETHER. The keyword used to go
+            // to a different endpoint that ignored the other filters, and the dates were never sent at all.
+            const data = await auditService.searchForensics({
+                operator: activeOperator,
+                action: activeAction,
+                keyword: filters.search,
+                start: filters.from ? filters.from + 'T00:00:00' : null,
+                end: filters.to ? filters.to + 'T23:59:59' : null,
+            }, page);
+            if (myReq !== reqRef.current) return;
             setLogs(data.content || []);
-        } catch { console.error('FORENSIC_SIGNAL_LOST'); }
-        finally  { setLoading(false); }
+        } catch { if (myReq === reqRef.current) console.error('FORENSIC_SIGNAL_LOST'); }
+        finally  { if (myReq === reqRef.current) setLoading(false); }
     }, [page, filters]);
+
+    // fix169: any filter change starts again from the first sector
+    useEffect(() => { setPage(0); }, [filters]);
 
     useEffect(() => { fetchForensics(); }, [fetchForensics]);
 
-    // WHEN, which is the first question anyone asks of an audit trail and the
-    // one filter the page did not have. The search endpoint takes operator and
-    // action but no date window, so this narrows the page in hand rather than
-    // the query -- honest about its scope in the hint under the controls.
+    // WHEN, which is the first question anyone asks of an audit trail.
+    // fix169: the dates now travel to the server with every other filter, so this
+    // only stays as a harmless safety net on the page in hand.
     const visibleLogs = useMemo(() => {
         const from = filters.from ? new Date(filters.from + 'T00:00:00').getTime() : null;
         const to   = filters.to   ? new Date(filters.to   + 'T23:59:59').getTime() : null;
@@ -245,7 +256,7 @@ const AuditPage = () => {
                         <FiChevronLeft aria-hidden="true" /> OLDER LOGS
                     </button>
                     <span className={styles.pageLabel} aria-current="page">SECTOR {page + 1}</span>
-                    <button className={styles.pgBtn} onClick={() => setPage(p => p + 1)} disabled={logs.length < 20} aria-label="Newer logs">
+                    <button className={styles.pgBtn} onClick={() => setPage(p => p + 1)} disabled={logs.length < 50} aria-label="Newer logs">
                         NEWER LOGS <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>

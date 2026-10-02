@@ -589,8 +589,9 @@
 .list        { margin: 0; }
 
 /* fix147: the cards' border is hard-coded orange in the rules above, so re-point it from the active pill */
-.list[data-tab-accent] .rowCard { border-color: var(--orange-border); }
-.list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: var(--orange); }
+.list[data-tab-accent] .rowCard { border-color: rgba(238, 140, 58, 0.2); }
+.list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: #EE8C3A; }
+.list[data-tab-accent] .rowOpen .rowHead { border-bottom-color: #EE8C3A; }
 
 /* Search: identical to the Ledger search box */
 .tabSearch { width: clamp(220px, 38vw, 420px); margin-right: 0; }
