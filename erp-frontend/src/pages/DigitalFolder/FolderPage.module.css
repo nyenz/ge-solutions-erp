@@ -2237,6 +2237,13 @@
 .receiptLink:hover { background: #06b6d4; color: #1a2e30; border-color: #06b6d4; }
 
 /* related projects + documents + notes */
+/* fix179: print hooks for the shared document rows (DocParts) */
+@media print {
+  .docPrintRow { background: #f0f0f0 !important; border: 1px solid #ccc !important; border-radius: 0 !important; padding: 4px 8px !important; page-break-inside: avoid !important; }
+  .docPrintRow span, .docPrintRow svg { color: #000 !important; }
+  .docPrintRow button { display: none !important; }
+  .docPrintHide { display: none !important; }
+}
 .relStatus { display: flex; gap: 6px; flex-wrap: wrap; }
 .docMeta { font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
 .lockTag { font-size: clamp(7px, 0.75vw, 9px); font-weight: 900; letter-spacing: 1px; color: rgba(255, 255, 255, 0.45); border: 1px dashed rgba(255, 255, 255, 0.25); border-radius: 4px; padding: 1px 6px; cursor: help; }

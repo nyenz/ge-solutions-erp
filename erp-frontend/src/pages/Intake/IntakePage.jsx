@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
     FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
-    FiEdit3, FiBookmark, FiX, FiCopy, FiFile, FiEye, FiRefreshCw, FiCalendar
+    FiEdit3, FiBookmark, FiX, FiCopy, FiRefreshCw, FiCalendar
 } from 'react-icons/fi';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
@@ -17,6 +17,7 @@ import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
 import { normalizePhones } from '../../utils/phone';
 import stageTemplateService from '../../services/stageTemplateService';
+import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import styles from './IntakePage.module.css';
 
 const EMPTY_OWNER = () => ({ fullName: '', phone: '', email: '', nationalId: '', address: '' });
@@ -139,6 +140,13 @@ export default function IntakePage() {
         return () => window.removeEventListener('keydown', onKey);
     }, [previewFile]);
     const catLabelOf = (code) => { const c = docCats.find(x => x.code === code); return c ? c.label : ''; };
+    // fix179: queued files grouped by document type (same grouping as the Folder page), keeping each file's queue index
+    const queueGroups = (() => {
+        const g = new Map();
+        fileQueue.forEach((f, i) => { const k = f.category || '__NONE__'; if (!g.has(k)) g.set(k, []); g.get(k).push({ f, i }); });
+        const rank = (k) => { if (k === '__NONE__') return 9999; const x = docCats.findIndex(c => c.code === k); return x < 0 ? 9000 : x; };
+        return [...g.entries()].sort((p, q) => rank(p[0]) - rank(q[0]));
+    })();
     const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };
     const [notes, setNotes] = useState('');
     const [dirty, setDirty] = useState(false);
@@ -768,39 +776,17 @@ export default function IntakePage() {
                 <div className={styles.splitRow}>
                     <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
                         {fileQueue.length > 0 && (
-                            <div className={styles.fileList}>
-                                {fileQueue.map((f, i) => (
-                                    <div key={i} className={styles.fileItem}>
-                                        <span className={styles.fileMeta}>
-                                            <FiFile className={styles.fileIcon} size={14} />
-                                            <span className={styles.fileName}>{f.name}</span>
-                                            <span className={styles.fileSize}>{fmtSize(f.size)}</span>
-                                        </span>
-                                        <span className={styles.fileActions}>
-                                            <span className={styles.fileTypeChip}>{catLabelOf(f.category) || 'No type'}</span>
-                                            <button type="button" className={`${styles.btn} ${styles.small}`} onClick={() => openPreview(f)} aria-label={`View ${f.name}`}>
-                                                <FiEye size={12} /> View
-                                            </button>
-                                            <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>
-                                                <FiTrash2 size={12} />
-                                            </button>
-                                        </span>
-                                    </div>
+                            <DocList>
+                                {queueGroups.map(([cat, items]) => (
+                                    <DocGroup key={cat} label={cat === '__NONE__' ? 'NO TYPE' : (catLabelOf(cat) || cat)} count={items.length}>
+                                        {items.map(({ f, i }) => (
+                                            <DocRow key={i} name={f.name} meta={fmtSize(f.size)} onView={() => openPreview(f)} onDelete={() => removeFile(i)} deleteTitle={'Remove ' + f.name} />
+                                        ))}
+                                    </DocGroup>
                                 ))}
-                            </div>
+                            </DocList>
                         )}
-                        <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : ''}`} onClick={triggerFileInput} role="button" tabIndex={0}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}>
-                            <span className={styles.dropzoneIcon}><FiUploadCloud size={fileQueue.length > 0 ? 13 : 18} /></span>
-                            {fileQueue.length > 0 ? (
-                                <span className={styles.dropzoneTitle}>Add more documents</span>
-                            ) : (
-                                <>
-                                    <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
-                                    <span className={styles.dropzoneSub}>Required - PDF, JPG, PNG or WEBP, up to 50 MB each</span>
-                                </>
-                            )}
-                        </div>
+                        <DocDropzone compact={fileQueue.length > 0} required onClick={triggerFileInput} />
                         <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileUpload} style={{ display: 'none' }} />
                     </CollapsibleSection>
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>

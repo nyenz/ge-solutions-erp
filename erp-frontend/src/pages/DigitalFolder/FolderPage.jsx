@@ -32,6 +32,7 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import CornerDecor from '../../components/ui/CornerDecor';
+import { DocList, DocGroup, DocRow, DocDropzone } from '../../components/common/DocParts';
 import { parseNote } from './noteTags';
 import styles from './FolderPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
@@ -1182,15 +1183,23 @@ const FolderPage = () => {
                     <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
-                        {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span></div>) : (
-                            <div className={styles.compactVault}>{docGroups.map(([cat, docs]) => (<React.Fragment key={cat}><div className={styles.docGroupLabel}>{cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)}<span className={styles.docGroupCount}>{docs.length}</span></div>{docs.map((doc) => (<div key={doc.id} className={styles.docTag}>
-                                <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath, doc.fileName)} title={'Open ' + doc.fileName}>{doc.fileName}</button>
-                                <span className={styles.docMeta} title="Uploaded by / on">{doc.uploadedBy || '---'}{doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : ''}</span>
-                                {canEdit && !isReleased && doc.category !== 'PAYMENT_RECEIPT' && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)} title="Delete this document" aria-label={'Delete ' + doc.fileName}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
-                                {doc.category === 'PAYMENT_RECEIPT' && <span className={styles.lockTag} title="A payment receipt is proof of money received and can never be deleted. Reverse the payment instead.">LOCKED</span>}
-                            </div>))}</React.Fragment>))}</div>)}
-                        {canUploadDocs && !isDeleted && <button type="button" className={styles.addDocBtn} onClick={() => fileInputRef.current?.click()} title="Add scans (PDF, JPG, PNG or WEBP, up to 50 MB each). You pick a category for each file.">+ ADD SCANS</button>}
+                        {docCount === 0 ? ((canUploadDocs && !isDeleted)
+                            ? <DocDropzone className={styles.docPrintHide} onClick={() => fileInputRef.current?.click()} title="Add scans (PDF, JPG, PNG or WEBP, up to 50 MB each). You pick a category for each file." />
+                            : <div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span></div>) : (
+                            <>
+                                <DocList className={styles.compactVault}>{docGroups.map(([cat, docs]) => (
+                                    <DocGroup key={cat} label={cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)} count={docs.length}>
+                                        {docs.map((doc) => (
+                                            <DocRow key={doc.id} className={styles.docPrintRow} name={doc.fileName}
+                                                meta={(doc.uploadedBy || '---') + (doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : '')} metaTitle="Uploaded by / on"
+                                                onView={() => handleOpenDoc(doc.filePath, doc.fileName)}
+                                                onDelete={(canEdit && !isReleased && doc.category !== 'PAYMENT_RECEIPT') ? () => handleDeleteDoc(doc.id, doc.fileName) : undefined}
+                                                locked={doc.category === 'PAYMENT_RECEIPT'} lockTitle="A payment receipt is proof of money received and can never be deleted. Reverse the payment instead." />
+                                        ))}
+                                    </DocGroup>))}
+                                </DocList>
+                                {canUploadDocs && !isDeleted && <DocDropzone compact className={styles.docPrintHide} onClick={() => fileInputRef.current?.click()} title="Add scans (PDF, JPG, PNG or WEBP, up to 50 MB each). You pick a category for each file." />}
+                            </>)}
                     </div></div>
                 </section>
                 <div className={styles.tabWrap} style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
