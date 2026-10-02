@@ -150,9 +150,12 @@ public class LandService {
         BigDecimal cost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
         BigDecimal paidNow = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal titlePaid = paidNow.subtract(project.storagePaidSafe());
+        // fix173: a STORAGE payment is allowed in two cases: the project is in receivables, OR it was SET ASIDE and still carries
+        // kept (unpaid) fees. The second case is "collecting set-aside fees": billing stays stopped, no new fees are added.
+        boolean keptFeesPayment = "STORAGE".equals(kind) && !project.isReceivable();
         if ("STORAGE".equals(kind)) {
-            if (!project.isReceivable()) {
-                throw new BusinessException("PAYMENT_FAULT: Storage fees can only be paid while the project is in receivables.");
+            if (keptFeesPayment && project.storageUnpaid().signum() <= 0) {
+                throw new BusinessException("PAYMENT_FAULT: There are no storage fees to pay on this project. Storage fees can be paid while the project is in receivables, or while set-aside fees are still kept on it.");
             }
             BigDecimal feesLeft = project.storageUnpaid();
             if (amount.compareTo(feesLeft) > 0) {
@@ -172,7 +175,14 @@ public class LandService {
         String paymentType = project.isReceivable() ? "RECEIVABLE_PARTIAL" : "STANDARD";
 
         project.setAmountPaid(paidNow.add(amount));
-        if ("STORAGE".equals(kind)) project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
+        if (keptFeesPayment) {
+            // fix173: paid set-aside fees move into the total cost at once (the same rule SET ASIDE and WAIVE use for paid fees),
+            // so "owed = total cost - amount paid" stays true and only the kept (unpaid) fees go down.
+            project.setTotalCost(cost.add(amount));
+            project.setStorageFeesAccumulated(project.getStorageFeesAccumulated().subtract(amount));
+        } else if ("STORAGE".equals(kind)) {
+            project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
+        }
         project.setLastPaymentDate(LocalDateTime.now());
 
         BigDecimal balanceAfter = project.isReceivable()
@@ -224,7 +234,7 @@ public class LandService {
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
-            + " | For: " + kind
+            + " | For: " + kind + (keptFeesPayment ? " (set-aside fees)" : "")
             + (payer != null ? " | Paid by: " + payer.getFullName() : "")
             + " | Amount owed after: UGX " + balanceAfter);
         return record;
@@ -1105,7 +1115,7 @@ public class LandService {
         // fix167: fees kept by SET ASIDE are still on the project even though it left receivables
         if (!project.isReceivable() && project.storageUnpaid().compareTo(BigDecimal.ZERO) > 0) {
             throw new BusinessException("RELEASE DENIED: UGX " + project.storageUnpaid().toPlainString()
-                    + " of set-aside storage fees is still on this project. A director must WAIVE them or ADD them to the cost first.");
+                    + " of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.");
         }
         // PHASE B (Section 18.9.1): landTitle can now be null.
         if (project.getLandTitle() == null) {

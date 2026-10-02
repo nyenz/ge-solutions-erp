@@ -105,6 +105,13 @@ export default function IntakePage() {
         setToasts(p => [...p, { id, msg, type }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
+    // fix173: a monthly fee of 0 or less is not allowed at intake. It becomes the system default and the user is told.
+    const feeOrDefault = (v) => { const n = Number(v); return n > 0 ? n : systemFee; };
+    const fixFeeBox = () => {
+        if (monthlyStorageFee === '' || monthlyStorageFee === null || Number(monthlyStorageFee) > 0) return;
+        setMonthlyStorageFee(systemFee > 0 ? String(systemFee) : '');
+        toast('Monthly Storage Fee must be more than 0, so the system default' + (systemFee > 0 ? ' (UGX ' + systemFee.toLocaleString() + ')' : '') + ' is used instead.', 'info');
+    };
 
     useEffect(() => {
         stageTemplateService.getTemplate().then(list => {
@@ -271,11 +278,12 @@ export default function IntakePage() {
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') { toast('Pick which owner paid the Storage Fees Already Paid.', 'error'); return false; }
         }
         if (isLegacy) {
+            fixFeeBox();   // fix173: 0 or negative monthly fee -> default, with a message
             const feeCharged = Number(initialStorageFee) || 0;
             const feePaid = Number(initialStorageFeePaid) || 0;
             if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }
             if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }
-            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || systemFee) : 0;
+            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * feeOrDefault(monthlyStorageFee) : 0;
             if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }
             if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {
                 toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;
@@ -370,7 +378,7 @@ export default function IntakePage() {
     const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
     // fix172: backlog fees = whole 30-day months since the In Receivables Since date x the monthly fee (only while the title work is not fully paid)
     const backlogMonths = isLegacy && titleLeft > 0 && receivablesSince ? monthsSince(receivablesSince) : 0;
-    const backlogRate = Number(monthlyStorageFee) || systemFee;
+    const backlogRate = feeOrDefault(monthlyStorageFee);
     const backlogFees = backlogMonths * backlogRate;
     const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) + backlogFees : 0;
     const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));
@@ -640,8 +648,8 @@ export default function IntakePage() {
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
-                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it.</p>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} onBlur={fixFeeBox} />
+                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Storage Fees Already Paid</label>

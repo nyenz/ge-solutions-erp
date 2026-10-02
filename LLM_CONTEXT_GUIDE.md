@@ -1134,6 +1134,10 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 
 ---
 
+**Recovery list rule (fix173).** `RecoveryNoteController.qualifies()`: a client is listed (queue, queue counts, stats `dueNow`, ALL DUE) only while at least one of their projects is owed money: receivable project = cost + fees - paid, other project = cost - paid. Fully paid clients, finished legacy projects and unfinished stages alone no longer list a client. **Intake monthly fee (fix173):** 0 or negative is turned into the system default on the page (box changes, message shown); the server already did the same.
+
+**Collecting set-aside fees (fix173).** A project that was SET ASIDE and still carries kept fees (`storage_fees_accumulated` > 0, not receivable) accepts a STORAGE payment through the same payment window (button COLLECT SET-ASIDE FEES on the Folder page; manager, admin, director; receipt and payer rules unchanged). Rules in `LandService.recordPayment`: amount <= kept fees; billing stays stopped; the paid amount is added to `amount_paid` AND to `total_cost`, and taken off `storage_fees_accumulated` (`storage_fees_paid` stays 0), so "owed = total_cost - amount_paid" is unchanged and only the kept fees go down. When they reach 0 the hand-over block clears. Reversing such a payment lowers `amount_paid` only: the fee stays inside `total_cost`, so the client owes it again as part of the cost (same as reversing a fee payment made before the project left receivables).
+
 ## 19. SEED DATA (DATASET v4, fix167)
 
 **Where it lives.** `config/ScenarioData.java` (pure data, no Spring), `config/ScenarioSeeder.java` (removes old seeds, loads v3), `config/DataInitializer.java` (`seedScenarioDataOnce()` only calls `scenarioSeeder.seedOnce()`). It runs once per database: flag row `id = 3` in `scenario_seed_flag`. To load it again, delete that row or use the wipe endpoint. The purge is one transaction and the load is a second one, so a failed load rolls back and retries on the next start.

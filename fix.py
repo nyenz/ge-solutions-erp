@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # PATH: fix173.py
-# GOLDEN SEED -- fix173: the default monthly storage fee (50,000) lives in ONE place.
+# GOLDEN SEED -- fix173: default storage fee in ONE place, Recovery list only for clients who owe, 0/negative intake fee -> default,
+# and a COLLECT SET-ASIDE FEES button (take payments for fees kept after a SET ASIDE).
 #
 # THE PROBLEM:
 #   The default fee was written out by hand in the nightly fee job, the intake save, the Intake page and the Folder page
@@ -17,11 +18,21 @@
 #   4. INTAKE: the Monthly Storage Fee box starts blank (the default shows as the placeholder and in the hint). A rate is sent
 #      only when staff typed one that differs from the default. A project entered at the default stores NO rate, so it follows
 #      the default from now on.
-#   5. LLM_CONTEXT_GUIDE.md: records where the default lives.
+#   5. LLM_CONTEXT_GUIDE.md: records where the default lives and the two rules below.
+#   6. RECOVERY (owner decision): a client is on the Recovery list (queue, counts, stats, ALL DUE) only while they OWE money on a
+#      project. Before, the check ended in an unconditional `return true`, so every client with any project was listed, even
+#      fully paid ones. The queues and counts will get smaller. Owed = receivable project: cost + fees - paid; other project: cost - paid.
+#   8. FOLDER + PAYMENTS (owner decision): new button COLLECT SET-ASIDE FEES in the Storage Fees panel of a set-aside project that still has
+#      kept fees. It opens the normal payment window on STORAGE FEE (receipt, payer and whole-shilling rules unchanged; manager, admin or
+#      director). Amount cannot be more than the kept fees. The project stays set aside and no new fees start. The paid amount goes into
+#      amount paid and total cost and comes off the kept fees, so what the client owes on the title work does not change. When the kept
+#      fees reach 0 the hand-over block is gone. A reversal of such a payment makes the fee owed again as part of the cost.
+#   7. INTAKE (owner decision): a Monthly Storage Fee of 0 or less is not allowed. The box changes to the system default and a
+#      message says so (when the user leaves the box, and again at save). The server already treats 0 or less as the default.
 #
 # NOT in this fix: an editable default (needs a settings table), the seed data's own 50000 in ScenarioData (demo rows only),
-# changing existing projects that already carry a stored 50,000 rate (those keep it as their own rate), and the other two
-# findings of the review (Recovery list membership, set-aside fees) -- both wait for the owner's decision.
+# changing existing projects that already carry a stored 50,000 rate (those keep it as their own rate), or any change to WAIVE /
+# ADD FEES TO COST. The Folder page rate box is unchanged: there 0 still means no more fees.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -34,7 +45,7 @@ import sys
 # ============================ EDIT PART 1 START ============================
 # Names, and one variable per file this fix touches.
 FIX_NO = "fix173"
-COMMIT_MSG = "fix173: default monthly storage fee lives in one place (LandProject constant + /land/storage-fee-default); intake no longer saves a copy of it"
+COMMIT_MSG = "fix173: default storage fee in one place; Recovery list only for clients who owe money; intake fee 0/negative becomes the default; collect set-aside fees button"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +62,7 @@ F_LAND_SERVICE_JS = os.path.join(SRC, "services", "landService.js")
 F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
 F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
 F_GLOSSARY = os.path.join(SRC, "components", "common", "glossary.js")
+F_RECOVERY = os.path.join(JAVA, "modules", "client", "controller", "RecoveryNoteController.java")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -116,9 +128,24 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (F_LAND_PROJECT, F_SCHEDULER, F_LAND_SERVICE, F_LAND_CONTROLLER, F_LAND_SERVICE_JS, F_INTAKE_JSX, F_FOLDER_JSX, F_GLOSSARY, F_GUIDE,)
+LOAD_FILES = (F_RECOVERY, F_LAND_PROJECT, F_SCHEDULER, F_LAND_SERVICE, F_LAND_CONTROLLER, F_LAND_SERVICE_JS, F_INTAKE_JSX, F_FOLDER_JSX, F_GLOSSARY, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
+
+# patch_either: like patch(), but the text may be in more than one known state (never touched, or an earlier run of this fix).
+def patch_either(path, olds, new, desc):
+    text = FILES[path]
+    if new in text:
+        print("SKIP: " + desc + " -- already applied")
+        return
+    for old in olds:
+        if old in text:
+            print("OK: " + desc)
+            FILES[path] = text.replace(old, new, 1)
+            return
+    print("MISSING: " + desc)
+    MISSING.append(desc)
+
 
 patch(F_LAND_PROJECT,
       "\n".join([
@@ -254,12 +281,15 @@ patch(F_INTAKE_JSX,
       ]),
       "Intake: monthly fee starts blank, default comes from the server")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
+patch_either(F_INTAKE_JSX,
+      ["\n".join([
           "const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;"
       ]),
-      "\n".join([
+       "\n".join([
           "const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || systemFee) : 0;"
+      ])],
+      "\n".join([
+          "const backlogNow = receivablesSince ? monthsSince(receivablesSince) * feeOrDefault(monthlyStorageFee) : 0;"
       ]),
       "Intake: backlog check uses the server default")
 
@@ -284,30 +314,39 @@ patch(F_INTAKE_JSX,
       ]),
       "Intake: duplicate form resets the fee to blank")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
+patch_either(F_INTAKE_JSX,
+      ["\n".join([
           "    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;"
       ]),
-      "\n".join([
+       "\n".join([
           "    const backlogRate = Number(monthlyStorageFee) || systemFee;"
+      ])],
+      "\n".join([
+          "    const backlogRate = feeOrDefault(monthlyStorageFee);"
       ]),
       "Intake: summary backlog rate uses the server default")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
+patch_either(F_INTAKE_JSX,
+      ["\n".join([
           "value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />"
       ]),
-      "\n".join([
+       "\n".join([
           "value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />"
-      ]),
-      "Intake: monthly fee box shows the default as its placeholder")
-
-patch(F_INTAKE_JSX,
+      ])],
       "\n".join([
+          "value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} onBlur={fixFeeBox} />"
+      ]),
+      "Intake: monthly fee box shows the default as a placeholder and is fixed when the user leaves it")
+
+patch_either(F_INTAKE_JSX,
+      ["\n".join([
           "<p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>"
       ]),
-      "\n".join([
+       "\n".join([
           "<p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it.</p>"
+      ])],
+      "\n".join([
+          "<p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it. 0 or less is not allowed and turns into the default.</p>"
       ]),
       "Intake: hint shows the server default")
 
@@ -402,6 +441,210 @@ patch(F_GUIDE,
           "The 50,000 default is now ONE constant, `LandProject.DEFAULT_MONTHLY_STORAGE_FEE` (fix173); an editable global default still needs a settings table -- David to decide."
       ]),
       "Guide: backbone plan note about the default")
+
+patch(F_RECOVERY,
+      "\n".join([
+          "    private boolean qualifies(List<LandProject> ps) {",
+          "        if (ps.isEmpty()) return false;",
+          "        for (LandProject p : ps) {",
+          "            if (p.isLegacy()) return true;",
+          "            if (Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue()) > 0) return true;",
+          "            if (p.getStages() != null) { for (Object s : p.getStages()) { if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) { if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true; } } }",
+          "            return true;",
+          "        }",
+          "        return false;",
+          "    }"
+      ]),
+      "\n".join([
+          "    // fix173: a client is on the Recovery list only while they OWE money on at least one project. Fully paid clients, finished",
+          "    // legacy projects and projects with only unfinished stages are no longer listed. \"Owes\" is counted the same way the",
+          "    // rest of the app counts it: a receivable project owes cost + fees - paid; any other project owes cost - paid.",
+          "    // (Fees kept by SET ASIDE are not owed while the project is set aside, so they do not count here.)",
+          "    private boolean qualifies(List<LandProject> ps) {",
+          "        for (LandProject p : ps) {",
+          "            java.math.BigDecimal owed = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();",
+          "            if (owed.signum() > 0) return true;",
+          "        }",
+          "        return false;",
+          "    }"
+      ]),
+      "Recovery: a client is listed only while they owe money")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);",
+          "    }, []);",
+          ""
+      ]),
+      "\n".join([
+          "        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);",
+          "    }, []);",
+          "    // fix173: a monthly fee of 0 or less is not allowed at intake. It becomes the system default and the user is told.",
+          "    const feeOrDefault = (v) => { const n = Number(v); return n > 0 ? n : systemFee; };",
+          "    const fixFeeBox = () => {",
+          "        if (monthlyStorageFee === '' || monthlyStorageFee === null || Number(monthlyStorageFee) > 0) return;",
+          "        setMonthlyStorageFee(systemFee > 0 ? String(systemFee) : '');",
+          "        toast('Monthly Storage Fee must be more than 0, so the system default' + (systemFee > 0 ? ' (UGX ' + systemFee.toLocaleString() + ')' : '') + ' is used instead.', 'info');",
+          "    };",
+          ""
+      ]),
+      "Intake: helper that turns a 0 or negative monthly fee into the default and shows a message")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "        if (isLegacy) {",
+          "            const feeCharged = Number(initialStorageFee) || 0;"
+      ]),
+      "\n".join([
+          "        if (isLegacy) {",
+          "            fixFeeBox();   // fix173: 0 or negative monthly fee -> default, with a message",
+          "            const feeCharged = Number(initialStorageFee) || 0;"
+      ]),
+      "Intake: same fix at save time")
+
+patch(F_GUIDE,
+      "\n".join([
+          "## 19. SEED DATA (DATASET v4, fix167)"
+      ]),
+      "\n".join([
+          "**Recovery list rule (fix173).** `RecoveryNoteController.qualifies()`: a client is listed (queue, queue counts, stats `dueNow`, ALL DUE) only while at least one of their projects is owed money: receivable project = cost + fees - paid, other project = cost - paid. Fully paid clients, finished legacy projects and unfinished stages alone no longer list a client. **Intake monthly fee (fix173):** 0 or negative is turned into the system default on the page (box changes, message shown); the server already did the same.",
+          "",
+          "**Collecting set-aside fees (fix173).** A project that was SET ASIDE and still carries kept fees (`storage_fees_accumulated` > 0, not receivable) accepts a STORAGE payment through the same payment window (button COLLECT SET-ASIDE FEES on the Folder page; manager, admin, director; receipt and payer rules unchanged). Rules in `LandService.recordPayment`: amount <= kept fees; billing stays stopped; the paid amount is added to `amount_paid` AND to `total_cost`, and taken off `storage_fees_accumulated` (`storage_fees_paid` stays 0), so \"owed = total_cost - amount_paid\" is unchanged and only the kept fees go down. When they reach 0 the hand-over block clears. Reversing such a payment lowers `amount_paid` only: the fee stays inside `total_cost`, so the client owes it again as part of the cost (same as reversing a fee payment made before the project left receivables).",
+          "",
+          "## 19. SEED DATA (DATASET v4, fix167)"
+      ]),
+      "Guide: Recovery list rule and intake fee rule")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "        if (\"STORAGE\".equals(kind)) {",
+          "            if (!project.isReceivable()) {",
+          "                throw new BusinessException(\"PAYMENT_FAULT: Storage fees can only be paid while the project is in receivables.\");",
+          "            }",
+          "            BigDecimal feesLeft = project.storageUnpaid();"
+      ]),
+      "\n".join([
+          "        // fix173: a STORAGE payment is allowed in two cases: the project is in receivables, OR it was SET ASIDE and still carries",
+          "        // kept (unpaid) fees. The second case is \"collecting set-aside fees\": billing stays stopped, no new fees are added.",
+          "        boolean keptFeesPayment = \"STORAGE\".equals(kind) && !project.isReceivable();",
+          "        if (\"STORAGE\".equals(kind)) {",
+          "            if (keptFeesPayment && project.storageUnpaid().signum() <= 0) {",
+          "                throw new BusinessException(\"PAYMENT_FAULT: There are no storage fees to pay on this project. Storage fees can be paid while the project is in receivables, or while set-aside fees are still kept on it.\");",
+          "            }",
+          "            BigDecimal feesLeft = project.storageUnpaid();"
+      ]),
+      "Payments: allow STORAGE payments on a set-aside project that still has kept fees")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "        project.setAmountPaid(paidNow.add(amount));",
+          "        if (\"STORAGE\".equals(kind)) project.setStorageFeesPaid(project.storagePaidSafe().add(amount));"
+      ]),
+      "\n".join([
+          "        project.setAmountPaid(paidNow.add(amount));",
+          "        if (keptFeesPayment) {",
+          "            // fix173: paid set-aside fees move into the total cost at once (the same rule SET ASIDE and WAIVE use for paid fees),",
+          "            // so \"owed = total cost - amount paid\" stays true and only the kept (unpaid) fees go down.",
+          "            project.setTotalCost(cost.add(amount));",
+          "            project.setStorageFeesAccumulated(project.getStorageFeesAccumulated().subtract(amount));",
+          "        } else if (\"STORAGE\".equals(kind)) {",
+          "            project.setStorageFeesPaid(project.storagePaidSafe().add(amount));",
+          "        }"
+      ]),
+      "Payments: a paid set-aside fee moves into the total cost and lowers the kept fees")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "            + \" | For: \" + kind",
+          "            + (payer != null"
+      ]),
+      "\n".join([
+          "            + \" | For: \" + kind + (keptFeesPayment ? \" (set-aside fees)\" : \"\")",
+          "            + (payer != null"
+      ]),
+      "Payments: audit line says when the money was for set-aside fees")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "of set-aside storage fees is still on this project. A director must WAIVE them or ADD them to the cost first.\");"
+      ]),
+      "\n".join([
+          "of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.\");"
+      ]),
+      "Hand-over message mentions collecting the kept fees")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "    const openPayModal = () => {",
+          "        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);",
+          "        setPayType('TITLE');"
+      ]),
+      "\n".join([
+          "    // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)",
+          "    const openPayModal = (startType) => {",
+          "        setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);",
+          "        setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');"
+      ]),
+      "Folder: payment window can open on STORAGE FEE")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "                                <div className={styles.recvActionRow}>",
+          "                                    {canMoney && !isDeleted && !isReleased && amountOwed + keptFees > 0"
+      ]),
+      "\n".join([
+          "                                <div className={styles.recvActionRow}>",
+          "                                    {canEdit && !isReleased && keptFees > 0 && <button type=\"button\" className={styles.ctrlBtnPay}",
+          "                                        title={'Take a payment for the kept fees (receipt required). The project stays set aside and no new fees start. Unpaid: UGX ' + fmt(keptFees)}",
+          "                                        onClick={() => openPayModal('STORAGE')}><FiDollarSign aria-hidden=\"true\" /> COLLECT SET-ASIDE FEES</button>}",
+          "                                    {canMoney && !isDeleted && !isReleased && amountOwed + keptFees > 0"
+      ]),
+      "Folder: COLLECT SET-ASIDE FEES button")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "                {isReceivable && (<div className={styles.payTypeRow}>"
+      ]),
+      "\n".join([
+          "                {(isReceivable || keptFees > 0) && (<div className={styles.payTypeRow}>"
+      ]),
+      "Folder: payment window offers TITLE / STORAGE FEE also for set-aside fees")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "They are not owed now, but block the hand-over until a director waives them or adds them to the cost.\">SET-ASIDE FEES"
+      ]),
+      "\n".join([
+          "They are not owed now, but block the hand-over until they are paid, or a director waives them or adds them to the cost.\">SET-ASIDE FEES"
+      ]),
+      "Folder: badge text mentions paying the kept fees")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "title=\"Kept when the project was set aside. Not owed now; they block the hand-over until cleared.\""
+      ]),
+      "\n".join([
+          "title=\"Kept when the project was set aside. Not owed now; they block the hand-over until they are paid, waived or added to the cost.\""
+      ]),
+      "Folder: kept fees box text mentions paying them")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "and blocks the hand-over until it is waived or added to the cost.'"
+      ]),
+      "\n".join([
+          "and blocks the hand-over until it is paid, waived or added to the cost.'"
+      ]),
+      "Folder: SET ASIDE window text mentions paying the kept fees")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "must be waived or added to the cost first.'"
+      ]),
+      "\n".join([
+          "must be paid, waived or added to the cost first.'"
+      ]),
+      "Folder: hand-over button text mentions paying the kept fees")
 
 # ============================= EDIT PART 2 END =============================
 

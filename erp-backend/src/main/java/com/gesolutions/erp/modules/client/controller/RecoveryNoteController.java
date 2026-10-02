@@ -58,13 +58,14 @@ public class RecoveryNoteController {
     private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
     private List<LandProject> projectsOf(Map<UUID, List<LandProject>> pm, UUID id) { return pm.getOrDefault(id, List.of()); }
 
+    // fix173: a client is on the Recovery list only while they OWE money on at least one project. Fully paid clients, finished
+    // legacy projects and projects with only unfinished stages are no longer listed. "Owes" is counted the same way the
+    // rest of the app counts it: a receivable project owes cost + fees - paid; any other project owes cost - paid.
+    // (Fees kept by SET ASIDE are not owed while the project is set aside, so they do not count here.)
     private boolean qualifies(List<LandProject> ps) {
-        if (ps.isEmpty()) return false;
         for (LandProject p : ps) {
-            if (p.isLegacy()) return true;
-            if (Math.max(p.activeTotalOwed().doubleValue(), p.receivableTotalOwed().doubleValue()) > 0) return true;
-            if (p.getStages() != null) { for (Object s : p.getStages()) { if (s instanceof com.gesolutions.erp.modules.land.model.ProjectStage) { if (!((com.gesolutions.erp.modules.land.model.ProjectStage) s).isCompleted()) return true; } } }
-            return true;
+            java.math.BigDecimal owed = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
+            if (owed.signum() > 0) return true;
         }
         return false;
     }

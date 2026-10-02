@@ -704,9 +704,10 @@ const FolderPage = () => {
     };
     const handleDeleteNote = async (noteId) => { const ok = await confirm('DELETE NOTE', 'Delete this note? The audit log keeps its words.', 'danger', 'DELETE NOTE'); if (!ok) return; try { await landService.deleteStandaloneNote(noteId); await loadFolderData(); toast('Note deleted', 'warn', 3000); } catch (err) { toast('NOTE NOT DELETED: ' + errText(err), 'error'); } };
     // fix165/167: the payment and its receipt travel TOGETHER; the payer (one owner) and what it is for are recorded.
-    const openPayModal = () => {
+    // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
+    const openPayModal = (startType) => {
         setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);
-        setPayType('TITLE');
+        setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
         const owners = project.proprietors || [];
         setPayerId(owners.length === 1 ? owners[0].id : '');
         setPayModal({ open: true });
@@ -829,7 +830,7 @@ const FolderPage = () => {
                         {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered with the Legacy Title mode (an old title brought into the system).">LEGACY</span>}
                         {project.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`} title={'PROBLEM' + (project.problemBy ? ' flagged by ' + project.problemBy : '') + (project.problemAt ? ' on ' + fmtDate(project.problemAt) : '') + (project.problemNote ? ': ' + project.problemNote : '')}>PROBLEM</span>}
                         {isReceivable && isPaused && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="No storage fees are added while paused. The paused days are not charged later.">{pausedUntil ? 'FEES PAUSED UNTIL ' + pausedUntil : 'FEES PAUSED'}</span>}
-                        {keptFees > 0 && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="Storage fees kept when this project was set aside. They are not owed now, but block the hand-over until a director waives them or adds them to the cost.">SET-ASIDE FEES UGX {fmt(keptFees)}</span>}
+                        {keptFees > 0 && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="Storage fees kept when this project was set aside. They are not owed now, but block the hand-over until they are paid, or a director waives them or adds them to the cost.">SET-ASIDE FEES UGX {fmt(keptFees)}</span>}
                     </div>
                 </div>
                 <div className={styles.ctrlZone}>
@@ -846,7 +847,7 @@ const FolderPage = () => {
                             : <button type="button" className={styles.releaseBtn} disabled={amountOwed > 0 || !!project.problem || keptFees > 0}
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
                                     info: 'Confirm the client has received the title deed for ' + plotName + '. The record is then locked (a director can UNDO it). Write who collected it and how they were identified.' })}
-                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && stageInfo.count > 0 && (
                             <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
@@ -968,9 +969,12 @@ const FolderPage = () => {
                             <CornerDecor hideTop />
                             {!isReceivable ? (<>
                                 {keptFees > 0 && (<div className={styles.moneyStatsRow}>
-                                    <div className={`${styles.statBox} ${styles.statAmber}`} title="Kept when the project was set aside. Not owed now; they block the hand-over until cleared."><label>SET-ASIDE FEES (KEPT)</label><strong>UGX {fmt(keptFees)}</strong></div>
+                                    <div className={`${styles.statBox} ${styles.statAmber}`} title="Kept when the project was set aside. Not owed now; they block the hand-over until they are paid, waived or added to the cost."><label>SET-ASIDE FEES (KEPT)</label><strong>UGX {fmt(keptFees)}</strong></div>
                                 </div>)}
                                 <div className={styles.recvActionRow}>
+                                    {canEdit && !isReleased && keptFees > 0 && <button type="button" className={styles.ctrlBtnPay}
+                                        title={'Take a payment for the kept fees (receipt required). The project stays set aside and no new fees start. Unpaid: UGX ' + fmt(keptFees)}
+                                        onClick={() => openPayModal('STORAGE')}><FiDollarSign aria-hidden="true" /> COLLECT SET-ASIDE FEES</button>}
                                     {canMoney && !isDeleted && !isReleased && amountOwed + keptFees > 0 && <button type="button" className={styles.ghostBtn}
                                         title="Start monthly storage fees on this project (director only, reason required)."
                                         onClick={() => openReasonModal({ kind: 'ENTER', title: 'MOVE TO RECEIVABLES', confirmLabel: 'MOVE TO RECEIVABLES',
@@ -1023,7 +1027,7 @@ const FolderPage = () => {
                                                 info: 'Fees added so far: UGX ' + fmt(storageFees) + (storagePaid > 0 ? ' (UGX ' + fmt(storagePaid) + ' already paid, so the new total cannot go below that)' : '') + '. Type the agreed lower total; the project stays in receivables.' })}><FiDollarSign aria-hidden="true" /> REDUCE FEES</button>}
                                         <button type="button" className={styles.ghostBtn} title="Leave receivables, stop billing, keep the unpaid fees on record (reason required)."
                                             onClick={() => openReasonModal({ kind: 'SET_ASIDE', title: 'SET ASIDE', confirmLabel: 'SET ASIDE',
-                                                info: 'This takes the project out of receivables and stops new fees. The UGX ' + fmt(feesUnpaid) + ' of unpaid fees is KEPT on the project (shown as SET-ASIDE FEES) and blocks the hand-over until it is waived or added to the cost.' + (storagePaid > 0 ? ' The UGX ' + fmt(storagePaid) + ' already paid toward fees is moved into the total cost.' : '') })}><FiArchive aria-hidden="true" /> SET ASIDE (KEEP FEES)</button>
+                                                info: 'This takes the project out of receivables and stops new fees. The UGX ' + fmt(feesUnpaid) + ' of unpaid fees is KEPT on the project (shown as SET-ASIDE FEES) and blocks the hand-over until it is paid, waived or added to the cost.' + (storagePaid > 0 ? ' The UGX ' + fmt(storagePaid) + ' already paid toward fees is moved into the total cost.' : '') })}><FiArchive aria-hidden="true" /> SET ASIDE (KEEP FEES)</button>
                                         <button type="button" className={styles.ghostBtn} title="Leave receivables and add the fees to the total cost (reason required)."
                                             onClick={() => openReasonModal({ kind: 'CAPITALIZE', title: 'ADD FEES TO COST', confirmLabel: 'ADD FEES TO COST',
                                                 info: 'This adds the UGX ' + fmt(storageFees) + ' of storage fees to the total cost (UGX ' + fmt(totalValue) + ' becomes UGX ' + fmt(totalValue + storageFees) + ') and takes the project out of receivables.' })}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
@@ -1212,7 +1216,7 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
             <HardwareModal isOpen={payModal.open} lockBackdrop onClose={closePayModal} title={'RECORD PAYMENT - ' + plotName}>
-                {isReceivable && (<div className={styles.payTypeRow}><div className={styles.payTypeButtons}>
+                {(isReceivable || keptFees > 0) && (<div className={styles.payTypeRow}><div className={styles.payTypeButtons}>
                     <button type="button" className={`${styles.payTypeBtn} ${payType === 'TITLE' ? styles.payTypeBtnActive : ''}`} onClick={() => { setPayType('TITLE'); setPayErr(''); }} title={'Money for the title work. Owed: UGX ' + fmt(workOwed)}><FiHome size={12} /> TITLE PAYMENT</button>
                     <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => { setPayType('STORAGE'); setPayErr(''); }} disabled={feesUnpaid <= 0} title={feesUnpaid <= 0 ? 'No storage fees are unpaid.' : 'Money for storage fees. Unpaid: UGX ' + fmt(feesUnpaid)}><FiArchive size={12} /> STORAGE FEE</button>
                 </div></div>)}
