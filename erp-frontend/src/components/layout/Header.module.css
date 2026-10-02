@@ -107,6 +107,18 @@
     outline-offset: 2px;
 }
 
+/* Desktop: the button sits right above the collapsed sidebar column (52px wide,
+   2px border, so the icon centre is 25px from the left edge) and is centred on it. */
+@media (min-width: 769px) {
+    .header { padding-left: 0; }
+    .sidebarToggle {
+        width: 40px;
+        height: 40px;
+        margin-left: 5px;
+        margin-right: 6px;
+    }
+}
+
 /* ── LOGO SECTION ───────────────────────────────────────────────── */
 .logoSection {
     display: flex;

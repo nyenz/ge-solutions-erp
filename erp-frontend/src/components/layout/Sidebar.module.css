@@ -75,10 +75,11 @@
 }
 
 .collapsed .navItem {
-    padding: clamp(10px, 1.2vw, 13px) 0;
+    /* 3px right padding balances the 3px left bar so the icon stays centred */
+    padding: clamp(10px, 1.2vw, 13px) 3px clamp(10px, 1.2vw, 13px) 0;
     justify-content: center;
-    border-left-width: 0;
-    border-right: 3px solid transparent;
+    border-left: 3px solid transparent;
+    border-right-width: 0;
 }
 
 .navItem:hover {
@@ -100,8 +101,7 @@
     border-left-color: #EE8C3A;
 }
 .collapsed .active {
-    border-left-color: transparent;
-    border-right-color: #EE8C3A;
+    border-left-color: #EE8C3A;
 }
 
 /* Locked item — muted, shows lock cursor */
@@ -167,8 +167,13 @@
     white-space: nowrap;
 }
 .collapsed .branding {
-    font-size: 12px;
-    letter-spacing: 1px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+.collapsed .sidebarFooter {
+    min-height: 0;
+    padding: 5px 0;
 }
 .version { display: none; }
 
