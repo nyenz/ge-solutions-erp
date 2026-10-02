@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # PATH: fix.py
-# GOLDEN SEED -- fix177: FOLDER > Documents > View uses the Intake preview window; popup a bit smaller; X rotates like the others.
+# GOLDEN SEED -- fix178: the X in the document preview window is now the real popup X (Folder + Intake).
 #
 # WHAT CHANGES:
-#   1. FOLDER page View (documents list + payment RECEIPT button): no more new browser tab. It opens the same preview window as Intake,
-#      shaped to the document (portrait / landscape tag), Esc / X / click outside closes it.
-#   2. Preview window (Folder AND Intake) is a bit smaller with a bigger screen margin, so it is never cut off at the bottom or sides.
-#   3. The X in the preview now rotates on hover (same as every other popup); the window also fades/slides in like the others.
-#   4. LLM_CONTEXT_GUIDE.md: records the above.
+#   1. Folder and Intake preview windows: the X button uses the same shared class as every other popup (HardwareModal closeBtn),
+#      so it looks and animates identically: turns red, rotates 90 degrees on hover.
+#   2. LLM_CONTEXT_GUIDE.md: records the above.
 #
-# NOT in this fix: backend, the upload popup.
+# NOT in this fix: backend, anything else. Needs fix177 applied first.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 import os
@@ -17,8 +15,8 @@ import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix177"
-COMMIT_MSG = "fix177: Folder documents open in the Intake-style preview window; preview window a bit smaller; X rotates like other popups"
+FIX_NO = "fix178"
+COMMIT_MSG = "fix178: Preview window X is the real popup X (same class, hover rotate, red, click) on Folder and Intake"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -27,8 +25,7 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 
 F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
-F_FOLDER_CSS = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.module.css")
-F_INTAKE_CSS = os.path.join(SRC, "pages", "Intake", "IntakePage.module.css")
+F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -95,119 +92,16 @@ def patch(path, old, new, desc):
 
 
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (F_FOLDER_JSX, F_FOLDER_CSS, F_INTAKE_CSS, F_GUIDE,)
+LOAD_FILES = (F_FOLDER_JSX, F_INTAKE_JSX, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(F_FOLDER_JSX, r'''const handleOpenDoc = (filePath) => { if (!filePath) return; const url = getDocUrl(filePath); const isHttp = filePath.startsWith('http'); const ext = fileExt(filePath.split('?')[0]); const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext]; const w = window.open('', '_blank'); const go = (href, revoke) => { if (w) w.location.href = href; else window.open(href, '_blank'); if (revoke) setTimeout(() => URL.revokeObjectURL(href), 60000); }; fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(blob => go(URL.createObjectURL(mime ? new Blob([blob], { type: mime }) : blob), true)).catch(() => go(url, false)); };''', r'''// fix177: View opens the Intake-style preview window (sized to the document, always on screen) instead of a new tab
-    const [docPreview, setDocPreview] = useState(null);
-    const docUrlRef = useRef(null);
-    const closeDocPreview = () => { if (docUrlRef.current) { URL.revokeObjectURL(docUrlRef.current); docUrlRef.current = null; } setDocPreview(null); };
-    useEffect(() => {
-        if (!docPreview) return undefined;
-        const onKey = (e) => { if (e.key === 'Escape') closeDocPreview(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [docPreview]);
-    useEffect(() => () => { if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current); }, []);
-    const handleOpenDoc = async (filePath, fileName) => {
-        if (!filePath) return;
-        const url = getDocUrl(filePath);
-        const isHttp = filePath.startsWith('http');
-        const clean = filePath.split('?')[0];
-        const ext = fileExt(clean);
-        const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
-        let name = fileName;
-        if (!name) { try { name = decodeURIComponent(clean.split(/[\\/]/).pop() || 'Document'); } catch (e) { name = 'Document'; } }
-        try {
-            const r = await fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } });
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            const raw = await r.blob();
-            const blob = mime ? new Blob([raw], { type: mime }) : raw;
-            const isPdf = ext === 'pdf' || blob.type === 'application/pdf';
-            const isImg = !isPdf && String(blob.type || '').startsWith('image/');
-            if (!isPdf && !isImg) { const o = URL.createObjectURL(blob); window.open(o, '_blank'); setTimeout(() => URL.revokeObjectURL(o), 60000); return; }
-            const href = URL.createObjectURL(blob);
-            let ratio = 0.707; // A4 portrait fallback
-            try {
-                if (isPdf) {
-                    const txt = new TextDecoder('latin1').decode(await blob.slice(0, 3000000).arrayBuffer());
-                    const mb = txt.match(/\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/);
-                    if (mb) {
-                        let w = Math.abs(mb[3] - mb[1]); let h = Math.abs(mb[4] - mb[2]);
-                        const rot = txt.match(/\/Rotate\s+(-?\d+)/);
-                        if (rot && Math.abs(parseInt(rot[1], 10)) % 180 === 90) { const t = w; w = h; h = t; }
-                        if (w > 0 && h > 0) ratio = w / h;
-                    }
-                } else {
-                    ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = href; });
-                }
-            } catch (err) { /* keep the portrait default */ }
-            ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
-            if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current);
-            docUrlRef.current = href;
-            setDocPreview({ name, url: href, isPdf, ratio });
-        } catch (err) { window.open(url, '_blank'); }
-    };''', 'FolderPage: View opens the in-app preview window (reads orientation, Esc closes)')
+patch(F_FOLDER_JSX, r'''<button type="button" className={styles.pvClose} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX size={16} /></button>''', r'''<button type="button" className={modalStyles.closeBtn} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX aria-hidden="true" /></button>''', 'FolderPage: preview X uses the shared popup X (HardwareModal closeBtn)')
 
-patch(F_FOLDER_JSX, r'''onClick={() => handleOpenDoc(receipt.filePath)}''', r'''onClick={() => handleOpenDoc(receipt.filePath, receipt.fileName)}''', 'FolderPage: receipt View passes the file name')
+patch(F_INTAKE_JSX, r'''<button type="button" className={styles.pvClose} onClick={() => setPreviewFile(null)} aria-label="Close preview" title="Close"><FiX size={16} /></button>''', r'''<button type="button" className={modalStyles.closeBtn} onClick={() => setPreviewFile(null)} aria-label="Close preview" title="Close"><FiX aria-hidden="true" /></button>''', 'IntakePage: preview X uses the shared popup X (HardwareModal closeBtn)')
 
-patch(F_FOLDER_JSX, r'''onClick={() => handleOpenDoc(doc.filePath)}''', r'''onClick={() => handleOpenDoc(doc.filePath, doc.fileName)}''', 'FolderPage: document View passes the file name')
-
-patch(F_FOLDER_JSX, r'''            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
-''', r'''            {docPreview && typeof document !== 'undefined' && createPortal(
-                <div className={styles.pvOverlay} onClick={closeDocPreview} role="dialog" aria-modal="true" aria-label={docPreview.name}>
-                    <div className={styles.pvPanel} onClick={e => e.stopPropagation()}>
-                        <header className={styles.pvHead}>
-                            <span className={styles.pvTitle} title={docPreview.name}>{docPreview.name}</span>
-                            <span className={styles.pvTag}>{docPreview.ratio >= 1 ? 'Landscape' : 'Portrait'}</span>
-                            <button type="button" className={styles.pvClose} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX size={16} /></button>
-                        </header>
-                        <div className={styles.pvStage} style={{ '--pv-ratio': docPreview.ratio }}>
-                            {docPreview.isPdf
-                                ? <iframe className={styles.pvMedia} src={docPreview.url} title={docPreview.name} />
-                                : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={docPreview.url} alt={docPreview.name} />}
-                        </div>
-                    </div>
-                </div>, document.body)}
-            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
-''', 'FolderPage: preview window markup (same as Intake)')
-
-patch(F_FOLDER_CSS, r'''.callWhen { grid-area: when; color: rgba(255, 255, 255, 0.45); font-size: clamp(9px, 0.9vw, 11px); white-space: nowrap; }
-''', r'''.callWhen { grid-area: when; color: rgba(255, 255, 255, 0.45); font-size: clamp(9px, 0.9vw, 11px); white-space: nowrap; }
-
-/* fix177: preview window (same look as Intake) -- a bit smaller so it never touches the screen edge; X rotates like every other popup */
-.pvOverlay { animation: pvFade 0.2s ease-out; position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: rgba(10, 20, 25, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.pvPanel { animation: pvSlide 0.25s cubic-bezier(0.2, 1, 0.3, 1); display: flex; flex-direction: column; gap: 10px; max-width: 100%; max-height: 100%; padding: 12px; box-sizing: border-box; overflow: auto; scrollbar-width: none; background: linear-gradient(160deg, #1c3335 0%, #213e40 100%); border: 2px solid rgba(238, 140, 58, 0.4); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); }
-.pvPanel::-webkit-scrollbar { display: none; }
-.pvHead { display: flex; align-items: center; gap: 10px; min-width: 0; padding-bottom: 8px; border-bottom: 1px solid rgba(238, 140, 58, 0.25); }
-.pvTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Cinzel', serif; color: var(--orange, #EE8C3A); font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
-.pvTag { flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 2px 7px; }
-.pvClose { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; transition: all 0.2s; }
-.pvClose:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); transform: rotate(90deg); }
-.pvStage { position: relative; flex-shrink: 0; width: max(240px, min(calc(100vw - 96px), calc((100vh - 220px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }
-.pvMedia { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-.pvImg { object-fit: contain; background: #0f1f21; }
-@keyframes pvFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pvSlide { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-''', 'FolderPage.module.css: preview window styles')
-
-patch(F_INTAKE_CSS, r'''.pvOverlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: rgba(10, 20, 25, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.pvPanel { display: flex; flex-direction: column; gap: 10px; max-width: 100%; max-height: 100%; padding: 12px; box-sizing: border-box; overflow: auto; background: linear-gradient(160deg, #1c3335 0%, #213e40 100%); border: 2px solid rgba(238, 140, 58, 0.4); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); }''', r'''.pvOverlay { animation: pvFade 0.2s ease-out; position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: rgba(10, 20, 25, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.pvPanel { animation: pvSlide 0.25s cubic-bezier(0.2, 1, 0.3, 1); display: flex; flex-direction: column; gap: 10px; max-width: 100%; max-height: 100%; padding: 12px; box-sizing: border-box; overflow: auto; background: linear-gradient(160deg, #1c3335 0%, #213e40 100%); border: 2px solid rgba(238, 140, 58, 0.4); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); }''', 'IntakePage.module.css: preview window fade/slide-in + more screen margin')
-
-patch(F_INTAKE_CSS, r'''.pvClose { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
-.pvClose:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); }
-.pvStage { position: relative; flex-shrink: 0; width: max(260px, min(calc(100vw - 72px), calc((100vh - 150px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }''', r'''.pvClose { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; transition: all 0.2s; }
-.pvClose:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); transform: rotate(90deg); }
-.pvStage { position: relative; flex-shrink: 0; width: max(240px, min(calc(100vw - 96px), calc((100vh - 220px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }''', 'IntakePage.module.css: X rotates on hover like other popups; preview a bit smaller')
-
-patch(F_INTAKE_CSS, r'''.pvImg { object-fit: contain; background: #0f1f21; }''', r'''.pvImg { object-fit: contain; background: #0f1f21; }
-@keyframes pvFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pvSlide { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }''', 'IntakePage.module.css: preview keyframes')
-
-patch(F_GUIDE, r'''- FOLDER PAGE LOOPHOLES CLOSED (fix166):''', r'''- FOLDER DOCUMENT PREVIEW (fix177): Folder page View (documents list + payment RECEIPT button) no longer opens a browser tab. `handleOpenDoc(filePath, fileName)` in FolderPage.jsx fetches the file with the auth token as a typed blob, reads its shape (image size / PDF /MediaBox + /Rotate) and shows the SAME preview window as Intake (`pvOverlay/pvPanel/pvStage`, now duplicated in FolderPage.module.css). Esc, the X or a click outside closes it and frees the blob URL. Non-PDF/non-image files still open in a new tab; a failed fetch falls back to opening the URL directly. Both previews (Folder + Intake) are now a bit smaller (stage width = min(100vw-96px, (100vh-220px)*ratio), 24px screen margin), fade/slide in like HardwareModal, and the X rotates 90 degrees on hover like every other popup X.
-- FOLDER PAGE LOOPHOLES CLOSED (fix166):''', 'Guide: folder document preview (fix177)')
+patch(F_GUIDE, r'''- FOLDER PAGE LOOPHOLES CLOSED (fix166):''', r'''- PREVIEW X (fix178): the X in the Folder + Intake document preview window is now the shared popup X (`modalStyles.closeBtn` from HardwareModal.module.css, same as UNSAVED CHANGES / CALL LOG): grey square, turns red and rotates 90 degrees on hover. It is no longer a separate `.pvClose` look-alike (that CSS is now unused), so any future change to the popup X reaches the previews automatically.
+- FOLDER PAGE LOOPHOLES CLOSED (fix166):''', 'Guide: preview X (fix178)')
 
 # ============================= EDIT PART 2 END =============================
 

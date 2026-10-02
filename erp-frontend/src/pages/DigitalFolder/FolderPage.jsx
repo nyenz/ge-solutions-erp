@@ -1243,7 +1243,7 @@ const FolderPage = () => {
                         <header className={styles.pvHead}>
                             <span className={styles.pvTitle} title={docPreview.name}>{docPreview.name}</span>
                             <span className={styles.pvTag}>{docPreview.ratio >= 1 ? 'Landscape' : 'Portrait'}</span>
-                            <button type="button" className={styles.pvClose} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX size={16} /></button>
+                            <button type="button" className={modalStyles.closeBtn} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX aria-hidden="true" /></button>
                         </header>
                         <div className={styles.pvStage} style={{ '--pv-ratio': docPreview.ratio }}>
                             {docPreview.isPdf
