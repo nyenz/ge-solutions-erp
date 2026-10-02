@@ -147,8 +147,17 @@
 .upBtn:hover:not(:disabled) { background: var(--orange-dim); border-style: solid; }
 .upBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .upErr { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--red); border-radius: 4px; color: var(--red); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.5px; }
-.previewFrame { width: min(80vw, 860px); height: 70vh; border: 0; background: #fff; border-radius: 4px; }
-.previewImg { display: block; max-width: min(80vw, 860px); max-height: 70vh; margin: 0 auto; object-fit: contain; }
+/* fix176: preview window -- the stage takes the document's own shape (--pv-ratio = width / height) and is capped to the screen, so nothing is cut off */
+.pvOverlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: rgba(10, 20, 25, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pvPanel { display: flex; flex-direction: column; gap: 10px; max-width: 100%; max-height: 100%; padding: 12px; box-sizing: border-box; overflow: auto; background: linear-gradient(160deg, #1c3335 0%, #213e40 100%); border: 2px solid rgba(238, 140, 58, 0.4); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); }
+.pvHead { display: flex; align-items: center; gap: 10px; min-width: 0; padding-bottom: 8px; border-bottom: 1px solid rgba(238, 140, 58, 0.25); }
+.pvTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Cinzel', serif; color: var(--orange, #EE8C3A); font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+.pvTag { flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 2px 7px; }
+.pvClose { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
+.pvClose:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); }
+.pvStage { position: relative; flex-shrink: 0; width: max(260px, min(calc(100vw - 72px), calc((100vh - 150px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }
+.pvMedia { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.pvImg { object-fit: contain; background: #0f1f21; }
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
 .noteDateChip { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; }
 .bottomBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-md); padding: var(--gap-md) 0; margin-bottom: clamp(12px,2vh,22px); }

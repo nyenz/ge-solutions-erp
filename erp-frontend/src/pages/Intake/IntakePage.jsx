@@ -111,6 +111,33 @@ export default function IntakePage() {
     const [newCatName, setNewCatName] = useState('');
     const [catBusy, setCatBusy] = useState(false);
     const [previewFile, setPreviewFile] = useState(null);
+    // fix176: preview window is sized to the document (portrait / landscape) and always fits the screen
+    const openPreview = async (f) => {
+        const isPdf = fileExt(f.name) === 'pdf';
+        let ratio = 0.707; // A4 portrait fallback
+        try {
+            if (isPdf) {
+                const txt = new TextDecoder('latin1').decode(await f.file.arrayBuffer());
+                const mb = txt.match(/\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/);
+                if (mb) {
+                    let w = Math.abs(mb[3] - mb[1]); let h = Math.abs(mb[4] - mb[2]);
+                    const rot = txt.match(/\/Rotate\s+(-?\d+)/);
+                    if (rot && Math.abs(parseInt(rot[1], 10)) % 180 === 90) { const t = w; w = h; h = t; }
+                    if (w > 0 && h > 0) ratio = w / h;
+                }
+            } else {
+                ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = f.url; });
+            }
+        } catch (err) { /* keep the portrait default */ }
+        ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
+        setPreviewFile({ ...f, isPdf, ratio });
+    };
+    useEffect(() => {
+        if (!previewFile) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') setPreviewFile(null); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [previewFile]);
     const catLabelOf = (code) => { const c = docCats.find(x => x.code === code); return c ? c.label : ''; };
     const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };
     const [notes, setNotes] = useState('');
@@ -751,7 +778,7 @@ export default function IntakePage() {
                                         </span>
                                         <span className={styles.fileActions}>
                                             <span className={styles.fileTypeChip}>{catLabelOf(f.category) || 'No type'}</span>
-                                            <button type="button" className={`${styles.btn} ${styles.small}`} onClick={() => setPreviewFile(f)} aria-label={`View ${f.name}`}>
+                                            <button type="button" className={`${styles.btn} ${styles.small}`} onClick={() => openPreview(f)} aria-label={`View ${f.name}`}>
                                                 <FiEye size={12} /> View
                                             </button>
                                             <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>
@@ -819,11 +846,21 @@ export default function IntakePage() {
                     </div>
                 </>)}
             </HardwareModal>
-            <HardwareModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} title={previewFile ? previewFile.name : ''}>
-                {previewFile && (fileExt(previewFile.name) === 'pdf'
-                    ? <iframe className={styles.previewFrame} src={previewFile.url} title={previewFile.name} />
-                    : <img className={styles.previewImg} src={previewFile.url} alt={previewFile.name} />)}
-            </HardwareModal>
+            {previewFile && typeof document !== 'undefined' && createPortal(
+                <div className={styles.pvOverlay} onClick={() => setPreviewFile(null)} role="dialog" aria-modal="true" aria-label={previewFile.name}>
+                    <div className={styles.pvPanel} onClick={e => e.stopPropagation()}>
+                        <header className={styles.pvHead}>
+                            <span className={styles.pvTitle} title={previewFile.name}>{previewFile.name}</span>
+                            <span className={styles.pvTag}>{previewFile.ratio >= 1 ? 'Landscape' : 'Portrait'}</span>
+                            <button type="button" className={styles.pvClose} onClick={() => setPreviewFile(null)} aria-label="Close preview" title="Close"><FiX size={16} /></button>
+                        </header>
+                        <div className={styles.pvStage} style={{ '--pv-ratio': previewFile.ratio }}>
+                            {previewFile.isPdf
+                                ? <iframe className={styles.pvMedia} src={previewFile.url} title={previewFile.name} />
+                                : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={previewFile.url} alt={previewFile.name} />}
+                        </div>
+                    </div>
+                </div>, document.body)}
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
                 <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
                     <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
