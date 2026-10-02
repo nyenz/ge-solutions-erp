@@ -10,6 +10,9 @@ import {
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import HardwareSelect from '../../components/common/HardwareSelect';
+import HardwareModal from '../../components/common/HardwareModal';
+import HardwareModalSelect from '../../components/common/HardwareModalSelect';
+import modalStyles from '../../components/common/HardwareModal.module.css';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
 import { normalizePhones } from '../../utils/phone';
@@ -28,6 +31,9 @@ const DEFAULT_STAGES = ['Field Work', 'Deed Plan', 'LC Inspection', 'District La
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const todayDMY = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+// fix175: same file rules as the Folder page
+const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix172: today as yyyy-mm-dd in the user's own time zone (todayISO above is UTC and can be yesterday early in the morning)
 const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // fix172: whole 30-day months between an "in receivables since" date (yyyy-mm-dd) and today, the same count the nightly fee job uses
@@ -99,6 +105,12 @@ export default function IntakePage() {
     const [docCats, setDocCats] = useState([]);
     useEffect(() => { landService.getDocumentCategories().then(setDocCats).catch(() => {}); }, []);
     const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);
+    const catOptions = useMemo(() => catChoices.map(c => ({ value: c.code, label: c.label })), [catChoices]);
+    const [uploadDraft, setUploadDraft] = useState(null); // fix175: { batch, error, files: [{ file, category }] }
+    const [newCatOpen, setNewCatOpen] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const [catBusy, setCatBusy] = useState(false);
+    const [previewFile, setPreviewFile] = useState(null);
     const catLabelOf = (code) => { const c = docCats.find(x => x.code === code); return c ? c.label : ''; };
     const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };
     const [notes, setNotes] = useState('');
@@ -241,15 +253,46 @@ export default function IntakePage() {
     const deletePreset = (name) => { setPresets(presets.filter(p => p.name !== name)); savePresets(presets.filter(p => p.name !== name)); };
 
     const updateOwner = (idx, field, val) => { markDirty(); setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o)); };
+    // fix175: picking files opens the same UPLOAD DOCUMENTS popup the Folder page uses; files join the list only once each has a type
     const handleFileUpload = (e) => {
-        const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f), category: '' }));
-        if (items.length) { setFileQueue(p => [...p, ...items]); markDirty(); }
+        const picked = Array.from(e.target.files || []);
         e.target.value = '';
+        if (!picked.length) return;
+        const ok = []; const bad = [];
+        picked.forEach(f => {
+            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');
+            else if (!f.size) bad.push(f.name + ' (the file is empty)');
+            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');
+            else ok.push(f);
+        });
+        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
+        if (!ok.length) return;
+        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });
     };
     const removeFile = (i) => setFileQueue(p => { URL.revokeObjectURL(p[i].url); return p.filter((_, idx) => idx !== i); });
     const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
-    const setFileCategory = (i, label) => { setFileQueue(p => p.map((q, j) => (j === i ? { ...q, category: catCodeOf(label) } : q))); markDirty(); };
-    const setAllCategories = (label) => { const code = catCodeOf(label); setFileQueue(p => p.map(q => ({ ...q, category: code }))); markDirty(); };
+    const closeUploadDraft = () => { setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
+    const setBatchCategory = (code) => setUploadDraft(d => d && ({ ...d, error: '', batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
+    const setDraftFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, error: '', files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
+    const handleAddCategory = async () => {
+        const name = newCatName.trim();
+        if (name.length < 2 || catBusy) return;
+        setCatBusy(true);
+        try {
+            const cat = await landService.addDocumentCategory(name);
+            setDocCats(await landService.getDocumentCategories());
+            setNewCatName(''); setNewCatOpen(false);
+            setUploadDraft(d => d && ({ ...d, error: '', batch: d.batch || cat.code, files: d.files.map(f => (f.category ? f : { ...f, category: cat.code })) }));
+            toast('Category "' + cat.label + '" ready', 'success');
+        } catch (err) { setUploadDraft(d => d && ({ ...d, error: 'COULD NOT ADD CATEGORY: ' + ((err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || (err && err.message) || 'unknown error') })); } finally { setCatBusy(false); }
+    };
+    const confirmUploadDraft = () => {
+        if (!uploadDraft) return;
+        if (uploadDraft.files.some(f => !f.category)) { setUploadDraft(d => d && ({ ...d, error: 'PICK A CATEGORY FOR EVERY FILE.' })); return; }
+        const items = uploadDraft.files.map(({ file, category }) => ({ name: file.name, size: file.size, file, url: URL.createObjectURL(file), category }));
+        setFileQueue(p => [...p, ...items]); markDirty();
+        closeUploadDraft();
+    };
 
     const validate = () => {
         if (!district.trim()) { toast('District is required.', 'error'); return false; }
@@ -707,27 +750,16 @@ export default function IntakePage() {
                                             <span className={styles.fileSize}>{fmtSize(f.size)}</span>
                                         </span>
                                         <span className={styles.fileActions}>
-                                            <span className={styles.fileCat}>
-                                                <HardwareSelect compact options={catChoices.map(c => c.label)} value={catLabelOf(f.category)}
-                                                    placeholder="Document type" onChange={label => setFileCategory(i, label)} />
-                                            </span>
-                                            <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>
+                                            <span className={styles.fileTypeChip}>{catLabelOf(f.category) || 'No type'}</span>
+                                            <button type="button" className={`${styles.btn} ${styles.small}`} onClick={() => setPreviewFile(f)} aria-label={`View ${f.name}`}>
                                                 <FiEye size={12} /> View
-                                            </a>
+                                            </button>
                                             <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>
                                                 <FiTrash2 size={12} />
                                             </button>
                                         </span>
                                     </div>
                                 ))}
-                            </div>
-                        )}
-                        {fileQueue.length > 1 && (
-                            <div className={styles.setAllRow}>
-                                <span className={styles.setAllLabel}>Set all to</span>
-                                <HardwareSelect compact options={catChoices.map(c => c.label)}
-                                    value={fileQueue.every(q => q.category === fileQueue[0].category) ? catLabelOf(fileQueue[0].category) : ''}
-                                    placeholder="Choose type" onChange={setAllCategories} />
                             </div>
                         )}
                         <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : ''}`} onClick={triggerFileInput} role="button" tabIndex={0}
@@ -738,11 +770,11 @@ export default function IntakePage() {
                             ) : (
                                 <>
                                     <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
-                                    <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>
+                                    <span className={styles.dropzoneSub}>Required - PDF, JPG, PNG or WEBP, up to 50 MB each</span>
                                 </>
                             )}
                         </div>
-                        <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
+                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileUpload} style={{ display: 'none' }} />
                     </CollapsibleSection>
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                         <div className={styles.notesWrap}>
@@ -767,6 +799,31 @@ export default function IntakePage() {
 
             <BackToTopButton />
 
+            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
+                {uploadDraft && (<>
+                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
+                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
+                    <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
+                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>
+                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setDraftFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={'Category for ' + f.file.name} /></div>))}</div>
+                    {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>
+                        <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} />
+                        <div className={styles.upCatActions}>
+                            <button type="button" className={styles.upBtn} onClick={handleAddCategory} disabled={catBusy || newCatName.trim().length < 2}>SAVE CATEGORY</button>
+                            <button type="button" className={styles.upBtn} onClick={() => { setNewCatOpen(false); setNewCatName(''); }}>CLOSE</button>
+                        </div></div>)
+                        : (<button type="button" className={styles.upBtn} onClick={() => setNewCatOpen(true)} title="Add a category that is not in the list yet">+ NEW CATEGORY</button>)}
+                    {uploadDraft.error && <div className={styles.upErr} role="alert">{uploadDraft.error}</div>}
+                    <div className={modalStyles.modalFooter}>
+                        <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmUploadDraft}>ADD</button>
+                    </div>
+                </>)}
+            </HardwareModal>
+            <HardwareModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} title={previewFile ? previewFile.name : ''}>
+                {previewFile && (fileExt(previewFile.name) === 'pdf'
+                    ? <iframe className={styles.previewFrame} src={previewFile.url} title={previewFile.name} />
+                    : <img className={styles.previewImg} src={previewFile.url} alt={previewFile.name} />)}
+            </HardwareModal>
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
                 <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
                     <div className={styles.modalCard} onClick={e => e.stopPropagation()}>

@@ -135,6 +135,20 @@
 .dropzoneCompact { flex-direction: row; justify-content: center; gap: 8px; padding: 6px 12px; }
 .dropzoneCompact .dropzoneIcon { width: 24px; height: 24px; margin-bottom: 0; }
 .dropzoneCompact .dropzoneTitle { font-size: var(--fs-meta); }
+/* fix175: UPLOAD DOCUMENTS popup + in-page preview */
+.fileTypeChip { display: inline-flex; align-items: center; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--orange-dim); border: 1px solid var(--orange-border); color: var(--orange); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
+.upFileList { display: flex; flex-direction: column; gap: 6px; max-height: clamp(140px, 30vh, 260px); overflow-y: auto; margin-bottom: 8px; }
+.upFileRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.upFileName { flex: 1 1 50%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.8); font-size: 12px; }
+.upFileSelect { flex: 1 1 50%; min-width: 0; }
+.upCatActions { display: flex; gap: 8px; }
+.upCatActions .upBtn { flex: 1; }
+.upBtn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 8px; margin-top: 6px; border: 2px dashed var(--orange); color: var(--orange); font-size: var(--fs-meta); font-weight: 900; cursor: pointer; background: rgba(238,140,58,0.04); text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; box-sizing: border-box; }
+.upBtn:hover:not(:disabled) { background: var(--orange-dim); border-style: solid; }
+.upBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.upErr { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--red); border-radius: 4px; color: var(--red); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.5px; }
+.previewFrame { width: min(80vw, 860px); height: 70vh; border: 0; background: #fff; border-radius: 4px; }
+.previewImg { display: block; max-width: min(80vw, 860px); max-height: 70vh; margin: 0 auto; object-fit: contain; }
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
 .noteDateChip { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; }
 .bottomBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-md); padding: var(--gap-md) 0; margin-bottom: clamp(12px,2vh,22px); }

@@ -1,51 +1,37 @@
 #!/usr/bin/env python3
-# PATH: fix174.py
-# GOLDEN SEED -- fix174: DOCUMENTS sub-system -- Intake Documents box redesigned, every intake file gets a document type
-# (the folder classifications), and INVOICES added as a document type.
+# PATH: fix175.py
+# GOLDEN SEED -- fix175: INTAKE > Documents now classifies files with the Folder page's UPLOAD DOCUMENTS popup; View never downloads.
 #
 # WHAT CHANGES:
-#   1. INTAKE > Documents box: the uploaded files are listed at the TOP, the upload button sits BELOW them. Once at least one
-#      file is in, the upload button shrinks to a slim "ADD MORE DOCUMENTS" bar (full-size "CLICK TO UPLOAD *" only while empty).
-#   2. INTAKE: every file carries a DOCUMENT TYPE picked from the same classifications the Folder page uses (Application Forms,
-#      Offer Letters, Forwarding Letters, Deed Plan, Copy of Title, Invoices, plus any custom ones). A "SET ALL TO" picker shows
-#      when more than one file is queued. Saving is refused until every file has a type. PAYMENT_RECEIPT is not offered at intake
-#      (receipts are filed by the payment window and can never be deleted).
-#   3. BACKEND: POST /land/ingest accepts `categories` (one per file, same order as `scans`). LandService.atomicIntake has a new
-#      3-argument form that refuses a file without a type and files each document under its type (bad type = whole intake rolls
-#      back). The old 2-argument form stays (tests, seeders) and means "no types".
-#   4. INVOICES: new built-in category INVOICE ("Invoices"). DocumentCategoryService seeds any missing built-in on first use,
-#      so it appears on the Folder page upload window, the Folder vault headings and the Intake picker with no database edit.
+#   1. INTAKE: choosing files opens the same UPLOAD DOCUMENTS popup the Folder page uses (CATEGORY FOR ALL n FILE(S), a category
+#      per file, + NEW CATEGORY). Pressing ADD puts the files in the Documents box, each showing its type as a tag. The old inline
+#      per-file picker and the SET ALL TO row are gone. A file cannot join the list without a type.
+#   2. INTAKE: same file rules as the Folder page (PDF, JPG, PNG, WEBP; not empty; max 50 MB). Rejected files are named in a toast.
+#   3. VIEW (Intake): opens an in-page preview window (PDF in a frame, images as images) -- nothing is downloaded, no new tab.
+#   4. VIEW (Folder page): opens the stored file as a typed blob (application/pdf, image/*) so the browser shows it instead of
+#      downloading it; falls back to the plain link if the fetch fails.
 #   5. LLM_CONTEXT_GUIDE.md: records the above.
 #
-# NOT in this fix: changing the Folder page (its upload window and vault grouping already use the categories and pick up Invoices
-# by themselves), re-typing documents uploaded before, or adding a "new category" button on the Intake page (add one from the
-# Folder page upload window).
+# NOT in this fix: backend (it already takes `categories` per file from fix174), re-typing a queued file (remove it and add it again).
 #
-# Atomic: every patch for every file is matched in memory first; if any one is
-# MISSING nothing is written and nothing is committed. Runs the backend compile
-# (mvnw / mvn) and `npm run build` before committing when they are available,
-# and puts every file back exactly as it was if either goes red.
+# Atomic: every patch for every file is matched in memory first; if any one is MISSING nothing is written and nothing is committed.
 import os
 import subprocess
 import sys
 
 # ============================ EDIT PART 1 START ============================
-FIX_NO = "fix174"
-COMMIT_MSG = "fix174: Intake documents box (files on top, slim upload bar), document type per intake file, Invoices category"
+FIX_NO = "fix175"
+COMMIT_MSG = "fix175: Intake documents use the Folder upload popup for classification; View opens inline without downloading"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 BACKEND = os.path.join(ROOT, "erp-backend")
 FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
-JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
-F_DOC_CAT_SERVICE = os.path.join(JAVA, "modules", "land", "service", "DocumentCategoryService.java")
-F_LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
-F_LAND_CONTROLLER = os.path.join(JAVA, "modules", "land", "controller", "LandController.java")
-F_LAND_SERVICE_JS = os.path.join(SRC, "services", "landService.js")
 F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
 F_INTAKE_CSS = os.path.join(SRC, "pages", "Intake", "IntakePage.module.css")
+F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -109,259 +95,31 @@ def patch(path, old, new, desc):
     FILES[path] = sub(FILES[path], old, new, desc)
 
 
+
 # ============================ EDIT PART 2 START ============================
-LOAD_FILES = (F_DOC_CAT_SERVICE, F_LAND_SERVICE, F_LAND_CONTROLLER, F_LAND_SERVICE_JS, F_INTAKE_JSX, F_INTAKE_CSS, F_GUIDE,)
+LOAD_FILES = (F_INTAKE_JSX, F_INTAKE_CSS, F_FOLDER_JSX, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(F_DOC_CAT_SERVICE,
-      "\n".join([
-          "        {\"PAYMENT_RECEIPT\",    \"Payment Receipts\"},",
-          "    };",
-      ]),
-      "\n".join([
-          "        {\"PAYMENT_RECEIPT\",    \"Payment Receipts\"},",
-          "        {\"INVOICE\",            \"Invoices\"},   // fix174",
-          "    };",
-      ]),
-      "DocumentCategoryService: INVOICE built-in category")
+patch(F_INTAKE_JSX, "import HardwareSelect from '../../components/common/HardwareSelect';\n", "import HardwareSelect from '../../components/common/HardwareSelect';\nimport HardwareModal from '../../components/common/HardwareModal';\nimport HardwareModalSelect from '../../components/common/HardwareModalSelect';\nimport modalStyles from '../../components/common/HardwareModal.module.css';\n", "IntakePage: imports (modal, modal select, modal styles)")
 
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {",
-      ]),
-      "\n".join([
-          "    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {",
-          "        return atomicIntake(request, scans, null);",
-          "    }",
-          "",
-          "    // fix174: the Intake page sends a document type (category code) for every file, same order as the files.",
-          "    // A file without a type is refused here because the server must not trust the page. A type that does not exist is refused",
-          "    // inside addScansToProject, which rolls the whole intake back.",
-          "    @Transactional(rollbackFor = Exception.class)",
-          "    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories) throws Exception {",
-          "        if (categories != null && scans != null) {",
-          "            for (int i = 0; i < scans.length; i++) {",
-          "                String c = i < categories.size() ? categories.get(i) : null;",
-          "                if (c == null || c.isBlank()) {",
-          "                    throw new BusinessException(\"DOCUMENT_TYPE_MISSING: Pick a document type for every file (\" + scans[i].getOriginalFilename() + \").\");",
-          "                }",
-          "            }",
-          "        }",
-      ]),
-      "LandService: atomicIntake with a document type per file")
+patch(F_INTAKE_JSX, "const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';", "const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';\n// fix175: same file rules as the Folder page\nconst SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];\nconst fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };", "IntakePage: file helpers (allowed types)")
 
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "        if (scans != null) addScansToProject(saved.getId(), scans);",
-      ]),
-      "\n".join([
-          "        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type",
-      ]),
-      "LandService: intake files each document under its type")
+patch(F_INTAKE_JSX, "    const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);\n", "    const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);\n    const catOptions = useMemo(() => catChoices.map(c => ({ value: c.code, label: c.label })), [catChoices]);\n    const [uploadDraft, setUploadDraft] = useState(null); // fix175: { batch, error, files: [{ file, category }] }\n    const [newCatOpen, setNewCatOpen] = useState(false);\n    const [newCatName, setNewCatName] = useState('');\n    const [catBusy, setCatBusy] = useState(false);\n    const [previewFile, setPreviewFile] = useState(null);\n", "IntakePage: popup + preview state")
 
-patch(F_LAND_CONTROLLER,
-      "\n".join([
-          "            @RequestPart(value = \"scans\", required = false) MultipartFile[] scans) throws Exception {",
-          "        LandEntryRequest request = objectMapper.readValue(jsonData, LandEntryRequest.class);",
-          "        return ResponseEntity.ok(landService.atomicIntake(request, scans));",
-      ]),
-      "\n".join([
-          "            @RequestPart(value = \"scans\", required = false) MultipartFile[] scans,",
-          "            @RequestParam(value = \"categories\", required = false) List<String> categories) throws Exception {   // fix174",
-          "        LandEntryRequest request = objectMapper.readValue(jsonData, LandEntryRequest.class);",
-          "        return ResponseEntity.ok(landService.atomicIntake(request, scans, categories));",
-      ]),
-      "LandController: /land/ingest takes the document types")
+patch(F_INTAKE_JSX, "    const handleFileUpload = (e) => {\n        const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f), category: '' }));\n        if (items.length) { setFileQueue(p => [...p, ...items]); markDirty(); }\n        e.target.value = '';\n    };", "    // fix175: picking files opens the same UPLOAD DOCUMENTS popup the Folder page uses; files join the list only once each has a type\n    const handleFileUpload = (e) => {\n        const picked = Array.from(e.target.files || []);\n        e.target.value = '';\n        if (!picked.length) return;\n        const ok = []; const bad = [];\n        picked.forEach(f => {\n            if (!SCAN_EXT.includes(fileExt(f.name))) bad.push(f.name + ' (use PDF, JPG, PNG or WEBP)');\n            else if (!f.size) bad.push(f.name + ' (the file is empty)');\n            else if (f.size > 50 * 1024 * 1024) bad.push(f.name + ' (over 50 MB)');\n            else ok.push(f);\n        });\n        if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');\n        if (!ok.length) return;\n        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });\n    };", "IntakePage: file pick opens the popup")
 
-patch(F_LAND_SERVICE_JS,
-      "\n".join([
-          "    createAtomicEntry: async (data, scans) => {",
-      ]),
-      "\n".join([
-          "    createAtomicEntry: async (data, scans, categories = []) => {",
-      ]),
-      "landService.js: createAtomicEntry takes categories")
+patch(F_INTAKE_JSX, '    const setFileCategory = (i, label) => { setFileQueue(p => p.map((q, j) => (j === i ? { ...q, category: catCodeOf(label) } : q))); markDirty(); };\n    const setAllCategories = (label) => { const code = catCodeOf(label); setFileQueue(p => p.map(q => ({ ...q, category: code }))); markDirty(); };', '    const closeUploadDraft = () => { setUploadDraft(null); setNewCatOpen(false); setNewCatName(\'\'); };\n    const setBatchCategory = (code) => setUploadDraft(d => d && ({ ...d, error: \'\', batch: code, files: d.files.map(f => ({ ...f, category: code })) }));\n    const setDraftFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, error: \'\', files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));\n    const handleAddCategory = async () => {\n        const name = newCatName.trim();\n        if (name.length < 2 || catBusy) return;\n        setCatBusy(true);\n        try {\n            const cat = await landService.addDocumentCategory(name);\n            setDocCats(await landService.getDocumentCategories());\n            setNewCatName(\'\'); setNewCatOpen(false);\n            setUploadDraft(d => d && ({ ...d, error: \'\', batch: d.batch || cat.code, files: d.files.map(f => (f.category ? f : { ...f, category: cat.code })) }));\n            toast(\'Category "\' + cat.label + \'" ready\', \'success\');\n        } catch (err) { setUploadDraft(d => d && ({ ...d, error: \'COULD NOT ADD CATEGORY: \' + ((err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || (err && err.message) || \'unknown error\') })); } finally { setCatBusy(false); }\n    };\n    const confirmUploadDraft = () => {\n        if (!uploadDraft) return;\n        if (uploadDraft.files.some(f => !f.category)) { setUploadDraft(d => d && ({ ...d, error: \'PICK A CATEGORY FOR EVERY FILE.\' })); return; }\n        const items = uploadDraft.files.map(({ file, category }) => ({ name: file.name, size: file.size, file, url: URL.createObjectURL(file), category }));\n        setFileQueue(p => [...p, ...items]); markDirty();\n        closeUploadDraft();\n    };', "IntakePage: popup handlers")
 
-patch(F_LAND_SERVICE_JS,
-      "\n".join([
-          "        if (scans) scans.forEach(file => formData.append('scans', file));",
-          "        const response = await api.post('/land/ingest', formData, {",
-      ]),
-      "\n".join([
-          "        if (scans) scans.forEach(file => formData.append('scans', file));",
-          "        // fix174: one document type (category code) per file, same order as scans",
-          "        if (scans && categories.length === scans.length) categories.forEach(c => formData.append('categories', c || ''));",
-          "        const response = await api.post('/land/ingest', formData, {",
-      ]),
-      "landService.js: send one category per intake file")
+patch(F_INTAKE_JSX, '                        {fileQueue.length > 0 && (\n                            <div className={styles.fileList}>\n                                {fileQueue.map((f, i) => (\n                                    <div key={i} className={styles.fileItem}>\n                                        <span className={styles.fileMeta}>\n                                            <FiFile className={styles.fileIcon} size={14} />\n                                            <span className={styles.fileName}>{f.name}</span>\n                                            <span className={styles.fileSize}>{fmtSize(f.size)}</span>\n                                        </span>\n                                        <span className={styles.fileActions}>\n                                            <span className={styles.fileCat}>\n                                                <HardwareSelect compact options={catChoices.map(c => c.label)} value={catLabelOf(f.category)}\n                                                    placeholder="Document type" onChange={label => setFileCategory(i, label)} />\n                                            </span>\n                                            <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>\n                                                <FiEye size={12} /> View\n                                            </a>\n                                            <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>\n                                                <FiTrash2 size={12} />\n                                            </button>\n                                        </span>\n                                    </div>\n                                ))}\n                            </div>\n                        )}\n                        {fileQueue.length > 1 && (\n                            <div className={styles.setAllRow}>\n                                <span className={styles.setAllLabel}>Set all to</span>\n                                <HardwareSelect compact options={catChoices.map(c => c.label)}\n                                    value={fileQueue.every(q => q.category === fileQueue[0].category) ? catLabelOf(fileQueue[0].category) : \'\'}\n                                    placeholder="Choose type" onChange={setAllCategories} />\n                            </div>\n                        )}\n                        <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : \'\'}`} onClick={triggerFileInput} role="button" tabIndex={0}\n                            onKeyDown={e => { if (e.key === \'Enter\' || e.key === \' \') { e.preventDefault(); triggerFileInput(); } }}>\n                            <span className={styles.dropzoneIcon}><FiUploadCloud size={fileQueue.length > 0 ? 13 : 18} /></span>\n                            {fileQueue.length > 0 ? (\n                                <span className={styles.dropzoneTitle}>Add more documents</span>\n                            ) : (\n                                <>\n                                    <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>\n                                    <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>\n                                </>\n                            )}\n                        </div>\n                        <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: \'none\' }} />', '                        {fileQueue.length > 0 && (\n                            <div className={styles.fileList}>\n                                {fileQueue.map((f, i) => (\n                                    <div key={i} className={styles.fileItem}>\n                                        <span className={styles.fileMeta}>\n                                            <FiFile className={styles.fileIcon} size={14} />\n                                            <span className={styles.fileName}>{f.name}</span>\n                                            <span className={styles.fileSize}>{fmtSize(f.size)}</span>\n                                        </span>\n                                        <span className={styles.fileActions}>\n                                            <span className={styles.fileTypeChip}>{catLabelOf(f.category) || \'No type\'}</span>\n                                            <button type="button" className={`${styles.btn} ${styles.small}`} onClick={() => setPreviewFile(f)} aria-label={`View ${f.name}`}>\n                                                <FiEye size={12} /> View\n                                            </button>\n                                            <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>\n                                                <FiTrash2 size={12} />\n                                            </button>\n                                        </span>\n                                    </div>\n                                ))}\n                            </div>\n                        )}\n                        <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : \'\'}`} onClick={triggerFileInput} role="button" tabIndex={0}\n                            onKeyDown={e => { if (e.key === \'Enter\' || e.key === \' \') { e.preventDefault(); triggerFileInput(); } }}>\n                            <span className={styles.dropzoneIcon}><FiUploadCloud size={fileQueue.length > 0 ? 13 : 18} /></span>\n                            {fileQueue.length > 0 ? (\n                                <span className={styles.dropzoneTitle}>Add more documents</span>\n                            ) : (\n                                <>\n                                    <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>\n                                    <span className={styles.dropzoneSub}>Required - PDF, JPG, PNG or WEBP, up to 50 MB each</span>\n                                </>\n                            )}\n                        </div>\n                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileUpload} style={{ display: \'none\' }} />', "IntakePage: Documents box (type tag, inline View, no inline picker)")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "    const [fileQueue, setFileQueue] = useState([]);",
-          "",
-      ]),
-      "\n".join([
-          "    const [fileQueue, setFileQueue] = useState([]);",
-          "    // fix174: document types = the Folder page classifications (PAYMENT_RECEIPT is filed by the payment window, never at intake)",
-          "    const [docCats, setDocCats] = useState([]);",
-          "    useEffect(() => { landService.getDocumentCategories().then(setDocCats).catch(() => {}); }, []);",
-          "    const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);",
-          "    const catLabelOf = (code) => { const c = docCats.find(x => x.code === code); return c ? c.label : ''; };",
-          "    const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };",
-          "",
-      ]),
-      "IntakePage: load document types")
+patch(F_INTAKE_JSX, "            {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(", '            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">\n                {uploadDraft && (<>\n                    <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>\n                        <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>\n                    <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>\n                        <span className={styles.upFileName} title={f.file.name}>{f.file.name}</span>\n                        <HardwareModalSelect compact className={styles.upFileSelect} value={f.category} options={catOptions} onChange={code => setDraftFileCategory(i, code)} placeholder="Category" emptyText="No categories available" ariaLabel={\'Category for \' + f.file.name} /></div>))}</div>\n                    {newCatOpen ? (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NEW CATEGORY NAME</label>\n                        <input type="text" className={modalStyles.modalInput} value={newCatName} maxLength={120} placeholder="e.g. Survey Report" onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === \'Enter\') handleAddCategory(); }} />\n                        <div className={styles.upCatActions}>\n                            <button type="button" className={styles.upBtn} onClick={handleAddCategory} disabled={catBusy || newCatName.trim().length < 2}>SAVE CATEGORY</button>\n                            <button type="button" className={styles.upBtn} onClick={() => { setNewCatOpen(false); setNewCatName(\'\'); }}>CLOSE</button>\n                        </div></div>)\n                        : (<button type="button" className={styles.upBtn} onClick={() => setNewCatOpen(true)} title="Add a category that is not in the list yet">+ NEW CATEGORY</button>)}\n                    {uploadDraft.error && <div className={styles.upErr} role="alert">{uploadDraft.error}</div>}\n                    <div className={modalStyles.modalFooter}>\n                        <button type="button" className={modalStyles.modalBtnPrimary} onClick={confirmUploadDraft}>ADD</button>\n                    </div>\n                </>)}\n            </HardwareModal>\n            <HardwareModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} title={previewFile ? previewFile.name : \'\'}>\n                {previewFile && (fileExt(previewFile.name) === \'pdf\'\n                    ? <iframe className={styles.previewFrame} src={previewFile.url} title={previewFile.name} />\n                    : <img className={styles.previewImg} src={previewFile.url} alt={previewFile.name} />)}\n            </HardwareModal>\n            {blocker.state === \'blocked\' && typeof document !== \'undefined\' && createPortal(', "IntakePage: upload popup + preview window")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f) }));",
-      ]),
-      "\n".join([
-          "const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f), category: '' }));",
-      ]),
-      "IntakePage: each queued file starts with no type")
+patch(F_INTAKE_CSS, '.notesWrap { display: flex; flex-direction: column; gap: 4px; }', '/* fix175: UPLOAD DOCUMENTS popup + in-page preview */\n.fileTypeChip { display: inline-flex; align-items: center; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--orange-dim); border: 1px solid var(--orange-border); color: var(--orange); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }\n.upFileList { display: flex; flex-direction: column; gap: 6px; max-height: clamp(140px, 30vh, 260px); overflow-y: auto; margin-bottom: 8px; }\n.upFileRow { display: flex; align-items: center; gap: 8px; min-width: 0; }\n.upFileName { flex: 1 1 50%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.8); font-size: 12px; }\n.upFileSelect { flex: 1 1 50%; min-width: 0; }\n.upCatActions { display: flex; gap: 8px; }\n.upCatActions .upBtn { flex: 1; }\n.upBtn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 8px; margin-top: 6px; border: 2px dashed var(--orange); color: var(--orange); font-size: var(--fs-meta); font-weight: 900; cursor: pointer; background: rgba(238,140,58,0.04); text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; box-sizing: border-box; }\n.upBtn:hover:not(:disabled) { background: var(--orange-dim); border-style: solid; }\n.upBtn:disabled { opacity: 0.5; cursor: not-allowed; }\n.upErr { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--red); border-radius: 4px; color: var(--red); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.5px; }\n.previewFrame { width: min(80vw, 860px); height: 70vh; border: 0; background: #fff; border-radius: 4px; }\n.previewImg { display: block; max-width: min(80vw, 860px); max-height: 70vh; margin: 0 auto; object-fit: contain; }\n.notesWrap { display: flex; flex-direction: column; gap: 4px; }', "IntakePage.module.css: popup + preview styles")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "    const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();",
-          "",
-      ]),
-      "\n".join([
-          "    const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();",
-          "    const setFileCategory = (i, label) => { setFileQueue(p => p.map((q, j) => (j === i ? { ...q, category: catCodeOf(label) } : q))); markDirty(); };",
-          "    const setAllCategories = (label) => { const code = catCodeOf(label); setFileQueue(p => p.map(q => ({ ...q, category: code }))); markDirty(); };",
-          "",
-      ]),
-      "IntakePage: set document type (one file / all files)")
+patch(F_FOLDER_JSX, "    const handleOpenDoc = (filePath) => { if (!filePath) return; const url = getDocUrl(filePath); if (filePath.startsWith('http')) window.open(url, '_blank', 'noopener,noreferrer'); else fetch(url, { headers: { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } }).then(r => r.blob()).then(blob => { const b = URL.createObjectURL(blob); window.open(b, '_blank', 'noopener,noreferrer'); setTimeout(() => URL.revokeObjectURL(b), 30000); }).catch(() => window.open(url, '_blank', 'noopener,noreferrer')); };", "    // fix175: View opens the file in a tab as a typed blob so PDFs/images show in the browser instead of downloading\n    const handleOpenDoc = (filePath) => { if (!filePath) return; const url = getDocUrl(filePath); const isHttp = filePath.startsWith('http'); const ext = fileExt(filePath.split('?')[0]); const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext]; const w = window.open('', '_blank'); const go = (href, revoke) => { if (w) w.location.href = href; else window.open(href, '_blank'); if (revoke) setTimeout(() => URL.revokeObjectURL(href), 60000); }; fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(blob => go(URL.createObjectURL(mime ? new Blob([blob], { type: mime }) : blob), true)).catch(() => go(url, false)); };", "FolderPage: View opens inline as typed blob")
 
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "        if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }",
-          "",
-      ]),
-      "\n".join([
-          "        if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }",
-          "        if (fileQueue.some(q => !q.category)) { toast('Pick a document type for every file.', 'error'); return false; }   // fix174",
-          "",
-      ]),
-      "IntakePage: every file needs a document type")
-
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));",
-      ]),
-      "\n".join([
-          "await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));",
-      ]),
-      "IntakePage: send the document types with the files")
-
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "                        <div className={styles.dropzone} onClick={triggerFileInput} role=\"button\" tabIndex={0}",
-          "                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}>",
-          "                            <span className={styles.dropzoneIcon}><FiUploadCloud size={18} /></span>",
-          "                            <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>",
-          "                            <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>",
-          "                        </div>",
-          "                        <input ref={fileInputRef} type=\"file\" multiple onChange={handleFileUpload} style={{ display: 'none' }} />",
-          "                        <div className={styles.fileList}>",
-          "                            {fileQueue.map((f, i) => (",
-          "                                <div key={i} className={styles.fileItem}>",
-          "                                    <span className={styles.fileMeta}>",
-          "                                        <FiFile className={styles.fileIcon} size={14} />",
-          "                                        <span className={styles.fileName}>{f.name}</span>",
-          "                                        <span className={styles.fileSize}>{fmtSize(f.size)}</span>",
-          "                                    </span>",
-          "                                    <span className={styles.fileActions}>",
-          "                                        <a className={`${styles.btn} ${styles.small}`} href={f.url} target=\"_blank\" rel=\"noreferrer\" aria-label={`View ${f.name}`}>",
-          "                                            <FiEye size={12} /> View",
-          "                                        </a>",
-          "                                        <button type=\"button\" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>",
-          "                                            <FiTrash2 size={12} />",
-          "                                        </button>",
-          "                                    </span>",
-          "                                </div>",
-          "                            ))}",
-          "                        </div>",
-      ]),
-      "\n".join([
-          "                        {fileQueue.length > 0 && (",
-          "                            <div className={styles.fileList}>",
-          "                                {fileQueue.map((f, i) => (",
-          "                                    <div key={i} className={styles.fileItem}>",
-          "                                        <span className={styles.fileMeta}>",
-          "                                            <FiFile className={styles.fileIcon} size={14} />",
-          "                                            <span className={styles.fileName}>{f.name}</span>",
-          "                                            <span className={styles.fileSize}>{fmtSize(f.size)}</span>",
-          "                                        </span>",
-          "                                        <span className={styles.fileActions}>",
-          "                                            <span className={styles.fileCat}>",
-          "                                                <HardwareSelect compact options={catChoices.map(c => c.label)} value={catLabelOf(f.category)}",
-          "                                                    placeholder=\"Document type\" onChange={label => setFileCategory(i, label)} />",
-          "                                            </span>",
-          "                                            <a className={`${styles.btn} ${styles.small}`} href={f.url} target=\"_blank\" rel=\"noreferrer\" aria-label={`View ${f.name}`}>",
-          "                                                <FiEye size={12} /> View",
-          "                                            </a>",
-          "                                            <button type=\"button\" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>",
-          "                                                <FiTrash2 size={12} />",
-          "                                            </button>",
-          "                                        </span>",
-          "                                    </div>",
-          "                                ))}",
-          "                            </div>",
-          "                        )}",
-          "                        {fileQueue.length > 1 && (",
-          "                            <div className={styles.setAllRow}>",
-          "                                <span className={styles.setAllLabel}>Set all to</span>",
-          "                                <HardwareSelect compact options={catChoices.map(c => c.label)}",
-          "                                    value={fileQueue.every(q => q.category === fileQueue[0].category) ? catLabelOf(fileQueue[0].category) : ''}",
-          "                                    placeholder=\"Choose type\" onChange={setAllCategories} />",
-          "                            </div>",
-          "                        )}",
-          "                        <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : ''}`} onClick={triggerFileInput} role=\"button\" tabIndex={0}",
-          "                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}>",
-          "                            <span className={styles.dropzoneIcon}><FiUploadCloud size={fileQueue.length > 0 ? 13 : 18} /></span>",
-          "                            {fileQueue.length > 0 ? (",
-          "                                <span className={styles.dropzoneTitle}>Add more documents</span>",
-          "                            ) : (",
-          "                                <>",
-          "                                    <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>",
-          "                                    <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>",
-          "                                </>",
-          "                            )}",
-          "                        </div>",
-          "                        <input ref={fileInputRef} type=\"file\" multiple onChange={handleFileUpload} style={{ display: 'none' }} />",
-      ]),
-      "IntakePage: Documents box -- files on top, slim upload bar below, type picker per file")
-
-patch(F_INTAKE_CSS,
-      "\n".join([
-          ".fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; }",
-      ]),
-      "\n".join([
-          ".fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; align-items: center; }",
-          "/* fix174: files on top, slim upload bar below */",
-          ".fileList { margin-bottom: var(--gap-md); }",
-          ".fileItem { flex-wrap: wrap; }",
-          ".fileCat { display: inline-flex; min-width: 0; }",
-          ".setAllRow { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: var(--gap-md); }",
-          ".setAllLabel { font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.45); }",
-          ".dropzoneCompact { flex-direction: row; justify-content: center; gap: 8px; padding: 6px 12px; }",
-          ".dropzoneCompact .dropzoneIcon { width: 24px; height: 24px; margin-bottom: 0; }",
-          ".dropzoneCompact .dropzoneTitle { font-size: var(--fs-meta); }",
-      ]),
-      "IntakePage.module.css: slim upload bar + type picker styles")
-
-patch(F_GUIDE,
-      "\n".join([
-          "- FOLDER PAGE LOOPHOLES CLOSED (fix166):",
-      ]),
-      "\n".join([
-          "- DOCUMENTS (fix174): (1) the Intake Documents box lists the files at the TOP and the upload button BELOW; once a file is queued the button shrinks to a slim ADD MORE DOCUMENTS bar. (2) Every intake file must carry a document type = a `document_categories` code (the Folder page classifications; PAYMENT_RECEIPT is not offered at intake). `POST /land/ingest` takes `categories` (one per file, same order as `scans`); `LandService.atomicIntake(request, scans, categories)` refuses a missing type and rolls the whole intake back on an unknown one; the 2-argument form still exists and means no types. (3) INVOICE (\"Invoices\") is a built-in category, seeded by `DocumentCategoryService.ensureDefaults()` like the other built-ins -- add future built-ins to `DEFAULTS` there, nowhere else.",
-          "- FOLDER PAGE LOOPHOLES CLOSED (fix166):",
-      ]),
-      "Guide: documents rules (fix174)")
+patch(F_GUIDE, '- FOLDER PAGE LOOPHOLES CLOSED (fix166):', '- DOCUMENTS POPUP + VIEW (fix175): Intake file picking opens the SAME UPLOAD DOCUMENTS popup as the Folder page (category for all + per file + NEW CATEGORY); ADD puts the files in the Intake Documents box with their type shown as a tag (no inline picker). Files follow the Folder rules: PDF/JPG/PNG/WEBP, not empty, max 50 MB. Intake View opens an in-page preview (PDF in an iframe, images as <img>) from the local blob -- nothing downloads. Folder View (`handleOpenDoc`) fetches the file and opens it as a typed blob (application/pdf, image/*) so Cloudinary / vault files display instead of downloading; plain-link fallback if the fetch fails.\n- FOLDER PAGE LOOPHOLES CLOSED (fix166):', "Guide: documents popup + inline view (fix175)")
 
 # ============================= EDIT PART 2 END =============================
 
