@@ -738,7 +738,56 @@ const FolderPage = () => {
     };
     const getDocUrl = (filePath) => { if (!filePath) return '#'; if (filePath.startsWith('http')) return filePath; const parts = filePath.split(/ge_uploads[/]/); const rel = parts.length > 1 ? parts[1] : filePath; const base = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1'; return base + '/vault/' + rel.replace(/\\/g, '/'); };
     // fix175: View opens the file in a tab as a typed blob so PDFs/images show in the browser instead of downloading
-    const handleOpenDoc = (filePath) => { if (!filePath) return; const url = getDocUrl(filePath); const isHttp = filePath.startsWith('http'); const ext = fileExt(filePath.split('?')[0]); const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext]; const w = window.open('', '_blank'); const go = (href, revoke) => { if (w) w.location.href = href; else window.open(href, '_blank'); if (revoke) setTimeout(() => URL.revokeObjectURL(href), 60000); }; fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(blob => go(URL.createObjectURL(mime ? new Blob([blob], { type: mime }) : blob), true)).catch(() => go(url, false)); };
+    // fix177: View opens the Intake-style preview window (sized to the document, always on screen) instead of a new tab
+    const [docPreview, setDocPreview] = useState(null);
+    const docUrlRef = useRef(null);
+    const closeDocPreview = () => { if (docUrlRef.current) { URL.revokeObjectURL(docUrlRef.current); docUrlRef.current = null; } setDocPreview(null); };
+    useEffect(() => {
+        if (!docPreview) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') closeDocPreview(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [docPreview]);
+    useEffect(() => () => { if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current); }, []);
+    const handleOpenDoc = async (filePath, fileName) => {
+        if (!filePath) return;
+        const url = getDocUrl(filePath);
+        const isHttp = filePath.startsWith('http');
+        const clean = filePath.split('?')[0];
+        const ext = fileExt(clean);
+        const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
+        let name = fileName;
+        if (!name) { try { name = decodeURIComponent(clean.split(/[\\/]/).pop() || 'Document'); } catch (e) { name = 'Document'; } }
+        try {
+            const r = await fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const raw = await r.blob();
+            const blob = mime ? new Blob([raw], { type: mime }) : raw;
+            const isPdf = ext === 'pdf' || blob.type === 'application/pdf';
+            const isImg = !isPdf && String(blob.type || '').startsWith('image/');
+            if (!isPdf && !isImg) { const o = URL.createObjectURL(blob); window.open(o, '_blank'); setTimeout(() => URL.revokeObjectURL(o), 60000); return; }
+            const href = URL.createObjectURL(blob);
+            let ratio = 0.707; // A4 portrait fallback
+            try {
+                if (isPdf) {
+                    const txt = new TextDecoder('latin1').decode(await blob.slice(0, 3000000).arrayBuffer());
+                    const mb = txt.match(/\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/);
+                    if (mb) {
+                        let w = Math.abs(mb[3] - mb[1]); let h = Math.abs(mb[4] - mb[2]);
+                        const rot = txt.match(/\/Rotate\s+(-?\d+)/);
+                        if (rot && Math.abs(parseInt(rot[1], 10)) % 180 === 90) { const t = w; w = h; h = t; }
+                        if (w > 0 && h > 0) ratio = w / h;
+                    }
+                } else {
+                    ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = href; });
+                }
+            } catch (err) { /* keep the portrait default */ }
+            ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
+            if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current);
+            docUrlRef.current = href;
+            setDocPreview({ name, url: href, isPdf, ratio });
+        } catch (err) { window.open(url, '_blank'); }
+    };
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
 
     if (loading) return (<div className={styles.container}><div className={styles.skeletonPage}><div className={styles.skeletonTermHeader} /><div className={styles.skeletonHUD} /><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div><div className={styles.skeletonPanel}><div className={styles.skeletonHeader} /><div className={styles.skeletonBody}><div className={styles.skeletonLine} /><div className={styles.skeletonLine} /></div></div></div></div>);
@@ -1063,7 +1112,7 @@ const FolderPage = () => {
                                             {noteText && noteText !== 'Payment received' && <div className={styles.payNoteText}>{noteText}</div>}
                                         </div>
                                         <div className={styles.payRowRight}><div className={styles.payDate} title={fmtDateTime(pay.timestamp)}>{fmtDate(pay.timestamp)}</div>
-                                            {receipt && <button type="button" className={styles.receiptLink} onClick={() => handleOpenDoc(receipt.filePath)} title={'Open the receipt: ' + receipt.fileName}><FiExternalLink aria-hidden="true" /> RECEIPT</button>}
+                                            {receipt && <button type="button" className={styles.receiptLink} onClick={() => handleOpenDoc(receipt.filePath, receipt.fileName)} title={'Open the receipt: ' + receipt.fileName}><FiExternalLink aria-hidden="true" /> RECEIPT</button>}
                                             {canMoney && !isDeleted && !isRev && Number(pay.amountPaid) > 0 && !reversedIds.has(pay.id) && !isReleased && (
                                                 <button type="button" className={styles.reverseBtn} title="Cancel this payment. The original line stays; a negative REVERSAL line is added (reason required)."
                                                     onClick={() => openReasonModal({ kind: 'REVERSE', paymentId: pay.id, title: 'REVERSE PAYMENT', confirmLabel: 'REVERSE PAYMENT',
@@ -1136,7 +1185,7 @@ const FolderPage = () => {
                         {docCount === 0 ? (<div className={styles.emptyState}><FiUploadCloud className={styles.emptyIcon} aria-hidden="true" /><span>NO DOCUMENTS ATTACHED</span></div>) : (
                             <div className={styles.compactVault}>{docGroups.map(([cat, docs]) => (<React.Fragment key={cat}><div className={styles.docGroupLabel}>{cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)}<span className={styles.docGroupCount}>{docs.length}</span></div>{docs.map((doc) => (<div key={doc.id} className={styles.docTag}>
                                 <FiFileText className={styles.docIcon} aria-hidden="true" />
-                                <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath)} title={'Open ' + doc.fileName}>{doc.fileName}</button>
+                                <button type="button" className={styles.docName} onClick={() => handleOpenDoc(doc.filePath, doc.fileName)} title={'Open ' + doc.fileName}>{doc.fileName}</button>
                                 <span className={styles.docMeta} title="Uploaded by / on">{doc.uploadedBy || '---'}{doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : ''}</span>
                                 {canEdit && !isReleased && doc.category !== 'PAYMENT_RECEIPT' && <button type="button" className={styles.iconBtn} onClick={() => handleDeleteDoc(doc.id, doc.fileName)} title="Delete this document" aria-label={'Delete ' + doc.fileName}><FiTrash2 className={styles.redIcon} aria-hidden="true" /></button>}
                                 {doc.category === 'PAYMENT_RECEIPT' && <span className={styles.lockTag} title="A payment receipt is proof of money received and can never be deleted. Reverse the payment instead.">LOCKED</span>}
@@ -1188,6 +1237,21 @@ const FolderPage = () => {
                 onChange={e => { if (!e.target.files?.length) return; handleVaultAction(Array.from(e.target.files)); e.target.value = ''; }} />
             <UnsavedChangesModal isOpen={guardModalOpen} onStay={handleStay} onLeave={handleLeave} context="Plot Record Edit" />
             <NinMismatchModal isOpen={!!ninMismatch} existingName={ninMismatch?.existingName} enteredName={ninMismatch?.enteredName} onConfirm={handleNinMismatchConfirm} onReject={handleNinMismatchReject} />
+            {docPreview && typeof document !== 'undefined' && createPortal(
+                <div className={styles.pvOverlay} onClick={closeDocPreview} role="dialog" aria-modal="true" aria-label={docPreview.name}>
+                    <div className={styles.pvPanel} onClick={e => e.stopPropagation()}>
+                        <header className={styles.pvHead}>
+                            <span className={styles.pvTitle} title={docPreview.name}>{docPreview.name}</span>
+                            <span className={styles.pvTag}>{docPreview.ratio >= 1 ? 'Landscape' : 'Portrait'}</span>
+                            <button type="button" className={styles.pvClose} onClick={closeDocPreview} aria-label="Close preview" title="Close"><FiX size={16} /></button>
+                        </header>
+                        <div className={styles.pvStage} style={{ '--pv-ratio': docPreview.ratio }}>
+                            {docPreview.isPdf
+                                ? <iframe className={styles.pvMedia} src={docPreview.url} title={docPreview.name} />
+                                : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={docPreview.url} alt={docPreview.name} />}
+                        </div>
+                    </div>
+                </div>, document.body)}
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
                 {uploadDraft && (<>
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
