@@ -13,7 +13,7 @@ export const GLOSSARY = {
     BACKLOG: 'Work that has been started but is not finished yet.',
     RECEIVABLES: 'All money owed to the company, whether the work was legacy or regular.',
     LEGACY: 'Triggered automatically after 365 days with no payment, or set manually by an admin.',
-    STORAGE_FEE: 'UGX 50,000 every 30 days. The 30-day clock only starts once the work becomes Legacy.',
+    STORAGE_FEE: 'The monthly storage fee (the system default unless the project has its own rate), added every 30 days. The 30-day clock only starts once the work becomes Legacy.',
     TWO_FOURTEEN: 'The 2-14 rule: at most 2 calls per client per month, and at least 14 days between calls.',
     NIN: 'National ID Number. This is what makes an owner unique in the system -- not their phone number.',
 };

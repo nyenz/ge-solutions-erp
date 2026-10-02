@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
-# PATH: fix172.py
-# GOLDEN SEED -- fix172: three intake gaps for projects that already existed before they were keyed in.
+# PATH: fix173.py
+# GOLDEN SEED -- fix173: the default monthly storage fee (50,000) lives in ONE place.
 #
-# THE PROBLEMS:
-#   1. The title payment typed at intake always stamped TODAY as the last-payment date. A legacy project paid years ago
-#      turned green and locked recovery calls for 30 days.
-#   2. Fee counting started on the entry date. Months before that only existed if someone typed them into Initial Storage Fee.
-#   3. The intake deposit lines did not say which owner paid, so per-owner tracking on joint projects missed that money.
+# THE PROBLEM:
+#   The default fee was written out by hand in the nightly fee job, the intake save, the Intake page and the Folder page
+#   (plus several sentences on the Folder page and the glossary). Changing it in one place missed the others. On top of that,
+#   the Intake page saved a copy of 50,000 as the project's OWN rate on every Legacy Title, so even a changed default would
+#   never have reached those projects.
 #
 # WHAT CHANGES:
-#   1. INTAKE: new optional "Date Last Paid" (shows once a payment amount is entered). It becomes the last-payment date and the
-#      date on the intake deposit lines in Payment History. Left empty = exactly as before. Refused if in the future or if no
-#      payment was entered.
-#   2. INTAKE (Legacy Title): new optional "In Receivables Since". The billing clock starts on that date, the whole 30-day months
-#      already gone are billed at intake (months x monthly fee) and counted as billed, so the nightly job never bills them
-#      twice. The page shows the backlog fees in the summary, and "Storage Fees Already Paid" may now go up to initial fee +
-#      backlog fees.
-#   3. INTAKE: new "Paid By" owner pick for the initial payment and for the storage fees already paid (required when the
-#      project has more than one owner, automatic when it has one). It is written on the deposit lines, so the folder shows
-#      "paid by <owner>" for them like for every later payment.
-#   4. Receivable Breakdown CSV: MONTHS_IN_RECEIVABLE is counted in the same 30-day periods the fees are billed in.
+#   1. BACKEND: new constant LandProject.DEFAULT_MONTHLY_STORAGE_FEE. ReceivableSchedulerService (nightly job) and
+#      LandService (intake save) use it.
+#   2. BACKEND: new read-only GET /api/v1/land/storage-fee-default (same roles as next-index).
+#   3. INTAKE + FOLDER pages: no hard-coded number any more. They read the default from that endpoint (landService.getStorageFeeDefault,
+#      fetched once). Every sentence that quoted 50,000 now shows the value from the server. The glossary line no longer quotes it.
+#   4. INTAKE: the Monthly Storage Fee box starts blank (the default shows as the placeholder and in the hint). A rate is sent
+#      only when staff typed one that differs from the default. A project entered at the default stores NO rate, so it follows
+#      the default from now on.
+#   5. LLM_CONTEXT_GUIDE.md: records where the default lives.
 #
-# NOT in this fix: any change to how fees accrue, a way to change these dates after the project is saved, splitting one
-# deposit between two owners, any database change (all columns already exist).
+# NOT in this fix: an editable default (needs a settings table), the seed data's own 50000 in ScenarioData (demo rows only),
+# changing existing projects that already carry a stored 50,000 rate (those keep it as their own rate), and the other two
+# findings of the review (Recovery list membership, set-aside fees) -- both wait for the owner's decision.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -34,8 +33,8 @@ import sys
 
 # ============================ EDIT PART 1 START ============================
 # Names, and one variable per file this fix touches.
-FIX_NO = "fix172"
-COMMIT_MSG = "fix172: intake Date Last Paid, In Receivables Since (backlog fees), and which owner paid the intake money"
+FIX_NO = "fix173"
+COMMIT_MSG = "fix173: default monthly storage fee lives in one place (LandProject constant + /land/storage-fee-default); intake no longer saves a copy of it"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,11 +43,14 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
-F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
-F_INTAKE_CSS = os.path.join(SRC, "pages", "Intake", "IntakePage.module.css")
-F_ENTRY_DTO = os.path.join(JAVA, "modules", "land", "dto", "LandEntryRequest.java")
+F_LAND_PROJECT = os.path.join(JAVA, "modules", "land", "model", "LandProject.java")
+F_SCHEDULER = os.path.join(JAVA, "modules", "land", "service", "ReceivableSchedulerService.java")
 F_LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
-F_REPORT_SERVICE = os.path.join(JAVA, "modules", "land", "service", "ReportService.java")
+F_LAND_CONTROLLER = os.path.join(JAVA, "modules", "land", "controller", "LandController.java")
+F_LAND_SERVICE_JS = os.path.join(SRC, "services", "landService.js")
+F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
+F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
+F_GLOSSARY = os.path.join(SRC, "components", "common", "glossary.js")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -114,493 +116,292 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (F_ENTRY_DTO, F_LAND_SERVICE, F_REPORT_SERVICE, F_INTAKE_JSX, F_INTAKE_CSS, F_GUIDE,)
+LOAD_FILES = (F_LAND_PROJECT, F_SCHEDULER, F_LAND_SERVICE, F_LAND_CONTROLLER, F_LAND_SERVICE_JS, F_INTAKE_JSX, F_FOLDER_JSX, F_GLOSSARY, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(F_ENTRY_DTO,
+patch(F_LAND_PROJECT,
       "\n".join([
-          "    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)",
-          "    private java.math.BigDecimal initialStorageFeePaid;"
+          "    /**",
+          "     * STORAGE FEE OVERRIDE: Custom monthly rate (null = use system default 50,000).",
+          "     */",
+          "    @Column(name = \"storage_fee_override\", precision = 15, scale = 2)"
       ]),
       "\n".join([
-          "    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)",
-          "    private java.math.BigDecimal initialStorageFeePaid;",
-          "    // fix172: optional date the client last paid (for the money entered as already paid at intake). Empty = today.",
-          "    private LocalDate lastPaidDate;",
-          "    // fix172: Legacy Title only. The date the project went into receivables; the months since then are billed at intake.",
-          "    private LocalDate receivablesSince;",
-          "    // fix172: WHICH owner paid the intake money (the NIN typed in the Owners section). Needed when there is more than one owner.",
-          "    private String initialPaymentPayerNin;",
-          "    private String initialStorageFeePaidPayerNin;"
-      ]),
-      "DTO: lastPaidDate, receivablesSince, payer of the intake money")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "        if (initialFeesPaid.compareTo(initialFees) > 0) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX \" + initialFeesPaid.toPlainString()",
-          "                    + \") cannot be more than the initial storage fee (UGX \" + initialFees.toPlainString() + \").\");",
-          "        }"
-      ]),
-      "\n".join([
-          "        // fix172: \"in receivables since\". The months that went by before today are billed NOW (counted the same way the nightly",
-          "        // fee job counts them: whole 30-day periods) and the billing clock starts at that date, so nothing is billed twice.",
-          "        LocalDate receivablesSince = request.getReceivablesSince();",
-          "        BigDecimal feeRate = (request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().signum() > 0)",
-          "                ? request.getMonthlyStorageFee() : new BigDecimal(\"50000\");",
-          "        int backlogMonths = 0;",
-          "        LocalDateTime receivableClock = LocalDateTime.now();",
-          "        if (receivablesSince != null) {",
-          "            if (!(startAsReceivable && outstanding.signum() > 0)) {",
-          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_NOT_APPLICABLE: An In Receivables Since date only applies to a project that goes into receivables. \"",
-          "                        + \"This title work is already fully paid, so clear the date.\");",
-          "            }",
-          "            if (receivablesSince.isAfter(LocalDate.now().plusDays(1))) {",
-          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_IN_FUTURE: The In Receivables Since date cannot be in the future.\");",
-          "            }",
-          "            long daysGone = Math.max(0L, java.time.temporal.ChronoUnit.DAYS.between(receivablesSince, LocalDate.now()));",
-          "            if (daysGone > 10950L) {",
-          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"SINCE_TOO_OLD: The In Receivables Since date is more than 30 years ago. Check the year.\");",
-          "            }",
-          "            backlogMonths = (int) (daysGone / 30L);",
-          "            receivableClock = receivablesSince.atStartOfDay();",
-          "        }",
-          "        BigDecimal backlogFees = feeRate.multiply(BigDecimal.valueOf(backlogMonths));",
-          "        if (initialFeesPaid.compareTo(initialFees.add(backlogFees)) > 0) {",
-          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX \" + initialFeesPaid.toPlainString()",
-          "                    + \") cannot be more than the fees charged (UGX \" + initialFees.add(backlogFees).toPlainString() + \": initial storage fee UGX \"",
-          "                    + initialFees.toPlainString() + \" plus UGX \" + backlogFees.toPlainString() + \" backlog).\");",
-          "        }",
+          "    /**",
+          "     * fix173: THE system default monthly storage fee. The only place the number lives. The nightly fee job, the intake",
+          "     * save and (through GET /api/v1/land/storage-fee-default) the Intake and Folder pages all read this constant.",
+          "     */",
+          "    public static final BigDecimal DEFAULT_MONTHLY_STORAGE_FEE = new BigDecimal(\"50000\");",
           "",
-          "        // fix172: optional \"date last paid\" for the money entered as already paid. Empty keeps the old behaviour (paid today).",
-          "        LocalDate lastPaidDate = request.getLastPaidDate();",
-          "        LocalDateTime paidAt = null;",
-          "        if (lastPaidDate != null) {",
-          "            if (lastPaidDate.isAfter(LocalDate.now().plusDays(1))) {",
-          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"DATE_PAID_IN_FUTURE: The date last paid cannot be in the future.\");",
-          "            }",
-          "            if (initialPayment.signum() == 0 && initialFeesPaid.signum() == 0) {",
-          "                throw new com.gesolutions.erp.common.exception.BusinessException(\"DATE_PAID_NO_PAYMENT: A date last paid needs a payment amount. Enter the payment, or clear the date.\");",
-          "            }",
-          "            paidAt = lastPaidDate.isBefore(LocalDate.now()) ? lastPaidDate.atTime(12, 0) : LocalDateTime.now();",
-          "        }"
+          "    /**",
+          "     * STORAGE FEE OVERRIDE: Custom monthly rate (null = follow DEFAULT_MONTHLY_STORAGE_FEE).",
+          "     */",
+          "    @Column(name = \"storage_fee_override\", precision = 15, scale = 2)"
       ]),
-      "Intake: In Receivables Since (backlog months billed) and Date Last Paid checks")
+      "LandProject: one DEFAULT_MONTHLY_STORAGE_FEE constant")
+
+patch(F_SCHEDULER,
+      "\n".join([
+          "    private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal(\"50000\");"
+      ]),
+      "\n".join([
+          "    private static final BigDecimal DEFAULT_MONTHLY_FEE = LandProject.DEFAULT_MONTHLY_STORAGE_FEE;   // fix173: one shared default"
+      ]),
+      "Nightly job: use the shared default fee")
+
+patch(F_SCHEDULER,
+      "\n".join([
+          "    // Adds 50,000 per 30-day period since receivable start date"
+      ]),
+      "\n".join([
+          "    // Adds the monthly storage fee (the project's own rate, else the shared default) per 30-day period since receivable start date"
+      ]),
+      "Nightly job: comment no longer states the number")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "            builder.isReceivable(true)",
-          "                   .receivableStartDate(LocalDateTime.now())",
-          "                   .originalDebt(outstanding)",
-          "                   .storageFeesAccumulated(initialFees)",
-          "                   .storageFeesPaid(initialFeesPaid);   // fix171"
+          "                ? request.getMonthlyStorageFee() : new BigDecimal(\"50000\");"
       ]),
       "\n".join([
-          "            builder.isReceivable(true)",
-          "                   .receivableStartDate(receivableClock)   // fix172: the In Receivables Since date, or now",
-          "                   .receivableMonthsBilled(backlogMonths)   // fix172: those months are billed below, so the nightly job must not bill them again",
-          "                   .originalDebt(outstanding)",
-          "                   .storageFeesAccumulated(initialFees.add(backlogFees))   // fix172: typed fee + the backlog months",
-          "                   .storageFeesPaid(initialFeesPaid);   // fix171"
+          "                ? request.getMonthlyStorageFee() : LandProject.DEFAULT_MONTHLY_STORAGE_FEE;   // fix173: one shared default"
       ]),
-      "Intake: billing clock starts at the In Receivables Since date, backlog fees added")
+      "Intake save: use the shared default fee")
 
-patch(F_LAND_SERVICE,
+patch(F_LAND_CONTROLLER,
       "\n".join([
-          "        if (request.getOwners() != null) {",
-          "            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {"
-      ]),
-      "\n".join([
-          "        // fix172: the owners by NIN, so the owner who paid the intake money can be named",
-          "        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();",
-          "        if (request.getOwners() != null) {",
-          "            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {"
-      ]),
-      "Intake: remember each owner by NIN")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "                c.setHomeAddress(o.getAddress());",
-          "                project.addProprietor(c);"
-      ]),
-      "\n".join([
-          "                c.setHomeAddress(o.getAddress());",
-          "                project.addProprietor(c);",
-          "                ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172"
-      ]),
-      "Intake: fill the owner-by-NIN list")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "        LandProject saved = projectRepository.save(project);",
-          "",
-          "        // Record initial payment if any",
+          "    public ResponseEntity<String> previewNextIndex() {",
+          "        return ResponseEntity.ok(landService.previewNextIndex());",
+          "    }",
           ""
       ]),
       "\n".join([
-          "        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single owner is the payer,",
-          "        // joint owners must say which one paid. Checked before anything is saved.",
-          "        Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, \"initial payment\");",
-          "        Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, \"storage fees already paid\");",
-          "        StringBuilder fix172Note = new StringBuilder();",
-          "        if (titlePayer != null) fix172Note.append(\" | Initial payment paid by \").append(titlePayer.getFullName());",
-          "        if (feesPayer != null) fix172Note.append(\" | Storage fees paid by \").append(feesPayer.getFullName());",
-          "        if (lastPaidDate != null) fix172Note.append(\" | Date last paid \").append(lastPaidDate);",
-          "        if (receivablesSince != null) fix172Note.append(\" | In receivables since \").append(receivablesSince)",
-          "                .append(\" (\").append(backlogMonths).append(\" month(s) of fees billed at intake)\");",
-          "",
-          "        LandProject saved = projectRepository.save(project);",
-          "",
-          "        // Record initial payment if any",
-          ""
-      ]),
-      "Intake: find who paid the title money and the fees money")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "                    .notes(\"Initial deposit at intake\")",
-          "                    .balanceAfter(balanceAtIntake)",
-          "                    .allocation(\"TITLE\")",
-          "                    .build();",
-          "            paymentRecordRepository.save(initialRecord);",
-          "            saved.setLastPaymentDate(LocalDateTime.now());",
-          "            projectRepository.save(saved);"
-      ]),
-      "\n".join([
-          "                    .notes(paidAt != null ? \"Initial deposit at intake (paid on \" + lastPaidDate + \")\" : \"Initial deposit at intake\")",
-          "                    .balanceAfter(balanceAtIntake)",
-          "                    .allocation(\"TITLE\")",
-          "                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid",
-          "                    .payerName(titlePayer != null ? titlePayer.getFullName() : null)",
-          "                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())   // fix172: the date it was really paid",
-          "                    .build();",
-          "            paymentRecordRepository.save(initialRecord);",
-          "            saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more",
-          "            projectRepository.save(saved);"
-      ]),
-      "Intake: title deposit line carries the payer and the real payment date")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "                    .notes(\"Storage fees already paid before entry (recorded at intake)\")",
-          "                    .balanceAfter(balanceAtIntake)",
-          "                    .allocation(\"STORAGE\")",
-          "                    .build();",
-          "            paymentRecordRepository.save(feesRecord);"
-      ]),
-      "\n".join([
-          "                    .notes(paidAt != null ? \"Storage fees already paid before entry (paid on \" + lastPaidDate + \")\" : \"Storage fees already paid before entry (recorded at intake)\")",
-          "                    .balanceAfter(balanceAtIntake)",
-          "                    .allocation(\"STORAGE\")",
-          "                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid",
-          "                    .payerName(feesPayer != null ? feesPayer.getFullName() : null)",
-          "                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())",
-          "                    .build();",
-          "            paymentRecordRepository.save(feesRecord);",
-          "            if (paidAt != null) {",
-          "                // fix172: only when the operator gave a date. No date = still unknown = the recovery badge stays untouched.",
-          "                saved.setLastPaymentDate(paidAt);",
-          "                projectRepository.save(saved);",
-          "            }"
-      ]),
-      "Intake: storage-fees line carries the payer and the real payment date")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "            + plotOrIndex + receivableNote);"
-      ]),
-      "\n".join([
-          "            + plotOrIndex + receivableNote + fix172Note);"
-      ]),
-      "Intake: audit line names the payers and the dates")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "                + \". Storage fees: UGX \" + initialFees + \" (UGX \" + initialFeesPaid + \" already paid).\");"
-      ]),
-      "\n".join([
-          "                + \". Storage fees: UGX \" + initialFees.add(backlogFees)",
-          "                + (backlogMonths > 0 ? \" (incl. UGX \" + backlogFees + \" backlog for \" + backlogMonths + \" month(s) since \" + receivablesSince + \")\" : \"\")",
-          "                + \" (UGX \" + initialFeesPaid + \" already paid).\");"
-      ]),
-      "Intake: receivable audit line shows the backlog fees")
-
-patch(F_LAND_SERVICE,
-      "\n".join([
-          "    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log."
-      ]),
-      "\n".join([
-          "    // fix172: finds the owner who paid money entered at intake. One owner = that owner. Joint owners = the payer must be",
-          "    // named, and must be one of the owners typed on the form. No money entered = no payer needed.",
-          "    private Client fix172ResolvePayer(java.util.Map<String, Client> ownersByNin, String payerNin, BigDecimal amount, String what) {",
-          "        if (amount == null || amount.signum() <= 0) return null;",
-          "        String key = payerNin == null ? \"\" : payerNin.trim().toUpperCase();",
-          "        if (!key.isEmpty()) {",
-          "            Client hit = ownersByNin.get(key);",
-          "            if (hit == null) {",
-          "                throw new BusinessException(\"PAYER_INVALID: The owner who paid the \" + what + \" must be one of the owners on this form.\");",
-          "            }",
-          "            return hit;",
-          "        }",
-          "        if (ownersByNin.size() == 1) return ownersByNin.values().iterator().next();",
-          "        if (ownersByNin.size() > 1) {",
-          "            throw new BusinessException(\"PAYER_REQUIRED: This project has \" + ownersByNin.size() + \" owners. Pick which owner paid the \" + what + \".\");",
-          "        }",
-          "        return null;",
+          "    public ResponseEntity<String> previewNextIndex() {",
+          "        return ResponseEntity.ok(landService.previewNextIndex());",
           "    }",
           "",
-          "    // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log."
+          "    // fix173: the system default monthly storage fee, so the Intake and Folder pages never carry their own copy of the number",
+          "    @PreAuthorize(\"hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')\")",
+          "    @GetMapping(\"/storage-fee-default\")",
+          "    public ResponseEntity<java.util.Map<String, java.math.BigDecimal>> storageFeeDefault() {",
+          "        return ResponseEntity.ok(java.util.Map.of(\"defaultMonthlyFee\", LandProject.DEFAULT_MONTHLY_STORAGE_FEE));",
+          "    }",
+          ""
       ]),
-      "Intake: helper that finds the paying owner")
+      "LandController: GET /land/storage-fee-default")
 
-patch(F_REPORT_SERVICE,
+patch(F_LAND_SERVICE_JS,
       "\n".join([
-          "            long months = p.getReceivableStartDate() != null",
-          "                ? java.time.temporal.ChronoUnit.MONTHS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now())",
-          "                : 0;"
+          "import api from '../api/axios';",
+          "",
+          "const landService = {"
       ]),
       "\n".join([
-          "            // fix172: counted in the same whole 30-day periods the nightly fee job bills (calendar months drifted from it)",
-          "            long months = p.getReceivableStartDate() != null",
-          "                ? java.time.temporal.ChronoUnit.DAYS.between(p.getReceivableStartDate(), java.time.LocalDateTime.now()) / 30L",
-          "                : 0;"
+          "import api from '../api/axios';",
+          "",
+          "// fix173: the system default monthly storage fee is fetched once and shared by every page",
+          "let storageFeeDefaultPromise = null;",
+          "",
+          "const landService = {"
       ]),
-      "Receivable CSV: months in receivables counted in 30-day periods like the billing")
+      "landService.js: cache slot for the default fee")
 
-patch(F_INTAKE_JSX,
+patch(F_LAND_SERVICE_JS,
       "\n".join([
-          "const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';"
+          "    getNextIndex: async () => {",
+          "        const response = await api.get('/land/next-index');",
+          "        return response.data;",
+          "    }",
+          "};"
       ]),
       "\n".join([
-          "// fix172: today as yyyy-mm-dd in the user's own time zone (todayISO above is UTC and can be yesterday early in the morning)",
-          "const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };",
-          "// fix172: whole 30-day months between an \"in receivables since\" date (yyyy-mm-dd) and today, the same count the nightly fee job uses",
-          "const monthsSince = (iso) => {",
-          "    const m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(iso || '');",
-          "    if (!m) return 0;",
-          "    const start = new Date(+m[1], +m[2] - 1, +m[3]);",
-          "    const t = new Date();",
-          "    const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());",
-          "    return Math.max(0, Math.floor(Math.round((today - start) / 86400000) / 30));",
-          "};",
-          "const PRESET_STORAGE_KEY = 'geSolutions.intake.stagePresets';"
+          "    getNextIndex: async () => {",
+          "        const response = await api.get('/land/next-index');",
+          "        return response.data;",
+          "    },",
+          "",
+          "    // fix173: the system default monthly storage fee (the server holds the only copy of the number)",
+          "    getStorageFeeDefault: () => {",
+          "        if (!storageFeeDefaultPromise) {",
+          "            storageFeeDefaultPromise = api.get('/land/storage-fee-default')",
+          "                .then(r => Number(r.data && r.data.defaultMonthlyFee) || 0)",
+          "                .catch(e => { storageFeeDefaultPromise = null; throw e; });",
+          "        }",
+          "        return storageFeeDefaultPromise;",
+          "    }",
+          "};"
       ]),
-      "Intake page: date helpers")
-
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171"
-      ]),
-      "\n".join([
-          "    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171",
-          "    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172: optional, empty = paid today",
-          "    const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only",
-          "    const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which owner (row number) paid the initial payment",
-          "    const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which owner paid the storage fees"
-      ]),
-      "Intake page: new fields")
-
-patch(F_INTAKE_JSX,
-      "\n".join([
-          "        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }"
-      ]),
-      "\n".join([
-          "        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }",
-          "        // fix172: the optional dates, and which owner paid the intake money",
-          "        const paidAny = (Number(initialPayment) || 0) > 0 || (isLegacy && (Number(initialStorageFeePaid) || 0) > 0);",
-          "        if (lastPaidDate && lastPaidDate > localISO()) { toast('Date Last Paid cannot be in the future.', 'error'); return false; }",
-          "        if (lastPaidDate && !paidAny) { toast('Date Last Paid needs a payment amount. Enter the payment, or clear the date.', 'error'); return false; }",
-          "        if (isLegacy && receivablesSince && receivablesSince > localISO()) { toast('In Receivables Since cannot be in the future.', 'error'); return false; }",
-          "        if (owners.length > 1) {",
-          "            if ((Number(initialPayment) || 0) > 0 && titlePayerIdx === '') { toast('Pick which owner paid the Initial Payment.', 'error'); return false; }",
-          "            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && feesPayerIdx === '') { toast('Pick which owner paid the Storage Fees Already Paid.', 'error'); return false; }",
-          "        }"
-      ]),
-      "Intake page: checks for the dates and the payer")
+      "landService.js: getStorageFeeDefault()")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "            if (feePaid > feeCharged) { toast('Storage Fees Already Paid cannot be more than the Initial Storage Fee.', 'error'); return false; }",
-          "            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0)) {",
-          "                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes.', 'error'); return false;",
-          "            }"
+          "const DEFAULT_MONTHLY_STORAGE_FEE = 50000;"
       ]),
       "\n".join([
-          "            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;",
-          "            if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }",
-          "            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {",
-          "                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;",
-          "            }"
+          "// fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here."
       ]),
-      "Intake page: fees paid may include the backlog fees; fully paid title refuses the since date")
+      "Intake: remove the hard-coded 50,000")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));"
+          "    const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);"
       ]),
       "\n".join([
-          "            // fix172: the optional dates, and which owner paid the intake money (sent as that owner's NIN)",
-          "            if (lastPaidDate) payload.lastPaidDate = lastPaidDate;",
-          "            if (isLegacy && receivablesSince) payload.receivablesSince = receivablesSince;",
-          "            const ninOf = (idx) => (idx !== '' && owners[idx]) ? owners[idx].nationalId.trim().toUpperCase() : '';",
-          "            if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);",
-          "            if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);",
-          "            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));"
+          "    // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate",
+          "    const [monthlyStorageFee, setMonthlyStorageFee] = useState('');",
+          "    const [systemFee, setSystemFee] = useState(0);",
+          "    useEffect(() => { landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, []);"
       ]),
-      "Intake page: send the dates and the payer")
+      "Intake: monthly fee starts blank, default comes from the server")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
+          "const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;"
       ]),
       "\n".join([
-          "setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);",
-          "        setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172"
+          "const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || systemFee) : 0;"
       ]),
-      "Intake page: Save + duplicate clears the new fields")
+      "Intake: backlog check uses the server default")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;"
+          "                payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;"
       ]),
       "\n".join([
-          "    // fix172: backlog fees = whole 30-day months since the In Receivables Since date x the monthly fee (only while the title work is not fully paid)",
-          "    const backlogMonths = isLegacy && titleLeft > 0 && receivablesSince ? monthsSince(receivablesSince) : 0;",
-          "    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;",
-          "    const backlogFees = backlogMonths * backlogRate;",
-          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) + backlogFees : 0;"
+          "                // fix173: send a rate only when one was typed that differs from the system default, so a project entered at the",
+          "                // default keeps FOLLOWING the default (before, every Legacy project was saved with its own copy of 50,000)",
+          "                const typedFee = Number(monthlyStorageFee) || 0;",
+          "                if (typedFee > 0 && typedFee !== systemFee) payload.monthlyStorageFee = typedFee;"
       ]),
-      "Intake page: backlog fees in the summary maths")
+      "Intake: do not save a copy of the default as the project's own rate")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "    let n = 0;",
-          "    const nIndex = ++n, nOwners = ++n;"
+          "setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
       ]),
       "\n".join([
-          "    // fix172: removing an owner must not leave a payer pointing at the wrong person",
-          "    const removeOwner = (idx) => {",
-          "        setOwners(p => p.filter((_, i) => i !== idx));",
-          "        const shift = (cur) => (cur === '' || cur === idx ? '' : cur > idx ? cur - 1 : cur);",
-          "        setTitlePayerIdx(shift); setFeesPayerIdx(shift);",
-          "        markDirty();",
-          "    };",
-          "    const ownerLabels = owners.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'OWNER ' + (i + 1)));",
-          "    const pickOwner = (setter) => (label) => { setter(ownerLabels.indexOf(label)); markDirty(); };",
-          "    const titlePaidNow = (Number(initialPayment) || 0) > 0;",
-          "    const feesPaidEntered = isLegacy && (Number(initialStorageFeePaid) || 0) > 0;",
-          "    let n = 0;",
-          "    const nIndex = ++n, nOwners = ++n;"
+          "setInitialStorageFeePaid(0); setMonthlyStorageFee('');"
       ]),
-      "Intake page: owner list helpers for the payer pick")
+      "Intake: duplicate form resets the fee to blank")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                                onClick={() => setOwners(p => p.filter((_, i) => i !== idx))}"
+          "    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;"
       ]),
       "\n".join([
-          "                                onClick={() => removeOwner(idx)}"
+          "    const backlogRate = Number(monthlyStorageFee) || systemFee;"
       ]),
-      "Intake page: removing an owner keeps the payer pick right")
+      "Intake: summary backlog rate uses the server default")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}",
-          "                        </div>",
-          "                    </div>",
-          "                    {isLegacy && ("
+          "value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />"
       ]),
       "\n".join([
-          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}",
-          "                        </div>",
-          "                    </div>",
-          "                    {(titlePaidNow || feesPaidEntered) && (",
-          "                        <div className={styles.grid2}>",
-          "                            {owners.length > 1 && titlePaidNow && (",
-          "                                <div className={styles.field}>",
-          "                                    <HardwareSelect label=\"Initial Payment Paid By\" required placeholder=\"Choose the owner\" options={ownerLabels} value={ownerLabels[titlePayerIdx] || ''} onChange={pickOwner(setTitlePayerIdx)} />",
-          "                                    <p className={styles.hint}>The owner who paid the title work money. Each owner's payments are tracked on a joint project.</p>",
-          "                                </div>",
-          "                            )}",
-          "                            <div className={styles.field}>",
-          "                                <label className={styles.label}>Date Last Paid</label>",
-          "                                <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel=\"Date last paid\" onChange={v => { setLastPaidDate(v); markDirty(); }} />",
-          "                                {lastPaidDate && <button type=\"button\" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}",
-          "                                <p className={styles.hint}>Optional. The day the client last paid. Left empty it counts as paid today, which locks recovery calls for 30 days.</p>",
-          "                            </div>",
-          "                        </div>",
-          "                    )}",
-          "                    {isLegacy && ("
+          "value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />"
       ]),
-      "Intake page: Date Last Paid and Paid By (initial payment)")
+      "Intake: monthly fee box shows the default as its placeholder")
 
 patch(F_INTAKE_JSX,
       "\n".join([
-          "                                    <p className={styles.hint}>Part of the Initial Storage Fee the client has already paid. Counted toward the fees, not the title work, and it does not count as a recent payment.</p>",
-          "                                </div>",
-          "                            </div>",
-          "                        </>",
-          "                    )}"
+          "<p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>"
       ]),
       "\n".join([
-          "                                    <p className={styles.hint}>Part of the fees charged (Initial Storage Fee plus backlog fees) that the client has already paid. Counted toward the fees, not the title work. It only counts as a recent payment if you set a Date Last Paid.</p>",
-          "                                </div>",
-          "                                {owners.length > 1 && feesPaidEntered && (",
-          "                                    <div className={styles.field}>",
-          "                                        <HardwareSelect label=\"Storage Fees Paid By\" required placeholder=\"Choose the owner\" options={ownerLabels} value={ownerLabels[feesPayerIdx] || ''} onChange={pickOwner(setFeesPayerIdx)} />",
-          "                                        <p className={styles.hint}>The owner who paid these storage fees.</p>",
-          "                                    </div>",
-          "                                )}",
-          "                                <div className={styles.field}>",
-          "                                    <label className={styles.label}>In Receivables Since</label>",
-          "                                    <HardwareDatePicker block className={styles.input} value={receivablesSince} ariaLabel=\"In receivables since\" onChange={v => { setReceivablesSince(v); markDirty(); }} />",
-          "                                    {receivablesSince && <button type=\"button\" className={styles.clearLink} onClick={() => { setReceivablesSince(''); markDirty(); }}>Clear date</button>}",
-          "                                    <p className={styles.hint}>",
-          "                                        Optional. If this project was already unpaid before today, pick the day it went into receivables.{' '}",
-          "                                        {backlogMonths > 0",
-          "                                            ? `${backlogMonths} month(s) x UGX ${backlogRate.toLocaleString()} = UGX ${backlogFees.toLocaleString()} backlog fees are added now. If you already typed those months into Initial Storage Fee, lower it so they are not counted twice.`",
-          "                                            : 'Fees are counted from that date. Empty = counted from today.'}",
-          "                                    </p>",
-          "                                </div>",
-          "                            </div>",
-          "                        </>",
-          "                    )}"
+          "<p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it.</p>"
       ]),
-      "Intake page: In Receivables Since and Paid By (storage fees)")
+      "Intake: hint shows the server default")
 
-patch(F_INTAKE_JSX,
+patch(F_FOLDER_JSX,
       "\n".join([
-          "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}"
+          "const DEFAULT_RATE = 50000;"
       ]),
       "\n".join([
-          "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}",
-          "                        {isLegacy && backlogMonths > 0 && <div className={styles.finRow}><span>Backlog Storage Fees ({backlogMonths} mo)</span><span>{backlogFees}</span></div>}"
+          "// fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here."
       ]),
-      "Intake page: backlog fees row in the summary")
+      "Folder: remove the hard-coded 50,000")
 
-patch(F_INTAKE_CSS,
+patch(F_FOLDER_JSX,
       "\n".join([
-          ".finRow.total { color: var(--orange); font-size: clamp(13px,1.4vw,17px); border-top: 1px solid rgba(238,140,58,0.25); padding-top: var(--gap-md); }"
+          "    const [rateFee, setRateFee] = useState(''); const [pauseUntil, setPauseUntil] = useState('');"
       ]),
       "\n".join([
-          ".finRow.total { color: var(--orange); font-size: clamp(13px,1.4vw,17px); border-top: 1px solid rgba(238,140,58,0.25); padding-top: var(--gap-md); }",
-          "/* fix172: small \"clear\" link under an optional date */",
-          ".clearLink { background: none; border: none; padding: 2px 0; margin-top: 2px; color: var(--orange); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-align: left; cursor: pointer; }",
-          ".clearLink:hover { text-decoration: underline; }"
+          "    const [rateFee, setRateFee] = useState(''); const [pauseUntil, setPauseUntil] = useState('');",
+          "    const [defaultRate, setDefaultRate] = useState(0);   // fix173: system default monthly fee, from the server",
+          "    useEffect(() => { landService.getStorageFeeDefault().then(setDefaultRate).catch(() => {}); }, []);"
       ]),
-      "Intake CSS: clear-date link")
+      "Folder: load the default fee from the server")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "Number(project.storageFeeOverride) : DEFAULT_RATE;"
+      ]),
+      "\n".join([
+          "Number(project.storageFeeOverride) : defaultRate;"
+      ]),
+      "Folder: effective rate falls back to the server default")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "starts a monthly storage fee of UGX 50,000 unless a different rate is set, added every 30 days. Write why.'"
+      ]),
+      "\n".join([
+          "starts a monthly storage fee of UGX ' + fmt(defaultRate) + ' unless a different rate is set, added every 30 days. Write why.'"
+      ]),
+      "Folder: MOVE TO RECEIVABLES text shows the server default")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "adds a monthly storage fee (UGX 50,000 unless another rate is set) every 30 days."
+      ]),
+      "\n".join([
+          "adds a monthly storage fee (UGX {fmt(defaultRate)} unless another rate is set) every 30 days."
+      ]),
+      "Folder: receivables hint shows the server default")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "placeholder=\"50,000 (default)\" hint=\"Blank = the default 50,000. 0 = no more fees. Applies to the coming months only.\" />"
+      ]),
+      "\n".join([
+          "placeholder={fmt(defaultRate) + ' (default)'} hint={'Blank = the default ' + fmt(defaultRate) + '. 0 = no more fees. Applies to the coming months only.'} />"
+      ]),
+      "Folder: rate box placeholder and hint show the server default")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "rateFee === '' ? 'the default (UGX 50,000)' :"
+      ]),
+      "\n".join([
+          "rateFee === '' ? 'the default (UGX ' + fmt(defaultRate) + ')' :"
+      ]),
+      "Folder: SAVE RATE confirmation shows the server default")
+
+patch(F_GLOSSARY,
+      "\n".join([
+          "STORAGE_FEE: 'UGX 50,000 every 30 days. The 30-day clock only starts once the work becomes Legacy.',"
+      ]),
+      "\n".join([
+          "STORAGE_FEE: 'The monthly storage fee (the system default unless the project has its own rate), added every 30 days. The 30-day clock only starts once the work becomes Legacy.',"
+      ]),
+      "Glossary: storage fee text no longer states the number")
 
 patch(F_GUIDE,
       "\n".join([
-          "- **Storage fees already paid at intake (fix171):**"
+          "- **Storage fee:** UGX 50,000 every 30 days. The 30-day timer only starts once the work becomes Legacy -- not before. This amount can be changed/overridden."
       ]),
       "\n".join([
-          "- **Intake dates and payer (fix172):** (1) `lastPaidDate` (optional): the day the client last paid. It sets `lastPaymentDate` and the timestamp of the intake deposit lines; empty keeps the old rule (title deposit = today, fees-only = no date). Refused when in the future or when no payment amount was entered. (2) `receivablesSince` (Legacy Title only, optional): `receivableStartDate` becomes that date, the whole 30-day months since then are billed at intake (months x monthly fee, added to `storageFeesAccumulated`) and `receivableMonthsBilled` is set to that count so the nightly job does not bill them again. `Storage Fees Already Paid` may now be up to initial fee + backlog fees. If staff already typed those months into Initial Storage Fee they must lower it (the page says so). (3) `initialPaymentPayerNin` / `initialStorageFeePaidPayerNin`: which owner (by NIN) paid the intake money; written to `payerClientId` / `payerName` on the deposit lines. One owner = automatic, joint owners = required (`PAYER_REQUIRED`). One payer per line; a deposit split between owners is not supported at intake. The server allows a date one day ahead of its own clock (server time zone vs Kampala). The Receivable Breakdown CSV now counts MONTHS_IN_RECEIVABLE in 30-day periods like the billing.",
-          "- **Storage fees already paid at intake (fix171):**"
+          "- **Storage fee:** UGX 50,000 every 30 days. The 30-day timer only starts once the work becomes Legacy -- not before. This amount can be changed/overridden. (fix173) The 50,000 lives in ONE place, `LandProject.DEFAULT_MONTHLY_STORAGE_FEE`; the nightly job and the intake save use it, and the Intake and Folder pages read it from `GET /api/v1/land/storage-fee-default`. Intake sends a monthly rate only when staff typed one that differs from the default, so a project entered at the default has no stored rate (`storage_fee_override` null) and follows the default. The seed data (`ScenarioData`) still has its own 50000 for demo rows."
       ]),
-      "Guide: intake dates and payer")
+      "Guide: where the default fee lives")
 
+patch(F_GUIDE,
+      "\n".join([
+          "The 50,000 default is still a constant in ReceivableSchedulerService (a global editable default needs a settings table -- David to decide)."
+      ]),
+      "\n".join([
+          "The 50,000 default is now ONE constant, `LandProject.DEFAULT_MONTHLY_STORAGE_FEE` (fix173); an editable global default still needs a settings table -- David to decide."
+      ]),
+      "Guide: backbone plan note about the default")
 
 # ============================= EDIT PART 2 END =============================
 

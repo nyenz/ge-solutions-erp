@@ -28,10 +28,10 @@ public class ReceivableSchedulerService {
     private final ClientRepository clientRepo;
     private final RecoveryNoteRepository recoveryNoteRepository;
                     
-    private static final BigDecimal DEFAULT_MONTHLY_FEE = new BigDecimal("50000");
+    private static final BigDecimal DEFAULT_MONTHLY_FEE = LandProject.DEFAULT_MONTHLY_STORAGE_FEE;   // fix173: one shared default
 
     // Runs every day at midnight
-    // Adds 50,000 per 30-day period since receivable start date
+    // Adds the monthly storage fee (the project's own rate, else the shared default) per 30-day period since receivable start date
     // Example: plot receivableged on Jan 1 — fee added Jan 31, Feb 28, etc.
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional

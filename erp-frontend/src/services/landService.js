@@ -1,6 +1,9 @@
 // PATH: erp-frontend/src/services/landService.js
 import api from '../api/axios';
 
+// fix173: the system default monthly storage fee is fetched once and shared by every page
+let storageFeeDefaultPromise = null;
+
 const landService = {
 
     getDashboardSummary: async () => {
@@ -132,6 +135,16 @@ const landService = {
     getNextIndex: async () => {
         const response = await api.get('/land/next-index');
         return response.data;
+    },
+
+    // fix173: the system default monthly storage fee (the server holds the only copy of the number)
+    getStorageFeeDefault: () => {
+        if (!storageFeeDefaultPromise) {
+            storageFeeDefaultPromise = api.get('/land/storage-fee-default')
+                .then(r => Number(r.data && r.data.defaultMonthlyFee) || 0)
+                .catch(e => { storageFeeDefaultPromise = null; throw e; });
+        }
+        return storageFeeDefaultPromise;
     }
 };
 

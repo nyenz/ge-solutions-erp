@@ -24,7 +24,7 @@ const PROJECT_TYPES = [
 ];
 const TENURE_OPTIONS = ['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY'];
 const DEFAULT_STAGES = ['Field Work', 'Deed Plan', 'LC Inspection', 'District Land Board Approval', 'Tax Assessment and Stamp Duty', 'Registration and Title Issuance'];
-const DEFAULT_MONTHLY_STORAGE_FEE = 50000;
+// fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const todayDMY = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -90,7 +90,10 @@ export default function IntakePage() {
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
     const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which owner (row number) paid the initial payment
     const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which owner paid the storage fees
-    const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);
+    // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
+    const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
+    const [systemFee, setSystemFee] = useState(0);
+    useEffect(() => { landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, []);
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
     const [dirty, setDirty] = useState(false);
@@ -272,7 +275,7 @@ export default function IntakePage() {
             const feePaid = Number(initialStorageFeePaid) || 0;
             if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }
             if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }
-            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE) : 0;
+            const backlogNow = receivablesSince ? monthsSince(receivablesSince) * (Number(monthlyStorageFee) || systemFee) : 0;
             if (feePaid > feeCharged + backlogNow) { toast('Storage Fees Already Paid cannot be more than the fees charged (Initial Storage Fee plus the backlog fees).', 'error'); return false; }
             if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0 || receivablesSince)) {
                 toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes and the In Receivables Since date.', 'error'); return false;
@@ -323,7 +326,10 @@ export default function IntakePage() {
                 payload.isStartAsReceivable = true;
                 payload.initialStorageFee = Number(initialStorageFee) || 0;
                 payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;
-                payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
+                // fix173: send a rate only when one was typed that differs from the system default, so a project entered at the
+                // default keeps FOLLOWING the default (before, every Legacy project was saved with its own copy of 50,000)
+                const typedFee = Number(monthlyStorageFee) || 0;
+                if (typedFee > 0 && typedFee !== systemFee) payload.monthlyStorageFee = typedFee;
             }
             // fix172: the optional dates, and which owner paid the intake money (sent as that owner's NIN)
             if (lastPaidDate) payload.lastPaidDate = lastPaidDate;
@@ -351,7 +357,7 @@ export default function IntakePage() {
         toast('Saved. Form duplicated for the next plot.', 'success');
         setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
-        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee('');
         setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
@@ -364,7 +370,7 @@ export default function IntakePage() {
     const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
     // fix172: backlog fees = whole 30-day months since the In Receivables Since date x the monthly fee (only while the title work is not fully paid)
     const backlogMonths = isLegacy && titleLeft > 0 && receivablesSince ? monthsSince(receivablesSince) : 0;
-    const backlogRate = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
+    const backlogRate = Number(monthlyStorageFee) || systemFee;
     const backlogFees = backlogMonths * backlogRate;
     const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) + backlogFees : 0;
     const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));
@@ -634,8 +640,8 @@ export default function IntakePage() {
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Monthly Storage Fee</label>
-                                    <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
-                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>
+                                    <input type="number" className={styles.input} value={monthlyStorageFee} placeholder={systemFee ? String(systemFee) : ''} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
+                                    <p className={styles.hint}>System default: {systemFee ? systemFee.toLocaleString() : '...'}. Leave blank to use it.</p>
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>Storage Fees Already Paid</label>

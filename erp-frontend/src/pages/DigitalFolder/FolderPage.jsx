@@ -39,7 +39,7 @@ import modalStyles from '../../components/common/HardwareModal.module.css';
 // fix165: a payment can NEVER be saved without its receipt scan (the server refuses it too).
 const NOTE_MAX = 2000;
 const SCAN_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
-const DEFAULT_RATE = 50000;
+// fix173: the default monthly storage fee is read from the server (landService.getStorageFeeDefault); no copy of it lives here.
 const fileExt = (name) => { const m = String(name || '').toLowerCase().match(/[.]([a-z0-9]{1,6})$/); return m ? m[1] : ''; };
 // fix165: ONE place that turns any failed request into a sentence a person can read (server words + HTTP number).
 const errText = (err) => {
@@ -352,6 +352,8 @@ const FolderPage = () => {
     const [recoveryCalls, setRecoveryCalls] = useState([]);
     const [freezeOpen, setFreezeOpen] = useState(false);
     const [rateFee, setRateFee] = useState(''); const [pauseUntil, setPauseUntil] = useState('');
+    const [defaultRate, setDefaultRate] = useState(0);   // fix173: system default monthly fee, from the server
+    useEffect(() => { landService.getStorageFeeDefault().then(setDefaultRate).catch(() => {}); }, []);
     const [activeTab, setActiveTab] = useState(() => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
@@ -786,7 +788,7 @@ const FolderPage = () => {
     const paidPct = totalValue > 0 ? amountPaid / totalValue : 1;
     const isCritical = !isReceivable && !isReleased && totalValue > 0 && paidPct < 0.25;   // same rule as the Ledger
     const fullyPaid = totalValue > 0 && amountOwed <= 0;
-    const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : DEFAULT_RATE;
+    const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : defaultRate;
     const pausedUntil = project.negotiationDeadline ? fmtDate(project.negotiationDeadline) : '';
     const isPaused = !!project.negotiationDeadline || !!project.storagePaused;
     const lastStageNoTitle = !project.landTitle && stageInfo.lastDone && stageInfo.count > 0;
@@ -972,7 +974,7 @@ const FolderPage = () => {
                                     {canMoney && !isDeleted && !isReleased && amountOwed + keptFees > 0 && <button type="button" className={styles.ghostBtn}
                                         title="Start monthly storage fees on this project (director only, reason required)."
                                         onClick={() => openReasonModal({ kind: 'ENTER', title: 'MOVE TO RECEIVABLES', confirmLabel: 'MOVE TO RECEIVABLES',
-                                            info: 'This freezes the balance (UGX ' + fmt(amountOwed + keptFees) + ' owed' + (keptFees > 0 ? ', set-aside fees included' : '') + ') and starts a monthly storage fee of UGX 50,000 unless a different rate is set, added every 30 days. Write why.' })}><FiAlertOctagon aria-hidden="true" /> MOVE TO RECEIVABLES</button>}
+                                            info: 'This freezes the balance (UGX ' + fmt(amountOwed + keptFees) + ' owed' + (keptFees > 0 ? ', set-aside fees included' : '') + ') and starts a monthly storage fee of UGX ' + fmt(defaultRate) + ' unless a different rate is set, added every 30 days. Write why.' })}><FiAlertOctagon aria-hidden="true" /> MOVE TO RECEIVABLES</button>}
                                     {canMoney && !isDeleted && keptFees > 0 && (<>
                                         <button type="button" className={styles.ghostBtn} title="Add the kept fees to the total cost (reason required)."
                                             onClick={() => openReasonModal({ kind: 'CAPITALIZE', title: 'ADD FEES TO COST', confirmLabel: 'ADD FEES TO COST', info: 'This adds the UGX ' + fmt(keptFees) + ' of set-aside fees to the total cost (UGX ' + fmt(totalValue) + ' becomes UGX ' + fmt(totalValue + keptFees) + '). Write why.' })}><FiCreditCard aria-hidden="true" /> ADD FEES TO COST</button>
@@ -980,7 +982,7 @@ const FolderPage = () => {
                                             onClick={() => openReasonModal({ kind: 'WAIVE', title: 'WAIVE SET-ASIDE FEES', confirmLabel: 'WAIVE FEES', info: 'This forgives the UGX ' + fmt(keptFees) + ' of set-aside storage fees. It cannot be undone.' })}><FiTrash2 aria-hidden="true" /> WAIVE FEES</button>
                                     </>)}
                                 </div>
-                                <span className={styles.inputHint}>Receivables = clients who owe money and have stopped paying. Moving a project there freezes the balance and adds a monthly storage fee (UGX 50,000 unless another rate is set) every 30 days. Titled projects with no payment for 365 days move there by themselves.</span>
+                                <span className={styles.inputHint}>Receivables = clients who owe money and have stopped paying. Moving a project there freezes the balance and adds a monthly storage fee (UGX {fmt(defaultRate)} unless another rate is set) every 30 days. Titled projects with no payment for 365 days move there by themselves.</span>
                             </>) : (<>
                                 <div className={styles.moneyStatsRow}>
                                     <div className={`${styles.statBox} ${styles.statRed}`} title="All storage fees added so far."><label>FEES ADDED</label><strong>UGX {fmt(storageFees)}</strong></div>
@@ -990,10 +992,10 @@ const FolderPage = () => {
                                 </div>
                                 {canMoney && !isDeleted && (<div className={styles.storageBlock}>
                                     <div className={styles.rateRow}>
-                                        <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} placeholder="50,000 (default)" hint="Blank = the default 50,000. 0 = no more fees. Applies to the coming months only." />
+                                        <CurrencyInput label="MONTHLY STORAGE RATE" value={rateFee} onChange={v => setRateFee(v)} placeholder={fmt(defaultRate) + ' (default)'} hint={'Blank = the default ' + fmt(defaultRate) + '. 0 = no more fees. Applies to the coming months only.'} />
                                         <button type="button" className={styles.ghostBtn} title="Save the new monthly rate (reason required)."
                                             onClick={() => openReasonModal({ kind: 'RATE', title: 'CHANGE MONTHLY STORAGE RATE', confirmLabel: 'SAVE RATE',
-                                                info: 'New monthly rate: ' + (rateFee === '' ? 'the default (UGX 50,000)' : Number(rateFee) === 0 ? 'NO FEE (UGX 0)' : 'UGX ' + fmt(Number(rateFee))) + '. It applies to future months only; fees already added stay as they are. Write why it is changing.' })}><FiSave aria-hidden="true" /> SAVE RATE</button>
+                                                info: 'New monthly rate: ' + (rateFee === '' ? 'the default (UGX ' + fmt(defaultRate) + ')' : Number(rateFee) === 0 ? 'NO FEE (UGX 0)' : 'UGX ' + fmt(Number(rateFee))) + '. It applies to future months only; fees already added stay as they are. Write why it is changing.' })}><FiSave aria-hidden="true" /> SAVE RATE</button>
                                     </div>
                                     <div className={styles.recvActionRow}>
                                         {isPaused ? (<>

@@ -152,7 +152,13 @@ public class LandProject {
     private boolean storagePaused = false;
 
     /**
-     * STORAGE FEE OVERRIDE: Custom monthly rate (null = use system default 50,000).
+     * fix173: THE system default monthly storage fee. The only place the number lives. The nightly fee job, the intake
+     * save and (through GET /api/v1/land/storage-fee-default) the Intake and Folder pages all read this constant.
+     */
+    public static final BigDecimal DEFAULT_MONTHLY_STORAGE_FEE = new BigDecimal("50000");
+
+    /**
+     * STORAGE FEE OVERRIDE: Custom monthly rate (null = follow DEFAULT_MONTHLY_STORAGE_FEE).
      */
     @Column(name = "storage_fee_override", precision = 15, scale = 2)
     private BigDecimal storageFeeOverride;

@@ -323,7 +323,7 @@ public class LandService {
         // fee job counts them: whole 30-day periods) and the billing clock starts at that date, so nothing is billed twice.
         LocalDate receivablesSince = request.getReceivablesSince();
         BigDecimal feeRate = (request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().signum() > 0)
-                ? request.getMonthlyStorageFee() : new BigDecimal("50000");
+                ? request.getMonthlyStorageFee() : LandProject.DEFAULT_MONTHLY_STORAGE_FEE;   // fix173: one shared default
         int backlogMonths = 0;
         LocalDateTime receivableClock = LocalDateTime.now();
         if (receivablesSince != null) {

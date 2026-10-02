@@ -44,6 +44,13 @@ public class LandController {
         return ResponseEntity.ok(landService.previewNextIndex());
     }
 
+    // fix173: the system default monthly storage fee, so the Intake and Folder pages never carry their own copy of the number
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @GetMapping("/storage-fee-default")
+    public ResponseEntity<java.util.Map<String, java.math.BigDecimal>> storageFeeDefault() {
+        return ResponseEntity.ok(java.util.Map.of("defaultMonthlyFee", LandProject.DEFAULT_MONTHLY_STORAGE_FEE));
+    }
+
     @PostMapping("/projects/{id}/unlock-log")
     public ResponseEntity<Void> logDossierUnlock(@PathVariable UUID id) {
         landService.logUnlockAction(id);
