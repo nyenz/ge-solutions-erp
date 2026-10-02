@@ -22,7 +22,9 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     // "all" projects, with no other file needing to change.
     @Override
     @NonNull
-    @Query("SELECT p FROM LandProject p WHERE p.deleted = false")
+    // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one
+    // project at a time (hundreds of tiny queries per request) -- Recovery, Dashboard, Reports and Client Ledger all pay that.
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.landTitle WHERE p.deleted = false")
     List<LandProject> findAll();
 
     @Override

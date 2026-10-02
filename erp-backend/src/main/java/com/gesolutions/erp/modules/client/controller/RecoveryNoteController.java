@@ -46,7 +46,7 @@ public class RecoveryNoteController {
     // ---- one-pass caches per request (fix83 speed) ----
     private Map<UUID, List<RecoveryNote>> noteMap() {
         Map<UUID, List<RecoveryNote>> m = new HashMap<>();
-        for (RecoveryNote n : noteRepo.findAll()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);
+        for (RecoveryNote n : noteRepo.findAllWithClient()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);
         for (List<RecoveryNote> l : m.values()) l.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
         return m;
     }

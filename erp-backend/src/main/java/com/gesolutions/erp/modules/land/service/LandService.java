@@ -1161,7 +1161,16 @@ public class LandService {
     @Transactional(readOnly = true)
     public Page<LandProject> getGlobalLedger(Pageable pageable) {
         Page<LandProject> page = projectRepository.findAll(pageable);
-        page.getContent().forEach(p -> p.setStages(projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(p.getId())));
+        // fix170: ONE query for every stage on the page (it was one query per project)
+        List<UUID> ids = new ArrayList<>();
+        for (LandProject p : page.getContent()) ids.add(p.getId());
+        Map<UUID, List<ProjectStage>> byProject = new HashMap<>();
+        if (!ids.isEmpty()) for (ProjectStage s : projectStageRepository.findByProjectIdIn(ids)) byProject.computeIfAbsent(s.getProjectId(), k -> new ArrayList<>()).add(s);
+        for (LandProject p : page.getContent()) {
+            List<ProjectStage> l = byProject.getOrDefault(p.getId(), new ArrayList<>());
+            l.sort(Comparator.comparingInt(s -> s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()));
+            p.setStages(l);
+        }
         return page;
     }
 

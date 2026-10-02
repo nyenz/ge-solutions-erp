@@ -88,9 +88,12 @@ const Header = ({ onToggle }) => {
     }, []);
 
     const sync = useCallback(async () => {
-        try { setStaleCount((await recoveryService.getTaskCount()) ?? 0); } catch { /* offline */ }
-        try { setUnread((await recoveryService.getUnreadCount()) ?? 0); } catch { /* offline */ }
-        await pullList(true);
+        // fix170: the three checks run together instead of one after another
+        await Promise.all([
+            recoveryService.getTaskCount().then((n) => setStaleCount(n ?? 0)).catch(() => { /* offline */ }),
+            recoveryService.getUnreadCount().then((n) => setUnread(n ?? 0)).catch(() => { /* offline */ }),
+            pullList(true),
+        ]);
     }, [pullList]);
 
     /* Poll interval comes from the user's own setting. 0 means manual only:

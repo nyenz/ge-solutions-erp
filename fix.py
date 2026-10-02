@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-# PATH: fix169.py
-# GOLDEN SEED -- fix169: light Settings-style calendar, filter colours stop recolouring borders/corners, and every filter now runs over the FULL data (Ledger CRITICAL glitch + Audit + Recovery counts).
+# PATH: fix170.py
+# GOLDEN SEED -- fix170: lighter calendar, stronger notification hover, and the SPEED glitches (Recovery tab switch, slow queries, slow page start).
 #
-#   1. CALENDAR: the date picker popup (Intake "Date started", Audit, Report Studio) is now a LIGHT cream card
-#      (#f2ede4, same as the Settings Appearance cards): dark navy text, orange 2px rule under the month title,
-#      white-ish nav buttons, orange wash on hover, solid orange selected day, orange ring on today.
-#   2. FILTER COLOURS vs FRAMES: picking a coloured filter pill (CRITICAL red, TITLED green, ...) used to recolour
-#      the panel border, the bottom corner brackets, the bottom pins, the table header rule and the row hover edge.
-#      Now those stay the normal orange on Ledger, Clients, Payments, Recovery and every HardwarePanel/CornerDecor,
-#      exactly like the Settings page. The pill itself, the header text and the dots still follow the pill colour.
-#   3. LEDGER FILTERS (the real glitch): the Project Ledger only fetched ONE server page of 15 rows and then ran
-#      CRITICAL / PAID / TITLED / search / sort on just those 15, so most matches never appeared and NEXT was
-#      disabled. It now loads every page (200 per request), then filters, sorts and pages in the browser.
-#      Also: the CRITICAL filter and the red CRITICAL tag on a row now use ONE shared rule (before, receivables
-#      showed the tag but were left out of the filter), and the backend ledger endpoint gets a stable sort so
-#      pages never repeat or skip rows.
-#   4. SAME GLITCH ELSEWHERE: Audit sent its keyword to an endpoint that ignored operator/action and never sent the
-#      dates, so date filtering only trimmed one page of 50 (and NEXT turned off at 20). Now keyword, operator,
-#      action and dates all go to the server together, a filter change returns to the first sector, and stale
-#      replies are dropped. Recovery: the tab counts used to jump back to the UNFILTERED numbers whenever the queue
-#      reloaded while a search was typed; they now keep the search.
+#   1. CALENDAR: lighter again and calmer. Near-white warm card, soft slate text (not near-black), faint weekday and
+#      out-of-month days, a thin soft orange rule, hairline button borders. Selected day is a soft solid orange,
+#      today is a thin orange ring. Contrast is deliberately gentle but the text stays readable.
+#   2. NOTIFICATION HOVER: hovering a bell row used to change the background by only a few percent. Unread rows now
+#      take a clear tint of their own colour, read rows go visibly darker, and the coloured left edge appears on hover.
+#   3. RECOVERY "LOCKED" GLITCH (the one you saw): clicking a tab switched the highlight at once but the OLD tab's cards
+#      stayed on screen, fully clickable, until the server answered -- so CALL LOG opened on people who were really
+#      locked. Now the cards on screen always belong to the tab you picked: the old ones are removed the moment you
+#      click, a tab you have already opened shows instantly from memory (CALL LOG stays disabled until the fresh
+#      answer lands), and an older slow answer can never overwrite a newer click.
+#   4. WHY IT WAS SLOW: every tab click fired FOUR requests (queue, counts, tags, stats) and each one loaded every
+#      project, with the owners and the title fetched one project at a time (hundreds of tiny queries each).
+#      - tab click now asks for the queue only (counts / tags / stats load on first open, REFRESH and after a call);
+#      - the project list (used by Recovery, Dashboard, Reports, Client Ledger) now fetches projects + owners + title in
+#        ONE query; recovery notes come with their client in ONE query;
+#      - the Project Ledger stage lists are fetched in ONE query per page instead of one per project (fix169 made
+#        pages 200 rows, so this matters);
+#      - the top bar's three background checks (stale count, unread count, notification list) run together instead of
+#        one after another on every page load and every refresh; the first search-box counts call is no longer doubled.
 #
-# NOT in this fix: the expanded sidebar, the Payments / Clients data loading (already full-load), any page copy,
-# any database change.
+# NOT in this fix: any screen layout, any wording, any database change.
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -34,8 +34,8 @@ import sys
 
 # ============================ EDIT PART 1 START ============================
 # Names, and one variable per file this fix touches.
-FIX_NO = "fix169"
-COMMIT_MSG = "fix169: light Settings-style calendar, filter colours no longer recolour borders/corners, Ledger/Audit/Recovery filters run over the full data (CRITICAL glitch)"
+FIX_NO = "fix170"
+COMMIT_MSG = "fix170: lighter calendar, clearer notification hover, Recovery tab switch no longer shows stale clickable cards, big speed-up (one-query project/note loading, bulk ledger stages, queue-only tab loads, parallel top-bar checks)"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,16 +44,14 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
-F_LEDGER_JSX = os.path.join(SRC, "pages", "Ledger", "LedgerPage.jsx")
-F_LEDGER_CSS = os.path.join(SRC, "pages", "Ledger", "LedgerPage.module.css")
-F_CLIENTS_CSS = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.module.css")
-F_PAYMENTS_CSS = os.path.join(SRC, "pages", "Payments", "PaymentsPage.module.css")
 F_RECOVERY_JSX = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.jsx")
-F_RECOVERY_CSS = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.module.css")
-F_AUDIT_JSX = os.path.join(SRC, "pages", "Audit", "AuditPage.jsx")
-F_CORNER_CSS = os.path.join(SRC, "components", "ui", "CornerDecor.module.css")
+F_HEADER_JSX = os.path.join(SRC, "components", "layout", "Header.jsx")
+F_HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
 F_DATEPICKER_CSS = os.path.join(SRC, "components", "common", "HardwareDatePicker.module.css")
-F_LAND_CONTROLLER = os.path.join(JAVA, "modules", "land", "controller", "LandController.java")
+F_PROJECT_REPO = os.path.join(JAVA, "modules", "land", "repository", "LandProjectRepository.java")
+F_NOTE_REPO = os.path.join(JAVA, "modules", "client", "repository", "RecoveryNoteRepository.java")
+F_NOTE_CTRL = os.path.join(JAVA, "modules", "client", "controller", "RecoveryNoteController.java")
+F_LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -119,459 +117,236 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (F_LEDGER_JSX, F_LAND_CONTROLLER, F_LEDGER_CSS, F_CLIENTS_CSS, F_PAYMENTS_CSS, F_CORNER_CSS, F_RECOVERY_CSS, F_RECOVERY_JSX, F_AUDIT_JSX, F_GUIDE,)
+LOAD_FILES = (F_HEADER_CSS, F_HEADER_JSX, F_RECOVERY_JSX, F_PROJECT_REPO, F_NOTE_REPO, F_NOTE_CTRL, F_LAND_SERVICE, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(F_LEDGER_JSX,
+patch(F_HEADER_CSS,
       "\n".join([
-          "const PAGE_SIZE = 15;",
-          "const PaymentDot = ({ proj }) => {"
+          ".notifUnread:hover { background: #f6f9f9; background: color-mix(in srgb, var(--t) 17%, #ffffff); }",
+          ".notifRead { border-left-color: transparent; background: #e4eaea; }",
+          ".notifRead:hover { background: #dde4e4; }"
       ]),
       "\n".join([
-          "const PAGE_SIZE = 15;",
-          "// fix169: the WHOLE ledger is loaded (200 rows per request, every page) and then filtered, sorted and paged",
-          "// here in the browser. Before, only one server page of 15 rows was fetched and the filters ran on those 15.",
-          "const LOAD_SIZE = 200;",
-          "// fix169: ONE rule for CRITICAL, used by the filter AND by the red tag on each row (they used to disagree:",
-          "// receivables showed the tag but were left out of the filter).",
-          "const isCriticalProject = (p) => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25;",
-          "const PaymentDot = ({ proj }) => {"
+          ".notifUnread:hover { background: #e3ede9; background: color-mix(in srgb, var(--t) 30%, #ffffff); }",
+          ".notifRead { border-left-color: transparent; background: #e4eaea; }",
+          ".notifRead:hover { background: #cbd8d8; border-left-color: var(--t, #EE8C3A); }"
       ]),
-      "Ledger: load size + one shared CRITICAL rule")
+      "Notifications: clearer hover on unread and read rows")
 
-patch(F_LEDGER_JSX,
+patch(F_HEADER_JSX,
       "\n".join([
-          "    const fetchLedger = useCallback(async (attempt = 0) => {",
-          "        setLoading(true); setLoadError(false);",
-          "        try {",
-          "            const data = await landService.getGlobalLedger(page, PAGE_SIZE);",
-          "            setProjects(data.content || []); setLoading(false);",
-          "        } catch {",
-          "            if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }",
-          "            setLoadError(true); setLoading(false);",
-          "        }",
-          "    }, [page]);",
-          "    useEffect(() => { fetchLedger(); }, [fetchLedger]);"
+          "        try { setStaleCount((await recoveryService.getTaskCount()) ?? 0); } catch { /* offline */ }",
+          "        try { setUnread((await recoveryService.getUnreadCount()) ?? 0); } catch { /* offline */ }",
+          "        await pullList(true);"
       ]),
       "\n".join([
-          "    const fetchLedger = useCallback(async (attempt = 0) => {",
-          "        setLoading(true); setLoadError(false);",
-          "        try {",
-          "            // fix169: walk every server page so filters / search / sort see ALL projects, not 15 of them.",
-          "            const all = [];",
-          "            const seen = new Set();",
-          "            for (let p = 0; p < 60; p += 1) {",
-          "                const data = await landService.getGlobalLedger(p, LOAD_SIZE);",
-          "                const rows = (data && data.content) || [];",
-          "                rows.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); all.push(r); } });",
-          "                if (rows.length < LOAD_SIZE || (data && data.last)) break;",
-          "            }",
-          "            setProjects(all); setLoading(false);",
-          "        } catch {",
-          "            if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }",
-          "            setLoadError(true); setLoading(false);",
-          "        }",
-          "    }, []);",
-          "    useEffect(() => { fetchLedger(); }, [fetchLedger]);",
-          "    // fix169: a new search / filter / sort always starts from the first page of results",
-          "    useEffect(() => { setPage(0); }, [searchTerm, activeFilter, sortConfig]);"
+          "        // fix170: the three checks run together instead of one after another",
+          "        await Promise.all([",
+          "            recoveryService.getTaskCount().then((n) => setStaleCount(n ?? 0)).catch(() => { /* offline */ }),",
+          "            recoveryService.getUnreadCount().then((n) => setUnread(n ?? 0)).catch(() => { /* offline */ }),",
+          "            pullList(true),",
+          "        ]);"
       ]),
-      "Ledger: load every page once, reset to page 1 when search / filter / sort changes")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "        landService.getStagesBulk(ids)",
-          "            .then(list => {",
-          "                const m = {};"
-      ]),
-      "\n".join([
-          "        const chunks = [];",
-          "        for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));",
-          "        Promise.all(chunks.map(c => landService.getStagesBulk(c)))",
-          "            .then(lists => {",
-          "                const list = lists.flat();",
-          "                const m = {};"
-      ]),
-      "Ledger: load stages for every project in chunks of 400")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(p => !p.isReceivable && p.totalCost > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25);"
-      ]),
-      "\n".join([
-          "        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalProject);"
-      ]),
-      "Ledger: CRITICAL filter uses the same rule as the row tag")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "    }, [projects, searchTerm, activeFilter, sortConfig, stageMap]);"
-      ]),
-      "\n".join([
-          "    }, [projects, searchTerm, activeFilter, sortConfig, stageMap]);",
-          "",
-          "    // fix169: pages are cut from the FILTERED list, so every filter spans the whole ledger",
-          "    const pageData = useMemo(() => processedData.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [processedData, page]);"
-      ]),
-      "Ledger: page the filtered list in the browser")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "                            {!loading && !loadError && processedData.map((proj, i) => {"
-      ]),
-      "\n".join([
-          "                            {!loading && !loadError && pageData.map((proj, i) => {"
-      ]),
-      "Ledger: table rows come from the current page of the filtered list")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "                                const isCritical = pct < 25 && proj.totalCost > 0;"
-      ]),
-      "\n".join([
-          "                                const isCritical = isCriticalProject(proj);"
-      ]),
-      "Ledger: row CRITICAL tag uses the shared rule")
-
-patch(F_LEDGER_JSX,
-      "\n".join([
-          "disabled={processedData.length < PAGE_SIZE} aria-label=\"Next page\""
-      ]),
-      "\n".join([
-          "disabled={(page + 1) * PAGE_SIZE >= processedData.length} aria-label=\"Next page\""
-      ]),
-      "Ledger: NEXT is enabled whenever more filtered rows exist")
-
-patch(F_LAND_CONTROLLER,
-      "\n".join([
-          "import org.springframework.data.domain.PageRequest;"
-      ]),
-      "\n".join([
-          "import org.springframework.data.domain.PageRequest;",
-          "import org.springframework.data.domain.Sort;"
-      ]),
-      "Backend: import Sort for the ledger endpoint")
-
-patch(F_LAND_CONTROLLER,
-      "\n".join([
-          "        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(page, size)));"
-      ]),
-      "\n".join([
-          "        // fix169: an unsorted findAll can repeat or skip rows between pages; sort by id so paging is stable.",
-          "        // Size is capped so one call cannot ask for the whole table in one go.",
-          "        int safeSize = Math.min(Math.max(size, 1), 500);",
-          "        return ResponseEntity.ok(landService.getGlobalLedger(PageRequest.of(Math.max(page, 0), safeSize, Sort.by(\"id\"))));"
-      ]),
-      "Backend: ledger endpoint pages with a stable sort and a size cap")
-
-patch(F_LEDGER_CSS,
-      "\n".join([
-          "border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;"
-      ]),
-      "\n".join([
-          "border:1.5px solid rgba(238,140,58,0.28);border-radius:var(--radius);padding:0;isolation:isolate;"
-      ]),
-      "Ledger CSS: panel border stays orange whatever filter is picked")
-
-patch(F_LEDGER_CSS,
-      "\n".join([
-          ".decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}"
-      ]),
-      "\n".join([
-          ".decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid #EE8C3A;opacity:.55;pointer-events:none;z-index:20;}"
-      ]),
-      "Ledger CSS: corner brackets stay orange")
-
-patch(F_LEDGER_CSS,
-      "\n".join([
-          ".pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}"
-      ]),
-      "\n".join([
-          ".pin{width:3px;height:5px;background:#EE8C3A;border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}"
-      ]),
-      "Ledger CSS: pins stay orange")
-
-patch(F_LEDGER_CSS,
-      "\n".join([
-          "    border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;",
-          "    box-shadow:0 1px 0 var(--orange);"
-      ]),
-      "\n".join([
-          "    border-bottom:3px solid #EE8C3A;white-space:nowrap;user-select:none;",
-          "    box-shadow:0 1px 0 #EE8C3A;"
-      ]),
-      "Ledger CSS: table header rule stays orange")
-
-patch(F_LEDGER_CSS,
-      "\n".join([
-          ".ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:var(--orange);}"
-      ]),
-      "\n".join([
-          ".ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:#EE8C3A;}"
-      ]),
-      "Ledger CSS: row hover edge stays orange")
-
-patch(F_CLIENTS_CSS,
-      "\n".join([
-          "border:1.5px solid var(--orange-border);border-radius:var(--radius);padding:0;isolation:isolate;"
-      ]),
-      "\n".join([
-          "border:1.5px solid rgba(238,140,58,0.28);border-radius:var(--radius);padding:0;isolation:isolate;"
-      ]),
-      "Clients CSS: panel border stays orange whatever filter is picked")
-
-patch(F_CLIENTS_CSS,
-      "\n".join([
-          ".decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid var(--orange);opacity:.55;pointer-events:none;z-index:20;}"
-      ]),
-      "\n".join([
-          ".decorBl,.decorBr{position:absolute;width:14px;height:14px;border:1.5px solid #EE8C3A;opacity:.55;pointer-events:none;z-index:20;}"
-      ]),
-      "Clients CSS: corner brackets stay orange")
-
-patch(F_CLIENTS_CSS,
-      "\n".join([
-          ".pin{width:3px;height:5px;background:var(--orange);border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}"
-      ]),
-      "\n".join([
-          ".pin{width:3px;height:5px;background:#EE8C3A;border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}"
-      ]),
-      "Clients CSS: pins stay orange")
-
-patch(F_CLIENTS_CSS,
-      "\n".join([
-          "    border-bottom:3px solid var(--orange);white-space:nowrap;user-select:none;",
-          "    box-shadow:0 1px 0 var(--orange);"
-      ]),
-      "\n".join([
-          "    border-bottom:3px solid #EE8C3A;white-space:nowrap;user-select:none;",
-          "    box-shadow:0 1px 0 #EE8C3A;"
-      ]),
-      "Clients CSS: table header rule stays orange")
-
-patch(F_CLIENTS_CSS,
-      "\n".join([
-          ".ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:var(--orange);}"
-      ]),
-      "\n".join([
-          ".ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:#EE8C3A;}"
-      ]),
-      "Clients CSS: row hover edge stays orange")
-
-patch(F_PAYMENTS_CSS,
-      "\n".join([
-          ".accentWrap[data-tab-accent] > section[class] { border-color: var(--orange-border); }",
-          ".accentWrap[data-tab-accent] > section[class]:hover { border-color: var(--orange); }"
-      ]),
-      "\n".join([
-          ".accentWrap[data-tab-accent] > section[class] { border-color: rgba(238, 140, 58, 0.2); }",
-          ".accentWrap[data-tab-accent] > section[class]:hover { border-color: #EE8C3A; }"
-      ]),
-      "Payments CSS: panel border stays orange whatever filter is picked")
-
-patch(F_PAYMENTS_CSS,
-      "\n".join([
-          "    border-bottom: 3px solid var(--orange);",
-          "    white-space: nowrap;"
-      ]),
-      "\n".join([
-          "    border-bottom: 3px solid #EE8C3A;",
-          "    white-space: nowrap;"
-      ]),
-      "Payments CSS: table header rule stays orange")
-
-patch(F_PAYMENTS_CSS,
-      "\n".join([
-          ".ledgerTable th { z-index: 5; box-shadow: 0 1px 0 var(--orange); }"
-      ]),
-      "\n".join([
-          ".ledgerTable th { z-index: 5; box-shadow: 0 1px 0 #EE8C3A; }"
-      ]),
-      "Payments CSS: header underline shadow stays orange")
-
-patch(F_PAYMENTS_CSS,
-      "\n".join([
-          ".dataRow:hover {",
-          "    background: rgba(255, 255, 255, 0.05);",
-          "    border-left-color: var(--orange);",
-          "}"
-      ]),
-      "\n".join([
-          ".dataRow:hover {",
-          "    background: rgba(255, 255, 255, 0.05);",
-          "    border-left-color: #EE8C3A;",
-          "}"
-      ]),
-      "Payments CSS: row hover edge stays orange")
-
-patch(F_CORNER_CSS,
-      "\n".join([
-          "    border: 1.5px solid var(--orange);",
-          "    opacity: 0.55;"
-      ]),
-      "\n".join([
-          "    border: 1.5px solid #EE8C3A;",
-          "    opacity: 0.55;"
-      ]),
-      "CornerDecor: corner brackets always orange")
-
-patch(F_CORNER_CSS,
-      "\n".join([
-          "    background: var(--orange);",
-          "    box-shadow: 0 0 5px rgba(238, 140, 58, 0.4);"
-      ]),
-      "\n".join([
-          "    background: #EE8C3A;",
-          "    box-shadow: 0 0 5px rgba(238, 140, 58, 0.4);"
-      ]),
-      "CornerDecor: pins always orange")
-
-patch(F_RECOVERY_CSS,
-      "\n".join([
-          ".list[data-tab-accent] .rowCard { border-color: var(--orange-border); }",
-          ".list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: var(--orange); }"
-      ]),
-      "\n".join([
-          ".list[data-tab-accent] .rowCard { border-color: rgba(238, 140, 58, 0.2); }",
-          ".list[data-tab-accent] .rowCard:hover, .list[data-tab-accent] .rowOpen { border-color: #EE8C3A; }",
-          ".list[data-tab-accent] .rowOpen .rowHead { border-bottom-color: #EE8C3A; }"
-      ]),
-      "Recovery CSS: card borders stay orange whatever tab is picked")
+      "Top bar: run the three background checks in parallel")
 
 patch(F_RECOVERY_JSX,
-      "\n".join([
-          "  const loadedOnce = useRef(false);"
-      ]),
       "\n".join([
           "  const loadedOnce = useRef(false);",
           "  const searchRef = useRef('');"
       ]),
-      "Recovery: remember the current search for the counts call")
+      "\n".join([
+          "  const loadedOnce = useRef(false);",
+          "  const searchRef = useRef('');",
+          "  // fix170: rowsTab = which tab the cards on screen belong to; syncing = a fresh answer is on its way;",
+          "  // reqRef = newest request wins; cacheRef = last answer per tab so a revisited tab shows at once.",
+          "  const [rowsTab, setRowsTab] = useState(null);",
+          "  const [syncing, setSyncing] = useState(false);",
+          "  const reqRef = useRef(0);",
+          "  const cacheRef = useRef({});"
+      ]),
+      "Recovery: tab-owned rows, syncing flag, newest-request-wins, per-tab cache")
 
 patch(F_RECOVERY_JSX,
       "\n".join([
-          "    Promise.all([recoveryService.getQueues(), recoveryService.getQueue(tab),"
+          "  const load = useCallback((silent) => {",
+          "    if (!silent) setLoading(!loadedOnce.current);",
+          "    Promise.all([recoveryService.getQueues(searchRef.current), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])",
+          "      .then((r) => {",
+          "        setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);",
+          "        const list = r[1].data || r[1];",
+          "        setRows(list);"
       ]),
       "\n".join([
-          "    Promise.all([recoveryService.getQueues(searchRef.current), recoveryService.getQueue(tab),"
+          "  // fix170: a plain tab click asks for the queue ONLY; counts / tags / stats come on first open, REFRESH and after a call.",
+          "  const load = useCallback((silent, forceMeta) => {",
+          "    const myReq = ++reqRef.current;",
+          "    const withMeta = !!forceMeta || !!silent || !loadedOnce.current;",
+          "    if (!silent) { setLoading(!loadedOnce.current); setSyncing(true); }",
+          "    const calls = [recoveryService.getQueue(tab)];",
+          "    if (withMeta) calls.push(recoveryService.getQueues(searchRef.current), recoveryService.getTags(), recoveryService.getStats());",
+          "    Promise.all(calls)",
+          "      .then((r) => {",
+          "        if (myReq !== reqRef.current) return;   // a newer click already replaced this request",
+          "        if (withMeta) { setCounts(r[1].data || r[1]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]); }",
+          "        const list = r[0].data || r[0];",
+          "        cacheRef.current[tab] = list;",
+          "        setRows(list); setRowsTab(tab);"
       ]),
-      "Recovery: tab counts keep the typed search when the queue reloads")
+      "Recovery: queue-only tab loads, stale answers dropped, rows tagged with their tab")
 
 patch(F_RECOVERY_JSX,
       "\n".join([
-          "  useEffect(() => {",
-          "    const t = setTimeout(() => {",
-          "      recoveryService.getQueues(search)"
+          "        loadedOnce.current = true;",
+          "        setLoading(false);",
+          "      }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });",
+          "  }, [tab, toast]);",
+          "  useEffect(() => { load(); }, [load]);"
       ]),
       "\n".join([
+          "        loadedOnce.current = true;",
+          "        setLoading(false); setSyncing(false);",
+          "      }).catch(() => { if (myReq !== reqRef.current) return; setLoading(false); setSyncing(false); toast('Could not load recovery queue.', 'error'); });",
+          "  }, [tab, toast]);",
+          "  useEffect(() => { load(); }, [load]);",
+          "  // fix170: a tab already opened this visit shows at once; a tab never opened shows the loading panel, never the old tab's cards",
           "  useEffect(() => {",
+          "    const cached = cacheRef.current[tab];",
+          "    if (cached) { setRows(cached); setRowsTab(tab); setOpenId(null); }",
+          "  }, [tab]);"
+      ]),
+      "Recovery: instant revisit from the per-tab cache")
+
+patch(F_RECOVERY_JSX,
+      "\n".join([
           "    searchRef.current = search;",
-          "    const t = setTimeout(() => {",
-          "      recoveryService.getQueues(search)"
+          "    const t = setTimeout(() => {"
       ]),
-      "Recovery: keep the search ref in step with the box")
+      "\n".join([
+          "    searchRef.current = search;",
+          "    if (!search && !loadedOnce.current) return undefined;   // fix170: the first load already fetched the counts",
+          "    const t = setTimeout(() => {"
+      ]),
+      "Recovery: no doubled counts call on first open")
 
-patch(F_AUDIT_JSX,
+patch(F_RECOVERY_JSX,
       "\n".join([
-          "import React, { useState, useEffect, useCallback, useMemo } from 'react';"
+          "  const rowsF = rows.filter("
       ]),
       "\n".join([
-          "import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';"
+          "  const rowsF = (rowsTab !== tab ? [] : rows).filter("
       ]),
-      "Audit: import useRef")
+      "Recovery: never list another tab's cards")
 
-patch(F_AUDIT_JSX,
+patch(F_RECOVERY_JSX,
       "\n".join([
-          "    const fetchForensics = useCallback(async () => {",
-          "        setLoading(true);"
+          "busy={loading}",
+          "            tip=\"Reload the queues, counts and call stats\" onClick={() => load()} />"
       ]),
       "\n".join([
-          "    const reqRef = useRef(0);",
-          "    const fetchForensics = useCallback(async () => {",
-          "        const myReq = ++reqRef.current;   // fix169: only the newest request may update the screen",
-          "        setLoading(true);"
+          "busy={loading || syncing}",
+          "            tip=\"Reload the queues, counts and call stats\" onClick={() => load(false, true)} />"
       ]),
-      "Audit: ignore stale replies")
+      "Recovery: REFRESH reloads counts and stats too")
 
-patch(F_AUDIT_JSX,
+patch(F_RECOVERY_JSX,
       "\n".join([
-          "            const data = filters.search",
-          "                ? await auditService.investigateKeyword(filters.search, page)",
-          "                : await auditService.searchForensics({ operator: activeOperator, action: activeAction }, page);",
-          "            setLogs(data.content || []);",
-          "        } catch { console.error('FORENSIC_SIGNAL_LOST'); }",
-          "        finally  { setLoading(false); }",
-          "    }, [page, filters]);"
+          "      {loading && rows.length === 0 ? ("
       ]),
       "\n".join([
-          "            // fix169: keyword, operator, action and dates all go to the server TOGETHER. The keyword used to go",
-          "            // to a different endpoint that ignored the other filters, and the dates were never sent at all.",
-          "            const data = await auditService.searchForensics({",
-          "                operator: activeOperator,",
-          "                action: activeAction,",
-          "                keyword: filters.search,",
-          "                start: filters.from ? filters.from + 'T00:00:00' : null,",
-          "                end: filters.to ? filters.to + 'T23:59:59' : null,",
-          "            }, page);",
-          "            if (myReq !== reqRef.current) return;",
-          "            setLogs(data.content || []);",
-          "        } catch { if (myReq === reqRef.current) console.error('FORENSIC_SIGNAL_LOST'); }",
-          "        finally  { if (myReq === reqRef.current) setLoading(false); }",
-          "    }, [page, filters]);",
-          "",
-          "    // fix169: any filter change starts again from the first sector",
-          "    useEffect(() => { setPage(0); }, [filters]);"
+          "      {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? ("
       ]),
-      "Audit: one server query for keyword + operator + action + dates, back to sector 1 on change")
+      "Recovery: loading panel while the picked tab has nothing of its own yet")
 
-patch(F_AUDIT_JSX,
+patch(F_RECOVERY_JSX,
       "\n".join([
-          "    // WHEN, which is the first question anyone asks of an audit trail and the",
-          "    // one filter the page did not have. The search endpoint takes operator and",
-          "    // action but no date window, so this narrows the page in hand rather than",
-          "    // the query -- honest about its scope in the hint under the controls."
+          "${styles.list} ${loading ? styles.refreshing : ''}"
       ]),
       "\n".join([
-          "    // WHEN, which is the first question anyone asks of an audit trail.",
-          "    // fix169: the dates now travel to the server with every other filter, so this",
-          "    // only stays as a harmless safety net on the page in hand."
+          "${styles.list} ${loading || syncing ? styles.refreshing : ''}"
       ]),
-      "Audit: comment now true")
+      "Recovery: dim the list while a fresh answer is on its way")
 
-patch(F_AUDIT_JSX,
+patch(F_RECOVERY_JSX,
       "\n".join([
-          "disabled={logs.length < 20} aria-label=\"Newer logs\""
+          "onClick={() => open(c)} disabled={c.state === 'LOCKED'}>"
       ]),
       "\n".join([
-          "disabled={logs.length < 50} aria-label=\"Newer logs\""
+          "onClick={() => open(c)} disabled={c.state === 'LOCKED' || tab === 'LOCKED' || syncing}>"
       ]),
-      "Audit: NEWER LOGS stays on while a full page of 50 came back")
+      "Recovery: CALL LOG disabled for locked people and until the fresh answer lands")
+
+patch(F_PROJECT_REPO,
+      "\n".join([
+          "    @Query(\"SELECT p FROM LandProject p WHERE p.deleted = false\")",
+          "    List<LandProject> findAll();"
+      ]),
+      "\n".join([
+          "    // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one",
+          "    // project at a time (hundreds of tiny queries per request) -- Recovery, Dashboard, Reports and Client Ledger all pay that.",
+          "    @Query(\"SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.landTitle WHERE p.deleted = false\")",
+          "    List<LandProject> findAll();"
+      ]),
+      "Backend: project list with owners + title in one query")
+
+patch(F_NOTE_REPO,
+      "\n".join([
+          "    List<RecoveryNote> findByClientOrderByCreatedAtDesc(Client client);"
+      ]),
+      "\n".join([
+          "    List<RecoveryNote> findByClientOrderByCreatedAtDesc(Client client);",
+          "    // fix170: every note WITH its client in one query (the queue / counts / stats pages group notes by client)",
+          "    @Query(\"SELECT n FROM RecoveryNote n JOIN FETCH n.client\")",
+          "    List<RecoveryNote> findAllWithClient();"
+      ]),
+      "Backend: notes with their client in one query")
+
+patch(F_NOTE_CTRL,
+      "\n".join([
+          "        for (RecoveryNote n : noteRepo.findAll()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);"
+      ]),
+      "\n".join([
+          "        for (RecoveryNote n : noteRepo.findAllWithClient()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);"
+      ]),
+      "Backend: noteMap uses the one-query load")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "        Page<LandProject> page = projectRepository.findAll(pageable);",
+          "        page.getContent().forEach(p -> p.setStages(projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(p.getId())));",
+          "        return page;"
+      ]),
+      "\n".join([
+          "        Page<LandProject> page = projectRepository.findAll(pageable);",
+          "        // fix170: ONE query for every stage on the page (it was one query per project)",
+          "        List<UUID> ids = new ArrayList<>();",
+          "        for (LandProject p : page.getContent()) ids.add(p.getId());",
+          "        Map<UUID, List<ProjectStage>> byProject = new HashMap<>();",
+          "        if (!ids.isEmpty()) for (ProjectStage s : projectStageRepository.findByProjectIdIn(ids)) byProject.computeIfAbsent(s.getProjectId(), k -> new ArrayList<>()).add(s);",
+          "        for (LandProject p : page.getContent()) {",
+          "            List<ProjectStage> l = byProject.getOrDefault(p.getId(), new ArrayList<>());",
+          "            l.sort(Comparator.comparingInt(s -> s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()));",
+          "            p.setStages(l);",
+          "        }",
+          "        return page;"
+      ]),
+      "Backend: ledger stages in one query per page")
 
 patch(F_GUIDE,
       "\n".join([
-          "use `accent: 'red'` for danger filters (CRITICAL, PROBLEM)."
+          "RULE: a filter must always run over the FULL data set, never over one server page"
       ]),
       "\n".join([
-          "use `accent: 'red'` for danger filters (CRITICAL, PROBLEM). fix169: the picked pill colour must NOT recolour panel borders, corner brackets, pins, header rules or row-hover edges -- those stay orange (`#EE8C3A`), like the Settings page; only the pill, header text, dots and soft hover washes may follow it. RULE: a filter must always run over the FULL data set, never over one server page -- the Project Ledger loads every page (200 per request) and then filters, sorts and pages in the browser; Audit sends keyword, operator, action and dates to the server together."
+          "RULE (fix170): when a tab or filter changes what the server returns, the cards on screen must belong to the tab picked -- never leave the previous tab's cards clickable while the new answer loads (Recovery keeps `rowsTab` + `syncing`, a per-tab cache, and drops stale replies). Speed rule: never load an EAGER link inside a loop -- fetch it in the same query (`JOIN FETCH`) or in one `IN (...)` query. RULE: a filter must always run over the FULL data set, never over one server page"
       ]),
-      "Guide: filter colour + full-data filter rules")
-
-patch(F_GUIDE,
-      "\n".join([
-          "The one `datetime-local` (Folder page deadline) is still native."
-      ]),
-      "\n".join([
-          "The one `datetime-local` (Folder page deadline) is still native. fix169: the popup is a LIGHT cream card (`#f2ede4`, the Settings Appearance card colour) with dark navy text, a 2px orange rule under the month title, solid orange selected day and an orange ring on today."
-      ]),
-      "Guide: light calendar")
+      "Guide: stale-cards + one-query speed rules")
 
 newfile(F_DATEPICKER_CSS,
         "\n".join([
           "/* PATH: erp-frontend/src/components/common/HardwareDatePicker.module.css */",
-          "/* fix169: the app's one date picker, now LIGHT. Card = the Settings Appearance cream card (#f2ede4) with dark navy",
-          "   text; a 2px orange rule sits under the month title like the Settings group labels. Selected day = solid orange,",
-          "   today = orange ring, hover = soft orange wash. Orange TEXT on cream is too faint, so text accents use #b45a12. */",
+          "/* fix170: lighter and calmer than fix169. Near-white warm card, soft slate text, faint weekday / out-of-month days,",
+          "   thin soft orange rule, hairline borders. Selected day = soft solid orange, today = thin orange ring.",
+          "   Orange TEXT on a light card is too faint, so text accents use the darker #b8651d. */",
           "",
           ".wrap { position: relative; display: inline-flex; align-items: center; min-width: 0; }",
           ".wrapBlock { display: flex; width: 100%; }",
@@ -586,10 +361,10 @@ newfile(F_DATEPICKER_CSS,
           "    z-index: 100000;",
           "    box-sizing: border-box;",
           "    padding: 14px;",
-          "    background: #f2ede4;",
-          "    border: 1.5px solid rgba(238, 140, 58, 0.45);",
+          "    background: #faf7f2;",
+          "    border: 1px solid rgba(238, 140, 58, 0.32);",
           "    border-radius: 12px;",
-          "    box-shadow: 0 18px 48px rgba(26, 46, 48, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;",
+          "    box-shadow: 0 14px 38px rgba(26, 46, 48, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;",
           "    font-family: 'DM Sans', sans-serif;",
           "    animation: popIn 0.18s cubic-bezier(0.2, 1, 0.3, 1);",
           "}",
@@ -601,60 +376,60 @@ newfile(F_DATEPICKER_CSS,
           ".nav {",
           "    display: flex; align-items: center; gap: 4px;",
           "    padding-bottom: 10px; margin-bottom: 10px;",
-          "    border-bottom: 2px solid #EE8C3A;",
+          "    border-bottom: 1.5px solid rgba(238, 140, 58, 0.55);",
           "}",
           ".navTitle {",
           "    flex: 1; text-align: center;",
           "    font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;",
-          "    letter-spacing: 1.5px; text-transform: uppercase; color: #1a2e30;",
+          "    letter-spacing: 1.5px; text-transform: uppercase; color: #3d5254;",
           "}",
           ".navBtn {",
           "    width: 26px; height: 26px; flex-shrink: 0;",
           "    display: flex; align-items: center; justify-content: center;",
-          "    background: rgba(255, 255, 255, 0.65); border: 1.5px solid rgba(26, 46, 48, 0.2);",
-          "    border-radius: 6px; color: rgba(26, 46, 48, 0.85); font-size: 14px; cursor: pointer;",
+          "    background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(26, 46, 48, 0.12);",
+          "    border-radius: 6px; color: rgba(26, 46, 48, 0.6); font-size: 14px; cursor: pointer;",
           "    transition: background 0.15s, color 0.15s, border-color 0.15s;",
           "}",
-          ".navBtn:hover { background: rgba(238, 140, 58, 0.16); border-color: #EE8C3A; color: #b45a12; }",
+          ".navBtn:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.6); color: #b8651d; }",
           ".navBtn:focus-visible, .day:focus-visible, .footBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 1px; }",
           "",
           ".dowRow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }",
           ".dowRow { margin-bottom: 4px; }",
           ".dowRow span {",
           "    text-align: center; padding: 4px 0;",
-          "    font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;",
-          "    color: rgba(26, 46, 48, 0.6);",
+          "    font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;",
+          "    color: rgba(26, 46, 48, 0.42);",
           "}",
           "",
           ".grid { gap: 2px; }",
           ".day {",
           "    height: 32px; display: flex; align-items: center; justify-content: center;",
-          "    background: transparent; border: 1.5px solid transparent; border-radius: 6px;",
+          "    background: transparent; border: 1px solid transparent; border-radius: 6px;",
           "    font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;",
-          "    color: #1a2e30; cursor: pointer;",
+          "    color: #3d5254; cursor: pointer;",
           "    transition: background 0.12s, border-color 0.12s, color 0.12s;",
           "}",
-          ".day:hover { background: rgba(238, 140, 58, 0.16); border-color: #EE8C3A; }",
-          ".dayOut { color: rgba(26, 46, 48, 0.32); }",
-          ".dayNow { border-color: #EE8C3A; color: #b45a12; background: rgba(255, 255, 255, 0.65); }",
-          ".daySel, .daySel:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; font-weight: 900; box-shadow: 0 3px 10px rgba(238, 140, 58, 0.4); }",
+          ".day:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.45); }",
+          ".dayOut { color: rgba(26, 46, 48, 0.22); }",
+          ".dayNow { border-color: rgba(238, 140, 58, 0.7); color: #b8651d; background: transparent; }",
+          ".daySel, .daySel:hover { background: #f2a257; border-color: #f2a257; color: #2a3b3d; font-weight: 800; box-shadow: 0 2px 8px rgba(238, 140, 58, 0.28); }",
           "",
           ".foot {",
           "    display: flex; justify-content: space-between; align-items: center;",
-          "    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(26, 46, 48, 0.14);",
+          "    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(26, 46, 48, 0.09);",
           "}",
           ".footBtn {",
           "    background: transparent; border: none; cursor: pointer; padding: 6px 8px; border-radius: 6px;",
-          "    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 900;",
-          "    letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26, 46, 48, 0.65);",
+          "    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 800;",
+          "    letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26, 46, 48, 0.5);",
           "    transition: background 0.15s, color 0.15s;",
           "}",
-          ".footBtn:hover { background: rgba(26, 46, 48, 0.08); color: #1a2e30; }",
-          ".footBtnHot { color: #b45a12; }",
-          ".footBtnHot:hover { background: rgba(238, 140, 58, 0.16); color: #8f4509; }"
+          ".footBtn:hover { background: rgba(26, 46, 48, 0.06); color: #3d5254; }",
+          ".footBtnHot { color: #b8651d; }",
+          ".footBtnHot:hover { background: rgba(238, 140, 58, 0.12); color: #8f4509; }"
       ]),
-        "light Settings-style calendar popup (HardwareDatePicker.module.css)",
-        "fix169: the app's one date picker, now LIGHT")
+        "lighter, calmer calendar popup (HardwareDatePicker.module.css)",
+        "fix170: lighter and calmer than fix169")
 
 # ============================= EDIT PART 2 END =============================
 

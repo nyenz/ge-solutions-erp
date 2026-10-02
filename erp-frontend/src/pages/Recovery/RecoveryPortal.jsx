@@ -39,16 +39,29 @@ export default function RecoveryPortal() {
   const [toasts, setToasts] = useState([]);
   const loadedOnce = useRef(false);
   const searchRef = useRef('');
+  // fix170: rowsTab = which tab the cards on screen belong to; syncing = a fresh answer is on its way;
+  // reqRef = newest request wins; cacheRef = last answer per tab so a revisited tab shows at once.
+  const [rowsTab, setRowsTab] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const reqRef = useRef(0);
+  const cacheRef = useRef({});
   const { user } = useAuth();
   const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
-  const load = useCallback((silent) => {
-    if (!silent) setLoading(!loadedOnce.current);
-    Promise.all([recoveryService.getQueues(searchRef.current), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])
+  // fix170: a plain tab click asks for the queue ONLY; counts / tags / stats come on first open, REFRESH and after a call.
+  const load = useCallback((silent, forceMeta) => {
+    const myReq = ++reqRef.current;
+    const withMeta = !!forceMeta || !!silent || !loadedOnce.current;
+    if (!silent) { setLoading(!loadedOnce.current); setSyncing(true); }
+    const calls = [recoveryService.getQueue(tab)];
+    if (withMeta) calls.push(recoveryService.getQueues(searchRef.current), recoveryService.getTags(), recoveryService.getStats());
+    Promise.all(calls)
       .then((r) => {
-        setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);
-        const list = r[1].data || r[1];
-        setRows(list);
+        if (myReq !== reqRef.current) return;   // a newer click already replaced this request
+        if (withMeta) { setCounts(r[1].data || r[1]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]); }
+        const list = r[0].data || r[0];
+        cacheRef.current[tab] = list;
+        setRows(list); setRowsTab(tab);
         if (pendingOpen.current) {
           const hit = list.find((x) => x.id === pendingOpen.current);
           pendingOpen.current = null;
@@ -60,12 +73,18 @@ export default function RecoveryPortal() {
           setOpenId(list.length ? list[0].id : null);
         }
         loadedOnce.current = true;
-        setLoading(false);
-      }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });
+        setLoading(false); setSyncing(false);
+      }).catch(() => { if (myReq !== reqRef.current) return; setLoading(false); setSyncing(false); toast('Could not load recovery queue.', 'error'); });
   }, [tab, toast]);
   useEffect(() => { load(); }, [load]);
+  // fix170: a tab already opened this visit shows at once; a tab never opened shows the loading panel, never the old tab's cards
+  useEffect(() => {
+    const cached = cacheRef.current[tab];
+    if (cached) { setRows(cached); setRowsTab(tab); setOpenId(null); }
+  }, [tab]);
   useEffect(() => {
     searchRef.current = search;
+    if (!search && !loadedOnce.current) return undefined;   // fix170: the first load already fetched the counts
     const t = setTimeout(() => {
       recoveryService.getQueues(search).then((r) => setCounts(r.data || r)).catch(() => {});
     }, 250);
@@ -93,7 +112,7 @@ export default function RecoveryPortal() {
       .catch(() => toast('Could not delete the note.', 'error'));
   };
   const term = search.toLowerCase().replace(/\s+/g, '');
-  const rowsF = rows.filter((c) => !term || [c.name, c.nin, c.phone, phoneSearchText(c.phone), c.lastTag, c.district, c.subCounty, c.village, c.placeText, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
+  const rowsF = (rowsTab !== tab ? [] : rows).filter((c) => !term || [c.name, c.nin, c.phone, phoneSearchText(c.phone), c.lastTag, c.district, c.subCounty, c.village, c.placeText, ...(c.indexes || [])].join(' ').toLowerCase().replace(/\s+/g, '').indexOf(term) >= 0);
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
@@ -102,8 +121,8 @@ export default function RecoveryPortal() {
           <p className={styles.subtitle}>Call logs only - numbers only</p>
         </div>
         <HeaderActions>
-          <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-            tip="Reload the queues, counts and call stats" onClick={() => load()} />
+          <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading || syncing}
+            tip="Reload the queues, counts and call stats" onClick={() => load(false, true)} />
         </HeaderActions>
       </header>
       <div className={styles.countsHUD}>
@@ -131,10 +150,10 @@ export default function RecoveryPortal() {
         <span><i className={styles.payDotYellow} /> Payment 2-4 weeks ago</span>
         <span><i className={styles.payDotRed} /> No recent payment</span>
       </div>
-      {loading && rows.length === 0 ? (
+      {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? (
         <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
-        <div className={`${styles.list} ${loading ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>
+        <div className={`${styles.list} ${loading || syncing ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>
           {rowsF.map((c) => {
             const isOpen = openId === c.id;
             return (
@@ -184,7 +203,7 @@ export default function RecoveryPortal() {
                       {c.unlock && (<span className={styles.lockBanner}><FiClock aria-hidden="true" /> Resting until {fmtD(c.unlock)} - read only.</span>)}
                     </span>
                     <span className={styles.rowActions}>
-                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED'}><FiPhone aria-hidden="true" /> CALL LOG</button>
+                      <button type="button" className={styles.cardBtn} onClick={() => open(c)} disabled={c.state === 'LOCKED' || tab === 'LOCKED' || syncing}><FiPhone aria-hidden="true" /> CALL LOG</button>
                       {(c.projectIds || []).length > 0 && (<button type="button" className={styles.cardBtn2} onClick={() => { window.location.href = '/folder/' + c.projectIds[0]; }}><FiFolderPlus aria-hidden="true" /> OPEN FOLDER</button>)}
                     </span>
                   </div>

@@ -535,9 +535,9 @@
     transition: background 0.2s ease;
 }
 .notifUnread { background: #ffffff; background: color-mix(in srgb, var(--t) 9%, #ffffff); }
-.notifUnread:hover { background: #f6f9f9; background: color-mix(in srgb, var(--t) 17%, #ffffff); }
+.notifUnread:hover { background: #e3ede9; background: color-mix(in srgb, var(--t) 30%, #ffffff); }
 .notifRead { border-left-color: transparent; background: #e4eaea; }
-.notifRead:hover { background: #dde4e4; }
+.notifRead:hover { background: #cbd8d8; border-left-color: var(--t, #EE8C3A); }
 
 .notifBody { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .notifType {

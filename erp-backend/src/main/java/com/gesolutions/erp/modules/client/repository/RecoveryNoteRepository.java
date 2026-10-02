@@ -11,6 +11,9 @@ import java.util.Optional;
 import java.util.UUID;
 public interface RecoveryNoteRepository extends JpaRepository<RecoveryNote, UUID> {
     List<RecoveryNote> findByClientOrderByCreatedAtDesc(Client client);
+    // fix170: every note WITH its client in one query (the queue / counts / stats pages group notes by client)
+    @Query("SELECT n FROM RecoveryNote n JOIN FETCH n.client")
+    List<RecoveryNote> findAllWithClient();
     Optional<RecoveryNote> findFirstByClientOrderByCreatedAtDesc(Client client);
     long countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(Client client, LocalDateTime after);
     long countByCountsAsAttemptTrueAndCreatedAtAfter(LocalDateTime after);

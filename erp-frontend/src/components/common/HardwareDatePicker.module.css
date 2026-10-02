@@ -1,7 +1,7 @@
 /* PATH: erp-frontend/src/components/common/HardwareDatePicker.module.css */
-/* fix169: the app's one date picker, now LIGHT. Card = the Settings Appearance cream card (#f2ede4) with dark navy
-   text; a 2px orange rule sits under the month title like the Settings group labels. Selected day = solid orange,
-   today = orange ring, hover = soft orange wash. Orange TEXT on cream is too faint, so text accents use #b45a12. */
+/* fix170: lighter and calmer than fix169. Near-white warm card, soft slate text, faint weekday / out-of-month days,
+   thin soft orange rule, hairline borders. Selected day = soft solid orange, today = thin orange ring.
+   Orange TEXT on a light card is too faint, so text accents use the darker #b8651d. */
 
 .wrap { position: relative; display: inline-flex; align-items: center; min-width: 0; }
 .wrapBlock { display: flex; width: 100%; }
@@ -16,10 +16,10 @@
     z-index: 100000;
     box-sizing: border-box;
     padding: 14px;
-    background: #f2ede4;
-    border: 1.5px solid rgba(238, 140, 58, 0.45);
+    background: #faf7f2;
+    border: 1px solid rgba(238, 140, 58, 0.32);
     border-radius: 12px;
-    box-shadow: 0 18px 48px rgba(26, 46, 48, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    box-shadow: 0 14px 38px rgba(26, 46, 48, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
     font-family: 'DM Sans', sans-serif;
     animation: popIn 0.18s cubic-bezier(0.2, 1, 0.3, 1);
 }
@@ -31,54 +31,54 @@
 .nav {
     display: flex; align-items: center; gap: 4px;
     padding-bottom: 10px; margin-bottom: 10px;
-    border-bottom: 2px solid #EE8C3A;
+    border-bottom: 1.5px solid rgba(238, 140, 58, 0.55);
 }
 .navTitle {
     flex: 1; text-align: center;
     font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
-    letter-spacing: 1.5px; text-transform: uppercase; color: #1a2e30;
+    letter-spacing: 1.5px; text-transform: uppercase; color: #3d5254;
 }
 .navBtn {
     width: 26px; height: 26px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(255, 255, 255, 0.65); border: 1.5px solid rgba(26, 46, 48, 0.2);
-    border-radius: 6px; color: rgba(26, 46, 48, 0.85); font-size: 14px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(26, 46, 48, 0.12);
+    border-radius: 6px; color: rgba(26, 46, 48, 0.6); font-size: 14px; cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.navBtn:hover { background: rgba(238, 140, 58, 0.16); border-color: #EE8C3A; color: #b45a12; }
+.navBtn:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.6); color: #b8651d; }
 .navBtn:focus-visible, .day:focus-visible, .footBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 1px; }
 
 .dowRow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .dowRow { margin-bottom: 4px; }
 .dowRow span {
     text-align: center; padding: 4px 0;
-    font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
-    color: rgba(26, 46, 48, 0.6);
+    font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    color: rgba(26, 46, 48, 0.42);
 }
 
 .grid { gap: 2px; }
 .day {
     height: 32px; display: flex; align-items: center; justify-content: center;
-    background: transparent; border: 1.5px solid transparent; border-radius: 6px;
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
     font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
-    color: #1a2e30; cursor: pointer;
+    color: #3d5254; cursor: pointer;
     transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
-.day:hover { background: rgba(238, 140, 58, 0.16); border-color: #EE8C3A; }
-.dayOut { color: rgba(26, 46, 48, 0.32); }
-.dayNow { border-color: #EE8C3A; color: #b45a12; background: rgba(255, 255, 255, 0.65); }
-.daySel, .daySel:hover { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; font-weight: 900; box-shadow: 0 3px 10px rgba(238, 140, 58, 0.4); }
+.day:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.45); }
+.dayOut { color: rgba(26, 46, 48, 0.22); }
+.dayNow { border-color: rgba(238, 140, 58, 0.7); color: #b8651d; background: transparent; }
+.daySel, .daySel:hover { background: #f2a257; border-color: #f2a257; color: #2a3b3d; font-weight: 800; box-shadow: 0 2px 8px rgba(238, 140, 58, 0.28); }
 
 .foot {
     display: flex; justify-content: space-between; align-items: center;
-    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(26, 46, 48, 0.14);
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(26, 46, 48, 0.09);
 }
 .footBtn {
     background: transparent; border: none; cursor: pointer; padding: 6px 8px; border-radius: 6px;
-    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 900;
-    letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26, 46, 48, 0.65);
+    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 800;
+    letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26, 46, 48, 0.5);
     transition: background 0.15s, color 0.15s;
 }
-.footBtn:hover { background: rgba(26, 46, 48, 0.08); color: #1a2e30; }
-.footBtnHot { color: #b45a12; }
-.footBtnHot:hover { background: rgba(238, 140, 58, 0.16); color: #8f4509; }
+.footBtn:hover { background: rgba(26, 46, 48, 0.06); color: #3d5254; }
+.footBtnHot { color: #b8651d; }
+.footBtnHot:hover { background: rgba(238, 140, 58, 0.12); color: #8f4509; }
