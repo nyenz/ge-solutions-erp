@@ -42,7 +42,9 @@ const PAGE_SIZE = 15;
 const LOAD_SIZE = 200;
 // fix169: ONE rule for CRITICAL, used by the filter AND by the red tag on each row (they used to disagree:
 // receivables showed the tag but were left out of the filter).
-const isCriticalProject = (p) => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25;
+// fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)
+const titlePaidOf = (p) => Math.max(0, (p.amountPaid || 0) - (p.storageFeesPaid || 0));
+const isCriticalProject = (p) => (p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25;
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
@@ -373,7 +375,7 @@ const LedgerPage = () => {
                                 const isReceivable = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
                                 const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
-                                const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;
+                                const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = isCriticalProject(proj);
                                 const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
                                 const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
@@ -439,7 +441,7 @@ const LedgerPage = () => {
                                                 <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {debt.toLocaleString()}</span>
                                             </div>
                                             {isReceivable && proj.storageFeesAccumulated > 0 && (
-                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>
+                                                <div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees{Number(proj.storageFeesPaid || 0) > 0 ? ' (UGX ' + Number(proj.storageFeesPaid).toLocaleString() + ' paid)' : ''}</div>
                                             )}
                                             <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
                                                 <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />

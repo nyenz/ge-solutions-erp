@@ -307,6 +307,7 @@ const ClientLedgerPage = () => {
                                 const owed = Number(c.owed || 0);
                                 const paid = Number(c.paid || 0);
                                 const storageFees = Number(c.storage || 0);
+                                const storagePaid = Number(c.storagePaid || 0);
                                 const total = paid + owed;
                                 const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
                                 const isCritical = owed > 0 && total > 0 && pct < 25;
@@ -377,7 +378,7 @@ const ClientLedgerPage = () => {
                                                     <span className={isCritical ? styles.debtCritical : styles.debtAmount}>UGX {owed.toLocaleString()}</span>
                                                 </div>
                                                 {storageFees > 0 && (
-                                                    <div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees</div>
+                                                    <div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees{storagePaid > 0 ? ' (UGX ' + storagePaid.toLocaleString() + ' paid)' : ''}</div>
                                                 )}
                                                 <div className={styles.velocityBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
                                                     <div className={`${styles.velocityFill} ${isCritical ? styles.velocityFillCritical : ''}`} style={{ width: `${pct}%` }} />

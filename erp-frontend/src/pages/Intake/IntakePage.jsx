@@ -74,6 +74,7 @@ export default function IntakePage() {
     const [totalCost, setTotalCost] = useState(0);
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
+    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171
     const [monthlyStorageFee, setMonthlyStorageFee] = useState(DEFAULT_MONTHLY_STORAGE_FEE);
     const [fileQueue, setFileQueue] = useState([]);
     const [notes, setNotes] = useState('');
@@ -240,6 +241,18 @@ export default function IntakePage() {
         }
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
+        // fix171: the same checks the server makes, so the message shows before anything is sent
+        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }
+        if (isLegacy) {
+            const feeCharged = Number(initialStorageFee) || 0;
+            const feePaid = Number(initialStorageFeePaid) || 0;
+            if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }
+            if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }
+            if (feePaid > feeCharged) { toast('Storage Fees Already Paid cannot be more than the Initial Storage Fee.', 'error'); return false; }
+            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0)) {
+                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes.', 'error'); return false;
+            }
+        }
         if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
         return true;
     };
@@ -284,6 +297,7 @@ export default function IntakePage() {
             if (isLegacy) {
                 payload.isStartAsReceivable = true;
                 payload.initialStorageFee = Number(initialStorageFee) || 0;
+                payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;
                 payload.monthlyStorageFee = Number(monthlyStorageFee) || DEFAULT_MONTHLY_STORAGE_FEE;
             }
             await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
@@ -306,7 +320,7 @@ export default function IntakePage() {
         toast('Saved. Form duplicated for the next plot.', 'success');
         setProjectType('NEW_FOLDER'); setProjectStartDate(todayISO());
         setTitleId(''); setTenure('FREEHOLD'); setPlotNumber(''); setBlockRoad(''); setTitleIssueDate('');
-        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
+        setTotalCost(0); setInitialPayment(0); setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         setStageList(DEFAULT_STAGES.map(n => ({ id: null, name: n })));
         setChecked({ [DEFAULT_STAGES[0]]: true });
@@ -314,7 +328,11 @@ export default function IntakePage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+    // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)
+    const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));
+    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;
+    const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));
+    const amountOwed = titleLeft + (titleLeft > 0 ? feesCharged - feesPaidNow : 0);
     let n = 0;
     const nIndex = ++n, nOwners = ++n;
     const nTitle = isTitleSectionVisible ? ++n : null;
@@ -538,8 +556,9 @@ export default function IntakePage() {
                             <input type="number" className={styles.input} value={totalCost} onChange={e => { setTotalCost(e.target.value); markDirty(); }} />
                         </div>
                         <div className={styles.field}>
-                            <label className={`${styles.label} ${styles.required}`}>Initial Payment</label>
-                            <input type="number" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
+                            <label className={`${styles.label} ${styles.required}`}>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</label>
+                            <input type="number" min="0" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />
+                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}
                         </div>
                     </div>
                     {isLegacy && (
@@ -555,13 +574,19 @@ export default function IntakePage() {
                                     <input type="number" className={styles.input} value={monthlyStorageFee} onChange={e => { setMonthlyStorageFee(e.target.value); markDirty(); }} />
                                     <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>
                                 </div>
+                                <div className={styles.field}>
+                                    <label className={styles.label}>Storage Fees Already Paid</label>
+                                    <input type="number" min="0" className={styles.input} value={initialStorageFeePaid} onChange={e => { setInitialStorageFeePaid(e.target.value); markDirty(); }} />
+                                    <p className={styles.hint}>Part of the Initial Storage Fee the client has already paid. Counted toward the fees, not the title work, and it does not count as a recent payment.</p>
+                                </div>
                             </div>
                         </>
                     )}
                     <div className={styles.financialsSummary}>
                         <div className={styles.finRow}><span>Total Cost</span><span>{Number(totalCost) || 0}</span></div>
-                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>
+                        <div className={styles.finRow}><span>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</span><span>{Number(initialPayment) || 0}</span></div>
                         {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}
+                        {isLegacy && <div className={styles.finRow}><span>Storage Fees Already Paid</span><span>{Number(initialStorageFeePaid) || 0}</span></div>}
                         <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                     </div>
                 </CollapsibleSection>

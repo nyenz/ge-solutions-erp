@@ -63,6 +63,8 @@ public class LandEntryRequest {
 
     private java.math.BigDecimal monthlyStorageFee;
     private java.math.BigDecimal initialStorageFee;
+    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)
+    private java.math.BigDecimal initialStorageFeePaid;
 
     // PHASE 4: Optional stage checklist selected at intake. If omitted,
     // no stages are attached and staff can add them later from the

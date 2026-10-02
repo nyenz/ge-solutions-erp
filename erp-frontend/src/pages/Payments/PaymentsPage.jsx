@@ -91,8 +91,11 @@ const PaymentsPage = () => {
     }, [payments, typeFilter, searchTerm, sortKey, sortDir]);
 
     const totalCollected = useMemo(() => filtered.reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
-    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    // fix171: a payment belongs to the RECEIVABLES card when it was made in receivables OR is storage-fee money (this
+    // includes storage fees recorded at intake, and a reversal of a storage payment)
+    const inReceivables  = (p) => p.paymentType === 'RECEIVABLE_PARTIAL' || p.allocation === 'STORAGE';
+    const titleTotal     = useMemo(() => filtered.filter(p => !inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
+    const storageTotal   = useMemo(() => filtered.filter(p => inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);
 
     const SortIcon = ({ field }) => {
         if (sortKey !== field) return <span className={styles.sortArrowInactive}> &#8597;</span>;
@@ -130,12 +133,12 @@ const PaymentsPage = () => {
                 <div className={`${styles.sumCard} ${styles.sumGreen}`}>
                     <label style={{ color: '#22c55e' }}>TITLE PAYMENTS</label>
                     <strong style={{ color: '#22c55e' }}>UGX {fmt(titleTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>
+                    <span>{filtered.filter(p => !inReceivables(p)).length} records</span>
                 </div>
                 <div className={`${styles.sumCard} ${styles.sumRed}`}>
                     <label style={{ color: '#ef4444' }}>RECEIVABLES PAYMENTS</label>
                     <strong style={{ color: '#ef4444' }}>UGX {fmt(storageTotal)}</strong>
-                    <span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>
+                    <span>{filtered.filter(p => inReceivables(p)).length} records</span>
                 </div>
             </div>
 
@@ -237,6 +240,7 @@ const PaymentsPage = () => {
                                                 <i className={styles.legendDot} style={{ background: TYPE_COLORS[pay.paymentType] || '#888', boxShadow: `0 0 4px ${TYPE_COLORS[pay.paymentType] || '#888'}` }} aria-hidden="true" />
                                                 {pay.paymentType === 'RECEIVABLE_PARTIAL' && <FiAlertOctagon size={9} />}
                                                 {TYPE_LABELS[pay.paymentType] || pay.paymentType}
+                                                {pay.allocation === 'STORAGE' ? ' - STORAGE FEES' : ''}
                                             </span>
                                         </td>
                                         <td>

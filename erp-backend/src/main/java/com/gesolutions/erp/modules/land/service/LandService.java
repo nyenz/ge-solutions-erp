@@ -306,6 +306,28 @@ public class LandService {
 
         boolean startAsReceivable = request.isStartAsReceivable();
 
+        // fix171: storage fees already charged / already paid at intake, checked here because the server must not trust the page
+        BigDecimal initialFees = request.getInitialStorageFee() != null ? request.getInitialStorageFee() : BigDecimal.ZERO;
+        BigDecimal initialFeesPaid = request.getInitialStorageFeePaid() != null ? request.getInitialStorageFeePaid() : BigDecimal.ZERO;
+        if (initialPayment.signum() < 0 || initialFees.signum() < 0 || initialFeesPaid.signum() < 0) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("AMOUNT_INVALID: Payments and storage fees cannot be negative.");
+        }
+        if (initialPayment.compareTo(totalCost) > 0) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("INITIAL_PAYMENT_TOO_HIGH: The initial payment (UGX " + initialPayment.toPlainString()
+                    + ") is more than the total cost (UGX " + totalCost.toPlainString() + ").");
+        }
+        if (initialFeesPaid.stripTrailingZeros().scale() > 0) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_PAID_INVALID: Enter whole shillings only for the storage fees already paid.");
+        }
+        if (initialFeesPaid.compareTo(initialFees) > 0) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX " + initialFeesPaid.toPlainString()
+                    + ") cannot be more than the initial storage fee (UGX " + initialFees.toPlainString() + ").");
+        }
+        if (!(startAsReceivable && outstanding.signum() > 0) && (initialFees.signum() > 0 || initialFeesPaid.signum() > 0)) {
+            throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. "
+                    + "This title work is already fully paid, so clear the storage fee boxes.");
+        }
+
         LandTitle title = null;
         if (hasTitleFields) {
             if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
@@ -356,18 +378,17 @@ public class LandService {
                 .village(request.getVillage())
                 .area(request.getArea())
                 .totalCost(totalCost)
-                .amountPaid(initialPayment)
+                .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)
                 .isLegacy(request.isLegacy())
                 .currentStageIndex(startAsReceivable ? 5 : 1)
                 .status(startAsReceivable ? "RECEIVABLE" : "ACTIVE");
 
         if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal initialFees = request.getInitialStorageFee() != null
-                    ? request.getInitialStorageFee() : BigDecimal.ZERO;
             builder.isReceivable(true)
                    .receivableStartDate(LocalDateTime.now())
                    .originalDebt(outstanding)
-                   .storageFeesAccumulated(initialFees);
+                   .storageFeesAccumulated(initialFees)
+                   .storageFeesPaid(initialFeesPaid);   // fix171
             if (request.getMonthlyStorageFee() != null
                     && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0) {
                 builder.storageFeeOverride(request.getMonthlyStorageFee());
@@ -390,6 +411,9 @@ public class LandService {
         LandProject saved = projectRepository.save(project);
 
         // Record initial payment if any
+        // fix171: the balance shown on the history lines includes the storage fees, and the money that was paid
+        // toward fees gets its OWN line (allocation STORAGE) so the folder, payments page and reports can tell them apart.
+        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : outstanding;
         if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {
             PaymentRecord initialRecord = PaymentRecord.builder()
                     .projectId(saved.getId())
@@ -397,11 +421,26 @@ public class LandService {
                     .paymentType("INITIAL_DEPOSIT")
                     .recordedBy(getCurrentOperator())
                     .notes("Initial deposit at intake")
-                    .balanceAfter(outstanding)
+                    .balanceAfter(balanceAtIntake)
+                    .allocation("TITLE")
                     .build();
             paymentRecordRepository.save(initialRecord);
             saved.setLastPaymentDate(LocalDateTime.now());
             projectRepository.save(saved);
+        }
+        if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {
+            // deliberately NOT setting lastPaymentDate: this money was paid before the project was entered, on an
+            // unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.
+            PaymentRecord feesRecord = PaymentRecord.builder()
+                    .projectId(saved.getId())
+                    .amountPaid(initialFeesPaid)
+                    .paymentType("INITIAL_DEPOSIT")
+                    .recordedBy(getCurrentOperator())
+                    .notes("Storage fees already paid before entry (recorded at intake)")
+                    .balanceAfter(balanceAtIntake)
+                    .allocation("STORAGE")
+                    .build();
+            paymentRecordRepository.save(feesRecord);
         }
 
         // fix167: New Title and Legacy Title projects have no stage checklist (guide 8.9.1). The page used to send
@@ -436,7 +475,8 @@ public class LandService {
         if (startAsReceivable) {
             auditService.logAction("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
-                + plotOrIndex + " as RECEIVABLE at intake. Debt: UGX " + outstanding);
+                + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
+                + ". Storage fees: UGX " + initialFees + " (UGX " + initialFeesPaid + " already paid).");
         }
 
         return saved;
@@ -570,9 +610,11 @@ public class LandService {
             if (costWhy.length() < 5) {
                 throw new BusinessException("COST_REASON_REQUIRED: Write why the total cost is changing (at least 5 characters).");
             }
-            if (newTotalCost.compareTo(currentPaid) < 0) {
+            // fix171: only the money paid toward the TITLE work counts here (paid storage fees are not part of the cost)
+            BigDecimal titlePaidNow = currentPaid.subtract(project.storagePaidSafe()).max(BigDecimal.ZERO);
+            if (newTotalCost.compareTo(titlePaidNow) < 0) {
                 throw new BusinessException("COST_BELOW_PAID: The new cost (UGX " + newTotalCost.toPlainString()
-                        + ") is lower than the UGX " + currentPaid.toPlainString()
+                        + ") is lower than the UGX " + titlePaidNow.toPlainString()
                         + " already paid. Reverse the extra payment first.");
             }
             auditService.logAction("COST_CHANGED",
@@ -589,7 +631,7 @@ public class LandService {
         // originalDebt = new title cost minus payments already made toward the title.
         if (project.isReceivable()) {
             BigDecimal amtPaid = project.getAmountPaid() != null ? project.getAmountPaid() : BigDecimal.ZERO;
-            project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));
+            project.setOriginalDebt(newTotalCost.subtract(amtPaid.subtract(project.storagePaidSafe())).max(BigDecimal.ZERO));   // fix171: title money only
         }
 
         LandProject saved = projectRepository.save(project);

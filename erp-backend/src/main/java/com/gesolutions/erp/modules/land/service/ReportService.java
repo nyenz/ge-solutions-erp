@@ -249,7 +249,7 @@ public class ReportService {
     public byte[] generateReceivableBreakdown() {
         List<LandProject> data = projectRepository.findAllReceivablePlots();
         StringBuilder csv = new StringBuilder();
-        csv.append("PLOT_ID,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,RECEIVABLE_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED").append(NEW_LINE);
+        csv.append("PLOT_ID,DISTRICT,TENURE,PRIMARY_OWNER,PHONE,RECEIVABLE_START,TITLE_COST_UGX,STORAGE_FEES_UGX,MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED,STORAGE_FEES_PAID,STORAGE_FEES_UNPAID").append(NEW_LINE);
 
         for (LandProject p : data) {
             Client owner = p.getProprietors().stream().findFirst().orElse(new Client());
@@ -274,7 +274,9 @@ public class ReportService {
                .append(storageFees).append(CSV_DIVIDER)
                .append(months).append(CSV_DIVIDER)
                .append(amountPaid).append(CSV_DIVIDER)
-               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(NEW_LINE);
+               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(CSV_DIVIDER)
+               .append(p.storagePaidSafe()).append(CSV_DIVIDER)
+               .append(p.storageUnpaid()).append(NEW_LINE);
         }
         auditService.logAction("REPORT_EXPORT", "Priority 2: Receivable Breakdown Report Exported");
         return csv.toString().getBytes();

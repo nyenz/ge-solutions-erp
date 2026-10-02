@@ -429,6 +429,7 @@ m.put("lastPaymentAt", lastPaymentAt == null ? null : lastPaymentAt.toString());
 m.put("owed", owed);
 m.put("paid", paid);
 m.put("storage", storage);
+m.put("storagePaid", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::storagePaidSafe).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
 java.util.List<com.gesolutions.erp.modules.client.model.RecoveryNote> ns = noteRepo.findByClientOrderByCreatedAtDesc(c);
 m.put("lastTag", ns.isEmpty() ? null : ns.get(0).getTag());
 m.put("lastTone", ns.isEmpty() ? null : ns.get(0).getTone());

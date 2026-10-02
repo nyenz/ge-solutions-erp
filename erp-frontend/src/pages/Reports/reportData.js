@@ -90,11 +90,14 @@ const projectFields = [
   f('receivableStart', 'Receivables Start', 'date', p => p.receivableStartDate || null),
   f('totalCost', 'Total Cost', 'money', p => num(p.totalCost), { money: true }),
   f('amountPaid', 'Amount Paid', 'money', p => num(p.amountPaid), { money: true }),
-  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),
+  // fix171: a project in receivables also owes its storage fees, and paid fees are not part of the title cost
+  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) + (p.isReceivable ? num(p.storageFeesAccumulated) : 0) - num(p.amountPaid)), { money: true }),
   f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),
+  f('storagePaid', 'Storage Fees Paid', 'money', p => num(p.storageFeesPaid), { money: true }),
+  f('storageUnpaid', 'Storage Fees Unpaid', 'money', p => Math.max(0, num(p.storageFeesAccumulated) - num(p.storageFeesPaid)), { money: true }),
   f('originalDebt', 'Original Debt', 'money', p => num(p.originalDebt), { money: true }),
   f('installment', 'Weekly Installment', 'money', p => num(p.weeklyInstallment), { money: true }),
-  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),
+  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round(((num(p.amountPaid) - num(p.storageFeesPaid)) / num(p.totalCost)) * 100) : 0), { money: true }),
 ];
 
 /* ── CLIENTS ─────────────────────────────────────────────────────── */
@@ -115,6 +118,7 @@ const clientFields = [
   f('owed', 'Total Owed', 'money', c => num(c.owed), { money: true }),
   f('paid', 'Total Paid', 'money', c => num(c.paid), { money: true }),
   f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),
+  f('storagePaid', 'Storage Fees Paid', 'money', c => num(c.storagePaid), { money: true }),
   f('billed', 'Total Billed', 'money', c => num(c.owed) + num(c.paid), { money: true }),
   f('pctPaid', 'Percent Paid', 'percent', c => {
     const total = num(c.owed) + num(c.paid);

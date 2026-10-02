@@ -458,7 +458,7 @@ const FolderPage = () => {
                     county: data.project?.county || '', subCounty: data.project?.subCounty || '',
                     parish: data.project?.parish || '', village: data.project?.village || '', area: data.project?.area || '',
                     titleId: data.project?.landTitle?.titleId || '', convertToTitle: false,
-                    totalCost: String(data.project?.totalCost || 0), initialPayment: String(data.project?.amountPaid || 0),
+                    totalCost: String(data.project?.totalCost || 0), initialPayment: String(Math.max(0, Number(data.project?.amountPaid || 0) - Number(data.project?.storageFeesPaid || 0))),
                     isLegacy: !!data.project?.isLegacy,
                     owners: (data.project?.proprietors || []).map(p => ({ fullName: p.fullName || '', phone: p.phoneNumber || '', nationalId: p.nationalId || '', address: p.homeAddress || '', email: p.email || '' })),
                 });

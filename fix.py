@@ -1,28 +1,34 @@
 #!/usr/bin/env python3
-# PATH: fix170.py
-# GOLDEN SEED -- fix170: lighter calendar, stronger notification hover, and the SPEED glitches (Recovery tab switch, slow queries, slow page start).
+# PATH: fix171.py
+# GOLDEN SEED -- fix171: "Storage fees already paid" at intake, wired through every page and report.
 #
-#   1. CALENDAR: lighter again and calmer. Near-white warm card, soft slate text (not near-black), faint weekday and
-#      out-of-month days, a thin soft orange rule, hairline button borders. Selected day is a soft solid orange,
-#      today is a thin orange ring. Contrast is deliberately gentle but the text stays readable.
-#   2. NOTIFICATION HOVER: hovering a bell row used to change the background by only a few percent. Unread rows now
-#      take a clear tint of their own colour, read rows go visibly darker, and the coloured left edge appears on hover.
-#   3. RECOVERY "LOCKED" GLITCH (the one you saw): clicking a tab switched the highlight at once but the OLD tab's cards
-#      stayed on screen, fully clickable, until the server answered -- so CALL LOG opened on people who were really
-#      locked. Now the cards on screen always belong to the tab you picked: the old ones are removed the moment you
-#      click, a tab you have already opened shows instantly from memory (CALL LOG stays disabled until the fresh
-#      answer lands), and an older slow answer can never overwrite a newer click.
-#   4. WHY IT WAS SLOW: every tab click fired FOUR requests (queue, counts, tags, stats) and each one loaded every
-#      project, with the owners and the title fetched one project at a time (hundreds of tiny queries each).
-#      - tab click now asks for the queue only (counts / tags / stats load on first open, REFRESH and after a call);
-#      - the project list (used by Recovery, Dashboard, Reports, Client Ledger) now fetches projects + owners + title in
-#        ONE query; recovery notes come with their client in ONE query;
-#      - the Project Ledger stage lists are fetched in ONE query per page instead of one per project (fix169 made
-#        pages 200 rows, so this matters);
-#      - the top bar's three background checks (stale count, unread count, notification list) run together instead of
-#        one after another on every page load and every refresh; the first search-box counts call is no longer doubled.
+# THE PROBLEM: a Legacy Title / receivable project could be entered with an Initial Storage Fee (fees already charged),
+# but there was NO way to say how much of it the client had already paid. Anything typed as Initial Payment counted as
+# TITLE-work money, so the folder showed too little work owed and too many fees unpaid (e.g. cost 1,000,000 + fees
+# 200,000 already paid showed 800,000 work left and 200,000 fees unpaid). The only workaround, recording a STORAGE
+# payment afterwards, was dated today, which set the last-payment date and locked the client from recovery calls.
 #
-# NOT in this fix: any screen layout, any wording, any database change.
+#   1. INTAKE: new box "Storage Fees Already Paid" (Legacy Title, under the Storage Fees heading). It is counted as paid
+#      toward the FEES (storageFeesPaid), never toward the title work, and it does NOT set the last-payment date.
+#      Initial Payment is now clearly labelled as TITLE WORK. The summary shows fees charged, fees paid and an Amount
+#      Owed that includes the unpaid fees (before it ignored fees completely).
+#   2. SERVER CHECKS: fees paid cannot exceed the initial fee, whole shillings, no negatives, initial payment cannot
+#      exceed the total cost, and storage fees on a project that would not be in receivables (title already fully paid)
+#      are now REFUSED with a clear message instead of being silently dropped.
+#   3. PAYMENT HISTORY: the intake writes two honest lines, "DEPOSIT AT INTAKE / TITLE" and "DEPOSIT AT INTAKE / STORAGE
+#      FEES", each with the balance after intake (fees included). Reversing the storage line works like any storage payment.
+#   4. EDIT FOLDER: changing the cost of a receivable project compared the new cost with ALL money paid (fees included)
+#      and set the frozen debt from it; both now use the TITLE money only, so a paid fee can no longer block a cost
+#      change or shrink the debt.
+#   5. PROGRESS AND CRITICAL: the Ledger progress bar and the CRITICAL rule now count TITLE money only, so paid fees
+#      never make a project look "paid up" (they would have, now that fees can be entered as paid).
+#   6. SHOWN EVERYWHERE: Ledger and Client Ledger fee lines say "(UGX x paid)"; Payments page puts intake storage
+#      deposits under the receivables card and labels them STORAGE FEES; Report Studio gets Storage Fees Paid / Unpaid
+#      for projects and Storage Fees Paid for clients, and its Balance Owed / Percent Paid now include fees correctly;
+#      the Receivable Breakdown CSV gets two new last columns (STORAGE_FEES_PAID, STORAGE_FEES_UNPAID).
+#
+# NOT in this fix: any change to how fees accrue, a date for older payments (listed as an open point), any database
+# change (storage_fees_paid already exists).
 #
 # Atomic: every patch for every file is matched in memory first; if any one is
 # MISSING nothing is written and nothing is committed. Runs the backend compile
@@ -34,8 +40,8 @@ import sys
 
 # ============================ EDIT PART 1 START ============================
 # Names, and one variable per file this fix touches.
-FIX_NO = "fix170"
-COMMIT_MSG = "fix170: lighter calendar, clearer notification hover, Recovery tab switch no longer shows stale clickable cards, big speed-up (one-query project/note loading, bulk ledger stages, queue-only tab loads, parallel top-bar checks)"
+FIX_NO = "fix171"
+COMMIT_MSG = "fix171: Storage Fees Already Paid at intake, wired through folder/ledger/payments/reports; edit-cost and progress/critical now use title money only"
 RUN_GATES = True   # set False for docs-only fixes (guide / markdown): skips compile + build
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,14 +50,16 @@ FRONTEND = os.path.join(ROOT, "erp-frontend")
 SRC = os.path.join(FRONTEND, "src")
 JAVA = os.path.join(BACKEND, "src", "main", "java", "com", "gesolutions", "erp")
 
-F_RECOVERY_JSX = os.path.join(SRC, "pages", "Recovery", "RecoveryPortal.jsx")
-F_HEADER_JSX = os.path.join(SRC, "components", "layout", "Header.jsx")
-F_HEADER_CSS = os.path.join(SRC, "components", "layout", "Header.module.css")
-F_DATEPICKER_CSS = os.path.join(SRC, "components", "common", "HardwareDatePicker.module.css")
-F_PROJECT_REPO = os.path.join(JAVA, "modules", "land", "repository", "LandProjectRepository.java")
-F_NOTE_REPO = os.path.join(JAVA, "modules", "client", "repository", "RecoveryNoteRepository.java")
-F_NOTE_CTRL = os.path.join(JAVA, "modules", "client", "controller", "RecoveryNoteController.java")
+F_INTAKE_JSX = os.path.join(SRC, "pages", "Intake", "IntakePage.jsx")
+F_LEDGER_JSX = os.path.join(SRC, "pages", "Ledger", "LedgerPage.jsx")
+F_CLIENTLEDGER_JSX = os.path.join(SRC, "pages", "Clients", "ClientLedgerPage.jsx")
+F_PAYMENTS_JSX = os.path.join(SRC, "pages", "Payments", "PaymentsPage.jsx")
+F_REPORTDATA_JS = os.path.join(SRC, "pages", "Reports", "reportData.js")
+F_FOLDER_JSX = os.path.join(SRC, "pages", "DigitalFolder", "FolderPage.jsx")
+F_ENTRY_DTO = os.path.join(JAVA, "modules", "land", "dto", "LandEntryRequest.java")
 F_LAND_SERVICE = os.path.join(JAVA, "modules", "land", "service", "LandService.java")
+F_REPORT_SERVICE = os.path.join(JAVA, "modules", "land", "service", "ReportService.java")
+F_NOTE_CTRL = os.path.join(JAVA, "modules", "client", "controller", "RecoveryNoteController.java")
 F_GUIDE = os.path.join(ROOT, "LLM_CONTEXT_GUIDE.md")
 # ============================= EDIT PART 1 END =============================
 
@@ -117,319 +125,455 @@ def patch(path, old, new, desc):
 
 # ============================ EDIT PART 2 START ============================
 # Load every file that gets PATCHED (new files are not loaded), then the changes.
-LOAD_FILES = (F_HEADER_CSS, F_HEADER_JSX, F_RECOVERY_JSX, F_PROJECT_REPO, F_NOTE_REPO, F_NOTE_CTRL, F_LAND_SERVICE, F_GUIDE,)
+LOAD_FILES = (F_ENTRY_DTO, F_LAND_SERVICE, F_NOTE_CTRL, F_REPORT_SERVICE, F_INTAKE_JSX, F_LEDGER_JSX, F_CLIENTLEDGER_JSX, F_PAYMENTS_JSX, F_REPORTDATA_JS, F_FOLDER_JSX, F_GUIDE,)
 for _p in LOAD_FILES:
     load(_p)
 
-patch(F_HEADER_CSS,
+patch(F_ENTRY_DTO,
       "\n".join([
-          ".notifUnread:hover { background: #f6f9f9; background: color-mix(in srgb, var(--t) 17%, #ffffff); }",
-          ".notifRead { border-left-color: transparent; background: #e4eaea; }",
-          ".notifRead:hover { background: #dde4e4; }"
+          "    private java.math.BigDecimal initialStorageFee;"
       ]),
       "\n".join([
-          ".notifUnread:hover { background: #e3ede9; background: color-mix(in srgb, var(--t) 30%, #ffffff); }",
-          ".notifRead { border-left-color: transparent; background: #e4eaea; }",
-          ".notifRead:hover { background: #cbd8d8; border-left-color: var(--t, #EE8C3A); }"
+          "    private java.math.BigDecimal initialStorageFee;",
+          "    // fix171: how much of the initial storage fee the client has ALREADY paid (counts toward the fees, not the title work)",
+          "    private java.math.BigDecimal initialStorageFeePaid;"
       ]),
-      "Notifications: clearer hover on unread and read rows")
-
-patch(F_HEADER_JSX,
-      "\n".join([
-          "        try { setStaleCount((await recoveryService.getTaskCount()) ?? 0); } catch { /* offline */ }",
-          "        try { setUnread((await recoveryService.getUnreadCount()) ?? 0); } catch { /* offline */ }",
-          "        await pullList(true);"
-      ]),
-      "\n".join([
-          "        // fix170: the three checks run together instead of one after another",
-          "        await Promise.all([",
-          "            recoveryService.getTaskCount().then((n) => setStaleCount(n ?? 0)).catch(() => { /* offline */ }),",
-          "            recoveryService.getUnreadCount().then((n) => setUnread(n ?? 0)).catch(() => { /* offline */ }),",
-          "            pullList(true),",
-          "        ]);"
-      ]),
-      "Top bar: run the three background checks in parallel")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "  const loadedOnce = useRef(false);",
-          "  const searchRef = useRef('');"
-      ]),
-      "\n".join([
-          "  const loadedOnce = useRef(false);",
-          "  const searchRef = useRef('');",
-          "  // fix170: rowsTab = which tab the cards on screen belong to; syncing = a fresh answer is on its way;",
-          "  // reqRef = newest request wins; cacheRef = last answer per tab so a revisited tab shows at once.",
-          "  const [rowsTab, setRowsTab] = useState(null);",
-          "  const [syncing, setSyncing] = useState(false);",
-          "  const reqRef = useRef(0);",
-          "  const cacheRef = useRef({});"
-      ]),
-      "Recovery: tab-owned rows, syncing flag, newest-request-wins, per-tab cache")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "  const load = useCallback((silent) => {",
-          "    if (!silent) setLoading(!loadedOnce.current);",
-          "    Promise.all([recoveryService.getQueues(searchRef.current), recoveryService.getQueue(tab), recoveryService.getTags(), recoveryService.getStats()])",
-          "      .then((r) => {",
-          "        setCounts(r[0].data || r[0]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]);",
-          "        const list = r[1].data || r[1];",
-          "        setRows(list);"
-      ]),
-      "\n".join([
-          "  // fix170: a plain tab click asks for the queue ONLY; counts / tags / stats come on first open, REFRESH and after a call.",
-          "  const load = useCallback((silent, forceMeta) => {",
-          "    const myReq = ++reqRef.current;",
-          "    const withMeta = !!forceMeta || !!silent || !loadedOnce.current;",
-          "    if (!silent) { setLoading(!loadedOnce.current); setSyncing(true); }",
-          "    const calls = [recoveryService.getQueue(tab)];",
-          "    if (withMeta) calls.push(recoveryService.getQueues(searchRef.current), recoveryService.getTags(), recoveryService.getStats());",
-          "    Promise.all(calls)",
-          "      .then((r) => {",
-          "        if (myReq !== reqRef.current) return;   // a newer click already replaced this request",
-          "        if (withMeta) { setCounts(r[1].data || r[1]); setTags(r[2].data || r[2]); setStats(r[3].data || r[3]); }",
-          "        const list = r[0].data || r[0];",
-          "        cacheRef.current[tab] = list;",
-          "        setRows(list); setRowsTab(tab);"
-      ]),
-      "Recovery: queue-only tab loads, stale answers dropped, rows tagged with their tab")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "        loadedOnce.current = true;",
-          "        setLoading(false);",
-          "      }).catch(() => { setLoading(false); toast('Could not load recovery queue.', 'error'); });",
-          "  }, [tab, toast]);",
-          "  useEffect(() => { load(); }, [load]);"
-      ]),
-      "\n".join([
-          "        loadedOnce.current = true;",
-          "        setLoading(false); setSyncing(false);",
-          "      }).catch(() => { if (myReq !== reqRef.current) return; setLoading(false); setSyncing(false); toast('Could not load recovery queue.', 'error'); });",
-          "  }, [tab, toast]);",
-          "  useEffect(() => { load(); }, [load]);",
-          "  // fix170: a tab already opened this visit shows at once; a tab never opened shows the loading panel, never the old tab's cards",
-          "  useEffect(() => {",
-          "    const cached = cacheRef.current[tab];",
-          "    if (cached) { setRows(cached); setRowsTab(tab); setOpenId(null); }",
-          "  }, [tab]);"
-      ]),
-      "Recovery: instant revisit from the per-tab cache")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "    searchRef.current = search;",
-          "    const t = setTimeout(() => {"
-      ]),
-      "\n".join([
-          "    searchRef.current = search;",
-          "    if (!search && !loadedOnce.current) return undefined;   // fix170: the first load already fetched the counts",
-          "    const t = setTimeout(() => {"
-      ]),
-      "Recovery: no doubled counts call on first open")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "  const rowsF = rows.filter("
-      ]),
-      "\n".join([
-          "  const rowsF = (rowsTab !== tab ? [] : rows).filter("
-      ]),
-      "Recovery: never list another tab's cards")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "busy={loading}",
-          "            tip=\"Reload the queues, counts and call stats\" onClick={() => load()} />"
-      ]),
-      "\n".join([
-          "busy={loading || syncing}",
-          "            tip=\"Reload the queues, counts and call stats\" onClick={() => load(false, true)} />"
-      ]),
-      "Recovery: REFRESH reloads counts and stats too")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "      {loading && rows.length === 0 ? ("
-      ]),
-      "\n".join([
-          "      {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? ("
-      ]),
-      "Recovery: loading panel while the picked tab has nothing of its own yet")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "${styles.list} ${loading ? styles.refreshing : ''}"
-      ]),
-      "\n".join([
-          "${styles.list} ${loading || syncing ? styles.refreshing : ''}"
-      ]),
-      "Recovery: dim the list while a fresh answer is on its way")
-
-patch(F_RECOVERY_JSX,
-      "\n".join([
-          "onClick={() => open(c)} disabled={c.state === 'LOCKED'}>"
-      ]),
-      "\n".join([
-          "onClick={() => open(c)} disabled={c.state === 'LOCKED' || tab === 'LOCKED' || syncing}>"
-      ]),
-      "Recovery: CALL LOG disabled for locked people and until the fresh answer lands")
-
-patch(F_PROJECT_REPO,
-      "\n".join([
-          "    @Query(\"SELECT p FROM LandProject p WHERE p.deleted = false\")",
-          "    List<LandProject> findAll();"
-      ]),
-      "\n".join([
-          "    // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one",
-          "    // project at a time (hundreds of tiny queries per request) -- Recovery, Dashboard, Reports and Client Ledger all pay that.",
-          "    @Query(\"SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.landTitle WHERE p.deleted = false\")",
-          "    List<LandProject> findAll();"
-      ]),
-      "Backend: project list with owners + title in one query")
-
-patch(F_NOTE_REPO,
-      "\n".join([
-          "    List<RecoveryNote> findByClientOrderByCreatedAtDesc(Client client);"
-      ]),
-      "\n".join([
-          "    List<RecoveryNote> findByClientOrderByCreatedAtDesc(Client client);",
-          "    // fix170: every note WITH its client in one query (the queue / counts / stats pages group notes by client)",
-          "    @Query(\"SELECT n FROM RecoveryNote n JOIN FETCH n.client\")",
-          "    List<RecoveryNote> findAllWithClient();"
-      ]),
-      "Backend: notes with their client in one query")
-
-patch(F_NOTE_CTRL,
-      "\n".join([
-          "        for (RecoveryNote n : noteRepo.findAll()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);"
-      ]),
-      "\n".join([
-          "        for (RecoveryNote n : noteRepo.findAllWithClient()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);"
-      ]),
-      "Backend: noteMap uses the one-query load")
+      "DTO: initialStorageFeePaid")
 
 patch(F_LAND_SERVICE,
       "\n".join([
-          "        Page<LandProject> page = projectRepository.findAll(pageable);",
-          "        page.getContent().forEach(p -> p.setStages(projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(p.getId())));",
-          "        return page;"
+          "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
+          "",
+          "        boolean startAsReceivable = request.isStartAsReceivable();"
       ]),
       "\n".join([
-          "        Page<LandProject> page = projectRepository.findAll(pageable);",
-          "        // fix170: ONE query for every stage on the page (it was one query per project)",
-          "        List<UUID> ids = new ArrayList<>();",
-          "        for (LandProject p : page.getContent()) ids.add(p.getId());",
-          "        Map<UUID, List<ProjectStage>> byProject = new HashMap<>();",
-          "        if (!ids.isEmpty()) for (ProjectStage s : projectStageRepository.findByProjectIdIn(ids)) byProject.computeIfAbsent(s.getProjectId(), k -> new ArrayList<>()).add(s);",
-          "        for (LandProject p : page.getContent()) {",
-          "            List<ProjectStage> l = byProject.getOrDefault(p.getId(), new ArrayList<>());",
-          "            l.sort(Comparator.comparingInt(s -> s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()));",
-          "            p.setStages(l);",
+          "        BigDecimal outstanding = totalCost.subtract(initialPayment);",
+          "",
+          "        boolean startAsReceivable = request.isStartAsReceivable();",
+          "",
+          "        // fix171: storage fees already charged / already paid at intake, checked here because the server must not trust the page",
+          "        BigDecimal initialFees = request.getInitialStorageFee() != null ? request.getInitialStorageFee() : BigDecimal.ZERO;",
+          "        BigDecimal initialFeesPaid = request.getInitialStorageFeePaid() != null ? request.getInitialStorageFeePaid() : BigDecimal.ZERO;",
+          "        if (initialPayment.signum() < 0 || initialFees.signum() < 0 || initialFeesPaid.signum() < 0) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"AMOUNT_INVALID: Payments and storage fees cannot be negative.\");",
           "        }",
-          "        return page;"
+          "        if (initialPayment.compareTo(totalCost) > 0) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"INITIAL_PAYMENT_TOO_HIGH: The initial payment (UGX \" + initialPayment.toPlainString()",
+          "                    + \") is more than the total cost (UGX \" + totalCost.toPlainString() + \").\");",
+          "        }",
+          "        if (initialFeesPaid.stripTrailingZeros().scale() > 0) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_INVALID: Enter whole shillings only for the storage fees already paid.\");",
+          "        }",
+          "        if (initialFeesPaid.compareTo(initialFees) > 0) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_PAID_TOO_HIGH: Storage fees already paid (UGX \" + initialFeesPaid.toPlainString()",
+          "                    + \") cannot be more than the initial storage fee (UGX \" + initialFees.toPlainString() + \").\");",
+          "        }",
+          "        if (!(startAsReceivable && outstanding.signum() > 0) && (initialFees.signum() > 0 || initialFeesPaid.signum() > 0)) {",
+          "            throw new com.gesolutions.erp.common.exception.BusinessException(\"STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. \"",
+          "                    + \"This title work is already fully paid, so clear the storage fee boxes.\");",
+          "        }"
       ]),
-      "Backend: ledger stages in one query per page")
+      "Intake: validate the storage fees charged / already paid")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "                .totalCost(totalCost)",
+          "                .amountPaid(initialPayment)",
+          "                .isLegacy(request.isLegacy())"
+      ]),
+      "\n".join([
+          "                .totalCost(totalCost)",
+          "                .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)",
+          "                .isLegacy(request.isLegacy())"
+      ]),
+      "Intake: total paid = title payment + storage fees already paid")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "            BigDecimal initialFees = request.getInitialStorageFee() != null",
+          "                    ? request.getInitialStorageFee() : BigDecimal.ZERO;",
+          "            builder.isReceivable(true)",
+          "                   .receivableStartDate(LocalDateTime.now())",
+          "                   .originalDebt(outstanding)",
+          "                   .storageFeesAccumulated(initialFees);"
+      ]),
+      "\n".join([
+          "            builder.isReceivable(true)",
+          "                   .receivableStartDate(LocalDateTime.now())",
+          "                   .originalDebt(outstanding)",
+          "                   .storageFeesAccumulated(initialFees)",
+          "                   .storageFeesPaid(initialFeesPaid);   // fix171"
+      ]),
+      "Intake: store the fees already paid on the project")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "        // Record initial payment if any",
+          "        if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {",
+          "            PaymentRecord initialRecord = PaymentRecord.builder()",
+          "                    .projectId(saved.getId())",
+          "                    .amountPaid(initialPayment)",
+          "                    .paymentType(\"INITIAL_DEPOSIT\")",
+          "                    .recordedBy(getCurrentOperator())",
+          "                    .notes(\"Initial deposit at intake\")",
+          "                    .balanceAfter(outstanding)",
+          "                    .build();",
+          "            paymentRecordRepository.save(initialRecord);",
+          "            saved.setLastPaymentDate(LocalDateTime.now());",
+          "            projectRepository.save(saved);",
+          "        }"
+      ]),
+      "\n".join([
+          "        // Record initial payment if any",
+          "        // fix171: the balance shown on the history lines includes the storage fees, and the money that was paid",
+          "        // toward fees gets its OWN line (allocation STORAGE) so the folder, payments page and reports can tell them apart.",
+          "        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : outstanding;",
+          "        if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {",
+          "            PaymentRecord initialRecord = PaymentRecord.builder()",
+          "                    .projectId(saved.getId())",
+          "                    .amountPaid(initialPayment)",
+          "                    .paymentType(\"INITIAL_DEPOSIT\")",
+          "                    .recordedBy(getCurrentOperator())",
+          "                    .notes(\"Initial deposit at intake\")",
+          "                    .balanceAfter(balanceAtIntake)",
+          "                    .allocation(\"TITLE\")",
+          "                    .build();",
+          "            paymentRecordRepository.save(initialRecord);",
+          "            saved.setLastPaymentDate(LocalDateTime.now());",
+          "            projectRepository.save(saved);",
+          "        }",
+          "        if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {",
+          "            // deliberately NOT setting lastPaymentDate: this money was paid before the project was entered, on an",
+          "            // unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.",
+          "            PaymentRecord feesRecord = PaymentRecord.builder()",
+          "                    .projectId(saved.getId())",
+          "                    .amountPaid(initialFeesPaid)",
+          "                    .paymentType(\"INITIAL_DEPOSIT\")",
+          "                    .recordedBy(getCurrentOperator())",
+          "                    .notes(\"Storage fees already paid before entry (recorded at intake)\")",
+          "                    .balanceAfter(balanceAtIntake)",
+          "                    .allocation(\"STORAGE\")",
+          "                    .build();",
+          "            paymentRecordRepository.save(feesRecord);",
+          "        }"
+      ]),
+      "Intake: separate TITLE and STORAGE deposit lines, fees line keeps the last-payment date untouched")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "                + plotOrIndex + \" as RECEIVABLE at intake. Debt: UGX \" + outstanding);"
+      ]),
+      "\n".join([
+          "                + plotOrIndex + \" as RECEIVABLE at intake. Title debt: UGX \" + outstanding",
+          "                + \". Storage fees: UGX \" + initialFees + \" (UGX \" + initialFeesPaid + \" already paid).\");"
+      ]),
+      "Intake: audit line names the storage fees and what was already paid")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "            if (newTotalCost.compareTo(currentPaid) < 0) {",
+          "                throw new BusinessException(\"COST_BELOW_PAID: The new cost (UGX \" + newTotalCost.toPlainString()",
+          "                        + \") is lower than the UGX \" + currentPaid.toPlainString()"
+      ]),
+      "\n".join([
+          "            // fix171: only the money paid toward the TITLE work counts here (paid storage fees are not part of the cost)",
+          "            BigDecimal titlePaidNow = currentPaid.subtract(project.storagePaidSafe()).max(BigDecimal.ZERO);",
+          "            if (newTotalCost.compareTo(titlePaidNow) < 0) {",
+          "                throw new BusinessException(\"COST_BELOW_PAID: The new cost (UGX \" + newTotalCost.toPlainString()",
+          "                        + \") is lower than the UGX \" + titlePaidNow.toPlainString()"
+      ]),
+      "Edit folder: cost cannot go below the TITLE money paid (fees excluded)")
+
+patch(F_LAND_SERVICE,
+      "\n".join([
+          "            project.setOriginalDebt(newTotalCost.subtract(amtPaid).max(BigDecimal.ZERO));"
+      ]),
+      "\n".join([
+          "            project.setOriginalDebt(newTotalCost.subtract(amtPaid.subtract(project.storagePaidSafe())).max(BigDecimal.ZERO));   // fix171: title money only"
+      ]),
+      "Edit folder: frozen debt ignores paid storage fees")
+
+patch(F_NOTE_CTRL,
+      "\n".join([
+          "m.put(\"storage\", storage);"
+      ]),
+      "\n".join([
+          "m.put(\"storage\", storage);",
+          "m.put(\"storagePaid\", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::storagePaidSafe).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));"
+      ]),
+      "Client ledger: storage fees paid per client")
+
+patch(F_REPORT_SERVICE,
+      "\n".join([
+          "MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED\").append(NEW_LINE);"
+      ]),
+      "\n".join([
+          "MONTHS_IN_RECEIVABLE,TOTAL_PAID,TOTAL_OWED,STORAGE_FEES_PAID,STORAGE_FEES_UNPAID\").append(NEW_LINE);"
+      ]),
+      "Receivable CSV: two new last columns (header)")
+
+patch(F_REPORT_SERVICE,
+      "\n".join([
+          "               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(NEW_LINE);"
+      ]),
+      "\n".join([
+          "               .append(totalOwed.max(java.math.BigDecimal.ZERO)).append(CSV_DIVIDER)",
+          "               .append(p.storagePaidSafe()).append(CSV_DIVIDER)",
+          "               .append(p.storageUnpaid()).append(NEW_LINE);"
+      ]),
+      "Receivable CSV: two new last columns (rows)")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "    const [initialStorageFee, setInitialStorageFee] = useState(0);"
+      ]),
+      "\n".join([
+          "    const [initialStorageFee, setInitialStorageFee] = useState(0);",
+          "    const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171"
+      ]),
+      "Intake: state for storage fees already paid")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }"
+      ]),
+      "\n".join([
+          "        if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }",
+          "        // fix171: the same checks the server makes, so the message shows before anything is sent",
+          "        if (Number(initialPayment) > Number(totalCost)) { toast('Initial Payment cannot be more than the Total Cost.', 'error'); return false; }",
+          "        if (isLegacy) {",
+          "            const feeCharged = Number(initialStorageFee) || 0;",
+          "            const feePaid = Number(initialStorageFeePaid) || 0;",
+          "            if (feeCharged < 0 || feePaid < 0) { toast('Storage fees cannot be negative.', 'error'); return false; }",
+          "            if (!Number.isInteger(feePaid)) { toast('Storage Fees Already Paid: whole shillings only.', 'error'); return false; }",
+          "            if (feePaid > feeCharged) { toast('Storage Fees Already Paid cannot be more than the Initial Storage Fee.', 'error'); return false; }",
+          "            if (Number(initialPayment) >= Number(totalCost) && (feeCharged > 0 || feePaid > 0)) {",
+          "                toast('The title work is already fully paid, so this project will not be in receivables and cannot carry storage fees. Clear the storage fee boxes.', 'error'); return false;",
+          "            }",
+          "        }"
+      ]),
+      "Intake: validation for the new field")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "                payload.initialStorageFee = Number(initialStorageFee) || 0;"
+      ]),
+      "\n".join([
+          "                payload.initialStorageFee = Number(initialStorageFee) || 0;",
+          "                payload.initialStorageFeePaid = Number(initialStorageFeePaid) || 0;"
+      ]),
+      "Intake: send the new field")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "setInitialStorageFee(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
+      ]),
+      "\n".join([
+          "setInitialStorageFee(0); setInitialStorageFeePaid(0); setMonthlyStorageFee(DEFAULT_MONTHLY_STORAGE_FEE);"
+      ]),
+      "Intake: clear the new field on reset")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "    const amountOwed = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));"
+      ]),
+      "\n".join([
+          "    // fix171: Amount Owed now includes the storage fees still unpaid (Legacy Title only, and only while the title work is not fully paid)",
+          "    const titleLeft = Math.max(0, (Number(totalCost) || 0) - (Number(initialPayment) || 0));",
+          "    const feesCharged = isLegacy ? Math.max(0, Number(initialStorageFee) || 0) : 0;",
+          "    const feesPaidNow = Math.min(feesCharged, Math.max(0, Number(initialStorageFeePaid) || 0));",
+          "    const amountOwed = titleLeft + (titleLeft > 0 ? feesCharged - feesPaidNow : 0);"
+      ]),
+      "Intake: Amount Owed includes unpaid storage fees")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "                            <label className={`${styles.label} ${styles.required}`}>Initial Payment</label>",
+          "                            <input type=\"number\" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />"
+      ]),
+      "\n".join([
+          "                            <label className={`${styles.label} ${styles.required}`}>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</label>",
+          "                            <input type=\"number\" min=\"0\" className={styles.input} value={initialPayment} onChange={e => { setInitialPayment(e.target.value); markDirty(); }} />",
+          "                            {isLegacy && <p className={styles.hint}>Money paid toward the title work only. Storage fees already paid go in the Storage Fees box below.</p>}"
+      ]),
+      "Intake: Initial Payment is labelled as title work")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>",
+          "                                </div>",
+          "                            </div>",
+          "                        </>"
+      ]),
+      "\n".join([
+          "                                    <p className={styles.hint}>System default: {DEFAULT_MONTHLY_STORAGE_FEE.toLocaleString()}</p>",
+          "                                </div>",
+          "                                <div className={styles.field}>",
+          "                                    <label className={styles.label}>Storage Fees Already Paid</label>",
+          "                                    <input type=\"number\" min=\"0\" className={styles.input} value={initialStorageFeePaid} onChange={e => { setInitialStorageFeePaid(e.target.value); markDirty(); }} />",
+          "                                    <p className={styles.hint}>Part of the Initial Storage Fee the client has already paid. Counted toward the fees, not the title work, and it does not count as a recent payment.</p>",
+          "                                </div>",
+          "                            </div>",
+          "                        </>"
+      ]),
+      "Intake: the new Storage Fees Already Paid box")
+
+patch(F_INTAKE_JSX,
+      "\n".join([
+          "                        <div className={styles.finRow}><span>Initial Payment</span><span>{Number(initialPayment) || 0}</span></div>",
+          "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}"
+      ]),
+      "\n".join([
+          "                        <div className={styles.finRow}><span>{isLegacy ? 'Initial Payment (Title Work)' : 'Initial Payment'}</span><span>{Number(initialPayment) || 0}</span></div>",
+          "                        {isLegacy && <div className={styles.finRow}><span>Initial Storage Fee</span><span>{Number(initialStorageFee) || 0}</span></div>}",
+          "                        {isLegacy && <div className={styles.finRow}><span>Storage Fees Already Paid</span><span>{Number(initialStorageFeePaid) || 0}</span></div>}"
+      ]),
+      "Intake: summary shows the fees paid")
+
+patch(F_LEDGER_JSX,
+      "\n".join([
+          "const isCriticalProject = (p) => (p.totalCost || 0) > 0 && ((p.amountPaid || 0) / p.totalCost) < 0.25;"
+      ]),
+      "\n".join([
+          "// fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)",
+          "const titlePaidOf = (p) => Math.max(0, (p.amountPaid || 0) - (p.storageFeesPaid || 0));",
+          "const isCriticalProject = (p) => (p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25;"
+      ]),
+      "Ledger: critical rule uses title money only")
+
+patch(F_LEDGER_JSX,
+      "\n".join([
+          "const pct = proj.totalCost > 0 ? Math.min(((proj.amountPaid || 0) / proj.totalCost) * 100, 100) : 0;"
+      ]),
+      "\n".join([
+          "const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;"
+      ]),
+      "Ledger: progress bar uses title money only")
+
+patch(F_LEDGER_JSX,
+      "\n".join([
+          "<div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees</div>"
+      ]),
+      "\n".join([
+          "<div className={styles.feesLine}>+UGX {Number(proj.storageFeesAccumulated).toLocaleString()} storage fees{Number(proj.storageFeesPaid || 0) > 0 ? ' (UGX ' + Number(proj.storageFeesPaid).toLocaleString() + ' paid)' : ''}</div>"
+      ]),
+      "Ledger: fee line says how much is paid")
+
+patch(F_CLIENTLEDGER_JSX,
+      "\n".join([
+          "                                const storageFees = Number(c.storage || 0);"
+      ]),
+      "\n".join([
+          "                                const storageFees = Number(c.storage || 0);",
+          "                                const storagePaid = Number(c.storagePaid || 0);"
+      ]),
+      "Client Ledger: storage paid per client")
+
+patch(F_CLIENTLEDGER_JSX,
+      "\n".join([
+          "<div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees</div>"
+      ]),
+      "\n".join([
+          "<div className={styles.feesLine}>+UGX {storageFees.toLocaleString()} storage fees{storagePaid > 0 ? ' (UGX ' + storagePaid.toLocaleString() + ' paid)' : ''}</div>"
+      ]),
+      "Client Ledger: fee line says how much is paid")
+
+patch(F_PAYMENTS_JSX,
+      "\n".join([
+          "    const titleTotal     = useMemo(() => filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);",
+          "    const storageTotal   = useMemo(() => filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);"
+      ]),
+      "\n".join([
+          "    // fix171: a payment belongs to the RECEIVABLES card when it was made in receivables OR is storage-fee money (this",
+          "    // includes storage fees recorded at intake, and a reversal of a storage payment)",
+          "    const inReceivables  = (p) => p.paymentType === 'RECEIVABLE_PARTIAL' || p.allocation === 'STORAGE';",
+          "    const titleTotal     = useMemo(() => filtered.filter(p => !inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);",
+          "    const storageTotal   = useMemo(() => filtered.filter(p => inReceivables(p)).reduce((s, p) => s + Number(p.amountPaid || 0), 0), [filtered]);"
+      ]),
+      "Payments: cards classify storage money correctly")
+
+patch(F_PAYMENTS_JSX,
+      "\n".join([
+          "<span>{filtered.filter(p => p.paymentType !== 'RECEIVABLE_PARTIAL').length} records</span>"
+      ]),
+      "\n".join([
+          "<span>{filtered.filter(p => !inReceivables(p)).length} records</span>"
+      ]),
+      "Payments: title card record count")
+
+patch(F_PAYMENTS_JSX,
+      "\n".join([
+          "<span>{filtered.filter(p => p.paymentType === 'RECEIVABLE_PARTIAL').length} records</span>"
+      ]),
+      "\n".join([
+          "<span>{filtered.filter(p => inReceivables(p)).length} records</span>"
+      ]),
+      "Payments: receivables card record count")
+
+patch(F_PAYMENTS_JSX,
+      "\n".join([
+          "                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}",
+          "                                            </span>"
+      ]),
+      "\n".join([
+          "                                                {TYPE_LABELS[pay.paymentType] || pay.paymentType}",
+          "                                                {pay.allocation === 'STORAGE' ? ' - STORAGE FEES' : ''}",
+          "                                            </span>"
+      ]),
+      "Payments: storage lines are labelled")
+
+patch(F_REPORTDATA_JS,
+      "\n".join([
+          "  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) - num(p.amountPaid)), { money: true }),",
+          "  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),"
+      ]),
+      "\n".join([
+          "  // fix171: a project in receivables also owes its storage fees, and paid fees are not part of the title cost",
+          "  f('balance', 'Balance Owed', 'money', p => Math.max(0, num(p.totalCost) + (p.isReceivable ? num(p.storageFeesAccumulated) : 0) - num(p.amountPaid)), { money: true }),",
+          "  f('storage', 'Storage Fees', 'money', p => num(p.storageFeesAccumulated), { money: true }),",
+          "  f('storagePaid', 'Storage Fees Paid', 'money', p => num(p.storageFeesPaid), { money: true }),",
+          "  f('storageUnpaid', 'Storage Fees Unpaid', 'money', p => Math.max(0, num(p.storageFeesAccumulated) - num(p.storageFeesPaid)), { money: true }),"
+      ]),
+      "Reports: project balance includes fees; paid / unpaid fee fields")
+
+patch(F_REPORTDATA_JS,
+      "\n".join([
+          "  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round((num(p.amountPaid) / num(p.totalCost)) * 100) : 0), { money: true }),"
+      ]),
+      "\n".join([
+          "  f('pctPaid', 'Percent Paid', 'percent', p => (num(p.totalCost) > 0 ? Math.round(((num(p.amountPaid) - num(p.storageFeesPaid)) / num(p.totalCost)) * 100) : 0), { money: true }),"
+      ]),
+      "Reports: project percent paid counts title money only")
+
+patch(F_REPORTDATA_JS,
+      "\n".join([
+          "  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),"
+      ]),
+      "\n".join([
+          "  f('storage', 'Storage Fees', 'money', c => num(c.storage), { money: true }),",
+          "  f('storagePaid', 'Storage Fees Paid', 'money', c => num(c.storagePaid), { money: true }),"
+      ]),
+      "Reports: client storage fees paid")
+
+patch(F_FOLDER_JSX,
+      "\n".join([
+          "initialPayment: String(data.project?.amountPaid || 0),"
+      ]),
+      "\n".join([
+          "initialPayment: String(Math.max(0, Number(data.project?.amountPaid || 0) - Number(data.project?.storageFeesPaid || 0))),"
+      ]),
+      "Folder edit form: the paid figure shown is the TITLE money (fees excluded)")
 
 patch(F_GUIDE,
       "\n".join([
-          "RULE: a filter must always run over the FULL data set, never over one server page"
+          "- **Storage fee rules (fix167):**"
       ]),
       "\n".join([
-          "RULE (fix170): when a tab or filter changes what the server returns, the cards on screen must belong to the tab picked -- never leave the previous tab's cards clickable while the new answer loads (Recovery keeps `rowsTab` + `syncing`, a per-tab cache, and drops stale replies). Speed rule: never load an EAGER link inside a loop -- fetch it in the same query (`JOIN FETCH`) or in one `IN (...)` query. RULE: a filter must always run over the FULL data set, never over one server page"
+          "- **Storage fees already paid at intake (fix171):** a Legacy Title entry has `Initial Payment (Title Work)`, `Initial Storage Fee` (fees already charged) and `Storage Fees Already Paid` (`initialStorageFeePaid`). The paid fees go to `storageFeesPaid` and into `amountPaid`, never into the title work, and do NOT set `lastPaymentDate` (the date is unknown, so the recovery badge / 30-day lock are not triggered). Two history lines are written (INITIAL_DEPOSIT, allocation TITLE and STORAGE). Server rules: fees paid <= initial fee, whole shillings, initial payment <= total cost, and storage fees are refused when the title is already fully paid (no receivable). Anything that shows progress or CRITICAL must use TITLE money = `amountPaid - storageFeesPaid`.",
+          "- **Storage fee rules (fix167):**"
       ]),
-      "Guide: stale-cards + one-query speed rules")
+      "Guide: storage fees already paid")
 
-newfile(F_DATEPICKER_CSS,
-        "\n".join([
-          "/* PATH: erp-frontend/src/components/common/HardwareDatePicker.module.css */",
-          "/* fix170: lighter and calmer than fix169. Near-white warm card, soft slate text, faint weekday / out-of-month days,",
-          "   thin soft orange rule, hairline borders. Selected day = soft solid orange, today = thin orange ring.",
-          "   Orange TEXT on a light card is too faint, so text accents use the darker #b8651d. */",
-          "",
-          ".wrap { position: relative; display: inline-flex; align-items: center; min-width: 0; }",
-          ".wrapBlock { display: flex; width: 100%; }",
-          "",
-          "/* the visible field: each page styles it through the className it passes in */",
-          ".field { cursor: pointer; text-overflow: ellipsis; padding-right: 30px !important; box-sizing: border-box; }",
-          ".wrapBlock .field { width: 100%; }",
-          ".fieldIcon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #EE8C3A; font-size: 14px; pointer-events: none; }",
-          "",
-          ".pop {",
-          "    position: fixed;",
-          "    z-index: 100000;",
-          "    box-sizing: border-box;",
-          "    padding: 14px;",
-          "    background: #faf7f2;",
-          "    border: 1px solid rgba(238, 140, 58, 0.32);",
-          "    border-radius: 12px;",
-          "    box-shadow: 0 14px 38px rgba(26, 46, 48, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;",
-          "    font-family: 'DM Sans', sans-serif;",
-          "    animation: popIn 0.18s cubic-bezier(0.2, 1, 0.3, 1);",
-          "}",
-          "@keyframes popIn {",
-          "    from { opacity: 0; transform: translateY(-6px); }",
-          "    to   { opacity: 1; transform: translateY(0); }",
-          "}",
-          "",
-          ".nav {",
-          "    display: flex; align-items: center; gap: 4px;",
-          "    padding-bottom: 10px; margin-bottom: 10px;",
-          "    border-bottom: 1.5px solid rgba(238, 140, 58, 0.55);",
-          "}",
-          ".navTitle {",
-          "    flex: 1; text-align: center;",
-          "    font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;",
-          "    letter-spacing: 1.5px; text-transform: uppercase; color: #3d5254;",
-          "}",
-          ".navBtn {",
-          "    width: 26px; height: 26px; flex-shrink: 0;",
-          "    display: flex; align-items: center; justify-content: center;",
-          "    background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(26, 46, 48, 0.12);",
-          "    border-radius: 6px; color: rgba(26, 46, 48, 0.6); font-size: 14px; cursor: pointer;",
-          "    transition: background 0.15s, color 0.15s, border-color 0.15s;",
-          "}",
-          ".navBtn:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.6); color: #b8651d; }",
-          ".navBtn:focus-visible, .day:focus-visible, .footBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 1px; }",
-          "",
-          ".dowRow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }",
-          ".dowRow { margin-bottom: 4px; }",
-          ".dowRow span {",
-          "    text-align: center; padding: 4px 0;",
-          "    font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;",
-          "    color: rgba(26, 46, 48, 0.42);",
-          "}",
-          "",
-          ".grid { gap: 2px; }",
-          ".day {",
-          "    height: 32px; display: flex; align-items: center; justify-content: center;",
-          "    background: transparent; border: 1px solid transparent; border-radius: 6px;",
-          "    font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;",
-          "    color: #3d5254; cursor: pointer;",
-          "    transition: background 0.12s, border-color 0.12s, color 0.12s;",
-          "}",
-          ".day:hover { background: rgba(238, 140, 58, 0.12); border-color: rgba(238, 140, 58, 0.45); }",
-          ".dayOut { color: rgba(26, 46, 48, 0.22); }",
-          ".dayNow { border-color: rgba(238, 140, 58, 0.7); color: #b8651d; background: transparent; }",
-          ".daySel, .daySel:hover { background: #f2a257; border-color: #f2a257; color: #2a3b3d; font-weight: 800; box-shadow: 0 2px 8px rgba(238, 140, 58, 0.28); }",
-          "",
-          ".foot {",
-          "    display: flex; justify-content: space-between; align-items: center;",
-          "    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(26, 46, 48, 0.09);",
-          "}",
-          ".footBtn {",
-          "    background: transparent; border: none; cursor: pointer; padding: 6px 8px; border-radius: 6px;",
-          "    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 800;",
-          "    letter-spacing: 1.5px; text-transform: uppercase; color: rgba(26, 46, 48, 0.5);",
-          "    transition: background 0.15s, color 0.15s;",
-          "}",
-          ".footBtn:hover { background: rgba(26, 46, 48, 0.06); color: #3d5254; }",
-          ".footBtnHot { color: #b8651d; }",
-          ".footBtnHot:hover { background: rgba(238, 140, 58, 0.12); color: #8f4509; }"
-      ]),
-        "lighter, calmer calendar popup (HardwareDatePicker.module.css)",
-        "fix170: lighter and calmer than fix169")
 
 # ============================= EDIT PART 2 END =============================
 
