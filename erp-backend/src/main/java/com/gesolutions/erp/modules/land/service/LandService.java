@@ -38,9 +38,10 @@ public class LandService {
     private final AuditService auditService;
     private final PaymentRecordRepository paymentRecordRepository;
     private final ProjectIndexService projectIndexService;
-    private final StageTemplateService stageTemplateService;
-    private final ProjectStageRepository projectStageRepository;
+    private final StatusTemplateService statusTemplateService;
+    private final ProjectStatusRepository projectStatusRepository;
     private final LandTitleRepository landTitleRepository;
+    private final ProjectNeighborRepository neighborRepository;
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
@@ -97,6 +98,25 @@ public class LandService {
         double percent = cost.compareTo(BigDecimal.ZERO) > 0
                 ? paid.divide(cost, 4, RoundingMode.HALF_UP).doubleValue() * 100 : 0;
 
+        // fix180: neighbors, the subdivision plots (and which ones were transferred), and the parent of a transfer
+        List<SubdivisionPlotDTO> plots = new ArrayList<>();
+        if (ProjectType.of(project) == ProjectType.SUBDIVISION && project.getSubdivisionCount() != null) {
+            Map<Integer, LandProject> byNo = new HashMap<>();
+            for (LandProject t : projectRepository.findTransfersOf(id)) {
+                if (t.getParentSubdivisionNo() != null) byNo.put(t.getParentSubdivisionNo(), t);
+            }
+            for (int n = 1; n <= project.getSubdivisionCount(); n++) {
+                LandProject t = byNo.get(n);
+                plots.add(SubdivisionPlotDTO.builder().number(n)
+                        .transferProjectId(t != null ? t.getId() : null)
+                        .transferProjectIndex(t != null ? t.getProjectIndex() : null)
+                        .transferPlotNumber(t != null && t.getLandTitle() != null ? t.getLandTitle().getPlotNumber() : null)
+                        .build());
+            }
+        }
+        String parentIndex = project.getParentProjectId() == null ? null
+                : projectRepository.findById(project.getParentProjectId()).map(LandProject::getProjectIndex).orElse(null);
+
         return ProjectDeepDetailDTO.builder()
                 .project(project)
                 .notes(notes)
@@ -104,6 +124,10 @@ public class LandService {
                 .payments(payments)
                 .remainingBalance(remaining)
                 .collectionPercentage(percent)
+                .neighbors(neighborRepository.findByProjectIdOrderByDisplayOrderAsc(id))
+                .statuses(projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(id))
+                .subdivisions(plots)
+                .parentProjectIndex(parentIndex)
                 .build();
     }
 
@@ -113,6 +137,7 @@ public class LandService {
     //   TITLE   = the work (total cost). Cannot go over what is still owed on the work.
     //   STORAGE = storage fees. Only on a project in receivables, and never more than the fees not yet paid.
     // Joint owners: when a project has more than one owner the payer MUST be named, so each owner's money is tracked.
+    // fix180: the payer is one of the project's CLIENTS (the people who pay and whom Recovery calls), not the owners.
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation) {
@@ -137,14 +162,14 @@ public class LandService {
 
         // who paid
         Client payer = null;
-        Set<Client> owners = project.getProprietors() != null ? project.getProprietors() : new HashSet<>();
+        Set<Client> owners = project.billingParties();
         if (payerId != null) {
             for (Client c : owners) if (c.getId().equals(payerId)) payer = c;
-            if (payer == null) throw new BusinessException("PAYER_INVALID: The person who paid must be one of this project's owners.");
+            if (payer == null) throw new BusinessException("PAYER_INVALID: The person who paid must be one of this project's clients.");
         } else if (owners.size() == 1) {
             payer = owners.iterator().next();
         } else if (owners.size() > 1) {
-            throw new BusinessException("PAYER_REQUIRED: This project has " + owners.size() + " owners. Pick which owner paid.");
+            throw new BusinessException("PAYER_REQUIRED: This project has " + owners.size() + " clients. Pick which client paid.");
         }
 
         BigDecimal cost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
@@ -222,7 +247,7 @@ public class LandService {
         if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
             notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
         }
-        // fix167: the "payment received" line goes on the recovery card of the owner who PAID (not on every owner)
+        // fix167: the "payment received" line goes on the recovery card of the client who PAID (not on every client)
         java.util.List<Client> noteFor = new java.util.ArrayList<>();
         if (payer != null) noteFor.add(payer); else noteFor.addAll(owners);
         for (Client owner : noteFor) {
@@ -293,7 +318,7 @@ public class LandService {
 
 
     // FIX (combined): this method was missing @Transactional, so its
-    // individual saves (client, project, payment, stages, notes) each
+    // individual saves (client, project, payment, statuses, notes) each
     // committed on their own. A failure partway -- like the sample seed --
     // left an orphaned Client row that re-poisoned every later restart.
     // Now the whole intake is one all-or-nothing unit, same as every
@@ -316,12 +341,32 @@ public class LandService {
                 }
             }
         }
-        // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
-        // is only built if the legacy preset is used or the final
-        // processing stage ("Registration and Title Issuance") is checked.
-        boolean hasFinalStage = request.getSelectedStages() != null && request.getSelectedStages().stream()
-                .anyMatch(s -> s.isCompleted() && "Registration and Title Issuance".equalsIgnoreCase(s.getStageName()));
-        boolean hasTitleFields = request.isLegacy() || hasFinalStage || request.isTitleAtIntake();
+        // fix180: the PROJECT TYPE decides everything below. Title Details are kept for Subdivision, Legacy Titles,
+        // Transfer of Title, Boundary Opening and Resurvey; for Topographic Survey only when staff switched them on;
+        // never for Fresh Survey and Special Projects. An old page that sends no type is read from isLegacy.
+        ProjectType type = ProjectType.from(request.getProjectType());
+        if (type == null) {
+            if (request.getProjectType() != null && !request.getProjectType().isBlank()) {
+                throw new BusinessException("PROJECT_TYPE_INVALID: \"" + request.getProjectType() + "\" is not a project type.");
+            }
+            type = request.isLegacy() ? ProjectType.LEGACY_TITLES : ProjectType.FRESH_SURVEY;
+        }
+        boolean isLegacyType = type == ProjectType.LEGACY_TITLES;
+        boolean titleSwitchedOn = type == ProjectType.TOPOGRAPHIC_SURVEY && request.isTitleDetailsEnabled();
+        boolean hasTitleFields = type.showsTitle(titleSwitchedOn);
+
+        // fix180: SUBDIVISION = how many plots it creates. TRANSFER FROM A SUBDIVISION PLOT = checked against the parent.
+        Integer subdivisionCount = null;
+        if (type == ProjectType.SUBDIVISION) {
+            subdivisionCount = request.getSubdivisionCount();
+            if (subdivisionCount == null || subdivisionCount < 1 || subdivisionCount > 1000) {
+                throw new BusinessException("SUBDIVISIONS_REQUIRED: Enter how many subdivisions (plots) are being created (1 to 1000).");
+            }
+        }
+        LandProject parent = null;
+        if (request.getParentProjectId() != null) {
+            parent = requireTransferableSubdivisionPlot(request.getParentProjectId(), request.getParentSubdivisionNo(), type);
+        }
         String projectIndex = projectIndexService.generateNextIndex();
 
         BigDecimal initialPayment = request.getInitialPayment() != null
@@ -393,27 +438,25 @@ public class LandService {
 
         LandTitle title = null;
         if (hasTitleFields) {
+            // Title Details are fully required on the page once shown -- mirrored here, since this service validates
+            // DTOs imperatively rather than via @Valid/bean-validation. fix180: Area (hectares) is required too.
             if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
-                throw new com.gesolutions.erp.common.exception.BusinessException("PLOT_NUMBER_REQUIRED: Plot number is required when using Legacy preset or completing the final stage.");
+                throw new BusinessException("PLOT_NUMBER_REQUIRED: Plot Number is required in Title Details.");
             }
-            // STEP 4 (intake fix): Title Details is now fully required on the
-            // frontend once shown -- mirror that here the same way
-            // PLOT_NUMBER_REQUIRED already does, since this service validates
-            // DTOs imperatively rather than via @Valid/bean-validation.
-            if (request.getTitleId() == null || request.getTitleId().isBlank()) {
-                throw new com.gesolutions.erp.common.exception.BusinessException("TITLE_ID_REQUIRED: Title ID is required when using Legacy preset or completing the final stage.");
+            if (request.getBlock() == null || request.getBlock().isBlank()) {
+                throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
             }
-            if (request.getBlockRoad() == null || request.getBlockRoad().isBlank()) {
-                throw new com.gesolutions.erp.common.exception.BusinessException("BLOCK_REQUIRED: Block is required when using Legacy preset or completing the final stage.");
-            }
+            requireAreaHectares(request.getAreaHectares());
             if (request.getTitleIssueDate() == null) {
-                throw new com.gesolutions.erp.common.exception.BusinessException("TITLE_DATE_REQUIRED: Title Date is required when using Legacy preset or completing the final stage.");
+                throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
             }
             title = LandTitle.builder()
-                    .titleId(request.getTitleId())
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
-                    .blockRoad(request.getBlockRoad())
+                    .block(request.getBlock())
+                    .areaHectares(request.getAreaHectares())
+                    .volume(blankToNull(request.getVolume()))
+                    .folio(blankToNull(request.getFolio()))
                     // Date Started is editable again on the intake form (staff can
                     // backdate a project entered a few days after fieldwork began),
                     // so this trusts the client value when present and only falls
@@ -442,8 +485,13 @@ public class LandService {
                 .area(request.getArea())
                 .totalCost(totalCost)
                 .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)
-                .isLegacy(request.isLegacy())
-                .currentStageIndex(startAsReceivable ? 5 : 1)
+                .projectType(type.name())                          // fix180
+                .titleDetailsEnabled(titleSwitchedOn)
+                .subdivisionCount(subdivisionCount)
+                .parentProjectId(parent != null ? parent.getId() : null)
+                .parentSubdivisionNo(parent != null ? request.getParentSubdivisionNo() : null)
+                .isLegacy(isLegacyType)
+                .currentStatusIndex(startAsReceivable ? 5 : 1)
                 .status(startAsReceivable ? "RECEIVABLE" : "ACTIVE");
 
         if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
@@ -461,22 +509,28 @@ public class LandService {
 
         LandProject project = builder.build();
 
-        // fix172: the owners by NIN, so the owner who paid the intake money can be named
+        // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
+        // are a copy of the clients; an old page that sends only owners has those owners as its clients.
+        List<LandEntryRequest.OwnerRequest> clientRows = request.getClients() != null && !request.getClients().isEmpty()
+                ? request.getClients() : (request.getOwners() != null ? request.getOwners() : List.of());
+        List<LandEntryRequest.OwnerRequest> ownerRows = request.getOwners() != null && !request.getOwners().isEmpty()
+                ? request.getOwners() : clientRows;
+        if (clientRows.isEmpty()) {
+            throw new BusinessException("CLIENT_REQUIRED: Add at least one client.");
+        }
+        // fix172: the clients by NIN, so the client who paid the intake money can be named
         java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
-        if (request.getOwners() != null) {
-            for (LandEntryRequest.OwnerRequest o : request.getOwners()) {
-                if (o.getNationalId() == null || o.getNationalId().isBlank()) {
-                    throw new BusinessException("NIN_REQUIRED: Owner \"" + o.getFullName() + "\" is missing a National ID (NIN).");
-                }
-                Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
-                c.setHomeAddress(o.getAddress());
-                project.addProprietor(c);
-                ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
-            }
+        for (LandEntryRequest.OwnerRequest o : clientRows) {
+            Client c = personFromRow(o, "Client");
+            project.addClient(c);
+            ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
+        }
+        for (LandEntryRequest.OwnerRequest o : ownerRows) {
+            project.addProprietor(personFromRow(o, "Owner"));
         }
 
-        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single owner is the payer,
-        // joint owners must say which one paid. Checked before anything is saved.
+        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single client is the payer,
+        // joint clients must say which one paid. Checked before anything is saved.
         Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
         Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
         StringBuilder fix172Note = new StringBuilder();
@@ -532,12 +586,11 @@ public class LandService {
             }
         }
 
-        // fix167: New Title and Legacy Title projects have no stage checklist (guide 8.9.1). The page used to send
-        // the whole default list for them too, so every titled entry got 6 stray stages.
-        if (!request.isLegacy() && !request.isTitleAtIntake()
-                && request.getSelectedStages() != null && !request.getSelectedStages().isEmpty()) {
-            stageTemplateService.attachStagesToProject(saved.getId(), request.getSelectedStages());
+        // fix180: every project type has its own status list, so every project gets its statuses
+        if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
+            statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
         }
+        saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
 
         if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
 
@@ -555,7 +608,8 @@ public class LandService {
         }
 
         String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
-        String receivableNote = startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "";
+        String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
+                + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
         notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
         auditService.logAction("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
@@ -575,21 +629,86 @@ public class LandService {
 
     // ─── FULL UPDATE ──────────────────────────────────────────────────────────
 
-    // fix172: finds the owner who paid money entered at intake. One owner = that owner. Joint owners = the payer must be
-    // named, and must be one of the owners typed on the form. No money entered = no payer needed.
+    // fix180: one Client / Owner row from the form -> the person (by NIN, the identity rule)
+    private Client personFromRow(LandEntryRequest.OwnerRequest o, String what) {
+        if (o.getNationalId() == null || o.getNationalId().isBlank()) {
+            throw new BusinessException("NIN_REQUIRED: " + what + " \"" + o.getFullName() + "\" is missing a National ID (NIN).");
+        }
+        Client c = clientService.findOrCreateClientByNin(o.getFullName(), o.getNationalId(), o.getPhone(), o.getEmail());
+        if (o.getAddress() != null && !o.getAddress().isBlank()) c.setHomeAddress(o.getAddress());
+        return c;
+    }
+
+    private static String blankToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    // fix180: Area (hectares) is required whenever Title Details are saved
+    private static void requireAreaHectares(BigDecimal ha) {
+        if (ha == null || ha.signum() <= 0) {
+            throw new BusinessException("AREA_REQUIRED: Area (hectares) is required in Title Details and must be more than 0.");
+        }
+    }
+
+    // fix180: NEIGHBORS -- the whole list is replaced by what the page sends (blank names are skipped)
+    private void saveNeighbors(UUID projectId, List<LandEntryRequest.NeighborRequest> rows) {
+        if (rows == null) return;
+        neighborRepository.deleteAll(neighborRepository.findByProjectIdOrderByDisplayOrderAsc(projectId));
+        neighborRepository.flush();
+        int order = 0;
+        for (LandEntryRequest.NeighborRequest r : rows) {
+            if (r == null || r.getFullName() == null || r.getFullName().isBlank()) continue;
+            String phone = r.getPhone() == null || r.getPhone().isBlank() ? null
+                    : com.gesolutions.erp.common.util.PhoneUtil.normalizeList(r.getPhone());
+            neighborRepository.save(ProjectNeighbor.builder().projectId(projectId)
+                    .fullName(r.getFullName().trim()).phone(phone).side(blankToNull(r.getSide()))
+                    .plotNumber(blankToNull(r.getPlotNumber())).notes(blankToNull(r.getNotes()))
+                    .displayOrder(order++).build());
+        }
+    }
+
+    // fix180: a Transfer of Title made from a subdivision plot. The parent must be a live Subdivision project, the plot
+    // number one of its plots, and that plot not transferred already.
+    private LandProject requireTransferableSubdivisionPlot(UUID parentId, Integer plotNo, ProjectType type) {
+        if (type != ProjectType.TRANSFER_OF_TITLE) {
+            throw new BusinessException("TRANSFER_TYPE_REQUIRED: A subdivision plot is transferred with a Transfer of Title project.");
+        }
+        LandProject parent = projectRepository.findById(parentId)
+                .orElseThrow(() -> new BusinessException("SUBDIVISION_NOT_FOUND: The subdivision project no longer exists."));
+        if (parent.isDeleted()) {
+            throw new BusinessException("SUBDIVISION_DELETED: The subdivision project is deleted. Restore it first.");
+        }
+        if (ProjectType.of(parent) != ProjectType.SUBDIVISION) {
+            throw new BusinessException("NOT_A_SUBDIVISION: Project #" + parent.getProjectIndex() + " is not a Subdivision project.");
+        }
+        int count = parent.getSubdivisionCount() != null ? parent.getSubdivisionCount() : 0;
+        if (plotNo == null || plotNo < 1 || plotNo > count) {
+            throw new BusinessException("SUBDIVISION_PLOT_INVALID: Pick a plot from 1 to " + count + " of project #" + parent.getProjectIndex() + ".");
+        }
+        for (LandProject t : projectRepository.findTransfersOf(parentId)) {
+            if (plotNo.equals(t.getParentSubdivisionNo())) {
+                throw new BusinessException("ALREADY_TRANSFERRED: Plot " + plotNo + " of project #" + parent.getProjectIndex()
+                        + " was already transferred (project #" + t.getProjectIndex() + ").");
+            }
+        }
+        return parent;
+    }
+
+    // fix172: finds the client who paid money entered at intake. One client = that client. Joint clients = the payer must be
+    // named, and must be one of the clients typed on the form. No money entered = no payer needed.
     private Client fix172ResolvePayer(java.util.Map<String, Client> ownersByNin, String payerNin, BigDecimal amount, String what) {
         if (amount == null || amount.signum() <= 0) return null;
         String key = payerNin == null ? "" : payerNin.trim().toUpperCase();
         if (!key.isEmpty()) {
             Client hit = ownersByNin.get(key);
             if (hit == null) {
-                throw new BusinessException("PAYER_INVALID: The owner who paid the " + what + " must be one of the owners on this form.");
+                throw new BusinessException("PAYER_INVALID: The client who paid the " + what + " must be one of the clients on this form.");
             }
             return hit;
         }
         if (ownersByNin.size() == 1) return ownersByNin.values().iterator().next();
         if (ownersByNin.size() > 1) {
-            throw new BusinessException("PAYER_REQUIRED: This project has " + ownersByNin.size() + " owners. Pick which owner paid the " + what + ".");
+            throw new BusinessException("PAYER_REQUIRED: This project has " + ownersByNin.size() + " clients. Pick which client paid the " + what + ".");
         }
         return null;
     }
@@ -597,12 +716,18 @@ public class LandService {
     // fix166: one-line descriptions of the title and the owners, used to write OLD -> NEW into the audit log.
     private String fix166TitleLine(LandTitle t) {
         if (t == null) return "no title";
-        return "plot " + t.getPlotNumber() + ", title ID " + t.getTitleId() + ", tenure " + t.getTenure() + ", block " + t.getBlockRoad();
+        return "plot " + t.getPlotNumber() + ", block " + t.getBlock() + ", area " + (t.getAreaHectares() == null ? "-" : t.getAreaHectares().stripTrailingZeros().toPlainString()) + " ha"
+                + ", volume " + t.getVolume() + ", folio " + t.getFolio() + ", tenure " + t.getTenure();
     }
 
     private String fix166OwnersLine(LandProject p) {
-        if (p.getProprietors() == null || p.getProprietors().isEmpty()) return "none";
-        return p.getProprietors().stream()
+        return peopleLine(p.getProprietors());
+    }
+
+    // fix180: same one-line form for the clients
+    private String peopleLine(Set<Client> people) {
+        if (people == null || people.isEmpty()) return "none";
+        return people.stream()
                 .map(c -> c.getFullName() + " (NIN " + c.getNationalId() + ")")
                 .sorted()
                 .collect(java.util.stream.Collectors.joining("; "));
@@ -636,31 +761,68 @@ public class LandService {
                 && project.getProprietors() != null && !project.getProprietors().isEmpty()) {
             throw new BusinessException("OWNER_REQUIRED: A project must keep at least one owner.");
         }
+        if (request.getClients() != null && request.getClients().isEmpty()
+                && project.getClients() != null && !project.getClients().isEmpty()) {
+            throw new BusinessException("CLIENT_REQUIRED: A project must keep at least one client.");
+        }
         final String fix166OldTitle = fix166TitleLine(title);
         final String fix166OldOwners = fix166OwnersLine(project);
+        final String fix180OldClients = peopleLine(project.getClients());
 
-        // PHASE E (Section 18.9.4): Create LandTitle on edit if title fields
-        // are provided but no title exists yet. Otherwise update existing title.
-        boolean hasTitleFields = request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
+        // fix180: Title Details follow the project type. Topographic Survey can switch them on (or off while none are
+        // saved); Fresh Survey / Special Projects never get a new title. A title that already exists is always kept.
+        ProjectType type = ProjectType.of(project);
+        if (type == ProjectType.TOPOGRAPHIC_SURVEY) {
+            project.setTitleDetailsEnabled(request.isTitleDetailsEnabled() || title != null);
+        }
+        boolean titleAllowed = title != null || type.showsTitle(project.isTitleDetailsEnabled());
+        boolean hasTitleFields = titleAllowed && request.getPlotNumber() != null && !request.getPlotNumber().isBlank();
         if (title == null && hasTitleFields) {
             // fix167: a title saved from the folder page needs the same details as one typed on New Project
-            if (request.getTitleId() == null || request.getTitleId().isBlank()) {
-                throw new BusinessException("TITLE_ID_REQUIRED: Type the title ID before saving the title.");
+            if (request.getBlock() == null || request.getBlock().isBlank()) {
+                throw new BusinessException("BLOCK_REQUIRED: Type the Block before saving the title.");
             }
+            requireAreaHectares(request.getAreaHectares());
             title = LandTitle.builder()
-                    .titleId(request.getTitleId())
                     .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
                     .plotNumber(request.getPlotNumber())
-                    .blockRoad(request.getBlockRoad())
+                    .block(request.getBlock())
+                    .areaHectares(request.getAreaHectares())
+                    .volume(blankToNull(request.getVolume()))
+                    .folio(blankToNull(request.getFolio()))
                     .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : java.time.LocalDate.now())
                     .titleIssueDate(request.getTitleIssueDate())
                     .build();
             project.setLandTitle(title);
         } else if (title != null) {
-            title.setTitleId(request.getTitleId());
+            requireAreaHectares(request.getAreaHectares());
             title.setPlotNumber(request.getPlotNumber());
             title.setTenure(request.getTenure());
-            title.setBlockRoad(request.getBlockRoad());
+            title.setBlock(request.getBlock());
+            title.setAreaHectares(request.getAreaHectares());
+            title.setVolume(blankToNull(request.getVolume()));
+            title.setFolio(blankToNull(request.getFolio()));
+            if (request.getTitleIssueDate() != null) title.setTitleIssueDate(request.getTitleIssueDate());
+        }
+
+        // fix180: a Subdivision can change its number of plots, but never below a plot that was already transferred
+        if (type == ProjectType.SUBDIVISION && request.getSubdivisionCount() != null) {
+            int want = request.getSubdivisionCount();
+            int highest = 0;
+            for (LandProject t : projectRepository.findTransfersOf(projectId)) {
+                if (t.getParentSubdivisionNo() != null) highest = Math.max(highest, t.getParentSubdivisionNo());
+            }
+            if (want < 1 || want > 1000) {
+                throw new BusinessException("SUBDIVISIONS_REQUIRED: The number of subdivisions must be from 1 to 1000.");
+            }
+            if (want < highest) {
+                throw new BusinessException("SUBDIVISIONS_TOO_FEW: Plot " + highest + " was already transferred, so there must be at least " + highest + " subdivisions.");
+            }
+            if (!Integer.valueOf(want).equals(project.getSubdivisionCount())) {
+                auditService.logAction("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
+                        + project.getProjectIndex() + " from " + project.getSubdivisionCount() + " to " + want);
+            }
+            project.setSubdivisionCount(want);
         }
 
         // Save location fields on LandProject (Phase A/E)
@@ -703,6 +865,22 @@ public class LandService {
             }
             project.setProprietors(updatedRegistry);
         }
+
+        // fix180: CLIENTS are edited the same way as the owners (NIN rules included)
+        if (request.getClients() != null && !request.getClients().isEmpty()) {
+            Set<Client> updatedClients = new HashSet<>();
+            for (LandEntryRequest.OwnerRequest incoming : request.getClients()) {
+                Client person = personFromRow(incoming, "Client");
+                person.setEmail(incoming.getEmail() != null ? incoming.getEmail().toLowerCase() : null);
+                if (incoming.getPhone() != null && !incoming.getPhone().isBlank()) {
+                    person.setPhoneNumber(com.gesolutions.erp.common.util.PhoneUtil.normalizeList(incoming.getPhone()));
+                }
+                clientRepository.save(person);
+                updatedClients.add(person);
+            }
+            project.setClients(updatedClients);
+        }
+        saveNeighbors(projectId, request.getNeighbors());   // fix180
 
         BigDecimal newTotalCost = request.getTotalCost() != null ? request.getTotalCost() : BigDecimal.ZERO;
         BigDecimal oldTotalCost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
@@ -760,6 +938,12 @@ public class LandService {
             auditService.logAction("OWNERS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the owners of project #" + project.getProjectIndex()
                 + ". Old: " + fix166OldOwners + " -> New: " + fix166NewOwners);
+        }
+        String fix180NewClients = peopleLine(project.getClients());
+        if (!fix180OldClients.equals(fix180NewClients)) {
+            auditService.logAction("CLIENTS_CHANGED",
+                "Operator [" + getCurrentOperator() + "] changed the clients of project #" + project.getProjectIndex()
+                + ". Old: " + fix180OldClients + " -> New: " + fix180NewClients);
         }
         return saved;
     }
@@ -850,12 +1034,12 @@ public class LandService {
     public java.util.Map<String, Object> logFollowUp(UUID projectId, UUID ownerId, String content) {
         LandProject project = projectRepository.findById(projectId).orElseThrow();
 
-        boolean ownerIsProprietor = project.getProprietors() != null &&
-                project.getProprietors().stream()
+        // fix180: recovery calls are made to the CLIENTS of the project
+        boolean ownerIsProprietor = project.billingParties().stream()
                         .anyMatch(o -> o != null && o.getId() != null && o.getId().equals(ownerId));
         if (!ownerIsProprietor) {
             throw new BusinessException(
-                    "OWNER_NOT_ON_PROJECT: The selected owner is not a proprietor of this project.");
+                    "CLIENT_NOT_ON_PROJECT: The selected person is not a client of this project.");
         }
 
         // STAGE 11: advisory-only read -- does not touch any co-owner's state.
@@ -868,7 +1052,7 @@ public class LandService {
                     && !log.getOwnerId().equals(ownerId)
                     && log.getTimestamp() != null
                     && log.getTimestamp().isAfter(recentWindowStart)) {
-                Client coOwner = project.getProprietors().stream()
+                Client coOwner = project.billingParties().stream()
                         .filter(o -> o != null && log.getOwnerId().equals(o.getId()))
                         .findFirst().orElse(null);
                 String coOwnerName = coOwner != null ? coOwner.getFullName() : "another owner";
@@ -1004,11 +1188,26 @@ public class LandService {
      */
     @Transactional
     public List<ProjectDocument> addScansToProject(UUID projectId, MultipartFile[] scans, String batchCategory, List<String> fileCategories) throws Exception {
+        return addScansToProject(projectId, scans, batchCategory, fileCategories, null);
+    }
+
+    /** fix180: statusId = the project status these documents belong to (null = general project documents). */
+    @Transactional
+    public List<ProjectDocument> addScansToProject(UUID projectId, MultipartFile[] scans, String batchCategory, List<String> fileCategories, UUID statusId) throws Exception {
         // fix167: nothing can be filed into a deleted project
         LandProject target = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND: This project no longer exists."));
         if (target.isDeleted()) {
             throw new BusinessException("UPLOAD_BLOCKED: This project is deleted. Restore it first.");
+        }
+        String statusName = null;
+        if (statusId != null) {
+            ProjectStatus st = projectStatusRepository.findById(statusId)
+                    .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND: That status no longer exists."));
+            if (!projectId.equals(st.getProjectId())) {
+                throw new BusinessException("STATUS_MISMATCH: That status does not belong to this project.");
+            }
+            statusName = st.getStatusName();
         }
         List<ProjectDocument> saved = new ArrayList<>();
         String batchCode = documentCategoryService.requireCode(batchCategory);
@@ -1026,6 +1225,7 @@ public class LandService {
                     .fileName(file.getOriginalFilename())
                     .fileType(file.getContentType())
                     .category(cats[i])
+                    .statusId(statusId)
                     .filePath(path)
                     .uploadedBy(getCurrentOperator())
                     .build();
@@ -1034,6 +1234,7 @@ public class LandService {
         auditService.logAction("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
             + " document(s) to plot: " + projectId
+            + (statusName != null ? " (status: " + statusName + ")" : "")
             + " [" + String.join(", ", java.util.Arrays.stream(cats)
                     .map(c -> c == null ? "UNCATEGORISED" : c).distinct().toList()) + "]");
         // This method only ever had the id, not the entity, so the label has to
@@ -1073,32 +1274,32 @@ public class LandService {
             + (docProject != null ? " from " + plotLabel(docProject) : ""));
     }
 
-    // ─── STAGE / RELEASE ──────────────────────────────────────────────────────
+    // ─── STATUS / RELEASE ──────────────────────────────────────────────────────
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public void manualRealityOverride(UUID id, int targetStage) {
+    public void manualRealityOverride(UUID id, int targetStatus) {
         LandProject project = projectRepository.findById(id).orElseThrow();
         // fix166: any manager could push ANY number in (negative, 999) and overwrite the status of a
         // receivable / handed-over / deleted project. Now director-only, 1..5 only, and those projects are refused.
-        if (targetStage < 1 || targetStage > 5) {
-            throw new BusinessException("STAGE_INVALID: The stage must be a number from 1 to 5.");
+        if (targetStatus < 1 || targetStatus > 5) {
+            throw new BusinessException("STATUS_INVALID: The status index must be a number from 1 to 5.");
         }
         if (project.isDeleted() || project.isReceivable()
                 || (project.getLandTitle() != null && project.getLandTitle().isReleased())) {
-            throw new BusinessException("STAGE_LOCKED: The stage of a deleted, receivable or handed-over project cannot be changed.");
+            throw new BusinessException("STATUS_LOCKED: The status of a deleted, receivable or handed-over project cannot be changed.");
         }
-        int oldStage = project.getCurrentStageIndex();
-        project.setCurrentStageIndex(targetStage);
-        if (targetStage >= 5) project.setStatus("COMPLETED");
+        int oldStatus = project.getCurrentStatusIndex();
+        project.setCurrentStatusIndex(targetStatus);
+        if (targetStatus >= 5) project.setStatus("COMPLETED");
         projectRepository.save(project);
-        auditService.logAction("STAGE_OVERRIDE",
+        auditService.logAction("STATUS_OVERRIDE",
             "Operator [" + getCurrentOperator() + "] shifted plot "
             + plotLabel(project)
-            + " from stage " + oldStage + " to stage " + targetStage);
-        notificationService.emitRaw("STAGE_ADVANCED", "POSITIVE",
-            plotLabel(project) + " moved from stage " + oldStage
-            + " to stage " + targetStage + " by " + getCurrentOperator() + ".",
+            + " from status " + oldStatus + " to status " + targetStatus);
+        notificationService.emitRaw("STATUS_ADVANCED", "POSITIVE",
+            plotLabel(project) + " moved from status " + oldStatus
+            + " to status " + targetStatus + " by " + getCurrentOperator() + ".",
             "PROJECT", project.getId(), "ROLE_MANAGER");
     }
 
@@ -1244,10 +1445,11 @@ public class LandService {
             "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
 
-    // fix163: REVERT A SAVED TITLE BACK TO STAGES.
-    // Director/admin only. Needs a reason. Refused when the title was handed over, when the project is
-    // Receivable or Legacy, and when the project was created as New Title / Legacy Title (it has no stages).
-    // The title row is deleted (this frees the plot number); the old values are kept in the audit line.
+    // fix163: REVERT A SAVED TITLE (take the Title Details off the project).
+    // Director/admin only. Needs a reason. Refused when the title was handed over and when the project is Receivable or
+    // Legacy. fix180: also refused for the project types that ALWAYS keep Title Details (Subdivision, Legacy Titles,
+    // Transfer of Title, Boundary Opening, Resurvey) -- use EDIT to correct them. Topographic Survey switches its
+    // optional panel off again. The title row is deleted (this frees the plot number); the old values are kept in the audit line.
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void revertTitle(UUID id, String reason) {
@@ -1265,29 +1467,31 @@ public class LandService {
             throw new BusinessException("REVERT_DENIED: The title was handed over. Undo the hand-over first.");
         }
         if (project.isReceivable() || project.isLegacy()) {
-            throw new BusinessException("REVERT_DENIED: A Receivable or Legacy project cannot be reverted to stages.");
+            throw new BusinessException("REVERT_DENIED: A Receivable or Legacy project cannot have its title taken off.");
         }
-        java.util.List<com.gesolutions.erp.modules.land.model.ProjectStage> stages =
-                projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
-        if (stages.isEmpty()) {
-            throw new BusinessException("REVERT_DENIED: This project was created with its title (New Title / Legacy Title), so it has no stages to go back to.");
+        ProjectType type = ProjectType.of(project);
+        if (type.getTitleMode() == ProjectType.TitleMode.ALWAYS) {
+            throw new BusinessException("REVERT_DENIED: A " + type.getLabel() + " project always keeps its Title Details. Use EDIT to correct them.");
         }
-        String oldValues = "plot " + title.getPlotNumber() + ", title ID " + title.getTitleId()
-                + ", tenure " + title.getTenure() + ", block " + title.getBlockRoad()
-                + ", title date " + title.getTitleIssueDate();
+        java.util.List<ProjectStatus> statuses = projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(id);
+        String oldValues = fix166TitleLine(title) + ", title date " + title.getTitleIssueDate();
         project.setLandTitle(null);
+        project.setTitleDetailsEnabled(false);
         project.setStatus("ACTIVE");
         projectRepository.saveAndFlush(project);
         landTitleRepository.delete(title);
-        com.gesolutions.erp.modules.land.model.ProjectStage last = stages.get(stages.size() - 1);
-        if (last.isCompleted()) {
-            last.setCompleted(false);
-            last.setCompletedAt(null);
-            projectStageRepository.save(last);
+        // the "Titled" status goes back to not done, since the project has no title any more
+        for (ProjectStatus st : statuses) {
+            if (st.isCompleted() && isTitledStatus(st.getStatusName())) {
+                st.setCompleted(false);
+                st.setCompletedAt(null);
+                st.setCompletedBy(null);
+                projectStatusRepository.save(st);
+            }
         }
         auditService.logAction("TITLE_REVERTED",
-            "Operator [" + getCurrentOperator() + "] reverted the saved title of project " + project.getProjectIndex()
-            + " back to stages. Old title: " + oldValues + ". Reason: " + why);
+            "Operator [" + getCurrentOperator() + "] took the saved title off project " + project.getProjectIndex()
+            + ". Old title: " + oldValues + ". Reason: " + why);
     }
 
     // ─── READ METHODS ─────────────────────────────────────────────────────────
@@ -1313,19 +1517,28 @@ public class LandService {
     @Transactional(readOnly = true)
     public Page<LandProject> getGlobalLedger(Pageable pageable) {
         Page<LandProject> page = projectRepository.findAll(pageable);
-        // fix170: ONE query for every stage on the page (it was one query per project)
+        // fix170: ONE query for every status on the page (it was one query per project)
         List<UUID> ids = new ArrayList<>();
         for (LandProject p : page.getContent()) ids.add(p.getId());
-        Map<UUID, List<ProjectStage>> byProject = new HashMap<>();
-        if (!ids.isEmpty()) for (ProjectStage s : projectStageRepository.findByProjectIdIn(ids)) byProject.computeIfAbsent(s.getProjectId(), k -> new ArrayList<>()).add(s);
+        Map<UUID, List<ProjectStatus>> byProject = new HashMap<>();
+        if (!ids.isEmpty()) for (ProjectStatus s : projectStatusRepository.findByProjectIdIn(ids)) byProject.computeIfAbsent(s.getProjectId(), k -> new ArrayList<>()).add(s);
         for (LandProject p : page.getContent()) {
-            List<ProjectStage> l = byProject.getOrDefault(p.getId(), new ArrayList<>());
+            List<ProjectStatus> l = byProject.getOrDefault(p.getId(), new ArrayList<>());
             l.sort(Comparator.comparingInt(s -> s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()));
-            p.setStages(l);
+            p.setStatuses(l);
         }
         return page;
     }
 
+    // fix180: the final "Titled" status (old projects: "Registration and Title Issuance")
+    public static boolean isTitledStatus(String name) {
+        if (name == null) return false;
+        String n = name.trim().toLowerCase();
+        return n.equals("titled") || n.contains("registration");
+    }
+
+    // fix180: MARK TITLED (Ledger, Ready for Titling) ticks each project's "Titled" status. It no longer creates an
+    // empty title: Title Details belong to the project type and are typed on the folder page.
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public int bulkMarkTitleProduced(java.util.List<java.util.UUID> projectIds) {
@@ -1333,27 +1546,21 @@ public class LandService {
         int count = 0;
         for (java.util.UUID id : projectIds) {
             LandProject project = projectRepository.findById(id).orElse(null);
-            if (project != null && project.getLandTitle() == null) {
-                LandTitle title = LandTitle.builder()
-                        .tenure("FREEHOLD")
-                        .projectStartDate(java.time.LocalDate.now())
-                        .build();
-                project.setLandTitle(title);
-                projectRepository.save(project);
-
-                java.util.List<ProjectStage> stages = projectStageRepository.findByProjectIdOrderByDisplayOrderAsc(id);
-                for (ProjectStage stage : stages) {
-                    if (stage.getStageName() != null && stage.getStageName().toLowerCase().contains("registration")) {
-                        stage.setCompleted(true);
-                        stage.setCompletedAt(java.time.LocalDateTime.now());
-                        projectStageRepository.save(stage);
-                    }
+            if (project == null || project.isDeleted()) continue;
+            boolean ticked = false;
+            for (ProjectStatus st : projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(id)) {
+                if (!st.isCompleted() && isTitledStatus(st.getStatusName())) {
+                    st.setCompleted(true);
+                    st.setCompletedAt(java.time.LocalDateTime.now());
+                    st.setCompletedBy(getCurrentOperator());
+                    projectStatusRepository.save(st);
+                    ticked = true;
                 }
-                count++;
             }
+            if (ticked) count++;
         }
-        auditService.logAction("BULK_TITLE_PRODUCED", 
-            "Operator [" + getCurrentOperator() + "] marked " + count + " projects as title-produced.");
+        auditService.logAction("BULK_TITLE_PRODUCED",
+            "Operator [" + getCurrentOperator() + "] marked " + count + " projects as Titled.");
         return count;
     }
 }

@@ -132,13 +132,13 @@
 .ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(255,255,255,0.5);}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
 .ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:#EE8C3A;}
-/* stage column (fix47) */
-.stageCell{min-width:130px;}
-.stageName{font-weight:800;color:#fff;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
-.stageDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
-.stageDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
-.stageDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
-.stageDotCurrent{background:var(--orange);box-shadow:0 0 4px var(--orange);}
+/* status column (fix47) */
+.statusCell{min-width:130px;}
+.statusName{font-weight:800;color:#fff;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
+.statusDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+.statusDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
+.statusDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
+.statusDotCurrent{background:var(--orange);box-shadow:0 0 4px var(--orange);}
 .rowReceivable{background:rgba(239,68,68,0.05);}
 .rowCritical{background:rgba(239,68,68,0.07);}
 /* fix135: flagged PROBLEM plots. Same red as the Folder page PROBLEM button/badge. */
@@ -181,8 +181,8 @@
 .tagActive{color:#34d399;}
 
 /* fix87: dots show how close the folder is to finishing */
-.stageDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
-.stageDotCurrent { background: transparent; border: 1px solid var(--orange); box-shadow: none; }
+.statusDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
+.statusDotCurrent { background: transparent; border: 1px solid var(--orange); box-shadow: none; }
 
 /* fix88: standard vertical rhythm - legend breathes before the table */
 .legendRow { margin-bottom: clamp(10px, 1.2vw, 14px); }

@@ -99,7 +99,7 @@ const settingsService = {
      * DANGER ZONE: FULL SYSTEM WIPE (ROOT ONLY)
      * Permanently deletes every client, project, payment, and log, then
      * reseeds a clean root login, project index counter, and default
-     * stage template. Cannot be undone.
+     * status lists. Cannot be undone.
      */
     wipeAllData: async () => {
         try {

@@ -20,7 +20,7 @@ public class DashboardSummaryDTO {
     private long boxCount;
     private long receivableCount;
 
-    private Map<Integer, Long> stageDistribution;
+    private Map<Integer, Long> statusDistribution;
     private long legacyReceivableCount;
     private long newSurveyCount;
 

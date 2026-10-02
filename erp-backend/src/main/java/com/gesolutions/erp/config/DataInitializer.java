@@ -1,7 +1,7 @@
 package com.gesolutions.erp.config;
 import com.gesolutions.erp.modules.finance.model.ExpensePreset;
 import com.gesolutions.erp.modules.finance.repository.ExpensePresetRepository;
-import com.gesolutions.erp.modules.land.service.StageTemplateService;
+import com.gesolutions.erp.modules.land.service.StatusTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -15,7 +15,7 @@ import java.sql.Statement;
 public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final DataSource dataSource;
-    private final StageTemplateService stageTemplateService;
+    private final StatusTemplateService statusTemplateService;
     private final ExpensePresetRepository expensePresetRepository;
     private final ScenarioSeeder scenarioSeeder;
         @Value("${ADMIN_EMAIL}") private String adminEmail;
@@ -26,7 +26,7 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
             runSchemaMigrations();
             seedRootUser();
-            stageTemplateService.seedDefaultStagesIfEmpty();
+            statusTemplateService.seedDefaultStatusesIfEmpty();
             seedScenarioDataOnce();
                         seedDefaultExpensePresets();
             System.out.println(">>> GOLDEN SEED SYSTEM: Identity Protocol Active. Registry Locked.");
@@ -95,6 +95,13 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS project_index VARCHAR(10)",
             "ALTER TABLE land_titles ALTER COLUMN plot_number DROP NOT NULL",
             "ALTER TABLE notifications DROP COLUMN IF EXISTS is_read",
+            // fix180: Title ID is gone; Volume / Folio / Area (ha) are new columns (Hibernate adds them). Old projects get a type,
+            // and their owners become their clients (Recovery now follows clients) -- only where a project has no clients yet.
+            "DROP INDEX IF EXISTS idx_title_id",
+            "ALTER TABLE land_titles DROP COLUMN IF EXISTS title_id",
+            "UPDATE land_projects SET project_type = CASE WHEN is_legacy THEN 'LEGACY_TITLES' ELSE 'FRESH_SURVEY' END WHERE project_type IS NULL",
+            "UPDATE land_projects SET title_details_enabled = FALSE WHERE title_details_enabled IS NULL",
+            "INSERT INTO project_clients (project_id, client_id) SELECT pp.project_id, pp.client_id FROM project_proprietors pp WHERE NOT EXISTS (SELECT 1 FROM project_clients pc WHERE pc.project_id = pp.project_id)",
             "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check",
             roleCheckSql()
         };

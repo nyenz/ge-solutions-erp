@@ -338,11 +338,11 @@ const ClientLedgerPage = () => {
                                                 <span className={styles.stackSub}>{c.email || 'no email'}</span>
                                             </div>
                                         </td>
-                                        <td className={styles.stageCell}>
+                                        <td className={styles.statusCell}>
                                             {plotNums.length === 0 ? <span className={styles.stackSub}>---</span> : (
                                                 <div className={styles.stack}>
                                                     {plotNums.map((num, pi) => (
-                                                        <span key={pi} className={styles.stageName}>{pi + 1}. {num}</span>
+                                                        <span key={pi} className={styles.statusName}>{pi + 1}. {num}</span>
                                                     ))}
                                                 </div>
                                             )}

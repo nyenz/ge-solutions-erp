@@ -78,7 +78,7 @@ public class AuditController {
 
     /**
      * ASSET INVESTIGATION
-     * Physically searches the details text for specific Plot IDs or Box Numbers.
+     * Physically searches the details text for specific Plot Numbers or Box Numbers.
      * ACCESS: Locked to ADMIN and ROOT.
      */
     @GetMapping("/investigate")

@@ -131,8 +131,8 @@ public class ReceivableSchedulerService {
     }
 
     private String ownerLabel(LandProject plot) {
-        if (plot.getProprietors() != null && !plot.getProprietors().isEmpty()) {
-            for (Client c : plot.getProprietors()) return c.getFullName();
+        if (plot.billingParties() != null && !plot.billingParties().isEmpty()) {
+            for (Client c : plot.billingParties()) return c.getFullName();
         }
         return plot.getProjectIndex() != null ? ("project #" + plot.getProjectIndex()) : "untitled project";
     }
@@ -159,8 +159,8 @@ public class ReceivableSchedulerService {
         java.time.LocalDate unlock = null;
         java.time.LocalDateTime pay = null;
         for (LandProject p : projectRepository.findAll()) {
-            if (p.getProprietors() == null) continue;
-            boolean mine = p.getProprietors().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()));
+            if (p.billingParties() == null) continue;
+            boolean mine = p.billingParties().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()));
             if (!mine) continue;
             if (p.getLastPaymentDate() != null && (pay == null || p.getLastPaymentDate().isAfter(pay))) pay = p.getLastPaymentDate();
         }

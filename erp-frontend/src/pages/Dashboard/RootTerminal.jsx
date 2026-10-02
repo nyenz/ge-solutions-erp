@@ -128,7 +128,7 @@ const RootTerminal = ({ stats }) => {
                                 { n: 4, label: 'DEED PLAN' },
                                 { n: 5, label: 'RELEASE READY' },
                             ].map(item => {
-                                const val = stats?.stageDistribution?.[item.n] || 0;
+                                const val = stats?.statusDistribution?.[item.n] || 0;
                                 const pct = ((val / (stats?.totalPlots || 1)) * 100).toFixed(0);
                                 return (
                                     <div key={item.n} className={styles.gaugeRow}>

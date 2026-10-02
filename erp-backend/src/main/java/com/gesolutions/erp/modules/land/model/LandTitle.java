@@ -9,14 +9,14 @@ import java.util.UUID;
 
 /**
  * GE SOLUTIONS - PHYSICAL ASSET REGISTRY
- * RETIRED (pass 6): volume / folio / instrument_no / physical_box_number /
- * survey_date removed app-wide and dropped from the DB (PHASE G).
+ * RETIRED (pass 6): instrument_no / physical_box_number / survey_date removed app-wide and dropped from the DB (PHASE G).
  * district/county stay as deprecated columns for backwards compatibility.
+ * fix180: TITLE DETAILS = Plot Number, Block, Area (hectares, required), Volume, Folio, Tenure, Title Date.
+ * Title ID is removed (field and column). Volume and Folio are back as new columns.
  */
 @Entity
 @Table(name = "land_titles", indexes = {
-    @Index(name = "idx_plot_registry", columnList = "plot_number"),
-    @Index(name = "idx_title_id", columnList = "title_id")
+    @Index(name = "idx_plot_registry", columnList = "plot_number")
 })
 @Getter
 @Setter
@@ -35,8 +35,20 @@ public class LandTitle {
     @Column(name = "plot_number", unique = true, length = 100)
     private String plotNumber;
 
+    // fix180: BLOCK (the Java name was block; the column keeps its old name so no data moves)
     @Column(name = "block_road", length = 100)
-    private String blockRoad;
+    private String block;
+
+    // fix180: AREA in hectares -- required whenever Title Details are saved
+    @Column(name = "area_hectares", precision = 14, scale = 4)
+    private java.math.BigDecimal areaHectares;
+
+    // fix180: register VOLUME and FOLIO
+    @Column(name = "volume", length = 50)
+    private String volume;
+
+    @Column(name = "folio", length = 50)
+    private String folio;
 
     @Deprecated
     @Column(length = 100)
@@ -45,9 +57,6 @@ public class LandTitle {
     @Deprecated
     @Column(length = 100)
     private String county;
-
-    @Column(name = "title_id", length = 100)
-    private String titleId;
 
     @Deprecated
     @Column(name = "project_index", unique = true, length = 10)

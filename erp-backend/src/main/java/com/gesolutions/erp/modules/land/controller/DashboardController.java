@@ -78,9 +78,9 @@ public class DashboardController {
                             ? p.receivableTotalOwed() : p.activeTotalOwed();
                     return bal.compareTo(java.math.BigDecimal.ZERO) > 0;
                 })
-                .flatMap(p -> p.getProprietors() == null
+                .flatMap(p -> p.billingParties() == null
                         ? java.util.stream.Stream.<com.gesolutions.erp.modules.client.model.Client>empty()
-                        : p.getProprietors().stream())
+                        : p.billingParties().stream())
                 .filter(owner -> owner != null && owner.getId() != null)
                 .collect(Collectors.toMap(
                         com.gesolutions.erp.modules.client.model.Client::getId,
@@ -110,7 +110,7 @@ public class DashboardController {
         long newSurveyCount = totalPlots - legacyCount;
 
         Map<Integer, Long> bottlenecks = allPlots.stream()
-                .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
+                .collect(Collectors.groupingBy(LandProject::getCurrentStatusIndex, Collectors.counting()));
 
         long onlineCount = userRepository.countByIsActiveTrue();
         long dailyActions = auditLogRepository.findAll().stream()
@@ -126,7 +126,7 @@ public class DashboardController {
                 .readyForReleaseCount(readyForRelease)
                 .boxCount(uniqueBoxes)
                 .receivableCount(receivableCount)
-                .stageDistribution(bottlenecks)
+                .statusDistribution(bottlenecks)
                 .legacyReceivableCount(legacyCount)
                 .newSurveyCount(newSurveyCount)
                 .activeManagersOnline(onlineCount)
@@ -179,7 +179,7 @@ public class DashboardController {
      * "default view is week + month" rule in Section 17.9, and can call
      * again with period=DAY or period=YEAR when the Director drills down.
      *
-     * pipelineStageCounts and the company financials snapshot are NOT
+     * pipelineStatusCounts and the company financials snapshot are NOT
      * time-windowed -- they always reflect the current live state,
      * regardless of which period was requested.
      */
@@ -244,10 +244,10 @@ public class DashboardController {
                 .sorted(Comparator.comparingInt(DirectorDashboardDTO.StaffActivityDTO::getActionCount).reversed())
                 .collect(Collectors.toList());
 
-        // Pipeline stage counts -- live snapshot, same 5-stage index used by /summary
+        // Pipeline status counts -- live snapshot, same 5-step status index used by /summary
         List<LandProject> allPlots = projectRepository.findAll();
-        Map<Integer, Long> pipelineStageCounts = allPlots.stream()
-                .collect(Collectors.groupingBy(LandProject::getCurrentStageIndex, Collectors.counting()));
+        Map<Integer, Long> pipelineStatusCounts = allPlots.stream()
+                .collect(Collectors.groupingBy(LandProject::getCurrentStatusIndex, Collectors.counting()));
 
         // Company financials -- live snapshot, not time-windowed
         BigDecimal companyExpensesTotal = expenseRepository.sumAll();
@@ -262,7 +262,7 @@ public class DashboardController {
                 .revenueCollected(revenueCollected)
                 .transactionCount(transactionCount)
                 .staffActivity(staffActivity)
-                .pipelineStageCounts(pipelineStageCounts)
+                .pipelineStatusCounts(pipelineStatusCounts)
                 .companyExpensesTotal(companyExpensesTotal)
                 .companyExpensesByCategory(companyExpensesByCategory)
                 .build();

@@ -15,21 +15,43 @@ import java.util.UUID;
 @AllArgsConstructor
 public class LandEntryRequest {
 
+    // fix180: the project type (ProjectType name). Missing = worked out from isLegacy (old pages).
+    private String projectType;
+    // fix180: Topographic Survey only -- the optional Title Details panel is switched on
+    @JsonProperty("titleDetailsEnabled")
+    private boolean titleDetailsEnabled;
+    // fix180: Subdivision only -- how many plots the subdivision creates
+    private Integer subdivisionCount;
+    // fix180: a Transfer of Title started from a subdivision plot (the subdivision project and the plot number)
+    private UUID parentProjectId;
+    private Integer parentSubdivisionNo;
+
+    // TITLE DETAILS (fix180: Plot Number, Block, Area in hectares, Volume, Folio; Title ID removed)
     private String plotNumber;
     private String tenure;
-    private String blockRoad;
+    private String block;
+    private BigDecimal areaHectares;
+    private String volume;
+    private String folio;
     private String district;
     private String county;
     private String subCounty;
     private String parish;
     private String village;
     private String area;
-    private String titleId;
     private LocalDate projectStartDate;
     private LocalDate titleIssueDate;
 
+    // fix180: CLIENTS first, then OWNERS. Owners left empty = a copy of the clients.
+    @Builder.Default
+    private List<OwnerRequest> clients = new ArrayList<>();
+
     @Builder.Default
     private List<OwnerRequest> owners = new ArrayList<>();
+
+    // fix180: NEIGHBORS panel (every project type)
+    @Builder.Default
+    private List<NeighborRequest> neighbors = new ArrayList<>();
 
     private BigDecimal totalCost;
     private BigDecimal initialPayment;
@@ -45,17 +67,11 @@ public class LandEntryRequest {
     @Builder.Default
     private List<NoteRequest> notes = new ArrayList<>();
 
-    private Integer currentStageIndex;
+    private Integer currentStatusIndex;
 
+    // Legacy Titles entry (fix180: set by the server from the project type; old pages still send it)
     @JsonProperty("isLegacy")
     private boolean isLegacy;
-
-    // INTAKE PAGE REDESIGN: set true when staff pick "New Title" as the
-    // project type at intake (a title is being created immediately even
-    // though the project is not a legacy record and the final processing
-    // stage has not been reached yet). See LandService.atomicIntake().
-    @JsonProperty("titleAtIntake")
-    private boolean titleAtIntake;
 
     // Staff can flag a plot as receivable right at intake (for old/existing cases)
     @JsonProperty("isStartAsReceivable")
@@ -69,15 +85,14 @@ public class LandEntryRequest {
     private LocalDate lastPaidDate;
     // fix172: Legacy Title only. The date the project went into receivables; the months since then are billed at intake.
     private LocalDate receivablesSince;
-    // fix172: WHICH owner paid the intake money (the NIN typed in the Owners section). Needed when there is more than one owner.
+    // fix172: WHICH client paid the intake money (fix180: the NIN typed in the Clients section). Needed when there is more than one client.
     private String initialPaymentPayerNin;
     private String initialStorageFeePaidPayerNin;
 
-    // PHASE 4: Optional stage checklist selected at intake. If omitted,
-    // no stages are attached and staff can add them later from the
-    // Folder page once Phase 4B ships.
+    // The status checklist picked at intake (fix180: the project type's list). If omitted, no statuses are attached
+    // and staff can add them later from the Folder page.
     @Builder.Default
-    private List<com.gesolutions.erp.modules.land.dto.ProjectStageRequest> selectedStages = new ArrayList<>();
+    private List<com.gesolutions.erp.modules.land.dto.ProjectStatusRequest> selectedStatuses = new ArrayList<>();
 
     @Data
     @Builder
@@ -89,6 +104,18 @@ public class LandEntryRequest {
         private String email;
         private String nationalId;
         private String address;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NeighborRequest {
+        private String fullName;
+        private String phone;
+        private String side;
+        private String plotNumber;
+        private String notes;
     }
 
     @Data

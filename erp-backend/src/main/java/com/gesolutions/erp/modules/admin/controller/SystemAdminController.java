@@ -3,7 +3,7 @@ package com.gesolutions.erp.modules.admin.controller;
 
 import com.gesolutions.erp.config.DataInitializer;
 import com.gesolutions.erp.modules.land.service.FileStorageService;
-import com.gesolutions.erp.modules.land.service.StageTemplateService;
+import com.gesolutions.erp.modules.land.service.StatusTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +26,7 @@ import java.util.Map;
  * is the single most destructive endpoint in the system.
  *
  * After the wipe, the root admin account, the project index counter, and
- * the default stage-template checklist are automatically reseeded so the
+ * the default status lists are automatically reseeded so the
  * app is immediately usable again (nobody gets permanently locked out).
  *
  * Also purges every file this app has ever uploaded to Cloudinary (all
@@ -52,28 +52,30 @@ public class SystemAdminController {
         "payment_schedules",
         "follow_up_logs",
         "project_documents",
-        "project_stages",
+        "project_statuses",
         "project_proprietors",
+        "project_clients",
+        "project_neighbors",
         "land_titles",
         "land_projects",
         "clients",
         "company_expenses",
         "expenses",
         "expense_presets",
-        "stage_templates",
+        "status_templates",
         "scenario_seed_flag",
         "users"
     };
 
     private final DataSource dataSource;
     private final DataInitializer dataInitializer;
-    private final StageTemplateService stageTemplateService;
+    private final StatusTemplateService statusTemplateService;
     private final FileStorageService fileStorageService;
 
     /**
      * THE BIG RED BUTTON.
      * Wipes every table above, then immediately reseeds the root admin
-     * account, the project index counter, and the default stage template
+     * account, the project index counter, and the default status lists
      * so the system is left clean, working, and empty.
      *
      * Requires ?confirm=WIPE-EVERYTHING exactly, so this can never fire by
@@ -134,9 +136,9 @@ public class SystemAdminController {
             System.err.println(">>> [WIPE] WARNING: admin_root reseed failed: " + e.getMessage());
         }
 
-        // Reseed the default stage template checklist
-        stageTemplateService.seedDefaultStagesIfEmpty();
-        System.out.println(">>> [WIPE] OK: default stage template reseeded");
+        // Reseed the default status list of every project type
+        statusTemplateService.seedDefaultStatusesIfEmpty();
+        System.out.println(">>> [WIPE] OK: default status lists reseeded");
 
         // Reseed the default expense presets (Office, Fieldwork, Land Office)
         dataInitializer.seedDefaultExpensePresets();
@@ -165,7 +167,7 @@ public class SystemAdminController {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("wiped", true);
         response.put("tablesWiped", TABLES_TO_WIPE);
-        response.put("message", "All business data AND all uploaded files on Cloudinary have been deleted. Root admin login, project index, and default stage template were reseeded to defaults. You will need to log in again with the ADMIN_EMAIL / ADMIN_DEFAULT_PASSWORD credentials.");
+        response.put("message", "All business data AND all uploaded files on Cloudinary have been deleted. Root admin login, project index, and default status lists were reseeded to defaults. You will need to log in again with the ADMIN_EMAIL / ADMIN_DEFAULT_PASSWORD credentials.");
         return ResponseEntity.ok(response);
     }
 }

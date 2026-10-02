@@ -24,18 +24,19 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     @NonNull
     // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one
     // project at a time (hundreds of tiny queries per request) -- Recovery, Dashboard, Reports and Client Ledger all pay that.
-    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.landTitle WHERE p.deleted = false")
+    // fix180: the clients (who Recovery calls) come in the same query too
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.clients LEFT JOIN FETCH p.landTitle WHERE p.deleted = false")
     List<LandProject> findAll();
 
     @Override
     @NonNull
-    @EntityGraph(attributePaths = {"proprietors", "landTitle"})
+    @EntityGraph(attributePaths = {"proprietors", "clients", "landTitle"})
     @Query("SELECT p FROM LandProject p WHERE p.deleted = false")
     Page<LandProject> findAll(@NonNull Pageable pageable);
 
     @Override
     @NonNull
-    @EntityGraph(attributePaths = {"proprietors", "landTitle"})
+    @EntityGraph(attributePaths = {"proprietors", "clients", "landTitle"})
     Optional<LandProject> findById(@NonNull UUID id);
 
     // STAGE 3: restore screen -- deliberately the ONLY query that returns
@@ -58,6 +59,10 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     @Query("SELECT DISTINCT p FROM LandProject p JOIN p.proprietors c WHERE c.id IN :ownerIds AND p.id <> :projectId AND p.deleted = false")
     List<LandProject> findRelatedByOwners(@org.springframework.data.repository.query.Param("ownerIds") java.util.Collection<UUID> ownerIds,
                                           @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
+    // fix180: the Transfer of Title projects made from one subdivision project's plots (deleted ones left out)
+    @Query("SELECT p FROM LandProject p WHERE p.parentProjectId = :parentId AND p.deleted = false")
+    List<LandProject> findTransfersOf(@org.springframework.data.repository.query.Param("parentId") UUID parentId);
 
     // All plots currently in receivable
     @Query("SELECT p FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false")

@@ -6,8 +6,8 @@ import com.gesolutions.erp.modules.land.model.FollowUpLog;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.model.ProjectDocument;
-import com.gesolutions.erp.modules.land.model.ProjectStage;
-import com.gesolutions.erp.modules.land.repository.ProjectStageRepository;
+import com.gesolutions.erp.modules.land.model.ProjectStatus;
+import com.gesolutions.erp.modules.land.repository.ProjectStatusRepository;
 import com.gesolutions.erp.modules.land.service.LandService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +30,9 @@ import java.util.UUID;
 public class LandController {
 
     private final LandService landService;
-    private final ProjectStageRepository projectStageRepository;
+    private final ProjectStatusRepository projectStatusRepository;
     // fix167: the app's own JSON reader (knows dates, ignores extra fields). A bare "new ObjectMapper()" refused
-    // every New Project save that carried a date or a stage list.
+    // every New Project save that carried a date or a status list.
     private final ObjectMapper objectMapper;
 
     // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
@@ -125,9 +125,10 @@ public class LandController {
             @PathVariable UUID id,
             @RequestParam("scans") MultipartFile[] scans,
             @RequestParam(value = "category", required = false) String category,
-            @RequestParam(value = "categories", required = false) List<String> categories) throws Exception {
+            @RequestParam(value = "categories", required = false) List<String> categories,
+            @RequestParam(value = "statusId", required = false) UUID statusId) throws Exception {   // fix180: documents of one status
         landService.requireScanFiles(scans);
-        landService.addScansToProject(id, scans, category, categories);
+        landService.addScansToProject(id, scans, category, categories, statusId);
         return ResponseEntity.ok().build();
     }
 
@@ -163,8 +164,8 @@ public class LandController {
 
     @PatchMapping("/projects/{id}/reality-override")
     public ResponseEntity<Void> manualRealityOverride(
-            @PathVariable UUID id, @RequestParam int targetStage) {
-        landService.manualRealityOverride(id, targetStage);
+            @PathVariable UUID id, @RequestParam int targetStatus) {
+        landService.manualRealityOverride(id, targetStatus);
         return ResponseEntity.ok().build();
     }
 
@@ -180,9 +181,9 @@ public class LandController {
     }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    @PostMapping("/ledger/stages-bulk")
-    public ResponseEntity<List<ProjectStage>> getStagesBulk(@RequestBody List<UUID> projectIds) {
-        return ResponseEntity.ok(projectStageRepository.findByProjectIdIn(projectIds));
+    @PostMapping("/ledger/statuses-bulk")
+    public ResponseEntity<List<ProjectStatus>> getStatusesBulk(@RequestBody List<UUID> projectIds) {
+        return ResponseEntity.ok(projectStatusRepository.findByProjectIdIn(projectIds));
     }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
@@ -208,7 +209,7 @@ public class LandController {
         return ResponseEntity.ok().build();
     }
 
-    // fix163: revert a saved title back to the stage checklist
+    // fix163: take a saved title off the project (fix180: optional-title types only)
     @PatchMapping("/projects/{id}/revert-title")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Void> revertTitle(@PathVariable UUID id, @RequestParam String reason) {

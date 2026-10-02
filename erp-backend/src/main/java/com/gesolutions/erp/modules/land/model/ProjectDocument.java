@@ -47,6 +47,10 @@ public class ProjectDocument {
     @Column(name = "category", length = 60)
     private String category;
 
+    /** fix180: the project status this document was attached to (null = a general project document). */
+    @Column(name = "status_id")
+    private UUID statusId;
+
     /**
      * STORAGE ANCHOR: 
      * The physical path on Local Disk or a Cloud Bucket URL.

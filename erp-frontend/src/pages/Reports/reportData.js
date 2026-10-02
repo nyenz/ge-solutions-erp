@@ -18,6 +18,7 @@
 * columns, grouping, measures, comparison and CSV all read from that array, so
 * nothing else needs touching.
 */
+import { projectTypeOf } from '../../constants/projectTypes';
 import api from '../../api/axios';
 import landService from '../../services/landService';
 import recoveryService from '../../services/recoveryService';
@@ -54,21 +55,30 @@ export const formatValue = (value, type) => {
   return String(value);
 };
 const f = (key, label, type, get, extra) => ({ key, label, type, get, ...(extra || {}) });
+const clientsOf = (p) => ((p.clients && p.clients.length) ? p.clients : (p.proprietors || []));
 
 /* ── PROJECTS ────────────────────────────────────────────────────── */
 const projectFields = [
   f('index', 'Project Index', 'text', p => p.projectIndex || ''),
   f('plot', 'Plot Number', 'text', p => p.landTitle?.plotNumber || ''),
-  f('titleId', 'Title ID', 'text', p => p.landTitle?.titleId || ''),
   f('tenure', 'Tenure', 'text', p => p.landTitle?.tenure || ''),
-  f('blockRoad', 'Block / Road', 'text', p => p.landTitle?.blockRoad || ''),
+  f('block', 'Block', 'text', p => p.landTitle?.block || ''),
+  f('areaHa', 'Area (ha)', 'number', p => (p.landTitle?.areaHectares == null ? null : num(p.landTitle.areaHectares))),
+  f('volume', 'Volume', 'text', p => p.landTitle?.volume || ''),
+  f('folio', 'Folio', 'text', p => p.landTitle?.folio || ''),
   f('district', 'District', 'text', p => p.district || ''),
   f('county', 'County', 'text', p => p.county || ''),
   f('subCounty', 'Sub-County', 'text', p => p.subCounty || ''),
   f('parish', 'Parish', 'text', p => p.parish || ''),
   f('village', 'Village', 'text', p => p.village || ''),
   f('area', 'Area', 'text', p => p.area || ''),
-  f('entryMode', 'Entry Mode', 'text', p => (p.isLegacy ? 'Legacy Title' : (p.landTitle ? 'New Title' : 'New Folder'))),
+  f('projectType', 'Project Type', 'text', p => projectTypeOf(p).label),
+  // fix180: the CLIENT pays and is who Recovery calls; old projects with no clients fall back to the owners
+  f('client', 'Primary Client', 'text', p => clientsOf(p)[0]?.fullName || ''),
+  f('clientPhone', 'Client Phone', 'text', p => clientsOf(p)[0]?.phoneNumber || ''),
+  f('clientNin', 'Client NIN', 'text', p => clientsOf(p)[0]?.nationalId || ''),
+  f('clientAddress', 'Client Address', 'text', p => clientsOf(p)[0]?.homeAddress || ''),
+  f('allClients', 'All Clients', 'text', p => clientsOf(p).map(o => o.fullName).join(', ')),
   f('owner', 'Primary Owner', 'text', p => p.proprietors?.[0]?.fullName || ''),
   f('ownerPhone', 'Owner Phone', 'text', p => p.proprietors?.[0]?.phoneNumber || ''),
   f('ownerNin', 'Owner NIN', 'text', p => p.proprietors?.[0]?.nationalId || ''),
@@ -77,7 +87,7 @@ const projectFields = [
   f('ownerCount', 'Owner Count', 'number', p => (p.proprietors || []).length),
   f('ownership', 'Ownership', 'text', p => ((p.proprietors || []).length > 1 ? 'JOINT' : 'SOLO')),
   f('status', 'Status', 'text', p => p.status || ''),
-  f('stage', 'Stage Index', 'number', p => num(p.currentStageIndex)),
+  f('statusIndex', 'Status Index', 'number', p => num(p.currentStatusIndex)),
   f('planType', 'Plan Type', 'text', p => p.planType || ''),
   f('titled', 'Has Title', 'bool', p => !!p.landTitle),
   f('released', 'Title Released', 'bool', p => !!p.landTitle?.isReleased),
@@ -137,7 +147,7 @@ const paymentFields = [
   f('month', 'Month', 'text', p => monthKey(p.timestamp)),
   f('year', 'Year', 'text', p => (p.timestamp ? String(new Date(p.timestamp).getFullYear()) : '---')),
   f('plot', 'Plot', 'text', p => p.plotNumber || ''),
-  f('owner', 'Owner', 'text', p => p.ownerName || ''),
+  f('client', 'Client', 'text', p => p.ownerName || ''),   // fix180: the server sends the paying client here
   f('type', 'Payment Type', 'text', p => PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType || ''),
   f('recordedBy', 'Recorded By', 'text', p => p.recordedBy || ''),
   f('notes', 'Notes', 'text', p => p.notes || ''),
@@ -173,7 +183,7 @@ export const DATASETS = {
   PROJECTS: {
     key: 'PROJECTS',
     label: 'Projects',
-    blurb: 'Every land project: location, owners, stage, and the money against it.',
+    blurb: 'Every land project: type, location, clients, owners, status, and the money against it.',
     restricted: false,
     dateField: 'Project Start',
     fields: projectFields,
@@ -228,7 +238,7 @@ export const DATASETS = {
   COMPANY: {
     key: 'COMPANY',
     label: 'Company',
-    blurb: 'Every staff action in the audit ledger: logins, edits, deletes, overrides, stage moves.',
+    blurb: 'Every staff action in the audit ledger: logins, edits, deletes, overrides, status moves.',
     restricted: true,
     dateField: 'Timestamp',
     fields: companyFields,
