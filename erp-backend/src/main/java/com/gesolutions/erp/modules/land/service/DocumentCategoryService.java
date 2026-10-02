@@ -32,6 +32,7 @@ public class DocumentCategoryService {
         {"DEED_PLAN",          "Deed Plan"},
         {"COPY_OF_TITLE",      "Copy of Title"},
         {"PAYMENT_RECEIPT",    "Payment Receipts"},
+        {"INVOICE",            "Invoices"},   // fix174
     };
 
     private final DocumentCategoryRepository repository;

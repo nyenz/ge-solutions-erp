@@ -300,6 +300,22 @@ public class LandService {
     // other write method in this class.
     @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans) throws Exception {
+        return atomicIntake(request, scans, null);
+    }
+
+    // fix174: the Intake page sends a document type (category code) for every file, same order as the files.
+    // A file without a type is refused here because the server must not trust the page. A type that does not exist is refused
+    // inside addScansToProject, which rolls the whole intake back.
+    @Transactional(rollbackFor = Exception.class)
+    public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories) throws Exception {
+        if (categories != null && scans != null) {
+            for (int i = 0; i < scans.length; i++) {
+                String c = i < categories.size() ? categories.get(i) : null;
+                if (c == null || c.isBlank()) {
+                    throw new BusinessException("DOCUMENT_TYPE_MISSING: Pick a document type for every file (" + scans[i].getOriginalFilename() + ").");
+                }
+            }
+        }
         // PHASE D (Section 18.10): LandProject is built FIRST. A LandTitle
         // is only built if the legacy preset is used or the final
         // processing stage ("Registration and Title Issuance") is checked.
@@ -523,7 +539,7 @@ public class LandService {
             stageTemplateService.attachStagesToProject(saved.getId(), request.getSelectedStages());
         }
 
-        if (scans != null) addScansToProject(saved.getId(), scans);
+        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
 
         if (request.getNotes() != null) {
             for (LandEntryRequest.NoteRequest noteReq : request.getNotes()) {

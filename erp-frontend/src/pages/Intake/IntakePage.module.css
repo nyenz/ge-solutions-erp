@@ -125,7 +125,16 @@
 .fileIcon { color: var(--orange); flex-shrink: 0; }
 .fileName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fileSize { color: rgba(255,255,255,0.35); font-size: var(--fs-meta); font-weight: 700; flex-shrink: 0; }
-.fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; }
+.fileActions { display: flex; gap: var(--gap-md); flex-shrink: 0; align-items: center; }
+/* fix174: files on top, slim upload bar below */
+.fileList { margin-bottom: var(--gap-md); }
+.fileItem { flex-wrap: wrap; }
+.fileCat { display: inline-flex; min-width: 0; }
+.setAllRow { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: var(--gap-md); }
+.setAllLabel { font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+.dropzoneCompact { flex-direction: row; justify-content: center; gap: 8px; padding: 6px 12px; }
+.dropzoneCompact .dropzoneIcon { width: 24px; height: 24px; margin-bottom: 0; }
+.dropzoneCompact .dropzoneTitle { font-size: var(--fs-meta); }
 .notesWrap { display: flex; flex-direction: column; gap: 4px; }
 .noteDateChip { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: var(--fs-meta); font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; }
 .bottomBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-md); padding: var(--gap-md) 0; margin-bottom: clamp(12px,2vh,22px); }

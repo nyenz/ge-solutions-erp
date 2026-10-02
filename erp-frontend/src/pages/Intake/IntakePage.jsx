@@ -95,6 +95,12 @@ export default function IntakePage() {
     const [systemFee, setSystemFee] = useState(0);
     useEffect(() => { landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, []);
     const [fileQueue, setFileQueue] = useState([]);
+    // fix174: document types = the Folder page classifications (PAYMENT_RECEIPT is filed by the payment window, never at intake)
+    const [docCats, setDocCats] = useState([]);
+    useEffect(() => { landService.getDocumentCategories().then(setDocCats).catch(() => {}); }, []);
+    const catChoices = useMemo(() => docCats.filter(c => c.code !== 'PAYMENT_RECEIPT'), [docCats]);
+    const catLabelOf = (code) => { const c = docCats.find(x => x.code === code); return c ? c.label : ''; };
+    const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };
     const [notes, setNotes] = useState('');
     const [dirty, setDirty] = useState(false);
     const dirtyRef = useRef(false);
@@ -236,12 +242,14 @@ export default function IntakePage() {
 
     const updateOwner = (idx, field, val) => { markDirty(); setOwners(p => p.map((o, i) => i === idx ? { ...o, [field]: val } : o)); };
     const handleFileUpload = (e) => {
-        const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f) }));
+        const items = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, file: f, url: URL.createObjectURL(f), category: '' }));
         if (items.length) { setFileQueue(p => [...p, ...items]); markDirty(); }
         e.target.value = '';
     };
     const removeFile = (i) => setFileQueue(p => { URL.revokeObjectURL(p[i].url); return p.filter((_, idx) => idx !== i); });
     const triggerFileInput = () => fileInputRef.current && fileInputRef.current.click();
+    const setFileCategory = (i, label) => { setFileQueue(p => p.map((q, j) => (j === i ? { ...q, category: catCodeOf(label) } : q))); markDirty(); };
+    const setAllCategories = (label) => { const code = catCodeOf(label); setFileQueue(p => p.map(q => ({ ...q, category: code }))); markDirty(); };
 
     const validate = () => {
         if (!district.trim()) { toast('District is required.', 'error'); return false; }
@@ -290,6 +298,7 @@ export default function IntakePage() {
             }
         }
         if (fileQueue.length === 0) { toast('At least one document is required.', 'error'); return false; }
+        if (fileQueue.some(q => !q.category)) { toast('Pick a document type for every file.', 'error'); return false; }   // fix174
         return true;
     };
 
@@ -345,7 +354,7 @@ export default function IntakePage() {
             const ninOf = (idx) => (idx !== '' && owners[idx]) ? owners[idx].nationalId.trim().toUpperCase() : '';
             if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
-            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file));
+            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
             dirtyRef.current = false; setDirty(false);
             return true;
         } catch (err) {
@@ -688,32 +697,52 @@ export default function IntakePage() {
 
                 <div className={styles.splitRow}>
                     <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
-                        <div className={styles.dropzone} onClick={triggerFileInput} role="button" tabIndex={0}
+                        {fileQueue.length > 0 && (
+                            <div className={styles.fileList}>
+                                {fileQueue.map((f, i) => (
+                                    <div key={i} className={styles.fileItem}>
+                                        <span className={styles.fileMeta}>
+                                            <FiFile className={styles.fileIcon} size={14} />
+                                            <span className={styles.fileName}>{f.name}</span>
+                                            <span className={styles.fileSize}>{fmtSize(f.size)}</span>
+                                        </span>
+                                        <span className={styles.fileActions}>
+                                            <span className={styles.fileCat}>
+                                                <HardwareSelect compact options={catChoices.map(c => c.label)} value={catLabelOf(f.category)}
+                                                    placeholder="Document type" onChange={label => setFileCategory(i, label)} />
+                                            </span>
+                                            <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>
+                                                <FiEye size={12} /> View
+                                            </a>
+                                            <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>
+                                                <FiTrash2 size={12} />
+                                            </button>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {fileQueue.length > 1 && (
+                            <div className={styles.setAllRow}>
+                                <span className={styles.setAllLabel}>Set all to</span>
+                                <HardwareSelect compact options={catChoices.map(c => c.label)}
+                                    value={fileQueue.every(q => q.category === fileQueue[0].category) ? catLabelOf(fileQueue[0].category) : ''}
+                                    placeholder="Choose type" onChange={setAllCategories} />
+                            </div>
+                        )}
+                        <div className={`${styles.dropzone} ${fileQueue.length > 0 ? styles.dropzoneCompact : ''}`} onClick={triggerFileInput} role="button" tabIndex={0}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileInput(); } }}>
-                            <span className={styles.dropzoneIcon}><FiUploadCloud size={18} /></span>
-                            <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
-                            <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>
+                            <span className={styles.dropzoneIcon}><FiUploadCloud size={fileQueue.length > 0 ? 13 : 18} /></span>
+                            {fileQueue.length > 0 ? (
+                                <span className={styles.dropzoneTitle}>Add more documents</span>
+                            ) : (
+                                <>
+                                    <span className={styles.dropzoneTitle}>Click to upload<span className={styles.reqMark}>*</span></span>
+                                    <span className={styles.dropzoneSub}>Required - PDF, images, any file</span>
+                                </>
+                            )}
                         </div>
                         <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
-                        <div className={styles.fileList}>
-                            {fileQueue.map((f, i) => (
-                                <div key={i} className={styles.fileItem}>
-                                    <span className={styles.fileMeta}>
-                                        <FiFile className={styles.fileIcon} size={14} />
-                                        <span className={styles.fileName}>{f.name}</span>
-                                        <span className={styles.fileSize}>{fmtSize(f.size)}</span>
-                                    </span>
-                                    <span className={styles.fileActions}>
-                                        <a className={`${styles.btn} ${styles.small}`} href={f.url} target="_blank" rel="noreferrer" aria-label={`View ${f.name}`}>
-                                            <FiEye size={12} /> View
-                                        </a>
-                                        <button type="button" className={`${styles.btn} ${styles.small} ${styles.deleteBtn}`} onClick={() => removeFile(i)} aria-label={`Remove ${f.name}`}>
-                                            <FiTrash2 size={12} />
-                                        </button>
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
                     </CollapsibleSection>
                     <CollapsibleSection icon={<FiEdit3 />} title={`${nNotes}. Notes`}>
                         <div className={styles.notesWrap}>

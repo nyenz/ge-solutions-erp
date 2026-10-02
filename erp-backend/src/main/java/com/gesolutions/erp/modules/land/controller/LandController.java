@@ -75,9 +75,10 @@ public class LandController {
     @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LandProject> ingestTitle(
             @RequestPart("data") String jsonData,
-            @RequestPart(value = "scans", required = false) MultipartFile[] scans) throws Exception {
+            @RequestPart(value = "scans", required = false) MultipartFile[] scans,
+            @RequestParam(value = "categories", required = false) List<String> categories) throws Exception {   // fix174
         LandEntryRequest request = objectMapper.readValue(jsonData, LandEntryRequest.class);
-        return ResponseEntity.ok(landService.atomicIntake(request, scans));
+        return ResponseEntity.ok(landService.atomicIntake(request, scans, categories));
     }
 
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")

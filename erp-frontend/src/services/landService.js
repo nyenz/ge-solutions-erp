@@ -91,12 +91,14 @@ const landService = {
         return response.data;
     },
 
-    createAtomicEntry: async (data, scans) => {
+    createAtomicEntry: async (data, scans, categories = []) => {
         const formData = new FormData();
         const payload = { ...data };
         delete payload.fileQueue;
         formData.append('data', JSON.stringify(payload));
         if (scans) scans.forEach(file => formData.append('scans', file));
+        // fix174: one document type (category code) per file, same order as scans
+        if (scans && categories.length === scans.length) categories.forEach(c => formData.append('categories', c || ''));
         const response = await api.post('/land/ingest', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
