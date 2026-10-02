@@ -93,7 +93,8 @@ export const CATALOG = {
 
     /* ── pipeline ───────────────────────────────────────────────── */
     NEW_INTAKE:            { label: 'New project',           group: GROUPS.PIPELINE, icon: FiFilePlus,    severity: 'INFO' },
-    STAGE_ADVANCED:        { label: 'Stage advanced',        group: GROUPS.PIPELINE, icon: FiLayers,      severity: 'POSITIVE' },
+    STATUS_ADVANCED:       { label: 'Status advanced',       group: GROUPS.PIPELINE, icon: FiLayers,      severity: 'POSITIVE' },
+    STAGE_ADVANCED:        { label: 'Status advanced',       group: GROUPS.PIPELINE, icon: FiLayers,      severity: 'POSITIVE' },   // before fix180
     TITLE_COMPLETED:       { label: 'Title completed',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
     NEGOTIATION_DEADLINE:  { label: 'Deadline approaching',  group: GROUPS.PIPELINE, icon: FiClock,       severity: 'WARN' },
     AUTO_RECEIVABLE_365:   { label: 'Auto-flagged receivable', group: GROUPS.PIPELINE, icon: FiAlertTriangle, severity: 'WARN' },

@@ -88,13 +88,13 @@
 .ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(255,255,255,0.5);}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
 .ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:#EE8C3A;}
-.stageCell{min-width:150px;}
-.stageName{font-weight:800;color:#fff;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;font-family:'Space Mono',monospace;}
-.stageDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
-.stageDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
-.stageDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
-.stageDotPart{background:var(--orange);box-shadow:0 0 4px var(--orange);}
-.stageDotReceivable{background:var(--violet);box-shadow:0 0 4px var(--violet);}
+.statusCell{min-width:150px;}
+.statusName{font-weight:800;color:#fff;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;font-family:'Space Mono',monospace;}
+.statusDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+.statusDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
+.statusDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
+.statusDotPart{background:var(--orange);box-shadow:0 0 4px var(--orange);}
+.statusDotReceivable{background:var(--violet);box-shadow:0 0 4px var(--violet);}
 .rowReceivable{background:rgba(167,139,250,0.06);}
 .rowCritical{background:rgba(239,68,68,0.07);}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}

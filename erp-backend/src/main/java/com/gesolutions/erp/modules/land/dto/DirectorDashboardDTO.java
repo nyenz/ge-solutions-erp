@@ -30,7 +30,7 @@ public class DirectorDashboardDTO {
 
     private List<StaffActivityDTO> staffActivity;
 
-    private Map<Integer, Long> pipelineStageCounts;
+    private Map<Integer, Long> pipelineStatusCounts;
 
     private BigDecimal companyExpensesTotal;
     private Map<String, BigDecimal> companyExpensesByCategory;

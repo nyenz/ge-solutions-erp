@@ -49,7 +49,7 @@ public class PaymentController {
                 LandProject project = projectRepository.findById(pay.getProjectId()).orElse(null);
                 if (project != null) {
                     row.put("plotNumber", project.getLandTitle().getPlotNumber());
-                    String ownerName = project.getProprietors().stream()
+                    String ownerName = project.billingParties().stream()
                             .findFirst()
                             .map(c -> c.getFullName())
                             .orElse("---");

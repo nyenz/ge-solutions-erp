@@ -42,7 +42,7 @@ public enum Role {
      * TIER 4: SECRETARY
      * Data-entry only, stage changes but not cost changes, no company
      * financials, no template edits, per Section 17.7. Enforced per-method
-     * on the relevant controllers (LandController, StageTemplateController,
+     * on the relevant controllers (LandController, StatusTemplateController,
      * RecoveryController) rather than at the class level, since Secretary
      * needs some but not all of what Manager can do on the same endpoints.
      */

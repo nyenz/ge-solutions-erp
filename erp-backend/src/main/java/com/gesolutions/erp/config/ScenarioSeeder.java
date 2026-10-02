@@ -20,13 +20,13 @@ import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.LandTitle;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.modules.land.model.ProjectDocument;
-import com.gesolutions.erp.modules.land.model.ProjectStage;
+import com.gesolutions.erp.modules.land.model.ProjectStatus;
 import com.gesolutions.erp.modules.land.repository.DocumentCategoryRepository;
 import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository;
-import com.gesolutions.erp.modules.land.repository.ProjectStageRepository;
+import com.gesolutions.erp.modules.land.repository.ProjectStatusRepository;
 import com.gesolutions.erp.modules.land.service.DocumentCategoryService;
 import com.gesolutions.erp.modules.land.service.ProjectIndexService;
 import com.gesolutions.erp.modules.notification.model.Notification;
@@ -74,7 +74,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ScenarioSeeder {
 
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;   // fix180: project types, clients + owners, status lists per type, new title fields
     private static final int BELL_DAYS = 45;
     private static final String DEMO_LIKE = "demo.%";
 
@@ -85,7 +85,7 @@ public class ScenarioSeeder {
     private final ClientRepository clientRepository;
     private final RecoveryNoteRepository recoveryNoteRepository;
     private final LandProjectRepository projectRepository;
-    private final ProjectStageRepository stageRepository;
+    private final ProjectStatusRepository statusRepository;
     private final PaymentRecordRepository paymentRepository;
     private final ProjectDocumentRepository documentRepository;
     private final FollowUpRepository followUpRepository;
@@ -205,12 +205,12 @@ public class ScenarioSeeder {
 
         // audit lines written by demo staff, plus lines the old seeds wrote as SYSTEM
         jdbc.update("DELETE FROM audit_logs WHERE performed_by LIKE '" + DEMO_LIKE + "'");
-        jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND action IN ('INTAKE','RECEIVABLE_TRIGGER','PROJECT_STAGES_ATTACHED','CLIENT_ARCHIVE','DOCUMENT_UPLOADED','STORAGE_FEE_RESUMED')");
+        jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND action IN ('INTAKE','RECEIVABLE_TRIGGER','PROJECT_STAGES_ATTACHED','PROJECT_STATUSES_ATTACHED','CLIENT_ARCHIVE','DOCUMENT_UPLOADED','STORAGE_FEE_RESUMED')");
         for (String n : names) jdbc.update("DELETE FROM audit_logs WHERE performed_by = 'SYSTEM' AND details LIKE ?", "%" + n + "%");
 
         if (!projectIds.isEmpty()) {
             String p = ids(projectIds);
-            for (String t : new String[] { "payment_records", "follow_up_logs", "project_documents", "project_stages", "payment_schedules" }) {
+            for (String t : new String[] { "payment_records", "follow_up_logs", "project_documents", "project_statuses", "project_neighbors", "payment_schedules" }) {
                 Boolean exists = jdbc.queryForObject("SELECT to_regclass('public." + t + "') IS NOT NULL", Boolean.class);
                 if (Boolean.TRUE.equals(exists)) jdbc.update("DELETE FROM " + t + " WHERE project_id IN (" + p + ")");
             }
@@ -218,10 +218,13 @@ public class ScenarioSeeder {
         if (!clientIds.isEmpty()) jdbc.update("DELETE FROM recovery_notes WHERE client_id IN (" + ids(clientIds) + ")");
         if (!projectIds.isEmpty()) {
             jdbc.update("DELETE FROM project_proprietors WHERE project_id IN (" + ids(projectIds) + ")");
+            Boolean pc = jdbc.queryForObject("SELECT to_regclass('public.project_clients') IS NOT NULL", Boolean.class);   // fix180
+            if (Boolean.TRUE.equals(pc)) jdbc.update("DELETE FROM project_clients WHERE project_id IN (" + ids(projectIds) + ")");
             jdbc.update("DELETE FROM land_projects WHERE id IN (" + ids(projectIds) + ")");
         }
         if (!titleIds.isEmpty()) jdbc.update("DELETE FROM land_titles WHERE id IN (" + ids(titleIds) + ")");
-        if (!clientIds.isEmpty()) jdbc.update("DELETE FROM clients WHERE id IN (" + ids(clientIds) + ") AND id NOT IN (SELECT client_id FROM project_proprietors)");
+        if (!clientIds.isEmpty()) jdbc.update("DELETE FROM clients WHERE id IN (" + ids(clientIds) + ") AND id NOT IN (SELECT client_id FROM project_proprietors)"
+                + (Boolean.TRUE.equals(jdbc.queryForObject("SELECT to_regclass('public.project_clients') IS NOT NULL", Boolean.class)) ? " AND id NOT IN (SELECT client_id FROM project_clients)" : ""));
 
         jdbc.update("DELETE FROM expenses WHERE recorded_by LIKE '" + DEMO_LIKE + "'");
         jdbc.update("DELETE FROM expense_presets WHERE created_by LIKE '" + DEMO_LIKE + "'");
@@ -384,8 +387,10 @@ public class ScenarioSeeder {
             title = LandTitle.builder()
                     .tenure(s.tenure)
                     .plotNumber(s.pendingTitle ? null : s.plot)
-                    .blockRoad(s.pendingTitle ? null : s.block)
-                    .titleId(s.pendingTitle ? null : s.titleId)
+                    .block(s.pendingTitle ? null : s.block)
+                    .areaHectares(s.pendingTitle ? null : hectares(s.area))      // fix180
+                    .volume(s.pendingTitle ? null : volumeOf(s.volumeFolio))
+                    .folio(s.pendingTitle ? null : folioOf(s.volumeFolio))
                     .projectStartDate(now.toLocalDate().minusDays(s.startAgo))
                     .titleIssueDate(s.pendingTitle ? null : now.toLocalDate().minusDays(s.issuedAgo))
                     .isReleased(s.releasedNow())
@@ -416,8 +421,9 @@ public class ScenarioSeeder {
                 .totalCost(BigDecimal.valueOf(totalCost))
                 .amountPaid(BigDecimal.valueOf(s.paid()))
                 .isLegacy(s.legacy())
+                .projectType(s.type().name())   // fix180
                 .isReceivable(recvNow)
-                .currentStageIndex(s.stageIndex())
+                .currentStatusIndex(s.statusIndex())
                 .status(s.status())
                 .lastPaymentDate(lastPay)
                 .problem(s.problemNow())
@@ -451,6 +457,7 @@ public class ScenarioSeeder {
             ownerNames.append(clients.get(o).getFullName());
         }
         b.proprietors(owners);
+        b.clients(new HashSet<>(owners));   // fix180: in the demo data the clients are the owners
         LandProject saved = projectRepository.save(b.build());
         UUID pid = saved.getId();
         String lbl = label(s, index);
@@ -468,8 +475,8 @@ public class ScenarioSeeder {
             audit("RECEIVABLE_TRIGGER", "Operator [" + staff + "] flagged plot " + lbl + " as RECEIVABLE at intake. Debt: UGX " + money(debt), staff, entryAt.plusMinutes(1));
         }
 
-        // --- stages
-        if (s.stagesAttached()) seedStages(s, pid, entryAt, staff);
+        // --- statuses
+        if (s.statusesAttached()) seedStatuses(s, pid, entryAt, staff);
 
         // --- payments (oldest first so the running balance is right)
         seedPayments(s, pid, index, lbl, owner1, staff);
@@ -516,24 +523,24 @@ public class ScenarioSeeder {
             }
         }
 
-        // --- fix167: title reverted to stages
+        // --- fix167: title taken off again
         if (s.revertAgo >= 0) {
             LocalDateTime t = at(s.revertAgo, s.key + "RV");
-            audit("TITLE_REVERTED", "Operator [" + ScenarioData.DIRECTOR + "] reverted the saved title of project " + index
-                    + " back to stages. Old title: plot " + s.revertedPlot + ", title ID LRV 0000 FOLIO 0, tenure FREEHOLD. Reason: Typed on the wrong project.", ScenarioData.DIRECTOR, t);
+            audit("TITLE_REVERTED", "Operator [" + ScenarioData.DIRECTOR + "] took the saved title off project " + index
+                    + ". Old title: plot " + s.revertedPlot + ", block KYADONDO BLOCK 0, area 0.4 ha, volume LRV 0000, folio 0, tenure FREEHOLD. Reason: Typed on the wrong project.", ScenarioData.DIRECTOR, t);
         }
 
         // --- title produced in bulk (details still to be typed in)
         if (s.pendingTitle) {
-            audit("BULK_TITLE_PRODUCED", "Operator [" + ScenarioData.MGR1 + "] marked 1 projects as title-produced.", ScenarioData.MGR1, at(s.issuedAgo, s.key + "B"));
+            audit("BULK_TITLE_PRODUCED", "Operator [" + ScenarioData.MGR1 + "] marked 1 projects as Titled.", ScenarioData.MGR1, at(s.issuedAgo, s.key + "B"));
         }
 
-        // --- manual stage override
+        // --- manual status override
         if (s.overrideTo > 0) {
             String by = ScenarioData.MGR2;
             LocalDateTime t = at(s.overrideAgo, s.key + "O");
-            audit("STAGE_OVERRIDE", "Operator [" + by + "] shifted plot " + lbl + " from stage 1 to stage " + s.overrideTo, by, t);
-            bell("STAGE_ADVANCED", "POSITIVE", lbl + " moved from stage 1 to stage " + s.overrideTo + " by " + by + ".", "PROJECT", pid, "ROLE_MANAGER", t);
+            audit("STATUS_OVERRIDE", "Operator [" + by + "] shifted plot " + lbl + " from status 1 to status " + s.overrideTo, by, t);
+            bell("STATUS_ADVANCED", "POSITIVE", lbl + " moved from status 1 to status " + s.overrideTo + " by " + by + ".", "PROJECT", pid, "ROLE_MANAGER", t);
         }
 
         // --- release (fix167: with a hand-over note, and the undo history)
@@ -582,16 +589,49 @@ public class ScenarioSeeder {
         return doc;
     }
 
-    // ---- stages --------------------------------------------------------
-    private void seedStages(ScenarioData.Spec s, UUID pid, LocalDateTime entryAt, String staff) {
+    // fix180: "LRV 4001 FOLIO 2" -> volume "LRV 4001", folio "2"; "2 acres" -> 0.8094 hectares
+    private static String volumeOf(String vf) {
+        if (vf == null) return null;
+        int i = vf.toUpperCase().indexOf(" FOLIO ");
+        return i < 0 ? vf : vf.substring(0, i).trim();
+    }
+
+    private static String folioOf(String vf) {
+        if (vf == null) return null;
+        int i = vf.toUpperCase().indexOf(" FOLIO ");
+        return i < 0 ? null : vf.substring(i + 7).trim();
+    }
+
+    private static BigDecimal hectares(String area) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("([0-9]+(?:[.][0-9]+)?)").matcher(area == null ? "" : area);
+        double v = m.find() ? Double.parseDouble(m.group(1)) : 1.0;
+        double ha = area != null && area.toLowerCase().contains("acre") ? v * 0.404686 : v;
+        return BigDecimal.valueOf(Math.max(0.0001, ha)).setScale(4, java.math.RoundingMode.HALF_UP);
+    }
+
+    // ---- statuses ------------------------------------------------------
+    // fix180: the project type's own list. A folder's 6 progress steps (Spec.done) are spread over that list; New Title
+    // (Transfer of Title) projects have their first status done, Legacy Titles all of them.
+    private void seedStatuses(ScenarioData.Spec s, UUID pid, LocalDateTime entryAt, String staff) {
         int span = Math.max(1, s.entry());
         int order = 0;
-        int attached = ScenarioData.STAGES.length + s.custom.size();
-        audit("PROJECT_STAGES_ATTACHED", "Operator [" + staff + "] attached " + attached + " stage(s) to project: " + pid, staff, entryAt.plusMinutes(1));
+        List<String> names = s.type().getDefaultStatuses();
+        int n = names.size();
+        int doneN, atIntake;
+        if (!s.isFolder()) {
+            doneN = s.legacy() ? n : 1;
+            atIntake = doneN;
+        } else {
+            doneN = s.done >= ScenarioData.STEPS ? n : Math.min(n - 1, Math.round(s.done * n / (float) ScenarioData.STEPS));
+            atIntake = Math.min(doneN, s.ticksAtIntake() >= ScenarioData.STEPS ? n : Math.round(s.ticksAtIntake() * n / (float) ScenarioData.STEPS));
+            if (s.done > 0 && doneN == 0) doneN = 1;
+            if (s.ticksAtIntake() > 0 && atIntake == 0) atIntake = 1;
+        }
+        int attached = n + s.custom.size();
+        audit("PROJECT_STATUSES_ATTACHED", "Operator [" + staff + "] attached " + attached + " status(es) to project: " + pid, staff, entryAt.plusMinutes(1));
         String[] crew = { ScenarioData.MGR1, ScenarioData.MGR2, ScenarioData.ADMIN };
-        int atIntake = s.ticksAtIntake();
-        for (int k = 0; k < ScenarioData.STAGES.length; k++) {
-            boolean done = k < s.done;
+        for (int k = 0; k < n; k++) {
+            boolean done = k < doneN;
             LocalDateTime doneAt = null;
             String who = null;
             if (done && k < atIntake) {
@@ -600,23 +640,23 @@ public class ScenarioSeeder {
                 who = staff;
             } else if (done) {
                 int ago;
-                if (s.done >= 6 && s.issuedAgo >= 0) ago = span - (k + 1) * (span - s.issuedAgo) / s.done;
-                else ago = span - (k + 1) * span / (s.done + 2);
+                if (doneN >= n && s.issuedAgo >= 0) ago = span - (k + 1) * (span - s.issuedAgo) / doneN;
+                else ago = span - (k + 1) * span / (doneN + 2);
                 doneAt = at(Math.max(0, Math.min(span - 1, ago)), s.key + "S" + k);
                 who = crew[k % 3];
-                audit("PROJECT_STAGE_STATUS_CHANGED", "Operator [" + who + "] marked stage \"" + ScenarioData.STAGES[k] + "\" as COMPLETE on project: " + pid, who, doneAt);
+                audit("PROJECT_STATUS_CHANGED", "Operator [" + who + "] marked status \"" + names.get(k) + "\" as COMPLETE on project: " + pid, who, doneAt);
             }
-            stageRepository.save(ProjectStage.builder().projectId(pid).stageName(ScenarioData.STAGES[k]).cost(BigDecimal.ZERO)
+            statusRepository.save(ProjectStatus.builder().projectId(pid).statusName(names.get(k)).cost(BigDecimal.ZERO)
                     .isCustom(false).isCompleted(done).displayOrder(order++).completedAt(doneAt).completedBy(who).createdAt(entryAt).build());
         }
         int ci = 0;
         for (ScenarioData.Custom c : s.custom) {
             LocalDateTime addedAt = at(Math.max(0, span / 2), s.key + "C" + ci);
             LocalDateTime doneAt = c.done ? addedAt.plusDays(3).isAfter(now) ? now.minusMinutes(10) : addedAt.plusDays(3) : null;
-            stageRepository.save(ProjectStage.builder().projectId(pid).stageName(c.name).cost(BigDecimal.valueOf(c.cost))
+            statusRepository.save(ProjectStatus.builder().projectId(pid).statusName(c.name).cost(BigDecimal.valueOf(c.cost))
                     .isCustom(true).isCompleted(c.done).displayOrder(order++).completedAt(doneAt).completedBy(c.done ? ScenarioData.MGR2 : null).createdAt(addedAt).build());
-            audit("PROJECT_STAGES_ATTACHED", "Operator [" + ScenarioData.MGR2 + "] attached 1 stage(s) to project: " + pid, ScenarioData.MGR2, addedAt);
-            if (c.done) audit("PROJECT_STAGE_STATUS_CHANGED", "Operator [" + ScenarioData.MGR2 + "] marked stage \"" + c.name + "\" as COMPLETE on project: " + pid, ScenarioData.MGR2, doneAt);
+            audit("PROJECT_STATUSES_ATTACHED", "Operator [" + ScenarioData.MGR2 + "] attached 1 status(es) to project: " + pid, ScenarioData.MGR2, addedAt);
+            if (c.done) audit("PROJECT_STATUS_CHANGED", "Operator [" + ScenarioData.MGR2 + "] marked status \"" + c.name + "\" as COMPLETE on project: " + pid, ScenarioData.MGR2, doneAt);
             ci++;
         }
     }

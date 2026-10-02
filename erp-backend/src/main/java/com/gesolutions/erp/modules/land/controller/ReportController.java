@@ -81,11 +81,11 @@ public class ReportController {
         return streamCsv(reportService.generateArchiveMap(), "PHYSICAL_ARCHIVE_MAP");
     }
 
-    /** Pillar 4: Survey Stage Bottlenecks */
+    /** Pillar 4: Survey Status Bottlenecks */
     @GetMapping("/bottlenecks")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
-    public ResponseEntity<byte[]> downloadStageAudit() {
-        return streamCsv(reportService.generateStageAudit(), "SURVEY_PHASE_BOTTLENECKS");
+    public ResponseEntity<byte[]> downloadStatusAudit() {
+        return streamCsv(reportService.generateStatusAudit(), "SURVEY_PHASE_BOTTLENECKS");
     }
 
     /** Pillar 6: Reliability Scorecard */

@@ -52,7 +52,7 @@ public class RecoveryNoteController {
     }
     private Map<UUID, List<LandProject>> projMap() {
         Map<UUID, List<LandProject>> m = new HashMap<>();
-        for (LandProject p : projectRepo.findAll()) if (p.getProprietors() != null) for (Client o : p.getProprietors()) m.computeIfAbsent(o.getId(), k -> new ArrayList<>()).add(p);
+        for (LandProject p : projectRepo.findAll()) if (p.billingParties() != null) for (Client o : p.billingParties()) m.computeIfAbsent(o.getId(), k -> new ArrayList<>()).add(p);
         return m;
     }
     private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
@@ -120,7 +120,7 @@ public class RecoveryNoteController {
         for (LandProject p : ps) {
             if (p.getProjectIndex() != null) idx.add(p.getProjectIndex());
             pids.add(p.getId().toString());
-            if (p.getProprietors() != null) for (Client o : p.getProprietors()) {
+            if (p.billingParties() != null) for (Client o : p.billingParties()) {
                 if (o.getId().equals(c.getId()) || seen.contains(o.getId())) continue;
                 seen.add(o.getId());
                 co.add(o.getFullName());
@@ -337,7 +337,7 @@ public class RecoveryNoteController {
         }
         String warning = null;
         LocalDateTime window = now.minusDays(3);
-        for (LandProject p : ps) for (Client co : p.getProprietors()) {
+        for (LandProject p : ps) for (Client co : p.billingParties()) {
             if (co.getId().equals(c.getId())) continue;
             for (RecoveryNote other : notesOf(nm, co.getId())) {
                 if (other.isCountsAsAttempt() && other.getCreatedAt().isAfter(window)) { warning = co.getFullName() + " was already contacted about this plot on " + other.getCreatedAt().toLocalDate() + "."; break; }
@@ -382,8 +382,8 @@ public class RecoveryNoteController {
 public java.util.List<java.util.Map<String, Object>> clientLedger() {
 java.util.Map<java.util.UUID, java.util.List<com.gesolutions.erp.modules.land.model.LandProject>> pm = new java.util.HashMap<>();
 for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
-if (p.getProprietors() == null) continue;
-for (com.gesolutions.erp.modules.client.model.Client o : p.getProprietors()) {
+if (p.billingParties() == null) continue;
+for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) {
 if (o == null || o.getId() == null) continue;
 pm.computeIfAbsent(o.getId(), k -> new java.util.ArrayList<>()).add(p);
 }
@@ -459,9 +459,9 @@ java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
 java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
 java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
 for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
-if (p.getProprietors() == null) continue;
+if (p.billingParties() == null) continue;
 boolean mine = false;
-for (com.gesolutions.erp.modules.client.model.Client o : p.getProprietors()) { if (o != null && id.equals(o.getId())) { mine = true; break; } }
+for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) { if (o != null && id.equals(o.getId())) { mine = true; break; } }
 if (!mine) continue;
 java.math.BigDecimal o1 = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
 java.math.BigDecimal p1 = p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid();
@@ -478,7 +478,7 @@ pm.put("titled", p.getLandTitle() != null);
 pm.put("legacy", p.isLegacy());
 pm.put("owed", o1); pm.put("paid", p1); pm.put("storage", s1);
 pm.put("lastPayment", p.getLastPaymentDate() == null ? null : p.getLastPaymentDate().toString());
-java.util.Set<com.gesolutions.erp.modules.client.model.Client> owners = p.getProprietors();
+java.util.Set<com.gesolutions.erp.modules.client.model.Client> owners = p.billingParties();
 pm.put("ownershipType", owners != null && owners.size() > 1 ? "JOINT" : "SOLO");
 java.util.List<java.util.Map<String, Object>> coOwners = new java.util.ArrayList<>();
 if (owners != null) {

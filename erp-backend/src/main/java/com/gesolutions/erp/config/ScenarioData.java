@@ -18,10 +18,10 @@ import java.util.Set;
  * ScenarioSeeder turns this into rows; selfCheck() proves the money adds up BEFORE anything touches the database.
  *
  * Situations (each x2 or more):
- *   New Folder ....... walk-in (no stages), deposit only, stages ticked AT INTAKE + later, custom stages, refused by
+ *   New Folder ....... walk-in (no statuses), deposit only, statuses ticked AT INTAKE + later, custom statuses, refused by
  *                      the land board, ready for titling (paid / part paid), never paid, prepaid, stale, reverted title
  *   Folder -> titled . released (with hand-over note), paid not released, part paid, critical (<25%), title produced
- *                      in bulk (details pending), manual stage override, hand-over UNDONE
+ *                      in bulk (details pending), manual status override, hand-over UNDONE
  *   New Title ........ paid + released, part paid, no payment, FREEHOLD / MAILO / LEASEHOLD / CUSTOMARY, 351 days silent
  *   Legacy Title ..... paid + released, owing, legacy receivable, joint owners
  *   Receivables ...... at intake, part payments incl. STORAGE-FEE payments, joint owners paying separately, paused now,
@@ -192,13 +192,9 @@ final class ScenarioData {
     }
 
     // -------------------------------------------------------------- project
-    static final String FW = "Field Work";
-    static final String DP = "Deed Plan";
-    static final String LCI = "LC Inspection";
-    static final String DLB = "District Land Board Approval";
-    static final String TASD = "Tax Assessment and Stamp Duty";
-    static final String REG = "Registration and Title Issuance";
-    static final String[] STAGES = {FW, DP, LCI, DLB, TASD, REG};
+    // fix180: a folder's progress is written in 6 steps (done = 0..6, 6 = finished). The seeder spreads those steps
+    // over the project type's own status list (ProjectType), so the data follows whatever list a type has.
+    static final int STEPS = 6;
 
     static final String AF = "APPLICATION_FORM";
     static final String OL = "OFFER_LETTER";
@@ -292,17 +288,17 @@ final class ScenarioData {
         final List<Custom> custom = new ArrayList<>();
         final List<Reduce> reductions = new ArrayList<>();
         int done = 0;
-        int intakeTicks = -1;   // stages ticked on the New Project page (-1 = first stage only when any are done)
-        boolean noStages = false;
+        int intakeTicks = -1;   // statuses ticked on the New Project page (-1 = first status only when any are done)
+        boolean noStatuses = false;
         // title
-        String plot, titleId, block, tenure = "FREEHOLD";
+        String plot, volumeFolio, block, tenure = "FREEHOLD";   // fix180: volumeFolio = "LRV 4001 FOLIO 2" (Title ID is gone)
         int issuedAgo = -1;
         boolean pendingTitle = false;
         int releasedAgo = -1;
         int undoReleaseAgo = -1;
         int overrideAgo = -1;
         int overrideTo = 0;
-        int revertAgo = -1;     // folder whose title was REVERTED to stages
+        int revertAgo = -1;     // folder whose title was taken off again
         String revertedPlot;
         // receivable
         int recvAgo = -1;
@@ -352,12 +348,12 @@ final class ScenarioData {
             p.reversedAgo = ago; p.reverseBy = by; p.reverseWhy = why;
             return this;
         }
-        Spec stages(int n) { done = n; return this; }
+        Spec statuses(int n) { done = n; return this; }
         Spec ticks(int atIntake, int total) { intakeTicks = atIntake; done = total; return this; }
-        Spec noStages() { noStages = true; return this; }
+        Spec noStatuses() { noStatuses = true; return this; }
         Spec custom(String name, long c, boolean d) { custom.add(new Custom(name, c, d)); return this; }
-        Spec title(String plot, String block, String titleId, int issuedAgo) {
-            this.plot = plot; this.block = block; this.titleId = titleId; this.issuedAgo = issuedAgo;
+        Spec title(String plot, String block, String volumeFolio, int issuedAgo) {
+            this.plot = plot; this.block = block; this.volumeFolio = volumeFolio; this.issuedAgo = issuedAgo;
             return this;
         }
         Spec tenure(String t) { tenure = t; return this; }
@@ -389,8 +385,14 @@ final class ScenarioData {
         // ---- derived values
         int entry() { return entryAgo >= 0 ? entryAgo : Math.max(0, startAgo - 2); }
         boolean isFolder() { return "FOLDER".equals(mode); }
-        boolean stagesAttached() { return isFolder() && !noStages; }
-        boolean hasTitle() { return !isFolder() || done >= 6 || pendingTitle; }
+        boolean statusesAttached() { return !noStatuses; }   // fix180: every project type has statuses
+        /** fix180: the project type this spec is entered as. */
+        com.gesolutions.erp.modules.land.model.ProjectType type() {
+            if (legacy()) return com.gesolutions.erp.modules.land.model.ProjectType.LEGACY_TITLES;
+            if (!isFolder()) return com.gesolutions.erp.modules.land.model.ProjectType.TRANSFER_OF_TITLE;
+            return hasTitle() ? com.gesolutions.erp.modules.land.model.ProjectType.RESURVEY : com.gesolutions.erp.modules.land.model.ProjectType.FRESH_SURVEY;
+        }
+        boolean hasTitle() { return !isFolder() || done >= STEPS || pendingTitle; }
         boolean legacy() { return "LEGACY".equals(mode); }
         int ticksAtIntake() { return intakeTicks >= 0 ? Math.min(intakeTicks, done) : Math.min(1, done); }
         boolean problemNow() { return problemAgo >= 0 && problemClearedAgo < 0; }
@@ -453,7 +455,7 @@ final class ScenarioData {
             if (overrideTo >= 5) return "COMPLETED";
             return "ACTIVE";
         }
-        int stageIndex() {
+        int statusIndex() {
             if (recvAtIntake) return 5;
             return overrideTo > 0 ? overrideTo : 1;
         }
@@ -531,21 +533,21 @@ final class ScenarioData {
 
             // ============ A: NEW FOLDER MODE ============
             l.add(folder("f_walkin" + s, v == 0 ? keyOf(0) : keyOf(1)).loc(LOCS[li++ % LOCS.length], "0.25 acre")
-                .cost(3600000 + k).times(0, 0).noStages().intakeNote("Walk-in today. Will bring the deed plan copy next week."));
+                .cost(3600000 + k).times(0, 0).noStatuses().intakeNote("Walk-in today. Will bring the deed plan copy next week."));
             l.add(folder("f_deposit_only" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "50x100 ft")
                 .cost(4200000 + k).times(14 + d, 12 + d).deposit(1050000).ticks(1, 1).by(S2).intakeNote("Deposit received; field work to be scheduled."));
             l.add(folder("f_ticked_at_intake" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1.5 acres")
                 .cost(3800000 + k).times(46 + d, 44 + d).deposit(1520000).pay(20 + d, 760000, M1).rcpt().ticks(3, 3)
                 .intakeNote("Field work, deed plan and LC inspection were already done before the client came to us."));
-            l.add(folder("f_mid_stages" + s, coupleA1, coupleA2).loc(LOCS[li++ % LOCS.length], "2 acres")
+            l.add(folder("f_mid_statuses" + s, coupleA1, coupleA2).loc(LOCS[li++ % LOCS.length], "2 acres")
                 .cost(4600000 + k).times(80 + d, 79 + d).deposit(1150000).payBy(50 + d, 1150000, AD, coupleA2).rcpt().ticks(1, 3)
                 .intakeNote("Spouses; both must sign the deed plan.")
                 .ownerNote(1 + v, S1, coupleA2, "Called. Will sign the deed plan on Friday.")
                 .docs(78 + d, AF).doc(40 + d, SP, "boundary-site-photo-" + (v + 1) + ".jpg", "image/jpeg", M1));
-            l.add(folder("f_custom_stages" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+            l.add(folder("f_custom_statuses" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
                 .cost(5600000 + k).times(95 + d, 94 + d).deposit(1680000).pay(60 + d, 1120000, M2).rcpt().ticks(1, 2)
                 .custom("Neighbour Consent Letters", 150000, true).custom("Boundary Re-opening", 450000, false)
-                .note(30 + d, M2, "Neighbour disputes the eastern boundary. Two extra stages added.").docs(30 + d, CL, SP));
+                .note(30 + d, M2, "Neighbour disputes the eastern boundary. Two extra statuses added.").docs(30 + d, CL, SP));
             l.add(folder("f_board_refused" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
                 .cost(4900000 + k).times(190 + d, 188 + d).deposit(1960000).pay(140 + d, 980000, AD).rcpt().ticks(1, 3)
                 .note(25 + d, M1, "District Land Board refused: boundary mismatch on the deed plan. Surveyor to correct and resubmit."));
@@ -565,7 +567,7 @@ final class ScenarioData {
             l.add(folder("f_title_reverted" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.6 acre")
                 .cost(4100000 + k).times(170 + d, 168 + d).deposit(1230000).pay(80 + d, 1230000, M1).rcpt().ticks(2, 5)
                 .reverted(6 + d, "99" + (10 + v))
-                .note(6 + d, DR, "Title details were typed on the wrong project; reverted to stages. The real title is still at the Land Board."));
+                .note(6 + d, DR, "Title details were typed on the wrong project; taken off again. The real title is still at the Land Board."));
             l.add(folder("f_recv_at_intake" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "50x100 ft")
                 .cost(4500000 + k).times(100 + d, 95 + d).deposit(900000).ticks(2, 2).recvAtIntake(50000, (95 + d) / 30).origDebt(3600000 + k)
                 .intakeNote("Entered as receivable from day one; client relocating."));
@@ -588,9 +590,9 @@ final class ScenarioData {
             l.add(folder("t_pending_details" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
                 .cost(4500000 + k).times(240 + d, 238 + d).deposit(1350000).pay(150 + d, 1800000, M1).rcpt().ticks(1, 6).pendingTitle(3)
                 .note(3, M1, "Marked as title produced in the Ready for Titling batch. Title details still to be entered."));
-            l.add(folder("t_stage_override" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1.5 acres")
+            l.add(folder("t_status_override" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1.5 acres")
                 .cost(3300000 + k).times(140 + d, 139 + d).deposit(990000).pay(80 + d, 990000, M2).rcpt().ticks(1, 4).override(5, 25 + d)
-                .note(25 + d, M2, "Stage moved manually to 5: the Land Board decision was verbal."));
+                .note(25 + d, M2, "Status moved manually to 5: the Land Board decision was verbal."));
             l.add(folder("t_handover_undone" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.3 acre")
                 .cost(4000000 + k).times(260 + d, 258 + d).deposit(2000000).pay(120 + d, 2000000 + k, AD).rcpt().ticks(1, 6)
                 .title(plot(), "BUSIRO BLOCK 77", "LRV 2210 FOLIO " + (5 + v), 90 + d).releasedThenUndone(15 + d, 14 + d)
@@ -727,7 +729,7 @@ final class ScenarioData {
                 .cost(4000000 + k).times(150 + d, 148 + d).deposit(1200000).pay(90 + d, 800000, M1).rcpt()
                 .title(plot(), "MAWOKOTA BLOCK 5", "LRV 4070 FOLIO " + (17 + v), 155).deleted(12 + d).docs(140, DPL));
             l.add(folder("d_deleted_old" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.3 acre")
-                .cost(3000000 + k).times(100 + d, 99 + d).stages(0).deleted(50 + d));
+                .cost(3000000 + k).times(100 + d, 99 + d).statuses(0).deleted(50 + d));
             l.add(folder("d_deleted_restored" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
                 .cost(3500000 + k).times(120 + d, 118 + d).deposit(700000).pay(70 + d, 700000, M2).rcpt().ticks(1, 1).restored(40 + d, 33 + d));
             String multi = v == 0 ? multiA : multiB;
@@ -779,10 +781,10 @@ final class ScenarioData {
             // CONTACTED (last call good)
             c.add(new Call(owner.get("t_partial" + s), NOP, 24, S1, null));
             c.add(new Call(owner.get("t_partial" + s), ANS, 3, S1, "Will bring the balance next week."));
-            c.add(new Call(owner.get("f_mid_stages" + s), ANS, 1, S1, "Will sign the deed plan on Friday."));
+            c.add(new Call(owner.get("f_mid_statuses" + s), ANS, 1, S1, "Will sign the deed plan on Friday."));
             c.add(new Call(owner.get("r_paused_now" + s), ANS, 82, DR, "Family bereavement. Asked to pause storage fees."));
             // MISSED (last call bad, fewer than two misses in 30 days)
-            c.add(new Call(owner.get("n_partial" + s), ANS, 52, SU, "Asked for the stage timeline."));
+            c.add(new Call(owner.get("n_partial" + s), ANS, 52, SU, "Asked for the status timeline."));
             c.add(new Call(owner.get("n_partial" + s), NOP, 6, S2, null));
             c.add(new Call(owner.get("f_never_paid" + s), WRN, 15, S1, "Number belongs to someone else."));
             c.add(new Call(owner.get("r_pause_ended" + s), NOP, 2, S2, null));
@@ -923,13 +925,13 @@ final class ScenarioData {
                 if (n.ownerKey != null && !ownerSet.contains(n.ownerKey)) throw new IllegalStateException(at + "owner note for a non-owner " + n.ownerKey);
             }
             if (s.hasTitle() && !s.pendingTitle) {
-                if (s.plot == null || s.block == null || s.titleId == null) throw new IllegalStateException(at + "title details missing");
+                if (s.plot == null || s.block == null || s.volumeFolio == null) throw new IllegalStateException(at + "title details missing");
                 if (!plots.add(s.plot)) throw new IllegalStateException(at + "duplicate plot " + s.plot);
             }
             if (s.revertAgo >= 0 && (s.hasTitle() || !s.isFolder())) throw new IllegalStateException(at + "a reverted project is a folder without title");
-            if (s.isFolder() && s.done >= 6 && !s.hasTitle()) throw new IllegalStateException(at + "all stages done but no title");
-            if (s.pendingTitle && s.done < 6) throw new IllegalStateException(at + "pending title needs all stages done");
-            if (s.intakeTicks > s.done) throw new IllegalStateException(at + "more stages ticked at intake than in total");
+            if (s.isFolder() && s.done >= STEPS && !s.hasTitle()) throw new IllegalStateException(at + "all statuses done but no title");
+            if (s.pendingTitle && s.done < 6) throw new IllegalStateException(at + "pending title needs all statuses done");
+            if (s.intakeTicks > s.done) throw new IllegalStateException(at + "more statuses ticked at intake than in total");
             if (s.releasedAgo >= 0) {
                 if (!s.hasTitle() || s.pendingTitle) throw new IllegalStateException(at + "released without title details");
                 if (s.owedNow() > 0) throw new IllegalStateException(at + "released while UGX " + s.owedNow() + " is owed");

@@ -92,8 +92,38 @@ public class LandProject {
 
     @Transient
     @Builder.Default
-    private java.util.List<ProjectStage> stages = new java.util.ArrayList<>();
+    private java.util.List<ProjectStatus> statuses = new java.util.ArrayList<>();
 
+    /**
+     * fix180: PROJECT TYPE -- one of the eight ProjectType names (FRESH_SURVEY, SUBDIVISION, LEGACY_TITLES,
+     * TRANSFER_OF_TITLE, BOUNDARY_OPENING, TOPOGRAPHIC_SURVEY, RESURVEY, SPECIAL_PROJECTS). It decides whether
+     * Title Details are kept and which status list the project starts with. Old rows (null) read through
+     * ProjectType.of(project).
+     */
+    @Column(name = "project_type", length = 40)
+    private String projectType;
+
+    // fix180: Topographic Survey only -- staff switched the optional Title Details panel on
+    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("titleDetailsEnabled")
+    @Column(name = "title_details_enabled", nullable = false)
+    private boolean titleDetailsEnabled = false;
+
+    // fix180: Subdivision only -- how many plots (subdivisions) the project creates
+    @Column(name = "subdivision_count")
+    private Integer subdivisionCount;
+
+    // fix180: a Transfer of Title made from a subdivision points back to the subdivision project and plot number
+    @Column(name = "parent_project_id")
+    private UUID parentProjectId;
+
+    @Column(name = "parent_subdivision_no")
+    private Integer parentSubdivisionNo;
+
+    /**
+     * OWNERS (the people on the title). fix180: separate from the CLIENTS below. At intake the owners start as a copy
+     * of the clients and staff can change them independently.
+     */
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -102,6 +132,19 @@ public class LandProject {
         inverseJoinColumns = @JoinColumn(name = "client_id")
     )
     private Set<Client> proprietors = new HashSet<>();
+
+    /**
+     * fix180: CLIENTS (the people who hired the company and pay). Shown first on every project. The CLIENT, not the
+     * owner, is who the Recovery module calls and who pays.
+     */
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "project_clients",
+        joinColumns = @JoinColumn(name = "project_id"),
+        inverseJoinColumns = @JoinColumn(name = "client_id")
+    )
+    private Set<Client> clients = new HashSet<>();
 
     @Column(name = "total_cost", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalCost;
@@ -221,9 +264,10 @@ public class LandProject {
     @Column(name = "storage_fees_paid", precision = 15, scale = 2)
     private BigDecimal storageFeesPaid;
 
+    // fix180: was current_stage_index (renamed by StatusRenameMigration before Hibernate starts)
     @Builder.Default
-    @Column(name = "current_stage_index", nullable = false)
-    private Integer currentStageIndex = 1;
+    @Column(name = "current_status_index", nullable = false)
+    private Integer currentStatusIndex = 1;
 
     @Builder.Default
     @Column(length = 50, nullable = false)
@@ -240,6 +284,18 @@ public class LandProject {
     public void addProprietor(Client client) {
         if (this.proprietors == null) this.proprietors = new HashSet<>();
         if (client != null) this.proprietors.add(client);
+    }
+
+    // fix180
+    public void addClient(Client client) {
+        if (this.clients == null) this.clients = new HashSet<>();
+        if (client != null) this.clients.add(client);
+    }
+
+    /** fix180: the people Recovery calls and who pay = the clients. A project saved before fix180 with no clients falls back to its owners. */
+    public Set<Client> billingParties() {
+        if (clients != null && !clients.isEmpty()) return clients;
+        return proprietors != null ? proprietors : new HashSet<>();
     }
 
     // Safe null-check — old DB rows have NULL for isReceivable

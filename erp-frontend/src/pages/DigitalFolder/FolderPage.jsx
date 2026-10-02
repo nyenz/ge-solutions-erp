@@ -2,7 +2,7 @@
 // fix167: folder page review pass. Ticks show in view AND edit mode (and arrive from New Project), popups show their
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
-import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,7 +17,8 @@ import {
     FiPlus, FiFolderPlus, FiRefreshCw, FiArrowUp, FiPaperclip, FiExternalLink
 } from 'react-icons/fi';
 import landService from '../../services/landService';
-import stageTemplateService from '../../services/stageTemplateService';
+import statusTemplateService from '../../services/statusTemplateService';
+import { projectTypeOf, showsTitle } from '../../constants/projectTypes';
 import folderPortalService from '../../services/folderPortalService';
 import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
 import NinMismatchModal from '../../components/common/NinMismatchModal';
@@ -61,7 +62,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 // fix167: the server sends isCompleted (fix167) -- older answers said "completed"
-const stageDone = (s) => !!(s && (s.isCompleted ?? s.completed));
+const statusDone = (s) => !!(s && (s.isCompleted ?? s.completed));
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
@@ -172,135 +173,128 @@ const ConfirmModal = ({ state, onAnswer }) => {
     </HardwareModal>);
 };
 
-/* STAGE CHECKLIST (fix116/117 Intake mirror, fix167):
+/* STATUS CHECKLIST (fix116/117 Intake mirror, fix167; fix180: was the Stage checklist):
    - ticks are drawn ORANGE in view mode too (a disabled checkbox was grey and looked unticked)
-   - hovering a ticked stage says when and by whom; the date shows on the row
-   - no auto-tick on opening EDIT (New Project ticks the first stage; the tick now really arrives)
-   - remove asks first; RESTORE DEFAULTS is one server step, director only (it removes stages) */
-const StageChecklistPanel = forwardRef(({ projectId, canEdit, canRemove, toast, confirm, onLastStageToggle, onLoaded }, ref) => {
-    const [stages, setStages] = useState([]);
+   - hovering a ticked status says when and by whom; the date shows on the row
+   - no auto-tick on opening EDIT (New Project ticks the first status; the tick really arrives)
+   - remove asks first; RESTORE DEFAULTS is one server step, director only (it removes statuses)
+   - fix180: the list belongs to the project type and is no longer tied to the Title Details; every status can carry
+     its own documents (ATTACH opens the upload window for that status) */
+const StatusChecklistPanel = ({ projectId, canEdit, canRemove, toast, confirm, docsByStatus, canAttach, onAttach, onViewDoc }) => {
+    const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState('');
-    const [addingStage, setAddingStage] = useState(false);
-    const [newStageName, setNewStageName] = useState('');
+    const [addingStatus, setAddingStatus] = useState(false);
+    const [newStatusName, setNewStatusName] = useState('');
     const [insertAfterId, setInsertAfterId] = useState(null);
     const [insertAfterName, setInsertAfterName] = useState('');
     const [saving, setSaving] = useState(false);
     const [toggling, setToggling] = useState(false);
-    const loadStages = useCallback(async () => {
+    const loadStatuses = useCallback(async () => {
         try {
-            const list = await stageTemplateService.getProjectStages(projectId) || [];
-            setStages(list); setLoadErr('');
-            if (onLoaded) onLoaded(list);
-        } catch (err) { setLoadErr('STAGES COULD NOT BE LOADED: ' + errText(err)); }
+            const list = await statusTemplateService.getProjectStatuses(projectId) || [];
+            setStatuses(list); setLoadErr('');
+        } catch (err) { setLoadErr('STATUSES COULD NOT BE LOADED: ' + errText(err)); }
         finally { setLoading(false); }
-    }, [projectId, onLoaded]);
-    useEffect(() => { loadStages(); }, [loadStages]);
-    const openInsertBelow = (stage) => { setInsertAfterId(stage.id); setInsertAfterName(stage.stageName); setNewStageName(''); setAddingStage(true); };
-    const cancelInsert = () => { setAddingStage(false); setNewStageName(''); setInsertAfterId(null); setInsertAfterName(''); };
-    const handleAddStage = async () => {
-        const name = newStageName.trim();
-        if (!name) { toast && toast('Enter a stage name first.', 'error'); return; }
-        if (stages.some(s => (s.stageName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That stage is already on the list.', 'error'); return; }
+    }, [projectId]);
+    useEffect(() => { loadStatuses(); }, [loadStatuses]);
+    const openInsertBelow = (status) => { setInsertAfterId(status.id); setInsertAfterName(status.statusName); setNewStatusName(''); setAddingStatus(true); };
+    const cancelInsert = () => { setAddingStatus(false); setNewStatusName(''); setInsertAfterId(null); setInsertAfterName(''); };
+    const handleAddStatus = async () => {
+        const name = newStatusName.trim();
+        if (!name) { toast && toast('Enter a status name first.', 'error'); return; }
+        if (statuses.some(s => (s.statusName || '').toLowerCase() === name.toLowerCase())) { toast && toast('That status is already on the list.', 'error'); return; }
         setSaving(true);
         let created;
-        try { created = await stageTemplateService.attachStages(projectId, [{ stageName: name, cost: 0, isCustom: true }]); }
-        catch (err) { setSaving(false); toast && toast('STAGE NOT ADDED: ' + errText(err), 'error'); return; }
+        try { created = await statusTemplateService.attachStatuses(projectId, [{ statusName: name, cost: 0, isCustom: true }]); }
+        catch (err) { setSaving(false); toast && toast('STATUS NOT ADDED: ' + errText(err), 'error'); return; }
         try {
             const createdIds = (created || []).map(c => c.id).filter(Boolean);
             if (createdIds.length && insertAfterId) {
-                const currentIds = stages.map(s => s.id);
+                const currentIds = statuses.map(s => s.id);
                 const idx = currentIds.indexOf(insertAfterId);
                 const ordered = idx >= 0 ? [...currentIds.slice(0, idx + 1), ...createdIds, ...currentIds.slice(idx + 1)] : [...currentIds, ...createdIds];
-                await stageTemplateService.reorderProjectStages(projectId, ordered);
+                await statusTemplateService.reorderProjectStatuses(projectId, ordered);
             }
-            toast && toast('Stage inserted.', 'success');
-        } catch (err) { toast && toast('Stage added, but at the END of the list (moving it failed: ' + errText(err) + ').', 'warn', 12000); }
-        finally { await loadStages(); cancelInsert(); setSaving(false); }
+            toast && toast('Status inserted.', 'success');
+        } catch (err) { toast && toast('Status added, but at the END of the list (moving it failed: ' + errText(err) + ').', 'warn', 12000); }
+        finally { await loadStatuses(); cancelInsert(); setSaving(false); }
     };
-    const handleToggleComplete = async (stage, isLast) => {
-        if (toggling || !canEdit) return;   // fix166: a double click used to send two ticks and flip the stage back
+    const handleToggleComplete = async (status) => {
+        if (toggling || !canEdit) return;   // fix166: a double click used to send two ticks and flip the status back
         setToggling(true);
-        const next = !stageDone(stage);
+        const next = !statusDone(status);
         try {
-            await stageTemplateService.toggleStageCompletion(projectId, stage.id, next);
-            await loadStages();
-            // Ticking the final stage means the title is now ready: the parent opens the title fields.
-            if (isLast && onLastStageToggle) onLastStageToggle(next);
-        } catch (err) { await loadStages(); toast && toast('STAGE NOT UPDATED: ' + errText(err), 'error'); }
+            await statusTemplateService.toggleStatusCompletion(projectId, status.id, next);
+            await loadStatuses();
+        } catch (err) { await loadStatuses(); toast && toast('STATUS NOT UPDATED: ' + errText(err), 'error'); }
         finally { setToggling(false); }
     };
-    // Lets the parent's TITLE READY button drive the last stage's tick too.
-    useImperativeHandle(ref, () => ({
-        setLastStageCompletion: async (done) => {
-            const last = stages[stages.length - 1];
-            if (!last || stageDone(last) === done) return true;
-            try {
-                await stageTemplateService.toggleStageCompletion(projectId, last.id, done);
-                await loadStages();
-                return true;
-            } catch (err) { toast && toast('FINAL STAGE NOT UPDATED: ' + errText(err), 'error'); return false; }
-        },
-    }), [stages, projectId, toast, loadStages]);
-    const handleRemove = async (stage) => {
-        const ok = confirm ? await confirm('REMOVE STAGE', 'Remove "' + stage.stageName + '" from this project? Its tick goes with it. The audit log keeps a record.', 'danger', 'REMOVE STAGE') : true;
+    const handleRemove = async (status) => {
+        const ok = confirm ? await confirm('REMOVE STATUS', 'Remove "' + status.statusName + '" from this project? Its tick goes with it (its documents stay in Documents). The audit log keeps a record.', 'danger', 'REMOVE STATUS') : true;
         if (!ok) return;
-        try { await stageTemplateService.removeStage(projectId, stage.id); await loadStages(); toast && toast('Stage removed.', 'warn'); }
-        catch (err) { toast && toast('STAGE NOT REMOVED: ' + errText(err), 'error'); }
+        try { await statusTemplateService.removeStatus(projectId, status.id); await loadStatuses(); toast && toast('Status removed.', 'warn'); }
+        catch (err) { toast && toast('STATUS NOT REMOVED: ' + errText(err), 'error'); }
     };
     const handleRestoreDefaults = async () => {
-        if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace this project\'s stage list with the master checklist? Every current tick and every custom stage is removed; only the first stage stays ticked. The old list is written to the audit log.', 'danger', 'RESTORE DEFAULTS'); if (!ok) return; }
+        if (confirm) { const ok = await confirm('RESTORE DEFAULTS', 'Replace this project\'s status list with the master list of its project type? Every current tick and every custom status is removed; only the first status stays ticked. The old list is written to the audit log.', 'danger', 'RESTORE DEFAULTS'); if (!ok) return; }
         setSaving(true);
-        try { await stageTemplateService.restoreProjectDefaults(projectId); await loadStages(); cancelInsert(); toast && toast('Default stages restored.', 'success'); }
-        catch (err) { await loadStages(); toast && toast('DEFAULTS NOT RESTORED: ' + errText(err), 'error'); }
+        try { await statusTemplateService.restoreProjectDefaults(projectId); await loadStatuses(); cancelInsert(); toast && toast('Default statuses restored.', 'success'); }
+        catch (err) { await loadStatuses(); toast && toast('DEFAULTS NOT RESTORED: ' + errText(err), 'error'); }
         finally { setSaving(false); }
     };
     if (loading) return null;
-    const doneCount = stages.filter(stageDone).length;
-    return (<div className={styles.stageList}>
+    const doneCount = statuses.filter(statusDone).length;
+    return (<div className={styles.statusList}>
         {loadErr && <div className={styles.modalErr} role="alert"><FiAlertCircle className={styles.modalErrIcon} aria-hidden="true" /><span>{loadErr}</span></div>}
-        <div className={styles.stageListTop}>
-            <span className={styles.stageProgress} title="Stages ticked so far">{doneCount} OF {stages.length} DONE</span>
+        <div className={styles.statusListTop}>
+            <span className={styles.statusProgress} title="Statuses ticked so far">{doneCount} OF {statuses.length} DONE</span>
             {canEdit && <span className={styles.inputHint}>Ticks save the moment you click them. CANCEL does not undo them.</span>}
-            {canRemove && <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving} title="Replace this project's stages with the master checklist (director only)."><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>}
+            {canRemove && <button type="button" className={styles.ghostBtn} onClick={handleRestoreDefaults} disabled={saving} title="Replace this project's statuses with its type's master list (director only)."><FiRefreshCw aria-hidden="true" /> RESTORE DEFAULTS</button>}
         </div>
-        {stages.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STAGES ATTACHED YET</span></div>}
-        {stages.map((stage, i) => {
+        {statuses.length === 0 && <div className={styles.emptyState}><FiCheckCircle className={styles.emptyIcon} aria-hidden="true" /><span>NO STATUSES ATTACHED YET</span></div>}
+        {statuses.map((status, i) => {
             const isFirst = i === 0;
-            const isLast = i === stages.length - 1;
-            const done = stageDone(stage);
-            const when = stage.completedAt ? fmtDate(stage.completedAt) : '';
-            const tip = done ? ('Done' + (when ? ' on ' + when : '') + (stage.completedBy ? ' by ' + stage.completedBy : '') + '.') : 'Not done yet.';
-            return (<React.Fragment key={stage.id}>
-                <label className={`${styles.stageItem} ${done ? styles.stageItemChecked : ''} ${canEdit ? '' : styles.stageItemRO}`} title={canEdit ? tip + ' Click to ' + (done ? 'untick.' : 'tick.') : tip}>
-                    <input type="checkbox" className={styles.stageCheckbox} checked={done} readOnly={!canEdit} tabIndex={canEdit ? 0 : -1}
+            const done = statusDone(status);
+            const when = status.completedAt ? fmtDate(status.completedAt) : '';
+            const tip = done ? ('Done' + (when ? ' on ' + when : '') + (status.completedBy ? ' by ' + status.completedBy : '') + '.') : 'Not done yet.';
+            const docs = (docsByStatus && docsByStatus.get(status.id)) || [];
+            return (<React.Fragment key={status.id}>
+                <label className={`${styles.statusItem} ${done ? styles.statusItemChecked : ''} ${canEdit ? '' : styles.statusItemRO}`} title={canEdit ? tip + ' Click to ' + (done ? 'untick.' : 'tick.') : tip}>
+                    <input type="checkbox" className={styles.statusCheckbox} checked={done} readOnly={!canEdit} tabIndex={canEdit ? 0 : -1}
                         aria-readonly={!canEdit} disabled={canEdit && toggling}
-                        onChange={() => handleToggleComplete(stage, isLast)} aria-label={`${stage.stageName}: ${done ? 'done' : 'not done'}`} />
-                    <span className={styles.stageItemName}>{stage.stageName}{stage.isCustom ? <span className={styles.stageCustomTag} title="Added on this project only (not in the master checklist)">CUSTOM</span> : null}</span>
-                    {done && when && <span className={styles.stageMeta}>{when}{stage.completedBy ? ' - ' + stage.completedBy : ''}</span>}
-                    {canEdit && (<span className={styles.stageActions}>
-                        {!isLast && (<button type="button" className={styles.plusBtn} title="Insert a stage below this one"
-                            aria-label={`Insert stage below ${stage.stageName}`}
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(stage); }}><FiPlus size={12} /></button>)}
-                        {canRemove && !isFirst && !isLast && (<button type="button" className={styles.iconBtnDanger} title="Remove this stage (director only)"
-                            aria-label={`Remove ${stage.stageName}`}
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(stage); }}><FiTrash2 size={12} /></button>)}
-                    </span>)}
+                        onChange={() => handleToggleComplete(status)} aria-label={`${status.statusName}: ${done ? 'done' : 'not done'}`} />
+                    <span className={styles.statusItemName}>{status.statusName}{status.isCustom ? <span className={styles.statusCustomTag} title="Added on this project only (not in the master list)">CUSTOM</span> : null}</span>
+                    {done && when && <span className={styles.statusMeta}>{when}{status.completedBy ? ' - ' + status.completedBy : ''}</span>}
+                    <span className={styles.statusActions}>
+                        {canAttach && (<button type="button" className={styles.plusBtn} title={'Attach documents to "' + status.statusName + '"'}
+                            aria-label={`Attach documents to ${status.statusName}`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAttach && onAttach(status); }}><FiPaperclip size={12} /></button>)}
+                        {canEdit && (<button type="button" className={styles.plusBtn} title="Insert a status below this one"
+                            aria-label={`Insert status below ${status.statusName}`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openInsertBelow(status); }}><FiPlus size={12} /></button>)}
+                        {canEdit && canRemove && !isFirst && (<button type="button" className={styles.iconBtnDanger} title="Remove this status (director only)"
+                            aria-label={`Remove ${status.statusName}`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(status); }}><FiTrash2 size={12} /></button>)}
+                    </span>
                 </label>
-                {addingStage && insertAfterId === stage.id && (<div className={styles.insertRow}>
+                {docs.length > 0 && (<div className={styles.statusDocs}>
+                    {docs.map(d => (<button type="button" key={d.id} className={styles.statusDocLink} onClick={() => onViewDoc && onViewDoc(d)} title={'View ' + d.fileName}>
+                        <FiFileText aria-hidden="true" /> {d.fileName}</button>))}
+                </div>)}
+                {addingStatus && insertAfterId === status.id && (<div className={styles.insertRow}>
                     <span className={styles.insertCtx}>INSERT UNDER: {insertAfterName}</span>
-                    <input type="text" className={styles.insertInput} value={newStageName} autoFocus maxLength={200}
-                        onChange={e => setNewStageName(e.target.value)} placeholder="New stage name"
-                        aria-label="New stage name"
-                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddStage(); } if (e.key === 'Escape') cancelInsert(); }} />
-                    <HardwareButton type="button" onClick={handleAddStage} loading={saving} icon={FiCheckCircle}>ADD</HardwareButton>
+                    <input type="text" className={styles.insertInput} value={newStatusName} autoFocus maxLength={200}
+                        onChange={e => setNewStatusName(e.target.value)} placeholder="New status name"
+                        aria-label="New status name"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddStatus(); } if (e.key === 'Escape') cancelInsert(); }} />
+                    <HardwareButton type="button" onClick={handleAddStatus} loading={saving} icon={FiCheckCircle}>ADD</HardwareButton>
                     <button type="button" className={styles.ghostBtn} onClick={cancelInsert} aria-label="Cancel insert" title="Close without adding"><FiX aria-hidden="true" /></button>
                 </div>)}
             </React.Fragment>);
         })}
     </div>);
-});
-StageChecklistPanel.displayName = 'StageChecklistPanel';
+};
 
 // fix167: every reason popup, set up in ONE place. danger = red button + red info box; the rest are neutral.
 const REASON_KINDS = {
@@ -320,7 +314,11 @@ const REASON_KINDS = {
     RELEASE:       { danger: false, ph: 'e.g. Collected by JOHN DOE in person, NIN checked against the ID card.' },
 };
 const TYPE_LABELS = { STANDARD: 'PAYMENT', INITIAL_DEPOSIT: 'DEPOSIT AT INTAKE', RECEIVABLE_PARTIAL: 'PAYMENT (IN RECEIVABLES)', REVERSAL: 'REVERSAL' };
-const TAB_SHORT = { OVERVIEW: 'OV', FINANCIALS: 'FIN', OWNERS: 'OWN', DOCUMENTS: 'DOC', NOTES: 'NTS' };
+const TAB_SHORT = { OVERVIEW: 'OV', FINANCIALS: 'FIN', PEOPLE: 'PPL', DOCUMENTS: 'DOC', NOTES: 'NTS' };
+// fix180: one Client / Owner row and one Neighbor row in the EDIT buffer
+const personToRow = (p) => ({ fullName: p.fullName || '', phone: p.phoneNumber || '', nationalId: p.nationalId || '', address: p.homeAddress || '', email: p.email || '' });
+const EMPTY_PERSON = () => ({ fullName: '', phone: '', nationalId: '', address: '', email: '' });
+const EMPTY_NEIGHBOR = () => ({ fullName: '', phone: '', side: '', plotNumber: '' });
 
 const FolderPage = () => {
     const { id } = useParams();
@@ -334,7 +332,7 @@ const FolderPage = () => {
     const isAdmin = isRoot || role === 'ROLE_ADMIN';
     const isDirector = isAdmin || role === 'ROLE_DIRECTOR';
     const isManager = isDirector || role === 'ROLE_MANAGER';
-    const canEditRole = isManager;    // edit record, stages, docs, payments, problem flag
+    const canEditRole = isManager;    // edit record, statuses, docs, payments, problem flag
     const canMoney = isDirector;      // receivable money actions, hand-over, reversals
     const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans without edit mode
 
@@ -343,8 +341,6 @@ const FolderPage = () => {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const stageChecklistRef = useRef(null);
-    const lastDoneBeforeEditRef = useRef(false);   // was the final stage already ticked when EDIT was pressed?
     const [committing, setCommitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [ninMismatch, setNinMismatch] = useState(null);
@@ -359,12 +355,11 @@ const FolderPage = () => {
         const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
-    const TABS = ['OVERVIEW', 'FINANCIALS', 'OWNERS', 'DOCUMENTS', 'NOTES'];
-    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', OWNERS: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
+    const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
+    const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
     const [noteModal, setNoteModal] = useState({ open: false, id: null, content: '' });
     const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);
     const [payModal, setPayModal] = useState({ open: false });
-    const [stageInfo, setStageInfo] = useState({ count: 0, lastDone: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
@@ -377,14 +372,15 @@ const FolderPage = () => {
     const [probBusy, setProbBusy] = useState(false);
     const [probErr, setProbErr] = useState('');
     const [reasonErr, setReasonErr] = useState('');
-    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, calls: true, owners: true, related: true, docs: true, stagesPanel: true });
+    const [drawers, setDrawers] = useState({ overview: true, balance: true, recv: true, history: true, notes: true, calls: true, clients: true, owners: true, neighbors: true, subdivisions: true, related: true, docs: true, statusesPanel: true });
     const toggleDrawer = key => setDrawers(p => ({ ...p, [key]: !p[key] }));
     const { confirmState, confirm, handleAnswer } = useConfirm();
     const firstInputRef = useRef(null);
     const fileInputRef = useRef(null);
     // fix136: document categories + the UPLOAD DOCUMENTS window
     const [docCats, setDocCats] = useState([]);
-    const [uploadDraft, setUploadDraft] = useState(null); // { batch, files: [{ file, category }] }
+    const [uploadDraft, setUploadDraft] = useState(null); // { batch, files: [{ file, category }], statusId, statusName }
+    const [attachTo, setAttachTo] = useState(null);       // fix180: the status the next picked files are attached to
     const [newCatOpen, setNewCatOpen] = useState(false);
     const [newCatName, setNewCatName] = useState('');
     const [catBusy, setCatBusy] = useState(false);
@@ -425,7 +421,7 @@ const FolderPage = () => {
                 else { const el = document.getElementById('paymentHistorySection'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
             }, 350);
         } else if (hash === 'notes' || hash === 'calls') setActiveTab('NOTES');
-        else if (hash === 'identity' || hash === 'owners') setActiveTab('OWNERS');
+        else if (hash === 'identity' || hash === 'owners' || hash === 'clients' || hash === 'people') setActiveTab('PEOPLE');
         else if (hash === 'vault' || hash === 'documents') setActiveTab('DOCUMENTS');
         else window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [id]);
@@ -455,25 +451,32 @@ const FolderPage = () => {
             if (!data) throw new Error('NULL_SIGNAL');
             setBinder(data); setPayments(data.payments || []); setLoadError(false);
             if (!isEditing) {
+                const t = data.project?.landTitle;
                 setBuffer({
-                    plotNumber: data.project?.landTitle?.plotNumber || '', tenure: data.project?.landTitle?.tenure || 'FREEHOLD',
-                    blockRoad: data.project?.landTitle?.blockRoad || '', district: data.project?.district || '',
+                    plotNumber: t?.plotNumber || '', tenure: t?.tenure || 'FREEHOLD',
+                    block: t?.block || '', areaHectares: t?.areaHectares != null ? String(t.areaHectares) : '',
+                    volume: t?.volume || '', folio: t?.folio || '', titleIssueDate: t?.titleIssueDate || '',
+                    titleDetailsEnabled: !!data.project?.titleDetailsEnabled,
+                    subdivisionCount: data.project?.subdivisionCount != null ? String(data.project.subdivisionCount) : '',
+                    district: data.project?.district || '',
                     county: data.project?.county || '', subCounty: data.project?.subCounty || '',
                     parish: data.project?.parish || '', village: data.project?.village || '', area: data.project?.area || '',
-                    titleId: data.project?.landTitle?.titleId || '', convertToTitle: false,
                     totalCost: String(data.project?.totalCost || 0), initialPayment: String(Math.max(0, Number(data.project?.amountPaid || 0) - Number(data.project?.storageFeesPaid || 0))),
                     isLegacy: !!data.project?.isLegacy,
-                    owners: (data.project?.proprietors || []).map(p => ({ fullName: p.fullName || '', phone: p.phoneNumber || '', nationalId: p.nationalId || '', address: p.homeAddress || '', email: p.email || '' })),
+                    // fix180: clients first (old projects with none show their owners), owners, neighbors
+                    clients: ((data.project?.clients || []).length ? data.project.clients : (data.project?.proprietors || [])).map(personToRow),
+                    owners: (data.project?.proprietors || []).map(personToRow),
+                    neighbors: (data.neighbors || []).map(n => ({ fullName: n.fullName || '', phone: n.phone || '', side: n.side || '', plotNumber: n.plotNumber || '' })),
                 });
                 setFieldErrors({});
             }
         } catch { setLoadError(true); } finally { setLoading(false); }
     }, [id, isEditing]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
-    // fix167: the Recovery calls for these owners are loaded AND shown (they were loaded and never shown)
+    // fix167: the Recovery calls are loaded AND shown. fix180: Recovery calls the CLIENTS, so these are the clients' calls.
     useEffect(() => {
-        if (!binder?.project?.proprietors) return;
-        const owners = binder.project.proprietors;
+        if (!binder?.project) return;
+        const owners = (binder.project.clients || []).length ? binder.project.clients : (binder.project.proprietors || []);
         Promise.all(owners.map(p => recoveryService.getNotes(p.id).then(r => (r && r.data ? r.data : r) || []).catch(() => [])))
             .then(lists => {
                 const all = [];
@@ -488,41 +491,41 @@ const FolderPage = () => {
         setRateFee(o !== null && o !== undefined ? String(Math.round(Number(o))) : '');
         setPauseUntil(binder.project.negotiationDeadline ? String(binder.project.negotiationDeadline).slice(0, 10) : '');
     }, [binder]);
-    const onStagesLoaded = useCallback((list) => {
-        const last = list && list.length ? list[list.length - 1] : null;
-        setStageInfo({ count: (list || []).length, lastDone: !!(last && stageDone(last)) });
-    }, []);
+    // fix180: Title Details are kept when the project type always has them, when Topographic Survey switched them on,
+    // and always when a title is already saved (data is never hidden).
+    const titleShown = (proj, buf) => !!proj.landTitle || showsTitle(projectTypeOf(proj).value, !!(buf && buf.titleDetailsEnabled));
 
     const validateBuffer = (buf, hasTitle) => {
         const errors = [];
+        const fe = {};
         if (hasTitle) {
-            if (!buf.plotNumber?.trim()) errors.push('PLOT ID IS REQUIRED');
+            if (!buf.plotNumber?.trim()) { errors.push('PLOT NUMBER IS REQUIRED'); fe.plotNumber = 'Required'; }
             if (!buf.tenure?.trim()) errors.push('TENURE IS REQUIRED');
-            if (!buf.titleId?.trim()) errors.push('TITLE ID IS REQUIRED');
+            if (!buf.block?.trim()) { errors.push('BLOCK IS REQUIRED'); fe.block = 'Required'; }
+            if (!(Number(buf.areaHectares) > 0)) { errors.push('AREA (HECTARES) IS REQUIRED'); fe.areaHectares = 'Required'; }
         }
-        if (!buf.district?.trim()) errors.push('DISTRICT IS REQUIRED');
-        buf.owners?.forEach((o, i) => {
-            if (!o.fullName?.trim()) errors.push('OWNER ' + (i + 1) + ': LEGAL NAME IS REQUIRED');
-            if (!o.nationalId?.trim()) errors.push('OWNER ' + (i + 1) + ': NATIONAL ID (NIN) IS REQUIRED');
-            if (o.phone?.trim()) { const ph = normalizePhones(o.phone); if (!ph.ok) errors.push('OWNER ' + (i + 1) + ': ' + ph.error.toUpperCase()); }
+        if (!buf.district?.trim()) { errors.push('DISTRICT IS REQUIRED'); fe.district = 'Required'; }
+        if (projectTypeOf(project).value === 'SUBDIVISION' && !(Number(buf.subdivisionCount) >= 1)) { errors.push('NUMBER OF SUBDIVISIONS IS REQUIRED'); fe.subdivisionCount = 'Required'; }
+        [['clients', 'CLIENT'], ['owners', 'OWNER']].forEach(([key, what]) => {
+            if (!(buf[key] || []).length) errors.push('KEEP AT LEAST ONE ' + what);
+            (buf[key] || []).forEach((o, i) => {
+                if (!o.fullName?.trim()) { errors.push(what + ' ' + (i + 1) + ': LEGAL NAME IS REQUIRED'); fe[key + '_' + i + '_name'] = 'Required'; }
+                if (!o.nationalId?.trim()) { errors.push(what + ' ' + (i + 1) + ': NATIONAL ID (NIN) IS REQUIRED'); fe[key + '_' + i + '_nin'] = 'Required'; }
+                if (o.phone?.trim()) { const ph = normalizePhones(o.phone); if (!ph.ok) { errors.push(what + ' ' + (i + 1) + ': ' + ph.error.toUpperCase()); fe[key + '_' + i + '_phone'] = 'Check number'; } }
+            });
         });
-        return errors;
+        (buf.neighbors || []).forEach((nb, i) => {
+            if (!nb.fullName?.trim()) { errors.push('NEIGHBOR ' + (i + 1) + ': NAME IS REQUIRED (OR REMOVE THE ROW)'); fe['neighbors_' + i + '_name'] = 'Required'; }
+            if (nb.phone?.trim() && !normalizePhones(nb.phone).ok) { errors.push('NEIGHBOR ' + (i + 1) + ': CHECK THE PHONE NUMBER'); fe['neighbors_' + i + '_phone'] = 'Check number'; }
+        });
+        return { errors, fe };
     };
 
     const handleCommit = async () => {
         if (ninMismatch) { toast('Confirm or fix the NIN mismatch warning before saving.', 'error', 6000); return; }
-        const hasTitle = !!project.landTitle || !!buffer.convertToTitle;
-        const errors = validateBuffer(buffer, hasTitle);
+        const hasTitle = titleShown(project, buffer);
+        const { errors, fe } = validateBuffer(buffer, hasTitle);
         if (errors.length) {
-            const fe = {};
-            if (hasTitle && !buffer.plotNumber?.trim()) fe.plotNumber = 'Required';
-            if (hasTitle && !buffer.titleId?.trim()) fe.titleId = 'Required';
-            if (!buffer.district?.trim()) fe.district = 'Required';
-            buffer.owners?.forEach((o, i) => {
-                if (!o.fullName?.trim()) fe['owner_' + i + '_name'] = 'Required';
-                if (!o.nationalId?.trim()) fe['owner_' + i + '_nin'] = 'Required';
-                if (o.phone?.trim() && !normalizePhones(o.phone).ok) fe['owner_' + i + '_phone'] = 'Check number';
-            });
             setFieldErrors(fe); toast('NOT SAVED: ' + errors[0], 'error', 6000); return;
         }
         if ((Number(buffer.totalCost) || 0) !== (Number(project.totalCost) || 0) && (buffer.costChangeReason || '').trim().length < 5) {
@@ -530,20 +533,22 @@ const FolderPage = () => {
         }
         setFieldErrors({}); setCommitting(true);
         try {
-            await landService.updateMasterFolder(id, { ...buffer, totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });
+            const cleanPerson = (o) => ({ ...o, phone: o.phone?.trim() ? (normalizePhones(o.phone).value || o.phone.trim()) : '' });
+            await landService.updateMasterFolder(id, {
+                ...buffer,
+                areaHectares: hasTitle ? Number(buffer.areaHectares) : null,
+                subdivisionCount: buffer.subdivisionCount === '' ? null : Number(buffer.subdivisionCount),
+                titleIssueDate: buffer.titleIssueDate || null,
+                clients: (buffer.clients || []).map(cleanPerson),
+                owners: (buffer.owners || []).map(cleanPerson),
+                neighbors: (buffer.neighbors || []).map(n => ({ ...n, fullName: n.fullName.trim().toUpperCase(), side: (n.side || '').trim().toUpperCase(), plotNumber: (n.plotNumber || '').trim().toUpperCase(), phone: n.phone?.trim() ? (normalizePhones(n.phone).value || n.phone.trim()) : '' })),
+                totalCost: Number(buffer.totalCost) || 0, initialPayment: Number(buffer.initialPayment) || 0, costChangeReason: (buffer.costChangeReason || '').trim(), expectedTotalCost: Number(project.totalCost) || 0 });
             predictionService.learn(buffer); setIsEditing(false);
             await loadFolderData(); toast('Changes saved.', 'success');
         } catch (err) { toast('NOT SAVED: ' + errText(err), 'error'); }
         finally { setCommitting(false); }
     };
-    // fix167: leaving the page from EDIT after TITLE READY un-ticks the final stage again (it was saved the moment
-    // TITLE READY was pressed), so a project is never left with its last stage ticked and no title.
-    const undoTitleReadyTick = async () => {
-        if (buffer?.convertToTitle && project && !project.landTitle && !lastDoneBeforeEditRef.current) {
-            try { await stageChecklistRef.current?.setLastStageCompletion(false); } catch { /* the warning strip shows it next time */ }
-        }
-    };
-    const handleLeave = async () => { await undoTitleReadyTick(); routerProceed(); };
+    const handleLeave = () => routerProceed();
 
     // fix165/167: PROBLEM flag needs words (5+); the page says it WANTS to flag (two clicks cannot cancel each other)
     const handleProblemConfirm = async () => {
@@ -575,7 +580,7 @@ const FolderPage = () => {
             if (n < storagePaid) { setReasonErr('UGX ' + fmt(storagePaid) + ' OF FEES IS ALREADY PAID, SO THE NEW TOTAL CANNOT BE LOWER THAN THAT.'); return; }
         }
         // fix167: for fee deals with joint owners, record WHICH owner agreed (fees belong to the whole project)
-        const who = m.agreedWith ? ((project.proprietors || []).find(p => p.id === m.agreedWith)?.fullName || '') : '';
+        const who = m.agreedWith ? (payers.find(p => p.id === m.agreedWith)?.fullName || '') : '';
         const why = (who ? '[Agreed with ' + who + '] ' : '') + typed;
         setReasonBusy(true); setReasonErr('');
         try {
@@ -599,7 +604,7 @@ const FolderPage = () => {
                 setTimeout(() => navigate('/land/projects'), 1500);
                 return;
             }
-            else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); toast('Title reverted. The project is back to stages.', 'warn'); }
+            else if (m.kind === 'REVERT_TITLE') { await landService.revertTitle(id, why); toast('Title Details removed from this project.', 'warn'); }
             setReasonModal(x => ({ ...x, open: false }));
             await loadFolderData(); loadPortfolio();
         } catch (err) { setReasonErr(errText(err)); }
@@ -607,39 +612,38 @@ const FolderPage = () => {
     };
     const handleUnlock = async () => {
         setIsEditing(true);
-        // fix167: final stage already ticked but no title yet -> open the title fields straight away
-        if (project && !project.landTitle && stageInfo.lastDone) setBuffer(b => ({ ...b, convertToTitle: true }));
-        lastDoneBeforeEditRef.current = !!stageInfo.lastDone;
         try { await landService.logDossierUnlock(id); } catch { /* audit only */ }
     };
     const handleAbort = async () => {
-        const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Stage ticks are saved the moment you click them, so they stay as they are (TITLE READY is undone).', 'warn', 'DISCARD');
+        const ok = await confirm('DISCARD CHANGES', 'Unsaved field changes will be lost. Status ticks are saved the moment you click them, so they stay as they are.', 'warn', 'DISCARD');
         if (!ok) return;
-        await undoTitleReadyTick();
         setIsEditing(false); setFieldErrors({}); loadFolderData();
     };
     // fix166: DELETE is a soft delete (the root user can restore it) and needs a written reason.
     const handleNuclearPurge = () => openReasonModal({ kind: 'DELETE', title: 'DELETE THIS PROJECT', confirmLabel: 'DELETE PROJECT',
         info: 'This takes the whole project (payments, notes and documents included) out of every list. It is NOT erased: the root user can restore it from Settings > Archive. Write why it is being deleted.' });
-    const handleNinBlurCheck = async (idx, val) => {
+    // fix180: the NIN check, field changes, add and remove work on any person list: 'clients', 'owners' or 'neighbors'
+    const handleNinBlurCheck = async (list, idx, val) => {
         if (!val.trim()) return;
         try {
             const result = await clientService.lookupNin(val.trim());
             if (!result.exists) return;
             const existingName = (result.fullName || '').trim().toUpperCase();
-            const enteredName = (buffer.owners[idx]?.fullName || '').trim().toUpperCase();
-            if (existingName && enteredName && existingName !== enteredName) { setNinMismatch({ idx, existingName: result.fullName, enteredName: buffer.owners[idx]?.fullName || '' }); return; }
-            const owners = buffer.owners.map((o, i) => i !== idx ? o : { ...o, phone: o.phone.trim() ? o.phone : (result.phoneNumber || o.phone), email: o.email.trim() ? o.email : (result.email || o.email), address: o.address.trim() ? o.address : (result.homeAddress || o.address) });
-            touchedSetBuffer(p => ({ ...p, owners }));
+            const enteredName = (buffer[list][idx]?.fullName || '').trim().toUpperCase();
+            if (existingName && enteredName && existingName !== enteredName) { setNinMismatch({ list, idx, existingName: result.fullName, enteredName: buffer[list][idx]?.fullName || '' }); return; }
+            const rows = buffer[list].map((o, i) => i !== idx ? o : { ...o, phone: o.phone.trim() ? o.phone : (result.phoneNumber || o.phone), email: o.email.trim() ? o.email : (result.email || o.email), address: o.address.trim() ? o.address : (result.homeAddress || o.address) });
+            touchedSetBuffer(p => ({ ...p, [list]: rows }));
             toast('NIN matched ' + result.fullName + '. Details auto-filled.', 'info', 4500);
         } catch (err) { toast('NIN LOOKUP FAILED: ' + errText(err), 'error'); }
     };
     const handleNinMismatchConfirm = () => setNinMismatch(null);
-    const handleNinMismatchReject = () => { if (!ninMismatch) return; const idx = ninMismatch.idx; handleOwnerChange(idx, 'nationalId', ''); setNinMismatch(null); setTimeout(() => { const el = document.getElementById('owner_' + idx + '_nin'); if (el) el.focus(); }, 50); };
-    const handleOwnerChange = (idx, field, val) => {
-        const owners = buffer.owners.map((o, i) => { if (i !== idx) return o; let v = val; if (field === 'fullName') v = val.toUpperCase(); if (field === 'nationalId') v = val.toUpperCase().replace(/\s/g, ''); if (field === 'email') v = val.toLowerCase().replace(/\s/g, ''); return { ...o, [field]: v }; });
-        setBuffer(p => ({ ...p, owners }));
+    const handleNinMismatchReject = () => { if (!ninMismatch) return; const { list, idx } = ninMismatch; handlePersonChange(list, idx, 'nationalId', ''); setNinMismatch(null); setTimeout(() => { const el = document.getElementById(list + '_' + idx + '_nin'); if (el) el.focus(); }, 50); };
+    const handlePersonChange = (list, idx, field, val) => {
+        setBuffer(p => ({ ...p, [list]: p[list].map((o, i) => { if (i !== idx) return o; let v = val; if (field === 'fullName') v = val.toUpperCase(); if (field === 'nationalId') v = val.toUpperCase().replace(/\s/g, ''); if (field === 'email') v = val.toLowerCase().replace(/\s/g, ''); return { ...o, [field]: v }; }) }));
     };
+    const addPerson = (list) => setBuffer(p => ({ ...p, [list]: [...(p[list] || []), list === 'neighbors' ? EMPTY_NEIGHBOR() : EMPTY_PERSON()] }));
+    const removePerson = (list, idx) => setBuffer(p => ({ ...p, [list]: p[list].filter((_, i) => i !== idx) }));
+    const copyClientsToOwners = () => setBuffer(p => ({ ...p, owners: (p.clients || []).map(c => ({ ...c })) }));
     // fix165: wrong type / empty / oversized files are turned away here with the reason, before any upload starts
     const handleVaultAction = (files) => {
         if (!files?.length) return;
@@ -651,9 +655,12 @@ const FolderPage = () => {
             else ok.push(f);
         });
         if (bad.length) toast('NOT ADDED: ' + bad.join('; '), 'error');
-        if (!ok.length) return;
-        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })) });
+        if (!ok.length) { setAttachTo(null); return; }
+        // fix180: files picked from a status row's ATTACH button belong to that status
+        setUploadDraft({ batch: '', error: '', files: ok.map(file => ({ file, category: '' })), statusId: attachTo ? attachTo.id : null, statusName: attachTo ? attachTo.statusName : '' });
+        setAttachTo(null);
     };
+    const attachToStatus = (status) => { setAttachTo(status); fileInputRef.current?.click(); };
     const closeUploadDraft = () => { if (committing) return; setUploadDraft(null); setNewCatOpen(false); setNewCatName(''); };
     const setBatchCategory = (code) => setUploadDraft(d => d && ({ ...d, error: '', batch: code, files: d.files.map(f => ({ ...f, category: code })) }));
     const setFileCategory = (i, code) => setUploadDraft(d => d && ({ ...d, error: '', files: d.files.map((f, j) => (j === i ? { ...f, category: code } : f)) }));
@@ -675,7 +682,7 @@ const FolderPage = () => {
         const count = uploadDraft.files.length;
         setCommitting(true);
         try {
-            await landService.addExtraDocuments(id, uploadDraft.files.map(f => f.file), uploadDraft.files.map(f => f.category));
+            await landService.addExtraDocuments(id, uploadDraft.files.map(f => f.file), uploadDraft.files.map(f => f.category), uploadDraft.statusId);
             setUploadDraft(null); setNewCatOpen(false); setNewCatName('');
             await loadFolderData();
             toast(count + ' document(s) uploaded', 'success', 3000);
@@ -709,8 +716,7 @@ const FolderPage = () => {
     const openPayModal = (startType) => {
         setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);
         setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
-        const owners = project.proprietors || [];
-        setPayerId(owners.length === 1 ? owners[0].id : '');
+        setPayerId(payers.length === 1 ? payers[0].id : '');
         setPayModal({ open: true });
     };
     const closePayModal = () => { if (paying) return; setPayModal({ open: false }); setPayErr(''); setPayReceipt(null); };
@@ -721,7 +727,7 @@ const FolderPage = () => {
         if (!payAmount || !Number.isFinite(amt) || amt <= 0) { setPayErr('ENTER A VALID AMOUNT.'); return; }
         if (!Number.isInteger(amt)) { setPayErr('ENTER WHOLE SHILLINGS ONLY (NO DECIMALS).'); return; }
         if (amt > limit) { setPayErr('TOO MUCH: ONLY UGX ' + fmt(limit) + (payType === 'STORAGE' ? ' OF STORAGE FEES IS UNPAID.' : ' IS OWED ON THE TITLE WORK.') + ' YOU TYPED UGX ' + fmt(amt) + '.'); return; }
-        if ((project.proprietors || []).length > 1 && !payerId) { setPayErr('PICK WHICH OWNER PAID.'); return; }
+        if (payers.length > 1 && !payerId) { setPayErr('PICK WHICH CLIENT PAID.'); return; }
         if (!payReceipt) { setPayErr('ATTACH THE PAYMENT RECEIPT. A PAYMENT CANNOT BE SAVED WITHOUT IT.'); return; }
         if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { setPayErr('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
         if (!payReceipt.size) { setPayErr('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
@@ -801,9 +807,17 @@ const FolderPage = () => {
     const isLegacyProject = !!project.isLegacy;
     const isBacklog = !project.landTitle;
     const canEdit = canEditRole && !isDeleted;
-    const showTitleFields = !!project.landTitle || !!buffer.convertToTitle;
+    // fix180: project type, Title Details by type, clients (who pay) / owners / neighbors, subdivision plots
+    const pType = projectTypeOf(project);
+    const showTitleFields = titleShown(project, buffer);
     const owners = project.proprietors || [];
-    const ownerOptions = owners.map(o => ({ value: o.id, label: o.fullName }));
+    const clients = project.clients || [];
+    const payers = clients.length ? clients : owners;
+    const ownerOptions = payers.map(o => ({ value: o.id, label: o.fullName }));
+    const neighbors = binder.neighbors || [];
+    const subdivisions = binder.subdivisions || [];
+    const docsByStatus = new Map();
+    (binder.documents || []).forEach(d => { if (d.statusId) { if (!docsByStatus.has(d.statusId)) docsByStatus.set(d.statusId, []); docsByStatus.get(d.statusId).push(d); } });
     const docCount = (binder.documents || []).length;
     const UNCATEGORISED = '__NONE__';
     const catLabel = (code) => (docCats.find(c => c.code === code)?.label) || String(code).replace(/_/g, ' ');
@@ -819,6 +833,9 @@ const FolderPage = () => {
         return [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
     })();
     const docsById = new Map((binder.documents || []).map(d => [d.id, d]));
+    // fix180: the status a document was attached to (names come from the documents' own status list on the page)
+    const statusNamesById = new Map((binder.statuses || []).map(st => [st.id, st.statusName]));
+    const statusNameOf = (sid) => statusNamesById.get(sid) || '';
     const notes = binder.notes || [];
     const noteCount = notes.length;
     const paymentCount = payments.length;
@@ -843,7 +860,6 @@ const FolderPage = () => {
     const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : defaultRate;
     const pausedUntil = project.negotiationDeadline ? fmtDate(project.negotiationDeadline) : '';
     const isPaused = !!project.negotiationDeadline || !!project.storagePaused;
-    const lastStageNoTitle = !project.landTitle && stageInfo.lastDone && stageInfo.count > 0;
     const plotName = project.landTitle?.plotNumber || ('#' + project.projectIndex);
     const reasonCfg = REASON_KINDS[reasonModal.kind] || {};
 
@@ -853,7 +869,8 @@ const FolderPage = () => {
             <SavingOverlay visible={committing && !uploadDraft} />
             <div className={styles.printDossierHeader} aria-hidden="true">
                 <div className={styles.printDossierMeta}>
-                    <span><strong>PLOT ID:</strong> {project.landTitle?.plotNumber || '#' + project.projectIndex}</span>
+                    <span><strong>PLOT NUMBER:</strong> {project.landTitle?.plotNumber || '#' + project.projectIndex}</span>
+                    <span><strong>TYPE:</strong> {pType.label}</span>
                     <span><strong>TENURE:</strong> {project.landTitle?.tenure || '---'}</span>
                     {project.district && <span><strong>DISTRICT:</strong> {project.district}</span>}
                     <span><strong>STATUS:</strong> {project.status}</span>
@@ -870,15 +887,18 @@ const FolderPage = () => {
                     <h1>{plotName}</h1>
                     <div className={styles.metaLine}>
                         {project.landTitle && <span className={styles.idSub} title="Project index (never changes)">#{project.projectIndex}</span>}
+                        <span className={`${styles.textBadge} ${styles.badgeActive}`} title="Project type">{pType.label.toUpperCase()}</span>
+                        {project.parentProjectId && <button type="button" className={`${styles.textBadge} ${styles.badgeLegacy} ${styles.typeBadgeLink}`} onClick={() => navigate('/folder/' + project.parentProjectId)}
+                            title="This Transfer of Title was made from a subdivision plot. Open the subdivision project.">FROM #{binder.parentProjectIndex || '---'} PLOT {project.parentSubdivisionNo}</button>}
                         {isDeleted && <span className={`${styles.textBadge} ${styles.badgeProblem}`} title={'Deleted' + (project.deletedAt ? ' on ' + fmtDate(project.deletedAt) : '') + '. The root user can restore it from Settings > Archive.'}>DELETED</span>}
-                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`} title="No title yet: the work is still going through the stages.">PROCESSING</span>
+                        {isBacklog ? <span className={`${styles.textBadge} ${styles.badgeBacklog}`} title="No title details saved on this project.">PROCESSING</span>
                             : <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="The title details are saved.">TITLED</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`} title="In receivables: storage fees are added every 30 days.">IN RECEIVABLES</span>
                             : fullyPaid ? <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="Nothing is owed on this project.">FULLY PAID</span>
                             : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the total cost has been paid (same rule as the Ledger).">CRITICAL</span>
                             : totalValue > 0 ? <span className={`${styles.textBadge} ${styles.badgeActive}`} title={'UGX ' + fmt(amountOwed) + ' still owed.'}>ACTIVE</span> : null}
                         {isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={'Handed over' + (project.landTitle.releasedAt ? ' on ' + fmtDate(project.landTitle.releasedAt) : '') + (project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : '') + '.'}>RELEASED</span>}
-                        {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered with the Legacy Title mode (an old title brought into the system).">LEGACY</span>}
+                        {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered as a Legacy Titles project (an old title brought into the system).">LEGACY</span>}
                         {project.problem && <span className={`${styles.textBadge} ${styles.badgeProblem}`} title={'PROBLEM' + (project.problemBy ? ' flagged by ' + project.problemBy : '') + (project.problemAt ? ' on ' + fmtDate(project.problemAt) : '') + (project.problemNote ? ': ' + project.problemNote : '')}>PROBLEM</span>}
                         {isReceivable && isPaused && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="No storage fees are added while paused. The paused days are not charged later.">{pausedUntil ? 'FEES PAUSED UNTIL ' + pausedUntil : 'FEES PAUSED'}</span>}
                         {keptFees > 0 && <span className={`${styles.textBadge} ${styles.badgePaused}`} title="Storage fees kept when this project was set aside. They are not owed now, but block the hand-over until they are paid, or a director waives them or adds them to the cost.">SET-ASIDE FEES UGX {fmt(keptFees)}</span>}
@@ -899,10 +919,10 @@ const FolderPage = () => {
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
                                     info: 'Confirm the client has received the title deed for ' + plotName + '. The record is then locked (a director can UNDO it). Write who collected it and how they were identified.' })}
                                 title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
-                        {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && stageInfo.count > 0 && (
-                            <button type="button" className={styles.ghostBtn} title="Take the saved title off and go back to the stage checklist (reason required)."
-                                onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REVERT TO STAGES', confirmLabel: 'REVERT TO STAGES',
-                                    info: 'This removes the saved title (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the final stage, so the project goes back to the stage checklist. The old title values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo in the title, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REVERT TO STAGES</button>)}
+                        {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && pType.titleMode !== 'ALWAYS' && (
+                            <button type="button" className={styles.ghostBtn} title="Take the saved Title Details off this project (reason required)."
+                                onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',
+                                    info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled status. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
                         {canEdit && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
@@ -931,23 +951,23 @@ const FolderPage = () => {
                     <span><strong>PROBLEM</strong>{project.problemBy ? ' flagged by ' + project.problemBy : ''}{project.problemAt ? ' on ' + fmtDateTime(project.problemAt) : ''}: {project.problemNote || 'see the notes.'}</span></div>)}
                 {activeTab === 'OVERVIEW' && isReleased && (<div className={`${styles.infoStrip} ${styles.infoStripInfo}`} role="status"><FiCheckCircle aria-hidden="true" />
                     <span><strong>HANDED OVER</strong>{project.landTitle.releasedAt ? ' on ' + fmtDateTime(project.landTitle.releasedAt) : ''}{project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : ''}{project.landTitle.releaseNote ? ': ' + project.landTitle.releaseNote : ''}. The record is locked.</span></div>)}
-                {activeTab === 'OVERVIEW' && lastStageNoTitle && !isEditing && (<div className={`${styles.infoStrip} ${styles.infoStripWarn}`} role="status"><FiInfo aria-hidden="true" />
-                    <span>The final stage is ticked but the title details are not saved yet. {canEdit ? 'Press EDIT: the title fields open by themselves.' : 'A manager needs to enter them.'}</span></div>)}
+                {activeTab === 'OVERVIEW' && !project.landTitle && pType.titleMode === 'ALWAYS' && !isEditing && (<div className={`${styles.infoStrip} ${styles.infoStripWarn}`} role="status"><FiInfo aria-hidden="true" />
+                    <span>A {pType.label} project keeps Title Details, and they are not saved yet. {canEdit ? 'Press EDIT to enter them.' : 'A manager needs to enter them.'}</span></div>)}
                 <section className={styles.hwPanel} aria-label="Plot Details" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="PLOT DETAILS" isOpen={drawers.overview} onClick={() => toggleDrawer('overview')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.overview ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
                         {isEditing ? (<>
-                            {!project.landTitle && (<div className={styles.convertRow}>
-                                <button type="button" className={`${styles.convertBtn} ${buffer.convertToTitle ? styles.convertBtnActive : ''}`}
-                                    title={buffer.convertToTitle ? 'Hide the title fields and un-tick the final stage.' : 'The title is out: show the title fields and tick the final stage.'}
-                                    onClick={async () => {
-                                        const next = !buffer.convertToTitle;
-                                        const ok = await stageChecklistRef.current?.setLastStageCompletion(next);
-                                        if (ok === false) return;
-                                        setBuffer(p => ({ ...p, convertToTitle: next }));
-                                    }}><FiCheckCircle aria-hidden="true" /> {buffer.convertToTitle ? 'UNDO' : 'TITLE READY'}</button>
-                                <span className={styles.inputHint}>Opens the title fields and ticks the final stage (saved at once; CANCEL un-ticks it again).</span>
+                            {!project.landTitle && pType.titleMode === 'OPTIONAL' && (<div className={styles.convertRow}>
+                                <button type="button" className={`${styles.convertBtn} ${buffer.titleDetailsEnabled ? styles.convertBtnActive : ''}`}
+                                    title={buffer.titleDetailsEnabled ? 'Hide the Title Details fields.' : 'This Topographic Survey has a title: show the Title Details fields.'}
+                                    onClick={() => setBuffer(p => ({ ...p, titleDetailsEnabled: !p.titleDetailsEnabled }))}>
+                                    <FiCheckCircle aria-hidden="true" /> {buffer.titleDetailsEnabled ? 'NO TITLE DETAILS' : 'ADD TITLE DETAILS'}</button>
+                                <span className={styles.inputHint}>Title Details are optional on a Topographic Survey. Saved with SAVE.</span>
+                            </div>)}
+                            {pType.value === 'SUBDIVISION' && (<div className={styles.inputGrid3}>
+                                <SmartInput label="NUMBER OF SUBDIVISIONS" value={buffer.subdivisionCount} required inputMode="numeric" error={fieldErrors.subdivisionCount}
+                                    hint="Cannot go below a plot that was already transferred." onChange={e => touchedSetBuffer({ ...buffer, subdivisionCount: e.target.value.replace(/[^0-9]/g, '') })} />
                             </div>)}
                             <div className={styles.inputGrid3}>
                                 <SmartInput label="DISTRICT" value={buffer.district} showCaps required error={fieldErrors.district} suggestions={sg('district')} onChange={e => touchedSetBuffer({ ...buffer, district: e.target.value.toUpperCase() })} />
@@ -958,10 +978,14 @@ const FolderPage = () => {
                                 <SmartInput label="AREA" value={buffer.area} onChange={e => touchedSetBuffer({ ...buffer, area: e.target.value })} />
                             </div>
                             {showTitleFields && (<div className={styles.inputGrid3}>
-                                <SmartInput ref={firstInputRef} label="PLOT ID" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
+                                <SmartInput ref={firstInputRef} label="PLOT NUMBER" value={buffer.plotNumber} showCaps required error={fieldErrors.plotNumber} onChange={e => touchedSetBuffer({ ...buffer, plotNumber: e.target.value.toUpperCase() })} />
                                 <SmartSelect label="TENURE" options={['FREEHOLD', 'MAILO', 'LEASEHOLD', 'CUSTOMARY']} value={buffer.tenure} onChange={v => touchedSetBuffer({ ...buffer, tenure: v })} />
-                                <SmartInput label="TITLE ID" value={buffer.titleId} showCaps required error={fieldErrors.titleId} onChange={e => touchedSetBuffer({ ...buffer, titleId: e.target.value.toUpperCase() })} />
-                                <SmartInput label="BLOCK / ROAD" value={buffer.blockRoad} showCaps suggestions={sg('blockRoad')} onChange={e => touchedSetBuffer({ ...buffer, blockRoad: e.target.value.toUpperCase() })} />
+                                <SmartInput label="BLOCK" value={buffer.block} showCaps required error={fieldErrors.block} suggestions={sg('block')} onChange={e => touchedSetBuffer({ ...buffer, block: e.target.value.toUpperCase() })} />
+                                <SmartInput label="AREA (HECTARES)" value={buffer.areaHectares} required inputMode="decimal" error={fieldErrors.areaHectares} onChange={e => touchedSetBuffer({ ...buffer, areaHectares: e.target.value.replace(/[^0-9.]/g, '') })} />
+                                <SmartInput label="VOLUME" value={buffer.volume} showCaps onChange={e => touchedSetBuffer({ ...buffer, volume: e.target.value.toUpperCase() })} />
+                                <SmartInput label="FOLIO" value={buffer.folio} showCaps onChange={e => touchedSetBuffer({ ...buffer, folio: e.target.value.toUpperCase() })} />
+                                <div className={styles.hwInputWrap}><div className={styles.inputLabelRow}><label>TITLE DATE</label></div>
+                                    <HardwareDatePicker value={buffer.titleIssueDate || ''} onChange={v => touchedSetBuffer({ ...buffer, titleIssueDate: v })} ariaLabel="Title date" /></div>
                             </div>)}
                         </>) : (<>
                             <div className={styles.specGroup}>
@@ -974,24 +998,43 @@ const FolderPage = () => {
                             {project.landTitle && (<div className={`${styles.specGroup} ${styles.specGroupDivided}`}>
                                 <div className={styles.sectionSubHeader}>TITLE</div>
                                 <div className={styles.readOnlyGrid}>
-                                    {[['PLOT ID', project.landTitle.plotNumber], ['TENURE', project.landTitle.tenure], ['TITLE ID', project.landTitle.titleId], ['BLOCK / ROAD', project.landTitle.blockRoad], ['TITLE DATE', fmtDate(project.landTitle.titleIssueDate)]].map(([l, v]) => (
+                                    {[['PLOT NUMBER', project.landTitle.plotNumber], ['BLOCK', project.landTitle.block], ['AREA (HA)', project.landTitle.areaHectares != null ? Number(project.landTitle.areaHectares).toLocaleString(undefined, { maximumFractionDigits: 4 }) : ''], ['VOLUME', project.landTitle.volume], ['FOLIO', project.landTitle.folio], ['TENURE', project.landTitle.tenure], ['TITLE DATE', fmtDate(project.landTitle.titleIssueDate)]].map(([l, v]) => (
                                         <div key={l} className={styles.specItem}><span className={styles.specLabel}>{l}</span><span className={styles.specValue}>{v || '---'}</span></div>))}
                                 </div>
                             </div>)}
                         </>)}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Stage Checklist" style={(activeTab !== 'OVERVIEW' || (project.landTitle && stageInfo.count < 1)) ? { display: 'none' } : {}}>
-                    <DrawerHeader label={project.landTitle ? 'STAGE CHECKLIST (RECORD)' : 'STAGE CHECKLIST'} isOpen={drawers.stagesPanel} onClick={() => toggleDrawer('stagesPanel')} icon={FiCheckCircle} />
-                    <div className={`${styles.panelBody} ${drawers.stagesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+                <section className={styles.hwPanel} aria-label="Status Checklist" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
+                    <DrawerHeader label={'STATUS CHECKLIST - ' + pType.label.toUpperCase()} isOpen={drawers.statusesPanel} onClick={() => toggleDrawer('statusesPanel')} icon={FiCheckCircle} />
+                    <div className={`${styles.panelBody} ${drawers.statusesPanel ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
-                        <StageChecklistPanel key={project.landTitle ? 'titled' : 'folder'} ref={stageChecklistRef} projectId={id}
-                            canEdit={canEdit && isEditing && !project.landTitle} canRemove={isDirector && !isDeleted && isEditing && !project.landTitle}
-                            toast={toast} confirm={confirm} onLoaded={onStagesLoaded}
-                            onLastStageToggle={(done) => setBuffer(p => ({ ...p, convertToTitle: done }))} />
-                        {!isEditing && !project.landTitle && canEdit && <span className={styles.inputHint}>Press EDIT to tick stages.</span>}
+                        <StatusChecklistPanel projectId={id}
+                            canEdit={canEdit && isEditing && !isReleased} canRemove={isDirector && !isDeleted && isEditing && !isReleased}
+                            toast={toast} confirm={confirm}
+                            docsByStatus={docsByStatus} canAttach={canUploadDocs && !isDeleted && !isReleased}
+                            onAttach={attachToStatus} onViewDoc={(d) => handleOpenDoc(d.filePath, d.fileName)} />
+                        {!isEditing && canEdit && !isReleased && <span className={styles.inputHint}>Press EDIT to tick statuses. The paperclip attaches documents to a status.</span>}
                     </div></div>
                 </section>
+                {pType.value === 'SUBDIVISION' && (<section className={styles.hwPanel} aria-label="Subdivisions" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
+                    <DrawerHeader label="SUBDIVISIONS" count={subdivisions.length} isOpen={drawers.subdivisions} onClick={() => toggleDrawer('subdivisions')} icon={FiFolderPlus} />
+                    <div className={`${styles.panelBody} ${drawers.subdivisions ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+                        <CornerDecor hideTop />
+                        {subdivisions.length === 0 ? (<div className={styles.emptyState}><FiFolderPlus className={styles.emptyIcon} aria-hidden="true" /><span>NO NUMBER OF SUBDIVISIONS SET. PRESS EDIT TO ENTER IT.</span></div>) : (
+                            <div className={styles.subdivGrid}>{subdivisions.map(sp => (<div key={sp.number} className={styles.subdivCard}>
+                                <span className={styles.subdivNo}>PLOT {sp.number}</span>
+                                {sp.transferProjectId
+                                    ? (<button type="button" className={styles.subdivLink} onClick={() => navigate('/folder/' + sp.transferProjectId)} title="Open the Transfer of Title project made for this plot">
+                                        TRANSFERRED - #{sp.transferProjectIndex}{sp.transferPlotNumber ? ' (' + sp.transferPlotNumber + ')' : ''}</button>)
+                                    : (canUploadDocs && !isDeleted
+                                        ? <button type="button" className={styles.ghostBtn} title="Start a Transfer of Title project for this plot. Clients and Owners are copied; Title Details and Neighbors start blank."
+                                            onClick={() => navigate('/land/new?transferFrom=' + id + '&plot=' + sp.number)}><FiExternalLink aria-hidden="true" /> TRANSFER</button>
+                                        : <span className={styles.inputHint}>Not transferred</span>)}
+                            </div>))}</div>)}
+                        <span className={styles.inputHint}>TRANSFER opens New Project as a Transfer of Title for that plot. The new project is linked back here.</span>
+                    </div></div>
+                </section>)}
                 <div className={styles.financialsStack} style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Balance Summary">
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
@@ -1124,18 +1167,21 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
-                <section className={styles.hwPanel} aria-label="Owners" style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
-                    <DrawerHeader label="OWNERS" isOpen={drawers.owners} onClick={() => toggleDrawer('owners')} icon={FiUsers} count={owners.length} />
-                    <div className={`${styles.panelBody} ${drawers.owners ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+                {[['clients', 'CLIENTS', 'Client', clients.length ? clients : owners, FiUsers], ['owners', 'OWNERS', 'Owner', owners, FiUsers]].map(([list, title, what, people, Icon]) => (
+                <section key={list} className={styles.hwPanel} aria-label={title} style={activeTab !== 'PEOPLE' ? { display: 'none' } : {}}>
+                    <DrawerHeader label={title} isOpen={drawers[list]} onClick={() => toggleDrawer(list)} icon={Icon} count={people.length} />
+                    <div className={`${styles.panelBody} ${drawers[list] ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
+                        {list === 'clients' && !isEditing && <span className={styles.inputHint}>The people who pay for the work. Recovery calls the clients; payments name which client paid.</span>}
                         <div className={styles.ownersGrid2}>
-                            {isEditing ? buffer.owners.map((o, idx) => (<div key={idx} className={styles.ownerEditCard}>
-                                <SmartInput label={`LEGAL NAME #${idx + 1}`} value={o.fullName} showCaps required error={fieldErrors['owner_' + idx + '_name']} onChange={e => handleOwnerChange(idx, 'fullName', e.target.value)} />
-                                <SmartInput label="NIN" value={o.nationalId} required error={fieldErrors['owner_' + idx + '_nin']} onChange={e => handleOwnerChange(idx, 'nationalId', e.target.value)} onBlur={e => handleNinBlurCheck(idx, e.target.value)} id={`owner_${idx}_nin`} />
-                                <SmartInput label="PHONE" value={o.phone} error={fieldErrors['owner_' + idx + '_phone']} hint="Several numbers: separate with /" onChange={e => handleOwnerChange(idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) handleOwnerChange(idx, 'phone', r.value); }} id={`owner_${idx}_phone`} />
-                                <SmartInput label="EMAIL" value={o.email} onChange={e => handleOwnerChange(idx, 'email', e.target.value)} id={`owner_${idx}_email`} />
-                                <SmartInput label="ADDRESS" value={o.address} onChange={e => handleOwnerChange(idx, 'address', e.target.value)} id={`owner_${idx}_addr`} />
-                            </div>)) : owners.map((p, i) => (<div key={p.id || i} className={styles.ownerStaticCard}>
+                            {isEditing ? (buffer[list] || []).map((o, idx) => (<div key={idx} className={styles.ownerEditCard}>
+                                <SmartInput label={`LEGAL NAME #${idx + 1}`} value={o.fullName} showCaps required error={fieldErrors[list + '_' + idx + '_name']} onChange={e => handlePersonChange(list, idx, 'fullName', e.target.value)} id={`${list}_${idx}_name`} />
+                                <SmartInput label="NIN" value={o.nationalId} required error={fieldErrors[list + '_' + idx + '_nin']} onChange={e => handlePersonChange(list, idx, 'nationalId', e.target.value)} onBlur={e => handleNinBlurCheck(list, idx, e.target.value)} id={`${list}_${idx}_nin`} />
+                                <SmartInput label="PHONE" value={o.phone} error={fieldErrors[list + '_' + idx + '_phone']} hint="Several numbers: separate with /" onChange={e => handlePersonChange(list, idx, 'phone', e.target.value)} onBlur={e => { const r = normalizePhones(e.target.value); if (r.ok && r.value !== e.target.value) handlePersonChange(list, idx, 'phone', r.value); }} id={`${list}_${idx}_phone`} />
+                                <SmartInput label="EMAIL" value={o.email} onChange={e => handlePersonChange(list, idx, 'email', e.target.value)} id={`${list}_${idx}_email`} />
+                                <SmartInput label="ADDRESS" value={o.address} onChange={e => handlePersonChange(list, idx, 'address', e.target.value)} id={`${list}_${idx}_addr`} />
+                                {(buffer[list] || []).length > 1 && <button type="button" className={styles.ghostBtnDanger} onClick={() => removePerson(list, idx)} title={'Remove this ' + what.toLowerCase()}><FiTrash2 aria-hidden="true" /> REMOVE</button>}
+                            </div>)) : people.map((p, i) => (<div key={p.id || i} className={styles.ownerStaticCard}>
                                 {p.id ? (
                                     <button type="button" className={styles.ownerNameLink}
                                         onClick={() => navigate('/client/' + p.id)}
@@ -1151,10 +1197,38 @@ const FolderPage = () => {
                                 </div>
                             </div>))}
                         </div>
-                        {isEditing && <span className={styles.inputHint}>Adding or removing an owner is done on New Project for now; changes to names and NINs are written to the audit log as OLD -&gt; NEW.</span>}
+                        {isEditing && (<div className={styles.peopleActions}>
+                            <button type="button" className={styles.ghostBtn} onClick={() => addPerson(list)}><FiPlus aria-hidden="true" /> ADD {what.toUpperCase()}</button>
+                            {list === 'owners' && <button type="button" className={styles.ghostBtn} onClick={copyClientsToOwners} title="Replace the owners with a copy of the clients"><FiRefreshCw aria-hidden="true" /> COPY FROM CLIENTS</button>}
+                        </div>)}
+                        {isEditing && <span className={styles.inputHint}>Changes to names and NINs are written to the audit log as OLD -&gt; NEW.</span>}
+                    </div></div>
+                </section>))}
+                <section className={styles.hwPanel} aria-label="Neighbors" style={activeTab !== 'PEOPLE' ? { display: 'none' } : {}}>
+                    <DrawerHeader label="NEIGHBORS" isOpen={drawers.neighbors} onClick={() => toggleDrawer('neighbors')} icon={FiMap} count={neighbors.length} />
+                    <div className={`${styles.panelBody} ${drawers.neighbors ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
+                        <CornerDecor hideTop />
+                        {isEditing ? (<>
+                            <div className={styles.ownersGrid2}>{(buffer.neighbors || []).map((nb, idx) => (<div key={idx} className={styles.ownerEditCard}>
+                                <SmartInput label={`NAME #${idx + 1}`} value={nb.fullName} showCaps required error={fieldErrors['neighbors_' + idx + '_name']} onChange={e => handlePersonChange('neighbors', idx, 'fullName', e.target.value)} id={`neighbors_${idx}_name`} />
+                                <SmartInput label="PHONE" value={nb.phone} error={fieldErrors['neighbors_' + idx + '_phone']} onChange={e => handlePersonChange('neighbors', idx, 'phone', e.target.value)} id={`neighbors_${idx}_phone`} />
+                                <SmartInput label="SIDE" value={nb.side} showCaps placeholder="e.g. NORTH" onChange={e => handlePersonChange('neighbors', idx, 'side', e.target.value.toUpperCase())} id={`neighbors_${idx}_side`} />
+                                <SmartInput label="THEIR PLOT" value={nb.plotNumber} showCaps onChange={e => handlePersonChange('neighbors', idx, 'plotNumber', e.target.value.toUpperCase())} id={`neighbors_${idx}_plot`} />
+                                <button type="button" className={styles.ghostBtnDanger} onClick={() => removePerson('neighbors', idx)} title="Remove this neighbor"><FiTrash2 aria-hidden="true" /> REMOVE</button>
+                            </div>))}</div>
+                            <div className={styles.peopleActions}><button type="button" className={styles.ghostBtn} onClick={() => addPerson('neighbors')}><FiPlus aria-hidden="true" /> ADD NEIGHBOR</button></div>
+                        </>) : neighbors.length === 0 ? (<div className={styles.emptyState}><FiMap className={styles.emptyIcon} aria-hidden="true" /><span>NO NEIGHBORS RECORDED</span></div>) : (
+                            <div className={styles.ownersGrid2}>{neighbors.map((nb, i) => (<div key={nb.id || i} className={styles.ownerStaticCard}>
+                                <h2 className={styles.ownerName}>{nb.fullName}</h2>
+                                <div className={styles.infoColumns}>
+                                    <div className={styles.infoRow} title="Phone"><FiPhoneCall aria-hidden="true" /><span className={styles.phoneHighlight}>{nb.phone || '---'}</span></div>
+                                    <div className={styles.infoRow} title="Which side of the plot"><FiMapPin aria-hidden="true" /><span>{nb.side || '---'}</span></div>
+                                    <div className={styles.infoRow} title="Their plot"><FiMap aria-hidden="true" /><span>{nb.plotNumber || '---'}</span></div>
+                                </div>
+                            </div>))}</div>)}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Related Projects" style={activeTab !== 'OWNERS' ? { display: 'none' } : {}}>
+                <section className={styles.hwPanel} aria-label="Related Projects" style={activeTab !== 'PEOPLE' ? { display: 'none' } : {}}>
                     <DrawerHeader label="RELATED PROJECTS" isOpen={drawers.related} onClick={() => toggleDrawer('related')} icon={FiFolderPlus} count={portfolio.length || undefined} />
                     <div className={`${styles.panelBody} ${drawers.related ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
@@ -1191,7 +1265,7 @@ const FolderPage = () => {
                                     <DocGroup key={cat} label={cat === UNCATEGORISED ? 'UNCATEGORISED' : catLabel(cat)} count={docs.length}>
                                         {docs.map((doc) => (
                                             <DocRow key={doc.id} className={styles.docPrintRow} name={doc.fileName}
-                                                meta={(doc.uploadedBy || '---') + (doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : '')} metaTitle="Uploaded by / on"
+                                                meta={(doc.statusId && statusNameOf(doc.statusId) ? '[' + statusNameOf(doc.statusId) + '] ' : '') + (doc.uploadedBy || '---') + (doc.uploadedAt ? ' - ' + fmtDate(doc.uploadedAt) : '')} metaTitle="Status / uploaded by / on"
                                                 onView={() => handleOpenDoc(doc.filePath, doc.fileName)}
                                                 onDelete={(canEdit && !isReleased && doc.category !== 'PAYMENT_RECEIPT') ? () => handleDeleteDoc(doc.id, doc.fileName) : undefined}
                                                 locked={doc.category === 'PAYMENT_RECEIPT'} lockTitle="A payment receipt is proof of money received and can never be deleted. Reverse the payment instead." />
@@ -1261,8 +1335,9 @@ const FolderPage = () => {
                         </div>
                     </div>
                 </div>, document.body)}
-            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title="UPLOAD DOCUMENTS">
+            <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title={uploadDraft && uploadDraft.statusName ? 'UPLOAD DOCUMENTS - ' + uploadDraft.statusName.toUpperCase() : 'UPLOAD DOCUMENTS'}>
                 {uploadDraft && (<>
+                    {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the status &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
                     <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>CATEGORY FOR ALL {uploadDraft.files.length} FILE(S)</label>
                         <HardwareModalSelect value={uploadDraft.batch} options={catOptions} onChange={setBatchCategory} placeholder="Choose category" emptyText="No categories available" ariaLabel="Category for all files" /></div>
                     <div className={styles.upFileList}>{uploadDraft.files.map((f, i) => (<div key={i} className={styles.upFileRow}>
@@ -1295,8 +1370,8 @@ const FolderPage = () => {
                     <button type="button" className={`${styles.payTypeBtn} ${styles.payTypeBtnStorage} ${payType === 'STORAGE' ? styles.payTypeBtnStorageActive : ''}`} onClick={() => { setPayType('STORAGE'); setPayErr(''); }} disabled={feesUnpaid <= 0} title={feesUnpaid <= 0 ? 'No storage fees are unpaid.' : 'Money for storage fees. Unpaid: UGX ' + fmt(feesUnpaid)}><FiArchive size={12} /> STORAGE FEE</button>
                 </div></div>)}
                 <div className={modalStyles.modalInfoBox}>{payType === 'STORAGE' ? 'Storage fees unpaid: UGX ' + fmt(feesUnpaid) : 'Owed on the title work: UGX ' + fmt(workOwed)}</div>
-                {owners.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHICH OWNER PAID? (REQUIRED)</label>
-                    <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the owner" ariaLabel="Owner who paid" /></div>)}
+                {payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHICH CLIENT PAID? (REQUIRED)</label>
+                    <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount ? Number(payAmount).toLocaleString() : ''} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
@@ -1316,8 +1391,8 @@ const FolderPage = () => {
                 {reasonModal.kind === 'REDUCE' && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.amountLabel}</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} value={reasonModal.amount === '' ? '' : Number(reasonModal.amount).toLocaleString()} autoFocus aria-label="New total storage fees"
                         onChange={e => { setReasonModal(m => ({ ...m, amount: e.target.value.replace(/[^0-9]/g, '') })); if (reasonErr) setReasonErr(''); }} /></div>)}
-                {reasonCfg.agree && owners.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AGREED WITH (OPTIONAL - FEES ARE FOR THE WHOLE PROJECT)</label>
-                    <HardwareModalSelect value={reasonModal.agreedWith} options={[{ value: '', label: 'All owners / not one person' }, ...ownerOptions]} onChange={v => setReasonModal(m => ({ ...m, agreedWith: v }))} placeholder="Choose the owner" ariaLabel="Owner who agreed" /></div>)}
+                {reasonCfg.agree && payers.length > 1 && (<div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AGREED WITH (OPTIONAL - FEES ARE FOR THE WHOLE PROJECT)</label>
+                    <HardwareModalSelect value={reasonModal.agreedWith} options={[{ value: '', label: 'All clients / not one person' }, ...ownerOptions]} onChange={v => setReasonModal(m => ({ ...m, agreedWith: v }))} placeholder="Choose the client" ariaLabel="Client who agreed" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>{reasonModal.kind === 'RELEASE' ? 'WHO COLLECTED IT? (REQUIRED - SAVED IN THE AUDIT LOG)' : 'REASON (REQUIRED - SAVED IN THE AUDIT LOG)'}</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={reasonModal.reason} maxLength={300} autoFocus={reasonModal.kind !== 'REDUCE'} placeholder={reasonCfg.ph || 'Write the reason...'} aria-label="Reason"
                         onChange={e => { setReasonModal(m => ({ ...m, reason: e.target.value })); if (reasonErr) setReasonErr(''); }} />

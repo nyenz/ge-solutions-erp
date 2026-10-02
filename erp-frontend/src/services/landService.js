@@ -39,11 +39,13 @@ const landService = {
         await api.post(`/land/projects/${projectId}/restore`);
     },
 
-    addExtraDocuments: async (projectId, scans, categories = []) => {
+    // fix180: statusId = the project status the files are attached to (leave empty for general documents)
+    addExtraDocuments: async (projectId, scans, categories = [], statusId = null) => {
         const formData = new FormData();
         scans.forEach(file => formData.append('scans', file));
         // fix136: one category code per file, same order as scans
         if (categories.length === scans.length) categories.forEach(c => formData.append('categories', c || ''));
+        if (statusId) formData.append('statusId', statusId);
         await api.post(`/land/projects/${projectId}/documents`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -81,8 +83,8 @@ const landService = {
         return response.data;
     },
 
-    getStagesBulk: async (projectIds) => {
-        const response = await api.post('/land/ledger/stages-bulk', projectIds);
+    getStatusesBulk: async (projectIds) => {
+        const response = await api.post('/land/ledger/statuses-bulk', projectIds);
         return response.data;
     },
 
@@ -105,7 +107,7 @@ const landService = {
         return response.data;
     },
 
-    // fix167: moveToReceivable / exitReceivable / getPaymentHistory / setRealityStage removed (unused; the old
+    // fix167: moveToReceivable / exitReceivable / getPaymentHistory / setRealityStatus removed (unused; the old
     // receivable endpoints are gone -- receivable moves go through folderPortalService).
 
     // fix167: a hand-over needs a note (who collected the title): 5+ characters
@@ -122,7 +124,7 @@ const landService = {
         await api.patch(`/land/projects/${projectId}/undo-release`, null, { params: { reason } });
     },
 
-    // fix163: revert a saved title back to stages
+    // fix163: take a saved title off the project (fix180: Topographic Survey and older projects only)
     revertTitle: async (projectId, reason) => {
         await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
     },

@@ -97,13 +97,13 @@
 .inlineAddRow { display: flex; gap: var(--gap-md); align-items: center; flex-wrap: wrap; background: rgba(0,0,0,0.15); border: 1px solid var(--orange-border); border-radius: var(--radius-sm); padding: var(--gap-md); }
 .inlineAddRow .input { width: auto; flex: 1 1 160px; }
 .insertCtx { font-size: var(--fs-meta); color: var(--orange); font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
-.stageList { display: flex; flex-direction: column; gap: var(--gap-md); }
-.stageItem { display: flex; align-items: center; gap: var(--gap-md); padding: clamp(6px,0.9vw,9px); background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); cursor: pointer; transition: background 0.18s; }
-.stageItem:hover { background: rgba(255,255,255,0.04); }
-.stageItem.checked { background: rgba(238,140,58,0.07); }
+.statusList { display: flex; flex-direction: column; gap: var(--gap-md); }
+.statusItem { display: flex; align-items: center; gap: var(--gap-md); padding: clamp(6px,0.9vw,9px); background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); cursor: pointer; transition: background 0.18s; }
+.statusItem:hover { background: rgba(255,255,255,0.04); }
+.statusItem.checked { background: rgba(238,140,58,0.07); }
 .checkbox { width: 15px; height: 15px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
-.stageName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.5px; }
-.stageActions { margin-left: auto; display: flex; gap: var(--gap-md); align-items: center; }
+.statusName { font-weight: 700; color: #fff; font-size: var(--fs-value); letter-spacing: 0.5px; }
+.statusActions { margin-left: auto; display: flex; gap: var(--gap-md); align-items: center; }
 .presetList { display: flex; gap: var(--gap-md); flex-wrap: wrap; }
 .presetChip { display: flex; align-items: center; gap: 5px; background: var(--orange-dim); color: var(--orange); border: 1px solid var(--orange-border); border-radius: 999px; padding: 3px 9px; font-size: var(--fs-meta); font-weight: 700; }
 .presetChipRemove { background: none; border: none; color: inherit; cursor: pointer; display: flex; align-items: center; padding: 0; }
@@ -200,3 +200,10 @@
     margin-left: 12px;
 }
 .xBtn:hover{transform:rotate(90deg);}
+
+/* fix180: Clients / Owners / Neighbors panels, project type extras */
+.linkNote { display: flex; align-items: center; gap: var(--gap-md); flex-wrap: wrap; font-size: var(--fs-meta); font-weight: 700; color: rgba(255,255,255,0.45); letter-spacing: 0.5px; margin: 0 0 var(--gap-md) 0; }
+.transferBanner { display: flex; align-items: center; gap: var(--gap-md); padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,14px); border: 1px solid var(--orange-border); background: rgba(238,140,58,0.08); border-radius: var(--radius-sm); color: #fff; font-size: var(--fs-value); font-weight: 700; letter-spacing: 0.5px; }
+.toggleRow { display: flex; align-items: center; gap: var(--gap-md); cursor: pointer; color: #fff; font-weight: 700; font-size: var(--fs-value); letter-spacing: 0.5px; }
+.neighborRow { grid-template-columns: 2fr 1.5fr 1fr 1fr auto; }
+@media (max-width: 900px) { .neighborRow { grid-template-columns: 1fr; } }

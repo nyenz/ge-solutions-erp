@@ -12,18 +12,22 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import { projectTypeOf } from '../../constants/projectTypes';
 
-const matchesSearch = (proj, term, stages) => {
+// fix180: the clients (who pay, whom Recovery calls) are the people shown on the ledger; old rows fall back to the owners
+const clientsOf = (proj) => ((proj.clients && proj.clients.length) ? proj.clients : (proj.proprietors || []));
+
+const matchesSearch = (proj, term, statuses) => {
     if (!term) return true;
     const t = term.toLowerCase().replace(/\s+/g, '');
     const fields = [
-        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.titleId,
-        proj.landTitle?.blockRoad, proj.landTitle?.tenure,
+        proj.projectIndex, proj.landTitle?.plotNumber, proj.landTitle?.block,
+        proj.landTitle?.volume, proj.landTitle?.folio, proj.landTitle?.tenure, projectTypeOf(proj).label,
         proj.district, proj.county, proj.subCounty, proj.parish, proj.village, proj.area,
-        ...(proj.proprietors || []).flatMap(p => [
+        ...[...clientsOf(proj), ...(proj.proprietors || [])].flatMap(p => [
             p.fullName, p.phoneNumber?.replace(/\s+/g, ''), p.nationalId, p.email, p.homeAddress,
         ]),
-        ...(stages || []).map(s => s.stageName),
+        ...(statuses || []).map(s => s.statusName),
     ];
     return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
 };
@@ -218,27 +222,26 @@ const LedgerPage = () => {
     // fix169: a new search / filter / sort always starts from the first page of results
     useEffect(() => { setPage(0); }, [searchTerm, activeFilter, sortConfig]);
 
-    // STAGES COLUMN (fix47): one bulk call per page hydrates each
-    // row's stage list -- exactly the stages (template + custom)
-    // saved from the Intake page. On failure shows "---".
-    const [stageMap, setStageMap] = useState({});
+    // STATUSES COLUMN (fix47): one bulk call hydrates each row's status list -- exactly the statuses
+    // (template + custom) saved from the Intake page. On failure shows "---".
+    const [statusMap, setStatusMap] = useState({});
     useEffect(() => {
         const ids = projects.map(p => p.id).filter(Boolean);
-        if (!ids.length) { setStageMap({}); return; }
+        if (!ids.length) { setStatusMap({}); return; }
         const chunks = [];
         for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
-        Promise.all(chunks.map(c => landService.getStagesBulk(c)))
+        Promise.all(chunks.map(c => landService.getStatusesBulk(c)))
             .then(lists => {
                 const list = lists.flat();
                 const m = {};
                 (list || []).forEach(s => { (m[s.projectId] = m[s.projectId] || []).push(s); });
-                setStageMap(m);
+                setStatusMap(m);
             })
-            .catch(() => setStageMap({}));
+            .catch(() => setStatusMap({}));
     }, [projects]);
 
     const processedData = useMemo(() => {
-        let filtered = projects.filter(p => matchesSearch(p, searchTerm, stageMap[p.id]));
+        let filtered = projects.filter(p => matchesSearch(p, searchTerm, statusMap[p.id]));
         if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
@@ -249,7 +252,7 @@ const LedgerPage = () => {
         filtered.sort((a, b) => {
             let aVal, bVal;
             if      (sortConfig.key === 'plotNumber') { aVal = a.landTitle?.plotNumber || a.projectIndex || ''; bVal = b.landTitle?.plotNumber || b.projectIndex || ''; }
-            else if (sortConfig.key === 'owner')      { aVal = a.proprietors?.[0]?.fullName || ''; bVal = b.proprietors?.[0]?.fullName || ''; }
+            else if (sortConfig.key === 'owner')      { aVal = clientsOf(a)[0]?.fullName || ''; bVal = clientsOf(b)[0]?.fullName || ''; }
             else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
             else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
             if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -257,7 +260,7 @@ const LedgerPage = () => {
             return 0;
         });
         return filtered;
-    }, [projects, searchTerm, activeFilter, sortConfig, stageMap]);
+    }, [projects, searchTerm, activeFilter, sortConfig, statusMap]);
 
     // fix169: pages are cut from the FILTERED list, so every filter spans the whole ledger
     const pageData = useMemo(() => processedData.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [processedData, page]);
@@ -344,13 +347,13 @@ const LedgerPage = () => {
                                 </th>
                                 <th onClick={() => handleSort('owner')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                    <FiUser aria-hidden="true" /> OWNER(S) {renderSortIcon('owner')}
+                                    <FiUser aria-hidden="true" /> CLIENT(S) {renderSortIcon('owner')}
                                 </th>
                                 <th>PHONE</th>
                                 <th>PARISH</th>
                                 <th>VILLAGE</th>
                                 <th>STATUS</th>
-                                <th><FiLayers aria-hidden="true" /> STAGES</th>
+                                <th><FiLayers aria-hidden="true" /> STATUSES</th>
                                 <th onClick={() => handleSort('paid')} className={styles.sortable}
                                     aria-sort={sortConfig.key === 'paid' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiCreditCard aria-hidden="true" /> PROGRESS {renderSortIcon('paid')}
@@ -377,12 +380,13 @@ const LedgerPage = () => {
                                 const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
                                 const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = isCriticalProject(proj);
-                                const names  = (proj.proprietors || []).map(p => p.fullName).filter(Boolean);
-                                const nins   = (proj.proprietors || []).map(p => p.nationalId).filter(Boolean);
-                                const phones = (proj.proprietors || []).flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
-                                const stages = (stageMap[proj.id] || []).map(s => ({ ...s, done: !!(s.isCompleted ?? s.completed) })).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-                                const curStageIdx = stages.findIndex(s => !s.done);
-                                const curStage = curStageIdx >= 0 ? stages[curStageIdx] : null;
+                                const people = clientsOf(proj);
+                                const names  = people.map(p => p.fullName).filter(Boolean);
+                                const nins   = people.map(p => p.nationalId).filter(Boolean);
+                                const phones = people.flatMap(p => (p.phoneNumber || '').split('/').map(s => s.trim()).filter(Boolean));
+                                const statuses = (statusMap[proj.id] || []).map(s => ({ ...s, done: !!(s.isCompleted ?? s.completed) })).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+                                const curStatusIdx = statuses.findIndex(s => !s.done);
+                                const curStatus = curStatusIdx >= 0 ? statuses[curStatusIdx] : null;
                                 return (
                                     <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
                                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
@@ -395,6 +399,7 @@ const LedgerPage = () => {
                                                 <PaymentDot proj={proj} />
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
+                                                    <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>
@@ -421,15 +426,15 @@ const LedgerPage = () => {
                                                 {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
                                             </div>
                                         </td>
-                                        <td className={styles.stageCell}>
-                                            {stages.length === 0 ? <span className={styles.stackSub}>---</span> : (
+                                        <td className={styles.statusCell}>
+                                            {statuses.length === 0 ? <span className={styles.stackSub}>---</span> : (
                                                 <div className={styles.stack}>
-                                                    <span className={styles.stageName} title={stages.map(s => s.stageName + (s.done ? ' ✓' : '')).join(' · ')}>
-                                                        {curStage ? curStage.stageName : 'COMPLETE'}
+                                                    <span className={styles.statusName} title={statuses.map(s => s.statusName + (s.done ? ' ✓' : '')).join(' · ')}>
+                                                        {curStatus ? curStatus.statusName : 'COMPLETE'}
                                                     </span>
-                                                    <span className={styles.stageDots}>
-                                                        {stages.map((s, si) => (
-                                                            <span key={s.id || si} className={`${styles.stageDot} ${s.done ? (stages.every(x => x.done) ? styles.stageDotDone : styles.stageDotPart) : si === curStageIdx ? styles.stageDotCurrent : ''}`} />
+                                                    <span className={styles.statusDots}>
+                                                        {statuses.map((s, si) => (
+                                                            <span key={s.id || si} className={`${styles.statusDot} ${s.done ? (statuses.every(x => x.done) ? styles.statusDotDone : styles.statusDotPart) : si === curStatusIdx ? styles.statusDotCurrent : ''}`} />
                                                         ))}
                                                     </span>
                                                 </div>

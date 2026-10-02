@@ -67,7 +67,7 @@ public class RecoveryController {
             BigDecimal balance = plot.isReceivable() ? plot.receivableTotalOwed() : plot.activeTotalOwed();
             if (balance.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-            Set<Client> proprietors = plot.getProprietors();
+            Set<Client> proprietors = plot.billingParties();
             if (proprietors == null || proprietors.isEmpty()) continue;
 
             // STAGE 9 FIX: NIN_JOINT_OWNER_VISIBILITY
@@ -153,7 +153,7 @@ public class RecoveryController {
                 // this cannot cause a joint debt to be double-counted in
                 // company-wide reporting just because it appears on more than
                 // one person's card.
-                Set<Client> plotOwners = plot.getProprietors();
+                Set<Client> plotOwners = plot.billingParties();
                 String ownershipType = (plotOwners != null && plotOwners.size() > 1) ? "JOINT" : "SOLO";
                 List<RecoveryTaskDTO.CoOwnerRef> coOwners = new ArrayList<>();
                 if (plotOwners != null) {

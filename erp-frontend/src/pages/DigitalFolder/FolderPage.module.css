@@ -1985,7 +1985,7 @@
 .btnDanger:hover{background:rgba(239,68,68,0.16);border-color:var(--red);color:var(--red);}
 
 .btn, .ctrlBtnPay, .purgeBtn, .printBtn {font-family:'Inter',sans-serif;}
-/* Stage rows = Intake .stageItem */
+/* Stage rows = Intake .statusItem */
 
 /* Money boxes = Intake .financialsSummary */
 .statBox{background:rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius-sm);padding:var(--gap-lg);}
@@ -2111,14 +2111,14 @@
 .insertCtx { font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.95vw, 11px); color: #EE8C3A; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
 
 /* fix116: Intake-mirrored stage checklist rows */
-.stageList { display: flex; flex-direction: column; gap: 6px; }
-.stageItem { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px; cursor: pointer; transition: border-color 0.2s; }
-.stageItem:hover { border-color: rgba(238,140,58,0.35); }
-.stageItemChecked { background: rgba(238,140,58,0.06); border-color: rgba(238,140,58,0.3); }
-.stageItemChecked .stageItemName { text-decoration: line-through; color: var(--fs-muted); }
-.stageCheckbox { width: 15px; height: 15px; accent-color: #EE8C3A; cursor: pointer; flex-shrink: 0; }
-.stageItemName { font-weight: 700; color: #fff; font-size: clamp(11px, 1.1vw, 13px); letter-spacing: 0.5px; flex: 1; min-width: 0; }
-.stageActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.statusList { display: flex; flex-direction: column; gap: 6px; }
+.statusItem { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px; cursor: pointer; transition: border-color 0.2s; }
+.statusItem:hover { border-color: rgba(238,140,58,0.35); }
+.statusItemChecked { background: rgba(238,140,58,0.06); border-color: rgba(238,140,58,0.3); }
+.statusItemChecked .statusItemName { text-decoration: line-through; color: var(--fs-muted); }
+.statusCheckbox { width: 15px; height: 15px; accent-color: #EE8C3A; cursor: pointer; flex-shrink: 0; }
+.statusItemName { font-weight: 700; color: #fff; font-size: clamp(11px, 1.1vw, 13px); letter-spacing: 0.5px; flex: 1; min-width: 0; }
+.statusActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .insertRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed rgba(238,140,58,0.45); border-radius: 7px; background: rgba(238,140,58,0.05); flex-wrap: wrap; }
 .insertInput { flex: 1; min-width: 140px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #fff; padding: 7px 9px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
 .insertInput:focus { outline: none; border-color: #EE8C3A; }
@@ -2130,7 +2130,7 @@
 .plusBtn:hover { background: var(--fs-orange, #EE8C3A); color: #1a2e30; border-color: var(--fs-orange, #EE8C3A); }
 .iconBtnDanger { background: transparent; border: none; color: var(--fs-red, #ef4444); width: clamp(24px,2.8vw,30px); height: clamp(24px,2.8vw,30px); border-radius: var(--radius-sm,6px); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s; font-size: 13px; flex-shrink: 0; }
 .iconBtnDanger:hover { background: rgba(239,68,68,0.14); }
-.stageListTop { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+.statusListTop { display: flex; justify-content: flex-end; margin-bottom: 2px; }
 .scrollTopBtn { position: fixed; right: clamp(14px,2vw,24px); bottom: clamp(14px,2vw,24px); z-index: 400; width: clamp(38px,4.5vw,46px); height: clamp(38px,4.5vw,46px); border-radius: 50%; background: #EE8C3A; color: #1a2e30; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 3px 14px rgba(238,140,58,0.45); transition: background .2s, transform .2s; }
 .scrollTopBtn:hover { background: #f0a050; transform: translateY(-2px); }
 .scrollTopBtn:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
@@ -2195,14 +2195,14 @@
 .problemBtnActive, .problemBtnActive:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 
 /* stage ticks: orange in view mode too (no greyed disabled box), read-only rows do not look clickable */
-.stageItemRO { cursor: default; }
-.stageItemRO:hover { border-color: rgba(255, 255, 255, 0.08); }
-.stageItemRO.stageItemChecked:hover { border-color: rgba(238, 140, 58, 0.3); }
-.stageItemRO .stageCheckbox { pointer-events: none; cursor: default; }
-.stageMeta { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; color: rgba(255, 255, 255, 0.45); white-space: nowrap; }
-.stageProgress { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.85vw, 10px); letter-spacing: 1.5px; color: #EE8C3A; margin-right: auto; }
-.stageListTop { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
-.stageCustomTag { margin-left: 8px; font-size: clamp(7px, 0.75vw, 9px); font-weight: 900; letter-spacing: 1px; color: #06b6d4; }
+.statusItemRO { cursor: default; }
+.statusItemRO:hover { border-color: rgba(255, 255, 255, 0.08); }
+.statusItemRO.statusItemChecked:hover { border-color: rgba(238, 140, 58, 0.3); }
+.statusItemRO .statusCheckbox { pointer-events: none; cursor: default; }
+.statusMeta { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; color: rgba(255, 255, 255, 0.45); white-space: nowrap; }
+.statusProgress { font-family: 'DM Sans', sans-serif; font-weight: 900; font-size: clamp(8px, 0.85vw, 10px); letter-spacing: 1.5px; color: #EE8C3A; margin-right: auto; }
+.statusListTop { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+.statusCustomTag { margin-left: 8px; font-size: clamp(7px, 0.75vw, 9px); font-weight: 900; letter-spacing: 1px; color: #06b6d4; }
 
 /* info strips (problem / hand-over / deleted / final-stage warning) */
 .infoStrip { display: flex; align-items: flex-start; gap: 10px; padding: clamp(9px, 1.2vw, 12px) clamp(12px, 1.6vw, 16px); border-radius: 8px; border-left: 4px solid; font-family: 'Inter', sans-serif; font-size: clamp(11px, 1.05vw, 13px); font-weight: 700; line-height: 1.5; margin-bottom: clamp(8px, 1vw, 12px); }
@@ -2277,3 +2277,15 @@
 .pvImg { object-fit: contain; background: #0f1f21; }
 @keyframes pvFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pvSlide { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* fix180: documents attached to a status, subdivisions, clients/owners/neighbors */
+.statusDocs { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 6px 30px; }
+.statusDocLink { display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.18); border: 1px solid rgba(238,140,58,0.28); color: rgba(255,255,255,0.85); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusDocLink:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.subdivGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.subdivCard { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px; }
+.subdivNo { font-family: 'Space Mono', monospace; font-weight: 800; color: #fff; font-size: 12px; letter-spacing: 1px; }
+.subdivLink { background: none; border: none; padding: 0; color: #22d3ee; font-weight: 800; font-size: 11px; letter-spacing: 0.5px; text-align: left; cursor: pointer; }
+.subdivLink:hover { text-decoration: underline; }
+.peopleActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.typeBadgeLink { background: none; border: none; padding: 0; cursor: pointer; }
