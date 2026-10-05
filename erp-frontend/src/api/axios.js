@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // fix181 (15.2j): a developer's own computer never talks to the LIVE server by accident. In development the fallback is
 // the local backend; a production build without VITE_API_BASE_URL is refused in vite.config.js.
-export const PROD_API = 'https://ge-solutions-api.onrender.com/api/v1';
+export const PROD_API = 'https://ge-solutions.onrender.com/api/v1';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080/api/v1' : PROD_API);
 /** true when this page is NOT using the live server (the header then shows a LOCAL strip) */
 export const IS_LOCAL_API = BASE_URL.replace(/\/+$/, '') !== PROD_API;

@@ -756,7 +756,7 @@ const FolderPage = () => {
         } catch (err) { setPayErr(errText(err)); }
         finally { setPaying(false); }
     };
-    const getDocUrl = (filePath) => { if (!filePath) return '#'; if (filePath.startsWith('http')) return filePath; const parts = filePath.split(/ge_uploads[/]/); const rel = parts.length > 1 ? parts[1] : filePath; const base = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1'; return base + '/vault/' + rel.replace(/\\/g, '/'); };
+    const getDocUrl = (filePath) => { if (!filePath) return '#'; if (filePath.startsWith('http')) return filePath; const parts = filePath.split(/ge_uploads[/]/); const rel = parts.length > 1 ? parts[1] : filePath; const base = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions.onrender.com/api/v1'; return base + '/vault/' + rel.replace(/\\/g, '/'); };
     // fix175: View opens the file in a tab as a typed blob so PDFs/images show in the browser instead of downloading
     // fix177: View opens the Intake-style preview window (sized to the document, always on screen) instead of a new tab
     const [docPreview, setDocPreview] = useState(null);

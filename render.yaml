@@ -1,20 +1,23 @@
 # PATH: render.yaml
 services:
   - type: web
-    name: ge-solutions-api
+    # The server runs as 'ge-solutions' in Singapore, next to the Neon database (the old Oregon 'ge-solutions-api'
+    # service was retired). Keep this name the same as the Render service.
+    name: ge-solutions
     env: docker
     repo: https://github.com/nyenz/ge-solutions-erp
     dockerContext: .
     dockerfilePath: erp-backend/Dockerfile
     plan: free
-    region: oregon
+    region: singapore
     # VITAL FIX: Must match the exact path in AuthController.
     # AuthController is mapped to /api/v1/auth, so the health
     # endpoint full path is /api/v1/auth/health — not /api/v1/health.
     healthCheckPath: /api/v1/auth/health
     envVars:
+      # the database address is also set only in the Render dashboard (Neon > Connect > the JDBC form)
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
+        sync: false
       # fix181: secrets live ONLY in the Render dashboard (Environment tab). sync: false = Render asks for the value
       # there and never reads it from this file. The old password that was written here is in git history: rotate it.
       - key: SPRING_DATASOURCE_USERNAME
@@ -41,4 +44,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://ge-solutions-api.onrender.com/api/v1
+        value: https://ge-solutions.onrender.com/api/v1
