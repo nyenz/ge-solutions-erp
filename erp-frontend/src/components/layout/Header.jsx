@@ -46,6 +46,8 @@ import recoveryService from '../../services/recoveryService';
 import { describe, GROUP_COLOR, GROUPS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
 import { IS_LOCAL_API } from '../../api/axios';
+import { anyDirty, allowLeave } from '../../utils/dirtyRegistry';
+import HardwareModal from '../common/HardwareModal';
 
 const STEP = 40;
 const GROUP_KEYS = Object.values(GROUPS);
@@ -68,6 +70,9 @@ const ageText = (n) => {
 
 const Header = ({ onToggle }) => {
     const { user, logout } = useAuth();
+    // fix181 (21.9): sign out asks first when a form on this page has unsaved changes
+    const [confirmOut, setConfirmOut] = useState(false);
+    const signOut = () => { if (anyDirty()) setConfirmOut(true); else logout(); };
     const { prefs } = usePreferences();
     const navigate = useNavigate();
 
@@ -410,10 +415,17 @@ const Header = ({ onToggle }) => {
                     </div>
                 </div>
 
-                <button type="button" className={styles.logoutTrigger} onClick={logout} aria-label="Sign out of session">
+                <button type="button" className={styles.logoutTrigger} onClick={signOut} aria-label="Sign out">
                     <FiLogOut aria-hidden="true" />
                 </button>
             </div>
+            <HardwareModal isOpen={confirmOut} onClose={() => setConfirmOut(false)} title="SIGN OUT?">
+                <p className={styles.signOutText}>This page has changes that are not saved. Sign out anyway? The changes will be lost.</p>
+                <div className={styles.signOutRow}>
+                    <button type="button" className={styles.signOutYes} onClick={() => { allowLeave(); logout(); }}>SIGN OUT</button>
+                    <button type="button" className={styles.signOutNo} onClick={() => setConfirmOut(false)}>STAY</button>
+                </div>
+            </HardwareModal>
         </header>
     );
 };

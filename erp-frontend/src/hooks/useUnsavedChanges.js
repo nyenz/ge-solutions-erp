@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/hooks/useUnsavedChanges.js
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useId } from 'react';
 import { useBlocker } from 'react-router-dom';
+import { setDirty, isLeaving } from '../utils/dirtyRegistry';
 
 /**
  * GOLDEN SEED — UNSAVED CHANGES GUARD HOOK (STRICT)
@@ -13,6 +14,8 @@ import { useBlocker } from 'react-router-dom';
  *     useUnsavedChanges(isDirty, context);
  */
 const useUnsavedChanges = (isDirty, context = 'this form') => {
+    const key = useId();
+    useEffect(() => { setDirty(key, !!isDirty); return () => setDirty(key, false); }, [key, isDirty]);
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
             isDirty && currentLocation.pathname !== nextLocation.pathname
@@ -22,6 +25,7 @@ const useUnsavedChanges = (isDirty, context = 'this form') => {
     useEffect(() => {
         if (!isDirty) return;
         const handler = (e) => {
+            if (isLeaving()) return;   // the person already confirmed (sign out with unsaved changes)
             e.preventDefault();
             e.returnValue = '';
             return '';
