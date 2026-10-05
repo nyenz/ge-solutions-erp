@@ -243,8 +243,10 @@ public class LandController {
                                                @RequestParam(value = "payerId", required = false) UUID payerId,
                                                @RequestParam(value = "allocation", required = false) String allocation,
                                                @RequestParam(value = "receipt", required = false) MultipartFile receipt,
-                                               @RequestParam(value = "clientRequestId", required = false) String clientRequestId) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId);
+                                               @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
+                                               @RequestParam(value = "paidOn", required = false)
+                                               @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate paidOn) throws Exception {
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn);
         return ResponseEntity.ok().build();
     }
 

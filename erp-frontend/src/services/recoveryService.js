@@ -15,8 +15,10 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   // fix165: a payment is sent TOGETHER with its receipt file; the server refuses it without one.
   // fix167: also WHO paid (payerId) and what for (allocation TITLE or STORAGE)
   // fix181: clientRequestId = one id per payment window; a retried send with the same id is refused by the server
-  recordPayment: (projectId, amount, notes, receipt, payerId, allocation, clientRequestId) => {
+  // fix181 (16.9): paidOn (YYYY-MM-DD) only when the money came on an earlier day
+  recordPayment: (projectId, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn) => {
     const fd = new FormData();
+    if (paidOn) fd.append('paidOn', paidOn);
     if (clientRequestId) fd.append('clientRequestId', clientRequestId);
     fd.append('amount', String(amount));
     if (notes) fd.append('notes', notes);

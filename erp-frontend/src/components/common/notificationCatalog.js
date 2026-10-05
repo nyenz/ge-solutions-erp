@@ -131,6 +131,7 @@ export const CATALOG = {
     /* ── system ─────────────────────────────────────────────────── */
     SYSTEM_WIPE:           { label: 'System wiped',          group: GROUPS.SYSTEM,   icon: FiAlertTriangle, severity: 'CRITICAL' },
     LOGIN_BLOCKED:         { label: 'Sign-in paused',        group: GROUPS.SYSTEM,   icon: FiLock,        severity: 'WARN' },
+    JOB_FAILED:            { label: 'Night job problem',     group: GROUPS.SYSTEM,   icon: FiAlertTriangle, severity: 'CRITICAL' },
 };
 
 const FALLBACK = { label: 'System signal', group: GROUPS.SYSTEM, icon: FiBell, severity: 'INFO' };

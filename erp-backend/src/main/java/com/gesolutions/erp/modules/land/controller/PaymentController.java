@@ -22,6 +22,17 @@ public class PaymentController {
 
     private final PaymentRecordRepository paymentRecordRepository;
     private final LandProjectRepository projectRepository;
+    private final com.gesolutions.erp.modules.land.service.BooksCheckService booksCheckService;
+
+    /** fix181 (16.12c): projects whose payment lines do not add up to their amount paid (report only). */
+    @GetMapping("/books-check")
+    public ResponseEntity<Map<String, Object>> booksCheck() {
+        List<Map<String, Object>> diff = booksCheckService.differences();
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ok", diff.isEmpty());
+        m.put("differences", diff);
+        return ResponseEntity.ok(m);
+    }
 
     @GetMapping("/all")
     public ResponseEntity<List<Map<String, Object>>> getAllPayments(

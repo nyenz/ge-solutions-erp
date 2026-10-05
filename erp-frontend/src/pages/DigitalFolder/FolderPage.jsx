@@ -65,6 +65,8 @@ const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: '2-
 // fix167: the server sends isCompleted (fix167) -- older answers said "completed"
 const statusDone = (s) => !!(s && (s.isCompleted ?? s.completed));
 const todayISO = () => new Date().toISOString().slice(0, 10);
+// fix181 (16.9): today's date on THIS device's calendar (toISOString is UTC and is a day off around midnight in Kampala)
+const localISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const useToast = () => {
@@ -362,6 +364,7 @@ const FolderPage = () => {
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
     // fix181 (16.12b): one id per payment; a retry after a slow network sends the same id and the server refuses a second save
     const payRequestId = useRef(null);
+    const [payDate, setPayDate] = useState(() => localISO());   // fix181 (16.9): the day the money was received
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
     const [payReceipt, setPayReceipt] = useState(null);
@@ -716,6 +719,7 @@ const FolderPage = () => {
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
         setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);
+        setPayDate(localISO()); payRequestId.current = null;   // fix181: a new window = a new one-time id
         setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
         setPayerId(payers.length === 1 ? payers[0].id : '');
         setPayModal({ open: true });
@@ -733,12 +737,15 @@ const FolderPage = () => {
         if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { setPayErr('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
         if (!payReceipt.size) { setPayErr('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
         if (payReceipt.size > 10 * 1024 * 1024) { setPayErr('THE RECEIPT IS OVER 10 MB. USE A SMALLER SCAN.'); return; }
+        const minDay = localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000));
+        if (!payDate || payDate > localISO()) { setPayErr('THE DATE PAID CANNOT BE IN THE FUTURE.'); return; }
+        if (payDate < minDay) { setPayErr('THE DATE PAID CAN BE AT MOST 60 DAYS AGO. FOR OLDER MONEY ASK A DIRECTOR.'); return; }
         setPaying(true); setPayErr('');
         if (!payRequestId.current) payRequestId.current = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
         try {
             const stamp = todayISO();
             const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
-            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current);
+            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current, payDate === localISO() ? null : payDate);
             payRequestId.current = null;
             setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE'); setPayReceipt(null);
             await loadFolderData();
@@ -1377,6 +1384,10 @@ const FolderPage = () => {
                     <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount ? Number(payAmount).toLocaleString() : ''} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
+                    <input id="pay-date" type="date" className={modalStyles.modalInput} value={payDate} max={localISO()}
+                        min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={e => { setPayDate(e.target.value); if (payErr) setPayErr(''); }} />
+                    <small style={{ opacity: 0.7 }}>Leave as today if the money came today.</small></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Mobile money, ref 5521..." /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>

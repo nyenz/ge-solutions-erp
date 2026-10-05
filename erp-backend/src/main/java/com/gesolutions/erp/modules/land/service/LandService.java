@@ -151,6 +151,18 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
                                        String clientRequestId) {
+        return recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, null);
+    }
+
+    /** fix181 (16.9): how far back a "Date paid" may go (older money needs a Director note, not a silent backdate). */
+    public static final int MAX_BACKDATE_DAYS = 60;
+
+    // fix181 (16.9): paidOnDate = the day the money was received (optional; null = today). Not in the future, not more than
+    // 60 days back, not before the project was entered. It is saved as paid_on; timestamp stays the entry time.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
+                                       String clientRequestId, java.time.LocalDate paidOnDate) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
         }
@@ -161,6 +173,20 @@ public class LandService {
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         if (requestId != null && paymentRecordRepository.existsByClientRequestIdAndRecordedBy(requestId, getCurrentOperator())) {
             throw new BusinessException("DUPLICATE_PAYMENT: This payment was already recorded.");
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (paidOnDate != null) {
+            if (paidOnDate.isAfter(today)) {
+                throw new BusinessException("DATE_INVALID: The date paid cannot be in the future.");
+            }
+            if (paidOnDate.isBefore(today.minusDays(MAX_BACKDATE_DAYS))) {
+                throw new BusinessException("DATE_INVALID: The date paid can be at most " + MAX_BACKDATE_DAYS
+                        + " days ago. For older money, ask a Director to record it with a note.");
+            }
+            java.time.LocalDate entered = project.getCreatedAt() != null ? project.getCreatedAt().toLocalDate() : project.getEntryDate();
+            if (entered != null && paidOnDate.isBefore(entered)) {
+                throw new BusinessException("DATE_INVALID: The date paid cannot be before the project was entered (" + entered + ").");
+            }
         }
         // fix165: no money can be recorded against a deleted project, and no fractions of a shilling.
         if (project.isDeleted()) {
@@ -224,7 +250,10 @@ public class LandService {
             project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
         }
         LocalDateTime now = LocalDateTime.now();
-        project.setLastPaymentDate(now);
+        // a past day is kept as 12:00 of that day; today is the real time
+        LocalDateTime paidAt = paidOnDate == null || paidOnDate.equals(today) ? now : paidOnDate.atTime(12, 0);
+        // the last payment date only moves FORWARD (a backdated payment never makes it older)
+        if (project.getLastPaymentDate() == null || paidAt.isAfter(project.getLastPaymentDate())) project.setLastPaymentDate(paidAt);
 
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
@@ -237,7 +266,7 @@ public class LandService {
                 .recordedBy(operator)
                 .notes(notes)
                 .timestamp(now)
-                .paidOn(now)                      // fix181: a normal payment is paid when it is entered
+                .paidOn(paidAt)                   // fix181 (16.9): the day paid (today unless a date was given)
                 .clientRequestId(requestId)
                 .balanceAfter(balanceAfter)
                 .allocation(kind)
@@ -274,7 +303,7 @@ public class LandService {
         for (Client owner : noteFor) {
             recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
                 .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
-                .text("Paid UGX " + amount + " on " + java.time.LocalDate.now() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
+                .text("Paid UGX " + amount + " on " + paidAt.toLocalDate() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
         }
         auditService.logActionAfterCommit("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
@@ -282,6 +311,7 @@ public class LandService {
             + " | Type: " + paymentType
             + " | For: " + kind + (keptFeesPayment ? " (set-aside fees)" : "")
             + (payer != null ? " | Paid by: " + payer.getFullName() : "")
+            + (paidAt.toLocalDate().equals(today) ? "" : " | paid on " + paidAt.toLocalDate())
             + " | Amount owed after: UGX " + balanceAfter);
         return record;
     }
@@ -294,13 +324,14 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
                                          UUID payerId, String allocation) throws Exception {
-        recordPaymentWithReceipt(projectId, amount, notes, receipt, payerId, allocation, null);
+        recordPaymentWithReceipt(projectId, amount, notes, receipt, payerId, allocation, null, null);
     }
 
     @Transactional(rollbackFor = Exception.class)
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
-                                         UUID payerId, String allocation, String clientRequestId) throws Exception {
+                                         UUID payerId, String allocation, String clientRequestId,
+                                         java.time.LocalDate paidOnDate) throws Exception {
         if (receipt == null || receipt.isEmpty()) {
             throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
         }
@@ -308,7 +339,7 @@ public class LandService {
             throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
         }
         requireScanFiles(new MultipartFile[] { receipt });
-        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId);
+        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, paidOnDate);
         List<ProjectDocument> filed = addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
         if (!filed.isEmpty()) {
             record.setReceiptDocumentId(filed.get(0).getId());

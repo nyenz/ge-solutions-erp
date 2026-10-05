@@ -138,7 +138,7 @@ public class ScenarioSeeder {
         try {
             new TransactionTemplate(txManager).executeWithoutResult(st -> {
                 seed();
-                new JdbcTemplate(dataSource).update("INSERT INTO scenario_seed_flag (id) VALUES (?) ON CONFLICT (id) DO NOTHING", VERSION);
+                new JdbcTemplate(dataSource).update("INSERT INTO scenario_seed_flag (id) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM scenario_seed_flag WHERE id = ?)", VERSION, VERSION);
             });
             System.out.println(">>> [SCENARIO] Dataset v" + VERSION + " seeded ("
                     + ScenarioData.projects().size() + " projects, "

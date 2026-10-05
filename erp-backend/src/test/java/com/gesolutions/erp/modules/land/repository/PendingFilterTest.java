@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
     "ADMIN_DEFAULT_PASSWORD=TestPassword123",
     "MAIL_USERNAME=test@gmail.com",
     "MAIL_PASSWORD=testpassword",
-    "spring.datasource.hikari.connection-init-sql=SELECT 1"
+    "spring.datasource.hikari.connection-init-sql=SELECT 1",
+    "ge.solutions.seed-demo-data=false"   // counts below are exact, so no demo data
 })
 public class PendingFilterTest {
 

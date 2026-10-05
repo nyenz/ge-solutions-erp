@@ -78,6 +78,7 @@ public final class NotificationTypes {
         // SYSTEM
         add("SYSTEM_WIPE",           Group.SYSTEM, "CRITICAL", Repeat.EVERY_TIME, DIR, ADM);
         add("LOGIN_BLOCKED",         Group.SYSTEM, "WARN",     Repeat.EVERY_TIME, DIR, ADM);
+        add("JOB_FAILED",            Group.SYSTEM, "CRITICAL", Repeat.ONCE_PER_DAY, DIR, ADM);   // 17.16: a nightly job skipped projects
     }
 
     /** Old rows may still carry these; nothing writes them any more (UNLOCK_M became UNLOCK with two audience rows). */
