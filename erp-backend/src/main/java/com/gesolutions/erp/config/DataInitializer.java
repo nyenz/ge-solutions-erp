@@ -69,7 +69,12 @@ public class DataInitializer implements CommandLineRunner {
             try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM app_flags WHERE name = 'ADMIN_RESET_USED'")) {
                 if (rs.next() && rs.getInt(1) > 0) return;
             }
-            String pw = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+            // never fall back to a known key: without ADMIN_DEFAULT_PASSWORD the reset is refused (and stays armed)
+            if (adminDefaultPassword == null || adminDefaultPassword.isBlank()) {
+                System.err.println(">>> [RECOVERY] ADMIN_RESET_ONCE is set but ADMIN_DEFAULT_PASSWORD is empty. Nothing was changed.");
+                return;
+            }
+            String pw = adminDefaultPassword;
             try (java.sql.PreparedStatement ps = c.prepareStatement("UPDATE users SET password = ?, must_change_password = true, is_active = true, session_version = COALESCE(session_version, 0) + 1 WHERE is_root = true")) {
                 ps.setString(1, passwordEncoder.encode(pw));
                 ps.executeUpdate();

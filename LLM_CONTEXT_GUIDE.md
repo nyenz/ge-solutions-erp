@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -104,8 +104,52 @@
 - **Identity uniqueness:** NIN is the real uniqueness check per owner. Phone number is no longer used to prevent duplicates.
 - **Phone numbers (fix139):** staff can type a number any normal way (0772 123 456, +256772123456, 772123456). It is checked and saved as +256772123456. Several numbers are separated with "/" (max 3 per person). Wrong length, letters, or made-up numbers (6+ of the same digit in a row, or 7+ counting digits) are refused. A foreign number is allowed only when typed with its + country code. Checked in the browser (`utils/phone.js`) and again on the server (`PhoneUtil.java`) -- keep the two in step. Old numbers already saved are not changed.
 - **Access control:** Payments, receivable management, Reports, and Audit access follow the 4-tier role hierarchy (Programmer, Director, Manager, Secretary) -- not a simple Admin/Root split anymore.
+  *SUPERSEDED by "THE FIVE RANKS (fix181)" below.*
 - **Files:** all uploads are stored on Cloudinary today (details: Section 12; changes when hosting moves, Section 18).
 - **Project deletion:** soft-delete only -- deleting a plot hides it from Ledger/Recovery/Dashboard/Reports but keeps the row, payments, notes, and Cloudinary files intact. Root can restore it from the Settings > ARCHIVE tab.
+  *fix181: the Director can delete and restore too; the reason, who and when are stored (`deleted_reason`, `deleted_by`) and shown in the Archive; a restore that clashes with a live project on the same plot asks first (`RESTORE_CLASH`, `?force=true`); a Pending project stays Pending.*
+
+### THE FIVE RANKS (fix181)
+Same order in `Role.java` (server) and `utils/roles.js` (pages) -- keep the two in step. Pages never compare role strings; they read `roleFlags(user)`.
+- **5 ADMIN** -- the system designer, exactly ONE account (`is_root`). Everything, plus the Danger Zone (wipe).
+- **4 DIRECTOR** -- the owner. All money, Payments, Reports, Audit, Archive, Staff tab (may create and manage only ranks below Director; can never reset the Admin's key).
+- **3 MANAGER** -- runs the work: statuses, payments, edits. No company money totals.
+- **2 SECRETARY** -- office entry and recovery calls; sets the prices on Pending projects (that is what starts them).
+- **1 EMPLOYEE** -- field entry only. Opens New Project, My Entries, their own Pending view and Settings; everything else sends them to New Project (`/land/new`). Sees no money, no bell, no Recovery.
+- Settings tabs per rank: everyone has Appearance + Security; Director and Admin also Staff and Archive; only the Admin has Danger Zone. While a temporary key must be changed, ONLY the Security tab shows, and the server refuses every other call with 403 `PASSWORD_CHANGE_REQUIRED`.
+
+### PENDING PROJECTS (fix181)
+- An Employee's new project is saved as **Pending** (no prices). Pending projects are left out of `findAll()` everywhere; only the Ledger PENDING tab and the work counts use `findAllIncludingPending()`. They are in no money figure, no Recovery list, no report.
+- A Secretary (or above) opens it, sets the prices and starts it (`PROJECT_GRADUATED`); Recovery leaves a just-started project alone for its first month (`GRADUATION_DELAY_MONTHS = 1`). A Pending project can be rejected with a reason (the Employee sees it for 30 days). Waiting more than the stale limit raises one PENDING_STALE alert a day.
+
+### MONEY RULES (fix181 -- ONE place: `LandProject`)
+- `titlePaid()` = amountPaid, minus storage money only while in receivables. `billed()` = cost (+ accrued storage fees while in receivables). `paidTowardBilled()`, `owedNow()` = billed - paid, never below 0 (one project never cancels another's debt). `keptFees()` = set-aside fees still owed. `releaseBlocker()` = THE "can the title be handed over" rule (null = yes). `isCritical()` (sent as `critical`) = priced, not handed over, under 25% of the title money paid. Every page and report reads these; nobody adds amountPaid up by hand.
+- **Date paid:** `payment_records.paid_on`. NULL only for an undated intake deposit; a reversal always has its own date. Period sums (Dashboard, Payments, Reports) use paid_on and never include deleted projects. `timestamp` is the time the line was typed in.
+- Reversals are minus lines, so every sum is NET. A payment needs its receipt; if the receipt cannot be stored, the payment is rolled back and no audit line is written.
+
+### RECOVERY RULES (fix181 -- ONE place: `RecoveryStateService`)
+- States, most urgent first: SITE (4 missed calls on 4 DIFFERENT days within 30 days, no good call), MISSED, NEW, CONTACTED, LOCKED (called recently; the 2-14 rule above still applies). The Recovery page, client pages, Dashboard, bell and Reports all read this one service. The "due now" number is worked out once and kept 60 seconds.
+
+### ALERTS (fix181)
+- `NotificationTypes` is the ONE list of alert types (group, severity, repeat rule, audience). Alerts are written after the change is saved and never break the action. People only see alerts from after they joined or changed rank (`notify_since`). Old alerts are cleaned up nightly. The bell never polls while the tab is hidden, while a key must be changed, or for the Employee.
+
+### AUDIT TRAIL (fix181)
+- Append-only: the repository has no delete methods (a test enforces it). `AuditActions.java` is the ONE list of codes; a test fails when server code writes an unknown code, and the front-end build warns when `auditCatalog.js` misses one (`scripts/check-audit-codes.mjs`).
+- Search (`/admin/audit/search`): person, a LIST of codes, start (inclusive) and end (exclusive), keyword (max 100 characters). The keyword search cannot use an index and reads the whole table; the other filters use the indexes on time, person and action.
+- Only Admin and Director read the trail. Exports of the trail write an AUDIT_EXPORT line. Sign-in lines are written under the real (or typed) username.
+
+### SIGN-IN AND SESSIONS (fix181)
+- **One account per browser:** signing in as someone else in another tab signs this tab out. A key change, rank change, suspension or SIGN OUT raises the person's session number, so every old token stops working at once. Tokens live 12 hours.
+- **Idle rule:** 30 minutes without real input (click, key, touch, scroll, mouse move) signs out. API calls (the bell) never count as activity. The clock is shared by all tabs; a box warns one minute before.
+- **Wrong tries:** counted per username + address (8 in 15 minutes = wait) and per address (higher cap); the wait counts from the last failure. A temporary key is valid 7 days (`KEY_EXPIRED`). New keys: 8+ characters, a capital and a number, at most 72 bytes, not containing the username, not like a temporary key, not the same as the current one.
+- **Key recovery (owner choice B):** email recovery is OFF. Staff ask the Director; the Director asks the Admin. The Admin: set `ADMIN_RESET_ONCE=true` in the Render dashboard and restart -- the Admin key becomes ADMIN_DEFAULT_PASSWORD (must be changed at sign-in), a RECOVERY_USED audit line is written, then REMOVE the setting (removing it re-arms it). Nothing happens if ADMIN_DEFAULT_PASSWORD is empty. No code or key is ever printed in the log.
+
+### DATA WIPE (fix181, owner choice B)
+- Admin only; needs the typed phrase AND the Admin's own key (wrong = WIPE_REFUSED line). Deletes all business data and uploaded files; KEEPS all staff accounts, the audit trail, document types and appearance choices. The page then shows a result box (what was deleted, files deleted / not deleted). The demo data comes back only when `GE_SOLUTIONS_SEED_DEMO_DATA` is true.
+
+### APPEARANCE AND THE ZOOM CHECK (fix181)
+- Choices are kept per person on the device (`goldenseed.prefs.v1.<username>`), with a device default for the login page; a damaged value falls back to the default; another open tab follows a change. A tiny script in `index.html` applies them before the first paint (keep it in step with `context/prefsStore.js`). The Start page choice is checked against the current rank.
+- **Zoom rule:** INTERFACE SIZE zooms `#root`. Inside it never use plain `100vh` / `100vw`: use `var(--app-vh)` / `var(--app-vw)`. Pop-ups render into `#root` via `portalRoot()`, and anything placed from `getBoundingClientRect()` divides by `uiScale()` (`components/common/portalRoot.js`). Check every new page at 90% and 125%.
 
 ---
 
@@ -707,6 +751,11 @@ Owners and Location are always shown. Stage checklist is shown only for projects
 - What: per 8.9.2 -- status tag column, filtered queue view, bulk-mark-titled action.
 - Status: DONE. Confirmed in code -- `LedgerPage.jsx` has the status tag column, a "READY FOR TITLING" filter, and a working bulk-mark action.
 
+**fix181: COMBINED FIX (Sections 0-22 of the October 2026 audit prompt)**
+- Status: DONE except the items listed under "fix181 follow-ups" in Section 15. Built in the prompt's order: Step 1 (ranks, data model, security, sessions, audit and alert foundations), Step 2 (money rules, shared Recovery service), Step 3 (Employee + Pending), Step 4 (pages: Dashboard, Ledger, Payments, Folder, Recovery, client pages, Settings, Login, zoom/appearance), Step 5 (Reports, Audit, deletions last, tests, this guide).
+- Delivered by a cloud session as commits "fix181 checkpoint 1..N" on the branch `claude/cloud-credits-offer-impact-4zf6j1` instead of fix.py scripts (the session had direct repository access). The fix.py process in Section 9 is unchanged for future work.
+- Tests: backend `mvn test` (JUnit, H2) and frontend `npm test` (Node's built-in runner: CSV safety and the Report Studio field references).
+
 ### 8.11 RECOMMENDED BUILD ORDER
 Phase A (schema) -> Phase B (service null-safety) -> Phase C (NIN constraint) -> Phase D (New Project Page rebuild) -> Phase E (folder page) -> Phase F (ledger + queue).
 
@@ -1026,7 +1075,7 @@ print("DONE: " + FIX_NO + " applied.")
 | `UnicodeDecodeError in fix.py` | File has special chars, Windows encoding | Use errors='replace' when reading files |
 | `UnicodeEncodeError in fix.py` | Windows default encoding on write | Always use encoding='utf-8' in open() |
 | `nothing added to commit` | Files already match git | Force add specific files |
-| `500 on /dashboard/summary` | Backend crash | Check Render Logs tab, read 'Caused by:' line |
+| `500 on /dashboard/summary` | Backend crash | Check Render Logs tab, read 'Caused by:' line. *(fix181: /dashboard/summary was removed; the home page uses /dashboard/home.)* |
 | CSS class not found | Class used in JSX but not defined in .module.css | Add the missing class to the CSS file |
 | `SyntaxError in fix.py with triple quotes` | LLM guide embedded inside triple-quoted string | Use list of lines joined with newlines instead |
 | `fix.py shows 'patch target not found'` | Text to replace doesn't match file exactly | Read actual file from conversation context before writing patch |
@@ -1073,6 +1122,16 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 ---
 
 ## 15. WHAT STILL NEEDS TO BE DONE
+- **GO-LIVE CHECKLIST (fix181) -- do these before real client data goes in:**
+  1. Render dashboard > Environment: set `GE_SOLUTIONS_SEED_DEMO_DATA=false` (otherwise the demo dataset is loaded on start and after a wipe).
+  2. Render dashboard > Environment: set the four secrets that are `sync: false` in render.yaml (`SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `GE_SOLUTIONS_JWT_SECRET`, `ADMIN_DEFAULT_PASSWORD`). Without them the app falls back to the values in application.properties, which are public.
+  3. Change the Neon database password (it was once in render.yaml and is in git history), then put the new one in step 2.
+  4. Make the GitHub repo private.
+- **fix181 follow-ups (owner decisions or manual checks):**
+  - 13.0d: repairing old LOGIN_SUCCESS rows saved under the wrong name waits for David's yes (report first, then one UPDATE and one AUDIT_REPAIRED line).
+  - Section 19.6 addendum ("MY CALLS TODAY") was not in the prompt that was built; parts that depend on it are not built.
+  - Manual checks in a real browser and phone: size 125% shows the bottom of Ledger, Folder and Settings and every pop-up sits next to its field; SLATE has no cream flash; REDUCED still shows a moving loader; a page left open with the bell polling signs out after 30 minutes without input, scrolling alone does not; pinch-zoom works on a phone; sign-in works with phone auto-capitals; Settings with must-change-password shows only Security; the Folder print preview; open the bell by keyboard and close it with Escape.
+  - The Report Studio loads at most 20,000 audit or payment lines and says "showing the newest N of M" when it hits that cap (it does not yet load only the chosen period).
 - HOSTING + BACKUP MOVE (pending) -- see Section 18. Remind David once per session.
 - SECURITY / JWT changes -- done at the END of the build. Until then ignore security work (the app only holds fake data). Before real client data goes in: reset the Neon password and make the GitHub repo private.
 - DIRECTOR'S DASHBOARD -- David is still working on it and its code will change. Section 8.12 is only the plan.
