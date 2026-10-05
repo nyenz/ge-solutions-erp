@@ -64,7 +64,7 @@
 .pinsBottom{bottom:-3px;}
 .pin{width:3px;height:5px;background:#EE8C3A;border-radius:1px;box-shadow:0 0 5px rgba(238,140,58,.4);}
 .tableScroll{
-    max-height:calc(100vh - 220px); min-height:280px;
+    max-height:calc(var(--app-vh) - 220px); min-height:280px;
     overflow:auto; overscroll-behavior:contain; overflow-anchor:none;
     border-radius:var(--radius);
     scrollbar-width:none; -ms-overflow-style:none;

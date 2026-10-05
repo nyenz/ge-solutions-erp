@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/App.jsx
+import { roleFlags, landingPathFor } from './utils/roles';
 import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
@@ -7,7 +8,7 @@ import { useAuth } from './hooks/useAuth';
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
 import RouteErrorScreen from './components/common/RouteErrorScreen';
-import { readPrefs } from './context/PreferencesProvider';
+import { readPrefsFor } from './context/prefsStore';
 
 import LoginPage      from './pages/login/LoginPage';
 import Dashboard      from './pages/Dashboard/Dashboard';
@@ -22,32 +23,28 @@ import ExpensesPage    from './pages/Financials/ExpensesPage';
 import ReportHub      from './pages/Reports/ReportHub';
 import AuditPage      from './pages/Audit/AuditPage';
 import SettingsPage   from './pages/settings/SettingsPage';
+import MyEntriesPage  from './pages/Pending/MyEntriesPage';
+import PendingViewPage from './pages/Pending/PendingViewPage';
 
-const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSettings = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSettings = false, employeeOk = false }) => {
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
-    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR')) return <Navigate to="/dashboard" replace />;
-    if (managerPlus && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR' || user.role === 'ROLE_MANAGER')) return <Navigate to="/dashboard" replace />;
+    const f = roleFlags(user);   // fix181: one rank helper for every page
+    // fix181 (8.7b, 14.0a): the Employee may open only New Project, My Entries, their Pending view and Settings;
+    // everything else sends them to New Project (sending them to /dashboard made a redirect loop)
+    if (f.isEmployee && !employeeOk && !isSettings) return <Navigate to="/land/new" replace />;
+    if (adminOnly && !f.isOwnerLevel) return <Navigate to="/dashboard" replace />;
+    if (managerPlus && !f.isManager) return <Navigate to="/dashboard" replace />;
     return children;
 };
 
-/* fix71 -- WHERE SIGNING IN DROPS YOU.
-   Settings -> Data & Start. Only pages with no role gate are offered, so this
-   can never land somebody on a route their rank would bounce them out of:
-   Payments and Reports are adminOnly and are deliberately not in the list.
-   readPrefs() is a plain localStorage read, not a hook, because these two are
-   route elements that render before any provider below them. */
-const LANDING = {
-    dashboard: '/dashboard',
-    ledger:    '/land/projects',
-    recovery:  '/recovery',
-    clients:   '/clients',
-};
-
-const landingPath = () => {
-    try { return LANDING[readPrefs().landing] || '/dashboard'; }
-    catch { return '/dashboard'; }
+/* fix181 (14.0a, 15.1i): WHERE SIGNING IN DROPS YOU. The Start page choice is kept per person on the device and is
+   checked against the CURRENT person's rank (devices are shared); the Employee always starts at New Project.
+   readPrefsFor() is a plain localStorage read, not a hook, because these are route elements. */
+const landingPath = (user) => {
+    try { return landingPathFor(user, readPrefsFor(user?.username).landing); }
+    catch { return landingPathFor(user, null); }
 };
 
 const LoginRoute = () => {
@@ -56,7 +53,7 @@ const LoginRoute = () => {
         // The password handbrake outranks the preference: an account that has
         // to change its key goes to Settings wherever it would rather start.
         if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-        return <Navigate to={landingPath()} replace />;
+        return <Navigate to={landingPath(user)} replace />;
     }
     return <LoginPage />;
 };
@@ -65,7 +62,7 @@ const FallbackRoute = () => {
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword) return <Navigate to="/settings" replace />;
-    return <Navigate to={landingPath()} replace />;
+    return <Navigate to={landingPath(user)} replace />;
 };
 
 const AppLayout = () => {
@@ -87,7 +84,9 @@ const router = createBrowserRouter([
             { index: true, element: <FallbackRoute /> },
             { path: "login", element: <LoginRoute /> },
             { path: "dashboard", element: <ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute> },
-            { path: "land/new", element: <ProtectedRoute><Shell><IntakePage /></Shell></ProtectedRoute> },
+            { path: "land/new", element: <ProtectedRoute employeeOk><Shell><IntakePage /></Shell></ProtectedRoute> },
+            { path: "my-entries", element: <ProtectedRoute employeeOk><Shell><MyEntriesPage /></Shell></ProtectedRoute> },
+            { path: "pending/:id", element: <ProtectedRoute employeeOk><Shell><PendingViewPage /></Shell></ProtectedRoute> },
             { path: "land/projects", element: <ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute> },
             { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
             { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },

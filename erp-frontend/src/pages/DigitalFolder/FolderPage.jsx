@@ -2,6 +2,8 @@
 // fix167: folder page review pass. Ticks show in view AND edit mode (and arrive from New Project), popups show their
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
+import { portalRoot } from '../../components/common/portalRoot';
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -64,6 +66,8 @@ const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: '2-
 // fix167: the server sends isCompleted (fix167) -- older answers said "completed"
 const statusDone = (s) => !!(s && (s.isCompleted ?? s.completed));
 const todayISO = () => new Date().toISOString().slice(0, 10);
+// fix181 (16.9): today's date on THIS device's calendar (toISOString is UTC and is a day off around midnight in Kampala)
+const localISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 const useToast = () => {
@@ -86,13 +90,13 @@ const ToastContainer = ({ toasts, onDismiss }) => {
             <span className={styles.toastMsg}>{t.message}</span>
             <button type="button" className={styles.toastClose} onClick={() => onDismiss(t.id)} aria-label="Dismiss" title="Close"><FiX aria-hidden="true" /></button>
         </div>))}
-    </div>, document.body);
+    </div>, portalRoot());
 };
 const SavingOverlay = ({ visible }) => {
     if (!visible || typeof document === 'undefined') return null;
     return createPortal(<div className={styles.savingOverlay} role="status" aria-label="Saving">
         <div className={styles.savingSpinner} aria-hidden="true" /><span className={styles.savingLabel}>SAVING...</span>
-    </div>, document.body);
+    </div>, portalRoot());
 };
 const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
     <div className={styles.drawerHeader} onClick={onClick} role="button" tabIndex={0} aria-expanded={isOpen}
@@ -327,14 +331,12 @@ const FolderPage = () => {
     const { toasts, toast, dismissToast } = useToast();
 
     /* UNIFIED ROLE MATRIX */
-    const role = String(user?.role || '').toUpperCase();
-    const isRoot = !!user?.isRoot;
-    const isAdmin = isRoot || role === 'ROLE_ADMIN';
-    const isDirector = isAdmin || role === 'ROLE_DIRECTOR';
-    const isManager = isDirector || role === 'ROLE_MANAGER';
+    const flags = roleFlags(user);   // fix181: one rank helper
+    const isDirector = flags.isOwnerLevel;
+    const isManager = flags.isManager;
     const canEditRole = isManager;    // edit record, statuses, docs, payments, problem flag
     const canMoney = isDirector;      // receivable money actions, hand-over, reversals
-    const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans without edit mode
+    const canUploadDocs = flags.canUploadDocs; // add scans without edit mode
 
     const [binder, setBinder] = useState(null);
     const [buffer, setBuffer] = useState(null);
@@ -361,6 +363,9 @@ const FolderPage = () => {
     const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
+    // fix181 (16.12b): one id per payment; a retry after a slow network sends the same id and the server refuses a second save
+    const payRequestId = useRef(null);
+    const [payDate, setPayDate] = useState(() => localISO());   // fix181 (16.9): the day the money was received
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
     const [payReceipt, setPayReceipt] = useState(null);
@@ -414,7 +419,7 @@ const FolderPage = () => {
     // re-opened the payment window every time the page reloaded its data).
     useEffect(() => {
         const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
+        if (hash === 'payment' || hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
             setActiveTab('FINANCIALS');
             setTimeout(() => {
                 if (hash.startsWith('payment-')) { const el = document.getElementById(hash); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add(styles.highlightRow); setTimeout(() => el.classList.remove(styles.highlightRow), 3000); } }
@@ -449,6 +454,8 @@ const FolderPage = () => {
         try {
             const data = await landService.getDeepBinder(id);
             if (!data) throw new Error('NULL_SIGNAL');
+            // fix181 (8.5): a Pending project has no money yet; it is handled on its own page (START / REJECT)
+            if (data.project && data.project.pending && !data.project.deleted) { navigate('/pending/' + id, { replace: true }); return; }
             setBinder(data); setPayments(data.payments || []); setLoadError(false);
             if (!isEditing) {
                 const t = data.project?.landTitle;
@@ -559,7 +566,7 @@ const FolderPage = () => {
         try {
             await folderPortalService.toggleProblem(id, note, true);
             setProblemModal({ open: false, note: '' });
-            await loadFolderData(); toast('Flagged as PROBLEM. Staff have been notified.', 'warn');
+            await loadFolderData(); toast('Flagged as PROBLEM. The office has been notified.', 'warn');
         } catch (err) { setProbErr(errText(err)); }
         finally { setProbBusy(false); }
     };
@@ -715,6 +722,7 @@ const FolderPage = () => {
     // fix173: openPayModal('STORAGE') opens it on the STORAGE FEE choice (used by COLLECT SET-ASIDE FEES)
     const openPayModal = (startType) => {
         setPayAmount(''); setPayNotes(''); setPayErr(''); setPayReceipt(null);
+        setPayDate(localISO()); payRequestId.current = null;   // fix181: a new window = a new one-time id
         setPayType(startType === 'STORAGE' ? 'STORAGE' : 'TITLE');
         setPayerId(payers.length === 1 ? payers[0].id : '');
         setPayModal({ open: true });
@@ -732,11 +740,16 @@ const FolderPage = () => {
         if (!SCAN_EXT.includes(fileExt(payReceipt.name))) { setPayErr('THE RECEIPT MUST BE A PDF, JPG, PNG OR WEBP FILE.'); return; }
         if (!payReceipt.size) { setPayErr('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
         if (payReceipt.size > 10 * 1024 * 1024) { setPayErr('THE RECEIPT IS OVER 10 MB. USE A SMALLER SCAN.'); return; }
+        const minDay = localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000));
+        if (!payDate || payDate > localISO()) { setPayErr('THE DATE PAID CANNOT BE IN THE FUTURE.'); return; }
+        if (payDate < minDay) { setPayErr('THE DATE PAID CAN BE AT MOST 60 DAYS AGO. FOR OLDER MONEY ASK A DIRECTOR.'); return; }
         setPaying(true); setPayErr('');
+        if (!payRequestId.current) payRequestId.current = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
         try {
             const stamp = todayISO();
             const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
-            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType);
+            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current, payDate === localISO() ? null : payDate);
+            payRequestId.current = null;
             setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE'); setPayReceipt(null);
             await loadFolderData();
             toast('Payment recorded. Receipt filed under Payment Receipts.', 'success', 4500);
@@ -855,7 +868,8 @@ const FolderPage = () => {
     const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
     const costChanged = isEditing && (Number(buffer?.totalCost) || 0) !== (Number(project.totalCost) || 0);
     const paidPct = totalValue > 0 ? amountPaid / totalValue : 1;
-    const isCritical = !isReceivable && !isReleased && totalValue > 0 && paidPct < 0.25;   // same rule as the Ledger
+    // fix181 (5.4): ONE rule, decided on the server (LandProject.isCritical) -- the Ledger and the client pages use it too
+    const isCritical = typeof project.critical === 'boolean' ? project.critical : (!isReceivable && !isReleased && totalValue > 0 && paidPct < 0.25);
     const fullyPaid = totalValue > 0 && amountOwed <= 0;
     const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : defaultRate;
     const pausedUntil = project.negotiationDeadline ? fmtDate(project.negotiationDeadline) : '';
@@ -868,6 +882,17 @@ const FolderPage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing && !uploadDraft} />
             <div className={styles.printDossierHeader} aria-hidden="true">
+                {/* fix181 (3.3f): company and plot name on top, index, printed date and the state badges (from the project, not the open tab) */}
+                <div className={styles.printDossierTitle}>GE SOLUTIONS - PROJECT DOSSIER</div>
+                <div className={styles.printDossierTitle}>{plotName}</div>
+                <div className={styles.printDossierMeta}>
+                    <span><strong>INDEX:</strong> #{project.projectIndex}</span>
+                    <span><strong>PRINTED:</strong> {new Date().toLocaleDateString()}</span>
+                    {project.problem && <span><strong>PROBLEM</strong></span>}
+                    {project.landTitle?.isReleased && <span><strong>RELEASED</strong></span>}
+                    {project.isReceivable && <span><strong>IN RECEIVABLES</strong></span>}
+                    {project.pending && <span><strong>PENDING</strong></span>}
+                </div>
                 <div className={styles.printDossierMeta}>
                     <span><strong>PLOT NUMBER:</strong> {project.landTitle?.plotNumber || '#' + project.projectIndex}</span>
                     <span><strong>TYPE:</strong> {pType.label}</span>
@@ -875,12 +900,6 @@ const FolderPage = () => {
                     {project.district && <span><strong>DISTRICT:</strong> {project.district}</span>}
                     <span><strong>STATUS:</strong> {project.status}</span>
                 </div>
-            </div>
-            <div className={styles.printStatement} aria-hidden="true">
-                <h3>PAYMENT STATEMENT - PROJECT #{project.projectIndex}</h3>
-                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
-                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
-                <p>TOTAL PAID: UGX {fmt(amountPaid)} | STORAGE FEES: UGX {fmt(storageFees)} | BALANCE OWED: UGX {fmt(amountOwed)}</p>
             </div>
             <header className={styles.terminalHeader}>
                 <div className={styles.idPlate}>
@@ -895,7 +914,7 @@ const FolderPage = () => {
                             : <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="The title details are saved.">TITLED</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`} title="In receivables: storage fees are added every 30 days.">IN RECEIVABLES</span>
                             : fullyPaid ? <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="Nothing is owed on this project.">FULLY PAID</span>
-                            : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the total cost has been paid (same rule as the Ledger).">CRITICAL</span>
+                            : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the title money has been paid (the same rule on every page).">CRITICAL</span>
                             : totalValue > 0 ? <span className={`${styles.textBadge} ${styles.badgeActive}`} title={'UGX ' + fmt(amountOwed) + ' still owed.'}>ACTIVE</span> : null}
                         {isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={'Handed over' + (project.landTitle.releasedAt ? ' on ' + fmtDate(project.landTitle.releasedAt) : '') + (project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : '') + '.'}>RELEASED</span>}
                         {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered as a Legacy Titles project (an old title brought into the system).">LEGACY</span>}
@@ -915,19 +934,19 @@ const FolderPage = () => {
                                     onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
                                         info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLE' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
                               </>)
-                            : <button type="button" className={styles.releaseBtn} disabled={amountOwed > 0 || !!project.problem || keptFees > 0}
+                            : <button type="button" className={styles.releaseBtn} disabled={project.releaseBlocker !== undefined ? !!project.releaseBlocker : (amountOwed > 0 || !!project.problem || keptFees > 0)}
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
                                     info: 'Confirm the client has received the title deed for ' + plotName + '. The record is then locked (a director can UNDO it). Write who collected it and how they were identified.' })}
-                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                                title={project.releaseBlocker ? 'Cannot hand over yet: ' + project.releaseBlocker : amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && pType.titleMode !== 'ALWAYS' && (
                             <button type="button" className={styles.ghostBtn} title="Take the saved Title Details off this project (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',
                                     info: 'This removes the saved Title Details (plot ' + (project.landTitle.plotNumber || '---') + ') and un-ticks the Titled status. The old values stay in the audit log. Use it only if the title was entered by mistake. To fix a typo, use EDIT instead.' })}><FiRefreshCw aria-hidden="true" /> REMOVE TITLE DETAILS</button>)}
-                        {canEdit && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
+                        {(canEdit || (flags.isSecretary && !isDeleted)) && <button type="button" className={`${styles.problemBtn} ${project.problem ? styles.problemBtnActive : ''}`} onClick={handleToggleProblem} title={project.problem ? 'Remove the problem flag from this plot (reason required).' : 'Flag this plot as having a problem and alert staff (say what it is).'}><FiAlertTriangle aria-hidden="true" /> {project.problem ? 'CLEAR PROBLEM' : 'FLAG PROBLEM'}</button>}
                         {canEdit && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
-                        {isRoot && <button type="button" className={styles.purgeBtn} onClick={handleNuclearPurge} title="Take this project out of every list (root only, reason required, can be restored)."><FiTrash2 aria-hidden="true" /> DELETE</button>}
+                        {flags.canUseArchive && <button type="button" className={styles.purgeBtn} onClick={handleNuclearPurge} title="Take this project out of every list (Director or Admin, reason required, can be restored)."><FiTrash2 aria-hidden="true" /> DELETE</button>}
                         <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort} title="Throw away the field changes (ticks already saved stay)."><FiX aria-hidden="true" /> CANCEL</button>
                         <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing} title="Save the changes."><FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE'}</button>
                     </div>)}
@@ -953,6 +972,8 @@ const FolderPage = () => {
                     <span><strong>HANDED OVER</strong>{project.landTitle.releasedAt ? ' on ' + fmtDateTime(project.landTitle.releasedAt) : ''}{project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : ''}{project.landTitle.releaseNote ? ': ' + project.landTitle.releaseNote : ''}. The record is locked.</span></div>)}
                 {activeTab === 'OVERVIEW' && !project.landTitle && pType.titleMode === 'ALWAYS' && !isEditing && (<div className={`${styles.infoStrip} ${styles.infoStripWarn}`} role="status"><FiInfo aria-hidden="true" />
                     <span>A {pType.label} project keeps Title Details, and they are not saved yet. {canEdit ? 'Press EDIT to enter them.' : 'A manager needs to enter them.'}</span></div>)}
+                {/* fix181 (3.3b): one print section per tab; display:contents keeps the screen layout unchanged */}
+                <div data-print-section="OVERVIEW" style={{ display: 'contents' }}>
                 <section className={styles.hwPanel} aria-label="Plot Details" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="PLOT DETAILS" isOpen={drawers.overview} onClick={() => toggleDrawer('overview')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.overview ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -1035,7 +1056,15 @@ const FolderPage = () => {
                         <span className={styles.inputHint}>TRANSFER opens New Project as a Transfer of Title for that plot. The new project is linked back here.</span>
                     </div></div>
                 </section>)}
-                <div className={styles.financialsStack} style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
+                </div>
+                <div className={styles.financialsStack} data-print-section="FINANCIALS" style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
+                    <div className={styles.printStatement} aria-hidden="true">
+                <h3>PAYMENT STATEMENT - PROJECT #{project.projectIndex}</h3>
+                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
+                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
+                <p>TOTAL PAID: UGX {fmt(amountPaid)} | STORAGE FEES: UGX {fmt(storageFees)} | BALANCE OWED: UGX {fmt(amountOwed)}</p>
+            </div>
+
                     <section className={styles.hwPanel} aria-label="Balance Summary">
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
                         <div className={`${styles.panelBody} ${drawers.balance ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -1167,6 +1196,7 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
+                <div data-print-section="PEOPLE" style={{ display: 'contents' }}>
                 {[['clients', 'CLIENTS', 'Client', clients.length ? clients : owners, FiUsers], ['owners', 'OWNERS', 'Owner', owners, FiUsers]].map(([list, title, what, people, Icon]) => (
                 <section key={list} className={styles.hwPanel} aria-label={title} style={activeTab !== 'PEOPLE' ? { display: 'none' } : {}}>
                     <DrawerHeader label={title} isOpen={drawers[list]} onClick={() => toggleDrawer(list)} icon={Icon} count={people.length} />
@@ -1253,7 +1283,8 @@ const FolderPage = () => {
                                 </div>)))}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
+                </div>
+                <section className={styles.hwPanel} data-print-section="DOCUMENTS" aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
@@ -1276,7 +1307,7 @@ const FolderPage = () => {
                             </>)}
                     </div></div>
                 </section>
-                <div className={styles.tabWrap} style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+                <div className={styles.tabWrap} data-print-section="NOTES" style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Notes">
                         <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -1334,7 +1365,7 @@ const FolderPage = () => {
                                 : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={docPreview.url} alt={docPreview.name} />}
                         </div>
                     </div>
-                </div>, document.body)}
+                </div>, portalRoot())}
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title={uploadDraft && uploadDraft.statusName ? 'UPLOAD DOCUMENTS - ' + uploadDraft.statusName.toUpperCase() : 'UPLOAD DOCUMENTS'}>
                 {uploadDraft && (<>
                     {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the status &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}
@@ -1374,6 +1405,10 @@ const FolderPage = () => {
                     <HardwareModalSelect value={payerId} options={ownerOptions} onChange={v => { setPayerId(v); setPayErr(''); }} placeholder="Choose the client" ariaLabel="Client who paid" /></div>)}
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount ? Number(payAmount).toLocaleString() : ''} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
+                <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
+                    <input id="pay-date" type="date" className={modalStyles.modalInput} value={payDate} max={localISO()}
+                        min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={e => { setPayDate(e.target.value); if (payErr) setPayErr(''); }} />
+                    <small style={{ opacity: 0.7 }}>Leave as today if the money came today.</small></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Mobile money, ref 5521..." /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>
@@ -1403,7 +1438,7 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
             <HardwareModal isOpen={problemModal.open} lockBackdrop onClose={closeProblemModal} title={'FLAG PROBLEM - ' + plotName}>
-                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies staff. While flagged, the title cannot be handed over. What you write goes into the notes and the audit trail.</div>
+                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies the office (clearing it later is reported to the Director). While flagged, the title cannot be handed over. What you write goes into the notes and the audit trail.</div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (REQUIRED)</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => { setProblemModal(m => ({ ...m, note: e.target.value })); if (probErr) setProbErr(''); }} />
                     <span className={styles.probCount}>{problemModal.note.length}/500</span></div>

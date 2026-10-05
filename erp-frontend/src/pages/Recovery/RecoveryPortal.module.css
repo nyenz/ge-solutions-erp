@@ -197,7 +197,7 @@
 /* fix83: standard search width, transparent sticky bar, boxed scrolling list, Ledger type scale */
 .controls .searchInner, .searchInner { width: min(100%, clamp(220px, 38vw, 420px)); max-width: none; }
 .stickyTabs { background: transparent; border-bottom: none; }
-.list { max-height: calc(100vh - 240px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.5) transparent; padding-right: 4px; }
+.list { max-height: calc(var(--app-vh) - 240px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(238,140,58,0.5) transparent; padding-right: 4px; }
 .list::-webkit-scrollbar { width: 4px; }
 .list::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.5); border-radius: 4px; }
 .refreshing { opacity: 0.55; }

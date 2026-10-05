@@ -18,6 +18,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/land/portal/{id}")
 @RequiredArgsConstructor
+// fix181 (8.7f, 8.8): the money views of a project (/receivable, /portfolio) had no gate at all; the Employee never gets them
+@org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
 public class FolderPortalController {
 
     private final LandProjectRepository projectRepository;
@@ -115,7 +117,7 @@ public class FolderPortalController {
         p.setOriginalDebt(owed.max(BigDecimal.ZERO));
         p.setStatus("RECEIVABLE");
         projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);
+        auditService.logActionAfterCommit("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);
         return receivable(id);
     }
 
@@ -153,20 +155,20 @@ public class FolderPortalController {
             p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
+            auditService.logActionAfterCommit("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
                     + (feesPaid.signum() > 0 ? " (UGX " + feesPaid.toPlainString() + " already paid toward fees stays counted: total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(feesPaid).toPlainString() + ")" : "")
                     + ". Reason: " + reason);
         } else if ("CAPITALIZE".equals(action)) {
             p.setTotalCost(costBefore.add(fees));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
+            auditService.logActionAfterCommit("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
                     + " (total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(fees).toPlainString() + "). Reason: " + reason);
         } else {
             p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(feesUnpaid);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
+            auditService.logActionAfterCommit("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
                     + " of unpaid fees kept, billing stopped"
                     + (feesPaid.signum() > 0 ? "; UGX " + feesPaid.toPlainString() + " of paid fees moved into the total cost" : "") + "). Reason: " + reason);
         }
@@ -180,7 +182,7 @@ public class FolderPortalController {
     // fix167: the page says what it WANTS (flag=true to flag, flag=false to clear). Before, two people clicking at the
     // same time made the second click silently clear the first person's flag. Who flagged it, when and why is stored.
     @PostMapping("/toggle-problem")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")   // fix181 (3.2): Secretary raises and clears too
     @Transactional
     public Map<String, Object> toggleProblem(@PathVariable UUID id,
                                              @RequestParam(value = "note", required = false) String note,
@@ -194,6 +196,9 @@ public class FolderPortalController {
             throw new BusinessException(want
                     ? "ALREADY_FLAGGED: Someone else flagged this plot as a PROBLEM a moment ago. Reload the page."
                     : "ALREADY_CLEARED: Someone else cleared this PROBLEM flag a moment ago. Reload the page.");
+        }
+        if (note != null && note.trim().length() > 500) {   // fix181 (3.2d): the same limit as the page
+            throw new BusinessException("NOTE_TOO_LONG: Keep the reason under 500 characters.");
         }
         if (note == null || note.trim().length() < 5) {
             throw new BusinessException(p.isProblem()
@@ -217,13 +222,17 @@ public class FolderPortalController {
                 .notes((want ? "[PROBLEM] " : "[PROBLEM CLEARED] ") + why).recordedBy(op()).build());
         String plot = (p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null)
                 ? p.getLandTitle().getPlotNumber() : "project #" + p.getProjectIndex();
-        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
+        auditService.logActionAfterCommit("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
         if (want) {
-            // fix135: only FLAGGING notifies (clearing is not news). emitRaw, not emit,
-            // because emit() dedupes forever per type+entity and a plot can be flagged twice.
-            notificationService.emitRaw("PROBLEM_FLAGGED", "CRITICAL",
-                    "Plot " + plot + " flagged as a problem by " + op() + ": " + why,
-                    "PROJECT", p.getId(), "ALL");
+            // fix181 (17.5): the alert never carries the typed reason (it can hold names, phones, family matters);
+            // the reason stays in the Notes timeline of the folder.
+            notificationService.emitToAudience("PROBLEM_FLAGGED",
+                    "Plot " + plot + " flagged as a problem by " + op() + ". Open the folder to read the reason.",
+                    "PROJECT", p.getId());
+        } else {
+            // fix181 (3.2g): the Director hears when a problem is cleared
+            notificationService.emitToAudience("PROBLEM_CLEARED",
+                    "Problem on plot " + plot + " cleared by " + op() + ".", "PROJECT", p.getId());
         }
         return receivable(id);
     }
@@ -261,7 +270,7 @@ public class FolderPortalController {
         }
         p.setStorageFeesAccumulated(target);
         projectRepository.save(p);
-        auditService.logAction("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
+        auditService.logActionAfterCommit("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
                 + " from UGX " + current.toPlainString() + " to UGX " + target.toPlainString() + ". Reason: " + why);
         return receivable(id);
     }
@@ -335,7 +344,7 @@ public class FolderPortalController {
             p.setNegotiationDeadline(newDeadline);
         }
         projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
+        auditService.logActionAfterCommit("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
                 + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default") + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
                 + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toLocalDate().toString() : (p.isStoragePaused() ? "paused" : "not paused"))
                 + " -> " + (resume ? "RESUMED now" : (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toLocalDate().toString() : "not paused")) + ")"

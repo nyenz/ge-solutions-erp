@@ -2,6 +2,7 @@
 // GOLDEN SEED -- REPORTS PAGE SHELL (fix84).
 // Passes the two props the studio needs (money gate + refresh signal) and
 // uses the header classes ReportHub.module.css actually defines.
+import { roleFlags } from '../../utils/roles';
 import React, { useState } from 'react';
 import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
@@ -11,7 +12,7 @@ import styles from './ReportHub.module.css';
 
 const ReportHub = () => {
   const { user } = useAuth();
-  const canSeeMoney = !!(user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR');
+  const canSeeMoney = roleFlags(user).canSeeCompanyMoney;
   const [reloadToken, setReloadToken] = useState(0);
   return (
     <div className={styles.container}>

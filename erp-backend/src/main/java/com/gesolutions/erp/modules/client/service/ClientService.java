@@ -27,25 +27,7 @@ public class ClientService {
 
     private final ClientRepository clientRepository;
     private final AuditService auditService;
-
-    /**
-     * DISCOVERY: GET STALE CALL LIST
-     * Returns all proprietors who haven't been contacted in 14 days 
-     * and have not exceeded their 2-call monthly limit.
-     */
-    @Transactional(readOnly = true)
-    public List<Client> getStaleRecoveryList() {
-        return clientRepository.findStaleClientsForRecovery();
-    }
-
-    /**
-     * SENSOR: NOTIFICATION COUNT
-     * Powers the header bell icon.
-     */
-    @Transactional(readOnly = true)
-    public long getRecoveryTaskCount() {
-        return clientRepository.countTotalStaleClients();
-    }
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
 
     /**
      * RECOVERY ACTION: LOG CONTACT
@@ -74,7 +56,7 @@ public class ClientService {
 
         clientRepository.save(client);
         
-        auditService.logAction("RECOVERY_SYNC", 
+        auditService.logActionAfterCommit("RECOVERY_SYNC", 
             "Call logged for " + client.getFullName() + ". Monthly count: " + client.getMonthlyContactCount() + "/2");
     }
 
@@ -101,7 +83,7 @@ public class ClientService {
                             .build();
                     
                     Client saved = clientRepository.save(newClient);
-                    auditService.logAction("CLIENT_ARCHIVE", "New identity registered: " + fullName);
+                    auditService.logActionAfterCommit("CLIENT_ARCHIVE", "New identity registered: " + fullName);
                     return saved;
                 });
     }
@@ -135,9 +117,20 @@ public class ClientService {
             // typed -- if it does not reasonably match the name already on file,
             // this is very likely a typo'd NIN attaching a project to the wrong
             // person, so block it instead of guessing.
-            String existingName = existing.get().getFullName() == null ? "" : existing.get().getFullName().trim();
-            String typedName = fullName == null ? "" : fullName.trim();
+            // fix181 (11.11): repeated spaces do not make a different name (the order of the words still matters)
+            String existingName = existing.get().getFullName() == null ? "" : existing.get().getFullName().trim().replaceAll("\\s+", " ");
+            String typedName = fullName == null ? "" : fullName.trim().replaceAll("\\s+", " ");
             if (!existingName.equalsIgnoreCase(typedName)) {
+                // fix181 (8.10a): an Employee never reads another person's name back from a NIN
+                var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                boolean employee = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+                if (employee) {
+                    // the office hears once a day per person that a field entry is stuck (no names in the alert)
+                    if (notificationService != null) notificationService.emitNow("NIN_CONFLICT",
+                            "An employee could not save a project: a National ID is already registered under another name. Please check.",
+                            "CLIENT", existing.get().getId());
+                    throw new BusinessException("NIN_CONFLICT: This National ID is already registered under a different name. Check the NIN, or ask a Secretary.");
+                }
                 throw new BusinessException("NIN_NAME_MISMATCH: This NIN is already registered to '"
                         + existingName + "', but you entered '" + typedName
                         + "'. Confirm this is the same person before continuing, or check the NIN for a typo.");
@@ -156,7 +149,7 @@ public class ClientService {
                 .build();
 
         Client saved = clientRepository.save(newClient);
-        auditService.logAction("CLIENT_ARCHIVE",
+        auditService.logActionAfterCommit("CLIENT_ARCHIVE",
             "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
         return saved;
     }

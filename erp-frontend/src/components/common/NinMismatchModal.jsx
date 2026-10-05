@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/common/NinMismatchModal.jsx
+import { portalRoot } from './portalRoot';
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertTriangle, FiX, FiCheck, FiEdit3 } from 'react-icons/fi';
@@ -77,9 +78,7 @@ const NinMismatchModal = ({ isOpen, existingName, enteredName, onConfirm, onReje
                     <FiX aria-hidden="true" />
                 </button>
             </div>
-        </div>,
-        document.body
-    );
+        </div>, portalRoot());
 };
 
 export default NinMismatchModal;

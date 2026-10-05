@@ -1,4 +1,6 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import { portalRoot } from '../../components/common/portalRoot';
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -15,6 +17,7 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
+import pendingService from '../../services/pendingService';
 import { normalizePhones } from '../../utils/phone';
 import statusTemplateService from '../../services/statusTemplateService';
 import { useAuth } from '../../hooks/useAuth';
@@ -63,8 +66,9 @@ export default function IntakePage() {
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
     // fix180: only Admin, Manager and Director can add a status (Secretary is data entry only; the server checks too)
-    const role = String(user?.role || '').toUpperCase();
-    const canAddStatus = !!user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(role);
+    const canAddStatus = roleFlags(user).canAddStatus;
+    // fix181 (8.7e): the Employee enters field data only -- no money section; the project is saved as PENDING
+    const isEmployee = roleFlags(user).isEmployee;
     const topRef = useRef(null);
     const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);
@@ -114,14 +118,14 @@ export default function IntakePage() {
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
     const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171
-    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172: optional, empty = paid today
+    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172/181: optional, empty = date not known (the client stays callable)
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
     const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which client (row number) paid the initial payment
     const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which client paid the storage fees
     // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
     const [systemFee, setSystemFee] = useState(0);
-    useEffect(() => { landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, []);
+    useEffect(() => { if (!isEmployee) landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, [isEmployee]);
     const [fileQueue, setFileQueue] = useState([]);
     // fix174: document types = the Folder page classifications (PAYMENT_RECEIPT is filed by the payment window, never at intake)
     const [docCats, setDocCats] = useState([]);
@@ -403,6 +407,7 @@ export default function IntakePage() {
             if (!(Number(areaHectares) > 0)) { toast('Area (hectares) is required and must be more than 0.', 'error'); return false; }
             if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
         }
+        if (isEmployee) return true;   // fix181: no money on a field entry; the office adds it
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
         // fix171: the same checks the server makes, so the message shows before anything is sent
@@ -493,7 +498,15 @@ export default function IntakePage() {
             const ninOf = (idx) => (idx !== '' && clients[idx]) ? clients[idx].nationalId.trim().toUpperCase() : '';
             if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
-            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            if (isEmployee) {
+                // fix181 (8.7e): never send a money field; the server refuses them from an Employee anyway
+                ['totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
+                    'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin'].forEach(k => { delete payload[k]; });
+                payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
+                await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            } else {
+                await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            }
             dirtyRef.current = false; setDirty(false);
             return true;
         } catch (err) {
@@ -505,9 +518,9 @@ export default function IntakePage() {
     const handleSubmit = async () => {
         const ok = await doSave();
         if (ok) {
-            toast('Project registered successfully!', 'success');
-            // fix180: a transfer goes back to the subdivision it came from
-            setTimeout(() => navigate(transferFrom ? '/folder/' + transferFrom.id : '/land/projects'), 1200);
+            toast(isEmployee ? 'Saved as PENDING. The office will add the prices.' : 'Project registered successfully!', 'success');
+            // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
+            setTimeout(() => navigate(isEmployee ? '/my-entries' : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
         }
     };
 
@@ -544,7 +557,9 @@ export default function IntakePage() {
         setTitlePayerIdx(shift); setFeesPayerIdx(shift);
     };
     const removeOwner = (idx) => { setOwnersLinked(false); setOwners(p => p.filter((_, i) => i !== idx)); markDirty(); };
-    const ownerLabels = clients.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'CLIENT ' + (i + 1)));
+    // fix181 (1.1): the phone number too, so two clients with the same name can be told apart
+    const ownerLabels = clients.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'CLIENT ' + (i + 1))
+        + (o.phone && o.phone.trim() ? ' (' + o.phone.trim() + ')' : ''));
     const pickOwner = (setter) => (label) => { setter(ownerLabels.indexOf(label)); markDirty(); };
     const titlePaidNow = (Number(initialPayment) || 0) > 0;
     const feesPaidEntered = isLegacy && (Number(initialStorageFeePaid) || 0) > 0;
@@ -552,7 +567,8 @@ export default function IntakePage() {
     const nIndex = ++n, nClients = ++n, nOwners = ++n;
     const nTitle = isTitleSectionVisible ? ++n : null;
     const nLocation = ++n, nNeighbors = ++n, nStatuses = ++n;
-    const nFinancials = ++n, nDocuments = ++n, nNotes = ++n;
+    const nFinancials = isEmployee ? null : ++n;
+    const nDocuments = ++n, nNotes = ++n;
     // one Client / Owner row (same fields for both panels)
     const personRow = (o, idx, onChange, onRemove, canRemove, what) => (
         <div key={idx} className={styles.ownerRow}>
@@ -631,6 +647,7 @@ export default function IntakePage() {
                     {transferFrom && (
                         <div className={styles.transferBanner} role="status">
                             <FiLink aria-hidden="true" /> Transfer of plot {transferFrom.plot} of subdivision #{transferFrom.index}. Clients and Owners were copied; Title Details and Neighbors start blank.
+                            {' '}<button type="button" className={styles.clearLink} onClick={() => navigate('/folder/' + transferFrom.id)}>Back to original project</button>
                         </div>
                     )}
                     {projectType === 'TOPOGRAPHIC_SURVEY' && (
@@ -838,6 +855,7 @@ export default function IntakePage() {
                     )}
                 </CollapsibleSection>
 
+                {!isEmployee && (
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
                         <div className={styles.field}>
@@ -861,8 +879,9 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={styles.label}>Date Last Paid</label>
                                 <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel="Date last paid" onChange={v => { setLastPaidDate(v); markDirty(); }} />
+                                <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(localISO()); markDirty(); }}>Today</button>
                                 {lastPaidDate && <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}
-                                <p className={styles.hint}>Optional. The day the client last paid. Left empty it counts as paid today, which locks recovery calls for 30 days.</p>
+                                <p className={styles.hint}>Leave empty if you do not know the date. If the client paid today, pick today.</p>
                             </div>
                         </div>
                     )}
@@ -913,6 +932,7 @@ export default function IntakePage() {
                         <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                     </div>
                 </CollapsibleSection>
+                )}
 
                 <div className={styles.splitRow}>
                     <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>
@@ -987,7 +1007,7 @@ export default function IntakePage() {
                                 : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={previewFile.url} alt={previewFile.name} />}
                         </div>
                     </div>
-                </div>, document.body)}
+                </div>, portalRoot())}
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
                 <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
                     <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
@@ -1002,18 +1022,14 @@ export default function IntakePage() {
                         </div>
                         <p className={styles.modalHint}>Click outside or press Esc to keep editing</p>
                     </div>
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
 
             {typeof document !== 'undefined' && createPortal(
                 <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
                     {toasts.map(t => (
                         <div key={t.id} className={`${styles.toast} ${styles['toast_' + (t.type || 'info')]}`}>{t.msg}</div>
                     ))}
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
         </div>
     );
 }

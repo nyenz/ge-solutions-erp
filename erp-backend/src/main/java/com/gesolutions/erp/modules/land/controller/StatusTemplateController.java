@@ -28,10 +28,22 @@ public class StatusTemplateController {
 
     private final StatusTemplateService statusTemplateService;
 
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_EMPLOYEE')")
     @GetMapping("/status-templates")
-    public ResponseEntity<List<StatusTemplate>> getTemplate(@RequestParam(required = false) String projectType) {
-        return ResponseEntity.ok(statusTemplateService.getActiveTemplate(projectType));
+    public ResponseEntity<?> getTemplate(@RequestParam(required = false) String projectType) {
+        List<StatusTemplate> list = statusTemplateService.getActiveTemplate(projectType);
+        // fix181 (8.8): the Employee gets the status names only, never the default costs
+        var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean employee = a != null && a.getAuthorities().stream().anyMatch(g -> "ROLE_EMPLOYEE".equals(g.getAuthority()));
+        if (!employee) return ResponseEntity.ok(list);
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (StatusTemplate t : list) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", t.getId()); m.put("statusName", t.getStatusName()); m.put("projectType", t.getProjectType());
+            m.put("displayOrder", t.getDisplayOrder()); m.put("isActive", t.isActive());
+            out.add(m);
+        }
+        return ResponseEntity.ok(out);
     }
 
     @PostMapping("/status-templates")

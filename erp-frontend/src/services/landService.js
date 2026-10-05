@@ -6,11 +6,6 @@ let storageFeeDefaultPromise = null;
 
 const landService = {
 
-    getDashboardSummary: async () => {
-        const response = await api.get('/dashboard/summary');
-        return response.data;
-    },
-
     getDeepBinder: async (projectId) => {
         const response = await api.get(`/land/projects/${projectId}/deep`);
         return response.data;
@@ -35,8 +30,9 @@ const landService = {
         return response.data;
     },
 
-    restoreProject: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/restore`);
+    // fix181 (14.7c): without force the server refuses a restore that clashes with a live project on the same plot
+    restoreProject: async (projectId, force = false) => {
+        await api.post(`/land/projects/${projectId}/restore`, null, { params: { force } });
     },
 
     // fix180: statusId = the project status the files are attached to (leave empty for general documents)
@@ -127,12 +123,6 @@ const landService = {
     // fix163: take a saved title off the project (fix180: Topographic Survey and older projects only)
     revertTitle: async (projectId, reason) => {
         await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
-    },
-
-    // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
-    getDirectorDashboard: async (period = 'WEEK') => {
-        const response = await api.get('/dashboard/director', { params: { period } });
-        return response.data;
     },
 
     // INTAKE: preview the next project index (001A format) before saving

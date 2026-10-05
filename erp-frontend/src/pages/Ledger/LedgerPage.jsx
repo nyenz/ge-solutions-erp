@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
+import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
@@ -31,15 +32,7 @@ const matchesSearch = (proj, term, statuses) => {
     ];
     return fields.some(f => f && f.toLowerCase().replace(/\s+/g, '').includes(t));
 };
-const getPaymentBadge = (proj) => {
-    if (!proj.lastPaymentDate) return 'RED';
-    const days = Math.floor((Date.now() - new Date(proj.lastPaymentDate)) / 86400000);
-    if (days <= 14) return 'GREEN';
-    if (days <= 30) return 'YELLOW';
-    return 'RED';
-};
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Recent payment', YELLOW: 'Payment 2-4 weeks ago', RED: 'No recent payment' };
+// fix181 (2.2): the payment dot comes from utils/paymentHealth (server day count, one gradient)
 const PAGE_SIZE = 15;
 // fix169: the WHOLE ledger is loaded (200 rows per request, every page) and then filtered, sorted and paged
 // here in the browser. Before, only one server page of 15 rows was fetched and the filters ran on those 15.
@@ -48,14 +41,13 @@ const LOAD_SIZE = 200;
 // receivables showed the tag but were left out of the filter).
 // fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)
 const titlePaidOf = (p) => Math.max(0, (p.amountPaid || 0) - (p.storageFeesPaid || 0));
-const isCriticalProject = (p) => (p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25;
-const PaymentDot = ({ proj }) => {
-    const badge = getPaymentBadge(proj);
-    return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
-        style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-            background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-            flexShrink: 0, marginTop: 4 }} />);
-};
+// fix181 (5.4): the server decides (LandProject.isCritical); the old formula is only a fallback for an old answer
+const isCriticalProject = (p) => (typeof p.critical === 'boolean' ? p.critical : ((p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25));
+// fix181 (2.3): PAID = the title work is fully paid (never a project with no price), using the same title-money helper
+// as CRITICAL (the server rule is LandProject.isTitleFullyPaid); still not a receivable
+const isTitleFullyPaid = (p) => ((p.totalCost || 0) > 0 && titlePaidOf(p) >= p.totalCost) || !!p.landTitle?.isReleased;
+const ageDays = (p) => (p.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(p.createdAt).getTime()) / 86400000)) : null);
+const PaymentDot = ({ proj }) => <PaymentHealthDot days={proj.daysSincePayment} />;
 const Pins = ({ pos }) => (
     <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
         {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
@@ -195,7 +187,9 @@ const LedgerPage = () => {
     const [loadError, setLoadError] = useState(false);
     const [page, setPage] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilter, setActiveFilter] = useState('ALL');
+    // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
+    const [ledgerParams] = useSearchParams();
+    const [activeFilter, setActiveFilter] = useState(() => (ledgerParams.get('tab') || 'ALL').toUpperCase());
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
     const tableScrollRef = useRef(null);
     useDirectionalScrollHandoff(tableScrollRef);
@@ -242,10 +236,16 @@ const LedgerPage = () => {
 
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm, statusMap[p.id]));
+        // fix181 (2.1): ONE rule first -- Pending projects show ONLY in the PENDING tab (oldest first, 12.3)
+        if (activeFilter === 'PENDING') {
+            return filtered.filter(p => !!p.pending)
+                .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+        }
+        filtered = filtered.filter(p => !p.pending);
         if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
+        if (activeFilter === 'PAID')        filtered = filtered.filter(p => isTitleFullyPaid(p) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalProject);
         if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem);
@@ -255,9 +255,14 @@ const LedgerPage = () => {
             else if (sortConfig.key === 'owner')      { aVal = clientsOf(a)[0]?.fullName || ''; bVal = clientsOf(b)[0]?.fullName || ''; }
             else if (sortConfig.key === 'paid')       { aVal = a.amountPaid || 0; bVal = b.amountPaid || 0; }
             else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ?  1 : -1;
-            return 0;
+            // fix181 (2.4): natural order ("Plot 20" before "Plot 100"), empty values always last
+            const empty = (v) => v === null || v === undefined || v === '';
+            if (empty(aVal) && empty(bVal)) return 0;
+            if (empty(aVal)) return 1;
+            if (empty(bVal)) return -1;
+            const cmp = (typeof aVal === 'number' && typeof bVal === 'number') ? aVal - bVal
+                : String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+            return sortConfig.direction === 'asc' ? cmp : -cmp;
         });
         return filtered;
     }, [projects, searchTerm, activeFilter, sortConfig, statusMap]);
@@ -271,9 +276,10 @@ const LedgerPage = () => {
 
     const FILTERS = [
         { key: 'ALL', label: 'ALL PROJECTS' }, { key: 'BACKLOG', label: 'PROCESSING', accent: 'yellow' },
-        { key: 'TITLED', label: 'TITLED', accent: 'green' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
+        { key: 'TITLED', label: 'HAS TITLE DETAILS', accent: 'green' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
         { key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
         { key: 'PAID', label: 'PAID', accent: 'green' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
+        { key: 'PENDING', label: 'PENDING ' + projects.filter(p => p.pending).length, accent: 'yellow' },   // fix181 (2.1)
     ];
 
     return (
@@ -306,13 +312,7 @@ const LedgerPage = () => {
                     </div>
                 </div>
                 <TabDock items={FILTERS} value={activeFilter} onChange={setActiveFilter} label="Filter records" />
-                <div className={styles.legendRow} aria-label="Payment health legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>
+                <div className={styles.legendRow}><PaymentHealthLegend /></div>
             </div>
 
             {/* Table panel (fix42): NOT sticky itself -- scrolls away with
@@ -388,8 +388,8 @@ const LedgerPage = () => {
                                 const curStatusIdx = statuses.findIndex(s => !s.done);
                                 const curStatus = curStatusIdx >= 0 ? statuses[curStatusIdx] : null;
                                 return (
-                                    <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
+                                    <tr key={proj.id} onClick={() => navigate(proj.pending ? `/pending/${proj.id}` : `/folder/${proj.id}`)}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(proj.pending ? `/pending/${proj.id}` : `/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
@@ -400,6 +400,7 @@ const LedgerPage = () => {
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
+                                                    {proj.pending && <span className={styles.stackSub} title="Waiting for prices">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>

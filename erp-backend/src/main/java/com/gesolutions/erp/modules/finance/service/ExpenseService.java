@@ -78,7 +78,7 @@ public class ExpenseService {
                 .build();
         ExpensePreset saved = presetRepository.save(preset);
 
-        auditService.logAction("EXPENSE_PRESET_CREATED",
+        auditService.logActionAfterCommit("EXPENSE_PRESET_CREATED",
             "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
 
         return saved;
@@ -93,6 +93,21 @@ public class ExpenseService {
     // -- LOGGING ------------------------------------------------------
 
     @Transactional
+    /**
+     * fix181 (7.2): "fuel", "Fuel" and "FUEL" are ONE category. A typed name takes the spelling of a preset or of an
+     * earlier expense that matches it ignoring capitals and extra spaces, so the totals per category do not split.
+     */
+    String canonicalCategory(String category) {
+        String typed = category == null ? "" : category.trim().replaceAll("\\s+", " ");
+        for (var p : presetRepository.findAll()) {
+            if (p.getName() != null && p.getName().trim().equalsIgnoreCase(typed)) return p.getName().trim();
+        }
+        for (String c : expenseRepository.findDistinctCategories()) {
+            if (c != null && c.trim().replaceAll("\\s+", " ").equalsIgnoreCase(typed)) return c;
+        }
+        return typed;
+    }
+
     public Expense createExpense(String category, BigDecimal amount, String note, String spentBy) {
         if (category == null || category.isBlank()) {
             throw new BusinessException("CATEGORY_REQUIRED: Pick a category for this expense.");
@@ -104,7 +119,7 @@ public class ExpenseService {
         String cleanSpentBy = (spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null;
 
         Expense expense = Expense.builder()
-                .category(category.trim())
+                .category(canonicalCategory(category))
                 .amount(amount)
                 .note(note)
                 .recordedBy(getCurrentOperator())
@@ -113,14 +128,14 @@ public class ExpenseService {
 
         Expense saved = expenseRepository.save(expense);
 
-        auditService.logAction("EXPENSE_LOGGED",
+        auditService.logActionAfterCommit("EXPENSE_LOGGED",
             "Operator [" + getCurrentOperator() + "] logged expense: " + category
             + " -- UGX " + amount
             + (cleanSpentBy != null ? " (spent by " + cleanSpentBy + ")" : ""));
 
-        notificationService.emitRaw("EXPENSE_LOGGED", "INFO",
+        notificationService.emitToAudience("EXPENSE_LOGGED",
             "Expense UGX " + amount + " on " + category + " logged by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", saved.getId());
 
         return saved;
     }
@@ -152,7 +167,7 @@ public class ExpenseService {
         String oldCategory = expense.getCategory();
         BigDecimal oldAmount = expense.getAmount();
 
-        expense.setCategory(category.trim());
+        expense.setCategory(canonicalCategory(category));
         expense.setAmount(amount);
         expense.setNote(note);
         expense.setSpentBy((spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null);
@@ -161,17 +176,17 @@ public class ExpenseService {
 
         Expense saved = expenseRepository.save(expense);
 
-        auditService.logAction("EXPENSE_EDITED",
+        auditService.logActionAfterCommit("EXPENSE_EDITED",
             "Operator [" + getCurrentOperator() + "] edited expense (originally logged by "
             + saved.getRecordedBy() + "): " + oldCategory + " UGX " + oldAmount
             + " -> " + category + " UGX " + amount);
 
         // An edit after the fact is the one that matters: the money already
         // showed up in a total somewhere and the total just changed.
-        notificationService.emitRaw("EXPENSE_EDITED", "WARN",
+        notificationService.emitToAudience("EXPENSE_EDITED",
             "Expense corrected: " + oldCategory + " UGX " + oldAmount
             + " changed to " + category + " UGX " + amount + " by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", saved.getId());
 
         return saved;
     }
@@ -184,14 +199,14 @@ public class ExpenseService {
                 .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));
         expenseRepository.delete(expense);
 
-        auditService.logAction("EXPENSE_DELETED",
+        auditService.logActionAfterCommit("EXPENSE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()
             + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");
 
-        notificationService.emitRaw("EXPENSE_DELETED", "WARN",
+        notificationService.emitToAudience("EXPENSE_DELETED",
             "Expense " + expense.getCategory() + " UGX " + expense.getAmount()
             + " deleted by " + getCurrentOperator() + ".",
-            "EXPENSE", expense.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", expense.getId());
     }
 
     // -- DIRECTOR ANALYSIS: SEARCH ------------------------------------

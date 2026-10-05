@@ -1,37 +1,43 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/admin/controller/SystemAdminController.java
 package com.gesolutions.erp.modules.admin.controller;
 
+import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.config.DataInitializer;
 import com.gesolutions.erp.modules.land.service.FileStorageService;
 import com.gesolutions.erp.modules.land.service.StatusTemplateService;
+import com.gesolutions.erp.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * GOLDEN SEED ERP - SYSTEM RESET CONTROLLER
+ * GOLDEN SEED ERP - SYSTEM RESET (the Danger Zone, Admin only).
  *
- * Physically wipes every business record in the database and restores the
- * app to a fresh, empty state. SECURITY PROTOCOL: Root Founder only -- this
- * is the single most destructive endpoint in the system.
- *
- * After the wipe, the root admin account, the project index counter, and
- * the default status lists are automatically reseeded so the
- * app is immediately usable again (nobody gets permanently locked out).
- *
- * Also purges every file this app has ever uploaded to Cloudinary (all
- * project documents, all resource types), so nothing is left behind in
- * storage either.
+ * fix181 (14.4, 15.5), owner decision 14.4a = B (the default): the wipe deletes the BUSINESS data (projects, clients,
+ * payments, expenses, documents and files, notes, notifications, custom status lists, expense presets) and KEEPS:
+ *  - every staff account (users), so nobody is locked out and nobody has to be provisioned again;
+ *  - the audit trail (audit_logs) -- the wipe itself is written there, before and after, with the counts;
+ *  - the settings tables listed in KEPT_ON_PURPOSE.
+ * The table list is checked against the database at run time: a table that does not exist (an old one, or a brand-new
+ * database) is skipped instead of failing the whole wipe. WipeTableListTest fails when an entity table is in neither list.
  */
 @RestController
 @RequestMapping("/api/v1/admin/system")
@@ -41,15 +47,13 @@ public class SystemAdminController {
 
     private static final String CONFIRM_PHRASE = "WIPE-EVERYTHING";
 
-    // Every table that holds real business/user data. TRUNCATE ... CASCADE
-    // resolves foreign-key order automatically, so list order doesn't matter.
-    private static final String[] TABLES_TO_WIPE = {
-        "audit_logs",
+    /** Business tables. TRUNCATE ... CASCADE resolves foreign-key order, so order does not matter. */
+    public static final List<String> TABLES_TO_WIPE = List.of(
         "notification_reads",
         "notifications",
         "recovery_notes",
         "payment_records",
-        "payment_schedules",
+        "payment_schedules",      // old versions only; skipped when missing
         "follow_up_logs",
         "project_documents",
         "project_statuses",
@@ -59,115 +63,145 @@ public class SystemAdminController {
         "land_titles",
         "land_projects",
         "clients",
-        "company_expenses",
+        "company_expenses",       // old versions only; skipped when missing
         "expenses",
         "expense_presets",
         "status_templates",
-        "scenario_seed_flag",
-        "users"
-    };
+        "scenario_seed_flag"
+    );
+
+    /** Tables the wipe never empties (see the class note). project_index_counter is reset to 000/A separately. */
+    public static final List<String> KEPT_ON_PURPOSE = List.of(
+        "users",
+        "audit_logs",
+        "app_flags",
+        "project_index_counter",
+        "document_categories"     // document types are settings, like the Appearance choices; kept
+    );
 
     private final DataSource dataSource;
     private final DataInitializer dataInitializer;
     private final StatusTemplateService statusTemplateService;
     private final FileStorageService fileStorageService;
+    private final AuditService auditService;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    /**
-     * THE BIG RED BUTTON.
-     * Wipes every table above, then immediately reseeds the root admin
-     * account, the project index counter, and the default status lists
-     * so the system is left clean, working, and empty.
-     *
-     * Requires ?confirm=WIPE-EVERYTHING exactly, so this can never fire by
-     * accident (typo, stray request, browser prefetch, etc).
-     */
     @PostMapping("/wipe-all-data")
-    public ResponseEntity<Map<String, Object>> wipeAllData(@RequestParam(required = false) String confirm) {
+    public ResponseEntity<Map<String, Object>> wipeAllData(@RequestParam(required = false) String confirm,
+                                                           @RequestBody(required = false) Map<String, String> body) {
         if (!CONFIRM_PHRASE.equals(confirm)) {
+            auditService.logAction("WIPE_REFUSED", "Data wipe refused: the confirmation phrase was missing or wrong.");
             return ResponseEntity.badRequest().body(Map.of(
                 "wiped", false,
-                "message", "Confirmation phrase missing or incorrect. Send confirm=" + CONFIRM_PHRASE + " to proceed."
+                "message", "WIPE_REFUSED: The confirmation phrase is missing or wrong. Type " + CONFIRM_PHRASE + " exactly."
+            ));
+        }
+        // fix181 (14.4f): the Admin's own key is asked again, so an open, unattended screen cannot wipe the system
+        String password = body == null ? null : body.get("password");
+        String me = AuditService.currentOperator();
+        boolean keyOk = password != null && !password.isEmpty() && userRepository.findByUsername(me)
+                .map(u -> passwordEncoder.matches(password, u.getPassword())).orElse(false);
+        if (!keyOk) {
+            auditService.logAction("WIPE_REFUSED", "Data wipe refused: the Admin key was missing or wrong.");
+            return ResponseEntity.badRequest().body(Map.of(
+                "wiped", false,
+                "message", "WIPE_REFUSED: Your key is not right. Nothing was deleted."
             ));
         }
 
-        System.out.println(">>> [WIPE] ================================================");
-        System.out.println(">>> [WIPE] FULL SYSTEM DATA WIPE TRIGGERED BY ROOT FOUNDER.");
-        System.out.println(">>> [WIPE] ================================================");
+        Map<String, Long> before = counts();
+        auditService.logAction("DATA_WIPED", "Data wipe STARTED. Existing records: " + before
+                + ". Staff accounts and the audit trail are kept.");
 
-        String tableList = String.join(", ", TABLES_TO_WIPE);
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            conn = dataSource.getConnection();
-            stmt = conn.createStatement();
-            stmt.execute("TRUNCATE TABLE " + tableList + " RESTART IDENTITY CASCADE");
-            System.out.println(">>> [WIPE] OK: All business tables truncated -- " + tableList);
+        List<String> wiped = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            for (String t : TABLES_TO_WIPE) if (tableExists(conn, t)) wiped.add(t);
+            boolean postgres = conn.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT).contains("postgres");
+            if (postgres) {
+                st.execute("TRUNCATE TABLE " + String.join(", ", wiped) + " RESTART IDENTITY CASCADE");
+            } else {
+                // H2 (tests): one table at a time with the key checks paused
+                st.execute("SET REFERENTIAL_INTEGRITY FALSE");
+                try { for (String t : wiped) st.execute("TRUNCATE TABLE " + t); }
+                finally { st.execute("SET REFERENTIAL_INTEGRITY TRUE"); }
+            }
+            st.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
         } catch (Exception e) {
-            System.err.println(">>> [WIPE] FATAL: Truncate failed: " + e.getMessage());
+            System.err.println(">>> [WIPE] FATAL: " + e.getMessage());
+            auditService.logAction("DATA_WIPED", "Data wipe FAILED: " + e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of(
                 "wiped", false,
-                "message", "Wipe failed: " + e.getMessage()
+                "message", "The wipe failed and nothing was deleted: " + e.getMessage()
             ));
-        } finally {
-            if (stmt != null) try { stmt.close(); } catch (Exception ignored) {}
-            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
         }
 
-        // Reset the project index counter back to 000/A
-        Connection conn2 = null;
-        Statement stmt2 = null;
-        try {
-            conn2 = dataSource.getConnection();
-            stmt2 = conn2.createStatement();
-            stmt2.execute("UPDATE project_index_counter SET current_number = 0, current_letter = 'A' WHERE id = 1");
-            System.out.println(">>> [WIPE] OK: project_index_counter reset to 000/A");
-        } catch (Exception e) {
-            System.err.println(">>> [WIPE] WARNING: Could not reset project_index_counter: " + e.getMessage());
-        } finally {
-            if (stmt2 != null) try { stmt2.close(); } catch (Exception ignored) {}
-            if (conn2 != null) try { conn2.close(); } catch (Exception ignored) {}
+        // fix181 (14.4d): the Admin account must still exist, or nobody can sign in
+        try { dataInitializer.seedRootUser(); } catch (Exception e) { System.err.println(">>> [WIPE] root reseed: " + e.getMessage()); }
+        if (!rootExists()) {
+            auditService.logAction("DATA_WIPED", "Data wipe finished but the Admin account is MISSING.");
+            return ResponseEntity.internalServerError().body(Map.of(
+                "wiped", true,
+                "message", "The data was deleted but the Admin account could not be found. Restart the server (it creates the Admin) before signing in."
+            ));
         }
 
-        // Reseed the root admin account so nobody gets locked out
-        try {
-            dataInitializer.seedRootUser();
-            System.out.println(">>> [WIPE] OK: admin_root reseeded");
-        } catch (Exception e) {
-            System.err.println(">>> [WIPE] WARNING: admin_root reseed failed: " + e.getMessage());
-        }
-
-        // Reseed the default status list of every project type
         statusTemplateService.seedDefaultStatusesIfEmpty();
-        System.out.println(">>> [WIPE] OK: default status lists reseeded");
-
-        // Reseed the default expense presets (Office, Fieldwork, Land Office)
         dataInitializer.seedDefaultExpensePresets();
-        System.out.println(">>> [WIPE] OK: default expense presets reseeded");
-        try {
-            dataInitializer.seedScenarioDataOnce();
-            System.out.println(">>> [WIPE] OK: scenario dataset reseeded after wipe");
-        } catch (Exception e) {
-            System.err.println(">>> [WIPE] scenario reseed warning: " + e.getMessage());
-        }
+        // fix181 (14.4c): the demo dataset comes back only when ge.solutions.seed-demo-data is on (called once, not twice)
+        try { dataInitializer.seedScenarioDataOnce(); } catch (Exception e) { System.err.println(">>> [WIPE] demo reseed: " + e.getMessage()); }
 
-        // Reseed scenario data (flag was cleared by the truncate above)
-        try {
-            dataInitializer.seedScenarioDataOnce();
-            System.out.println(">>> [WIPE] OK: scenario data reseeded");
-        } catch (Exception e) {
-            System.err.println(">>> [WIPE] WARNING: scenario reseed failed: " + e.getMessage());
-        }
+        Map<String, Object> files = fileStorageService.deleteAllFiles();
 
-        // Purge every uploaded file from Cloudinary storage too
-        fileStorageService.deleteAllFiles();
-        System.out.println(">>> [WIPE] OK: Cloudinary storage purge attempted");
-
-        System.out.println(">>> [WIPE] SYSTEM RESET COMPLETE. Fresh start.");
+        auditService.logAction("DATA_WIPED", "Data wipe FINISHED. Deleted: " + before + ". Files deleted: "
+                + files.get("filesDeleted") + ", files not deleted: " + files.get("filesFailed") + ".");
+        notificationService.emitNow("SYSTEM_WIPE", "All business data was wiped by " + AuditService.currentOperator()
+                + " (" + before.get("projects") + " projects, " + before.get("clients") + " clients, " + before.get("payments") + " payments).",
+                "SYSTEM", UUID.nameUUIDFromBytes("system-wipe".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("wiped", true);
-        response.put("tablesWiped", TABLES_TO_WIPE);
-        response.put("message", "All business data AND all uploaded files on Cloudinary have been deleted. Root admin login, project index, and default status lists were reseeded to defaults. You will need to log in again with the ADMIN_EMAIL / ADMIN_DEFAULT_PASSWORD credentials.");
+        response.put("tablesWiped", wiped);
+        response.put("deleted", before);
+        response.put("filesDeleted", files.get("filesDeleted"));
+        response.put("filesFailed", files.get("filesFailed"));
+        if (files.get("error") != null) response.put("filesError", files.get("error"));
+        response.put("kept", KEPT_ON_PURPOSE);
+        response.put("message", "All business data was deleted. Staff accounts and the audit trail were kept.");
         return ResponseEntity.ok(response);
+    }
+
+    private Map<String, Long> counts() {
+        Map<String, Long> m = new LinkedHashMap<>();
+        m.put("projects", count("land_projects"));
+        m.put("clients", count("clients"));
+        m.put("payments", count("payment_records"));
+        m.put("expenses", count("expenses"));
+        m.put("documents", count("project_documents"));
+        return m;
+    }
+
+    private long count(String table) {
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            if (!tableExists(conn, table)) return 0;
+            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table)) { return rs.next() ? rs.getLong(1) : 0; }
+        } catch (Exception e) { return -1; }
+    }
+
+    private boolean rootExists() {
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM users WHERE is_root = true")) {
+            return rs.next() && rs.getLong(1) > 0;
+        } catch (Exception e) { return false; }
+    }
+
+    /** True when the table exists (any letter case; H2 stores names in capitals). */
+    static boolean tableExists(Connection conn, String table) throws java.sql.SQLException {
+        var md = conn.getMetaData();
+        for (String name : new String[]{ table, table.toUpperCase(Locale.ROOT) }) {
+            try (ResultSet rs = md.getTables(null, null, name, new String[]{ "TABLE" })) { if (rs.next()) return true; }
+        }
+        return false;
     }
 }

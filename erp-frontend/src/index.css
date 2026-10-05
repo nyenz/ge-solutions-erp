@@ -91,15 +91,15 @@ body {
     font-family: 'Inter', -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     background: var(--navy); /* Fallback color before Circuit Background loads */
-    min-height: 100vh;
+    min-height: 100vh;   /* body is outside the zoomed #root: the plain screen size is right here */
     width: 100vw;
     overflow: hidden; /* THE HANDBRAKE: Keeps card away from edges */
     color: var(--text-light);
 }
 
 #root {
-    height: 100vh;
-    width: 100vw;
+    height: var(--app-vh);
+    width: var(--app-vw);
 }
 
 /* ===== GLOBAL NUMBER INPUT SPINNER THEME =====
@@ -344,6 +344,11 @@ input[type="search"]::-webkit-search-results-decoration {
    ================================================================== */
 :root {
     --ui-scale: 1;
+    /* fix181 (15.1a): #root is zoomed by --ui-scale, so a plain 100vh/100vw inside it becomes 125% of the screen at
+       125% (the bottom was cut off) and 90% at 90% (an empty strip). These two are the real screen size inside #root.
+       Checked in Chromium at 90, 100 and 125 percent. */
+    --app-vh: calc(100vh / var(--ui-scale, 1));
+    --app-vw: calc(100vw / var(--ui-scale, 1));
 
     /* The page background is built from these two in
        CircuitBackground.module.css, which is what makes a dark page
@@ -372,13 +377,31 @@ input[type="search"]::-webkit-search-results-decoration {
 :root[data-motion="reduced"] *,
 :root[data-motion="reduced"] *::before,
 :root[data-motion="reduced"] *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
 }
+/* fix181 (15.1e): slides and fades stop, but a loading spinner or skeleton keeps a slow loop, otherwise a page that is
+   still loading looks dead and people click again. Spinner/skeleton classes keep their name inside the CSS-module
+   name (_spinner_x1y2z), so they are matched by name. */
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i]):not([class*="spin" i] *),
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i])::before,
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i])::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+}
+:root[data-motion="reduced"] [class*="spin" i],
+:root[data-motion="reduced"] [class*="spin" i] svg,
+:root[data-motion="reduced"] [class*="skel" i] {
+    animation-duration: 2.4s !important;
+}
 
-/* HIGH CONTRAST -- stronger row rules and panel edges. Helps most on the
-   cheap office monitors, which is where it was asked for. */
+/* HIGH CONTRAST -- stronger row lines in TABLES only (Ledger, Client Ledger, Portfolio, Payments, Expenses, Reports,
+   Folder). The hint in Settings says the same (fix181, 15.1f). */
 :root[data-contrast="high"] table tbody td { border-bottom-color: rgba(255, 255, 255, 0.22) !important; }
 :root[data-contrast="high"] table tbody tr:hover { background: rgba(255, 255, 255, 0.10) !important; }
+
+/* fix181 (15.1c): pinch-zoom is allowed again; an iPhone zooms in on any box under 16px when it is tapped, so on touch
+   screens every input is at least 16px. */
+@media (pointer: coarse) {
+    input, select, textarea { font-size: max(16px, 1em) !important; }
+}

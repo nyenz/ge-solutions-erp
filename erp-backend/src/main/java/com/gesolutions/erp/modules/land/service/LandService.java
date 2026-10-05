@@ -70,7 +70,7 @@ public class LandService {
     public void logUnlockAction(UUID id) {
         LandProject project = projectRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        auditService.logAction("EDIT_MODE_OPENED",
+        auditService.logActionAfterCommit("EDIT_MODE_OPENED",
             "Operator [" + getCurrentOperator() + "] opened edit mode for plot: "
             + plotLabel(project));
     }
@@ -141,12 +141,53 @@ public class LandService {
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation) {
+        return recordPayment(projectId, amount, notes, payerId, allocation, null);
+    }
+
+    // fix181 (16.12): the project row is LOCKED while the payment is checked and saved, so two people paying at the same
+    // moment are done one after the other (both used to pass the overpayment check, and one total could be lost).
+    // clientRequestId: a payment window sends the same id on a retry; the second request is refused.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
+                                       String clientRequestId) {
+        return recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, null);
+    }
+
+    /** fix181 (16.9): how far back a "Date paid" may go (older money needs a Director note, not a silent backdate). */
+    public static final int MAX_BACKDATE_DAYS = 60;
+
+    // fix181 (16.9): paidOnDate = the day the money was received (optional; null = today). Not in the future, not more than
+    // 60 days back, not before the project was entered. It is saved as paid_on; timestamp stays the entry time.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
+                                       String clientRequestId, java.time.LocalDate paidOnDate) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
         }
+        String requestId = clientRequestId == null || clientRequestId.isBlank() ? null
+                : clientRequestId.trim().substring(0, Math.min(64, clientRequestId.trim().length()));
 
-        LandProject project = projectRepository.findById(projectId)
+        LandProject project = projectRepository.findByIdForUpdate(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (requestId != null && paymentRecordRepository.existsByClientRequestIdAndRecordedBy(requestId, getCurrentOperator())) {
+            throw new BusinessException("DUPLICATE_PAYMENT: This payment was already recorded.");
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (paidOnDate != null) {
+            if (paidOnDate.isAfter(today)) {
+                throw new BusinessException("DATE_INVALID: The date paid cannot be in the future.");
+            }
+            if (paidOnDate.isBefore(today.minusDays(MAX_BACKDATE_DAYS))) {
+                throw new BusinessException("DATE_INVALID: The date paid can be at most " + MAX_BACKDATE_DAYS
+                        + " days ago. For older money, ask a Director to record it with a note.");
+            }
+            java.time.LocalDate entered = project.getCreatedAt() != null ? project.getCreatedAt().toLocalDate() : project.getEntryDate();
+            if (entered != null && paidOnDate.isBefore(entered)) {
+                throw new BusinessException("DATE_INVALID: The date paid cannot be before the project was entered (" + entered + ").");
+            }
+        }
         // fix165: no money can be recorded against a deleted project, and no fractions of a shilling.
         if (project.isDeleted()) {
             throw new BusinessException("PAYMENT_BLOCKED: This project is deleted. Restore it first.");
@@ -208,7 +249,11 @@ public class LandService {
         } else if ("STORAGE".equals(kind)) {
             project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
         }
-        project.setLastPaymentDate(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        // a past day is kept as 12:00 of that day; today is the real time
+        LocalDateTime paidAt = paidOnDate == null || paidOnDate.equals(today) ? now : paidOnDate.atTime(12, 0);
+        // the last payment date only moves FORWARD (a backdated payment never makes it older)
+        if (project.getLastPaymentDate() == null || paidAt.isAfter(project.getLastPaymentDate())) project.setLastPaymentDate(paidAt);
 
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
@@ -220,6 +265,9 @@ public class LandService {
                 .paymentType(paymentType)
                 .recordedBy(operator)
                 .notes(notes)
+                .timestamp(now)
+                .paidOn(paidAt)                   // fix181 (16.9): the day paid (today unless a date was given)
+                .clientRequestId(requestId)
                 .balanceAfter(balanceAfter)
                 .allocation(kind)
                 .payerClientId(payer != null ? payer.getId() : null)
@@ -237,15 +285,17 @@ public class LandService {
             project.setReceivable(false);
             project.setStatus("ACTIVE");
             projectRepository.save(project);
-            auditService.logAction("RECEIVABLE_EXIT",
+            auditService.logActionAfterCommit("RECEIVABLE_EXIT",
                 "Operator [" + operator + "] -- Plot " + plotLabel(project)
                 + " EXITED RECEIVABLE after full payment clearance (UGX " + fees.toPlainString() + " of paid storage fees moved into the total cost).");
+            notificationService.emitToAudience("RECEIVABLE_EXIT",   // fix181 (17.2)
+                plotLabel(project) + " left receivables: fully paid.", "PROJECT", projectId);
         } else {
             projectRepository.save(project);
         }
 
         if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
-            notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
+            notificationService.emitToAudience("PAYMENT_ON_RECEIVABLE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId);
         }
         // fix167: the "payment received" line goes on the recovery card of the client who PAID (not on every client)
         java.util.List<Client> noteFor = new java.util.ArrayList<>();
@@ -253,14 +303,15 @@ public class LandService {
         for (Client owner : noteFor) {
             recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
                 .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
-                .text("Paid UGX " + amount + " on " + java.time.LocalDate.now() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
+                .text("Paid UGX " + amount + " on " + paidAt.toLocalDate() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
         }
-        auditService.logAction("PAYMENT_RECORDED",
+        auditService.logActionAfterCommit("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
             + " | For: " + kind + (keptFeesPayment ? " (set-aside fees)" : "")
             + (payer != null ? " | Paid by: " + payer.getFullName() : "")
+            + (paidAt.toLocalDate().equals(today) ? "" : " | paid on " + paidAt.toLocalDate())
             + " | Amount owed after: UGX " + balanceAfter);
         return record;
     }
@@ -273,6 +324,14 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
                                          UUID payerId, String allocation) throws Exception {
+        recordPaymentWithReceipt(projectId, amount, notes, receipt, payerId, allocation, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
+                                         UUID payerId, String allocation, String clientRequestId,
+                                         java.time.LocalDate paidOnDate) throws Exception {
         if (receipt == null || receipt.isEmpty()) {
             throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
         }
@@ -280,7 +339,7 @@ public class LandService {
             throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
         }
         requireScanFiles(new MultipartFile[] { receipt });
-        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation);
+        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId, paidOnDate);
         List<ProjectDocument> filed = addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
         if (!filed.isEmpty()) {
             record.setReceiptDocumentId(filed.get(0).getId());
@@ -333,6 +392,15 @@ public class LandService {
     // inside addScansToProject, which rolls the whole intake back.
     @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories) throws Exception {
+        return doIntake(request, scans, categories, false);
+    }
+
+    /**
+     * fix181 (8.7e, 12.1): pendingEntry = an Employee's field entry. It is saved as PENDING with no price and no payment
+     * (the caller, PendingProjectService, has already refused every money field), and the office is told with
+     * PENDING_CREATED instead of NEW_INTAKE. The pending flag never comes from the browser.
+     */
+    LandProject doIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories, boolean pendingEntry) throws Exception {
         if (categories != null && scans != null) {
             for (int i = 0; i < scans.length; i++) {
                 String c = i < categories.size() ? categories.get(i) : null;
@@ -369,6 +437,160 @@ public class LandService {
         }
         String projectIndex = projectIndexService.generateNextIndex();
 
+        // fix181 (12.2): the intake money is checked by ONE method, shared with graduatePending
+        IntakeMoney money = checkIntakeMoney(request);
+        BigDecimal initialPayment = money.initialPayment();
+        BigDecimal outstanding = money.outstanding();
+        boolean startAsReceivable = money.startAsReceivable();
+        BigDecimal initialFees = money.initialFees();
+        BigDecimal initialFeesPaid = money.initialFeesPaid();
+        LocalDate receivablesSince = money.receivablesSince();
+        int backlogMonths = money.backlogMonths();
+        BigDecimal backlogFees = money.backlogFees();
+
+        LandTitle title = null;
+        if (hasTitleFields) {
+            // Title Details are fully required on the page once shown -- mirrored here, since this service validates
+            // DTOs imperatively rather than via @Valid/bean-validation. fix180: Area (hectares) is required too.
+            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
+                throw new BusinessException("PLOT_NUMBER_REQUIRED: Plot Number is required in Title Details.");
+            }
+            if (request.getBlock() == null || request.getBlock().isBlank()) {
+                throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
+            }
+            requireAreaHectares(request.getAreaHectares());
+            if (request.getTitleIssueDate() == null) {
+                throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
+            }
+            title = LandTitle.builder()
+                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
+                    .plotNumber(request.getPlotNumber())
+                    .block(request.getBlock())
+                    .areaHectares(request.getAreaHectares())
+                    .volume(blankToNull(request.getVolume()))
+                    .folio(blankToNull(request.getFolio()))
+                    // Date Started is editable again on the intake form (staff can
+                    // backdate a project entered a few days after fieldwork began),
+                    // so this trusts the client value when present and only falls
+                    // back to today when it's missing. Entry Date (LandProject,
+                    // below) is the one that stays server-set and non-editable.
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                    .titleIssueDate(request.getTitleIssueDate())
+                    .build();
+        }
+
+        LandProject.LandProjectBuilder builder = LandProject.builder()
+                .landTitle(title)
+                .projectIndex(projectIndex)
+                // ENTRY DATE: automatic, server-set, never from the request.
+                .entryDate(LocalDate.now())
+                // DATE STARTED: editable on the intake form, defaults to today
+                // on the client -- this was previously never wired up here at
+                // all, so every project's start date landed NULL regardless of
+                // what the form showed.
+                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                .district(request.getDistrict())
+                .county(request.getCounty())
+                .subCounty(request.getSubCounty())
+                .parish(request.getParish())
+                .village(request.getVillage())
+                .area(request.getArea())
+                .totalCost(BigDecimal.ZERO)                        // fix181: the money is set by applyIntakeMoney below
+                .amountPaid(BigDecimal.ZERO)
+                .projectType(type.name())                          // fix180
+                .titleDetailsEnabled(titleSwitchedOn)
+                .subdivisionCount(subdivisionCount)
+                .parentProjectId(parent != null ? parent.getId() : null)
+                .parentSubdivisionNo(parent != null ? request.getParentSubdivisionNo() : null)
+                .isLegacy(isLegacyType);
+
+        LandProject project = builder.build();
+        applyIntakeMoney(project, money);
+        project.setPending(pendingEntry);
+        // fix181 (8.9): who entered it (account id + username as it was then)
+        project.setCreatedBy(getCurrentOperator());
+
+        // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
+        // are a copy of the clients; an old page that sends only owners has those owners as its clients.
+        List<LandEntryRequest.OwnerRequest> clientRows = request.getClients() != null && !request.getClients().isEmpty()
+                ? request.getClients() : (request.getOwners() != null ? request.getOwners() : List.of());
+        List<LandEntryRequest.OwnerRequest> ownerRows = request.getOwners() != null && !request.getOwners().isEmpty()
+                ? request.getOwners() : clientRows;
+        if (clientRows.isEmpty()) {
+            throw new BusinessException("CLIENT_REQUIRED: Add at least one client.");
+        }
+        // fix172: the clients by NIN, so the client who paid the intake money can be named
+        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
+        for (LandEntryRequest.OwnerRequest o : clientRows) {
+            Client c = personFromRow(o, "Client");
+            project.addClient(c);
+            ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
+        }
+        for (LandEntryRequest.OwnerRequest o : ownerRows) {
+            project.addProprietor(personFromRow(o, "Owner"));
+        }
+
+        // fix172 / fix181 (12.2): who paid, the payment lines and the last payment date -- one shared method
+        LandProject saved = projectRepository.save(project);
+        String fix172Note = recordIntakeMoney(saved, money, ownersByNin, request);
+
+        // fix180: every project type has its own status list, so every project gets its statuses
+        if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
+            statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
+        }
+        saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
+
+        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
+
+        if (request.getNotes() != null) {
+            for (LandEntryRequest.NoteRequest noteReq : request.getNotes()) {
+                if (noteReq.getContent() != null && !noteReq.getContent().trim().isEmpty()) {
+                    FollowUpLog entry = FollowUpLog.builder()
+                            .projectId(saved.getId())
+                            .notes("INTAKE NOTE: " + noteReq.getContent())
+                            .recordedBy(getCurrentOperator())
+                            .build();
+                    followUpRepository.save(entry);
+                }
+            }
+        }
+
+        String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
+        String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
+                + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
+        if (pendingEntry) {
+            notificationService.emitToAudience("PENDING_CREATED", "New Pending project " + projectIndex + " entered by "
+                    + getCurrentOperator() + ". It waits for prices.", "PROJECT", saved.getId());
+        } else {
+            notificationService.emitToAudience("NEW_INTAKE", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId());
+        }
+        auditService.logActionAfterCommit(pendingEntry ? "PENDING_CREATED" : "INTAKE",
+            "Operator [" + getCurrentOperator() + "] " + (pendingEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
+            + plotOrIndex + receivableNote + fix172Note);
+
+        if (startAsReceivable) {
+            auditService.logActionAfterCommit("RECEIVABLE_TRIGGER",
+                "Operator [" + getCurrentOperator() + "] flagged plot "
+                + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
+                + ". Storage fees: UGX " + initialFees.add(backlogFees)
+                + (backlogMonths > 0 ? " (incl. UGX " + backlogFees + " backlog for " + backlogMonths + " month(s) since " + receivablesSince + ")" : "")
+                + " (UGX " + initialFeesPaid + " already paid).");
+        }
+
+        return saved;
+    }
+
+    // ─── INTAKE MONEY (fix181, 12.2) ─────────────────────────────────────────
+    // ONE set of rules for the money typed at intake, used by atomicIntake AND by graduatePending (a Pending project gets
+    // its prices later), so the two can never drift apart.
+
+    /** The intake money after every check. */
+    record IntakeMoney(BigDecimal totalCost, BigDecimal initialPayment, BigDecimal outstanding, boolean startAsReceivable,
+                       BigDecimal initialFees, BigDecimal initialFeesPaid, LocalDate receivablesSince, int backlogMonths,
+                       BigDecimal backlogFees, LocalDateTime receivableClock, LocalDate lastPaidDate, LocalDateTime paidAt,
+                       BigDecimal monthlyFeeOverride) {}
+
+    IntakeMoney checkIntakeMoney(LandEntryRequest request) {
         BigDecimal initialPayment = request.getInitialPayment() != null
                 ? request.getInitialPayment() : BigDecimal.ZERO;
         BigDecimal totalCost = request.getTotalCost() != null
@@ -435,119 +657,50 @@ public class LandService {
             throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. "
                     + "This title work is already fully paid, so clear the storage fee boxes.");
         }
+        BigDecimal override = request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0
+                ? request.getMonthlyStorageFee() : null;
+        return new IntakeMoney(totalCost, initialPayment, outstanding, startAsReceivable, initialFees, initialFeesPaid,
+                receivablesSince, backlogMonths, backlogFees, receivableClock, lastPaidDate, paidAt, override);
+    }
 
-        LandTitle title = null;
-        if (hasTitleFields) {
-            // Title Details are fully required on the page once shown -- mirrored here, since this service validates
-            // DTOs imperatively rather than via @Valid/bean-validation. fix180: Area (hectares) is required too.
-            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
-                throw new BusinessException("PLOT_NUMBER_REQUIRED: Plot Number is required in Title Details.");
-            }
-            if (request.getBlock() == null || request.getBlock().isBlank()) {
-                throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
-            }
-            requireAreaHectares(request.getAreaHectares());
-            if (request.getTitleIssueDate() == null) {
-                throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
-            }
-            title = LandTitle.builder()
-                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
-                    .plotNumber(request.getPlotNumber())
-                    .block(request.getBlock())
-                    .areaHectares(request.getAreaHectares())
-                    .volume(blankToNull(request.getVolume()))
-                    .folio(blankToNull(request.getFolio()))
-                    // Date Started is editable again on the intake form (staff can
-                    // backdate a project entered a few days after fieldwork began),
-                    // so this trusts the client value when present and only falls
-                    // back to today when it's missing. Entry Date (LandProject,
-                    // below) is the one that stays server-set and non-editable.
-                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
-                    .titleIssueDate(request.getTitleIssueDate())
-                    .build();
+    /** Puts the checked money on the project (cost, amount paid, status, receivable fields). */
+    void applyIntakeMoney(LandProject project, IntakeMoney m) {
+        project.setTotalCost(m.totalCost());
+        project.setAmountPaid(m.initialPayment().add(m.initialFeesPaid()));   // fix171: title money + storage-fee money
+        project.setCurrentStatusIndex(m.startAsReceivable() ? 5 : (project.getCurrentStatusIndex() != null ? project.getCurrentStatusIndex() : 1));
+        project.setStatus(m.startAsReceivable() ? "RECEIVABLE" : "ACTIVE");
+        if (m.startAsReceivable() && m.outstanding().compareTo(BigDecimal.ZERO) > 0) {
+            project.setReceivable(true);
+            project.setReceivableStartDate(m.receivableClock());          // fix172: the In Receivables Since date, or now
+            project.setReceivableMonthsBilled(m.backlogMonths());         // fix172: billed now, so the nightly job must not bill them again
+            project.setOriginalDebt(m.outstanding());
+            project.setStorageFeesAccumulated(m.initialFees().add(m.backlogFees()));   // fix172: typed fee + the backlog months
+            project.setStorageFeesPaid(m.initialFeesPaid());              // fix171
+            if (m.monthlyFeeOverride() != null) project.setStorageFeeOverride(m.monthlyFeeOverride());
         }
+    }
 
-        LandProject.LandProjectBuilder builder = LandProject.builder()
-                .landTitle(title)
-                .projectIndex(projectIndex)
-                // ENTRY DATE: automatic, server-set, never from the request.
-                .entryDate(LocalDate.now())
-                // DATE STARTED: editable on the intake form, defaults to today
-                // on the client -- this was previously never wired up here at
-                // all, so every project's start date landed NULL regardless of
-                // what the form showed.
-                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
-                .district(request.getDistrict())
-                .county(request.getCounty())
-                .subCounty(request.getSubCounty())
-                .parish(request.getParish())
-                .village(request.getVillage())
-                .area(request.getArea())
-                .totalCost(totalCost)
-                .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)
-                .projectType(type.name())                          // fix180
-                .titleDetailsEnabled(titleSwitchedOn)
-                .subdivisionCount(subdivisionCount)
-                .parentProjectId(parent != null ? parent.getId() : null)
-                .parentSubdivisionNo(parent != null ? request.getParentSubdivisionNo() : null)
-                .isLegacy(isLegacyType)
-                .currentStatusIndex(startAsReceivable ? 5 : 1)
-                .status(startAsReceivable ? "RECEIVABLE" : "ACTIVE");
+    /**
+     * Who paid (fix172), the INITIAL_DEPOSIT payment lines (fix171: title and storage on their own lines) and the last
+     * payment date. Returns the text added to the audit line.
+     */
+    String recordIntakeMoney(LandProject saved, IntakeMoney m, java.util.Map<String, Client> clientsByNin, LandEntryRequest request) {
+        BigDecimal initialPayment = m.initialPayment();
+        BigDecimal initialFeesPaid = m.initialFeesPaid();
+        LocalDateTime paidAt = m.paidAt();
+        LocalDate lastPaidDate = m.lastPaidDate();
+        Client titlePayer = fix172ResolvePayer(clientsByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
+        Client feesPayer = fix172ResolvePayer(clientsByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
+        StringBuilder note = new StringBuilder();
+        if (titlePayer != null) note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
+        if (feesPayer != null) note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
+        if (lastPaidDate != null) note.append(" | Date last paid ").append(lastPaidDate);
+        if (m.receivablesSince() != null) note.append(" | In receivables since ").append(m.receivablesSince())
+                .append(" (").append(m.backlogMonths()).append(" month(s) of fees billed at intake)");
 
-        if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
-            builder.isReceivable(true)
-                   .receivableStartDate(receivableClock)   // fix172: the In Receivables Since date, or now
-                   .receivableMonthsBilled(backlogMonths)   // fix172: those months are billed below, so the nightly job must not bill them again
-                   .originalDebt(outstanding)
-                   .storageFeesAccumulated(initialFees.add(backlogFees))   // fix172: typed fee + the backlog months
-                   .storageFeesPaid(initialFeesPaid);   // fix171
-            if (request.getMonthlyStorageFee() != null
-                    && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0) {
-                builder.storageFeeOverride(request.getMonthlyStorageFee());
-            }
-        }
-
-        LandProject project = builder.build();
-
-        // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
-        // are a copy of the clients; an old page that sends only owners has those owners as its clients.
-        List<LandEntryRequest.OwnerRequest> clientRows = request.getClients() != null && !request.getClients().isEmpty()
-                ? request.getClients() : (request.getOwners() != null ? request.getOwners() : List.of());
-        List<LandEntryRequest.OwnerRequest> ownerRows = request.getOwners() != null && !request.getOwners().isEmpty()
-                ? request.getOwners() : clientRows;
-        if (clientRows.isEmpty()) {
-            throw new BusinessException("CLIENT_REQUIRED: Add at least one client.");
-        }
-        // fix172: the clients by NIN, so the client who paid the intake money can be named
-        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
-        for (LandEntryRequest.OwnerRequest o : clientRows) {
-            Client c = personFromRow(o, "Client");
-            project.addClient(c);
-            ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
-        }
-        for (LandEntryRequest.OwnerRequest o : ownerRows) {
-            project.addProprietor(personFromRow(o, "Owner"));
-        }
-
-        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single client is the payer,
-        // joint clients must say which one paid. Checked before anything is saved.
-        Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
-        Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
-        StringBuilder fix172Note = new StringBuilder();
-        if (titlePayer != null) fix172Note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
-        if (feesPayer != null) fix172Note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
-        if (lastPaidDate != null) fix172Note.append(" | Date last paid ").append(lastPaidDate);
-        if (receivablesSince != null) fix172Note.append(" | In receivables since ").append(receivablesSince)
-                .append(" (").append(backlogMonths).append(" month(s) of fees billed at intake)");
-
-        LandProject saved = projectRepository.save(project);
-
-        // Record initial payment if any
-        // fix171: the balance shown on the history lines includes the storage fees, and the money that was paid
-        // toward fees gets its OWN line (allocation STORAGE) so the folder, payments page and reports can tell them apart.
-        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : outstanding;
+        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : m.outstanding();
         if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {
-            PaymentRecord initialRecord = PaymentRecord.builder()
+            paymentRecordRepository.save(PaymentRecord.builder()
                     .projectId(saved.getId())
                     .amountPaid(initialPayment)
                     .paymentType("INITIAL_DEPOSIT")
@@ -555,18 +708,22 @@ public class LandService {
                     .notes(paidAt != null ? "Initial deposit at intake (paid on " + lastPaidDate + ")" : "Initial deposit at intake")
                     .balanceAfter(balanceAtIntake)
                     .allocation("TITLE")
-                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid
+                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which client paid
                     .payerName(titlePayer != null ? titlePayer.getFullName() : null)
-                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())   // fix172: the date it was really paid
-                    .build();
-            paymentRecordRepository.save(initialRecord);
-            saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more
-            projectRepository.save(saved);
+                    .timestamp(LocalDateTime.now())   // fix181 (16.0b): always the real entry time
+                    .paidOn(paidAt)                   // fix181 (11.6): the day paid; NULL when the operator gave no date
+                    .build());
+            // fix181 (1.2): only a DATED deposit sets the last payment date. An empty date means "not known": the client
+            // stays callable (it used to count as "paid today" and hid them from Recovery for 30 days).
+            if (paidAt != null) {
+                saved.setLastPaymentDate(paidAt);
+                projectRepository.save(saved);
+            }
         }
         if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {
-            // deliberately NOT setting lastPaymentDate: this money was paid before the project was entered, on an
-            // unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.
-            PaymentRecord feesRecord = PaymentRecord.builder()
+            // deliberately NOT setting lastPaymentDate without a date: this money was paid before the project was entered,
+            // on an unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.
+            paymentRecordRepository.save(PaymentRecord.builder()
                     .projectId(saved.getId())
                     .amountPaid(initialFeesPaid)
                     .paymentType("INITIAL_DEPOSIT")
@@ -574,57 +731,17 @@ public class LandService {
                     .notes(paidAt != null ? "Storage fees already paid before entry (paid on " + lastPaidDate + ")" : "Storage fees already paid before entry (recorded at intake)")
                     .balanceAfter(balanceAtIntake)
                     .allocation("STORAGE")
-                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid
+                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)
                     .payerName(feesPayer != null ? feesPayer.getFullName() : null)
-                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())
-                    .build();
-            paymentRecordRepository.save(feesRecord);
+                    .timestamp(LocalDateTime.now())
+                    .paidOn(paidAt)
+                    .build());
             if (paidAt != null) {
-                // fix172: only when the operator gave a date. No date = still unknown = the recovery badge stays untouched.
                 saved.setLastPaymentDate(paidAt);
                 projectRepository.save(saved);
             }
         }
-
-        // fix180: every project type has its own status list, so every project gets its statuses
-        if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
-            statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
-        }
-        saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
-
-        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
-
-        if (request.getNotes() != null) {
-            for (LandEntryRequest.NoteRequest noteReq : request.getNotes()) {
-                if (noteReq.getContent() != null && !noteReq.getContent().trim().isEmpty()) {
-                    FollowUpLog entry = FollowUpLog.builder()
-                            .projectId(saved.getId())
-                            .notes("INTAKE NOTE: " + noteReq.getContent())
-                            .recordedBy(getCurrentOperator())
-                            .build();
-                    followUpRepository.save(entry);
-                }
-            }
-        }
-
-        String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
-        String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
-                + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
-        notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
-        auditService.logAction("INTAKE",
-            "Operator [" + getCurrentOperator() + "] ingested binder: "
-            + plotOrIndex + receivableNote + fix172Note);
-
-        if (startAsReceivable) {
-            auditService.logAction("RECEIVABLE_TRIGGER",
-                "Operator [" + getCurrentOperator() + "] flagged plot "
-                + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
-                + ". Storage fees: UGX " + initialFees.add(backlogFees)
-                + (backlogMonths > 0 ? " (incl. UGX " + backlogFees + " backlog for " + backlogMonths + " month(s) since " + receivablesSince + ")" : "")
-                + " (UGX " + initialFeesPaid + " already paid).");
-        }
-
-        return saved;
+        return note.toString();
     }
 
     // ─── FULL UPDATE ──────────────────────────────────────────────────────────
@@ -735,6 +852,17 @@ public class LandService {
 
     @Transactional(rollbackFor = Exception.class)
     public LandProject updateProjectFull(UUID projectId, LandEntryRequest request) {
+        LandProject p = projectRepository.findByIdForUpdate(projectId)
+                .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
+        // fix181 (12.2): a Pending project gets its prices through START PROJECT (graduatePending), never through this edit
+        if (p.isPending()) {
+            throw new BusinessException("PENDING_PROJECT: This project is Pending. Use START PROJECT to add the prices.");
+        }
+        return doUpdateProjectFull(projectId, request);
+    }
+
+    /** The edit itself (people, title details, location, subdivisions, cost with its reason). Callers check who may do it. */
+    LandProject doUpdateProjectFull(UUID projectId, LandEntryRequest request) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
         LandTitle title = project.getLandTitle();
@@ -819,7 +947,7 @@ public class LandService {
                 throw new BusinessException("SUBDIVISIONS_TOO_FEW: Plot " + highest + " was already transferred, so there must be at least " + highest + " subdivisions.");
             }
             if (!Integer.valueOf(want).equals(project.getSubdivisionCount())) {
-                auditService.logAction("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
+                auditService.logActionAfterCommit("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
                         + project.getProjectIndex() + " from " + project.getSubdivisionCount() + " to " + want);
             }
             project.setSubdivisionCount(want);
@@ -905,7 +1033,7 @@ public class LandService {
                         + ") is lower than the UGX " + titlePaidNow.toPlainString()
                         + " already paid. Reverse the extra payment first.");
             }
-            auditService.logAction("COST_CHANGED",
+            auditService.logActionAfterCommit("COST_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed total cost on " + plotLabel(project)
                 + " from UGX " + oldTotalCost.toPlainString() + " to UGX " + newTotalCost.toPlainString()
                 + ". Reason: " + costWhy);
@@ -923,25 +1051,25 @@ public class LandService {
         }
 
         LandProject saved = projectRepository.save(project);
-        auditService.logAction("RECORD_UPDATED",
+        auditService.logActionAfterCommit("RECORD_UPDATED",
             "Operator [" + getCurrentOperator() + "] modified Binder: "
             + plotLabel(project));
         // fix166: a change of plot / title ID / tenure / block, or of the owners, is written with OLD -> NEW.
         String fix166NewTitle = fix166TitleLine(project.getLandTitle());
         if (!fix166OldTitle.equals(fix166NewTitle)) {
-            auditService.logAction("TITLE_FIELDS_CHANGED",
+            auditService.logActionAfterCommit("TITLE_FIELDS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the title details of project #" + project.getProjectIndex()
                 + ". Old: " + fix166OldTitle + " -> New: " + fix166NewTitle);
         }
         String fix166NewOwners = fix166OwnersLine(project);
         if (!fix166OldOwners.equals(fix166NewOwners)) {
-            auditService.logAction("OWNERS_CHANGED",
+            auditService.logActionAfterCommit("OWNERS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the owners of project #" + project.getProjectIndex()
                 + ". Old: " + fix166OldOwners + " -> New: " + fix166NewOwners);
         }
         String fix180NewClients = peopleLine(project.getClients());
         if (!fix180OldClients.equals(fix180NewClients)) {
-            auditService.logAction("CLIENTS_CHANGED",
+            auditService.logActionAfterCommit("CLIENTS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the clients of project #" + project.getProjectIndex()
                 + ". Old: " + fix180OldClients + " -> New: " + fix180NewClients);
         }
@@ -955,7 +1083,7 @@ public class LandService {
     // mis-click is recoverable via restoreProject() below.
 
     @Transactional
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public void nuclearDelete(UUID id, String reason) {
         // fix166: deleting a project needs a written reason, and an already-deleted project cannot be "deleted" again.
         String why = reason == null ? "" : reason.trim();
@@ -970,42 +1098,103 @@ public class LandService {
 
         project.setDeleted(true);
         project.setDeletedAt(LocalDateTime.now());
+        project.setDeletedReason(why);                // fix181 (14.7a)
+        project.setDeletedBy(getCurrentOperator());
         projectRepository.save(project);
 
-        auditService.logAction("RECORD_DELETED",
-            "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
+        auditService.logActionAfterCommit("RECORD_DELETED",
+            "Operator [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
         /* fix71: CRITICAL was a severity the frontend rendered and the backend
            never emitted. Deleting a plot is exactly what it is for. emitRaw,
            not emit: emit de-duplicates on (type, entityId) forever, so a plot
            deleted, restored and deleted again would have gone silent the
            second time. */
-        notificationService.emitRaw("PROJECT_DELETED", "CRITICAL",
+        notificationService.emitToAudience("PROJECT_DELETED",
             "Plot " + plotNo + " deleted by " + getCurrentOperator()
             + ". Restore it from Settings -> Archive.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public void restoreProject(UUID id) {
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
+    public void restoreProject(UUID id) { restoreProject(id, true); }
+
+    /**
+     * fix181 (14.7c): restore asks first when a live project now uses the same plot (same plot number, block and
+     * district). Without force such a clash is refused with RESTORE_CLASH and the list of clashing projects.
+     * A Pending project stays Pending.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void restoreProject(UUID id, boolean force) {
         LandProject project = projectRepository.findById(id).orElseThrow();
+        if (!project.isDeleted()) throw new BusinessException("NOT_DELETED: This project is not deleted.");
+        if (!force) {
+            List<String> clashes = restoreClashes(project);
+            if (!clashes.isEmpty()) {
+                throw new BusinessException("RESTORE_CLASH: The same plot is now used by " + String.join(", ", clashes)
+                        + ". Restore anyway?");
+            }
+        }
         String plotNo = plotLabel(project);
 
         project.setDeleted(false);
         project.setDeletedAt(null);
+        project.setDeletedReason(null);
+        project.setDeletedBy(null);
         projectRepository.save(project);
 
-        auditService.logAction("RECORD_RESTORED",
-            "Root user [" + getCurrentOperator() + "] restored plot: " + plotNo);
-        notificationService.emitRaw("PROJECT_RESTORED", "POSITIVE",
+        auditService.logActionAfterCommit("RECORD_RESTORED",
+            "Operator [" + getCurrentOperator() + "] restored plot: " + plotNo);
+        notificationService.emitToAudience("PROJECT_RESTORED",
             "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public List<LandProject> getDeletedProjects() {
-        return projectRepository.findAllDeleted();
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
+    public List<Map<String, Object>> getDeletedProjects() {
+        // fix181 (14.7a): a small summary, newest first; never the whole record with prices and amounts
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LandProject p : projectRepository.findAllDeleted()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", p.getId());
+            m.put("projectIndex", p.getProjectIndex());
+            m.put("plotLabel", plotLabel(p));
+            m.put("district", p.getDistrict());
+            m.put("projectType", ProjectType.of(p).getLabel());
+            Set<String> names = new java.util.TreeSet<>();
+            if (p.getProprietors() != null) p.getProprietors().forEach(c -> names.add(c.getFullName()));
+            if (p.getClients() != null) p.getClients().forEach(c -> names.add(c.getFullName()));
+            m.put("clientNames", new ArrayList<>(names));
+            m.put("pending", p.isPending());
+            m.put("deletedAt", p.getDeletedAt());
+            m.put("deletedBy", p.getDeletedBy());
+            m.put("reason", p.getDeletedReason());
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** Live projects that use the same plot as this deleted one (plot number + block + district, case-insensitive). */
+    private List<String> restoreClashes(LandProject project) {
+        LandTitle t = project.getLandTitle();
+        if (t == null || t.getPlotNumber() == null || t.getPlotNumber().isBlank()) return List.of();
+        String key = clashKey(t.getPlotNumber(), t.getBlock(), project.getDistrict());
+        List<String> out = new ArrayList<>();
+        for (LandProject other : projectRepository.findAllIncludingPending()) {
+            if (other.getId().equals(project.getId()) || other.getLandTitle() == null) continue;
+            LandTitle o = other.getLandTitle();
+            if (o.getPlotNumber() != null && key.equals(clashKey(o.getPlotNumber(), o.getBlock(), other.getDistrict()))) {
+                out.add("project #" + other.getProjectIndex());
+            }
+        }
+        return out;
+    }
+
+    private static String clashKey(String plot, String block, String district) {
+        java.util.function.Function<String, String> n = v -> v == null ? "" : v.trim().toLowerCase(java.util.Locale.ROOT);
+        return n.apply(plot) + "|" + n.apply(block) + "|" + n.apply(district);
     }
 
     // ─── FOLLOW-UP / NOTES ────────────────────────────────────────────────────
@@ -1076,7 +1265,7 @@ public class LandService {
                 .build();
         followUpRepository.save(entry);
 
-        auditService.logAction("RECOVERY_SYNC",
+        auditService.logActionAfterCommit("RECOVERY_SYNC",
             "Operator [" + operator + "] logged call for plot: "
             + plotLabel(project) + " (owner reached: " + ownerId + ")");
 
@@ -1142,7 +1331,7 @@ public class LandService {
                 .recordedBy(getCurrentOperator())
                 .build();
         followUpRepository.save(entry);
-        auditService.logAction("NOTE_ADDED",
+        auditService.logActionAfterCommit("NOTE_ADDED",
             "Operator [" + getCurrentOperator() + "] added note to " + plotLabel(project) + ": " + shortText(text));
     }
 
@@ -1158,7 +1347,7 @@ public class LandService {
         String before = log.getNotes();
         log.setNotes(text);
         followUpRepository.save(log);
-        auditService.logAction("NOTE_UPDATED",
+        auditService.logActionAfterCommit("NOTE_UPDATED",
             "Operator [" + getCurrentOperator() + "] edited a note. WAS: " + shortText(before) + " | NOW: " + shortText(text));
     }
 
@@ -1169,7 +1358,7 @@ public class LandService {
         requireNoteEditable(log);
         String before = log.getNotes();
         followUpRepository.delete(log);
-        auditService.logAction("NOTE_DELETED",
+        auditService.logActionAfterCommit("NOTE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted a note: " + shortText(before));
     }
 
@@ -1231,7 +1420,7 @@ public class LandService {
                     .build();
             saved.add(documentRepository.save(doc));
         }
-        auditService.logAction("DOCUMENT_UPLOADED",
+        auditService.logActionAfterCommit("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
             + " document(s) to plot: " + projectId
             + (statusName != null ? " (status: " + statusName + ")" : "")
@@ -1240,13 +1429,13 @@ public class LandService {
         // This method only ever had the id, not the entity, so the label has to
         // be looked up -- and must not be allowed to fail the upload if the
         // row has gone missing underneath us.
-        String docPlotLabel = projectRepository.findById(projectId)
-                .map(this::plotLabel)
-                .orElse("plot " + projectId);
-        notificationService.emitRaw("DOC_UPLOADED", "INFO",
+        LandProject docProjectRow = projectRepository.findById(projectId).orElse(null);
+        String docPlotLabel = docProjectRow != null ? plotLabel(docProjectRow) : "plot " + projectId;
+        // fix181 (17.7): documents on a Pending project send no alert (only PENDING_CREATED and the daily reminder do)
+        if (docProjectRow == null || !docProjectRow.isPending()) notificationService.emitToAudience("DOC_UPLOADED",
             scans.length + " document(s) attached to " + docPlotLabel
             + " by " + getCurrentOperator() + ".",
-            "PROJECT", projectId, "ROLE_MANAGER");
+            "PROJECT", projectId);
         return saved;
     }
 
@@ -1268,7 +1457,7 @@ public class LandService {
         }
         fileStorageService.deleteFile(doc.getFilePath());
         documentRepository.delete(doc);
-        auditService.logAction("DOCUMENT_DELETED",
+        auditService.logActionAfterCommit("DOCUMENT_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()
             + (doc.getCategory() != null ? " (" + doc.getCategory() + ")" : "")
             + (docProject != null ? " from " + plotLabel(docProject) : ""));
@@ -1293,14 +1482,14 @@ public class LandService {
         project.setCurrentStatusIndex(targetStatus);
         if (targetStatus >= 5) project.setStatus("COMPLETED");
         projectRepository.save(project);
-        auditService.logAction("STATUS_OVERRIDE",
+        auditService.logActionAfterCommit("STATUS_OVERRIDE",
             "Operator [" + getCurrentOperator() + "] shifted plot "
             + plotLabel(project)
             + " from status " + oldStatus + " to status " + targetStatus);
-        notificationService.emitRaw("STATUS_ADVANCED", "POSITIVE",
+        notificationService.emitToAudience("STATUS_ADVANCED",
             plotLabel(project) + " moved from status " + oldStatus
             + " to status " + targetStatus + " by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_MANAGER");
+            "PROJECT", project.getId());
     }
 
     @Transactional
@@ -1311,32 +1500,12 @@ public class LandService {
         if (why.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write who collected the title and how they were identified (at least 5 characters).");
         }
-        LandProject project = projectRepository.findById(id).orElseThrow();
-        // fix166: no hand-over of a deleted project, no second hand-over, and none while the plot is flagged as a PROBLEM.
-        if (project.isDeleted()) {
-            throw new BusinessException("RELEASE DENIED: This project is deleted. Restore it first.");
-        }
-        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
-            throw new BusinessException("RELEASE DENIED: This title has already been handed over.");
-        }
-        if (project.isProblem()) {
-            throw new BusinessException("RELEASE DENIED: This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.");
-        }
-        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
-            throw new BusinessException("RELEASE DENIED: UGX " + project.getTotalCost().subtract(project.getAmountPaid()).toPlainString() + " is still owed on the title work.");
-        }
-        // fix162: storage fees still owed are arrears too.
-        if (project.isReceivable() && project.receivableTotalOwed().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException("RELEASE DENIED: Storage fees are still owed on this project.");
-        }
-        // fix167: fees kept by SET ASIDE are still on the project even though it left receivables
-        if (!project.isReceivable() && project.storageUnpaid().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException("RELEASE DENIED: UGX " + project.storageUnpaid().toPlainString()
-                    + " of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.");
-        }
-        // PHASE B (Section 18.9.1): landTitle can now be null.
-        if (project.getLandTitle() == null) {
-            throw new BusinessException("RELEASE DENIED: This project has no title to release yet.");
+        LandProject project = projectRepository.findByIdForUpdate(id).orElseThrow();
+        // fix181 (11.3): one shared rule (deleted, pending, no title, already handed over, PROBLEM, title money owed,
+        // receivable fees owed, kept fees). The Dashboard count and the Folder button use the same method.
+        String blocker = project.releaseBlocker();
+        if (blocker != null) {
+            throw new BusinessException("RELEASE DENIED: " + blocker);
         }
         LandTitle t = project.getLandTitle();
         t.setReleased(true);
@@ -1347,12 +1516,12 @@ public class LandService {
         projectRepository.save(project);
         followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
                 .notes("[HANDED OVER] " + why).recordedBy(getCurrentOperator()).build());
-        auditService.logAction("TITLE_RELEASED",
+        auditService.logActionAfterCommit("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + t.getPlotNumber() + ". Note: " + why);
-        notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
+        notificationService.emitToAudience("TITLE_COMPLETED",
             "Title for " + plotLabel(project) + " released to the client.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     // fix162: REVERSE A PAYMENT. The original line stays in the history; a negative REVERSAL line is added,
@@ -1364,7 +1533,7 @@ public class LandService {
         if (why.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write why this payment is being reversed (at least 5 characters).");
         }
-        LandProject project = projectRepository.findById(projectId)
+        LandProject project = projectRepository.findByIdForUpdate(projectId)   // fix181 (16.12a): row lock
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         if (project.isDeleted()) {
             throw new BusinessException("REVERSAL_BLOCKED: This project is deleted. Restore it first.");
@@ -1395,6 +1564,12 @@ public class LandService {
         // fix167: a reversed STORAGE payment while still in receivables makes those fees unpaid again
         if ("STORAGE".equals(original.getAllocation()) && project.isReceivable()) {
             project.setStorageFeesPaid(project.storagePaidSafe().subtract(original.getAmountPaid()).max(BigDecimal.ZERO));
+        } else if ("STORAGE".equals(original.getAllocation()) && "STANDARD".equals(original.getPaymentType())) {
+            // fix181 (11.5b): a kept-fees payment (after SET ASIDE) moved its amount into the cost; undo exactly that
+            BigDecimal cost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+            BigDecimal fees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
+            project.setTotalCost(cost.subtract(original.getAmountPaid()).max(BigDecimal.ZERO));
+            project.setStorageFeesAccumulated(fees.add(original.getAmountPaid()));
         }
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
@@ -1403,6 +1578,7 @@ public class LandService {
                 .projectId(projectId)
                 .amountPaid(original.getAmountPaid().negate())
                 .paymentType("REVERSAL")
+                .paidOn(LocalDateTime.now())   // fix181 (16.0a): a reversal has its own date, so the month it was made nets out
                 .recordedBy(getCurrentOperator())
                 .notes(marker + " " + why)
                 .balanceAfter(balanceAfter)
@@ -1411,8 +1587,44 @@ public class LandService {
                 .payerName(original.getPayerName())
                 .build();
         paymentRecordRepository.save(reversal);
+
+        // fix181 (4.2): the last payment date comes from the newest payment still standing (by the day PAID), so a
+        // reversed payment no longer keeps the client LOCKED or the badge green. Undated intake deposits never count.
+        java.util.Set<String> reversedIds = new java.util.HashSet<>();
+        reversedIds.add(paymentId.toString());
+        List<PaymentRecord> lines = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(projectId);
+        for (PaymentRecord r : lines) {
+            if (r.getNotes() != null && r.getNotes().startsWith("[REVERSAL OF ")) {
+                int end = r.getNotes().indexOf(']');
+                if (end > 13) reversedIds.add(r.getNotes().substring(13, end).trim());
+            }
+        }
+        LocalDateTime newest = null;
+        for (PaymentRecord r : lines) {
+            if ("REVERSAL".equals(r.getPaymentType()) || r.getPaidOn() == null) continue;
+            if (r.getAmountPaid() == null || r.getAmountPaid().signum() <= 0) continue;
+            if (reversedIds.contains(String.valueOf(r.getId()))) continue;
+            if (newest == null || r.getPaidOn().isAfter(newest)) newest = r.getPaidOn();
+        }
+        project.setLastPaymentDate(newest);
         projectRepository.save(project);
-        auditService.logAction("PAYMENT_REVERSED",
+
+        // fix181 (11.5a): the "payment received" note on the Recovery card gets its counterpart
+        java.util.List<Client> noteFor = new java.util.ArrayList<>();
+        for (Client c : project.billingParties()) {
+            if (original.getPayerClientId() == null || c.getId().equals(original.getPayerClientId())) noteFor.add(c);
+        }
+        LocalDateTime paidDay = original.getPaidOn() != null ? original.getPaidOn() : original.getTimestamp();
+        for (Client c : noteFor) {
+            recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
+                .client(c).author(null).tag("payment reversed").tone("INFO").countsAsAttempt(false)
+                .text("Payment of UGX " + original.getAmountPaid().toPlainString()
+                        + (paidDay != null ? " on " + paidDay.toLocalDate() : "") + " was reversed: " + why).build());
+        }
+        notificationService.emitToAudience("PAYMENT_REVERSED",
+            "UGX " + original.getAmountPaid().toPlainString() + " reversed on " + plotLabel(project) + " by " + getCurrentOperator() + ".",
+            "PROJECT", projectId);
+        auditService.logActionAfterCommit("PAYMENT_REVERSED",
             "Operator [" + getCurrentOperator() + "] reversed UGX " + original.getAmountPaid().toPlainString()
             + " on " + plotLabel(project) + ". Reason: " + why);
     }
@@ -1441,7 +1653,7 @@ public class LandService {
         projectRepository.save(project);
         followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
                 .notes("[HAND-OVER UNDONE] " + why).recordedBy(getCurrentOperator()).build());
-        auditService.logAction("TITLE_RELEASE_UNDONE",
+        auditService.logActionAfterCommit("TITLE_RELEASE_UNDONE",
             "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
 
@@ -1489,7 +1701,7 @@ public class LandService {
                 projectStatusRepository.save(st);
             }
         }
-        auditService.logAction("TITLE_REVERTED",
+        auditService.logActionAfterCommit("TITLE_REVERTED",
             "Operator [" + getCurrentOperator() + "] took the saved title off project " + project.getProjectIndex()
             + ". Old title: " + oldValues + ". Reason: " + why);
     }
@@ -1516,7 +1728,7 @@ public class LandService {
 
     @Transactional(readOnly = true)
     public Page<LandProject> getGlobalLedger(Pageable pageable) {
-        Page<LandProject> page = projectRepository.findAll(pageable);
+        Page<LandProject> page = projectRepository.findAllIncludingPending(pageable);   // fix181 (8.9): the Pending tab reads this
         // fix170: ONE query for every status on the page (it was one query per project)
         List<UUID> ids = new ArrayList<>();
         for (LandProject p : page.getContent()) ids.add(p.getId());
@@ -1559,7 +1771,7 @@ public class LandService {
             }
             if (ticked) count++;
         }
-        auditService.logAction("BULK_TITLE_PRODUCED",
+        auditService.logActionAfterCommit("BULK_TITLE_PRODUCED",
             "Operator [" + getCurrentOperator() + "] marked " + count + " projects as Titled.");
         return count;
     }

@@ -2,49 +2,44 @@
 package com.gesolutions.erp.modules.auth.model;
 
 /**
- * GOLDEN SEED ERP - INDUSTRIAL ROLE DICTIONARY
+ * GOLDEN SEED ERP - RANKS (fix181: five ranks, top to bottom; LLM_CONTEXT_GUIDE.md Section 5)
  *
- * 4-tier hierarchy per Section 17.7 of LLM_CONTEXT_GUIDE.md. ROLE_DIRECTOR
- * and ROLE_SECRETARY are fully wired: every controller's @PreAuthorize
- * checks and the frontend's route/nav gates already reference them
- * (landed via the separate bug-fix roadmap's Stage 1 and Stage 2, not the
- * original Phase 3B/3C patches -- see LLM_CONTEXT_GUIDE.md Section 17.10
- * for the corrected Phase Tracker entry).
+ *  5 ROLE_ADMIN     the system designer. Exactly ONE account (the admin_root user, isRoot = true). Nobody can create,
+ *                   promote to, suspend or re-rank an Admin.
+ *  4 ROLE_DIRECTOR  the business owner. Full money view; manages Manager, Secretary and Employee accounts; Archive.
+ *  3 ROLE_MANAGER   runs the work: statuses, payments, edits.
+ *  2 ROLE_SECRETARY office data entry and recovery calls; sets prices on Pending projects.
+ *  1 ROLE_EMPLOYEE  field data entry only: creates Pending projects, never sees money.
  *
- * The 'Root Founder' (Programmer tier) is still not a role here; it remains
- * the 'isRoot' boolean on the User entity, layered on top of ROLE_ADMIN.
+ * Every rank comparison in the server goes through rank() / outranks() here; the page has the same list in
+ * erp-frontend/src/utils/roles.js. Keep the two in step. The database role check is rebuilt from values() on every
+ * start (DataInitializer.roleCheckSql), so adding a rank here needs no SQL.
  */
 public enum Role {
 
-    /**
-     * TIER 2: SYSTEM ADMIN
-     * Current full-financials tier. Will map toward "Director" behavior
-     * once Phase 3B wires real permission checks.
-     */
-    ROLE_ADMIN,
+    ROLE_ADMIN(5, "Admin"),
+    ROLE_MANAGER(3, "Manager"),
+    ROLE_DIRECTOR(4, "Director"),
+    ROLE_SECRETARY(2, "Secretary"),
+    ROLE_EMPLOYEE(1, "Employee");
 
-    /**
-     * TIER 3: STANDARD OPERATOR (Manager)
-     * Current operational-only tier. Unchanged.
-     */
-    ROLE_MANAGER,
+    private final int rank;
+    private final String label;
 
-    /**
-     * TIER 2: DIRECTOR
-     * Full company-wide financial visibility per Section 17.7, distinct
-     * from ROLE_ADMIN in the target design (Director sees everything;
-     * Manager sees project-level only). Enforced across every controller's
-     * @PreAuthorize checks and the frontend's route gates.
-     */
-    ROLE_DIRECTOR,
+    Role(int rank, String label) {
+        this.rank = rank;
+        this.label = label;
+    }
 
-    /**
-     * TIER 4: SECRETARY
-     * Data-entry only, stage changes but not cost changes, no company
-     * financials, no template edits, per Section 17.7. Enforced per-method
-     * on the relevant controllers (LandController, StatusTemplateController,
-     * RecoveryController) rather than at the class level, since Secretary
-     * needs some but not all of what Manager can do on the same endpoints.
-     */
-    ROLE_SECRETARY
+    public int rank() { return rank; }
+
+    public String label() { return label; }
+
+    /** True when this rank is strictly above the other one. */
+    public boolean outranks(Role other) {
+        return other == null || this.rank > other.rank;
+    }
+
+    /** Director and Admin: the owner level (money, staff below them, archive). */
+    public boolean isOwnerLevel() { return rank >= ROLE_DIRECTOR.rank; }
 }

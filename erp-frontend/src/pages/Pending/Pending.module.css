@@ -1,0 +1,32 @@
+/* fix181: MY ENTRIES and the Pending view. Uses the shared theme tokens of index.css. */
+.page { max-width: 1100px; margin: 0 auto; padding: 16px; color: var(--text-on-dark); }
+.head { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.title { font-family: 'Space Mono', monospace; font-size: 1.15rem; letter-spacing: 0.08em; color: var(--text-light); margin: 0; }
+.sub { font-size: 0.85rem; color: var(--text-on-dark-soft); }
+.card { background: var(--panel-surface); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.rowLink { cursor: pointer; }
+.rowLink:hover, .rowLink:focus-visible { border-color: #EE8C3A; outline: none; }
+.idx { font-family: 'Space Mono', monospace; font-weight: 700; color: var(--text-light); }
+.muted { color: var(--text-on-dark-soft); font-size: 0.85rem; }
+.badge { display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 999px; }
+.badgePending { background: rgba(6, 182, 212, 0.18); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.5); }
+.badgeRejected { background: rgba(239, 68, 68, 0.16); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5); }
+.badgeStarted { background: rgba(34, 197, 94, 0.16); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.5); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 16px; }
+.label { font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.08em; color: var(--text-on-dark-soft); text-transform: uppercase; }
+.value { color: var(--text-light); overflow-wrap: anywhere; }
+.banner { background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.45); color: #cffafe; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.9rem; }
+.error { background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.5); color: #fecaca; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.ok { background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.5); color: #bbf7d0; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.form { display: grid; gap: 10px; }
+.field { display: grid; gap: 4px; }
+.input, .textarea { width: 100%; box-sizing: border-box; background: var(--panel-surface-alt); color: var(--text-light); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 8px 10px; font: inherit; }
+.textarea { min-height: 70px; resize: vertical; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.btn { background: #EE8C3A; color: #1a2e30; border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 700; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 0.8rem; letter-spacing: 0.04em; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnGhost { background: transparent; color: var(--text-light); border: 1px solid var(--panel-edge); }
+.btnDanger { background: #ef4444; color: #fff; }
+.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+@media (max-width: 480px) { .page { padding: 12px; } .grid { grid-template-columns: 1fr; } }

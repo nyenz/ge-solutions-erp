@@ -7,6 +7,9 @@
 // section: who is this person, what do they owe as a household, which of
 // their projects (solo or joint) make up that number, how healthy is each
 // payment, and what has staff said to them.
+import { roleFlags } from '../../utils/roles';
+import { PaymentHealthDot } from '../../components/common/PaymentHealth';
+import { paymentLabel } from '../../utils/paymentHealth';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -27,9 +30,8 @@ import { LoadingState } from '../../components/common/LoadingState';
 const fmt = (n) => Number(n || 0).toLocaleString();
 const dayDiff = (iso) => { if (!iso) return null; const d = new Date(iso); if (isNaN(d.getTime())) return null; return Math.floor((Date.now() - d.getTime()) / 86400000); };
 const isJoint = (p) => String(p.ownershipType || 'SOLO').toUpperCase() === 'JOINT';
-// Same "paid / (paid+owed)" recovery-rate formula the Client Ledger uses,
-// so a client's per-project number and their ledger-row number always agree.
-const pctPaid = (p) => { const owed = Number(p.owed || 0); const paid = Number(p.paid || 0); const total = owed + paid; return total > 0 ? Math.min((paid / total) * 100, 100) : (p.titled ? 100 : 0); };
+// fix181 (5.5, 11.8): paid / billed, both from the server; 100% only when the title was really handed over
+const pctPaid = (p) => { const owed = Number(p.owed || 0); const paid = Number(p.paid || 0); const total = Number(p.billed || 0) || (owed + paid); return total > 0 ? Math.min((paid / total) * 100, 100) : (p.released ? 100 : 0); };
 const pctTone = (pct) => (pct >= 75 ? styles.tagGood : pct >= 25 ? styles.tagWarn : styles.tagBad);
 
 // Shared by both tables below -- sorts a list of plot rows by any column
@@ -47,9 +49,14 @@ const sortPlots = (rows, key, direction) => {
     else if (key === 'storage') { aVal = Number(a.storage || 0); bVal = Number(b.storage || 0); }
     else if (key === 'lastPayment') { aVal = a.lastPayment || ''; bVal = b.lastPayment || ''; }
     else { aVal = a[key]; bVal = b[key]; }
-    if (aVal < bVal) return -1 * dir;
-    if (aVal > bVal) return 1 * dir;
-    return 0;
+    // fix181 (5.10): natural, case-blind order; empty values last in both directions
+    const empty = (v) => v === null || v === undefined || v === '';
+    if (empty(aVal) && empty(bVal)) return 0;
+    if (empty(aVal)) return 1;
+    if (empty(bVal)) return -1;
+    const cmp = (typeof aVal === 'number' && typeof bVal === 'number') ? aVal - bVal
+      : String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+    return cmp * dir;
   });
 };
 
@@ -68,10 +75,9 @@ const ClientPortfolioPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const role = String(user?.role || '').toUpperCase();
-  const isDirector = !!user?.isRoot || role === 'ROLE_ADMIN' || role === 'ROLE_DIRECTOR';
+  const isDirector = roleFlags(user).isOwnerLevel;
   // Same bar Digital Folder uses for record edits: director or manager.
-  const canEdit = isDirector || role === 'ROLE_MANAGER';
+  const canEdit = roleFlags(user).isManager;
 
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -122,8 +128,12 @@ const ClientPortfolioPage = () => {
       t.count += 1;
       if (isJoint(p)) t.joint += 1; else t.solo += 1;
     });
+    // fix181 (5.5, 6.7): the money totals come from the server (billed, paid, storage split, kept fees)
+    const st = d && d.totals ? d.totals : null;
+    if (st) Object.assign(t, { owed: Number(st.owed || 0), paid: Number(st.paid || 0), billed: Number(st.billed || 0),
+      storage: Number(st.storage || 0), storagePaid: Number(st.storagePaid || 0), storageUnpaid: Number(st.storageUnpaid || 0), keptFees: Number(st.keptFees || 0) });
     return t;
-  }, [plots]);
+  }, [plots, d]);
 
   // A client can hold one project, several of their own, or a share in
   // someone else's -- grouping SOLO first then JOINT keeps that visible at
@@ -173,7 +183,7 @@ const ClientPortfolioPage = () => {
     </div>
   </div>);
 
-  const days = dayDiff(d.lastContact);
+  const days = d.daysSinceContact ?? dayDiff(d.lastContact);   // fix181 (11.9): counted on the server
   const cols = isDirector ? 8 : 5;
 
   return (
@@ -238,13 +248,13 @@ const ClientPortfolioPage = () => {
             onClick={() => scrollToSection('portfolio-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('portfolio-panel'); } }}>
             <label>TOTAL PAID</label><strong>UGX {fmt(totals.paid)}</strong>
-            <span className={styles.statNote}>{(Number(totals.owed) + Number(totals.paid)) > 0 ? Math.round((Number(totals.paid) / (Number(totals.owed) + Number(totals.paid))) * 100) : 0}% of billed</span>
+            <span className={styles.statNote}>{Number(totals.billed || 0) > 0 ? Math.round((Number(totals.paid) / Number(totals.billed)) * 100) : 0}% of billed</span>
           </div>
           <div className={`${styles.statCard} ${styles.statAmber} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('health-panel')}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToSection('health-panel'); } }}>
             <label>STORAGE FEES</label><strong>UGX {fmt(totals.storage)}</strong>
-            <span className={styles.statNote}>receivables accrued</span>
+            <span className={styles.statNote}>accrued or kept: UGX {fmt(totals.storagePaid)} paid, UGX {fmt(totals.storageUnpaid)} unpaid{Number(totals.keptFees || 0) > 0 ? ' (UGX ' + fmt(totals.keptFees) + ' kept after set aside)' : ''}</span>
           </div>
           <div className={`${styles.statCard} ${styles.statCyan} ${styles.statClickable}`} role="button" tabIndex={0}
             onClick={() => scrollToSection('portfolio-panel')}
@@ -303,7 +313,22 @@ const ClientPortfolioPage = () => {
                               </span>
                             )}
                           </td>
-                          <td><span className={`${styles.tag} ${p.receivable ? styles.tagBad : p.titled ? styles.tagGood : styles.tagWarn}`}>{p.receivable ? 'RECEIVABLE' : p.titled ? 'TITLED' : 'FOLDER'}</span></td>
+                          <td>
+                            {/* fix181 (11.8, 6.3, 6.5, 6.8, 6.2): the honest status words, type, Recovery state, the first-month note and subdivision links */}
+                            <span className={`${styles.tag} ${p.receivable ? styles.tagBad : p.released ? styles.tagGood : p.hasTitleDetails ? styles.tagGood : styles.tagWarn}`}>
+                              {p.receivable ? 'RECEIVABLE' : p.released ? 'RELEASED' : p.hasTitleDetails ? 'HAS TITLE DETAILS' : 'FOLDER'}</span>
+                            {p.problem && <span className={`${styles.tag} ${styles.tagBad}`}>PROBLEM</span>}
+                            {p.critical && <span className={`${styles.tag} ${styles.tagBad}`}>CRITICAL</span>}
+                            {p.recoveryState && (<button type="button" className={styles.coChip} title="Open this client in Recovery"
+                              onClick={(e) => { e.stopPropagation(); navigate('/recovery?client=' + id); }}>{p.recoveryState}</button>)}
+                            <span className={styles.coLine}>{p.projectTypeLabel || ''}</span>
+                            {p.recoveryStartsOn && <span className={styles.coLine}>new project - recovery starts {String(p.recoveryStartsOn).slice(0, 10)}</span>}
+                            {p.parentProjectId && (<button type="button" className={styles.coChip} onClick={(e) => { e.stopPropagation(); navigate('/folder/' + p.parentProjectId); }}>
+                              From #{p.parentProjectIndex || '?'} plot {p.parentSubdivisionNo}</button>)}
+                            {(p.transfers || []).length > 0 && (<span className={styles.coLine}>{p.transfers.length} of {p.subdivisionCount || '?'} plot(s) transferred:
+                              {p.transfers.map(t => (<button key={t.projectId} type="button" className={styles.coChip}
+                                onClick={(e) => { e.stopPropagation(); navigate('/folder/' + t.projectId); }}>#{t.index} (plot {t.plotNo}{t.released ? ', released' : ''})</button>))}</span>)}
+                          </td>
                           {isDirector && <td><span className={`${styles.mono} ${Number(p.owed) > 0 ? styles.moneyRed : styles.moneyGreen}`}>{fmt(p.owed)}</span></td>}
                           {isDirector && <td><span className={styles.mono}>{fmt(p.paid)}</span></td>}
                           {isDirector && (<td>
@@ -342,14 +367,14 @@ const ClientPortfolioPage = () => {
               <tbody>
                 {healthRows.length === 0 ? (<tr><td colSpan={5} className={styles.noRecords}>NO PAYMENT RECORDS</td></tr>) :
                   healthRows.map((p, i) => {
-                    const dd = dayDiff(p.lastPayment);
-                    const health = dd == null ? { c: styles.dotRed, t: 'Nothing received yet' } : dd <= 30 ? { c: styles.dotGreen, t: 'Paid this month' } : dd <= 60 ? { c: styles.dotAmber, t: 'Paid about 2 months ago' } : { c: styles.dotOrange, t: 'Over 2 months since paying' };
+                    // fix181 (5.2, 6.6): the shared gradient and the server's day count
+                    const isNew = !!p.recoveryStartsOn && p.daysSincePayment == null;
                     return (<tr key={p.projectId || i} className={styles.rowStatic}>
                       <td><IndexCell p={p} /></td>
                       <td><span className={styles.mono}>{fmt(p.paid)}</span></td>
                       <td><span className={styles.mono}>{fmt(p.storage)}</span></td>
                       <td><span className={styles.mono}>{p.lastPayment ? String(p.lastPayment).slice(0, 10) : 'NEVER'}</span></td>
-                      <td><span className={styles.healthCell}><i className={`${styles.legendDot} ${health.c}`} /> {health.t}</span></td>
+                      <td><span className={styles.healthCell}><PaymentHealthDot days={p.daysSincePayment} isNew={isNew} startsOn={p.recoveryStartsOn} /> {paymentLabel(p.daysSincePayment, isNew, p.recoveryStartsOn)}</span></td>
                     </tr>);
                   })}
               </tbody>
@@ -359,8 +384,34 @@ const ClientPortfolioPage = () => {
         </div>
       )}
 
+      {isDirector && plots.some(p => (p.payments || []).length > 0) && (
+        <CollapsibleSection icon={<FiCreditCard aria-hidden="true" />} title="PAYMENTS (WHO PAID)">
+          <CornerDecor hideTop />
+          {/* fix181 (4.7, 6.1, 11.7): every payment line, the client who paid (current name), reversals marked */}
+          <div className={styles.noteList}>
+            {plots.filter(p => (p.payments || []).length > 0).map(p => (
+              <article key={p.projectId} className={styles.noteRow}>
+                <span className={styles.mono}>#{p.index}</span>
+                {isJoint(p) && <span className={styles.noteAuthor}>paid by this client: UGX {fmt(p.paidByThisClient)}</span>}
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  {p.payments.map(pay => (
+                    <li key={pay.id} style={{ textDecoration: pay.reversed ? 'line-through' : 'none' }}>
+                      <span className={styles.mono}>UGX {fmt(pay.amount)}</span> {pay.allocation === 'STORAGE' ? '(storage fees)' : ''}
+                      {' - '}{pay.paidOn ? String(pay.paidOn).slice(0, 10) : 'date not recorded'}
+                      {' - '}{pay.payerName}{pay.reversal ? ' - REVERSAL' : ''}{pay.reversed ? ' (reversed)' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
+
       <CollapsibleSection icon={<FiPhoneCall aria-hidden="true" />} title="CALL LOG">
         <CornerDecor hideTop />
+        {/* fix181 (6.4): straight to this client's card in Recovery */}
+        <button type="button" className={styles.coChip} onClick={() => navigate('/recovery?client=' + id)}>OPEN IN RECOVERY</button>
         {(d.notes || []).length === 0 ? (<div className={styles.noRecords}>NO CALLS LOGGED FOR THIS CLIENT</div>) : (
           <div className={styles.noteList}>
             {(d.notes || []).map((n, i) => (

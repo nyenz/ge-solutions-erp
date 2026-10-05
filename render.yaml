@@ -15,12 +15,18 @@ services:
     envVars:
       - key: SPRING_DATASOURCE_URL
         value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
+      # fix181: secrets live ONLY in the Render dashboard (Environment tab). sync: false = Render asks for the value
+      # there and never reads it from this file. The old password that was written here is in git history: rotate it.
       - key: SPRING_DATASOURCE_USERNAME
-        value: neondb_owner
+        sync: false
       - key: SPRING_DATASOURCE_PASSWORD
-        value: npg_ws7xVYrW5GLu
+        sync: false
+      - key: GE_SOLUTIONS_JWT_SECRET
+        sync: false
+      - key: ADMIN_DEFAULT_PASSWORD
+        sync: false
       - key: JAVA_OPTS
-        value: "-Xms128m -Xmx384m -XX:+UseContainerSupport"
+        value: "-Xms128m -Xmx384m -XX:+UseContainerSupport -Duser.timezone=Africa/Kampala"
 
   - type: web
     name: golden-seed

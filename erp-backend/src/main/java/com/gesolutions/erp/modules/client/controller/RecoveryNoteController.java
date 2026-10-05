@@ -13,6 +13,7 @@ import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
+import com.gesolutions.erp.modules.client.service.RecoveryStateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,6 +36,8 @@ public class RecoveryNoteController {
     private final FollowUpRepository followUpRepo;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final RecoveryStateService recoveryState;
+    private final com.gesolutions.erp.modules.client.service.ClientViewService clientViewService;
     private static final String[][] TAGS = {
         {"answered call",   "POSITIVE", "true"},
         {"not picking up",  "NEGATIVE", "true"},
@@ -43,70 +46,23 @@ public class RecoveryNoteController {
     };
     private static String[] tagDef(String tag) { for (String[] t : TAGS) if (t[0].equals(tag)) return t; return null; }
 
-    // ---- one-pass caches per request (fix83 speed) ----
-    private Map<UUID, List<RecoveryNote>> noteMap() {
-        Map<UUID, List<RecoveryNote>> m = new HashMap<>();
-        for (RecoveryNote n : noteRepo.findAllWithClient()) m.computeIfAbsent(n.getClient().getId(), k -> new ArrayList<>()).add(n);
-        for (List<RecoveryNote> l : m.values()) l.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-        return m;
-    }
-    private Map<UUID, List<LandProject>> projMap() {
-        Map<UUID, List<LandProject>> m = new HashMap<>();
-        for (LandProject p : projectRepo.findAll()) if (p.billingParties() != null) for (Client o : p.billingParties()) m.computeIfAbsent(o.getId(), k -> new ArrayList<>()).add(p);
-        return m;
-    }
+    // fix181 (4.3): every rule below lives in RecoveryStateService; these are thin wrappers so the endpoints read the same.
+    // The project lists already leave out Pending projects; the service also skips projects in their first month after
+    // graduating (4.4).
+    private Map<UUID, List<RecoveryNote>> noteMap() { return recoveryState.notesByClient(); }
+    private Map<UUID, List<LandProject>> projMap() { return recoveryState.projectsByClient(); }
     private List<RecoveryNote> notesOf(Map<UUID, List<RecoveryNote>> nm, UUID id) { return nm.getOrDefault(id, List.of()); }
     private List<LandProject> projectsOf(Map<UUID, List<LandProject>> pm, UUID id) { return pm.getOrDefault(id, List.of()); }
-
-    // fix173: a client is on the Recovery list only while they OWE money on at least one project. Fully paid clients, finished
-    // legacy projects and projects with only unfinished stages are no longer listed. "Owes" is counted the same way the
-    // rest of the app counts it: a receivable project owes cost + fees - paid; any other project owes cost - paid.
-    // (Fees kept by SET ASIDE are not owed while the project is set aside, so they do not count here.)
-    private boolean qualifies(List<LandProject> ps) {
-        for (LandProject p : ps) {
-            java.math.BigDecimal owed = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
-            if (owed.signum() > 0) return true;
-        }
-        return false;
-    }
-    private String payBadge(List<LandProject> ps) {
-        LocalDateTime newest = null;
-        for (LandProject p : ps) if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
-        if (newest == null) return "RED";
-        long d = ChronoUnit.DAYS.between(newest, LocalDateTime.now());
-        return d <= 14 ? "GREEN" : d <= 30 ? "YELLOW" : "RED";
-    }
-    private LocalDateTime lastPayment(List<LandProject> ps) {
-        LocalDateTime newest = null;
-        for (LandProject p : ps) if (p.getLastPaymentDate() != null && (newest == null || p.getLastPaymentDate().isAfter(newest))) newest = p.getLastPaymentDate();
-        return newest;
-    }
-    private int succ30(List<RecoveryNote> ns, LocalDateTime now) { int n = 0; for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
-    private long miss30(List<RecoveryNote> ns, LocalDateTime now) { long n = 0; for (RecoveryNote x : ns) if ("NEGATIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) n++; return n; }
-    private LocalDate lockedUntil(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
-        LocalDate unlock = null;
-        LocalDateTime pay = lastPayment(ps);
-        if (pay != null && pay.plusDays(30).isAfter(now)) unlock = pay.plusDays(30).toLocalDate();
-        int count = 0; LocalDateTime second = null;
-        for (RecoveryNote x : ns) if ("POSITIVE".equals(x.getTone()) && x.isCountsAsAttempt() && x.getCreatedAt().isAfter(now.minusDays(30))) { count++; if (count == 2) second = x.getCreatedAt(); }
-        if (second != null) { LocalDate u2 = second.plusDays(30).toLocalDate(); if (unlock == null || u2.isAfter(unlock)) unlock = u2; }
-        return unlock;
-    }
-    private boolean siteVisit(List<RecoveryNote> ns, LocalDateTime now) { return miss30(ns, now) >= 2 && succ30(ns, now) == 0; }
-    private String state(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) {
-        if (lockedUntil(c, now, ps, ns) != null) return "LOCKED";
-        if (siteVisit(ns, now)) return "SITE";
-        if (ns.isEmpty()) return "NEW";
-        if ("POSITIVE".equals(ns.get(0).getTone())) return "CONTACTED";
-        if ("NEGATIVE".equals(ns.get(0).getTone())) return "MISSED";
-        return "NEW";
-    }
-    private long dayMiss(List<RecoveryNote> ns, LocalDateTime now) {
-        LocalDateTime oldest = null;
-        for (RecoveryNote n : ns) if ("NEGATIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) oldest = n.getCreatedAt();
-        if (oldest == null) return 0;
-        return Math.min(30, ChronoUnit.DAYS.between(oldest, now));
-    }
+    private boolean qualifies(List<LandProject> ps) { return recoveryState.qualifies(ps, LocalDateTime.now()); }
+    private String payBadge(List<LandProject> ps) { return recoveryState.payBadge(ps, LocalDateTime.now()); }
+    private LocalDateTime lastPayment(List<LandProject> ps) { return recoveryState.lastPayment(ps, LocalDateTime.now()); }
+    private int succ30(List<RecoveryNote> ns, LocalDateTime now) { return recoveryState.succ30(ns, now); }
+    private long miss30(List<RecoveryNote> ns, LocalDateTime now) { return recoveryState.miss30(ns, now); }
+    private LocalDate lockedUntil(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) { return recoveryState.lockedUntil(ps, ns, now); }
+    private boolean siteVisit(List<RecoveryNote> ns, LocalDateTime now) { return recoveryState.siteVisit(ns, now); }
+    private String state(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns) { return recoveryState.state(ps, ns, now); }
+    private long dayMiss(List<RecoveryNote> ns, LocalDateTime now) { return recoveryState.dayMiss(ns, now); }
+    private static final int SITE_N = RecoveryStateService.SITE_VISIT_MISS_THRESHOLD;
     private Map<String, Object> clientDto(Client c, LocalDateTime now, List<LandProject> ps, List<RecoveryNote> ns, Map<UUID, List<LandProject>> pm, Map<UUID, List<RecoveryNote>> nm) {
         Map<String, Object> m = new LinkedHashMap<>();
         String st = state(c, now, ps, ns);
@@ -155,16 +111,19 @@ public class RecoveryNoteController {
         m.put("placeText", placeText.toString().trim());
         m.put("lastContactedAt", c.getLastContactedAt());
         m.put("payBadge", payBadge(ps));
+        m.put("daysSincePayment", pay == null ? null : Math.max(0, ChronoUnit.DAYS.between(pay.toLocalDate(), now.toLocalDate())));   // fix181 (2.2, 11.9)
         m.put("state", st); m.put("unlock", unlock == null ? null : unlock.toString());
         m.put("dayMiss", (st.equals("MISSED") || st.equals("SITE")) ? dayMiss(ns, now) : 0);
         m.put("calls30", succ30(ns, now)); m.put("miss30", miss30(ns, now));
         if (!ns.isEmpty()) { m.put("lastTag", ns.get(0).getTag()); m.put("lastTone", ns.get(0).getTone()); }
         String reason;
         if (st.equals("LOCKED")) reason = (pay != null && pay.plusDays(30).isAfter(now)) ? "paid " + pay.toLocalDate() + " - rest until " + unlock : "2 good calls - rest until " + unlock;
-        else if (st.equals("SITE")) reason = "missed twice - plan a visit";
+        else if (st.equals("SITE")) reason = "missed " + SITE_N + " times - plan a visit";
         else if (st.equals("MISSED")) reason = "missed " + days + " days ago";
         else if (st.equals("CONTACTED")) reason = "spoke " + days + " days ago";
         else reason = days < 0 ? "never called" : "waiting " + days + " days";
+        String delay = recoveryState.delayNote(ps, now);   // fix181 (4.4)
+        if (delay != null) reason = reason + " (" + delay + ")";
         m.put("reason", reason);
         return m;
     }
@@ -326,14 +285,14 @@ public class RecoveryNoteController {
         double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
         c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
         clientRepo.save(c);
-        auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
+        auditService.logActionAfterCommit("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
         List<RecoveryNote> fresh = notesOf(noteMap(), c.getId());
         if ("POSITIVE".equals(def[1]) && succ30(fresh, now) == 2) {
             LocalDate u = lockedUntil(c, now, ps, fresh);
-            notificationService.emitRaw("LOCKED", "INFO", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId(), author == null ? "ROLE_MANAGER" : author.getRole().name());
+            notificationService.emitToAudience("LOCKED", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId());
         }
         if (!wasSite && siteVisit(fresh, now)) {
-            notificationService.emitRaw("SITE_VISIT_AUTO", "WARN", c.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            notificationService.emitToAudience("SITE_VISIT_AUTO", c.getFullName() + " missed " + SITE_N + " calls (on different days) with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId());
         }
         String warning = null;
         LocalDateTime window = now.minusDays(3);
@@ -372,140 +331,21 @@ public class RecoveryNoteController {
             }
             clientRepo.save(c);
         }
-        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
+        auditService.logActionAfterCommit("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
             + " for " + delFor + ", written by " + delWho + " on " + delWhen);
         return ResponseEntity.ok(Map.of("ok", true));
     }
+// fix181 (Sections 5, 6, 11): both pages are built by ClientViewService (shared rules, one pass, money only for
+// Director and Admin, Pending left out)
 @GetMapping("/clients/ledger")
 @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public java.util.List<java.util.Map<String, Object>> clientLedger() {
-java.util.Map<java.util.UUID, java.util.List<com.gesolutions.erp.modules.land.model.LandProject>> pm = new java.util.HashMap<>();
-for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
-if (p.billingParties() == null) continue;
-for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) {
-if (o == null || o.getId() == null) continue;
-pm.computeIfAbsent(o.getId(), k -> new java.util.ArrayList<>()).add(p);
+    return clientViewService.ledger();
 }
-}
-java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
-for (com.gesolutions.erp.modules.client.model.Client c : clientRepo.findAll()) {
-java.util.List<com.gesolutions.erp.modules.land.model.LandProject> ps = pm.getOrDefault(c.getId(), java.util.List.of());
-java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-m.put("id", c.getId());
-m.put("name", c.getFullName());
-m.put("nin", c.getNationalId());
-m.put("phone", c.getPhoneNumber());
-m.put("email", c.getEmail());
-m.put("reliability", c.getReliabilityScore());
-m.put("lastContact", c.getLastContactedAt() == null ? null : c.getLastContactedAt().toString());
-java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
-java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
-java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
-java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
-java.util.List<java.util.UUID> pids = new java.util.ArrayList<>();
-for (com.gesolutions.erp.modules.land.model.LandProject p : ps) {
-java.math.BigDecimal o = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
-owed = owed.add(o);
-paid = paid.add(p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid());
-storage = storage.add(p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated());
-java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
-row.put("projectId", p.getId());
-row.put("index", p.getProjectIndex());
-row.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
-row.put("district", p.getDistrict());
-row.put("subCounty", p.getSubCounty());
-row.put("receivable", p.isReceivable());
-row.put("titled", p.getLandTitle() != null);
-row.put("legacy", p.isLegacy());
-row.put("owed", o);
-plots.add(row);
-pids.add(p.getId());
-}
-m.put("plots", plots);
-m.put("plotCount", ps.size());
-java.time.LocalDateTime lastPaymentAt = pids.isEmpty() ? null
-    : paymentRepo.findTopByProjectIdInOrderByTimestampDesc(pids).map(PaymentRecord::getTimestamp).orElse(null);
-m.put("lastPaymentAt", lastPaymentAt == null ? null : lastPaymentAt.toString());
-m.put("owed", owed);
-m.put("paid", paid);
-m.put("storage", storage);
-m.put("storagePaid", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::storagePaidSafe).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
-java.util.List<com.gesolutions.erp.modules.client.model.RecoveryNote> ns = noteRepo.findByClientOrderByCreatedAtDesc(c);
-m.put("lastTag", ns.isEmpty() ? null : ns.get(0).getTag());
-m.put("lastTone", ns.isEmpty() ? null : ns.get(0).getTone());
-out.add(m);
-}
-out.sort((a, b) -> String.valueOf(a.get("name")).compareToIgnoreCase(String.valueOf(b.get("name"))));
-return out;
-}
+
 @GetMapping("/clients/{id}/dossier")
 @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public java.util.Map<String, Object> clientDossier(@PathVariable UUID id) {
-java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
-com.gesolutions.erp.modules.client.model.Client c = clientRepo.findById(id).orElseThrow(() -> new RuntimeException("Client not found"));
-out.put("id", c.getId());
-out.put("name", c.getFullName());
-out.put("nin", c.getNationalId());
-out.put("phone", c.getPhoneNumber());
-out.put("email", c.getEmail());
-out.put("address", c.getHomeAddress());
-out.put("reliability", c.getReliabilityScore());
-out.put("lastContact", c.getLastContactedAt() == null ? null : c.getLastContactedAt().toString());
-out.put("monthlyContacts", c.getMonthlyContactCount());
-java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
-java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
-java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
-java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
-for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
-if (p.billingParties() == null) continue;
-boolean mine = false;
-for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) { if (o != null && id.equals(o.getId())) { mine = true; break; } }
-if (!mine) continue;
-java.math.BigDecimal o1 = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
-java.math.BigDecimal p1 = p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid();
-java.math.BigDecimal s1 = p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated();
-owed = owed.add(o1); paid = paid.add(p1); storage = storage.add(s1);
-java.util.Map<String, Object> pm = new java.util.LinkedHashMap<>();
-pm.put("projectId", p.getId());
-pm.put("index", p.getProjectIndex());
-pm.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
-pm.put("district", p.getDistrict());
-pm.put("subCounty", p.getSubCounty());
-pm.put("receivable", p.isReceivable());
-pm.put("titled", p.getLandTitle() != null);
-pm.put("legacy", p.isLegacy());
-pm.put("owed", o1); pm.put("paid", p1); pm.put("storage", s1);
-pm.put("lastPayment", p.getLastPaymentDate() == null ? null : p.getLastPaymentDate().toString());
-java.util.Set<com.gesolutions.erp.modules.client.model.Client> owners = p.billingParties();
-pm.put("ownershipType", owners != null && owners.size() > 1 ? "JOINT" : "SOLO");
-java.util.List<java.util.Map<String, Object>> coOwners = new java.util.ArrayList<>();
-if (owners != null) {
-for (com.gesolutions.erp.modules.client.model.Client co : owners) {
-if (co == null || co.getId() == null || id.equals(co.getId())) continue;
-java.util.Map<String, Object> cm = new java.util.LinkedHashMap<>();
-cm.put("clientId", co.getId());
-cm.put("fullName", co.getFullName());
-coOwners.add(cm);
-}
-}
-pm.put("coOwners", coOwners);
-plots.add(pm);
-}
-out.put("plots", plots);
-java.util.Map<String, Object> totals = new java.util.LinkedHashMap<>();
-totals.put("owed", owed); totals.put("paid", paid); totals.put("storage", storage);
-out.put("totals", totals);
-java.util.List<java.util.Map<String, Object>> notes = new java.util.ArrayList<>();
-for (com.gesolutions.erp.modules.client.model.RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
-java.util.Map<String, Object> nm2 = new java.util.LinkedHashMap<>();
-nm2.put("id", n.getId()); nm2.put("tag", n.getTag()); nm2.put("tone", n.getTone()); nm2.put("text", n.getText());
-nm2.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
-nm2.put("createdAt", n.getCreatedAt() == null ? null : n.getCreatedAt().toString());
-notes.add(nm2);
-}
-out.put("notes", notes);
-return out;
+    return clientViewService.dossier(id);
 }
 }

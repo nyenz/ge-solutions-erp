@@ -109,7 +109,7 @@ public class StatusTemplateService {
                     .completedBy(first ? getCurrentOperator() : null)
                     .displayOrder(order++).build());
         }
-        auditService.logAction("PROJECT_STATUSES_RESTORED",
+        auditService.logActionAfterCommit("PROJECT_STATUSES_RESTORED",
             "Operator [" + getCurrentOperator() + "] restored the default statuses on project: " + projectId + ". Old list: " + was);
         return projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
     }
@@ -162,7 +162,7 @@ public class StatusTemplateService {
                 .isActive(true)
                 .build();
         StatusTemplate saved = templateRepository.save(status);
-        auditService.logAction("STATUS_TEMPLATE_ADDED",
+        auditService.logActionAfterCommit("STATUS_TEMPLATE_ADDED",
             "Operator [" + getCurrentOperator() + "] added master status \"" + status.getStatusName() + "\" to " + type.getLabel());
         return saved;
     }
@@ -176,7 +176,7 @@ public class StatusTemplateService {
         if (defaultCost != null) status.setDefaultCost(defaultCost);
         if (displayOrder != null) status.setDisplayOrder(displayOrder);
         StatusTemplate saved = templateRepository.save(status);
-        auditService.logAction("STATUS_TEMPLATE_UPDATED",
+        auditService.logActionAfterCommit("STATUS_TEMPLATE_UPDATED",
             "Operator [" + getCurrentOperator() + "] updated master status: " + status.getStatusName());
         return saved;
     }
@@ -188,7 +188,7 @@ public class StatusTemplateService {
                 .orElseThrow(() -> new BusinessException("STATUS_TEMPLATE_NOT_FOUND"));
         status.setActive(false);
         templateRepository.save(status);
-        auditService.logAction("STATUS_TEMPLATE_REMOVED",
+        auditService.logActionAfterCommit("STATUS_TEMPLATE_REMOVED",
             "Operator [" + getCurrentOperator() + "] removed master status from the list: " + status.getStatusName());
     }
 
@@ -231,7 +231,7 @@ public class StatusTemplateService {
                     .displayOrder(startOrder + (i++))
                     .build()));
         }
-        auditService.logAction("PROJECT_STATUSES_ATTACHED",
+        auditService.logActionAfterCommit("PROJECT_STATUSES_ATTACHED",
             "Operator [" + getCurrentOperator() + "] attached " + created.size()
             + " status(es) to project: " + projectId);
         return created;
@@ -252,7 +252,7 @@ public class StatusTemplateService {
         }
         for (ProjectStatus st : byId.values()) { st.setDisplayOrder(order++); toSave.add(st); }
         projectStatusRepository.saveAll(toSave);
-        auditService.logAction("PROJECT_STATUSES_REORDERED",
+        auditService.logActionAfterCommit("PROJECT_STATUSES_REORDERED",
             "Operator [" + getCurrentOperator() + "] reordered statuses on project: " + projectId);
         return projectStatusRepository.findByProjectIdOrderByDisplayOrderAsc(projectId);
     }
@@ -266,7 +266,7 @@ public class StatusTemplateService {
         status.setCompletedAt(completed ? LocalDateTime.now() : null);
         status.setCompletedBy(completed ? getCurrentOperator() : null);
         ProjectStatus saved = projectStatusRepository.save(status);
-        auditService.logAction("PROJECT_STATUS_CHANGED",
+        auditService.logActionAfterCommit("PROJECT_STATUS_CHANGED",
             "Operator [" + getCurrentOperator() + "] marked status \"" + status.getStatusName()
             + "\" as " + (completed ? "COMPLETE" : "NOT COMPLETE") + " on project: " + status.getProjectId());
         return saved;
@@ -280,7 +280,7 @@ public class StatusTemplateService {
         if (cost != null) status.setCost(cost);
         if (notes != null) status.setNotes(notes);
         ProjectStatus saved = projectStatusRepository.save(status);
-        auditService.logAction("PROJECT_STATUS_COST_UPDATED",
+        auditService.logActionAfterCommit("PROJECT_STATUS_COST_UPDATED",
             "Operator [" + getCurrentOperator() + "] updated cost/notes on status \"" + status.getStatusName()
             + "\" for project: " + status.getProjectId());
         return saved;
@@ -292,7 +292,7 @@ public class StatusTemplateService {
         ProjectStatus status = projectStatusRepository.findById(statusId)
                 .orElseThrow(() -> new BusinessException("PROJECT_STATUS_NOT_FOUND"));
         projectStatusRepository.delete(status);
-        auditService.logAction("PROJECT_STATUS_REMOVED",
+        auditService.logActionAfterCommit("PROJECT_STATUS_REMOVED",
             "Operator [" + getCurrentOperator() + "] removed status \"" + status.getStatusName()
             + "\" from project: " + status.getProjectId());
     }
@@ -320,7 +320,13 @@ public class StatusTemplateService {
     public void bulkDeleteTemplateStatuses(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return;
         List<StatusTemplate> toDelete = templateRepository.findAllById(ids);
-        if (!toDelete.isEmpty()) templateRepository.deleteAllInBatch(toDelete);
+        if (!toDelete.isEmpty()) {
+            templateRepository.deleteAllInBatch(toDelete);
+            // fix181 (13.6b): a bulk removal is written too (one line: the names, the type, the count)
+            auditService.logActionAfterCommit("STATUS_TEMPLATE_REMOVED", "Operator [" + com.gesolutions.erp.common.audit.AuditService.currentOperator()
+                    + "] removed " + toDelete.size() + " status(es) from the " + toDelete.get(0).getProjectType() + " list: "
+                    + toDelete.stream().map(StatusTemplate::getStatusName).collect(java.util.stream.Collectors.joining(", ")));
+        }
     }
 
     /** One project type's master list goes back to the fixed default list (custom statuses on that type are switched off). */
@@ -351,7 +357,7 @@ public class StatusTemplateService {
             order++;
             toSave.add(status);
         }
-        auditService.logAction("STATUS_TEMPLATE_RESTORED",
+        auditService.logActionAfterCommit("STATUS_TEMPLATE_RESTORED",
             "Operator [" + getCurrentOperator() + "] restored the default status list of " + type.getLabel());
         return templateRepository.saveAll(toSave);
     }

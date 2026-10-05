@@ -62,21 +62,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Object sv = claims.get("sv");
                     return sv != null ? ((Number) sv).intValue() : null;
                 });
-                boolean sessionValid = userRepository.findByUsername(userDetails.getUsername())
-                    .map(u -> {
-                        Integer dbSv = u.getSessionVersion();
-                        if (dbSv == null) return false; 
-                        return tokenSv != null && tokenSv.equals(dbSv);
-                    })
-                    .orElse(false);
+                com.gesolutions.erp.modules.auth.model.User account = userRepository.findByUsername(userDetails.getUsername()).orElse(null);
+                boolean sessionValid = account != null && account.getSessionVersion() != null
+                        && tokenSv != null && tokenSv.equals(account.getSessionVersion());
 
                 if (jwtService.isTokenValid(jwt, Objects.requireNonNull(userDetails))) {
                     if (!sessionValid) {
-                        // VITAL FIX: Force a 401 Unauthorized response for session conflicts
-                        // This triggers the frontend Axios interceptor to instantly redirect to /login
-                        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
-                        response.setContentType("application/json");
-                        response.getWriter().write("{\"error\": \"SESSION_CONFLICT\", \"message\": \"Session expired on another device\"}");
+                        // another sign-in, a sign-out, a key change, a suspension or a rank change ended this session
+                        writeError(response, 401, "SESSION_CONFLICT", "This session was ended. Sign in again.");
+                        return;
+                    }
+                    // fix181: a suspended account stops at once, not when its token runs out
+                    if (!userDetails.isEnabled()) {
+                        writeError(response, 401, "ACCOUNT_SUSPENDED", "This account is suspended.");
+                        return;
+                    }
+                    // fix181: a temporary key only opens the key change; everything else waits until it is changed
+                    if (account.isMustChangePassword() && !lockedAllowed(request.getRequestURI())) {
+                        writeError(response, 403, "PASSWORD_CHANGE_REQUIRED", "Change your temporary key first (Settings > Security).");
                         return;
                     }
 
@@ -86,17 +89,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             userDetails.getAuthorities()
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
+
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
             // VITAL FIX: Catch ExpiredJwtException and force a 401 instead of crashing to a 500/403
-            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"INVALID_TOKEN\", \"message\": \"Token expired or malformed\"}");
+            writeError(response, 401, "INVALID_TOKEN", "Your sign-in expired. Sign in again.");
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** Paths a person with a temporary key may still call. */
+    static boolean lockedAllowed(String uri) {
+        return uri != null && (uri.startsWith("/api/v1/auth/") || uri.equals("/api/v1/profile/change-password")
+                || uri.equals("/api/v1/profile/me"));
+    }
+
+    private static void writeError(HttpServletResponse response, int status, String code, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\": \"" + code + "\", \"message\": \"" + message + "\"}");
     }
 }

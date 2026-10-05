@@ -155,7 +155,7 @@
 .pvTag { flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 2px 7px; }
 .pvClose { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; transition: all 0.2s; }
 .pvClose:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); transform: rotate(90deg); }
-.pvStage { position: relative; flex-shrink: 0; width: max(240px, min(calc(100vw - 96px), calc((100vh - 220px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }
+.pvStage { position: relative; flex-shrink: 0; width: max(240px, min(calc(var(--app-vw) - 96px), calc((var(--app-vh) - 220px) * var(--pv-ratio, 0.707)))); aspect-ratio: var(--pv-ratio, 0.707); background: #fff; border-radius: 4px; overflow: hidden; }
 .pvMedia { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .pvImg { object-fit: contain; background: #0f1f21; }
 @keyframes pvFade { from { opacity: 0; } to { opacity: 1; } }

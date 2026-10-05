@@ -248,5 +248,5 @@
 }
 
 /* fix146: same table scroll behaviour as the Project Ledger */
-.tableScroll { max-height: calc(100vh - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
+.tableScroll { max-height: calc(var(--app-vh) - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }

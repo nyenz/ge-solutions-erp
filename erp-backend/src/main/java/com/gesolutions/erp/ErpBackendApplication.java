@@ -9,7 +9,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class ErpBackendApplication {
 
+    /** fix181: the business runs on Uganda time. Every LocalDateTime.now() (locks, "today", nightly jobs) uses this zone. */
+    public static final String ZONE = "Africa/Kampala";
+
     public static void main(String[] args) {
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(ZONE));
         SpringApplication.run(ErpBackendApplication.class, args);
     }
 }

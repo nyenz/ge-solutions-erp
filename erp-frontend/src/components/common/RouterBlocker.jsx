@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/components/common/RouterBlocker.jsx
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useBlocker } from 'react-router-dom';
+import { setDirty, isLeaving } from '../../utils/dirtyRegistry';
 
 /**
  * GOLDEN SEED — ROUTER BLOCKER
@@ -9,6 +10,8 @@ import { useBlocker } from 'react-router-dom';
  * Returns { blocked, proceed, reset } for use with UnsavedChangesModal.
  */
 export const useRouterBlock = (shouldBlock) => {
+    const key = useId();
+    useEffect(() => { setDirty(key, !!shouldBlock); return () => setDirty(key, false); }, [key, shouldBlock]);
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
             shouldBlock && currentLocation.pathname !== nextLocation.pathname
@@ -17,6 +20,7 @@ export const useRouterBlock = (shouldBlock) => {
     useEffect(() => {
         if (!shouldBlock) return;
         const handler = (e) => {
+            if (isLeaving()) return;
             e.preventDefault();
             e.returnValue = '';
         };

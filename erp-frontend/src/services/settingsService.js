@@ -1,117 +1,50 @@
 // PATH: erp-frontend/src/services/settingsService.js
 import api from '../api/axios';
+import { errorText } from '../utils/errorText';
 
 /**
- * GOLDEN SEED ERP - SECURITY & GOVERNANCE SERVICE (V5)
- * 
- * Physically manages operator lifecycles and security keys.
- * UPDATED: Transparent error handling to reveal root causes of failures.
+ * GOLDEN SEED ERP - SECURITY & GOVERNANCE SERVICE
+ * fix181 (15.2i): every failure is re-thrown as a plain sentence (utils/errorText.js), never upper-cased; the server
+ * code (the part before the colon) is kept on err.code so a page can react to it (for example RESTORE_CLASH).
+ * fix181 (15.4d): every username in a URL is encoded.
  */
-const settingsService = {
-
-    /**
-     * SELF-SERVICE: PASSWORD REWRITE
-     */
-    changePersonalPassword: async (oldPassword, newPassword) => {
-        try {
-            await api.put('/profile/change-password', { oldPassword, newPassword });
-            return true;
-        } catch (error) {
-            // VITAL FIX: We pull the REAL reason from the response.
-            // If it's a CORS block, this will likely say "Network Error".
-            // If it's a logic error, it will say the backend message.
-            const serverMsg = error.response?.data?.message || "COMMUNICATION_ERROR: Cannot reach engine.";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * GOVERNANCE: FETCH REGISTRY (ROOT ONLY)
-     */
-    getAllOperators: async () => {
-        try {
-            const response = await api.get('/staff/all');
-            return response.data;
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "REGISTRY_OFFLINE";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * GOVERNANCE: PROVISION NEW MANAGER (ROOT ONLY)
-     */
-    registerManager: async (staffData) => {
-        try {
-            const payload = { ...staffData, role: staffData.role || 'ROLE_MANAGER' };
-            const response = await api.post('/staff/create', payload);
-            return response.data; 
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "REGISTRATION_DENIED";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * GOVERNANCE: HIERARCHY ADJUSTMENT
-     */
-    updateOperatorRole: async (username, newRole) => {
-        try {
-            await api.patch(`/staff/${username}/role`, null, {
-                params: { newRole }
-            });
-            return true;
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "RANK_ADJUSTMENT_FAILED";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * GOVERNANCE: STATUS KILL-SWITCH
-     */
-    toggleOperator: async (username, isActive) => {
-        try {
-            await api.patch(`/staff/${username}/toggle`, null, {
-                params: { active: isActive }
-            });
-            return true;
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "GOVERNANCE_FAULT";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * GOVERNANCE: EMERGENCY KEY RESET
-     */
-    resetOperatorKey: async (username) => {
-        try {
-            const response = await api.post('/staff/reset-password', { username });
-            return response.data.temporaryPassword;
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "RESET_FAILED";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    },
-
-    /**
-     * DANGER ZONE: FULL SYSTEM WIPE (ROOT ONLY)
-     * Permanently deletes every client, project, payment, and log, then
-     * reseeds a clean root login, project index counter, and default
-     * status lists. Cannot be undone.
-     */
-    wipeAllData: async () => {
-        try {
-            const response = await api.post('/admin/system/wipe-all-data', null, {
-                params: { confirm: 'WIPE-EVERYTHING' }
-            });
-            return response.data;
-        } catch (error) {
-            const serverMsg = error.response?.data?.message || "WIPE_FAILED";
-            throw new Error(serverMsg.toUpperCase());
-        }
-    }
+const fail = (error) => {
+    const e = new Error(errorText(error));
+    const raw = error?.response?.data?.message || error?.response?.data?.error || '';
+    const m = String(raw).match(/^([A-Z][A-Z0-9_]{2,}):/);
+    e.code = m ? m[1] : (error?.response?.data?.error || null);
+    e.status = error?.response?.status || null;
+    throw e;
 };
 
+const settingsService = {
+    /** Own key change. Answers a fresh token and user (other devices are signed out). */
+    changePersonalPassword: (oldPassword, newPassword) =>
+        api.put('/profile/change-password', { oldPassword, newPassword }).then(r => r.data).catch(fail),
+
+    getAllOperators: () => api.get('/staff/all').then(r => r.data).catch(fail),
+
+    registerManager: (staffData) =>
+        api.post('/staff/create', { ...staffData, username: String(staffData.username || '').trim(), email: String(staffData.email || '').trim() })
+            .then(r => r.data).catch(fail),
+
+    updateOperatorRole: (username, newRole) =>
+        api.patch(`/staff/${encodeURIComponent(username)}/role`, null, { params: { newRole } }).then(() => true).catch(fail),
+
+    toggleOperator: (username, isActive) =>
+        api.patch(`/staff/${encodeURIComponent(username)}/toggle`, null, { params: { active: isActive } }).then(() => true).catch(fail),
+
+    resetOperatorKey: (username) =>
+        api.post('/staff/reset-password', { username }).then(r => r.data.temporaryPassword).catch(fail),
+
+    /**
+     * DANGER ZONE: wipe all business data (Admin only). Needs the typed phrase AND the Admin's own key (14.4f).
+     * Staff accounts and the audit trail are kept.
+     */
+    wipeAllData: (password) =>
+        api.post('/admin/system/wipe-all-data', { password }, { params: { confirm: 'WIPE-EVERYTHING' }, timeout: 180000 })
+            .then(r => r.data).catch(fail),
+};
+
+export { fail as toPlainError };
 export default settingsService;

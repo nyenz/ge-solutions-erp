@@ -16,5 +16,9 @@ public interface FileStorageService {
 
     // NEW: Wipes every file ever uploaded by this app (all projects, all
     // resource types) from Cloudinary. Used by the DANGER ZONE full wipe.
-    void deleteAllFiles();
+    /**
+     * fix181 (15.5b): deletes every uploaded file and says how many went and how many could not be deleted
+     * (keys filesDeleted, filesFailed; "error" holds a plain sentence when something failed).
+     */
+    java.util.Map<String, Object> deleteAllFiles();
 }

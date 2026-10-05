@@ -33,7 +33,7 @@ import java.util.Set;
  *   Soft delete ...... deleted recently, deleted long ago, deleted then restored
  *   Owners ........... solo, joint (2), joint (3), one person on 3 projects (x2 people), shared phone, two phone
  *                      numbers, foreign number, very long name, no email / no address
- *   Recovery ......... NEW, CONTACTED, MISSED, SITE VISIT, LOCKED (2 good calls), LOCKED (recent payment),
+ *   Recovery ......... NEW, CONTACTED, MISSED, SITE VISIT (4 missed days), LOCKED (2 good calls), LOCKED (recent payment),
  *                      callable again
  */
 final class ScenarioData {
@@ -41,7 +41,8 @@ final class ScenarioData {
     private ScenarioData() { }
 
     // ---------------------------------------------------------------- staff
-    static final String ADMIN = "demo.admin";
+    // fix181: there is only ONE Admin (admin_root, the designer). The second owner-level demo account is a Director.
+    static final String ADMIN = "demo.director2";
     static final String DIRECTOR = "demo.director";
     static final String MGR1 = "demo.manager1";
     static final String MGR2 = "demo.manager2";
@@ -49,6 +50,7 @@ final class ScenarioData {
     static final String SEC2 = "demo.secretary2";
     static final String SUSPENDED = "demo.suspended";
     static final String NEWHIRE = "demo.newhire";
+    static final String EMPLOYEE = "demo.employee";     // fix181 (8.9): field entry only, Pending projects
     static final String ROOT = "admin_root";
 
     static final class Staff {
@@ -75,7 +77,7 @@ final class ScenarioData {
 
     static List<Staff> staff() {
         List<Staff> s = new ArrayList<>();
-        s.add(new Staff(ADMIN, "ROLE_ADMIN", true, false, 400, 0, 0, 0));
+        s.add(new Staff(ADMIN, "ROLE_DIRECTOR", true, false, 400, 0, 0, 0));
         s.add(new Staff(DIRECTOR, "ROLE_DIRECTOR", true, false, 400, 0, 0, 0));
         s.add(new Staff(MGR1, "ROLE_MANAGER", true, false, 380, 0, 0, 0));
         s.add(new Staff(MGR2, "ROLE_MANAGER", true, false, 210, 60, 0, 0));
@@ -83,6 +85,7 @@ final class ScenarioData {
         s.add(new Staff(SEC2, "ROLE_SECRETARY", true, false, 120, 0, 0, 20));
         s.add(new Staff(SUSPENDED, "ROLE_SECRETARY", false, false, 250, 0, 40, 0));
         s.add(new Staff(NEWHIRE, "ROLE_SECRETARY", true, true, 3, 0, 0, 0));
+        s.add(new Staff(EMPLOYEE, "ROLE_EMPLOYEE", true, false, 60, 0, 0, 0));
         return s;
     }
 
@@ -322,6 +325,9 @@ final class ScenarioData {
         String clearNote;
         int deletedAgo = -1;
         int restoredAgo = -1;
+        // fix181 (8.9): entered by the Employee, waiting for prices (no cost, no payments) / started (graduated) N days ago
+        boolean pending = false;
+        int graduatedAgo = -1;
 
         Spec(String key, String mode, String[] owners) {
             this.key = key;
@@ -375,6 +381,8 @@ final class ScenarioData {
         Spec problem(int ago, String note) { problemAgo = ago; problemNote = note; return this; }
         Spec problemCleared(int flagAgo, int clearAgo, String note, String clear) { problemAgo = flagAgo; problemNote = note; problemClearedAgo = clearAgo; clearNote = clear; return this; }
         Spec deleted(int ago) { deletedAgo = ago; return this; }
+        Spec pending() { pending = true; cost = 0; intakeBy = EMPLOYEE; noStatuses = true; return this; }
+        Spec graduated(int ago) { graduatedAgo = ago; return this; }
         Spec restored(int deletedAgo, int restoredAgo) { this.deletedAgo = deletedAgo; this.restoredAgo = restoredAgo; return this; }
         Spec note(int ago, String by, String text) { notes.add(new Note(ago, by, text, null)); return this; }
         Spec ownerNote(int ago, String by, String ownerKey, String text) { notes.add(new Note(ago, by, text, ownerKey)); return this; }
@@ -743,6 +751,14 @@ final class ScenarioData {
                 .title(plot(), "MUKONO BLOCK 31", "LRV 4072 FOLIO " + (19 + v), 225));
             l.add(folder("o_long_name" + s, v == 0 ? veryLong : pool.take()).loc(LOCS[li++ % LOCS.length], "0.25 acre")
                 .cost(3200000 + k).times(20 + d, 19 + d).deposit(800000).ticks(1, 1));
+
+            // ============ fix181 (8.9): PENDING (Employee field entries) and RECENTLY STARTED ============
+            l.add(folder("p_pending_new" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+                .times(1 + v, 1 + v).pending());                       // waiting 1-2 days
+            l.add(folder("p_pending_stale" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
+                .times(5 + d, 5 + d).pending());                       // waiting more than 3 days (PENDING_STALE)
+            l.add(folder("g_started_recently" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.75 acre")
+                .cost(3400000 + k).times(18 + d, 18 + d).by(EMPLOYEE).graduated(8 + d).ticks(1, 1));   // inside the 1-month Recovery delay
         }
 
         // oldest first so project indexes (001A, 002A ...) follow real chronology
@@ -783,14 +799,18 @@ final class ScenarioData {
             c.add(new Call(owner.get("t_partial" + s), ANS, 3, S1, "Will bring the balance next week."));
             c.add(new Call(owner.get("f_mid_statuses" + s), ANS, 1, S1, "Will sign the deed plan on Friday."));
             c.add(new Call(owner.get("r_paused_now" + s), ANS, 82, DR, "Family bereavement. Asked to pause storage fees."));
-            // MISSED (last call bad, fewer than two misses in 30 days)
+            // MISSED (last call bad, at most 3 missed days in 30 days, so not yet a site visit)
             c.add(new Call(owner.get("n_partial" + s), ANS, 52, SU, "Asked for the status timeline."));
             c.add(new Call(owner.get("n_partial" + s), NOP, 6, S2, null));
             c.add(new Call(owner.get("f_never_paid" + s), WRN, 15, S1, "Number belongs to someone else."));
             c.add(new Call(owner.get("r_pause_ended" + s), NOP, 2, S2, null));
-            // SITE VISIT (two misses, no good call in 30 days)
+            // SITE VISIT (fix181: 4 missed calls on 4 different days in 30 days, no good call)
+            c.add(new Call(owner.get("r_joint_silent" + s), NOP, 26, S1, null));
             c.add(new Call(owner.get("r_joint_silent" + s), NOP, 18, S1, null));
             c.add(new Call(owner.get("r_joint_silent" + s), NTH, 9, S2, null));
+            c.add(new Call(owner.get("r_joint_silent" + s), NOP, 4, S2, null));
+            c.add(new Call(owner.get("f_stale" + s), NOP, 22, M1, null));
+            c.add(new Call(owner.get("f_stale" + s), NTH, 14, M1, null));
             c.add(new Call(owner.get("f_stale" + s), NTH, 8, M1, null));
             c.add(new Call(owner.get("f_stale" + s), NOP, 3, M1, null));
             // LOCKED by two good calls
@@ -907,7 +927,9 @@ final class ScenarioData {
                 if (o == null || !byKey.containsKey(o)) throw new IllegalStateException(at + "unknown owner " + o);
                 if (!ownerSet.add(o)) throw new IllegalStateException(at + "same owner twice " + o);
             }
-            if (s.cost <= 0) throw new IllegalStateException(at + "cost missing");
+            if (s.cost <= 0 && !s.pending) throw new IllegalStateException(at + "cost missing");
+            if (s.pending && (!s.pays.isEmpty() || s.cost != 0)) throw new IllegalStateException(at + "a Pending project has no price and no payments");
+            if (s.graduatedAgo > s.entry()) throw new IllegalStateException(at + "started before it was entered");
             if (s.entry() > s.startAgo && !s.legacy() && s.startAgo != 0) throw new IllegalStateException(at + "entry date earlier than start date");
             if (!staff.contains(s.intakeBy)) throw new IllegalStateException(at + "unknown intake staff");
             for (Pay p : s.pays) {

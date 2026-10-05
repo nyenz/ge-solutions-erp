@@ -6,10 +6,13 @@
  * <html>, which is the only way a preference can reach every page without
  * every page having to opt in. The CSS that reads them lives in index.css.
  *
- * Choices are per-device, in localStorage, not per-account on the server. That
- * is deliberate: "this screen is too small to read" is a fact about the screen
- * in front of you, not about who you are, and the office shares logins across
- * a desktop and two phones.
+ * fix181 (15.1i): choices are kept per person ON THE DEVICE (localStorage key goldenseed.prefs.v1.<username>), with a
+ * device default for the login page and for anyone who has not chosen yet. The office shares devices, so one person's
+ * size, theme or start page must not reach the next person. See prefsStore.js.
+ *
+ * fix181 (15.1d): the first paint already has the right theme and size because a tiny inline script in index.html
+ * applies the saved choices before React starts; this provider takes over for changes after that.
+ * fix181 (15.1k): a change in another open tab is followed (storage listener).
  *
  * WHAT EACH ONE ACTUALLY DOES -- no setting here is decorative:
  *   theme     swaps the page background and the sidebar rail between the
@@ -23,27 +26,12 @@
  *   statSize  the --stat-* tokens the summary cards read off.
  *   motion    kills animation and transition app-wide.
  *   tips      hover-explainer dwell, or off entirely.
- *   contrast  strengthens table rules and panel edges.
+ *   contrast  strengthens table row lines (tables only).
+ *   landing   the start page after sign-in (never for Employee; checked against the rank in App.jsx).
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useLayoutEffect, useEffect, useCallback, useMemo } from 'react';
 import { PreferencesContext, DEFAULT_PREFS } from './PreferencesContext';
-
-const KEY = 'goldenseed.prefs.v1';
-
-const readStored = () => {
-    try {
-        const raw = window.localStorage.getItem(KEY);
-        if (!raw) return DEFAULT_PREFS;
-        return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
-    } catch {
-        return DEFAULT_PREFS;
-    }
-};
-
-// Plain (non-hook) localStorage read, exported for callers -- such as
-// App.jsx's pre-provider route elements -- that need a preference value
-// before PreferencesProvider has mounted and can't use the context/hook.
-export const readPrefs = readStored;
+import { currentUsername, keyFor, DEVICE_KEY, readPrefsFor, writePrefsFor, THEME_COLOR } from './prefsStore';
 
 const STAT_SIZES = {
     small:    { label: 'clamp(8px, 0.8vw, 9.5px)',  value: 'clamp(12px, 1.3vw, 15px)',   valueSm: 'clamp(10px, 1.1vw, 12px)', note: 'clamp(7px, 0.75vw, 9px)' },
@@ -52,9 +40,11 @@ const STAT_SIZES = {
 };
 
 export const PreferencesProvider = ({ children }) => {
-    const [prefs, setPrefs] = useState(readStored);
+    const [who, setWho] = useState(currentUsername);
+    const [prefs, setPrefs] = useState(() => readPrefsFor(currentUsername()));
 
-    useEffect(() => {
+    // useLayoutEffect: applied before the browser paints the change
+    useLayoutEffect(() => {
         const root = document.documentElement;
         root.setAttribute('data-theme', prefs.theme);
         root.setAttribute('data-motion', prefs.motion);
@@ -67,12 +57,26 @@ export const PreferencesProvider = ({ children }) => {
         root.style.setProperty('--stat-value', s.value);
         root.style.setProperty('--stat-value-sm', s.valueSm);
         root.style.setProperty('--stat-note', s.note);
-
-        try { window.localStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* private mode */ }
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[prefs.theme] || THEME_COLOR.light);
     }, [prefs]);
 
-    const setPref = useCallback((key, value) => setPrefs(p => ({ ...p, [key]: value })), []);
-    const resetPrefs = useCallback(() => setPrefs(DEFAULT_PREFS), []);
+    // another person signed in on this tab, or another tab changed the choices / the person
+    useEffect(() => {
+        const reload = () => { const u = currentUsername(); setWho(u); setPrefs(readPrefsFor(u)); };
+        const onStorage = (e) => {
+            if (e.key === null || e.key === 'gs_user' || e.key === keyFor(currentUsername()) || e.key === DEVICE_KEY) reload();
+        };
+        window.addEventListener('gs-user-changed', reload);
+        window.addEventListener('storage', onStorage);
+        return () => { window.removeEventListener('gs-user-changed', reload); window.removeEventListener('storage', onStorage); };
+    }, []);
+
+    const setPref = useCallback((key, value) => setPrefs(p => {
+        const next = { ...p, [key]: value };
+        writePrefsFor(who, next);
+        return next;
+    }), [who]);
+    const resetPrefs = useCallback(() => { writePrefsFor(who, DEFAULT_PREFS); setPrefs(DEFAULT_PREFS); }, [who]);
 
     const value = useMemo(() => ({ prefs, setPref, resetPrefs }), [prefs, setPref, resetPrefs]);
 

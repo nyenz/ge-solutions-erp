@@ -74,7 +74,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ScenarioSeeder {
 
-    public static final int VERSION = 5;   // fix180: project types, clients + owners, status lists per type, new title fields
+    public static final int VERSION = 6;   // fix181: one Admin only (demo.admin became demo.director2); v5 fix180 types
     private static final int BELL_DAYS = 45;
     private static final String DEMO_LIKE = "demo.%";
 
@@ -138,7 +138,7 @@ public class ScenarioSeeder {
         try {
             new TransactionTemplate(txManager).executeWithoutResult(st -> {
                 seed();
-                new JdbcTemplate(dataSource).update("INSERT INTO scenario_seed_flag (id) VALUES (?) ON CONFLICT (id) DO NOTHING", VERSION);
+                new JdbcTemplate(dataSource).update("INSERT INTO scenario_seed_flag (id) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM scenario_seed_flag WHERE id = ?)", VERSION, VERSION);
             });
             System.out.println(">>> [SCENARIO] Dataset v" + VERSION + " seeded ("
                     + ScenarioData.projects().size() + " projects, "
@@ -260,8 +260,16 @@ public class ScenarioSeeder {
 
     private void bell(String type, String severity, String message, String entityType, UUID entityId, String role, LocalDateTime when) {
         if (entityId == null || when.isBefore(now.minusDays(BELL_DAYS))) return;
-        bell.add(Notification.builder().type(type).severity(severity).message(message)
-                .entityType(entityType).entityId(entityId).targetRole(role).createdAt(when).build());
+        // fix181 (17.2): the demo follows the same audience list as the live code (one row per role, no "ALL");
+        // UNLOCK_M is retired (UNLOCK already goes to Secretary and Manager)
+        if (com.gesolutions.erp.modules.notification.service.NotificationTypes.RETIRED.contains(type)) return;
+        var t = com.gesolutions.erp.modules.notification.service.NotificationTypes.of(type);
+        List<String> roles = t != null ? t.audience() : List.of(role);
+        for (String r : roles) {
+            bell.add(Notification.builder().type(type).severity(t != null ? t.severity() : severity).message(message)
+                    .entityType(entityType).entityId(entityId).targetRole(r).category(t != null ? t.group().name() : null)
+                    .createdAt(when).build());
+        }
     }
 
     private void seed() {
@@ -417,6 +425,11 @@ public class ScenarioSeeder {
                 .projectIndex(index)
                 .projectStartDate(now.toLocalDate().minusDays(s.startAgo))
                 .entryDate(now.toLocalDate().minusDays(entry))
+                .createdAt(now.minusDays(entry))   // fix181 (20.9)
+                .createdBy(staff)
+                .createdById(users.get(staff) != null ? users.get(staff).getId() : null)
+                .pending(s.pending)                                                             // fix181 (8.9)
+                .graduatedAt(s.graduatedAgo >= 0 ? at(s.graduatedAgo, s.key + "G") : null)
                 .district(s.district).county(s.county).subCounty(s.subCounty).parish(s.parish).village(s.village).area(s.area)
                 .totalCost(BigDecimal.valueOf(totalCost))
                 .amountPaid(BigDecimal.valueOf(s.paid()))
@@ -433,7 +446,9 @@ public class ScenarioSeeder {
                 .storagePaused(s.activePause())
                 .storagePausedAt(s.activePause() ? at(s.pauseAgo, s.key + "Z") : null)
                 .deleted(s.deletedAgo >= 0 && s.restoredAgo < 0)
-                .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null);
+                .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null)
+                .deletedBy(s.deletedAgo >= 0 && s.restoredAgo < 0 ? ScenarioData.ADMIN : null)   // fix181 (14.7a)
+                .deletedReason(s.deletedAgo >= 0 && s.restoredAgo < 0 ? "Entered twice by mistake (demo)" : null);
         if (s.recvAgo >= 0) {
             b.originalDebt(BigDecimal.valueOf(debt))
              .storageFeesAccumulated(BigDecimal.valueOf(s.storedFees()))
@@ -468,9 +483,21 @@ public class ScenarioSeeder {
             Client c = clients.get(o);
             audit("CLIENT_ARCHIVE", "New identity registered via NIN: " + c.getFullName() + " (" + c.getNationalId() + ")", staff, entryAt.minusMinutes(2));
         }
-        audit("INTAKE", "Operator [" + staff + "] ingested binder: " + (s.hasTitle() && !s.pendingTitle && !s.isFolder() ? s.plot : "project #" + index)
+        boolean employeeEntry = ScenarioData.EMPLOYEE.equals(staff);
+        audit(employeeEntry ? "PENDING_CREATED" : "INTAKE", "Operator [" + staff + "] " + (employeeEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
+                + (s.hasTitle() && !s.pendingTitle && !s.isFolder() ? s.plot : "project #" + index)
                 + (s.recvAtIntake ? " [ENTERED AS RECEIVABLE]" : ""), staff, entryAt);
-        bell("NEW_INTAKE", "INFO", "New project " + index + " registered by " + staff + ".", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        if (employeeEntry) {
+            bell("PENDING_CREATED", "INFO", "New Pending project " + index + " entered by " + staff + ". It waits for prices.", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        } else {
+            bell("NEW_INTAKE", "INFO", "New project " + index + " registered by " + staff + ".", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        }
+        if (s.graduatedAgo >= 0) {
+            LocalDateTime g = at(s.graduatedAgo, s.key + "G");
+            audit("PROJECT_GRADUATED", "Operator [" + ScenarioData.SEC1 + "] priced and started Pending project #" + index
+                    + " (entered by " + staff + "). Total cost UGX " + money(s.cost), ScenarioData.SEC1, g);
+            bell("PROJECT_GRADUATED", "INFO", "Project " + index + " has been priced and started.", "PROJECT", pid, "ROLE_MANAGER", g);
+        }
         if (s.recvAtIntake) {
             audit("RECEIVABLE_TRIGGER", "Operator [" + staff + "] flagged plot " + lbl + " as RECEIVABLE at intake. Debt: UGX " + money(debt), staff, entryAt.plusMinutes(1));
         }
@@ -514,7 +541,7 @@ public class ScenarioSeeder {
             LocalDateTime t = at(s.problemAgo, s.key + "P");
             followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[PROBLEM] " + s.problemNote).recordedBy(by).timestamp(t).build());
             audit("PROBLEM_FLAG", "Operator [" + by + "] flagged PROBLEM on #" + index + ": " + s.problemNote + ".", by, t);
-            bell("PROBLEM_FLAGGED", "CRITICAL", "Plot " + lbl + " flagged as a problem by " + by + ": " + s.problemNote, "PROJECT", pid, "ALL", t);
+            bell("PROBLEM_FLAGGED", "CRITICAL", "Plot " + lbl + " flagged as a problem by " + by + ". Open the folder to read the reason.", "PROJECT", pid, "ROLE_MANAGER", t);
             if (s.problemClearedAgo >= 0) {
                 String cb = ScenarioData.DIRECTOR;
                 LocalDateTime c = at(s.problemClearedAgo, s.key + "PC");
@@ -561,11 +588,11 @@ public class ScenarioSeeder {
         // --- soft delete / restore
         if (s.deletedAgo >= 0) {
             LocalDateTime t = at(s.deletedAgo, s.key + "D");
-            audit("RECORD_DELETED", "Root user [" + ScenarioData.ADMIN + "] deleted plot: " + lbl, ScenarioData.ADMIN, t);
+            audit("RECORD_DELETED", "Operator [" + ScenarioData.ADMIN + "] deleted plot: " + lbl, ScenarioData.ADMIN, t);
             bell("PROJECT_DELETED", "CRITICAL", "Plot " + lbl + " deleted by " + ScenarioData.ADMIN + ". Restore it from Settings -> Archive.", "PROJECT", pid, "ROLE_DIRECTOR", t);
             if (s.restoredAgo >= 0) {
                 LocalDateTime r = at(s.restoredAgo, s.key + "U");
-                audit("RECORD_RESTORED", "Root user [" + ScenarioData.ADMIN + "] restored plot: " + lbl, ScenarioData.ADMIN, r);
+                audit("RECORD_RESTORED", "Operator [" + ScenarioData.ADMIN + "] restored plot: " + lbl, ScenarioData.ADMIN, r);
                 bell("PROJECT_RESTORED", "POSITIVE", "Plot " + lbl + " restored by " + ScenarioData.ADMIN + ".", "PROJECT", pid, "ROLE_DIRECTOR", r);
             }
         }
@@ -687,7 +714,7 @@ public class ScenarioSeeder {
                 receipt = addDocument(pid, index, ScenarioData.PR, fname, photo ? "image/jpeg" : "application/pdf", by, t.plusMinutes(4));
             }
             PaymentRecord saved = paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(p.amount))
-                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).balanceAfter(BigDecimal.valueOf(after))
+                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).paidOn(t).balanceAfter(BigDecimal.valueOf(after))
                     .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName())
                     .receiptDocumentId(receipt != null ? receipt.getId() : null).build());
             if (p.ago >= 0) {
@@ -704,7 +731,7 @@ public class ScenarioSeeder {
                 LocalDateTime rt = at(p.reversedAgo, s.key + "REV" + p.amount);
                 paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(-p.amount))
                         .paymentType("REVERSAL").recordedBy(p.reverseBy).notes("[REVERSAL OF " + saved.getId() + "] " + p.reverseWhy)
-                        .timestamp(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
+                        .timestamp(rt).paidOn(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
                         .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName()).build());
                 audit("PAYMENT_REVERSED", "Operator [" + p.reverseBy + "] reversed UGX " + p.amount + " on " + lbl + ". Reason: " + p.reverseWhy, p.reverseBy, rt);
             }
@@ -724,7 +751,8 @@ public class ScenarioSeeder {
             audit("RECEIVABLE_TRIGGER", "Operator [" + admin + "] manually moved plot " + lbl + " to RECEIVABLE. Original debt frozen at: UGX " + debt, admin, start);
         }
         if (s.startOverride) {
-            audit("RECEIVABLE_START_OVERRIDDEN", "Operator [" + ScenarioData.ADMIN + "] set receivable start date to " + start.toLocalDate() + " for plot: " + lbl, ScenarioData.ADMIN, at(s.entry(), s.key + "V"));
+            // fix181 (10.2): the demo writes the same code as production (RECEIVABLE_SETTINGS)
+            audit("RECEIVABLE_SETTINGS", "Operator [" + ScenarioData.ADMIN + "] updated receivable settings on #" + index + " (receivables start: " + start.toLocalDate() + ") for plot: " + lbl, ScenarioData.ADMIN, at(s.entry(), s.key + "V"));
         }
         if (s.customRate) {
             audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + " (monthly rate: default -> UGX " + s.rate
@@ -812,8 +840,9 @@ public class ScenarioSeeder {
                         bell("UNLOCK_M", "INFO", client.getFullName() + " is callable again.", "CLIENT", client.getId(), "ROLE_MANAGER", unlock);
                     }
                 }
-                if (!positive && miss30 == 2 && good30 == 0) {
-                    bell("SITE_VISIT_AUTO", "WARN", client.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", client.getId(), "ROLE_MANAGER", t);
+                int siteN = com.gesolutions.erp.modules.client.service.RecoveryStateService.SITE_VISIT_MISS_THRESHOLD;
+                if (!positive && miss30 == siteN && good30 == 0) {
+                    bell("SITE_VISIT_AUTO", "WARN", client.getFullName() + " missed " + siteN + " calls (on different days) with no answer in 30 days. Plan a site visit.", "CLIENT", client.getId(), "ROLE_MANAGER", t);
                 }
             }
         }

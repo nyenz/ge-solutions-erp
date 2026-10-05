@@ -6,126 +6,143 @@ import {
     FiChevronLeft, FiChevronRight, FiPhoneCall, FiUser, FiDownloadCloud
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
-import settingsService from '../../services/settingsService';
 import HardwareSelect from '../../components/common/HardwareSelect';
-import UnsavedChangesModal from '../../components/common/UnsavedChangesModal';
-import { useRouterBlock } from '../../components/common/RouterBlocker';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
-import { actionColor } from './auditCatalog';
+import { ACTION_GROUPS, actionColor, friendlyAction } from './auditCatalog';
 import CornerDecor from '../../components/ui/CornerDecor';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './AuditPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
+import { toCSV, downloadCSV, plainStamp } from '../../utils/csv';
+
+const PAGE_SIZE = 50;
+const EXPORT_CAP = 20000;
+const ALL_ACTIONS = 'ALL ACTIONS';
+const ALL_STAFF = 'ALL STAFF';
+
+/* fix181 (10.1, 13.9): two dropdowns built from the catalog. PROTOCOL CLASS = all actions or one group (sends the
+   group's codes); ACTION appears when a group is chosen and lists that group's actions by friendly name (sends one
+   code). The friendly text on screen is never sent: a small label -> code map is kept here. */
+const ALL_IN_GROUP = 'ALL IN THIS GROUP';
+const CLASS_OPTIONS = [ALL_ACTIONS, ...ACTION_GROUPS.map(g => g.group)];
+const groupOf = (name) => ACTION_GROUPS.find(g => g.group === name);
+const actionOptionsOf = (name) => [ALL_IN_GROUP, ...(groupOf(name)?.actions || []).map(a => a.label)];
+const codesFor = (group, action) => {
+    const g = groupOf(group);
+    if (!g) return [];
+    if (!action || action === ALL_IN_GROUP) return g.actions.map(a => a.code);
+    const hit = g.actions.find(a => a.label === action);
+    return hit ? [hit.code] : g.actions.map(a => a.code);
+};
+const EMPTY_FILTERS = { operator: '', group: '', action: '', search: '', from: '', to: '', page: 0 };
+
+/** "2026-10-04" -> "2026-10-05T00:00:00": the end is exclusive on the server, so the whole TO day is included (10.11). */
+const dayAfter = (ymd) => {
+    const d = new Date(ymd + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + 'T00:00:00';
+};
 
 const AuditPage = () => {
     const [logs,       setLogs]       = useState([]);
+    const [meta,       setMeta]       = useState({ total: 0, totalPages: 0, last: true });
     const [loading,    setLoading]    = useState(true);
-    const [page,       setPage]       = useState(0);
+    const [fault,      setFault]      = useState(null);   // { message, status } -- 10.5
     const [expandedId, setExpandedId] = useState(null);
-    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '', from: '', to: '' });
-    const [operators,  setOperators]  = useState([]);
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const isDirty = filters.search !== '' || filters.from !== '' || filters.to !== '' || (filters.operator !== '' && filters.operator !== 'ALL STAFF') || (filters.action !== '' && filters.action !== 'ALL ACTIONS');
-    const { blocked: guardOpen, proceed: handleLeave, reset: handleStay } = useRouterBlock(isDirty);
-
-    // Load real operators from database
+    // fix181 (13.10b): the page number lives in the same state as the filters, so a filter change resets it in the same
+    // update (one request, not two)
+    const [filters,    setFiltersRaw] = useState(EMPTY_FILTERS);
+    const setFilters = useCallback((next) => setFiltersRaw({ ...next, page: 0 }), []);
+    const page = filters.page;
+    const setPage = (fn) => setFiltersRaw(f => ({ ...f, page: typeof fn === 'function' ? fn(f.page) : fn }));
+    // fix181 (13.10a): the keyword is sent 400 ms after the last key, and only from 2 letters
+    const [searchText, setSearchText] = useState('');
     useEffect(() => {
-        settingsService.getAllOperators()
-            .then(data => setOperators(data))
-            .catch(() => {});
+        const t = setTimeout(() => {
+            const k = searchText.trim();
+            const next = k.length >= 2 ? k : '';
+            setFiltersRaw(f => (f.search === next ? f : { ...f, search: next, page: 0 }));
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchText]);
+    const [copiedId, setCopiedId] = useState(null);
+    const [operators,  setOperators]  = useState([]);
+    const [exporting,  setExporting]  = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+    // fix181 (10.11): a filter is not unsaved work, so leaving this page never asks
+
+    // fix181 (10.3): the names come from the audit trail itself (works for the Director, includes SYSTEM)
+    useEffect(() => {
+        auditService.getOperators().then(setOperators).catch(() => setOperators([]));
     }, []);
+
+    const serverFilters = useMemo(() => ({
+        operator: filters.operator && filters.operator !== ALL_STAFF ? filters.operator : null,
+        actions: filters.group && filters.group !== ALL_ACTIONS ? codesFor(filters.group, filters.action) : [],
+        keyword: filters.search.trim().slice(0, 100),
+        start: filters.from ? filters.from + 'T00:00:00' : null,
+        end: filters.to ? dayAfter(filters.to) : null,
+    }), [filters.operator, filters.group, filters.action, filters.search, filters.from, filters.to]);
 
     const reqRef = useRef(0);
     const fetchForensics = useCallback(async () => {
-        const myReq = ++reqRef.current;   // fix169: only the newest request may update the screen
+        const myReq = ++reqRef.current;   // only the newest request may update the screen
         setLoading(true);
         try {
-            let activeAction = filters.action;
-            if (activeAction === 'CALL LOG')         activeAction = 'RECOVERY_MISSION_COMPLETE';
-            if (activeAction === 'EDIT RECORD')      activeAction = 'MASTER_REWRITE';
-            if (activeAction === 'STAGE OVERRIDE')   activeAction = 'STAGE_OVERRIDE';
-            if (activeAction === 'ALL ACTIONS')      activeAction = null;
-            const activeOperator = filters.operator === 'ALL STAFF' ? null : filters.operator;
-
-            // fix169: keyword, operator, action and dates all go to the server TOGETHER. The keyword used to go
-            // to a different endpoint that ignored the other filters, and the dates were never sent at all.
-            const data = await auditService.searchForensics({
-                operator: activeOperator,
-                action: activeAction,
-                keyword: filters.search,
-                start: filters.from ? filters.from + 'T00:00:00' : null,
-                end: filters.to ? filters.to + 'T23:59:59' : null,
-            }, page);
+            const data = await auditService.searchForensics(serverFilters, page, PAGE_SIZE);
             if (myReq !== reqRef.current) return;
             setLogs(data.content || []);
-        } catch { if (myReq === reqRef.current) console.error('FORENSIC_SIGNAL_LOST'); }
+            setMeta({ total: data.totalElements || 0, totalPages: data.totalPages || 0, last: data.last !== false });
+            setFault(null);
+        } catch (e) {
+            if (myReq === reqRef.current) setFault({ message: e.message, status: e.status });
+        }
         finally  { if (myReq === reqRef.current) setLoading(false); }
-    }, [page, filters]);
-
-    // fix169: any filter change starts again from the first sector
-    useEffect(() => { setPage(0); }, [filters]);
+    }, [page, serverFilters]);
 
     useEffect(() => { fetchForensics(); }, [fetchForensics]);
 
-    // WHEN, which is the first question anyone asks of an audit trail.
-    // fix169: the dates now travel to the server with every other filter, so this
-    // only stays as a harmless safety net on the page in hand.
-    const visibleLogs = useMemo(() => {
-        const from = filters.from ? new Date(filters.from + 'T00:00:00').getTime() : null;
-        const to   = filters.to   ? new Date(filters.to   + 'T23:59:59').getTime() : null;
-        if (from === null && to === null) return logs;
-        return logs.filter(l => {
-            const t = new Date(l.timestamp).getTime();
-            if (!Number.isFinite(t)) return false;
-            if (from !== null && t < from) return false;
-            if (to !== null && t > to) return false;
-            return true;
-        });
-    }, [logs, filters.from, filters.to]);
+    // fix181 (13.0c): the rows are shown exactly as the server sent them (no second date filter in the browser)
+    const visibleLogs = logs;
+    const firstShown = meta.total === 0 ? 0 : page * PAGE_SIZE + 1;
+    const lastShown = page * PAGE_SIZE + logs.length;
 
-    const exportVisible = () => {
-        const cell = v => {
-            const str = v === null || v === undefined ? '' : String(v);
-            return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
-        };
-        const rows = visibleLogs.map(l => [
-            new Date(l.timestamp).toISOString(), l.performedBy, l.action, l.details || '',
-        ]);
-        const csv = [['TIMESTAMP', 'OPERATOR', 'ACTION', 'DETAILS'], ...rows]
-            .map(r => r.map(cell).join(',')).join('\n');
-        // The BOM stops Excel reading a UTF-8 CSV as Latin-1.
-        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.setAttribute('download', 'GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv');
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+    // fix181 (10.6): export EVERY row that matches the filters (pages of 200, up to a cap), server time as plain text,
+    // formula-safe cells (13.8), and one AUDIT_EXPORT line in the trail
+    const exportAll = async () => {
+        setExporting('Preparing...');
+        try {
+            const all = [];
+            let total = 0;
+            for (let pg = 0; all.length < EXPORT_CAP; pg += 1) {
+                const data = await auditService.searchForensics(serverFilters, pg, 200);
+                total = data.totalElements || 0;
+                all.push(...(data.content || []));
+                setExporting(`Preparing ${all.length.toLocaleString()} of ${total.toLocaleString()}...`);
+                if (data.last !== false || (data.content || []).length === 0) break;
+            }
+            const rows = all.map(l => [plainStamp(l.timestamp), l.performedBy, l.action, friendlyAction(l.action), l.details || '']);
+            downloadCSV('GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv',
+                toCSV(['TIME', 'OPERATOR', 'CODE', 'ACTION', 'DETAILS'], rows));
+            auditService.logExport({ ...serverFilters, group: filters.group || ALL_ACTIONS, action: filters.action || '' }, all.length);
+            setExporting(total > all.length ? `Exported the newest ${all.length.toLocaleString()} of ${total.toLocaleString()} rows (the limit).` : '');
+        } catch (e) {
+            setExporting('Export failed: ' + e.message);
+        }
     };
 
-    // Row colour: every action has its own, see actionColor() in auditCatalog.js
-    const getFriendlyAction = action => {
-        if (action === 'RECOVERY_MISSION_COMPLETE') return 'CALL LOG';
-        if (action === 'RECOVERY_SYNC')             return 'CALL LOGGED';
-        if (action === 'MASTER_REWRITE')            return 'EDIT RECORD';
-        if (action === 'STAGE_OVERRIDE')            return 'STAGE OVERRIDE';
-        if (action === 'INTAKE')                    return 'NEW PROJECT';
-        if (action === 'NUCLEAR_PURGE')             return 'DELETE RECORD';
-        if (action === 'EXPENSE_LOGGED')            return 'EXPENSE LOGGED';
-        if (action === 'EXPENSE_EDITED')            return 'EXPENSE CORRECTED';
-        if (action === 'EXPENSE_DELETED')           return 'EXPENSE DELETED';
-        if (action === 'EXPENSE_PRESET_CREATED')    return 'PRESET ADDED';
-        return action;
-    };
+    const operatorOptions = [ALL_STAFF, ...operators];
 
-    // Build operator options dynamically from real database users
-    const operatorOptions = ['ALL STAFF', ...operators.map(op => op.username)];
+    // fix181 (13.11): one line that quotes an audit row exactly
+    const lineOf = (log) => `${plainStamp(log.timestamp)} | ${log.performedBy} | ${log.action} | ${log.details || ''} | id ${log.id}`;
+    const copyLine = async (e, log) => {
+        e.stopPropagation();
+        try { await navigator.clipboard.writeText(lineOf(log)); setCopiedId(log.id); setTimeout(() => setCopiedId(null), 1500); }
+        catch { setCopiedId(null); }
+    };
 
     return (
         <div className={styles.container}>
-            <UnsavedChangesModal isOpen={guardOpen} onStay={handleStay} onLeave={handleLeave} context="Audit Filters" />
             <header className={styles.pageHeader}>
                 <div className={styles.headerLeft}>
                     <h1 className={styles.title}>Audit Log</h1>
@@ -134,7 +151,7 @@ const AuditPage = () => {
                 <div className={styles.diagHUD}>
                     <div className={styles.diagItem}>
                         <FiDatabase aria-hidden="true" />
-                        <span>VISIBLE RECORDS: <strong>{visibleLogs.length}</strong></span>
+                        <span>{meta.total === 0 ? 'NO MATCHES' : <>SHOWING <strong>{firstShown.toLocaleString()} to {lastShown.toLocaleString()}</strong> OF <strong>{meta.total.toLocaleString()}</strong></>}</span>
                     </div>
                 </div>
                 <HeaderActions>
@@ -148,16 +165,17 @@ const AuditPage = () => {
                     <input
                         type="search"
                         placeholder="Investigate specific Plot Number, Name, or Keyword..."
-                        className={`${styles.searchInput} ${(filters.search || isSearchFocused) ? styles.searchInputActive : ''}`}
-                        value={filters.search}
-                        onChange={e => setFilters({...filters, search: e.target.value})}
+                        className={`${styles.searchInput} ${(searchText || isSearchFocused) ? styles.searchInputActive : ''}`}
+                        value={searchText}
+                        maxLength={100}
+                        onChange={e => setSearchText(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         aria-label="Search forensic logs"
                     />
-                    {!(filters.search || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
-                    {filters.search && (
-                        <button className={styles.searchClear} onClick={() => setFilters({...filters, search: ''})} aria-label="Clear search">
+                    {!(searchText || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                    {searchText && (
+                        <button className={styles.searchClear} onClick={() => setSearchText('')} aria-label="Clear search">
                             <FiX aria-hidden="true" />
                         </button>
                     )}
@@ -167,18 +185,28 @@ const AuditPage = () => {
                         <HardwareSelect
                             label="OPERATOR ID"
                             options={operatorOptions}
-                            value={filters.operator || 'ALL STAFF'}
+                            value={filters.operator || ALL_STAFF}
                             onChange={val => setFilters({...filters, operator: val})}
                         />
                     </div>
                     <div className={styles.hwSelectWrap}>
                         <HardwareSelect
                             label="PROTOCOL CLASS"
-                            options={['ALL ACTIONS', 'CALL LOG', 'LOGIN_SUCCESS', 'EDIT RECORD', 'STAGE OVERRIDE', 'INTAKE']}
-                            value={filters.action || 'ALL ACTIONS'}
-                            onChange={val => setFilters({...filters, action: val})}
+                            options={CLASS_OPTIONS}
+                            value={filters.group || ALL_ACTIONS}
+                            onChange={val => setFilters({...filters, group: val === ALL_ACTIONS ? '' : val, action: ''})}
                         />
                     </div>
+                    {filters.group && (
+                        <div className={styles.hwSelectWrap}>
+                            <HardwareSelect
+                                label="ACTION"
+                                options={actionOptionsOf(filters.group)}
+                                value={filters.action || ALL_IN_GROUP}
+                                onChange={val => setFilters({...filters, action: val === ALL_IN_GROUP ? '' : val})}
+                            />
+                        </div>
+                    )}
                     <label className={styles.dateField}>
                         <span>FROM</span>
                         <HardwareDatePicker value={filters.from} ariaLabel="From date" onChange={v => setFilters({...filters, from: v})} />
@@ -187,20 +215,28 @@ const AuditPage = () => {
                         <span>TO</span>
                         <HardwareDatePicker value={filters.to} ariaLabel="To date" onChange={v => setFilters({...filters, to: v})} />
                     </label>
-                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:'', from:'', to:''})} aria-label="Reset all filters">
+                    <button className={styles.resetBtn} onClick={() => { setSearchText(''); setFiltersRaw(EMPTY_FILTERS); }} aria-label="Reset all filters">
                         <FiFilter aria-hidden="true" /> RESET FILTERS
                     </button>
-                    <button className={styles.resetBtn} onClick={exportVisible} disabled={visibleLogs.length === 0} aria-label="Export the visible log to CSV">
-                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV
+                    <button className={styles.resetBtn} onClick={exportAll} disabled={meta.total === 0 || (exporting && exporting.startsWith('Preparing'))} aria-label="Export every matching row to CSV">
+                        <FiDownloadCloud aria-hidden="true" /> EXPORT CSV ({meta.total.toLocaleString()})
                     </button>
                 </div>
             </div>
 
             <div className={styles.timelineFrame}>
                 <div className={styles.timelineStream}>
-                    {loading && <LoadingState label="SYNCHRONIZING WITH BLACK BOX..." tone="bare" />}
-                    {!loading && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">NO DIGITAL FOOTPRINTS FOUND FOR THIS RANGE</div>}
-                    {!loading && visibleLogs.length > 0 && (<div className={styles.logTray}><div className={styles.logCard}>
+                    {exporting && <div className={styles.emptySignal} role="status">{exporting}</div>}
+                    {loading && <LoadingState label="Loading the audit trail..." tone="bare" />}
+                    {/* fix181 (10.5): a failed load is an error with Retry, never "nothing found" */}
+                    {!loading && fault && (
+                        <div className={styles.emptySignal} role="alert">
+                            Could not load the audit trail{fault.status ? ` (HTTP ${fault.status})` : ''}: {fault.message}{' '}
+                            <button type="button" className={styles.resetBtn} onClick={() => fetchForensics()}><FiRefreshCw aria-hidden="true" /> RETRY</button>
+                        </div>
+                    )}
+                    {!loading && !fault && visibleLogs.length === 0 && <div className={styles.emptySignal} role="status">No audit lines match these filters.</div>}
+                    {!loading && !fault && visibleLogs.length > 0 && (<div className={styles.logTray}><div className={styles.logCard}>
                     {visibleLogs.map(log => (
                         <div
                             key={log.id}
@@ -210,24 +246,24 @@ const AuditPage = () => {
                             role="button"
                             tabIndex={0}
                             aria-expanded={expandedId === log.id}
-                            aria-label={`Log entry: ${getFriendlyAction(log.action)} by ${log.performedBy}`}
+                            aria-label={`Log entry: ${friendlyAction(log.action)} by ${log.performedBy}`}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(expandedId === log.id ? null : log.id); } }}
                         >
                             <div className={styles.logMain}>
                                 <div className={styles.timeMark}>
                                     <div className={styles.clockPair}>
                                         <FiClock aria-hidden="true" />
-                                        <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span>{plainStamp(log.timestamp).slice(11, 16)}</span>
                                     </div>
-                                    <small>{new Date(log.timestamp).toLocaleDateString()}</small>
+                                    <small>{plainStamp(log.timestamp).slice(0, 10)}</small>
                                 </div>
                                 <div className={styles.actionMark}>
                                     <div className={styles.iconChassis} aria-hidden="true">
-                                        {log.action === 'RECOVERY_MISSION_COMPLETE' ? <FiPhoneCall aria-hidden="true" /> :
+                                        {log.action === 'RECOVERY_NOTE' ? <FiPhoneCall aria-hidden="true" /> :
                                          log.performedBy === 'SYSTEM' ? <FiActivity aria-hidden="true" /> : <FiUser aria-hidden="true" />}
                                     </div>
                                     <div className={styles.actionMeta}>
-                                        <strong>{getFriendlyAction(log.action)}</strong>
+                                        <strong>{friendlyAction(log.action)}</strong>
                                         <span>OP: {log.performedBy}</span>
                                     </div>
                                 </div>
@@ -241,8 +277,18 @@ const AuditPage = () => {
                             <div className={`${styles.traceDetails} ${expandedId === log.id ? styles.traceOpen : styles.traceClosed}`}>
                                 <div className={styles.rawBox}>
                                     <div className={styles.rawHeader}>
-                                        <FiDatabase aria-hidden="true" /> <span>FORENSIC DATA READOUT [SECURE]</span>
+                                        <FiDatabase aria-hidden="true" /> <span>AUDIT LINE</span>
+                                        <button type="button" className={styles.resetBtn} onClick={(e) => copyLine(e, log)} aria-label="Copy this line">
+                                            {copiedId === log.id ? 'COPIED' : 'COPY LINE'}
+                                        </button>
                                     </div>
+                                    {/* fix181 (13.11): the facts an auditor quotes: code, exact time, person, row id */}
+                                    <dl className={styles.factList}>
+                                        <dt>Code</dt><dd>{log.action}</dd>
+                                        <dt>Time</dt><dd>{plainStamp(log.timestamp)}</dd>
+                                        <dt>Operator</dt><dd>{log.performedBy}</dd>
+                                        <dt>Row id</dt><dd>{log.id}</dd>
+                                    </dl>
                                     <pre className={styles.rawOutput}><code>{log.details}</code></pre>
                                 </div>
                             </div>
@@ -252,12 +298,13 @@ const AuditPage = () => {
                 </div>
 
                 <footer className={styles.pagination} aria-label="Pagination">
-                    <button className={styles.pgBtn} disabled={page === 0} onClick={() => setPage(p => p - 1)} aria-label="Older logs">
-                        <FiChevronLeft aria-hidden="true" /> OLDER LOGS
+                    {/* fix181 (10.4): page 0 is the NEWEST; the labels now say what the buttons do */}
+                    <button className={styles.pgBtn} disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))} aria-label="Newer lines">
+                        <FiChevronLeft aria-hidden="true" /> NEWER
                     </button>
-                    <span className={styles.pageLabel} aria-current="page">SECTOR {page + 1}</span>
-                    <button className={styles.pgBtn} onClick={() => setPage(p => p + 1)} disabled={logs.length < 50} aria-label="Newer logs">
-                        NEWER LOGS <FiChevronRight aria-hidden="true" />
+                    <span className={styles.pageLabel} aria-current="page">PAGE {meta.totalPages === 0 ? 0 : page + 1} OF {meta.totalPages.toLocaleString()}</span>
+                    <button className={styles.pgBtn} onClick={() => setPage(p => p + 1)} disabled={meta.last || loading} aria-label="Older lines">
+                        OLDER <FiChevronRight aria-hidden="true" />
                     </button>
                 </footer>
                 <CornerDecor hideTop />

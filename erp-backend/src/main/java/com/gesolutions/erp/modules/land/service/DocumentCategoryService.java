@@ -95,7 +95,7 @@ public class DocumentCategoryService {
                 .sortOrder(100)
                 .createdBy(currentOperator())
                 .build());
-        auditService.logAction("DOCUMENT_CATEGORY_ADDED",
+        auditService.logActionAfterCommit("DOCUMENT_CATEGORY_ADDED",
                 "Operator [" + currentOperator() + "] added document category: " + saved.getLabel());
         return saved;
     }

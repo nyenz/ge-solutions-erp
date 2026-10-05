@@ -1,4 +1,6 @@
 // PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.jsx
+import { roleFlags } from '../../utils/roles';
+import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,29 +27,9 @@ const matchesSearch = (c, term) => {
     return fields.some(f => f && String(f).toLowerCase().replace(/\s+/g, '').includes(t));
 };
 
-// -- RECENCY BADGE -- keyed off how long since the client's last
-// payment across all their plots (not last contact). Thresholds match
-// the Client Dossier's Health column exactly so the same client shows
-// the same color on both pages: GREEN = within this month, YELLOW =
-// about 2 months back, ORANGE = further back than that, RED = nothing
-// on record yet.
-const getPaymentBadge = (c) => {
-    if (!c.lastPaymentAt) return 'RED';
-    const days = Math.floor((Date.now() - new Date(c.lastPaymentAt)) / 86400000);
-    if (days <= 30) return 'GREEN';
-    if (days <= 60) return 'YELLOW';
-    return 'ORANGE';
-};
-const BADGE_COLORS = { GREEN: '#22c55e', YELLOW: '#f59e0b', ORANGE: '#EE8C3A', RED: '#ef4444' };
-const BADGE_LABELS = { GREEN: 'Paid this month', YELLOW: 'Paid about 2 months back', ORANGE: 'Over 2 months since paying', RED: 'Nothing on record' };
+// fix181 (5.2): the dot is the shared one (utils/paymentHealth): server day count, one gradient, NEW for a new project
 const PAGE_SIZE = 15;
-const PaymentDot = ({ c }) => {
-    const badge = getPaymentBadge(c);
-    return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
-        style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-            background: BADGE_COLORS[badge], boxShadow: `0 0 4px ${BADGE_COLORS[badge]}`,
-            flexShrink: 0, marginTop: 4 }} />);
-};
+const PaymentDot = ({ c }) => <PaymentHealthDot days={c.daysSincePayment} isNew={!!c.newProjectOnly} startsOn={c.recoveryStartsOn} />;
 const Pins = ({ pos }) => (
     <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
         {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
@@ -148,8 +130,7 @@ function useDirectionalScrollHandoff(scrollRef) {
 const ClientLedgerPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const role = String(user?.role || '').toUpperCase();
-    const isDirector = !!user?.isRoot || role === 'ROLE_ADMIN' || role === 'ROLE_DIRECTOR';
+    const isDirector = roleFlags(user).isOwnerLevel;
 
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -178,28 +159,29 @@ const ClientLedgerPage = () => {
 
     const processedData = useMemo(() => {
         let filtered = rows.filter(c => matchesSearch(c, searchTerm));
-        const owed = c => Number(c.owed || 0);
-        const isCriticalRow = c => {
-            const paid = Number(c.paid || 0);
-            const total = paid + owed(c);
-            return owed(c) > 0 && total > 0 && (paid / total) < 0.25;
-        };
-        if (activeFilter === 'OWING')       filtered = filtered.filter(c => owed(c) > 0);
-        if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(c => (c.plots || []).some(p => p.receivable));
-        if (activeFilter === 'PAID')        filtered = filtered.filter(c => (c.plotCount || 0) > 0 && owed(c) <= 0);
-        if (activeFilter === 'NOPLOTS')     filtered = filtered.filter(c => (c.plotCount || 0) === 0);
-        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalRow);
+        // fix181 (5.4, 5.8, 11.3, 11.4): the server sends the rules as plain flags (the same for every rank)
+        if (activeFilter === 'OWING')       filtered = filtered.filter(c => !!c.owing);
+        if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(c => (c.receivableCount || 0) > 0);
+        if (activeFilter === 'PAID')        filtered = filtered.filter(c => !!c.paidUp);
+        if (activeFilter === 'NOPLOTS')     filtered = filtered.filter(c => (c.plotCount || 0) === 0 && !c.pendingOnly);
+        if (activeFilter === 'PENDINGONLY') filtered = filtered.filter(c => !!c.pendingOnly);
+        if (activeFilter === 'CRITICAL')    filtered = filtered.filter(c => (c.criticalCount || 0) > 0);
         filtered.sort((a, b) => {
             let aVal, bVal;
             if      (sortConfig.key === 'name')       { aVal = a.name || ''; bVal = b.name || ''; }
-            else if (sortConfig.key === 'plotCount')  { aVal = a.plotCount || 0; bVal = b.plotCount || 0; }
+            else if (sortConfig.key === 'plotCount')  { aVal = ((a.plots || [])[0] || {}).index || ''; bVal = ((b.plots || [])[0] || {}).index || ''; }   // fix181 (5.10): INDEX sorts by index
             else if (sortConfig.key === 'lastContact'){ aVal = a.lastContact || ''; bVal = b.lastContact || ''; }
             else if (sortConfig.key === 'reliability'){ aVal = a.reliability ?? -1; bVal = b.reliability ?? -1; }
             else if (sortConfig.key === 'owed')       { aVal = Number(a.owed || 0); bVal = Number(b.owed || 0); }
             else                                      { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ?  1 : -1;
-            return 0;
+            // fix181 (5.10): natural, case-blind order; empty values last in both directions
+            const empty = (v) => v === null || v === undefined || v === '';
+            if (empty(aVal) && empty(bVal)) return 0;
+            if (empty(aVal)) return 1;
+            if (empty(bVal)) return -1;
+            const cmp = (typeof aVal === 'number' && typeof bVal === 'number') ? aVal - bVal
+                : String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+            return sortConfig.direction === 'asc' ? cmp : -cmp;
         });
         return filtered;
     }, [rows, searchTerm, activeFilter, sortConfig]);
@@ -210,10 +192,15 @@ const ClientLedgerPage = () => {
     const renderSortIcon = (key) => sortConfig.key !== key ? null
         : (sortConfig.direction === 'asc' ? <FiArrowUp className={styles.sortActive} aria-hidden="true" /> : <FiArrowDown className={styles.sortActive} aria-hidden="true" />);
 
+    // fix181 (11.4): a row count on every tab, and a PENDING ONLY tab (clients known only from field entries)
+    const n = (fn) => rows.filter(fn).length;
     const FILTERS = [
-        { key: 'ALL', label: 'ALL CLIENTS' }, { key: 'OWING', label: 'OWING', accent: 'yellow' },
-        { key: 'RECEIVABLES', label: 'IN RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
-        { key: 'PAID', label: 'PAID UP', accent: 'green' }, { key: 'NOPLOTS', label: 'NO PROJECTS', accent: 'cyan' },
+        { key: 'ALL', label: 'ALL CLIENTS ' + rows.length }, { key: 'OWING', label: 'OWING ' + n(c => !!c.owing), accent: 'yellow' },
+        { key: 'RECEIVABLES', label: 'IN RECEIVABLES ' + n(c => (c.receivableCount || 0) > 0), accent: 'red' },
+        { key: 'CRITICAL', label: 'CRITICAL ' + n(c => (c.criticalCount || 0) > 0), accent: 'red' },
+        { key: 'PAID', label: 'PAID UP ' + n(c => !!c.paidUp), accent: 'green' },
+        { key: 'NOPLOTS', label: 'NO PROJECTS ' + n(c => (c.plotCount || 0) === 0 && !c.pendingOnly), accent: 'cyan' },
+        { key: 'PENDINGONLY', label: 'PENDING ONLY ' + n(c => !!c.pendingOnly), accent: 'cyan' },
     ];
 
     const cols = isDirector ? 8 : 7;
@@ -245,13 +232,7 @@ const ClientLedgerPage = () => {
                     </div>
                 </div>
                 <TabDock items={FILTERS} value={activeFilter} onChange={setActiveFilter} label="Filter clients" />
-                <div className={styles.legendRow} aria-label="Legend">
-                    {Object.entries(BADGE_COLORS).map(([k, c]) => (
-                        <span key={k} className={styles.legendItem}>
-                            <span className={styles.legendDot} style={{ background: c, boxShadow: `0 0 4px ${c}` }} /> {BADGE_LABELS[k]}
-                        </span>
-                    ))}
-                </div>
+                <div className={styles.legendRow}><PaymentHealthLegend /></div>
             </div>
 
             {/* Table panel -- NOT sticky itself, scrolls away with the page.
@@ -308,10 +289,10 @@ const ClientLedgerPage = () => {
                                 const paid = Number(c.paid || 0);
                                 const storageFees = Number(c.storage || 0);
                                 const storagePaid = Number(c.storagePaid || 0);
-                                const total = paid + owed;
+                                const total = Number(c.billed || 0) || (paid + owed);
                                 const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
-                                const isCritical = owed > 0 && total > 0 && pct < 25;
-                                const hasReceivable = (c.plots || []).some(p => p.receivable);
+                                const isCritical = (c.criticalCount || 0) > 0;   // fix181 (5.4): the server rule
+                                const hasReceivable = (c.receivableCount || 0) > 0;
                                 const plotCount = c.plotCount || 0;
                                 const recCount = (c.plots || []).filter(p => p.receivable).length;
                                 const plotNums = (c.plots || []).map(p => p.index).filter(Boolean);
@@ -353,11 +334,18 @@ const ClientLedgerPage = () => {
                                                 paid/active split. Titled/folder counts already live on the
                                                 plot dots to the left, so they don't repeat here. */}
                                             <div className={styles.statusGroup}>
-                                                {hasReceivable ? <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>
-                                                    : isCritical ? <span className={styles.tagCritical}>CRITICAL</span>
+                                                {/* fix181 (11.4): RECEIVABLES and CRITICAL show together; PENDING ONLY / FEES KEPT replace the old fallbacks */}
+                                                {hasReceivable && <span className={styles.tagReceivable}>RECEIVABLES {recCount}</span>}
+                                                {isCritical && <span className={styles.tagCritical}>CRITICAL</span>}
+                                                {!hasReceivable && !isCritical && (c.pendingOnly ? <span className={styles.tagIdle}>PENDING ONLY</span>
                                                     : plotCount === 0 ? <span className={styles.tagIdle}>NO PROJECTS</span>
-                                                    : owed <= 0 ? <span className={styles.tagPaid}>PAID UP</span>
-                                                    : <span className={styles.tagStandard}>ACTIVE</span>}
+                                                    : c.feesKept ? <span className={styles.tagStandard}>FEES KEPT</span>
+                                                    : c.paidUp ? <span className={styles.tagPaid}>PAID UP</span>
+                                                    : <span className={styles.tagStandard}>ACTIVE</span>)}
+                                                {c.recoveryState && (
+                                                    <button type="button" className={styles.tagStandard} title="Open this client in Recovery"
+                                                        onClick={e => { e.stopPropagation(); navigate('/recovery?client=' + c.id); }}>{c.recoveryState}</button>
+                                                )}
                                             </div>
                                         </td>
                                         <td>

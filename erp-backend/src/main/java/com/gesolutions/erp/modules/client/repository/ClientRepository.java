@@ -20,24 +20,8 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
      */
     Optional<Client> findByNationalId(String nationalId);
 
-    @Query(value = "SELECT * FROM clients c " +
-                   "WHERE (c.last_contacted_at IS NULL " +
-                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
-                   "AND c.monthly_contact_count < 2 " +
-                   "ORDER BY c.last_contacted_at ASC", nativeQuery = true)
-    List<Client> findStaleClientsForRecovery();
-
-    @Query(value = "SELECT COUNT(*) FROM clients c " +
-                   "WHERE (c.last_contacted_at IS NULL " +
-                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
-                   "AND c.monthly_contact_count < 2", nativeQuery = true)
-    long countTotalStaleClients();
-
-    @Query(value = "SELECT COUNT(DISTINCT c.phone_number) FROM clients c " +
-                   "WHERE (c.last_contacted_at IS NULL " +
-                   "OR c.last_contacted_at <= CURRENT_TIMESTAMP - INTERVAL '14 days') " +
-                   "AND c.monthly_contact_count < 2", nativeQuery = true)
-    long countUniqueEligiblePhones();
+    // fix181 (17.17): the old 14-day "stale client" queries (a fourth copy of the Recovery rule nobody read) were removed;
+    // the Recovery list comes from RecoveryStateService.
 
     boolean existsByNationalId(String nationalId);
 }

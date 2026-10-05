@@ -5,6 +5,7 @@
 // Director analysis block that used to hang off the ANALYSIS toggle here now
 // lives on the Report Hub (Reports/ExpenseAnalysis.jsx) -- this page is purely
 // "log cash going out, and fix it within 24h".
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,
@@ -44,7 +45,7 @@ const hoursLeft = (createdAt) => {
 const ExpensesPage = () => {
     const recentTableRef = useTableScrollHandoff();
     const { user } = useAuth();
-    const isDirector = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
+    const isDirector = roleFlags(user).isOwnerLevel;
 
     const { toasts, toast, dismissToast } = useToasts();
     const { confirmState, confirm, handleAnswer } = useConfirm();
@@ -313,7 +314,7 @@ const ExpensesPage = () => {
             >
                 <p className={styles.panelHint}>
                     <FiInfo size={12} aria-hidden="true" />
-                    You can edit your own entries for {EDIT_WINDOW_HOURS} hours. After that they lock.
+                    Any Manager, Director or Admin can correct an entry for {EDIT_WINDOW_HOURS} hours after it is logged. After that it locks.
                 </p>
                 <div className={styles.tableScroll} ref={recentTableRef}>
                     <table className={styles.ledgerTable}>
@@ -416,6 +417,7 @@ const ExpensesPage = () => {
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
                     <input
                         type="number"
+                        min="0"
                         inputMode="decimal"
                         className={styles.amountInput}
                         placeholder="0"
@@ -494,6 +496,7 @@ const ExpensesPage = () => {
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
                     <input
                         type="number"
+                        min="0"
                         inputMode="decimal"
                         className={styles.amountInput}
                         value={editAmount}

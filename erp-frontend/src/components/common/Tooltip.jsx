@@ -2,6 +2,7 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './Tooltip.module.css';
+import { portalRoot, uiScale } from './portalRoot';
 
 /**
  * GOLDEN SEED -- THE HOVER EXPLAINER
@@ -50,9 +51,7 @@ const tipMode = () => {
 // Portal target is #root, not <body>: the UI-size setting applies zoom to
 // #root, and a bubble outside it would render at 100% next to a page at 125%
 // and sit in the wrong place.
-const portalTarget = () => (typeof document === 'undefined'
-    ? null
-    : (document.getElementById('root') || document.body));
+const portalTarget = portalRoot;
 
 export const Tooltip = ({ label, children, placement = 'top', delay, disabled = false, block = false }) => {
     const [open, setOpen] = useState(false);
@@ -68,12 +67,14 @@ export const Tooltip = ({ label, children, placement = 'top', delay, disabled = 
         const el = anchorRef.current;
         if (!el) return;
         const r = el.getBoundingClientRect();
+        // The bubble lives inside the zoomed #root, so screen pixels are divided by the interface size (15.1b).
+        const k = uiScale();
         // Flip to the underside if there isn't room above.
         const place = (placement === 'top' && r.top < 64) ? 'bottom' : placement;
         setShift(0);
         setBox({
-            top: place === 'bottom' ? r.bottom + 8 : r.top - 8,
-            left: r.left + r.width / 2,
+            top: (place === 'bottom' ? r.bottom + 8 : r.top - 8) / k,
+            left: (r.left + r.width / 2) / k,
             place,
         });
     }, [placement]);
@@ -89,6 +90,7 @@ export const Tooltip = ({ label, children, placement = 'top', delay, disabled = 
         let dx = 0;
         if (r.left < margin) dx = margin - r.left;
         else if (r.right > window.innerWidth - margin) dx = (window.innerWidth - margin) - r.right;
+        dx /= uiScale();
         if (Math.abs(dx) > 0.5) setShift(s => s + dx);
     }, [open, box, shift]);
 

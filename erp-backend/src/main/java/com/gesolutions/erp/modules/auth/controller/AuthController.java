@@ -1,6 +1,7 @@
 // PATH: erp-backend/src/main/java/com/gesolutions/erp/modules/auth/controller/AuthController.java
 package com.gesolutions.erp.modules.auth.controller;
 
+import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.auth.dto.LoginRequest;
 import com.gesolutions.erp.modules.auth.dto.LoginResponse;
 import com.gesolutions.erp.modules.auth.service.AuthService;
@@ -8,15 +9,17 @@ import com.gesolutions.erp.config.LoginRateLimiter;
 import com.gesolutions.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 
 /**
- * GOLDEN SEED ERP - AUTHENTICATION GATEWAY (V2.1 - HEALTH CHECK ADDED)
- *
- * Publicly accessible (no token required) to allow login, reset, and health checks.
+ * GOLDEN SEED ERP - SIGN-IN GATEWAY
+ * Open without a token: health check, sign in, sign out, owner recovery request.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -25,63 +28,90 @@ public class AuthController {
 
     private final AuthService authService;
     private final LoginRateLimiter rateLimiter;
+    private final AuditService auditService;
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
+    private static volatile boolean forwardedLogged = false;
 
-    /**
-     * RENDER HEALTH CHECK ENDPOINT
-     *
-     * Render's load balancer sends a GET request to this path every 30 seconds
-     * to confirm the engine is alive. It must return HTTP 200 or Render will
-     * kill the container and restart it — causing the "Timed out" failure.
-     *
-     * This endpoint requires no token, no body, no logic — just a 200 OK.
-     * It is permitted in SecurityConfig under "/api/v1/auth/**".
-     */
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "ENGINE_ONLINE"));
     }
 
     /**
-     * OPERATOR AUTHORIZATION
-     * Processes credentials and returns the Full Identity Handshake.
+     * fix181: the caller's address. X-Forwarded-For can be written by the caller, so its FIRST value can be faked; the
+     * LAST value is the one added by Render's own proxy. Both are printed once at start so this can be checked in the
+     * Render log.
      */
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request,
-                                               HttpServletRequest httpRequest) {
-        // BEST PRACTICE: Read the standard X-Forwarded-For header to extract the 
-        // real client IP when running behind a cloud proxy/load balancer like Render.
-        String ip = httpRequest.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isBlank()) {
-            ip = httpRequest.getRemoteAddr();
-        } else {
-            ip = ip.split(",")[0].trim();
+    public static String clientIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        if (xff == null || xff.isBlank()) return req.getRemoteAddr();
+        String[] parts = xff.split(",");
+        String last = parts[parts.length - 1].trim();
+        if (!forwardedLogged) {
+            forwardedLogged = true;
+            System.out.println(">>> [IP] X-Forwarded-For first=" + parts[0].trim() + " last=" + last + " remote=" + req.getRemoteAddr());
         }
-        if (rateLimiter.isBlocked(ip)) {
-            throw new BusinessException("TOO_MANY_ATTEMPTS: Account locked for 10 minutes. Try again later.");
+        return last.isEmpty() ? req.getRemoteAddr() : last;
+    }
+
+    /** The typed username is not trusted: cut to 50 characters, no control characters, "(unknown)" when empty. */
+    private static String typedName(LoginRequest r) {
+        String n = r == null || r.getUsername() == null ? "" : r.getUsername().replaceAll("[\\p{Cntrl}]", " ").trim();
+        if (n.length() > 50) n = n.substring(0, 50);
+        return n.isEmpty() ? "(unknown)" : n;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        String ip = clientIp(httpRequest);
+        String name = typedName(request);
+        if (rateLimiter.isBlocked(name, ip)) {
+            throw new BusinessException("TOO_MANY_ATTEMPTS: Too many wrong tries for this username. Wait "
+                    + rateLimiter.minutesLeft(name, ip) + " minutes, or ask the Director to reset your key.");
         }
         try {
-            LoginResponse response = authService.authenticate(request);
-            rateLimiter.clearRecord(ip);
+            LoginResponse response = authService.authenticate(request, ip);
+            rateLimiter.clearRecord(name, ip);
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            rateLimiter.recordFailure(ip);
+        } catch (BusinessException e) {
+            boolean nowBlocked = rateLimiter.recordFailure(name, ip);
+            String code = e.getMessage() == null ? "FAILED" : e.getMessage().split(":")[0];
+            auditService.logActionAs(name, "LOGIN_FAILED", "Login refused from IP " + ip + ": " + code);
+            if (nowBlocked) {
+                auditService.logActionAs(name, "LOGIN_BLOCKED", "Too many wrong tries from IP " + ip + ". Sign-in paused for 15 minutes.");
+                // fix181 (17.2): written at once (the request itself fails); entity = a fixed id per username so it groups
+                notificationService.emitNow("LOGIN_BLOCKED", "Sign-in for '" + name + "' paused after too many wrong tries (IP " + ip + ").",
+                        "SYSTEM", java.util.UUID.nameUUIDFromBytes(("login|" + name.toLowerCase()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            }
             throw e;
         }
     }
 
+    /** fix181: sign out on the server too, so the token of this session stops working at once. */
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        Authentication a = SecurityContextHolder.getContext().getAuthentication();
+        if (a != null && !(a instanceof AnonymousAuthenticationToken)) {
+            authService.logout(a.getName());
+        }
+        return ResponseEntity.ok(Map.of("status", "SIGNED_OUT"));
+    }
+
     /**
-     * ROOT RECOVERY TRIGGER (The Panic Button)
-     *
-     * Accepts an email address. If it matches the Root Owner,
-     * sends a reset code via SMTP.
+     * fix181: email recovery is switched off (Render's free plan blocks mail, and the old code reset the Admin's key the
+     * moment anyone typed the Admin's email). The answer is the same whatever is typed, and nothing is changed.
+     * The Admin recovers through the ADMIN_RESET_ONCE setting (see LLM_CONTEXT_GUIDE.md Section 5).
      */
     @PostMapping("/recover-owner")
-    public ResponseEntity<Map<String, String>> recoverOwner(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        authService.initiateRootRecovery(email);
-
+    public ResponseEntity<Map<String, String>> recoverOwner(@RequestBody(required = false) Map<String, String> request,
+                                                            HttpServletRequest httpRequest) {
+        String ip = clientIp(httpRequest);
+        if (!rateLimiter.isOverLimit("recover|" + ip, 5)) {
+            rateLimiter.recordOther("recover|" + ip);
+            auditService.logActionAs("(unknown)", "RECOVERY_REQUESTED", "Owner recovery was requested from IP " + ip + ". Email recovery is off; nothing was changed.");
+        }
         return ResponseEntity.ok(Map.of(
-            "message", "PROTOCOL INITIATED: If this email is the Root Owner, a code has been sent."
+            "message", "Staff: ask the Director to reset your key. Director: ask the Admin. Admin: use the owner recovery setting."
         ));
     }
 }

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -38,7 +39,7 @@ public class LandController {
     // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
     // stacked on ONE method, so /next-index never registered (404) and the
     // Index field always failed. One mapping per method now.
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_EMPLOYEE')")   // fix181: shown on New Project
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
         return ResponseEntity.ok(landService.previewNextIndex());
@@ -94,22 +95,22 @@ public class LandController {
     }
 
     @DeleteMapping("/projects/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public ResponseEntity<Void> purgeAsset(@PathVariable UUID id, @RequestParam String reason) {
         landService.nuclearDelete(id, reason);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/projects/{id}/restore")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
-        landService.restoreProject(id);
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
+    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id, @RequestParam(defaultValue = "false") boolean force) {
+        landService.restoreProject(id, force);   // fix181 (14.7c): a plot clash is refused unless force=true
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/projects/deleted")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
-    public ResponseEntity<List<LandProject>> getDeletedProjects() {
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
+    public ResponseEntity<List<Map<String, Object>>> getDeletedProjects() {
         return ResponseEntity.ok(landService.getDeletedProjects());
     }
 
@@ -228,9 +229,21 @@ public class LandController {
     // fix167: the old receivable endpoints (/receivable, /exit-receivable, /exit-receivable-capitalize) are gone.
     // They skipped every rule (no reason, no checks). Use /land/portal/{id}/receivable/... (FolderPortalController).
 
+    // fix181 (16.11): a small answer per payment line (not the raw record)
     @GetMapping("/projects/{id}/payments")
-    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
-        return ResponseEntity.ok(landService.getProjectPayments(id));
+    public ResponseEntity<List<java.util.Map<String, Object>>> getPaymentHistory(@PathVariable UUID id) {
+        List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (PaymentRecord r : landService.getProjectPayments(id)) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", r.getId()); m.put("amountPaid", r.getAmountPaid()); m.put("paymentType", r.getPaymentType());
+            m.put("allocation", r.getAllocation() == null ? "TITLE" : r.getAllocation()); m.put("paidOn", r.getPaidOn());
+            m.put("timestamp", r.getTimestamp()); m.put("recordedBy", r.getRecordedBy()); m.put("payerName", r.getPayerName());
+            m.put("payerClientId", r.getPayerClientId()); m.put("balanceAfter", r.getBalanceAfter());
+            m.put("hasReceipt", r.getReceiptDocumentId() != null); m.put("receiptDocumentId", r.getReceiptDocumentId());
+            m.put("notes", r.getNotes());
+            out.add(m);
+        }
+        return ResponseEntity.ok(out);
     }
 
     // fix165: the ONLY way to record a payment is with its receipt file (multipart). The old no-receipt form is gone.
@@ -242,8 +255,11 @@ public class LandController {
                                                @RequestParam(required = false) String notes,
                                                @RequestParam(value = "payerId", required = false) UUID payerId,
                                                @RequestParam(value = "allocation", required = false) String allocation,
-                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation);
+                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt,
+                                               @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
+                                               @RequestParam(value = "paidOn", required = false)
+                                               @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate paidOn) throws Exception {
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId, paidOn);
         return ResponseEntity.ok().build();
     }
 

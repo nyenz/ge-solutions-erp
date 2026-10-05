@@ -4,9 +4,36 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1a2e30" />
+    <!-- fix181 (15.1d): apply the saved appearance BEFORE the first paint (no cream flash on SLATE, no size jump).
+         Same rules as src/context/prefsStore.js: per person, device default otherwise, only allowed values. -->
+    <script>
+      (function () {
+        try {
+          var A = { theme: ['light', 'dark'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
+                    tips: ['normal', 'slow', 'off'], contrast: ['normal', 'high'] };
+          var D = { theme: 'light', uiScale: '100', motion: 'full', tips: 'normal', contrast: 'normal' };
+          var ls = window.localStorage, u = null, p = null;
+          try { u = (JSON.parse(ls.getItem('gs_user') || 'null') || {}).username || null; } catch (e) { u = null; }
+          try { if (u) p = JSON.parse(ls.getItem('goldenseed.prefs.v1.' + String(u).toLowerCase()) || 'null'); } catch (e) { p = null; }
+          try { if (!p) p = JSON.parse(ls.getItem('goldenseed.prefs.v1') || 'null'); } catch (e) { p = null; }
+          if (!p && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) p = { motion: 'reduced' };
+          p = p || {};
+          var v = {};
+          for (var k in D) { var x = p[k] == null ? null : String(p[k]); v[k] = (x !== null && A[k].indexOf(x) >= 0) ? x : D[k]; }
+          var r = document.documentElement;
+          r.setAttribute('data-theme', v.theme);
+          r.setAttribute('data-motion', v.motion);
+          r.setAttribute('data-tips', v.tips);
+          r.setAttribute('data-contrast', v.contrast);
+          r.style.setProperty('--ui-scale', String(Number(v.uiScale) / 100));
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', v.theme === 'dark' ? '#16292b' : '#1a2e30');
+        } catch (e) { /* storage blocked: the defaults in index.css apply */ }
+      })();
+    </script>
     <title>GE Solutions ERP | Secure Access</title>
   </head>
   <body>

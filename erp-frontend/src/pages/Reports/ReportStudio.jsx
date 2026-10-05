@@ -67,6 +67,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const cacheRef = useRef({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loadNote, setLoadNote] = useState('');   // fix181 (10.7, 16.10e): "showing the newest N of M"
   const [entity, setEntity] = useState(null);
   const [period, setPeriod] = useState('THIS MONTH');
   const [from, setFrom] = useState('');
@@ -114,11 +115,13 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     if (!ds) return;
     setLoading(true);
     setError('');
+    setLoadNote('');
     try {
       const data = await ds.load();
       const list = Array.isArray(data) ? data : [];
       cacheRef.current[key] = list;
       setRows(list);
+      setLoadNote((data && data.note) || '');
     } catch (e) {
       cacheRef.current[key] = [];
       setRows([]);
@@ -311,9 +314,11 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     const def = appliedDef;
     if (!def) return [];
     let list = def.period ? scopeRows : entityRows;
+    // fix181 (10.8): a report may carry several filters (for example a list of audit codes AND "not SYSTEM")
     if (def.filter) {
-      const fld = fieldByLabelMap[def.filter.field];
-      if (fld) list = applyFilters(list, dataset, [{ field: fld.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
+      const conds = [].concat(def.filter).map(fl => ({ fld: fieldByLabelMap[fl.field], fl })).filter(x => x.fld)
+        .map(({ fld, fl }) => ({ field: fld.key, op: fl.op, value: fl.value }));
+      if (conds.length) list = applyFilters(list, dataset, conds, 'AND', '');
     }
     return list;
   }, [appliedDef, scopeRows, entityRows, fieldByLabelMap, dataset]);
@@ -350,8 +355,9 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     }
     if (def.filter) {
       const ds = DATASETS[def.ds];
-      const f = ds ? fieldsFor(ds, canSeeMoney).find(x => x.label === def.filter.field) : null;
-      if (f) list = applyFilters(list, ds, [{ field: f.key, op: def.filter.op, value: def.filter.value }], 'AND', '');
+      const conds = ds ? [].concat(def.filter).map(fl => ({ f: fieldsFor(ds, canSeeMoney).find(x => x.label === fl.field), fl }))
+        .filter(x => x.f).map(({ f, fl }) => ({ field: f.key, op: fl.op, value: fl.value })) : [];
+      if (conds.length) list = applyFilters(list, ds, conds, 'AND', '');
     }
     return list.length;
   }, [datasetKey, scopeRows, entity, period, from, to, canSeeMoney]);
@@ -511,6 +517,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         </div>
         <div className={scopeOpen ? styles.scopeBody : styles.panelClosed}>
           {error && <div className={styles.error}><FiAlertCircle size={13} aria-hidden="true" /> {error}</div>}
+          {!error && loadNote && <div className={styles.error} role="status"><FiAlertCircle size={13} aria-hidden="true" /> {loadNote}</div>}
           {!canSeeMoney && (
             <p className={styles.hint}>
               <FiAlertCircle size={12} aria-hidden="true" /> Financial datasets, money columns and company reports are hidden on your role.

@@ -34,7 +34,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "ADMIN_EMAIL=test@gesolutions.com",
     "ADMIN_DEFAULT_PASSWORD=TestPassword123",
     "MAIL_USERNAME=test@gmail.com",
-    "MAIL_PASSWORD=testpassword"
+    "MAIL_PASSWORD=testpassword",
+    // the Postgres-only init SQL from application.properties cannot run on H2
+    "spring.datasource.hikari.connection-init-sql=SELECT 1"
 })
 @AutoConfigureMockMvc
 public class StaffGovernanceTest {
@@ -112,7 +114,8 @@ public class StaffGovernanceTest {
     public void testManagerIsBlockedFromAdminEndpoints() throws Exception {
         String managerToken = buildToken(savedManager, "MANAGER");
 
-        mockMvc.perform(get("/api/v1/reports/debt-ledger")
+        // fix181 (9.1): the old /reports/* backend was deleted; the payments list is the money report source now
+        mockMvc.perform(get("/api/v1/recovery/payments/list")
                 .header("Authorization", "Bearer " + managerToken))
                 .andExpect(status().isForbidden());
 
@@ -125,10 +128,10 @@ public class StaffGovernanceTest {
     public void testAdminIsAllowedOnAdminEndpoints() throws Exception {
         String adminToken = buildToken(savedAdmin, "ADMIN");
 
-        int debtLedgerStatus = mockMvc.perform(get("/api/v1/reports/debt-ledger")
+        int paymentsStatus = mockMvc.perform(get("/api/v1/recovery/payments/list")
                 .header("Authorization", "Bearer " + adminToken))
                 .andReturn().getResponse().getStatus();
-        assertNotEquals(403, debtLedgerStatus, "Admin should not be forbidden from debt-ledger report");
+        assertNotEquals(403, paymentsStatus, "Admin should not be forbidden from the payments list");
 
         int auditStreamStatus = mockMvc.perform(get("/api/v1/admin/audit/stream")
                 .header("Authorization", "Bearer " + adminToken))

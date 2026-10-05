@@ -45,20 +45,8 @@ const authService = {
         }
     },
 
-    /**
-     * ROOT RECOVERY TRIGGER (The Panic Button)
-     */
-    recoverPassword: async (email) => {
-        try {
-            const response = await api.post('/auth/recover-owner', { email });
-            return response.data.message;
-        } catch (error) {
-            const msg = error.response?.data?.message || "RECOVERY_FAULT: UNKNOWN";
-            throw new Error(msg.toUpperCase());
-        }
-    },
-
     logout: () => {
+        try { api.post('/auth/logout').catch(() => {}); } catch { /* ignore */ }
         localStorage.removeItem('gs_token');
         localStorage.removeItem('gs_user');
         window.location.href = '/login';

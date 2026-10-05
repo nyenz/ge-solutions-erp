@@ -27,6 +27,38 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // fix181 (13.6d): every refused @PreAuthorize is written to the audit trail HERE, once per person and path per hour
+    private final com.gesolutions.erp.common.audit.AuditService auditService;
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> deniedSeen = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public GlobalExceptionHandler(com.gesolutions.erp.common.audit.AuditService auditService) {
+        this.auditService = auditService;
+    }
+
+    private void auditDenied() {
+        try {
+            var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (!(attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra)) return;
+            var req = sra.getRequest();
+            String who = com.gesolutions.erp.common.audit.AuditService.currentOperator();
+            String key = who + "|" + req.getMethod() + "|" + req.getRequestURI();
+            long now = System.currentTimeMillis();
+            Long last = deniedSeen.get(key);
+            if (last != null && now - last < 3_600_000L) return;
+            deniedSeen.put(key, now);
+            if (deniedSeen.size() > 5000) deniedSeen.clear();
+            auditService.logAction("ACCESS_DENIED", "Refused: " + req.getMethod() + " " + req.getRequestURI() + " (rank not allowed).");
+        } catch (Exception e) {
+            System.err.println(">>> [AUDIT] access-denied line not written: " + e.getMessage());
+        }
+    }
+
+    // fix181: an unknown address is a 404, not a server error
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "NOT_FOUND", "No such address.");
+    }
+
     // --- 1. BUSINESS LOGIC FAULTS ---
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException ex) {
@@ -44,6 +76,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
         System.err.println(">>> [SECURITY_BREACH]: Unauthorized Rank attempt to access restricted data.");
+        auditDenied();
         return buildResponse(HttpStatus.FORBIDDEN, "SECURITY_BREACH", "Rank not authorized for this command.");
     }
 

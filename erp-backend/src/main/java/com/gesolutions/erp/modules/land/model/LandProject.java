@@ -281,6 +281,53 @@ public class LandProject {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // fix181 (14.7a): why and by whom it was deleted (before, the reason was only inside the audit text)
+    @Column(name = "deleted_reason", columnDefinition = "TEXT")
+    private String deletedReason;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
+    /**
+     * fix181 (8.9): PENDING = entered from the field (by an Employee) and not yet priced and accepted by the office.
+     * A Pending project is left out of every money figure, Recovery and the nightly jobs: the plain findAll() of
+     * LandProjectRepository skips it. Old rows are never Pending (default false).
+     */
+    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("pending")
+    @Column(name = "pending", nullable = false, columnDefinition = "boolean default false")
+    private boolean pending = false;
+
+    // fix181 (8.9, 4.4): when a Pending project was accepted (graduated); null for projects that were never Pending
+    @Column(name = "graduated_at")
+    private LocalDateTime graduatedAt;
+
+    // fix181 (8.9): who entered the project (the account id, and the username as it was then); null on old rows
+    @Column(name = "created_by_id")
+    private UUID createdById;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
+
+    /**
+     * fix181 (20.9): the moment the record was saved, set once by the server. Old rows were back-filled from the
+     * entry date, else the title's created date, else the start date (left empty when none is known).
+     */
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    /** fix181 (16.12a): second safety against two people saving the same project at once (the first is the row lock). */
+    @Version
+    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0")
+    private Long version = 0L;
+
+    @PrePersist
+    void fix181OnCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
+
     public void addProprietor(Client client) {
         if (this.proprietors == null) this.proprietors = new HashSet<>();
         if (client != null) this.proprietors.add(client);
@@ -338,9 +385,96 @@ public class LandProject {
         negotiationDeadline = null;
     }
 
-    public BigDecimal activeTotalOwed() {
-        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+    /**
+     * fix181 (3.6, 11.2): money paid toward the TITLE work. While a project is in receivables amountPaid also holds the
+     * storage fees paid (storageFeesPaid); outside receivables storageFeesPaid is always 0, so it is simply amountPaid.
+     * Never below 0.
+     */
+    public BigDecimal titlePaid() {
         BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
-        return cost.subtract(paid);
+        BigDecimal t = isReceivable() ? paid.subtract(storagePaidSafe()) : paid;
+        return t.max(BigDecimal.ZERO);
+    }
+
+    /** fix181 (3.6, 5.7): title money still owed, never below 0 (a price lowered after payments shows 0, not minus). */
+    public BigDecimal titleOwed() {
+        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+        return cost.subtract(titlePaid()).max(BigDecimal.ZERO);
+    }
+
+    /** fix181 (2.3): the title work is fully paid (the Ledger PAID tab). A project with no price yet is NOT paid. */
+    public boolean isTitleFullyPaid() {
+        return totalCost != null && totalCost.signum() > 0 && titleOwed().signum() == 0;
+    }
+
+    /**
+     * fix181 (11.3): storage fees KEPT by a SET ASIDE on a project that left receivables. Not chased (not in owed),
+     * but they block the hand-over and the PAID / PAID UP labels.
+     */
+    public BigDecimal keptFees() {
+        return isReceivable() ? BigDecimal.ZERO : storageUnpaid();
+    }
+
+    /**
+     * fix181 (11.3): THE hand-over rule. null = the title can be handed over; otherwise the reason it cannot.
+     * Used by authorizeRelease, the Dashboard "ready for release" count and the Folder hand-over button.
+     */
+    public String releaseBlocker() {
+        if (deleted) return "This project is deleted. Restore it first.";
+        if (pending) return "This project is still Pending. Accept it first.";
+        if (landTitle == null) return "This project has no title to release yet.";
+        if (landTitle.isReleased()) return "This title has already been handed over.";
+        if (problem) return "This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.";
+        if (totalCost == null || totalCost.signum() <= 0) return "No price has been set for this project yet.";
+        if (titleOwed().signum() > 0) return "UGX " + titleOwed().toPlainString() + " is still owed on the title work.";
+        if (isReceivable() && receivableTotalOwed().signum() > 0) return "Storage fees are still owed on this project.";
+        if (keptFees().signum() > 0) return "UGX " + keptFees().toPlainString()
+                + " of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.";
+        return null;
+    }
+
+    /** fix181 (5.5): what this project bills: the cost, plus the storage fees while it is in receivables. */
+    public BigDecimal billed() {
+        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+        BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
+        return isReceivable() ? cost.add(fees) : cost;
+    }
+
+    /** fix181 (5.5): money paid toward billed() (all money in receivables, title money otherwise). */
+    public BigDecimal paidTowardBilled() {
+        return isReceivable() ? (amountPaid != null ? amountPaid : BigDecimal.ZERO) : titlePaid();
+    }
+
+    /** fix181 (5.5, 5.7): owed = billed - paid, never below 0 (one project can never cancel another's debt). */
+    public BigDecimal owedNow() {
+        return billed().subtract(paidTowardBilled()).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * fix181 (5.4): THE "critical" rule, one definition for the Ledger, the Folder and the client pages: priced, not handed
+     * over, and less than 25% of the title money paid. Receivable projects ARE critical (owner default).
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("critical")
+    public boolean isCritical() {
+        if (totalCost == null || totalCost.signum() <= 0) return false;
+        if (landTitle != null && landTitle.isReleased()) return false;
+        return titlePaid().multiply(BigDecimal.valueOf(4)).compareTo(totalCost) < 0;
+    }
+
+    /** fix181 (11.9): whole days since the last payment, counted on the server (null = no payment date). */
+    @com.fasterxml.jackson.annotation.JsonProperty("daysSincePayment")
+    public Long getDaysSincePayment() {
+        return lastPaymentDate == null ? null : Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(lastPaymentDate.toLocalDate(), java.time.LocalDate.now()));
+    }
+
+    /** fix181 (11.3): the hand-over rule as text for the page (null = can be handed over). */
+    @com.fasterxml.jackson.annotation.JsonProperty("releaseBlocker")
+    public String getReleaseBlockerText() {
+        return releaseBlocker();
+    }
+
+    /** Title money owed outside receivables. fix181 (3.6): = titleOwed() (title money only, clamped at 0). */
+    public BigDecimal activeTotalOwed() {
+        return titleOwed();
     }
 }
