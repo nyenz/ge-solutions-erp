@@ -2,7 +2,12 @@
 
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ge-solutions-api.onrender.com/api/v1';
+// fix181 (15.2j): a developer's own computer never talks to the LIVE server by accident. In development the fallback is
+// the local backend; a production build without VITE_API_BASE_URL is refused in vite.config.js.
+export const PROD_API = 'https://ge-solutions-api.onrender.com/api/v1';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080/api/v1' : PROD_API);
+/** true when this page is NOT using the live server (the header then shows a LOCAL strip) */
+export const IS_LOCAL_API = BASE_URL.replace(/\/+$/, '') !== PROD_API;
 
 const api = axios.create({
     baseURL: BASE_URL,
@@ -73,7 +78,7 @@ if (typeof window !== 'undefined') {
     }, 10000);
 }
 
-// REQUEST INTERCEPTOR: attach token + reset idle clock on every call
+// REQUEST INTERCEPTOR: attach the token (the idle clock is NOT touched by API calls, 15.2a)
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('gs_token');
@@ -96,6 +101,14 @@ api.interceptors.response.use(
             localStorage.removeItem('gs_token');
             localStorage.removeItem('gs_user');
             window.location.href = '/login?reason=' + reason;
+        }
+        // fix181 (15.2k): a 403 never signs anyone out. A temporary key that must be changed goes to Settings,
+        // Security tab; any other 403 is shown by the page as "You do not have permission to do that." (errorText.js)
+        if (error.response && error.response.status === 403) {
+            const code = error.response.data && error.response.data.error;
+            if (code === 'PASSWORD_CHANGE_REQUIRED' && !window.location.pathname.startsWith('/settings')) {
+                window.location.href = '/settings?tab=security';
+            }
         }
         return Promise.reject(error);
     }

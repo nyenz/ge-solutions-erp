@@ -45,6 +45,7 @@ import { usePreferences } from '../../context/usePreferences';
 import recoveryService from '../../services/recoveryService';
 import { describe, GROUP_COLOR, GROUPS } from '../common/notificationCatalog';
 import styles from './Header.module.css';
+import { IS_LOCAL_API } from '../../api/axios';
 
 const STEP = 40;
 const GROUP_KEYS = Object.values(GROUPS);
@@ -239,6 +240,8 @@ const Header = ({ onToggle }) => {
                 <button type="button" className={styles.sidebarToggle} onClick={onToggle} aria-label="Toggle sidebar navigation">
                     <FiMenu aria-hidden="true" />
                 </button>
+                {/* fix181 (15.2j): never mistake a test copy for the live system */}
+                {IS_LOCAL_API && <span className={styles.localStrip} title="This page is not using the live server">LOCAL</span>}
                 <div className={styles.logoSection} aria-label="Golden Seed ERP">
                     <div className={styles.logoSmallPulse} aria-hidden="true">
                         <div className={styles.pulseInner}>🌱</div>
