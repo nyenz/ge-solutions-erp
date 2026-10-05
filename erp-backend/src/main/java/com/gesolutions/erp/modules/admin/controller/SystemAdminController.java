@@ -11,7 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.gesolutions.erp.modules.auth.repository.UserRepository;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.sql.DataSource;
@@ -82,14 +85,29 @@ public class SystemAdminController {
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/wipe-all-data")
-    public ResponseEntity<Map<String, Object>> wipeAllData(@RequestParam(required = false) String confirm) {
+    public ResponseEntity<Map<String, Object>> wipeAllData(@RequestParam(required = false) String confirm,
+                                                           @RequestBody(required = false) Map<String, String> body) {
         if (!CONFIRM_PHRASE.equals(confirm)) {
             auditService.logAction("WIPE_REFUSED", "Data wipe refused: the confirmation phrase was missing or wrong.");
             return ResponseEntity.badRequest().body(Map.of(
                 "wiped", false,
-                "message", "The confirmation phrase is missing or wrong. Type " + CONFIRM_PHRASE + " exactly."
+                "message", "WIPE_REFUSED: The confirmation phrase is missing or wrong. Type " + CONFIRM_PHRASE + " exactly."
+            ));
+        }
+        // fix181 (14.4f): the Admin's own key is asked again, so an open, unattended screen cannot wipe the system
+        String password = body == null ? null : body.get("password");
+        String me = AuditService.currentOperator();
+        boolean keyOk = password != null && !password.isEmpty() && userRepository.findByUsername(me)
+                .map(u -> passwordEncoder.matches(password, u.getPassword())).orElse(false);
+        if (!keyOk) {
+            auditService.logAction("WIPE_REFUSED", "Data wipe refused: the Admin key was missing or wrong.");
+            return ResponseEntity.badRequest().body(Map.of(
+                "wiped", false,
+                "message", "WIPE_REFUSED: Your key is not right. Nothing was deleted."
             ));
         }
 

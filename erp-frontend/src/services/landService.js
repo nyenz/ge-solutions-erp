@@ -35,8 +35,9 @@ const landService = {
         return response.data;
     },
 
-    restoreProject: async (projectId) => {
-        await api.post(`/land/projects/${projectId}/restore`);
+    // fix181 (14.7c): without force the server refuses a restore that clashes with a live project on the same plot
+    restoreProject: async (projectId, force = false) => {
+        await api.post(`/land/projects/${projectId}/restore`, null, { params: { force } });
     },
 
     // fix180: statusId = the project status the files are attached to (leave empty for general documents)

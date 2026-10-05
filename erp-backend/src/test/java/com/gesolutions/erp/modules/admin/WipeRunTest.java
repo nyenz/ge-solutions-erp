@@ -67,7 +67,15 @@ public class WipeRunTest {
 
         mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WRONG").header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadRequest());
+        // fix181 (14.4f): the right phrase with a wrong (or no) key is refused and deletes nothing
+        mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WIPE-EVERYTHING").header("Authorization", "Bearer " + token)
+                        .contentType("application/json").content("{\"password\":\"wrong-key\"}"))
+                .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WIPE-EVERYTHING").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+        assertEquals(1, projects.findAllIncludingPending().stream().filter(p -> "W001".equals(p.getProjectIndex())).count());
+        mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WIPE-EVERYTHING").header("Authorization", "Bearer " + token)
+                        .contentType("application/json").content("{\"password\":\"TestPassword123\"}"))
                 .andExpect(status().isOk());
 
         assertEquals(0, projects.findAllIncludingPending().size());

@@ -1117,8 +1117,25 @@ public class LandService {
 
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
-    public void restoreProject(UUID id) {
+    public void restoreProject(UUID id) { restoreProject(id, true); }
+
+    /**
+     * fix181 (14.7c): restore asks first when a live project now uses the same plot (same plot number, block and
+     * district). Without force such a clash is refused with RESTORE_CLASH and the list of clashing projects.
+     * A Pending project stays Pending.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void restoreProject(UUID id, boolean force) {
         LandProject project = projectRepository.findById(id).orElseThrow();
+        if (!project.isDeleted()) throw new BusinessException("NOT_DELETED: This project is not deleted.");
+        if (!force) {
+            List<String> clashes = restoreClashes(project);
+            if (!clashes.isEmpty()) {
+                throw new BusinessException("RESTORE_CLASH: The same plot is now used by " + String.join(", ", clashes)
+                        + ". Restore anyway?");
+            }
+        }
         String plotNo = plotLabel(project);
 
         project.setDeleted(false);
@@ -1136,8 +1153,48 @@ public class LandService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
-    public List<LandProject> getDeletedProjects() {
-        return projectRepository.findAllDeleted();
+    public List<Map<String, Object>> getDeletedProjects() {
+        // fix181 (14.7a): a small summary, newest first; never the whole record with prices and amounts
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LandProject p : projectRepository.findAllDeleted()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", p.getId());
+            m.put("projectIndex", p.getProjectIndex());
+            m.put("plotLabel", plotLabel(p));
+            m.put("district", p.getDistrict());
+            m.put("projectType", ProjectType.of(p).getLabel());
+            Set<String> names = new java.util.TreeSet<>();
+            if (p.getProprietors() != null) p.getProprietors().forEach(c -> names.add(c.getFullName()));
+            if (p.getClients() != null) p.getClients().forEach(c -> names.add(c.getFullName()));
+            m.put("clientNames", new ArrayList<>(names));
+            m.put("pending", p.isPending());
+            m.put("deletedAt", p.getDeletedAt());
+            m.put("deletedBy", p.getDeletedBy());
+            m.put("reason", p.getDeletedReason());
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** Live projects that use the same plot as this deleted one (plot number + block + district, case-insensitive). */
+    private List<String> restoreClashes(LandProject project) {
+        LandTitle t = project.getLandTitle();
+        if (t == null || t.getPlotNumber() == null || t.getPlotNumber().isBlank()) return List.of();
+        String key = clashKey(t.getPlotNumber(), t.getBlock(), project.getDistrict());
+        List<String> out = new ArrayList<>();
+        for (LandProject other : projectRepository.findAllIncludingPending()) {
+            if (other.getId().equals(project.getId()) || other.getLandTitle() == null) continue;
+            LandTitle o = other.getLandTitle();
+            if (o.getPlotNumber() != null && key.equals(clashKey(o.getPlotNumber(), o.getBlock(), other.getDistrict()))) {
+                out.add("project #" + other.getProjectIndex());
+            }
+        }
+        return out;
+    }
+
+    private static String clashKey(String plot, String block, String district) {
+        java.util.function.Function<String, String> n = v -> v == null ? "" : v.trim().toLowerCase(java.util.Locale.ROOT);
+        return n.apply(plot) + "|" + n.apply(block) + "|" + n.apply(district);
     }
 
     // ─── FOLLOW-UP / NOTES ────────────────────────────────────────────────────

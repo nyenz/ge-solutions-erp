@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/components/common/HardwareInput.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useId } from 'react';
 import { FiMapPin, FiLoader, FiZap, FiCommand } from 'react-icons/fi';
 import styles from './HardwareInput.module.css';
 
@@ -8,10 +8,17 @@ import styles from './HardwareInput.module.css';
  * Features: Live Filtering (Type "WA" -> "WAKISO") and Visual Shortcuts.
  */
 const HardwareInput = ({ 
-    label, type = "text", placeholder, value, onChange, name, 
-    required = false, isPinned = false, onTogglePin = null, 
-    isLoading = false, tabIndex, suggestions = [] 
+    label, type = "text", placeholder, value, onChange, name,
+    required = false, isPinned = false, onTogglePin = null,
+    isLoading = false, tabIndex, suggestions = [],
+    // fix181 (15.6d): a real label link, a name and the browser's autocomplete hint (password managers, screen readers)
+    id, autoComplete = 'off',
+    // fix181 (15.4c): adding "@gmail.com" on blur invented addresses; it is now off unless a page asks for it
+    autoSuffix = false,
+    onKeyDown, autoCapitalize, spellCheck,
 }) => {
+    const autoId = useId();
+    const inputId = id || autoId;
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [highlight, setHighlight] = useState(false); 
     const wrapperRef = useRef(null);
@@ -22,7 +29,7 @@ const HardwareInput = ({
         let val = e.target.value;
         
         // LOGIC 1: SMART EMAIL SUFFIX
-        if (type === 'email' && val && !val.includes('@')) {
+        if (autoSuffix && type === 'email' && val && !val.includes('@')) {
             val = val + '@gmail.com';
             triggerChange(val);
             flashHighlight();
@@ -68,12 +75,13 @@ const HardwareInput = ({
 
     // --- VISUAL LOGIC ---
     // Show email hint if typing in email field and no '@' yet
-    const showEmailHint = type === 'email' && value && !value.includes('@');
+    const showEmailHint = autoSuffix && type === 'email' && value && !value.includes('@');
+    const needsFullEmail = !autoSuffix && type === 'email' && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 
     return (
         <div className={styles.fieldWrapper} ref={wrapperRef}>
             <div className={styles.labelRow}>
-                <label className={styles.label}>
+                <label className={styles.label} htmlFor={inputId}>
                     {label} {required && <span className={styles.requiredMark}>*</span>}
                 </label>
                 {onTogglePin && (
@@ -85,10 +93,11 @@ const HardwareInput = ({
 
             <div className={`${styles.inputContainer} ${highlight ? styles.flash : ''}`}>
                 <input 
-                    type={type} name={name} placeholder={placeholder} value={value} 
-                    onChange={handleChange} onBlur={handleBlur} onFocus={handleFocus}
+                    id={inputId} type={type} name={name} placeholder={placeholder} value={value}
+                    onChange={handleChange} onBlur={handleBlur} onFocus={handleFocus} onKeyDown={onKeyDown}
                     required={required} className={styles.input} tabIndex={tabIndex} disabled={isLoading}
-                    autoComplete="off" 
+                    autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck}
+                    aria-describedby={needsFullEmail ? inputId + '-hint' : undefined}
                 />
                 
                 {/* RIGHT-SIDE ICONS */}
@@ -119,6 +128,7 @@ const HardwareInput = ({
                     </div>
                 )}
             </div>
+            {needsFullEmail && <div id={inputId + '-hint'} className={styles.fieldHint}>Enter the full email address (name@example.com).</div>}
         </div>
     );
 };

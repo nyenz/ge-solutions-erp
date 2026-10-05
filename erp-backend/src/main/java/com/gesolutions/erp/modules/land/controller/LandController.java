@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -102,14 +103,14 @@ public class LandController {
 
     @PostMapping("/projects/{id}/restore")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
-    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
-        landService.restoreProject(id);
+    public ResponseEntity<Void> restoreAsset(@PathVariable UUID id, @RequestParam(defaultValue = "false") boolean force) {
+        landService.restoreProject(id, force);   // fix181 (14.7c): a plot clash is refused unless force=true
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/projects/deleted")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
-    public ResponseEntity<List<LandProject>> getDeletedProjects() {
+    public ResponseEntity<List<Map<String, Object>>> getDeletedProjects() {
         return ResponseEntity.ok(landService.getDeletedProjects());
     }
 
