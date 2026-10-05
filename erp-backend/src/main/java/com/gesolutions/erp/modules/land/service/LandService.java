@@ -259,6 +259,8 @@ public class LandService {
             auditService.logActionAfterCommit("RECEIVABLE_EXIT",
                 "Operator [" + operator + "] -- Plot " + plotLabel(project)
                 + " EXITED RECEIVABLE after full payment clearance (UGX " + fees.toPlainString() + " of paid storage fees moved into the total cost).");
+            notificationService.emitToAudience("RECEIVABLE_EXIT",   // fix181 (17.2)
+                plotLabel(project) + " left receivables: fully paid.", "PROJECT", projectId);
         } else {
             projectRepository.save(project);
         }
@@ -1343,32 +1345,12 @@ public class LandService {
         if (why.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write who collected the title and how they were identified (at least 5 characters).");
         }
-        LandProject project = projectRepository.findById(id).orElseThrow();
-        // fix166: no hand-over of a deleted project, no second hand-over, and none while the plot is flagged as a PROBLEM.
-        if (project.isDeleted()) {
-            throw new BusinessException("RELEASE DENIED: This project is deleted. Restore it first.");
-        }
-        if (project.getLandTitle() != null && project.getLandTitle().isReleased()) {
-            throw new BusinessException("RELEASE DENIED: This title has already been handed over.");
-        }
-        if (project.isProblem()) {
-            throw new BusinessException("RELEASE DENIED: This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.");
-        }
-        if (project.getAmountPaid().compareTo(project.getTotalCost()) < 0) {
-            throw new BusinessException("RELEASE DENIED: UGX " + project.getTotalCost().subtract(project.getAmountPaid()).toPlainString() + " is still owed on the title work.");
-        }
-        // fix162: storage fees still owed are arrears too.
-        if (project.isReceivable() && project.receivableTotalOwed().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException("RELEASE DENIED: Storage fees are still owed on this project.");
-        }
-        // fix167: fees kept by SET ASIDE are still on the project even though it left receivables
-        if (!project.isReceivable() && project.storageUnpaid().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException("RELEASE DENIED: UGX " + project.storageUnpaid().toPlainString()
-                    + " of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.");
-        }
-        // PHASE B (Section 18.9.1): landTitle can now be null.
-        if (project.getLandTitle() == null) {
-            throw new BusinessException("RELEASE DENIED: This project has no title to release yet.");
+        LandProject project = projectRepository.findByIdForUpdate(id).orElseThrow();
+        // fix181 (11.3): one shared rule (deleted, pending, no title, already handed over, PROBLEM, title money owed,
+        // receivable fees owed, kept fees). The Dashboard count and the Folder button use the same method.
+        String blocker = project.releaseBlocker();
+        if (blocker != null) {
+            throw new BusinessException("RELEASE DENIED: " + blocker);
         }
         LandTitle t = project.getLandTitle();
         t.setReleased(true);
@@ -1427,6 +1409,12 @@ public class LandService {
         // fix167: a reversed STORAGE payment while still in receivables makes those fees unpaid again
         if ("STORAGE".equals(original.getAllocation()) && project.isReceivable()) {
             project.setStorageFeesPaid(project.storagePaidSafe().subtract(original.getAmountPaid()).max(BigDecimal.ZERO));
+        } else if ("STORAGE".equals(original.getAllocation()) && "STANDARD".equals(original.getPaymentType())) {
+            // fix181 (11.5b): a kept-fees payment (after SET ASIDE) moved its amount into the cost; undo exactly that
+            BigDecimal cost = project.getTotalCost() != null ? project.getTotalCost() : BigDecimal.ZERO;
+            BigDecimal fees = project.getStorageFeesAccumulated() != null ? project.getStorageFeesAccumulated() : BigDecimal.ZERO;
+            project.setTotalCost(cost.subtract(original.getAmountPaid()).max(BigDecimal.ZERO));
+            project.setStorageFeesAccumulated(fees.add(original.getAmountPaid()));
         }
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
@@ -1444,7 +1432,43 @@ public class LandService {
                 .payerName(original.getPayerName())
                 .build();
         paymentRecordRepository.save(reversal);
+
+        // fix181 (4.2): the last payment date comes from the newest payment still standing (by the day PAID), so a
+        // reversed payment no longer keeps the client LOCKED or the badge green. Undated intake deposits never count.
+        java.util.Set<String> reversedIds = new java.util.HashSet<>();
+        reversedIds.add(paymentId.toString());
+        List<PaymentRecord> lines = paymentRecordRepository.findByProjectIdOrderByTimestampDesc(projectId);
+        for (PaymentRecord r : lines) {
+            if (r.getNotes() != null && r.getNotes().startsWith("[REVERSAL OF ")) {
+                int end = r.getNotes().indexOf(']');
+                if (end > 13) reversedIds.add(r.getNotes().substring(13, end).trim());
+            }
+        }
+        LocalDateTime newest = null;
+        for (PaymentRecord r : lines) {
+            if ("REVERSAL".equals(r.getPaymentType()) || r.getPaidOn() == null) continue;
+            if (r.getAmountPaid() == null || r.getAmountPaid().signum() <= 0) continue;
+            if (reversedIds.contains(String.valueOf(r.getId()))) continue;
+            if (newest == null || r.getPaidOn().isAfter(newest)) newest = r.getPaidOn();
+        }
+        project.setLastPaymentDate(newest);
         projectRepository.save(project);
+
+        // fix181 (11.5a): the "payment received" note on the Recovery card gets its counterpart
+        java.util.List<Client> noteFor = new java.util.ArrayList<>();
+        for (Client c : project.billingParties()) {
+            if (original.getPayerClientId() == null || c.getId().equals(original.getPayerClientId())) noteFor.add(c);
+        }
+        LocalDateTime paidDay = original.getPaidOn() != null ? original.getPaidOn() : original.getTimestamp();
+        for (Client c : noteFor) {
+            recoveryNoteRepository.save(com.gesolutions.erp.modules.client.model.RecoveryNote.builder()
+                .client(c).author(null).tag("payment reversed").tone("INFO").countsAsAttempt(false)
+                .text("Payment of UGX " + original.getAmountPaid().toPlainString()
+                        + (paidDay != null ? " on " + paidDay.toLocalDate() : "") + " was reversed: " + why).build());
+        }
+        notificationService.emitToAudience("PAYMENT_REVERSED",
+            "UGX " + original.getAmountPaid().toPlainString() + " reversed on " + plotLabel(project) + " by " + getCurrentOperator() + ".",
+            "PROJECT", projectId);
         auditService.logActionAfterCommit("PAYMENT_REVERSED",
             "Operator [" + getCurrentOperator() + "] reversed UGX " + original.getAmountPaid().toPlainString()
             + " on " + plotLabel(project) + ". Reason: " + why);

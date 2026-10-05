@@ -96,9 +96,10 @@ public class DashboardController {
                 })
                 .count();
 
+        // fix181 (2.3, 11.3): the same hand-over rule as authorizeRelease (no zero-price, no storage money as title money,
+        // no kept fees, no PROBLEM flag, title record needed)
         long readyForRelease = allPlots.stream()
-                .filter(p -> p.getAmountPaid().compareTo(p.getTotalCost()) >= 0)
-                .filter(p -> p.getLandTitle() != null && !p.getLandTitle().isReleased())
+                .filter(p -> p.releaseBlocker() == null)
                 .count();
 
         long uniqueBoxes = allPlots.stream()

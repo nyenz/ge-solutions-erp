@@ -385,9 +385,56 @@ public class LandProject {
         negotiationDeadline = null;
     }
 
-    public BigDecimal activeTotalOwed() {
-        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+    /**
+     * fix181 (3.6, 11.2): money paid toward the TITLE work. While a project is in receivables amountPaid also holds the
+     * storage fees paid (storageFeesPaid); outside receivables storageFeesPaid is always 0, so it is simply amountPaid.
+     * Never below 0.
+     */
+    public BigDecimal titlePaid() {
         BigDecimal paid = amountPaid != null ? amountPaid : BigDecimal.ZERO;
-        return cost.subtract(paid);
+        BigDecimal t = isReceivable() ? paid.subtract(storagePaidSafe()) : paid;
+        return t.max(BigDecimal.ZERO);
+    }
+
+    /** fix181 (3.6, 5.7): title money still owed, never below 0 (a price lowered after payments shows 0, not minus). */
+    public BigDecimal titleOwed() {
+        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+        return cost.subtract(titlePaid()).max(BigDecimal.ZERO);
+    }
+
+    /** fix181 (2.3): the title work is fully paid (the Ledger PAID tab). A project with no price yet is NOT paid. */
+    public boolean isTitleFullyPaid() {
+        return totalCost != null && totalCost.signum() > 0 && titleOwed().signum() == 0;
+    }
+
+    /**
+     * fix181 (11.3): storage fees KEPT by a SET ASIDE on a project that left receivables. Not chased (not in owed),
+     * but they block the hand-over and the PAID / PAID UP labels.
+     */
+    public BigDecimal keptFees() {
+        return isReceivable() ? BigDecimal.ZERO : storageUnpaid();
+    }
+
+    /**
+     * fix181 (11.3): THE hand-over rule. null = the title can be handed over; otherwise the reason it cannot.
+     * Used by authorizeRelease, the Dashboard "ready for release" count and the Folder hand-over button.
+     */
+    public String releaseBlocker() {
+        if (deleted) return "This project is deleted. Restore it first.";
+        if (pending) return "This project is still Pending. Accept it first.";
+        if (landTitle == null) return "This project has no title to release yet.";
+        if (landTitle.isReleased()) return "This title has already been handed over.";
+        if (problem) return "This plot is flagged as a PROBLEM. Clear the flag (with a reason) before handing over the title.";
+        if (totalCost == null || totalCost.signum() <= 0) return "No price has been set for this project yet.";
+        if (titleOwed().signum() > 0) return "UGX " + titleOwed().toPlainString() + " is still owed on the title work.";
+        if (isReceivable() && receivableTotalOwed().signum() > 0) return "Storage fees are still owed on this project.";
+        if (keptFees().signum() > 0) return "UGX " + keptFees().toPlainString()
+                + " of set-aside storage fees is still on this project. Collect them as a STORAGE FEE payment, or a director must WAIVE them or ADD them to the cost first.";
+        return null;
+    }
+
+    /** Title money owed outside receivables. fix181 (3.6): = titleOwed() (title money only, clamped at 0). */
+    public BigDecimal activeTotalOwed() {
+        return titleOwed();
     }
 }

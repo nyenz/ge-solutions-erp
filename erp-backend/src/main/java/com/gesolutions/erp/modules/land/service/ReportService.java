@@ -295,7 +295,7 @@ public class ReportService {
 
         for (LandProject p : data) {
             boolean released = p.getLandTitle() != null && p.getLandTitle().isReleased();
-            boolean fullyPaid = p.getAmountPaid().compareTo(p.getTotalCost()) >= 0;
+            boolean fullyPaid = p.isTitleFullyPaid();   // fix181 (3.6): title money only, never a zero price
             if (!released && !fullyPaid) continue;
 
             Client owner = p.billingParties().stream().findFirst().orElse(new Client());
