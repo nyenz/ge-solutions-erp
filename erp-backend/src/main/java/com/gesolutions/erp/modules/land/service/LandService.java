@@ -264,7 +264,7 @@ public class LandService {
         }
 
         if ("RECEIVABLE_PARTIAL".equals(paymentType)) {
-            notificationService.emit("PAYMENT_ON_RECEIVABLE", "POSITIVE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId, "ROLE_DIRECTOR");
+            notificationService.emitToAudience("PAYMENT_ON_RECEIVABLE", "Payment UGX " + amount + " received on " + plotLabel(project) + ".", "PROJECT", projectId);
         }
         // fix167: the "payment received" line goes on the recovery card of the client who PAID (not on every client)
         java.util.List<Client> noteFor = new java.util.ArrayList<>();
@@ -638,7 +638,7 @@ public class LandService {
         String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
         String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
                 + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
-        notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
+        notificationService.emitToAudience("NEW_INTAKE", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId());
         auditService.logActionAfterCommit("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
             + plotOrIndex + receivableNote + fix172Note);
@@ -1009,10 +1009,10 @@ public class LandService {
            not emit: emit de-duplicates on (type, entityId) forever, so a plot
            deleted, restored and deleted again would have gone silent the
            second time. */
-        notificationService.emitRaw("PROJECT_DELETED", "CRITICAL",
+        notificationService.emitToAudience("PROJECT_DELETED",
             "Plot " + plotNo + " deleted by " + getCurrentOperator()
             + ". Restore it from Settings -> Archive.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     @Transactional
@@ -1029,9 +1029,9 @@ public class LandService {
 
         auditService.logActionAfterCommit("RECORD_RESTORED",
             "Operator [" + getCurrentOperator() + "] restored plot: " + plotNo);
-        notificationService.emitRaw("PROJECT_RESTORED", "POSITIVE",
+        notificationService.emitToAudience("PROJECT_RESTORED",
             "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     @Transactional(readOnly = true)
@@ -1275,10 +1275,10 @@ public class LandService {
         String docPlotLabel = projectRepository.findById(projectId)
                 .map(this::plotLabel)
                 .orElse("plot " + projectId);
-        notificationService.emitRaw("DOC_UPLOADED", "INFO",
+        notificationService.emitToAudience("DOC_UPLOADED",
             scans.length + " document(s) attached to " + docPlotLabel
             + " by " + getCurrentOperator() + ".",
-            "PROJECT", projectId, "ROLE_MANAGER");
+            "PROJECT", projectId);
         return saved;
     }
 
@@ -1329,10 +1329,10 @@ public class LandService {
             "Operator [" + getCurrentOperator() + "] shifted plot "
             + plotLabel(project)
             + " from status " + oldStatus + " to status " + targetStatus);
-        notificationService.emitRaw("STATUS_ADVANCED", "POSITIVE",
+        notificationService.emitToAudience("STATUS_ADVANCED",
             plotLabel(project) + " moved from status " + oldStatus
             + " to status " + targetStatus + " by " + getCurrentOperator() + ".",
-            "PROJECT", project.getId(), "ROLE_MANAGER");
+            "PROJECT", project.getId());
     }
 
     @Transactional
@@ -1382,9 +1382,9 @@ public class LandService {
         auditService.logActionAfterCommit("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + t.getPlotNumber() + ". Note: " + why);
-        notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
+        notificationService.emitToAudience("TITLE_COMPLETED",
             "Title for " + plotLabel(project) + " released to the client.",
-            "PROJECT", project.getId(), "ROLE_DIRECTOR");
+            "PROJECT", project.getId());
     }
 
     // fix162: REVERSE A PAYMENT. The original line stays in the history; a negative REVERSAL line is added,

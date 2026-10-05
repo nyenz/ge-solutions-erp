@@ -29,6 +29,7 @@ public class AuthController {
     private final AuthService authService;
     private final LoginRateLimiter rateLimiter;
     private final AuditService auditService;
+    private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
     private static volatile boolean forwardedLogged = false;
 
     @GetMapping("/health")
@@ -78,6 +79,9 @@ public class AuthController {
             auditService.logActionAs(name, "LOGIN_FAILED", "Login refused from IP " + ip + ": " + code);
             if (nowBlocked) {
                 auditService.logActionAs(name, "LOGIN_BLOCKED", "Too many wrong tries from IP " + ip + ". Sign-in paused for 15 minutes.");
+                // fix181 (17.2): written at once (the request itself fails); entity = a fixed id per username so it groups
+                notificationService.emitNow("LOGIN_BLOCKED", "Sign-in for '" + name + "' paused after too many wrong tries (IP " + ip + ").",
+                        "SYSTEM", java.util.UUID.nameUUIDFromBytes(("login|" + name.toLowerCase()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             }
             throw e;
         }

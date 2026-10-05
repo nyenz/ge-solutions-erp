@@ -219,11 +219,15 @@ public class FolderPortalController {
                 ? p.getLandTitle().getPlotNumber() : "project #" + p.getProjectIndex();
         auditService.logActionAfterCommit("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
         if (want) {
-            // fix135: only FLAGGING notifies (clearing is not news). emitRaw, not emit,
-            // because emit() dedupes forever per type+entity and a plot can be flagged twice.
-            notificationService.emitRaw("PROBLEM_FLAGGED", "CRITICAL",
-                    "Plot " + plot + " flagged as a problem by " + op() + ": " + why,
-                    "PROJECT", p.getId(), "ALL");
+            // fix181 (17.5): the alert never carries the typed reason (it can hold names, phones, family matters);
+            // the reason stays in the Notes timeline of the folder.
+            notificationService.emitToAudience("PROBLEM_FLAGGED",
+                    "Plot " + plot + " flagged as a problem by " + op() + ". Open the folder to read the reason.",
+                    "PROJECT", p.getId());
+        } else {
+            // fix181 (3.2g): the Director hears when a problem is cleared
+            notificationService.emitToAudience("PROBLEM_CLEARED",
+                    "Problem on plot " + plot + " cleared by " + op() + ".", "PROJECT", p.getId());
         }
         return receivable(id);
     }

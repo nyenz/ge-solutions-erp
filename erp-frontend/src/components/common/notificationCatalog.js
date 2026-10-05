@@ -90,6 +90,12 @@ export const CATALOG = {
     EXPENSE_LOGGED:        { label: 'Expense logged',        group: GROUPS.MONEY,    icon: FiTrendingDown, severity: 'INFO' },
     EXPENSE_EDITED:        { label: 'Expense corrected',     group: GROUPS.MONEY,    icon: FiTrendingDown, severity: 'WARN' },
     EXPENSE_DELETED:       { label: 'Expense deleted',       group: GROUPS.MONEY,    icon: FiTrash2,      severity: 'WARN' },
+    // fix181 (17.2): new types; the server list is NotificationTypes.java (a test checks both lists match)
+    PAYMENT_REVERSED:      { label: 'Payment reversed',      group: GROUPS.MONEY,    icon: FiRotateCcw,   severity: 'WARN' },
+    COST_CHANGED:          { label: 'Total cost changed',    group: GROUPS.MONEY,    icon: FiDollarSign,  severity: 'WARN' },
+    FEES_REDUCED:          { label: 'Storage fees reduced',  group: GROUPS.MONEY,    icon: FiArchive,     severity: 'WARN' },
+    RECEIVABLE_EXIT:       { label: 'Left receivables',      group: GROUPS.MONEY,    icon: FiCheckCircle, severity: 'POSITIVE' },
+    BOOKS_MISMATCH:        { label: 'Books check differs',   group: GROUPS.MONEY,    icon: FiAlertTriangle, severity: 'CRITICAL' },
 
     /* ── pipeline ───────────────────────────────────────────────── */
     NEW_INTAKE:            { label: 'New project',           group: GROUPS.PIPELINE, icon: FiFilePlus,    severity: 'INFO' },
@@ -102,11 +108,16 @@ export const CATALOG = {
     DOC_UPLOADED:          { label: 'Document attached',     group: GROUPS.PIPELINE, icon: FiUploadCloud, severity: 'INFO' },
     PROJECT_DELETED:       { label: 'Plot deleted',          group: GROUPS.PIPELINE, icon: FiTrash2,      severity: 'CRITICAL' },
     PROJECT_RESTORED:      { label: 'Plot restored',         group: GROUPS.PIPELINE, icon: FiRotateCcw,   severity: 'POSITIVE' },
+    PENDING_CREATED:       { label: 'New pending project',   group: GROUPS.PIPELINE, icon: FiFilePlus,    severity: 'INFO' },
+    PENDING_STALE:         { label: 'Pending project waiting', group: GROUPS.PIPELINE, icon: FiClock,     severity: 'WARN' },
+    TITLE_RELEASE_UNDONE:  { label: 'Hand-over undone',      group: GROUPS.PIPELINE, icon: FiRotateCcw,   severity: 'WARN' },
+    PROBLEM_CLEARED:       { label: 'Problem cleared',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
 
     /* ── recovery ───────────────────────────────────────────────── */
     LOCKED:                { label: 'Client resting',        group: GROUPS.RECOVERY, icon: FiLock,        severity: 'INFO' },
     UNLOCK:                { label: 'Callable again',        group: GROUPS.RECOVERY, icon: FiUnlock,      severity: 'INFO' },
-    UNLOCK_M:              { label: 'Callable again',        group: GROUPS.RECOVERY, icon: FiUnlock,      severity: 'INFO' },
+    UNLOCK_M:              { label: 'Callable again',        group: GROUPS.RECOVERY, icon: FiUnlock,      severity: 'INFO' },   // old rows only (fix181)
+    NIN_CONFLICT:          { label: 'NIN conflict',          group: GROUPS.RECOVERY, icon: FiAlertTriangle, severity: 'WARN' },
     SITE_VISIT_AUTO:       { label: 'Site visit needed',     group: GROUPS.RECOVERY, icon: FiMapPin,      severity: 'WARN' },
     RECOVERY_DUE:          { label: 'Recovery mission due',  group: GROUPS.RECOVERY, icon: FiPhoneCall,   severity: 'WARN' },
 
@@ -119,6 +130,7 @@ export const CATALOG = {
 
     /* ── system ─────────────────────────────────────────────────── */
     SYSTEM_WIPE:           { label: 'System wiped',          group: GROUPS.SYSTEM,   icon: FiAlertTriangle, severity: 'CRITICAL' },
+    LOGIN_BLOCKED:         { label: 'Sign-in paused',        group: GROUPS.SYSTEM,   icon: FiLock,        severity: 'WARN' },
 };
 
 const FALLBACK = { label: 'System signal', group: GROUPS.SYSTEM, icon: FiBell, severity: 'INFO' };

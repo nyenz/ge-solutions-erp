@@ -330,10 +330,10 @@ public class RecoveryNoteController {
         List<RecoveryNote> fresh = notesOf(noteMap(), c.getId());
         if ("POSITIVE".equals(def[1]) && succ30(fresh, now) == 2) {
             LocalDate u = lockedUntil(c, now, ps, fresh);
-            notificationService.emitRaw("LOCKED", "INFO", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId(), author == null ? "ROLE_MANAGER" : author.getRole().name());
+            notificationService.emitToAudience("LOCKED", c.getFullName() + " had 2 good calls. Rest until " + u + ".", "CLIENT", c.getId());
         }
         if (!wasSite && siteVisit(fresh, now)) {
-            notificationService.emitRaw("SITE_VISIT_AUTO", "WARN", c.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId(), "ROLE_MANAGER");
+            notificationService.emitToAudience("SITE_VISIT_AUTO", c.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", c.getId());
         }
         String warning = null;
         LocalDateTime window = now.minusDays(3);

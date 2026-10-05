@@ -94,7 +94,8 @@ public class ReceivableSchedulerService {
                 + ownerLabel(plot)
                 + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
                 + " | Total accumulated fees: UGX " + plot.getStorageFeesAccumulated());
-            if (!notificationService.existsToday("STORAGE_FEE_APPLIED", plot.getId())) notificationService.emitRaw("STORAGE_FEE_APPLIED", "INFO", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId(), "ROLE_DIRECTOR");
+            notificationService.emitToAudience(   // fix181: at most once a day per project (NotificationTypes)
+                "STORAGE_FEE_APPLIED", "Storage fee UGX " + toAdd + " added to " + ownerLabel(plot) + ".", "PROJECT", plot.getId());
         }
     }
 
@@ -126,7 +127,8 @@ public class ReceivableSchedulerService {
                 "SYSTEM: Plot " + ownerLabel(plot)
                 + " auto-flagged as RECEIVABLE after 365 days of no payment. "
                 + "Debt frozen at: UGX " + outstanding);
-            notificationService.emit("AUTO_RECEIVABLE_365", "WARN", ownerLabel(plot) + " auto-flagged RECEIVABLE after 365 days silent.", "PROJECT", plot.getId(), "ROLE_DIRECTOR");
+            notificationService.emitToAudience("AUTO_RECEIVABLE_365", ownerLabel(plot) + " auto-flagged RECEIVABLE after 365 days silent.", "PROJECT", plot.getId(),
+                    java.time.LocalDate.now());   // fix181 (17.1): once per receivable start, so a second flag a year later is not silent
         }
     }
 
@@ -150,8 +152,8 @@ public class ReceivableSchedulerService {
             boolean lockedYesterday = lockedAt(c, yesterday) != null;
             boolean lockedToday = lockedAt(c, now) != null;
             if (lockedYesterday && !lockedToday) {
-                notificationService.emitRaw("UNLOCK", "INFO", c.getFullName() + " is callable again.", "CLIENT", c.getId(), "ROLE_SECRETARY");
-                notificationService.emitRaw("UNLOCK_M", "INFO", c.getFullName() + " is callable again.", "CLIENT", c.getId(), "ROLE_MANAGER");
+                // fix181 (17.2): one type, one row for each of Secretary and Manager (UNLOCK_M is retired)
+                notificationService.emitToAudience("UNLOCK", c.getFullName() + " is callable again.", "CLIENT", c.getId(), now.toLocalDate());
             }
         }
     }

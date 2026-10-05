@@ -19,6 +19,19 @@ public class NotificationController {
     private final NotificationReadRepository readRepo;
     private final UserRepository userRepo;
     private User me(Authentication auth) { return userRepo.findByUsername(auth.getName()).orElse(null); }
+
+    // fix181 (17.0b): the Employee has no bell (answer empty, not 403); nobody sees alerts older than notify_since
+    private static boolean noBell(User u) { return u == null || u.getRole() == null || u.getRole() == com.gesolutions.erp.modules.auth.model.Role.ROLE_EMPLOYEE; }
+    private List<Notification> mine(User u) {
+        LocalDateTime since = u.getNotifySince() != null ? u.getNotifySince() : LocalDateTime.of(2000, 1, 1, 0, 0);
+        return notifRepo.findForRole(u.getRole().name(), since);
+    }
+    // fix181 (17.14): the person who caused the alert reads "by you" instead of their own name
+    private static String textFor(Notification n, User u) {
+        String m = n.getMessage() == null ? "" : n.getMessage();
+        if (n.getActor() != null && n.getActor().equalsIgnoreCase(u.getUsername())) m = m.replace("by " + n.getActor(), "by you");
+        return m;
+    }
     /**
      * fix71 -- THE N+1 THAT GREW WITH THE TABLE.
      *
@@ -36,18 +49,18 @@ public class NotificationController {
     @GetMapping
     public List<Map<String, Object>> list(Authentication auth) {
         User u = me(auth);
-        if (u == null) return List.of();
+        if (noBell(u)) return List.of();
 
         Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
                 .map(NotificationRead::getNotificationId)
                 .collect(Collectors.toSet());
 
         List<Map<String, Object>> out = new ArrayList<>();
-        for (Notification n : notifRepo.findForRole(u.getRole().name())) {
+        for (Notification n : mine(u)) {
             if (out.size() >= MAX_ROWS) break;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", n.getId()); m.put("type", n.getType()); m.put("severity", n.getSeverity());
-            m.put("message", n.getMessage()); m.put("entityType", n.getEntityType());
+            m.put("message", textFor(n, u)); m.put("category", n.getCategory()); m.put("entityType", n.getEntityType());
             m.put("entityId", n.getEntityId()); m.put("createdAt", n.getCreatedAt());
             m.put("read", readIds.contains(n.getId()));
             out.add(m);
@@ -57,13 +70,13 @@ public class NotificationController {
     @GetMapping("/unread-count")
     public Map<String, Long> unread(Authentication auth) {
         User u = me(auth);
-        if (u == null) return Map.of("unread", 0L);
+        if (noBell(u)) return Map.of("unread", 0L);
         // Same N+1 as list() -- and this one runs on a timer for every signed-in
         // user, so it was the more expensive of the two.
         Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
                 .map(NotificationRead::getNotificationId)
                 .collect(Collectors.toSet());
-        long c = notifRepo.findForRole(u.getRole().name()).stream()
+        long c = mine(u).stream()
             .filter(n -> !readIds.contains(n.getId())).count();
         return Map.of("unread", c);
     }
@@ -78,12 +91,12 @@ public class NotificationController {
     @PostMapping("/read-all")
     public Map<String, Object> readAll(Authentication auth) {
         User u = me(auth);
-        if (u == null) return Map.of("ok", false);
+        if (noBell(u)) return Map.of("ok", false);
         Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
                 .map(NotificationRead::getNotificationId)
                 .collect(Collectors.toSet());
         List<NotificationRead> toSave = new ArrayList<>();
-        for (Notification n : notifRepo.findForRole(u.getRole().name())) {
+        for (Notification n : mine(u)) {
             if (!readIds.contains(n.getId())) {
                 toSave.add(NotificationRead.builder()
                     .notificationId(n.getId()).userId(u.getId()).readAt(LocalDateTime.now()).build());

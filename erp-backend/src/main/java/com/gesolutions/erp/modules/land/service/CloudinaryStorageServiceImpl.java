@@ -134,36 +134,56 @@ public class CloudinaryStorageServiceImpl implements FileStorageService {
     }
 
     @Override
-    public void deleteAllFiles() {
+    @SuppressWarnings("unchecked")
+    public java.util.Map<String, Object> deleteAllFiles() {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        int deleted = 0, failed = 0;
+        StringBuilder errors = new StringBuilder();
         if (this.cloudName != null && this.cloudName.trim().equals("test")) {
             System.out.println(">>> LOCAL TEST MOCK: Skipping real Cloudinary purge.");
-            return;
+            result.put("filesDeleted", 0);
+            result.put("filesFailed", 0);
+            return result;
         }
 
-        // Every file this app ever uploads lives under the "ge_solutions/"
-        // prefix (see storeFile above). Cloudinary keeps image/raw/video as
-        // separate namespaces, so each has to be purged by prefix on its own.
+        // Every file this app ever uploads lives under the "ge_solutions/" prefix (see storeFile above). Cloudinary keeps
+        // image/raw/video as separate namespaces. fix181 (15.5b): one call deletes only one batch (Cloudinary answers
+        // partial=true / next_cursor while more remain), so keep calling until it says it is done, and count.
         for (String resourceType : new String[]{"image", "raw", "video"}) {
-            try {
-                cloudinary.api().deleteResourcesByPrefix(
-                        "ge_solutions/",
-                        ObjectUtils.asMap("resource_type", resourceType)
-                );
-                System.out.println(">>> CLOUDINARY PURGE OK: resource_type=" + resourceType);
-            } catch (Exception e) {
-                System.err.println(">>> CLOUDINARY PURGE FAULT (resource_type=" + resourceType + "): " + e.getMessage());
+            String cursor = null;
+            for (int round = 0; round < 500; round++) {
+                try {
+                    java.util.Map<String, Object> opts = new java.util.HashMap<>(ObjectUtils.asMap("resource_type", resourceType));
+                    if (cursor != null) opts.put("next_cursor", cursor);
+                    java.util.Map<String, Object> res = cloudinary.api().deleteResourcesByPrefix("ge_solutions/", opts);
+                    Object del = res.get("deleted");
+                    if (del instanceof java.util.Map<?, ?> m) {
+                        for (Object v : m.values()) {
+                            if ("deleted".equals(String.valueOf(v))) deleted++;
+                            else if (!"not_found".equals(String.valueOf(v))) failed++;
+                        }
+                    }
+                    cursor = res.get("next_cursor") == null ? null : String.valueOf(res.get("next_cursor"));
+                    boolean partial = Boolean.TRUE.equals(res.get("partial"));
+                    if (cursor == null && !partial) break;
+                } catch (Exception e) {
+                    failed++;
+                    errors.append(resourceType).append(": ").append(e.getMessage()).append(". ");
+                    System.err.println(">>> CLOUDINARY PURGE FAULT (resource_type=" + resourceType + "): " + e.getMessage());
+                    break;
+                }
             }
         }
 
-        // Best-effort: remove the now-empty top-level folder. Cloudinary
-        // only deletes a folder once it has no files left in it, and this
-        // can silently no-op if a subfolder is still cached as non-empty --
-        // that is cosmetic only, the actual files above are already gone.
+        // Best-effort: remove the now-empty top-level folder (cosmetic only).
         try {
             cloudinary.api().deleteFolder("ge_solutions", ObjectUtils.emptyMap());
-            System.out.println(">>> CLOUDINARY ROOT FOLDER DELETED: ge_solutions");
         } catch (Exception e) {
-            System.err.println(">>> CLOUDINARY ROOT FOLDER DELETE FAULT (cosmetic only, files are already gone): " + e.getMessage());
+            System.err.println(">>> CLOUDINARY ROOT FOLDER DELETE FAULT (cosmetic only): " + e.getMessage());
         }
+        result.put("filesDeleted", deleted);
+        result.put("filesFailed", failed);
+        if (failed > 0) result.put("error", "Some files could not be deleted. Check the Cloudinary dashboard. " + errors.toString().trim());
+        return result;
     }
 }

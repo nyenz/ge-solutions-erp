@@ -29,12 +29,19 @@ public class StaffDTO {
     private boolean isRootAlias;
     private boolean mustChangePassword;
     private LocalDateTime tempKeyExpiresAt;
+    // fix181 (14.4c): a demo account (demo.*) from the demo dataset; the Staff tab marks it DEMO
+    private boolean demo;
+
+    public static boolean isDemo(String username) {
+        return username != null && username.toLowerCase(java.util.Locale.ROOT).startsWith("demo.");
+    }
 
     public static StaffDTO of(User u) {
         return StaffDTO.builder()
                 .id(u.getId()).username(u.getUsername()).email(u.getEmail()).role(u.getRole())
                 .active(u.isActive()).root(u.isRoot()).isActiveAlias(u.isActive()).isRootAlias(u.isRoot())
                 .mustChangePassword(u.isMustChangePassword()).tempKeyExpiresAt(u.getTempKeyExpiresAt())
+                .demo(isDemo(u.getUsername()))
                 .build();
     }
 }

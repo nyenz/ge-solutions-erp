@@ -21,6 +21,9 @@ public class DataInitializer implements CommandLineRunner {
     private final com.gesolutions.erp.common.audit.AuditService auditService;
         @Value("${ADMIN_EMAIL}") private String adminEmail;
     @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
+    // fix181 (14.4c): load the demo dataset (demo clients, projects, payments, demo.* staff)? On until go-live; the
+    // go-live checklist in LLM_CONTEXT_GUIDE.md says to set GE_SOLUTIONS_SEED_DEMO_DATA=false on Render.
+    @Value("${ge.solutions.seed-demo-data:true}") private boolean seedDemoData;
     @Override
     public void run(String... args) {
         try {
@@ -48,6 +51,10 @@ public class DataInitializer implements CommandLineRunner {
     // Removes every older seed (v1, v2) and loads the v3 dataset once. The method name
     // stays the same because SystemAdminController calls it after a full wipe.
     public void seedScenarioDataOnce() {
+        if (!seedDemoData) {
+            System.out.println(">>> [SEED] demo dataset is switched off (ge.solutions.seed-demo-data=false)");
+            return;
+        }
         scenarioSeeder.seedOnce();
     }
 
@@ -119,9 +126,21 @@ public class DataInitializer implements CommandLineRunner {
         return sb.append("))").toString();
     }
 
+    /** fix181 (17.2): old alerts get their group from the one type list. */
+    private static String notificationCategorySql() {
+        StringBuilder sb = new StringBuilder("UPDATE notifications SET category = CASE type");
+        for (var t : com.gesolutions.erp.modules.notification.service.NotificationTypes.all().values()) {
+            sb.append(" WHEN '").append(t.code()).append("' THEN '").append(t.group().name()).append("'");
+        }
+        return sb.append(" WHEN 'UNLOCK_M' THEN 'RECOVERY' ELSE 'SYSTEM' END WHERE category IS NULL").toString();
+    }
+
     private void runSchemaMigrations() throws Exception {
         String[] migrations = {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER DEFAULT 0 NOT NULL",
+            // fix181 (15.4e, 17.4): temporary keys expire after 7 days; alerts older than a rank change are not shown
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_key_expires_at TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_since TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_paused BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS storage_fee_override NUMERIC(15,2)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS negotiation_deadline TIMESTAMP",
@@ -177,6 +196,14 @@ public class DataInitializer implements CommandLineRunner {
             "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS client_request_id VARCHAR(64)",
             "CREATE INDEX IF NOT EXISTS idx_payment_client_request ON payment_records (client_request_id)",
             "UPDATE payment_records SET paid_on = timestamp WHERE paid_on IS NULL AND NOT (payment_type = 'INITIAL_DEPOSIT' AND (notes IS NULL OR notes NOT LIKE '%paid on%'))",
+            // fix181 (17.2, 17.14, 17.1): alert group, who caused it, repeat key; indexes for the bell queries
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(20)",
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS actor VARCHAR(100)",
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedupe_key VARCHAR(120)",
+            "CREATE INDEX IF NOT EXISTS idx_notif_role_created ON notifications (target_role, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_notif_type_entity ON notifications (type, entity_id)",
+            "CREATE INDEX IF NOT EXISTS idx_notif_reads_user ON notification_reads (user_id)",
+            notificationCategorySql(),
             "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check",
             roleCheckSql()
         };

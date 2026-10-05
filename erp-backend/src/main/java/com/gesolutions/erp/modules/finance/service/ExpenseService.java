@@ -118,9 +118,9 @@ public class ExpenseService {
             + " -- UGX " + amount
             + (cleanSpentBy != null ? " (spent by " + cleanSpentBy + ")" : ""));
 
-        notificationService.emitRaw("EXPENSE_LOGGED", "INFO",
+        notificationService.emitToAudience("EXPENSE_LOGGED",
             "Expense UGX " + amount + " on " + category + " logged by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", saved.getId());
 
         return saved;
     }
@@ -168,10 +168,10 @@ public class ExpenseService {
 
         // An edit after the fact is the one that matters: the money already
         // showed up in a total somewhere and the total just changed.
-        notificationService.emitRaw("EXPENSE_EDITED", "WARN",
+        notificationService.emitToAudience("EXPENSE_EDITED",
             "Expense corrected: " + oldCategory + " UGX " + oldAmount
             + " changed to " + category + " UGX " + amount + " by " + getCurrentOperator() + ".",
-            "EXPENSE", saved.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", saved.getId());
 
         return saved;
     }
@@ -188,10 +188,10 @@ public class ExpenseService {
             "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()
             + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");
 
-        notificationService.emitRaw("EXPENSE_DELETED", "WARN",
+        notificationService.emitToAudience("EXPENSE_DELETED",
             "Expense " + expense.getCategory() + " UGX " + expense.getAmount()
             + " deleted by " + getCurrentOperator() + ".",
-            "EXPENSE", expense.getId(), "ROLE_DIRECTOR");
+            "EXPENSE", expense.getId());
     }
 
     // -- DIRECTOR ANALYSIS: SEARCH ------------------------------------

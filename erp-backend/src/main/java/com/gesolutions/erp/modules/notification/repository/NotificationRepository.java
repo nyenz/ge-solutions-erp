@@ -7,8 +7,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
-    @Query("SELECT n FROM Notification n WHERE n.targetRole = 'ALL' OR n.targetRole = :role ORDER BY n.createdAt DESC")
-    List<Notification> findForRole(@Param("role") String role);
-    boolean existsByTypeAndEntityId(String type, UUID entityId);
-    boolean existsByTypeAndEntityIdAndCreatedAtAfter(String type, UUID entityId, LocalDateTime after);
+    // fix181 (17.0a, 17.5): exact role only (no "ALL"); nothing older than the person's notify_since (set on a rank change,
+    // so a promoted person does not get the whole history of the new rank as unread)
+    @Query("SELECT n FROM Notification n WHERE n.targetRole = :role AND n.createdAt >= :since ORDER BY n.createdAt DESC")
+    List<Notification> findForRole(@Param("role") String role, @Param("since") LocalDateTime since);
+    // fix181 (17.1): repeat checks always include the audience role
+    boolean existsByTypeAndEntityIdAndTargetRole(String type, UUID entityId, String targetRole);
+    boolean existsByTypeAndEntityIdAndTargetRoleAndCreatedAtAfter(String type, UUID entityId, String targetRole, LocalDateTime after);
+    boolean existsByTypeAndDedupeKeyAndTargetRole(String type, String dedupeKey, String targetRole);
 }

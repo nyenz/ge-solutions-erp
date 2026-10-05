@@ -260,8 +260,16 @@ public class ScenarioSeeder {
 
     private void bell(String type, String severity, String message, String entityType, UUID entityId, String role, LocalDateTime when) {
         if (entityId == null || when.isBefore(now.minusDays(BELL_DAYS))) return;
-        bell.add(Notification.builder().type(type).severity(severity).message(message)
-                .entityType(entityType).entityId(entityId).targetRole(role).createdAt(when).build());
+        // fix181 (17.2): the demo follows the same audience list as the live code (one row per role, no "ALL");
+        // UNLOCK_M is retired (UNLOCK already goes to Secretary and Manager)
+        if (com.gesolutions.erp.modules.notification.service.NotificationTypes.RETIRED.contains(type)) return;
+        var t = com.gesolutions.erp.modules.notification.service.NotificationTypes.of(type);
+        List<String> roles = t != null ? t.audience() : List.of(role);
+        for (String r : roles) {
+            bell.add(Notification.builder().type(type).severity(t != null ? t.severity() : severity).message(message)
+                    .entityType(entityType).entityId(entityId).targetRole(r).category(t != null ? t.group().name() : null)
+                    .createdAt(when).build());
+        }
     }
 
     private void seed() {
@@ -518,7 +526,7 @@ public class ScenarioSeeder {
             LocalDateTime t = at(s.problemAgo, s.key + "P");
             followUpRepository.save(FollowUpLog.builder().projectId(pid).notes("[PROBLEM] " + s.problemNote).recordedBy(by).timestamp(t).build());
             audit("PROBLEM_FLAG", "Operator [" + by + "] flagged PROBLEM on #" + index + ": " + s.problemNote + ".", by, t);
-            bell("PROBLEM_FLAGGED", "CRITICAL", "Plot " + lbl + " flagged as a problem by " + by + ": " + s.problemNote, "PROJECT", pid, "ALL", t);
+            bell("PROBLEM_FLAGGED", "CRITICAL", "Plot " + lbl + " flagged as a problem by " + by + ". Open the folder to read the reason.", "PROJECT", pid, "ROLE_MANAGER", t);
             if (s.problemClearedAgo >= 0) {
                 String cb = ScenarioData.DIRECTOR;
                 LocalDateTime c = at(s.problemClearedAgo, s.key + "PC");

@@ -41,6 +41,10 @@ public class StaffManagementService {
     private final AuditService auditService;
     private final NotificationService notificationService;
 
+    // fix181 (14.4c): with the demo dataset switched off, its demo.* accounts are hidden from the Staff tab
+    @org.springframework.beans.factory.annotation.Value("${ge.solutions.seed-demo-data:true}")
+    private boolean seedDemoData = true;
+
     public static final int TEMP_KEY_DAYS = 7;
     private static final Pattern USERNAME = Pattern.compile("^[A-Za-z0-9._-]{3,30}$");
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
@@ -104,9 +108,9 @@ public class StaffManagementService {
                 .build());
 
         auditService.logActionAfterCommit("OPERATOR_PROVISIONED", "New " + rank + " account created: " + username);
-        notificationService.emitRaw("STAFF_PROVISIONED", "INFO",
+        notificationService.emitToAudience("STAFF_PROVISIONED",
                 "Operator " + username + " provisioned as " + rank.label().toUpperCase(Locale.ROOT) + ".",
-                "STAFF", saved.getId(), "ROLE_DIRECTOR");
+                "STAFF", saved.getId());
 
         return UserCreateResponse.builder()
                 .username(username)
@@ -138,9 +142,9 @@ public class StaffManagementService {
         userRepository.save(target);
 
         auditService.logActionAfterCommit("RANK_ADJUSTMENT", "Operator " + target.getUsername() + " rank changed from " + old + " to " + newRole);
-        notificationService.emitRaw("STAFF_ROLE_CHANGED", "WARN",
+        notificationService.emitToAudience("STAFF_ROLE_CHANGED",
                 "Operator " + target.getUsername() + " is now " + newRole.label().toUpperCase(Locale.ROOT) + ".",
-                "STAFF", target.getId(), "ROLE_DIRECTOR");
+                "STAFF", target.getId());
     }
 
     // ── SUSPEND / ACTIVATE ──────────────────────────────────────────────────
@@ -163,9 +167,9 @@ public class StaffManagementService {
 
         String stateName = active ? "ACTIVATED" : "SUSPENDED";
         auditService.logActionAfterCommit("OPERATOR_STATUS_CHANGE", "Account [" + target.getUsername() + "] moved to " + stateName);
-        notificationService.emitRaw(active ? "STAFF_ACTIVATED" : "STAFF_SUSPENDED", active ? "POSITIVE" : "WARN",
+        notificationService.emitToAudience(active ? "STAFF_ACTIVATED" : "STAFF_SUSPENDED",
                 "Operator " + target.getUsername() + " " + stateName.toLowerCase(Locale.ROOT) + ".",
-                "STAFF", target.getId(), "ROLE_DIRECTOR");
+                "STAFF", target.getId());
     }
 
     // ── KEY RESET ───────────────────────────────────────────────────────────
@@ -189,9 +193,9 @@ public class StaffManagementService {
         userRepository.save(target);
 
         auditService.logActionAfterCommit("CREDENTIAL_RESET", "Temporary key generated for: " + target.getUsername());
-        notificationService.emitRaw("KEY_RESET", "WARN",
+        notificationService.emitToAudience("KEY_RESET",
                 "Security key reset for " + target.getUsername() + ". They must change it at next sign in.",
-                "STAFF", target.getId(), "ROLE_DIRECTOR");
+                "STAFF", target.getId());
         return newKey;
     }
 
@@ -199,6 +203,7 @@ public class StaffManagementService {
     @Transactional(readOnly = true)
     public List<StaffDTO> getAllOperators() {
         return userRepository.findAll().stream()
+                .filter(u -> seedDemoData || !StaffDTO.isDemo(u.getUsername()))
                 .sorted(Comparator.comparingInt((User u) -> u.getRole() == null ? 0 : -u.getRole().rank())
                         .thenComparing(u -> u.getUsername().toLowerCase(Locale.ROOT)))
                 .map(StaffDTO::of)
