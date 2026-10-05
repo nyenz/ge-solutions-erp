@@ -161,6 +161,7 @@ export const ACTION_GROUPS = [
             { code: 'WIPE_REFUSED',             label: 'Wipe refused',         severity: 'high' },
             { code: 'TIMEZONE_CHANGED',         label: 'Server time zone changed', severity: 'med' },
             { code: 'NOTIFICATIONS_CLEANED',    label: 'Old alerts cleaned up', severity: 'low' },
+            { code: 'AUDIT_REPAIRED',           label: 'Old audit lines repaired', severity: 'high' },
             { code: 'OPERATOR_PROVISIONED',     label: 'Operator provisioned', severity: 'high' },
             { code: 'OPERATOR_STATUS_CHANGE',   label: 'Operator suspended / activated', severity: 'high' },
             { code: 'RANK_ADJUSTMENT',          label: 'Rank changed',         severity: 'high' },

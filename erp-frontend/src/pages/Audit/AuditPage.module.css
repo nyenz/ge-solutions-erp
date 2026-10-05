@@ -260,3 +260,8 @@
     .rawOutput { font-size: 10px; }
     .emptySignal { padding: 22px 0; font-size: 9px; }
 }
+
+/* fix181 (13.11): the facts of an opened audit line */
+.factList { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0; font-size: 12px; }
+.factList dt { font-weight: 800; opacity: 0.7; }
+.factList dd { margin: 0; font-family: 'Space Mono', monospace; word-break: break-all; }

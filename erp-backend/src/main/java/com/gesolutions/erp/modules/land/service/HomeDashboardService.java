@@ -42,7 +42,7 @@ public class HomeDashboardService {
         };
     }
 
-    private static final List<String> HIDDEN_FROM_ACTIVITY = List.of("LOGIN_FAILED", "LOGIN_BLOCKED", "ACCESS_DENIED", "LOGIN_SUCCESS");
+    private static final List<String> HIDDEN_FROM_ACTIVITY = com.gesolutions.erp.common.audit.AuditActions.NOT_STAFF_WORK;   // 13.13: the shared code list
 
     private final LandProjectRepository projectRepository;
     private final PaymentRecordRepository paymentRepository;
@@ -139,8 +139,8 @@ public class HomeDashboardService {
         }
         if (blocks.contains("systemHealth")) {
             Map<String, Object> h = new LinkedHashMap<>();
-            h.put("failedLogins24h", auditRepository.countByActionInAndTimestampAfter(List.of("LOGIN_FAILED"), now.minusHours(24)));
-            h.put("jobFailures7d", auditRepository.countByActionInAndTimestampAfter(List.of("STORAGE_JOB_FAILED", "AUTO_RECEIVABLE_FAILED"), now.minusDays(7)));
+            h.put("failedLogins24h", auditRepository.countByActionInAndTimestampAfter(List.of(com.gesolutions.erp.common.audit.AuditActions.LOGIN_FAILED), now.minusHours(24)));
+            h.put("jobFailures7d", auditRepository.countByActionInAndTimestampAfter(List.of(com.gesolutions.erp.common.audit.AuditActions.STORAGE_JOB_FAILED, com.gesolutions.erp.common.audit.AuditActions.AUTO_RECEIVABLE_FAILED), now.minusDays(7)));
             h.put("booksMismatch", safeBooks());
             h.put("accounts", userRepository.count());
             long admins = userRepository.countByRole(Role.ROLE_ADMIN);

@@ -76,7 +76,10 @@ public class WipeRunTest {
         assertEquals(1, projects.findAllIncludingPending().stream().filter(p -> "W001".equals(p.getProjectIndex())).count());
         mvc.perform(post("/api/v1/admin/system/wipe-all-data").param("confirm", "WIPE-EVERYTHING").header("Authorization", "Bearer " + token)
                         .contentType("application/json").content("{\"password\":\"TestPassword123\"}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                // fix181 (15.5b): the answer says how many files were and were not deleted
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.filesDeleted").exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.filesFailed").exists());
 
         assertEquals(0, projects.findAllIncludingPending().size());
         assertEquals(0, clients.count());

@@ -28,6 +28,11 @@ for (const file of walk(backend)) {
         for (const m of text.matchAll(/"([A-Z][A-Z0-9_]{2,})"/g)) server.add(m[1]);
     });
 }
+// fix181 (13.13): the shared Java list is the source of truth when it exists
+const actionsFile = path.join(backend, 'com/gesolutions/erp/common/audit/AuditActions.java');
+if (fs.existsSync(actionsFile)) {
+    for (const m of fs.readFileSync(actionsFile, 'utf8').matchAll(/public static final String ([A-Z0-9_]+) = "\1";/g)) server.add(m[1]);
+}
 const known = new Set([...fs.readFileSync(catalog, 'utf8').matchAll(/code:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]));
 const missing = [...server].filter(c => !known.has(c)).sort();
 const unused = [...known].filter(c => !server.has(c)).sort();

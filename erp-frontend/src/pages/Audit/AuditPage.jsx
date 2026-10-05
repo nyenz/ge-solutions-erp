@@ -20,20 +20,21 @@ const EXPORT_CAP = 20000;
 const ALL_ACTIONS = 'ALL ACTIONS';
 const ALL_STAFF = 'ALL STAFF';
 
-/* fix181 (10.1): the ACTION filter is built from the catalog groups. Picking a group sends all its codes; picking one
-   action sends that code. HardwareSelect takes plain text, so a group is its own row ("MONEY: all") above its actions. */
-const ACTION_OPTIONS = [ALL_ACTIONS];
-const CODES_OF_OPTION = {};
-ACTION_GROUPS.forEach(g => {
-    const head = g.group + ': all';
-    ACTION_OPTIONS.push(head);
-    CODES_OF_OPTION[head] = g.actions.map(a => a.code);
-    g.actions.forEach(a => {
-        const label = '   ' + a.label + ' (' + g.group.toLowerCase() + ')';
-        ACTION_OPTIONS.push(label);
-        CODES_OF_OPTION[label] = [a.code];
-    });
-});
+/* fix181 (10.1, 13.9): two dropdowns built from the catalog. PROTOCOL CLASS = all actions or one group (sends the
+   group's codes); ACTION appears when a group is chosen and lists that group's actions by friendly name (sends one
+   code). The friendly text on screen is never sent: a small label -> code map is kept here. */
+const ALL_IN_GROUP = 'ALL IN THIS GROUP';
+const CLASS_OPTIONS = [ALL_ACTIONS, ...ACTION_GROUPS.map(g => g.group)];
+const groupOf = (name) => ACTION_GROUPS.find(g => g.group === name);
+const actionOptionsOf = (name) => [ALL_IN_GROUP, ...(groupOf(name)?.actions || []).map(a => a.label)];
+const codesFor = (group, action) => {
+    const g = groupOf(group);
+    if (!g) return [];
+    if (!action || action === ALL_IN_GROUP) return g.actions.map(a => a.code);
+    const hit = g.actions.find(a => a.label === action);
+    return hit ? [hit.code] : g.actions.map(a => a.code);
+};
+const EMPTY_FILTERS = { operator: '', group: '', action: '', search: '', from: '', to: '', page: 0 };
 
 /** "2026-10-04" -> "2026-10-05T00:00:00": the end is exclusive on the server, so the whole TO day is included (10.11). */
 const dayAfter = (ymd) => {
@@ -47,9 +48,24 @@ const AuditPage = () => {
     const [meta,       setMeta]       = useState({ total: 0, totalPages: 0, last: true });
     const [loading,    setLoading]    = useState(true);
     const [fault,      setFault]      = useState(null);   // { message, status } -- 10.5
-    const [page,       setPage]       = useState(0);
     const [expandedId, setExpandedId] = useState(null);
-    const [filters,    setFilters]    = useState({ operator: '', action: '', search: '', from: '', to: '' });
+    // fix181 (13.10b): the page number lives in the same state as the filters, so a filter change resets it in the same
+    // update (one request, not two)
+    const [filters,    setFiltersRaw] = useState(EMPTY_FILTERS);
+    const setFilters = useCallback((next) => setFiltersRaw({ ...next, page: 0 }), []);
+    const page = filters.page;
+    const setPage = (fn) => setFiltersRaw(f => ({ ...f, page: typeof fn === 'function' ? fn(f.page) : fn }));
+    // fix181 (13.10a): the keyword is sent 400 ms after the last key, and only from 2 letters
+    const [searchText, setSearchText] = useState('');
+    useEffect(() => {
+        const t = setTimeout(() => {
+            const k = searchText.trim();
+            const next = k.length >= 2 ? k : '';
+            setFiltersRaw(f => (f.search === next ? f : { ...f, search: next, page: 0 }));
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchText]);
+    const [copiedId, setCopiedId] = useState(null);
     const [operators,  setOperators]  = useState([]);
     const [exporting,  setExporting]  = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -62,11 +78,11 @@ const AuditPage = () => {
 
     const serverFilters = useMemo(() => ({
         operator: filters.operator && filters.operator !== ALL_STAFF ? filters.operator : null,
-        actions: filters.action && filters.action !== ALL_ACTIONS ? (CODES_OF_OPTION[filters.action] || []) : [],
+        actions: filters.group && filters.group !== ALL_ACTIONS ? codesFor(filters.group, filters.action) : [],
         keyword: filters.search.trim().slice(0, 100),
         start: filters.from ? filters.from + 'T00:00:00' : null,
         end: filters.to ? dayAfter(filters.to) : null,
-    }), [filters]);
+    }), [filters.operator, filters.group, filters.action, filters.search, filters.from, filters.to]);
 
     const reqRef = useRef(0);
     const fetchForensics = useCallback(async () => {
@@ -83,9 +99,6 @@ const AuditPage = () => {
         }
         finally  { if (myReq === reqRef.current) setLoading(false); }
     }, [page, serverFilters]);
-
-    // any filter change starts again from the newest page
-    useEffect(() => { setPage(0); }, [filters]);
 
     useEffect(() => { fetchForensics(); }, [fetchForensics]);
 
@@ -111,7 +124,7 @@ const AuditPage = () => {
             const rows = all.map(l => [plainStamp(l.timestamp), l.performedBy, l.action, friendlyAction(l.action), l.details || '']);
             downloadCSV('GOLDEN_SEED_AUDIT_' + new Date().toISOString().slice(0, 10) + '.csv',
                 toCSV(['TIME', 'OPERATOR', 'CODE', 'ACTION', 'DETAILS'], rows));
-            auditService.logExport({ ...serverFilters, actionFilter: filters.action || ALL_ACTIONS }, all.length);
+            auditService.logExport({ ...serverFilters, group: filters.group || ALL_ACTIONS, action: filters.action || '' }, all.length);
             setExporting(total > all.length ? `Exported the newest ${all.length.toLocaleString()} of ${total.toLocaleString()} rows (the limit).` : '');
         } catch (e) {
             setExporting('Export failed: ' + e.message);
@@ -119,6 +132,14 @@ const AuditPage = () => {
     };
 
     const operatorOptions = [ALL_STAFF, ...operators];
+
+    // fix181 (13.11): one line that quotes an audit row exactly
+    const lineOf = (log) => `${plainStamp(log.timestamp)} | ${log.performedBy} | ${log.action} | ${log.details || ''} | id ${log.id}`;
+    const copyLine = async (e, log) => {
+        e.stopPropagation();
+        try { await navigator.clipboard.writeText(lineOf(log)); setCopiedId(log.id); setTimeout(() => setCopiedId(null), 1500); }
+        catch { setCopiedId(null); }
+    };
 
     return (
         <div className={styles.container}>
@@ -144,16 +165,17 @@ const AuditPage = () => {
                     <input
                         type="search"
                         placeholder="Investigate specific Plot Number, Name, or Keyword..."
-                        className={`${styles.searchInput} ${(filters.search || isSearchFocused) ? styles.searchInputActive : ''}`}
-                        value={filters.search}
-                        onChange={e => setFilters({...filters, search: e.target.value})}
+                        className={`${styles.searchInput} ${(searchText || isSearchFocused) ? styles.searchInputActive : ''}`}
+                        value={searchText}
+                        maxLength={100}
+                        onChange={e => setSearchText(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         aria-label="Search forensic logs"
                     />
-                    {!(filters.search || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
-                    {filters.search && (
-                        <button className={styles.searchClear} onClick={() => setFilters({...filters, search: ''})} aria-label="Clear search">
+                    {!(searchText || isSearchFocused) && <FiSearch className={styles.searchIcon} aria-hidden="true" />}
+                    {searchText && (
+                        <button className={styles.searchClear} onClick={() => setSearchText('')} aria-label="Clear search">
                             <FiX aria-hidden="true" />
                         </button>
                     )}
@@ -169,12 +191,22 @@ const AuditPage = () => {
                     </div>
                     <div className={styles.hwSelectWrap}>
                         <HardwareSelect
-                            label="ACTION"
-                            options={ACTION_OPTIONS}
-                            value={filters.action || ALL_ACTIONS}
-                            onChange={val => setFilters({...filters, action: val})}
+                            label="PROTOCOL CLASS"
+                            options={CLASS_OPTIONS}
+                            value={filters.group || ALL_ACTIONS}
+                            onChange={val => setFilters({...filters, group: val === ALL_ACTIONS ? '' : val, action: ''})}
                         />
                     </div>
+                    {filters.group && (
+                        <div className={styles.hwSelectWrap}>
+                            <HardwareSelect
+                                label="ACTION"
+                                options={actionOptionsOf(filters.group)}
+                                value={filters.action || ALL_IN_GROUP}
+                                onChange={val => setFilters({...filters, action: val === ALL_IN_GROUP ? '' : val})}
+                            />
+                        </div>
+                    )}
                     <label className={styles.dateField}>
                         <span>FROM</span>
                         <HardwareDatePicker value={filters.from} ariaLabel="From date" onChange={v => setFilters({...filters, from: v})} />
@@ -183,7 +215,7 @@ const AuditPage = () => {
                         <span>TO</span>
                         <HardwareDatePicker value={filters.to} ariaLabel="To date" onChange={v => setFilters({...filters, to: v})} />
                     </label>
-                    <button className={styles.resetBtn} onClick={() => setFilters({operator:'', action:'', search:'', from:'', to:''})} aria-label="Reset all filters">
+                    <button className={styles.resetBtn} onClick={() => { setSearchText(''); setFiltersRaw(EMPTY_FILTERS); }} aria-label="Reset all filters">
                         <FiFilter aria-hidden="true" /> RESET FILTERS
                     </button>
                     <button className={styles.resetBtn} onClick={exportAll} disabled={meta.total === 0 || (exporting && exporting.startsWith('Preparing'))} aria-label="Export every matching row to CSV">
@@ -245,8 +277,18 @@ const AuditPage = () => {
                             <div className={`${styles.traceDetails} ${expandedId === log.id ? styles.traceOpen : styles.traceClosed}`}>
                                 <div className={styles.rawBox}>
                                     <div className={styles.rawHeader}>
-                                        <FiDatabase aria-hidden="true" /> <span>FORENSIC DATA READOUT [SECURE]</span>
+                                        <FiDatabase aria-hidden="true" /> <span>AUDIT LINE</span>
+                                        <button type="button" className={styles.resetBtn} onClick={(e) => copyLine(e, log)} aria-label="Copy this line">
+                                            {copiedId === log.id ? 'COPIED' : 'COPY LINE'}
+                                        </button>
                                     </div>
+                                    {/* fix181 (13.11): the facts an auditor quotes: code, exact time, person, row id */}
+                                    <dl className={styles.factList}>
+                                        <dt>Code</dt><dd>{log.action}</dd>
+                                        <dt>Time</dt><dd>{plainStamp(log.timestamp)}</dd>
+                                        <dt>Operator</dt><dd>{log.performedBy}</dd>
+                                        <dt>Row id</dt><dd>{log.id}</dd>
+                                    </dl>
                                     <pre className={styles.rawOutput}><code>{log.details}</code></pre>
                                 </div>
                             </div>
