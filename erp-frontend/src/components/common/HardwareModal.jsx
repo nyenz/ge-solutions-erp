@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/common/HardwareModal.jsx
+import { portalRoot } from './portalRoot';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
@@ -31,9 +32,7 @@ const HardwareModal = ({ isOpen, onClose, title, children, lockBackdrop = false,
 
                 <div className={styles.footerGlow}></div>
             </div>
-        </div>,
-        document.body
-    );
+        </div>, portalRoot());
 };
 
 export default HardwareModal;

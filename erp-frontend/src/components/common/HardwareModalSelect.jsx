@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/common/HardwareModalSelect.jsx
+import { portalRoot, uiScale } from './portalRoot';
 import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { FiChevronDown, FiCheck } from 'react-icons/fi';
@@ -47,9 +48,12 @@ const HardwareModalSelect = ({
     const place = useCallback(() => {
         const el = triggerRef.current;
         if (!el) return;
-        const r = el.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+        // fix181 (15.1b): the panel is drawn inside the zoomed #root -- work in its pixels
+        const k = uiScale();
+        const sr = el.getBoundingClientRect();
+        const r = { left: sr.left / k, top: sr.top / k, bottom: sr.bottom / k, width: sr.width / k };
+        const vw = window.innerWidth / k;
+        const vh = window.innerHeight / k;
         const width = Math.min(Math.max(r.width, MIN_W), vw - EDGE * 2);
         const left = Math.max(EDGE, Math.min(r.left, vw - width - EDGE));
         const below = vh - r.bottom - GAP - EDGE;
@@ -192,9 +196,7 @@ const HardwareModalSelect = ({
                             {opt.value === value && <FiCheck className={styles.check} aria-hidden="true" />}
                         </div>
                     ))}
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
         </div>
     );
 };

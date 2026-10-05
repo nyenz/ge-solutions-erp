@@ -91,15 +91,15 @@ body {
     font-family: 'Inter', -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     background: var(--navy); /* Fallback color before Circuit Background loads */
-    min-height: 100vh;
+    min-height: 100vh;   /* body is outside the zoomed #root: the plain screen size is right here */
     width: 100vw;
     overflow: hidden; /* THE HANDBRAKE: Keeps card away from edges */
     color: var(--text-light);
 }
 
 #root {
-    height: 100vh;
-    width: 100vw;
+    height: var(--app-vh);
+    width: var(--app-vw);
 }
 
 /* ===== GLOBAL NUMBER INPUT SPINNER THEME =====
@@ -344,6 +344,11 @@ input[type="search"]::-webkit-search-results-decoration {
    ================================================================== */
 :root {
     --ui-scale: 1;
+    /* fix181 (15.1a): #root is zoomed by --ui-scale, so a plain 100vh/100vw inside it becomes 125% of the screen at
+       125% (the bottom was cut off) and 90% at 90% (an empty strip). These two are the real screen size inside #root.
+       Checked in Chromium at 90, 100 and 125 percent. */
+    --app-vh: calc(100vh / var(--ui-scale, 1));
+    --app-vw: calc(100vw / var(--ui-scale, 1));
 
     /* The page background is built from these two in
        CircuitBackground.module.css, which is what makes a dark page

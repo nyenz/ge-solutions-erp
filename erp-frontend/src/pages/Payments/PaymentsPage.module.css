@@ -378,7 +378,7 @@
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
 /* Ledger table behaviour: table scrolls inside its own box, header pinned to that box */
-.tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
+.tableScroll { max-height: calc(var(--app-vh) - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .ledgerTable th { z-index: 5; box-shadow: 0 1px 0 #EE8C3A; }
 

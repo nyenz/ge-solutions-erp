@@ -7,6 +7,7 @@
 // head bar recolors per section (orange/cyan/violet/red/slate) the way
 // Report Studio's own panels stay orange throughout. Same CornerDecor
 // brackets, same click-anywhere collapsible head, same button language.
+import { portalRoot } from '../../components/common/portalRoot';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown, FiArchive } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
@@ -151,7 +152,7 @@ const SettingsPage = () => {
             <span className={styles.toastMsg}>{t.message}</span>
             <button className={styles.toastClose} onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} aria-label="Dismiss"><FiX aria-hidden="true" /></button>
           </div>))}
-        </div>, document.body)}
+        </div>, portalRoot())}
       <header className={styles.pageHeader}>
         <div className={styles.pageHeaderLeft}>
           <h1 className={styles.title}>Settings</h1>

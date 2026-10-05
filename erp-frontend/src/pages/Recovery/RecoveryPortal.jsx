@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { portalRoot } from '../../components/common/portalRoot';
 import { roleFlags } from '../../utils/roles';
 import { useSearchParams } from 'react-router-dom';
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
@@ -294,9 +295,7 @@ export default function RecoveryPortal() {
       {typeof document !== 'undefined' && ReactDOM.createPortal(
         <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
           {toasts.map((t) => (<div key={t.id} className={`${styles.toast} ${styles['toast_' + t.type]}`}>{t.msg}</div>))}
-        </div>,
-        document.body
-      )}
+        </div>, portalRoot())}
     </div>
   );
 }

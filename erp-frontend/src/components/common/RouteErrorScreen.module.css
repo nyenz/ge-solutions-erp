@@ -1,7 +1,7 @@
 /* PATH: erp-frontend/src/components/common/RouteErrorScreen.module.css */
 /* fix122: styled crash screen - app design language instead of router debug box */
 .wrap {
-  min-height: 100vh;
+  min-height: var(--app-vh);
   display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 30%, #213E40 0%, #1a2e30 70%);
   padding: clamp(16px, 4vw, 40px);

@@ -2,6 +2,7 @@
 // fix167: folder page review pass. Ticks show in view AND edit mode (and arrive from New Project), popups show their
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
+import { portalRoot } from '../../components/common/portalRoot';
 import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -89,13 +90,13 @@ const ToastContainer = ({ toasts, onDismiss }) => {
             <span className={styles.toastMsg}>{t.message}</span>
             <button type="button" className={styles.toastClose} onClick={() => onDismiss(t.id)} aria-label="Dismiss" title="Close"><FiX aria-hidden="true" /></button>
         </div>))}
-    </div>, document.body);
+    </div>, portalRoot());
 };
 const SavingOverlay = ({ visible }) => {
     if (!visible || typeof document === 'undefined') return null;
     return createPortal(<div className={styles.savingOverlay} role="status" aria-label="Saving">
         <div className={styles.savingSpinner} aria-hidden="true" /><span className={styles.savingLabel}>SAVING...</span>
-    </div>, document.body);
+    </div>, portalRoot());
 };
 const DrawerHeader = ({ label, count, isOpen, onClick, icon: Icon }) => (
     <div className={styles.drawerHeader} onClick={onClick} role="button" tabIndex={0} aria-expanded={isOpen}
@@ -1364,7 +1365,7 @@ const FolderPage = () => {
                                 : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={docPreview.url} alt={docPreview.name} />}
                         </div>
                     </div>
-                </div>, document.body)}
+                </div>, portalRoot())}
             <HardwareModal isOpen={!!uploadDraft} lockBackdrop onClose={closeUploadDraft} title={uploadDraft && uploadDraft.statusName ? 'UPLOAD DOCUMENTS - ' + uploadDraft.statusName.toUpperCase() : 'UPLOAD DOCUMENTS'}>
                 {uploadDraft && (<>
                     {uploadDraft.statusName && <div className={modalStyles.modalInfoBox}>These files are attached to the status &quot;{uploadDraft.statusName}&quot;. They also show in Documents.</div>}

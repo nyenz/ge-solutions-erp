@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import { portalRoot } from '../../components/common/portalRoot';
 import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
@@ -1006,7 +1007,7 @@ export default function IntakePage() {
                                 : <img className={`${styles.pvMedia} ${styles.pvImg}`} src={previewFile.url} alt={previewFile.name} />}
                         </div>
                     </div>
-                </div>, document.body)}
+                </div>, portalRoot())}
             {blocker.state === 'blocked' && typeof document !== 'undefined' && createPortal(
                 <div className={styles.modalOverlay} onClick={() => blocker.reset()}>
                     <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
@@ -1021,18 +1022,14 @@ export default function IntakePage() {
                         </div>
                         <p className={styles.modalHint}>Click outside or press Esc to keep editing</p>
                     </div>
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
 
             {typeof document !== 'undefined' && createPortal(
                 <div className={styles.toastStack} role="region" aria-label="Notifications" aria-live="polite">
                     {toasts.map(t => (
                         <div key={t.id} className={`${styles.toast} ${styles['toast_' + (t.type || 'info')]}`}>{t.msg}</div>
                     ))}
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
         </div>
     );
 }

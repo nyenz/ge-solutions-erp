@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/common/UnsavedChangesModal.jsx
+import { portalRoot } from './portalRoot';
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertTriangle, FiLogOut, FiX } from 'react-icons/fi';
@@ -55,9 +56,7 @@ const UnsavedChangesModal = ({ isOpen, onStay, onLeave, context = 'this form' })
 
                 <div className={modal.footerGlow} />
             </div>
-        </div>,
-        document.body
-    );
+        </div>, portalRoot());
 };
 
 export default UnsavedChangesModal;

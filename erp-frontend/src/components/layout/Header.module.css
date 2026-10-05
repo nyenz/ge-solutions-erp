@@ -365,8 +365,8 @@
     top: calc(100% + 8px);
     right: 0;
     z-index: 10;
-    width: min(460px, calc(100vw - 16px));
-    max-height: calc(100vh - var(--header-height, 64px) - 24px);
+    width: min(460px, calc(var(--app-vw) - 16px));
+    max-height: calc(var(--app-vh) - var(--header-height, 64px) - 24px);
     display: flex;
     flex-direction: column;
     background: #f3f6f6;
@@ -496,7 +496,7 @@
 .notifList {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: min(340px, calc(100vh - var(--header-height, 64px) - 190px));
+    max-height: min(340px, calc(var(--app-vh) - var(--header-height, 64px) - 190px));
     overflow-y: auto;
     overflow-x: hidden;
     background: #f3f6f6;
@@ -634,6 +634,6 @@
         left: 8px;
         right: 8px;
         width: auto;
-        max-height: calc(100vh - var(--header-height) - 16px);
+        max-height: calc(var(--app-vh) - var(--header-height) - 16px);
     }
 }

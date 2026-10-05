@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/common/HardwareDatePicker.jsx
+import { portalRoot, uiScale } from './portalRoot';
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -57,10 +58,14 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
         const p = parse(value) || todayParts();
         setView({ y: p.y, m: p.m });
         if (inputRef.current) {
+            // fix181 (15.1b): the card is drawn inside the zoomed #root, so screen pixels are turned into its pixels
+            const k = uiScale();
             const r = inputRef.current.getBoundingClientRect();
-            const left = Math.max(8, Math.min(r.left, window.innerWidth - POP_W - 8));
-            let top = r.bottom + 6;
-            if (top + POP_H > window.innerHeight - 8 && r.top - POP_H - 6 > 8) top = r.top - POP_H - 6;
+            const vw = window.innerWidth / k, vh = window.innerHeight / k;
+            const fl = r.left / k, fb = r.bottom / k, ft = r.top / k;
+            const left = Math.max(8, Math.min(fl, vw - POP_W - 8));
+            let top = fb + 6;
+            if (top + POP_H > vh - 8 && ft - POP_H - 6 > 8) top = ft - POP_H - 6;
             setPos({ top, left });
         }
         setOpen(true);
@@ -163,9 +168,7 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
                         <button type="button" className={styles.footBtn} onClick={() => pick('')}>Clear</button>
                         <button type="button" className={`${styles.footBtn} ${styles.footBtnHot}`} onClick={() => pick(toValue(now.y, now.m, now.d))}>Today</button>
                     </div>
-                </div>,
-                document.body
-            )}
+                </div>, portalRoot())}
         </div>
     );
 };

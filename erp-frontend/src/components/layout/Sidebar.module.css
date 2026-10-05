@@ -8,7 +8,7 @@
     --sidebar-width:           200px;
 
     width: var(--sidebar-width);
-    height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
+    height: calc(var(--app-vh) - var(--header-height, clamp(52px, 7vw, 64px)));
     background: linear-gradient(165deg, #16292b 0%, #1c3335 45%, #213e40 100%);
     border-right: 2px solid rgba(238, 140, 58, 0.3);
     position: relative;
@@ -209,7 +209,7 @@
         position: fixed;
         left: 0;
         top: var(--header-height, clamp(52px, 7vw, 64px));
-        height: calc(100vh - var(--header-height, clamp(52px, 7vw, 64px)));
+        height: calc(var(--app-vh) - var(--header-height, clamp(52px, 7vw, 64px)));
         width: 200px;
         box-shadow: 15px 0 40px rgba(0, 0, 0, 0.7);
         overflow: hidden;

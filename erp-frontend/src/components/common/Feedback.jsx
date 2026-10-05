@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/components/common/Feedback.jsx
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { portalRoot } from './portalRoot';
 import {
     FiCheckCircle, FiAlertTriangle, FiAlertOctagon, FiInfo, FiX, FiTrash2,
 } from 'react-icons/fi';
@@ -40,7 +41,7 @@ export const ToastStack = ({ toasts, onDismiss }) => {
                 </div>
             ))}
         </div>,
-        document.body,
+        portalRoot(),
     );
 };
 
@@ -76,6 +77,6 @@ export const ConfirmDialog = ({ state, onAnswer }) => {
                 </div>
             </div>
         </div>,
-        document.body,
+        portalRoot(),
     );
 };
