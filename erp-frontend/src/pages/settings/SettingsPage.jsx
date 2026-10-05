@@ -54,7 +54,7 @@ const PREF_SECTIONS = ['Display', 'Interaction', 'Notifications'].map(name => ({
 }));
 
 const SettingsPage = () => {
-  const { user } = useAuth();
+  const { user, updateSession } = useAuth();
   const { prefs, setPref, resetPrefs } = usePreferences();
   const isRoot = !!user?.isRoot;
   /* One tab is on screen at a time now (Report Studio dataset-tile spec),
@@ -95,7 +95,11 @@ const SettingsPage = () => {
   useEffect(() => { loadOps(); loadDeleted(); }, [loadOps, loadDeleted]);
   const changePw = async () => {
     setSavingPw(true);
-    try { await settingsService.changePersonalPassword(oldPw, newPw); toast('Security key updated.', 'success'); setOldPw(''); setNewPw(''); }
+    try {
+      const res = await settingsService.changePersonalPassword(oldPw, newPw);
+      updateSession(res);   // fix181: this device keeps working with the new token; other devices are signed out
+      toast('Security key updated. Other devices were signed out.', 'success'); setOldPw(''); setNewPw('');
+    }
     catch (e) { toast(e.message, 'error'); }
     finally { setSavingPw(false); }
   };

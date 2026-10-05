@@ -16,10 +16,13 @@ const LoginPage = () => {
     const [error, setError] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('reason') === 'session_conflict') {
-            return 'Your session ended because this account signed in on another device.';
+            return 'You were signed out: this account signed in somewhere else, signed out, or its key or rank was changed.';
         }
         if (params.get('reason') === 'session_expired') {
-            return 'Your session ended because this account signed in on another device.';
+            return 'Your sign-in expired. Please sign in again.';
+        }
+        if (params.get('reason') === 'suspended') {
+            return 'This account is suspended. Ask the Director.';
         }
         if (params.get('reason') === 'idle_timeout') {
             return 'SESSION EXPIRED: You were logged out after 30 minutes of inactivity.';

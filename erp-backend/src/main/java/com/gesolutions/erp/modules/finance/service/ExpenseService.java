@@ -78,7 +78,7 @@ public class ExpenseService {
                 .build();
         ExpensePreset saved = presetRepository.save(preset);
 
-        auditService.logAction("EXPENSE_PRESET_CREATED",
+        auditService.logActionAfterCommit("EXPENSE_PRESET_CREATED",
             "Operator [" + getCurrentOperator() + "] created expense preset: " + trimmed);
 
         return saved;
@@ -113,7 +113,7 @@ public class ExpenseService {
 
         Expense saved = expenseRepository.save(expense);
 
-        auditService.logAction("EXPENSE_LOGGED",
+        auditService.logActionAfterCommit("EXPENSE_LOGGED",
             "Operator [" + getCurrentOperator() + "] logged expense: " + category
             + " -- UGX " + amount
             + (cleanSpentBy != null ? " (spent by " + cleanSpentBy + ")" : ""));
@@ -161,7 +161,7 @@ public class ExpenseService {
 
         Expense saved = expenseRepository.save(expense);
 
-        auditService.logAction("EXPENSE_EDITED",
+        auditService.logActionAfterCommit("EXPENSE_EDITED",
             "Operator [" + getCurrentOperator() + "] edited expense (originally logged by "
             + saved.getRecordedBy() + "): " + oldCategory + " UGX " + oldAmount
             + " -> " + category + " UGX " + amount);
@@ -184,7 +184,7 @@ public class ExpenseService {
                 .orElseThrow(() -> new BusinessException("EXPENSE_NOT_FOUND"));
         expenseRepository.delete(expense);
 
-        auditService.logAction("EXPENSE_DELETED",
+        auditService.logActionAfterCommit("EXPENSE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted expense: " + expense.getCategory()
             + " -- UGX " + expense.getAmount() + " (originally logged by " + expense.getRecordedBy() + ")");
 

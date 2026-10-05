@@ -47,11 +47,7 @@ public class MailService {
             }
         }
 
-        System.out.println("\n=======================================================");
-        System.out.println(">>> RECOVERY TOKEN INTERCEPTED FOR QA TESTING");
-        System.out.println(">>> (SMTP disabled or failed. Bypassing.)");
-        System.out.println(">>> EMAIL TO: " + recipientEmail);
-        System.out.println(">>> TOKEN:    " + token);
-        System.out.println("=======================================================\n");
+        // fix181: a recovery code is NEVER printed to the server log (anyone with log access could read it).
+        System.out.println(">>> [MAIL] Mail is off; no recovery email sent to " + recipientEmail + ".");
     }
 }

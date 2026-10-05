@@ -17,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
     "ADMIN_EMAIL=test@gesolutions.com",
     "ADMIN_DEFAULT_PASSWORD=TestPassword123",
     "MAIL_USERNAME=test@gmail.com",
-    "MAIL_PASSWORD=testpassword"
+    "MAIL_PASSWORD=testpassword",
+    // the Postgres-only init SQL from application.properties cannot run on H2
+    "spring.datasource.hikari.connection-init-sql=SELECT 1"
 })
 class ErpBackendApplicationTests {
 

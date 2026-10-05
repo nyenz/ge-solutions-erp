@@ -115,7 +115,7 @@ public class FolderPortalController {
         p.setOriginalDebt(owed.max(BigDecimal.ZERO));
         p.setStatus("RECEIVABLE");
         projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);
+        auditService.logActionAfterCommit("RECEIVABLE_ENTER", "Operator [" + op() + "] moved project #" + p.getProjectIndex() + " into receivables. Debt frozen at UGX " + owed.max(BigDecimal.ZERO).toPlainString() + ". Reason: " + enterWhy);
         return receivable(id);
     }
 
@@ -153,20 +153,20 @@ public class FolderPortalController {
             p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
+            auditService.logActionAfterCommit("FEES_WAIVED", "Operator [" + op() + "] waived UGX " + feesUnpaid.toPlainString() + " of unpaid storage fees on #" + p.getProjectIndex()
                     + (feesPaid.signum() > 0 ? " (UGX " + feesPaid.toPlainString() + " already paid toward fees stays counted: total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(feesPaid).toPlainString() + ")" : "")
                     + ". Reason: " + reason);
         } else if ("CAPITALIZE".equals(action)) {
             p.setTotalCost(costBefore.add(fees));
             p.setStorageFeesAccumulated(BigDecimal.ZERO);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
+            auditService.logActionAfterCommit("FEES_CAPITALIZED", "Operator [" + op() + "] capitalized UGX " + fees.toPlainString() + " of storage fees into total cost on #" + p.getProjectIndex()
                     + " (total cost UGX " + costBefore.toPlainString() + " -> UGX " + costBefore.add(fees).toPlainString() + "). Reason: " + reason);
         } else {
             p.setTotalCost(costBefore.add(feesPaid));
             p.setStorageFeesAccumulated(feesUnpaid);
             p.setStorageFeesPaid(BigDecimal.ZERO);
-            auditService.logAction("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
+            auditService.logActionAfterCommit("RECEIVABLE_SET_ASIDE", "Operator [" + op() + "] set aside #" + p.getProjectIndex() + " (UGX " + feesUnpaid.toPlainString()
                     + " of unpaid fees kept, billing stopped"
                     + (feesPaid.signum() > 0 ? "; UGX " + feesPaid.toPlainString() + " of paid fees moved into the total cost" : "") + "). Reason: " + reason);
         }
@@ -217,7 +217,7 @@ public class FolderPortalController {
                 .notes((want ? "[PROBLEM] " : "[PROBLEM CLEARED] ") + why).recordedBy(op()).build());
         String plot = (p.getLandTitle() != null && p.getLandTitle().getPlotNumber() != null)
                 ? p.getLandTitle().getPlotNumber() : "project #" + p.getProjectIndex();
-        auditService.logAction("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
+        auditService.logActionAfterCommit("PROBLEM_FLAG", "Operator [" + op() + "] " + (want ? "flagged" : "cleared") + " PROBLEM on #" + p.getProjectIndex() + ": " + why + ".");
         if (want) {
             // fix135: only FLAGGING notifies (clearing is not news). emitRaw, not emit,
             // because emit() dedupes forever per type+entity and a plot can be flagged twice.
@@ -261,7 +261,7 @@ public class FolderPortalController {
         }
         p.setStorageFeesAccumulated(target);
         projectRepository.save(p);
-        auditService.logAction("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
+        auditService.logActionAfterCommit("FEES_REDUCED", "Operator [" + op() + "] reduced storage fees on #" + p.getProjectIndex()
                 + " from UGX " + current.toPlainString() + " to UGX " + target.toPlainString() + ". Reason: " + why);
         return receivable(id);
     }
@@ -335,7 +335,7 @@ public class FolderPortalController {
             p.setNegotiationDeadline(newDeadline);
         }
         projectRepository.save(p);
-        auditService.logAction("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
+        auditService.logActionAfterCommit("RECEIVABLE_SETTINGS", "Operator [" + op() + "] updated receivable settings on #" + p.getProjectIndex()
                 + " (monthly rate: " + (oldRate != null ? "UGX " + oldRate.toPlainString() : "default") + " -> " + (newRate != null ? "UGX " + newRate.toPlainString() : "default")
                 + ", fees paused until: " + (oldDeadline != null ? oldDeadline.toLocalDate().toString() : (p.isStoragePaused() ? "paused" : "not paused"))
                 + " -> " + (resume ? "RESUMED now" : (p.getNegotiationDeadline() != null ? p.getNegotiationDeadline().toLocalDate().toString() : "not paused")) + ")"

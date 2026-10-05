@@ -18,6 +18,7 @@ public class DataInitializer implements CommandLineRunner {
     private final StatusTemplateService statusTemplateService;
     private final ExpensePresetRepository expensePresetRepository;
     private final ScenarioSeeder scenarioSeeder;
+    private final com.gesolutions.erp.common.audit.AuditService auditService;
         @Value("${ADMIN_EMAIL}") private String adminEmail;
     @Value("${ADMIN_DEFAULT_PASSWORD}") private String adminDefaultPassword;
     @Override
@@ -25,6 +26,7 @@ public class DataInitializer implements CommandLineRunner {
         try {
             System.out.println(">>> GOLDEN SEED SYSTEM: Verifying Master Identity Registry...");
             runSchemaMigrations();
+            markTimeZoneChangeOnce();
             seedRootUser();
             statusTemplateService.seedDefaultStatusesIfEmpty();
             seedScenarioDataOnce();
@@ -45,6 +47,23 @@ public class DataInitializer implements CommandLineRunner {
     // stays the same because SystemAdminController calls it after a full wipe.
     public void seedScenarioDataOnce() {
         scenarioSeeder.seedOnce();
+    }
+
+    // fix181: the server moved to Uganda time. ONE audit line marks where that happened, so a reader knows that
+    // times before it are about 3 hours different. Written once (flag row in app_flags).
+    private void markTimeZoneChangeOnce() {
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE IF NOT EXISTS app_flags (name VARCHAR(60) PRIMARY KEY, set_at TIMESTAMP)");
+            boolean done;
+            try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM app_flags WHERE name = 'TZ_KAMPALA'")) {
+                done = rs.next() && rs.getInt(1) > 0;
+            }
+            if (done) return;
+            st.execute("INSERT INTO app_flags (name, set_at) VALUES ('TZ_KAMPALA', CURRENT_TIMESTAMP)");
+            auditService.logAction("TIMEZONE_CHANGED", "The server now runs on Uganda time (Africa/Kampala). Times before this line were saved in the old server zone (UTC) and are about 3 hours different.");
+        } catch (Exception e) {
+            System.err.println(">>> [TZ] marker skipped: " + e.getMessage());
+        }
     }
 
     // ---------- schema migrations (unchanged) ----------

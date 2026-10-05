@@ -66,7 +66,7 @@ public class StaffManagementService {
             // today, but that is a Hibernate implementation detail and the
             // notification would carry a null entityId the day it changes.
             User saved = userRepository.save(newUser);
-            auditService.logAction("OPERATOR_PROVISIONED", 
+            auditService.logActionAfterCommit("OPERATOR_PROVISIONED", 
                 "New " + initialRole + " account created: " + request.getUsername());
             notificationService.emitRaw("STAFF_PROVISIONED", "INFO",
                 "Operator " + request.getUsername() + " provisioned as "
@@ -100,7 +100,7 @@ public class StaffManagementService {
         target.setRole(newRole);
         userRepository.save(target);
 
-        auditService.logAction("RANK_ADJUSTMENT", 
+        auditService.logActionAfterCommit("RANK_ADJUSTMENT", 
             "Operator " + username + " rank shifted to " + newRole);
         notificationService.emitRaw("STAFF_ROLE_CHANGED", "WARN",
             "Operator " + username + " is now "
@@ -124,7 +124,7 @@ public class StaffManagementService {
         userRepository.save(target);
 
         String stateName = active ? "ACTIVATED" : "SUSPENDED";
-        auditService.logAction("OPERATOR_STATUS_CHANGE", "Account [" + username + "] moved to " + stateName);
+        auditService.logActionAfterCommit("OPERATOR_STATUS_CHANGE", "Account [" + username + "] moved to " + stateName);
         notificationService.emitRaw(
             active ? "STAFF_ACTIVATED" : "STAFF_SUSPENDED",
             active ? "POSITIVE" : "WARN",
@@ -145,7 +145,7 @@ public class StaffManagementService {
         user.setMustChangePassword(true);
         
         userRepository.save(user);
-        auditService.logAction("CREDENTIAL_RESET", "Temporary key generated for: " + username);
+        auditService.logActionAfterCommit("CREDENTIAL_RESET", "Temporary key generated for: " + username);
         notificationService.emitRaw("KEY_RESET", "WARN",
             "Security key reset for " + username + ". They must change it at next sign in.",
             "STAFF", user.getId(), "ROLE_DIRECTOR");

@@ -71,7 +71,7 @@ public class ReportService {
                    .append(p.getStatus()).append(NEW_LINE);
             }
         }
-        auditService.logAction("REPORT_EXPORT", "Pillar 1: Debt Ledger Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Pillar 1: Debt Ledger Exported");
         return csv.toString().getBytes();
     }
 
@@ -237,7 +237,7 @@ public class ReportService {
                .append(pay.getRecordedBy()).append(CSV_DIVIDER)
                .append(notes).append(NEW_LINE);
         }
-        auditService.logAction("REPORT_EXPORT", "Pillar 8: Full Payment History Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Pillar 8: Full Payment History Exported");
         return csv.toString().getBytes();
     }
 
@@ -279,7 +279,7 @@ public class ReportService {
                .append(p.storagePaidSafe()).append(CSV_DIVIDER)
                .append(p.storageUnpaid()).append(NEW_LINE);
         }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Receivable Breakdown Report Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Priority 2: Receivable Breakdown Report Exported");
         return csv.toString().getBytes();
     }
 
@@ -309,7 +309,7 @@ public class ReportService {
                .append(p.getAmountPaid()).append(CSV_DIVIDER)
                .append(released ? "RELEASED" : "FULLY_PAID_PENDING_RELEASE").append(NEW_LINE);
         }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Completed Titles Report Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Priority 2: Completed Titles Report Exported");
         return csv.toString().getBytes();
     }
 
@@ -347,7 +347,7 @@ public class ReportService {
                    .append(lastDate).append(NEW_LINE);
             });
 
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Operator Cash Reconciliation Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Priority 2: Operator Cash Reconciliation Exported");
         return csv.toString().getBytes();
     }
 
@@ -379,7 +379,7 @@ public class ReportService {
                    .append("--").append(NEW_LINE);
             }
         }
-        auditService.logAction("REPORT_EXPORT", "Priority 2: Monthly Collection Report Exported");
+        auditService.logActionAfterCommit("REPORT_EXPORT", "Priority 2: Monthly Collection Report Exported");
         return csv.toString().getBytes();
     }
 }

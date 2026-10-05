@@ -14,8 +14,9 @@ const settingsService = {
      */
     changePersonalPassword: async (oldPassword, newPassword) => {
         try {
-            await api.put('/profile/change-password', { oldPassword, newPassword });
-            return true;
+            // fix181: the server signs out every other device and returns a fresh token + user for THIS device
+            const response = await api.put('/profile/change-password', { oldPassword, newPassword });
+            return response.data;
         } catch (error) {
             // VITAL FIX: We pull the REAL reason from the response.
             // If it's a CORS block, this will likely say "Network Error".

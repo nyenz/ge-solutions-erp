@@ -3,11 +3,12 @@ package com.gesolutions.erp.common.audit;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -16,7 +17,20 @@ import java.util.UUID;
  * Physically manages the retrieval of system footprints.
  * Standardized for multi-axis filtering and specific interaction tracing.
  */
-public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
+// fix181: APPEND-ONLY. The audit trail is evidence, so this repository can only add and read lines: there is no delete,
+// update or deleteAll here on purpose (AuditLogRepositoryTest fails if one is added). The real protection is the
+// database password; this stops accidents in code.
+public interface AuditLogRepository extends Repository<AuditLog, UUID> {
+
+    AuditLog save(AuditLog log);
+
+    <S extends AuditLog> List<S> saveAll(Iterable<S> logs);
+
+    List<AuditLog> findAll();
+
+    Page<AuditLog> findAll(Pageable pageable);
+
+    long count();
 
     /**
      * MULTI-AXIS FORENSIC SEARCH (Hardened Version)

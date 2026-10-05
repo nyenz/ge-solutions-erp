@@ -40,12 +40,7 @@ public class ApplicationConfig {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("Operator missing in registry: " + username));
 
-            // Defensive diagnostics -- visible in Render deploy logs
-            System.out.println(">>> [UDS] loadUserByUsername('" + username + "')");
-            System.out.println(">>>   isActive=" + user.isActive()
-                + "  role=" + user.getRole()
-                + "  passwordHashPrefix=" + (user.getPassword() != null ? user.getPassword().substring(0, Math.min(15, user.getPassword().length())) : "NULL"));
-
+            // fix181: nothing about the password (not even part of its hash) is printed to the log any more.
             if (user.getRole() == null) {
                 throw new UsernameNotFoundException("Operator '" + username + "' has NULL role -- cannot build authorities");
             }

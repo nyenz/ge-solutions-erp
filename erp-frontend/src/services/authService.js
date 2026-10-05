@@ -59,6 +59,7 @@ const authService = {
     },
 
     logout: () => {
+        try { api.post('/auth/logout').catch(() => {}); } catch { /* ignore */ }
         localStorage.removeItem('gs_token');
         localStorage.removeItem('gs_user');
         window.location.href = '/login';

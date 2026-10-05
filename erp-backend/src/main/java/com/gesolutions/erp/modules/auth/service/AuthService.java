@@ -9,102 +9,80 @@ import com.gesolutions.erp.config.JwtService;
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
- * GOLDEN SEED ERP - AUTHENTICATION & RECOVERY ENGINE (V2.0 - REBOOT)
- * 
- * Manages the Secure Identity Handshake.
+ * GOLDEN SEED ERP - SIGN-IN (fix181)
+ *
+ * The username is trimmed and matched without caring about capital letters (phone keyboards turn "mary" into "Mary").
+ * The key is checked FIRST; only a person who typed the right key is told that the account is suspended or that the
+ * temporary key has expired (a stranger with a wrong key learns nothing). Every failure is a BusinessException (HTTP
+ * 400), never 401: the page treats 401 as "signed out" and would reload the sign-in screen on every wrong key.
  */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
-    private final UserRepository userRepository; 
+    private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuditService auditService;
-    private final MailService mailService;
     private final PasswordEncoder passwordEncoder;
 
-    /**
-     * AUTHORIZE OPERATOR
-     * Returns the full Identity Binder to the UI.
-     */
     @Transactional
-    public LoginResponse authenticate(LoginRequest request) {
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-            );
-        } catch (Exception e) {
-            // DIAGNOSTIC: Log the REAL cause so we can see it in Render logs
-            System.err.println(">>> [AUTH_FAULT] authenticate() threw: " + e.getClass().getName() + " -- " + e.getMessage());
-            throw new BusinessException("IDENTIFICATION_FAILED: INVALID SECURITY KEY");
+    public LoginResponse authenticate(LoginRequest request, String ip) {
+        String typed = request.getUsername() == null ? "" : request.getUsername().trim();
+        User user = userRepository.findByUsernameIgnoreCase(typed).orElse(null);
+        if (user == null || request.getPassword() == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BusinessException("IDENTIFICATION_FAILED: Wrong username or key.");
         }
-
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new BusinessException("REGISTRY_ERROR: OPERATOR_MISSING"));
-
         if (!user.isActive()) {
-            throw new BusinessException("AUTHORITY_REVOKED: ACCOUNT_SUSPENDED");
+            throw new BusinessException("ACCOUNT_SUSPENDED: This account is suspended. Ask the Director.");
+        }
+        if (user.isMustChangePassword() && user.getTempKeyExpiresAt() != null && user.getTempKeyExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("KEY_EXPIRED: This temporary key has expired. Ask the Director for a new key.");
         }
 
-        // Increment session version — invalidates all previously issued tokens
-        user.setSessionVersion(user.getSessionVersion() + 1);
+        // a new session signs out every other device of this account (one account, one device at a time)
+        user.bumpSessionVersion();
         userRepository.save(user);
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
-        // Embed sessionVersion in JWT so we can validate it on every request
+        LoginResponse response = buildResponse(user);
+        auditService.logActionAs(user.getUsername(), "LOGIN_SUCCESS",
+                "Operator session established: " + user.getUsername() + " from IP " + ip);
+        return response;
+    }
+
+    /** A token plus the user block the page keeps (also used after the own key change). */
+    public LoginResponse buildResponse(User user) {
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
         java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
         extraClaims.put("sv", user.getSessionVersion());
         String token = jwtService.generateToken(extraClaims, userDetails);
-
-        auditService.logAction("LOGIN_SUCCESS", "Operator session established: " + user.getUsername());
-
         return LoginResponse.builder()
                 .token(token)
                 .user(LoginResponse.UserData.builder()
                         .id(user.getId())
                         .username(user.getUsername())
                         .role(user.getRole())
-                        .isRoot(user.isRoot()) 
+                        .isRoot(user.isRoot())
                         .mustChangePassword(user.isMustChangePassword())
                         .build())
                 .build();
     }
 
-    /**
-     * ROOT RECOVERY PROTOCOL
-     * Fires SMTP reset and forces a password change.
-     */
+    /** fix181: SIGN OUT on the server, so a copied token stops working too. */
     @Transactional
-    public void initiateRootRecovery(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException("IDENTITY_FAULT: EMAIL_NOT_FOUND"));
-
-        if (!user.isRoot()) {
-            throw new BusinessException("ACCESS_DENIED: ONLY MASTER FOUNDER AUTHORIZED FOR SELF-RECOVERY.");
-        }
-
-        // Generate Code (Example: NY-REC-48291)
-        String recoveryToken = "NY-REC-" + (10000 + (int)(Math.random() * 90000));
-        
-        // PHYSICALLY REWRITE HASH
-        user.setPassword(passwordEncoder.encode(recoveryToken));
-        user.setMustChangePassword(true); // RE-ENABLE THE TRAP
-        userRepository.save(user);
-
-        // Transmit Signal
-        mailService.sendRecoveryEmail(user.getEmail(), recoveryToken);
-
-        auditService.logAction("ROOT_RECOVERY_TRIGGERED", "Emergency token transmitted to Master Owner.");
+    public void logout(String username) {
+        userRepository.findByUsername(username).ifPresent(u -> {
+            u.bumpSessionVersion();
+            userRepository.save(u);
+        });
     }
 }

@@ -70,7 +70,7 @@ public class LandService {
     public void logUnlockAction(UUID id) {
         LandProject project = projectRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
-        auditService.logAction("EDIT_MODE_OPENED",
+        auditService.logActionAfterCommit("EDIT_MODE_OPENED",
             "Operator [" + getCurrentOperator() + "] opened edit mode for plot: "
             + plotLabel(project));
     }
@@ -237,7 +237,7 @@ public class LandService {
             project.setReceivable(false);
             project.setStatus("ACTIVE");
             projectRepository.save(project);
-            auditService.logAction("RECEIVABLE_EXIT",
+            auditService.logActionAfterCommit("RECEIVABLE_EXIT",
                 "Operator [" + operator + "] -- Plot " + plotLabel(project)
                 + " EXITED RECEIVABLE after full payment clearance (UGX " + fees.toPlainString() + " of paid storage fees moved into the total cost).");
         } else {
@@ -255,7 +255,7 @@ public class LandService {
                 .client(owner).author(null).tag("payment received").tone("INFO").countsAsAttempt(false)
                 .text("Paid UGX " + amount + " on " + java.time.LocalDate.now() + ("STORAGE".equals(kind) ? " (storage fees)" : "")).build());
         }
-        auditService.logAction("PAYMENT_RECORDED",
+        auditService.logActionAfterCommit("PAYMENT_RECORDED",
             "Operator [" + operator + "] recorded UGX " + amount
             + " for plot: " + plotLabel(project)
             + " | Type: " + paymentType
@@ -611,12 +611,12 @@ public class LandService {
         String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
                 + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
         notificationService.emit("NEW_INTAKE", "INFO", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId(), "ROLE_MANAGER");
-        auditService.logAction("INTAKE",
+        auditService.logActionAfterCommit("INTAKE",
             "Operator [" + getCurrentOperator() + "] ingested binder: "
             + plotOrIndex + receivableNote + fix172Note);
 
         if (startAsReceivable) {
-            auditService.logAction("RECEIVABLE_TRIGGER",
+            auditService.logActionAfterCommit("RECEIVABLE_TRIGGER",
                 "Operator [" + getCurrentOperator() + "] flagged plot "
                 + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
                 + ". Storage fees: UGX " + initialFees.add(backlogFees)
@@ -819,7 +819,7 @@ public class LandService {
                 throw new BusinessException("SUBDIVISIONS_TOO_FEW: Plot " + highest + " was already transferred, so there must be at least " + highest + " subdivisions.");
             }
             if (!Integer.valueOf(want).equals(project.getSubdivisionCount())) {
-                auditService.logAction("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
+                auditService.logActionAfterCommit("SUBDIVISIONS_CHANGED", "Operator [" + getCurrentOperator() + "] changed the number of subdivisions of project #"
                         + project.getProjectIndex() + " from " + project.getSubdivisionCount() + " to " + want);
             }
             project.setSubdivisionCount(want);
@@ -905,7 +905,7 @@ public class LandService {
                         + ") is lower than the UGX " + titlePaidNow.toPlainString()
                         + " already paid. Reverse the extra payment first.");
             }
-            auditService.logAction("COST_CHANGED",
+            auditService.logActionAfterCommit("COST_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed total cost on " + plotLabel(project)
                 + " from UGX " + oldTotalCost.toPlainString() + " to UGX " + newTotalCost.toPlainString()
                 + ". Reason: " + costWhy);
@@ -923,25 +923,25 @@ public class LandService {
         }
 
         LandProject saved = projectRepository.save(project);
-        auditService.logAction("RECORD_UPDATED",
+        auditService.logActionAfterCommit("RECORD_UPDATED",
             "Operator [" + getCurrentOperator() + "] modified Binder: "
             + plotLabel(project));
         // fix166: a change of plot / title ID / tenure / block, or of the owners, is written with OLD -> NEW.
         String fix166NewTitle = fix166TitleLine(project.getLandTitle());
         if (!fix166OldTitle.equals(fix166NewTitle)) {
-            auditService.logAction("TITLE_FIELDS_CHANGED",
+            auditService.logActionAfterCommit("TITLE_FIELDS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the title details of project #" + project.getProjectIndex()
                 + ". Old: " + fix166OldTitle + " -> New: " + fix166NewTitle);
         }
         String fix166NewOwners = fix166OwnersLine(project);
         if (!fix166OldOwners.equals(fix166NewOwners)) {
-            auditService.logAction("OWNERS_CHANGED",
+            auditService.logActionAfterCommit("OWNERS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the owners of project #" + project.getProjectIndex()
                 + ". Old: " + fix166OldOwners + " -> New: " + fix166NewOwners);
         }
         String fix180NewClients = peopleLine(project.getClients());
         if (!fix180OldClients.equals(fix180NewClients)) {
-            auditService.logAction("CLIENTS_CHANGED",
+            auditService.logActionAfterCommit("CLIENTS_CHANGED",
                 "Operator [" + getCurrentOperator() + "] changed the clients of project #" + project.getProjectIndex()
                 + ". Old: " + fix180OldClients + " -> New: " + fix180NewClients);
         }
@@ -972,7 +972,7 @@ public class LandService {
         project.setDeletedAt(LocalDateTime.now());
         projectRepository.save(project);
 
-        auditService.logAction("RECORD_DELETED",
+        auditService.logActionAfterCommit("RECORD_DELETED",
             "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
         /* fix71: CRITICAL was a severity the frontend rendered and the backend
            never emitted. Deleting a plot is exactly what it is for. emitRaw,
@@ -995,7 +995,7 @@ public class LandService {
         project.setDeletedAt(null);
         projectRepository.save(project);
 
-        auditService.logAction("RECORD_RESTORED",
+        auditService.logActionAfterCommit("RECORD_RESTORED",
             "Root user [" + getCurrentOperator() + "] restored plot: " + plotNo);
         notificationService.emitRaw("PROJECT_RESTORED", "POSITIVE",
             "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
@@ -1076,7 +1076,7 @@ public class LandService {
                 .build();
         followUpRepository.save(entry);
 
-        auditService.logAction("RECOVERY_SYNC",
+        auditService.logActionAfterCommit("RECOVERY_SYNC",
             "Operator [" + operator + "] logged call for plot: "
             + plotLabel(project) + " (owner reached: " + ownerId + ")");
 
@@ -1142,7 +1142,7 @@ public class LandService {
                 .recordedBy(getCurrentOperator())
                 .build();
         followUpRepository.save(entry);
-        auditService.logAction("NOTE_ADDED",
+        auditService.logActionAfterCommit("NOTE_ADDED",
             "Operator [" + getCurrentOperator() + "] added note to " + plotLabel(project) + ": " + shortText(text));
     }
 
@@ -1158,7 +1158,7 @@ public class LandService {
         String before = log.getNotes();
         log.setNotes(text);
         followUpRepository.save(log);
-        auditService.logAction("NOTE_UPDATED",
+        auditService.logActionAfterCommit("NOTE_UPDATED",
             "Operator [" + getCurrentOperator() + "] edited a note. WAS: " + shortText(before) + " | NOW: " + shortText(text));
     }
 
@@ -1169,7 +1169,7 @@ public class LandService {
         requireNoteEditable(log);
         String before = log.getNotes();
         followUpRepository.delete(log);
-        auditService.logAction("NOTE_DELETED",
+        auditService.logActionAfterCommit("NOTE_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted a note: " + shortText(before));
     }
 
@@ -1231,7 +1231,7 @@ public class LandService {
                     .build();
             saved.add(documentRepository.save(doc));
         }
-        auditService.logAction("DOCUMENT_UPLOADED",
+        auditService.logActionAfterCommit("DOCUMENT_UPLOADED",
             "Operator [" + getCurrentOperator() + "] uploaded " + scans.length
             + " document(s) to plot: " + projectId
             + (statusName != null ? " (status: " + statusName + ")" : "")
@@ -1268,7 +1268,7 @@ public class LandService {
         }
         fileStorageService.deleteFile(doc.getFilePath());
         documentRepository.delete(doc);
-        auditService.logAction("DOCUMENT_DELETED",
+        auditService.logActionAfterCommit("DOCUMENT_DELETED",
             "Operator [" + getCurrentOperator() + "] deleted file: " + doc.getFileName()
             + (doc.getCategory() != null ? " (" + doc.getCategory() + ")" : "")
             + (docProject != null ? " from " + plotLabel(docProject) : ""));
@@ -1293,7 +1293,7 @@ public class LandService {
         project.setCurrentStatusIndex(targetStatus);
         if (targetStatus >= 5) project.setStatus("COMPLETED");
         projectRepository.save(project);
-        auditService.logAction("STATUS_OVERRIDE",
+        auditService.logActionAfterCommit("STATUS_OVERRIDE",
             "Operator [" + getCurrentOperator() + "] shifted plot "
             + plotLabel(project)
             + " from status " + oldStatus + " to status " + targetStatus);
@@ -1347,7 +1347,7 @@ public class LandService {
         projectRepository.save(project);
         followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
                 .notes("[HANDED OVER] " + why).recordedBy(getCurrentOperator()).build());
-        auditService.logAction("TITLE_RELEASED",
+        auditService.logActionAfterCommit("TITLE_RELEASED",
             "Operator [" + getCurrentOperator() + "] authorized handover for Plot: "
             + t.getPlotNumber() + ". Note: " + why);
         notificationService.emitRaw("TITLE_COMPLETED", "POSITIVE",
@@ -1412,7 +1412,7 @@ public class LandService {
                 .build();
         paymentRecordRepository.save(reversal);
         projectRepository.save(project);
-        auditService.logAction("PAYMENT_REVERSED",
+        auditService.logActionAfterCommit("PAYMENT_REVERSED",
             "Operator [" + getCurrentOperator() + "] reversed UGX " + original.getAmountPaid().toPlainString()
             + " on " + plotLabel(project) + ". Reason: " + why);
     }
@@ -1441,7 +1441,7 @@ public class LandService {
         projectRepository.save(project);
         followUpRepository.save(FollowUpLog.builder().projectId(project.getId())
                 .notes("[HAND-OVER UNDONE] " + why).recordedBy(getCurrentOperator()).build());
-        auditService.logAction("TITLE_RELEASE_UNDONE",
+        auditService.logActionAfterCommit("TITLE_RELEASE_UNDONE",
             "Operator [" + getCurrentOperator() + "] undid the hand-over of " + plotLabel(project) + ". Reason: " + why);
     }
 
@@ -1489,7 +1489,7 @@ public class LandService {
                 projectStatusRepository.save(st);
             }
         }
-        auditService.logAction("TITLE_REVERTED",
+        auditService.logActionAfterCommit("TITLE_REVERTED",
             "Operator [" + getCurrentOperator() + "] took the saved title off project " + project.getProjectIndex()
             + ". Old title: " + oldValues + ". Reason: " + why);
     }
@@ -1559,7 +1559,7 @@ public class LandService {
             }
             if (ticked) count++;
         }
-        auditService.logAction("BULK_TITLE_PRODUCED",
+        auditService.logActionAfterCommit("BULK_TITLE_PRODUCED",
             "Operator [" + getCurrentOperator() + "] marked " + count + " projects as Titled.");
         return count;
     }

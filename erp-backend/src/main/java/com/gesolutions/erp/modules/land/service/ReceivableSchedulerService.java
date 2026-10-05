@@ -56,7 +56,7 @@ public class ReceivableSchedulerService {
                 LocalDateTime ended = plot.getNegotiationDeadline();
                 plot.endStoragePause(ended);
                 projectRepository.save(plot);
-                auditService.logAction("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + ended.toLocalDate()
+                auditService.logActionAfterCommit("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + ended.toLocalDate()
                         + " for " + ownerLabel(plot) + ". Billing restarts; the paused days are not charged.");
             }
 
@@ -89,7 +89,7 @@ public class ReceivableSchedulerService {
             plot.setReceivableMonthsBilled((int) periodsOwed);
             projectRepository.save(plot);
 
-            auditService.logAction("STORAGE_FEE_APPLIED",
+            auditService.logActionAfterCommit("STORAGE_FEE_APPLIED",
                 "SYSTEM: Added UGX " + toAdd + " monthly storage fee to receivable plot: "
                 + ownerLabel(plot)
                 + " (" + feesMissing + " month(s) x UGX " + monthlyRate + ")"
@@ -122,7 +122,7 @@ public class ReceivableSchedulerService {
             plot.setStatus("RECEIVABLE");
             projectRepository.save(plot);
 
-            auditService.logAction("AUTO_RECEIVABLE",
+            auditService.logActionAfterCommit("AUTO_RECEIVABLE",
                 "SYSTEM: Plot " + ownerLabel(plot)
                 + " auto-flagged as RECEIVABLE after 365 days of no payment. "
                 + "Debt frozen at: UGX " + outstanding);

@@ -19,6 +19,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     Optional<User> findByUsername(String username);
 
+    // fix181: sign-in and new accounts ignore capital letters (no "Mary" and "mary" side by side)
+    Optional<User> findByUsernameIgnoreCase(String username);
+
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    long countByRole(com.gesolutions.erp.modules.auth.model.Role role);
+
+    long countByIsRootTrue();
+
     /**
      * ROOT RECOVERY LOOKUP
      * Used to verify identity via Email for the "Panic Button" protocol.

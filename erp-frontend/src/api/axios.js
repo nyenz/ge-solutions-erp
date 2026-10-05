@@ -20,8 +20,10 @@ function resetIdleTimer() {
         const token = localStorage.getItem('gs_token');
         if (token) {
             console.warn('[GS-ERP] Idle timeout -- logging out.');
-            localStorage.clear();
-            sessionStorage.clear();
+            // fix181: remove only the sign-in, never the saved appearance choices (localStorage.clear() wiped them)
+            try { api.post('/auth/logout').catch(() => {}); } catch { /* ignore */ }
+            localStorage.removeItem('gs_token');
+            localStorage.removeItem('gs_user');
             window.location.href = '/login?reason=idle_timeout';
         }
     }, IDLE_MINUTES * 60 * 1000);
@@ -54,10 +56,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && error.response.status === 401) {
+        if (error.response && error.response.status === 401 && !String(error.config?.url || '').includes('/auth/')) {
+            // fix181: say WHY (another sign-in, expired, suspended) instead of always "session conflict"
+            const code = error.response.data && error.response.data.error;
+            const reason = code === 'ACCOUNT_SUSPENDED' ? 'suspended' : code === 'INVALID_TOKEN' ? 'session_expired' : 'session_conflict';
             localStorage.removeItem('gs_token');
             localStorage.removeItem('gs_user');
-            window.location.href = '/login?reason=session_conflict';
+            window.location.href = '/login?reason=' + reason;
         }
         return Promise.reject(error);
     }

@@ -326,7 +326,7 @@ public class RecoveryNoteController {
         double cur = c.getReliabilityScore() == null ? 100.0 : c.getReliabilityScore();
         c.setReliabilityScore(Math.max(0.0, Math.min(100.0, cur + delta)));
         clientRepo.save(c);
-        auditService.logAction("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
+        auditService.logActionAfterCommit("RECOVERY_NOTE", "RECOVERY_NOTE: " + def[0] + " (NIN " + c.getNationalId() + ")");
         List<RecoveryNote> fresh = notesOf(noteMap(), c.getId());
         if ("POSITIVE".equals(def[1]) && succ30(fresh, now) == 2) {
             LocalDate u = lockedUntil(c, now, ps, fresh);
@@ -372,7 +372,7 @@ public class RecoveryNoteController {
             }
             clientRepo.save(c);
         }
-        auditService.logAction("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
+        auditService.logActionAfterCommit("RECOVERY_NOTE_DELETED", "Operator [" + auth.getName() + "] deleted tag: " + n.getTag()
             + " for " + delFor + ", written by " + delWho + " on " + delWhen);
         return ResponseEntity.ok(Map.of("ok", true));
     }

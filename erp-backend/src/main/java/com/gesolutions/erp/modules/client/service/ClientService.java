@@ -74,7 +74,7 @@ public class ClientService {
 
         clientRepository.save(client);
         
-        auditService.logAction("RECOVERY_SYNC", 
+        auditService.logActionAfterCommit("RECOVERY_SYNC", 
             "Call logged for " + client.getFullName() + ". Monthly count: " + client.getMonthlyContactCount() + "/2");
     }
 
@@ -101,7 +101,7 @@ public class ClientService {
                             .build();
                     
                     Client saved = clientRepository.save(newClient);
-                    auditService.logAction("CLIENT_ARCHIVE", "New identity registered: " + fullName);
+                    auditService.logActionAfterCommit("CLIENT_ARCHIVE", "New identity registered: " + fullName);
                     return saved;
                 });
     }
@@ -156,7 +156,7 @@ public class ClientService {
                 .build();
 
         Client saved = clientRepository.save(newClient);
-        auditService.logAction("CLIENT_ARCHIVE",
+        auditService.logActionAfterCommit("CLIENT_ARCHIVE",
             "New identity registered via NIN: " + fullName + " (" + normalizedNin + ")");
         return saved;
     }

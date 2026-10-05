@@ -38,7 +38,10 @@ VOLUME /ge_uploads
 
 EXPOSE 10000
 
+# fix181: the app runs on Uganda time (Africa/Kampala), whatever the host is set to.
+ENV TZ=Africa/Kampala
+
 # VITAL: $JAVA_OPTS picks up the memory flags we set in render.yaml.
 # ${PORT:-10000} means: use PORT if set, otherwise use 10000.
 # This prevents a crash if the environment variable arrives late.
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT:-10000}"]
+ENTRYPOINT ["sh", "-c", "java -Duser.timezone=Africa/Kampala $JAVA_OPTS -jar app.jar --server.port=${PORT:-10000}"]
