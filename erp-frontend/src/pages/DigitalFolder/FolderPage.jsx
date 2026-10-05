@@ -2,6 +2,7 @@
 // fix167: folder page review pass. Ticks show in view AND edit mode (and arrive from New Project), popups show their
 // own red errors without blur or a duplicate toast, every money / flag / hand-over action needs a reason, who paid
 // is recorded per owner, storage fees paid vs unpaid are shown, set-aside fees are visible, dead code removed.
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -327,14 +328,12 @@ const FolderPage = () => {
     const { toasts, toast, dismissToast } = useToast();
 
     /* UNIFIED ROLE MATRIX */
-    const role = String(user?.role || '').toUpperCase();
-    const isRoot = !!user?.isRoot;
-    const isAdmin = isRoot || role === 'ROLE_ADMIN';
-    const isDirector = isAdmin || role === 'ROLE_DIRECTOR';
-    const isManager = isDirector || role === 'ROLE_MANAGER';
+    const flags = roleFlags(user);   // fix181: one rank helper
+    const isDirector = flags.isOwnerLevel;
+    const isManager = flags.isManager;
     const canEditRole = isManager;    // edit record, statuses, docs, payments, problem flag
     const canMoney = isDirector;      // receivable money actions, hand-over, reversals
-    const canUploadDocs = isManager || role === 'ROLE_SECRETARY'; // add scans without edit mode
+    const canUploadDocs = flags.canUploadDocs; // add scans without edit mode
 
     const [binder, setBinder] = useState(null);
     const [buffer, setBuffer] = useState(null);
@@ -927,7 +926,7 @@ const FolderPage = () => {
                         {canEdit && <button type="button" className={styles.unlockMasterBtn} onClick={handleUnlock} disabled={isReleased} title={isReleased ? 'The title has been handed over, so this record is locked. A director can UNDO the hand-over first.' : 'Edit this record.'}><FiUnlock aria-hidden="true" /> EDIT</button>}
                     </div>)}
                     {isEditing && (<div className={styles.ctrlGroup}>
-                        {isRoot && <button type="button" className={styles.purgeBtn} onClick={handleNuclearPurge} title="Take this project out of every list (root only, reason required, can be restored)."><FiTrash2 aria-hidden="true" /> DELETE</button>}
+                        {flags.canUseArchive && <button type="button" className={styles.purgeBtn} onClick={handleNuclearPurge} title="Take this project out of every list (Director or Admin, reason required, can be restored)."><FiTrash2 aria-hidden="true" /> DELETE</button>}
                         <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={handleAbort} title="Throw away the field changes (ticks already saved stay)."><FiX aria-hidden="true" /> CANCEL</button>
                         <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleCommit} disabled={committing} title="Save the changes."><FiSave aria-hidden="true" /> {committing ? 'SAVING...' : 'SAVE'}</button>
                     </div>)}

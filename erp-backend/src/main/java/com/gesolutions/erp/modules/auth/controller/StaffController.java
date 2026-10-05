@@ -3,7 +3,6 @@ package com.gesolutions.erp.modules.auth.controller;
 
 import com.gesolutions.erp.modules.auth.dto.*;
 import com.gesolutions.erp.modules.auth.model.Role;
-import com.gesolutions.erp.modules.auth.model.User;
 import com.gesolutions.erp.modules.auth.service.StaffManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,29 +13,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * GOLDEN SEED ERP - STAFF MASTERY CONTROLLER
- * 
- * Physically manages the operator registry and hierarchy.
- * SECURITY PROTOCOL: Strictly restricted to the ROOT FOUNDER.
- * Admins (Tier 2) are blocked from these endpoints to prevent coups.
+ * GOLDEN SEED ERP - STAFF ACCOUNTS
+ * fix181: Admin and Director. The rank rules (Director manages only Manager, Secretary and Employee; nobody touches the
+ * Admin) are enforced in StaffManagementService, which knows who is acting.
  */
 @RestController
 @RequestMapping("/api/v1/staff")
 @RequiredArgsConstructor
-// Gate: Must be an Admin AND be the physical Root Owner
-@PreAuthorize("hasRole('ROLE_ADMIN') and authentication.principal.isRoot")
+@PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class StaffController {
 
     private final StaffManagementService staffService;
 
-    /**
-     * OPERATOR DIRECTORY
-     * Returns the full list of staff for the Governance Ledger.
-     * ACCESS: Root and Admin (Admins need this to filter audit logs).
-     */
+    /** OPERATOR DIRECTORY (small answers, no password words). */
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<List<User>> getAllOperators() {
+    public ResponseEntity<List<StaffDTO>> getAllOperators() {
         return ResponseEntity.ok(staffService.getAllOperators());
     }
 

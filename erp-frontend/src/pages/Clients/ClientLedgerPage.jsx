@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.jsx
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -148,8 +149,7 @@ function useDirectionalScrollHandoff(scrollRef) {
 const ClientLedgerPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const role = String(user?.role || '').toUpperCase();
-    const isDirector = !!user?.isRoot || role === 'ROLE_ADMIN' || role === 'ROLE_DIRECTOR';
+    const isDirector = roleFlags(user).isOwnerLevel;
 
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);

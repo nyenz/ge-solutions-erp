@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/components/layout/Sidebar.jsx
+import { roleFlags } from '../../utils/roles';
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
@@ -16,8 +17,9 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;
 
     const isLocked           = user?.mustChangePassword;
-    const hasHighLevelAccess = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
-    const hasManagerAccess   = hasHighLevelAccess || user?.role === 'ROLE_MANAGER';
+    const flags              = roleFlags(user);   // fix181
+    const hasHighLevelAccess = flags.isOwnerLevel;
+    const hasManagerAccess   = flags.isManager;
 
     const navItems = [
         { path: '/dashboard',     label: 'DASHBOARD',   icon: <FiGrid         aria-hidden="true" />, access: true,                hint: 'Company-wide numbers at a glance' },

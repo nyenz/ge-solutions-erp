@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/pages/Dashboard/Dashboard.jsx
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import landService from '../../services/landService';
@@ -57,7 +58,7 @@ const Dashboard = () => {
                 <div className={styles.titleBlock}>
                     <h1 className={styles.pageTitle}>System Dashboard</h1>
                     <p className={styles.pageSubtitle}>
-                        {user?.isRoot ? 'ROOT OWNER ACCESS' : user?.role === 'ROLE_DIRECTOR' ? 'DIRECTOR ACCESS' : 'MANAGER ACCESS'}
+                        {roleFlags(user).chip + ' ACCESS'}
                         {' · '}SYSTEM ACTIVE
                     </p>
                 </div>
@@ -66,7 +67,7 @@ const Dashboard = () => {
                 </div>
             </header>
 
-            {(user?.isRoot || user?.role === 'ROLE_DIRECTOR')
+            {roleFlags(user).isOwnerLevel
                 ? <RootTerminal stats={stats} />
                 : <ManagerTerminal stats={stats} />
             }

@@ -30,6 +30,7 @@
  * with no way to change it, and the setting itself did not exist in
  * Settings until fix114 -- Header read prefs.notifPoll, nothing ever wrote it.
  */
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMenu, FiBell, FiLogOut, FiCheck, FiRefreshCw, FiShield } from 'react-icons/fi';
@@ -73,8 +74,7 @@ const Header = ({ onToggle }) => {
     const dropRef = useRef(null);
 
     const isRoot = user?.isRoot;
-    const roleMap = { ROLE_ADMIN: 'ADMIN', ROLE_DIRECTOR: 'DIRECTOR', ROLE_MANAGER: 'MANAGER', ROLE_SECRETARY: 'SECRETARY' };
-    const displayRole = isRoot ? 'ROOT OWNER' : (roleMap[user?.role] || 'STAFF');
+    const displayRole = roleFlags(user).chip;   // fix181: ADMIN (the designer), DIRECTOR (the owner), ...
     const initials = user?.username?.charAt(0).toUpperCase() || 'A';
 
     /* fix131: pullList can run silently, and sync now keeps the list itself

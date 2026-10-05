@@ -94,21 +94,21 @@ public class LandController {
     }
 
     @DeleteMapping("/projects/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public ResponseEntity<Void> purgeAsset(@PathVariable UUID id, @RequestParam String reason) {
         landService.nuclearDelete(id, reason);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/projects/{id}/restore")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public ResponseEntity<Void> restoreAsset(@PathVariable UUID id) {
         landService.restoreProject(id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/projects/deleted")
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public ResponseEntity<List<LandProject>> getDeletedProjects() {
         return ResponseEntity.ok(landService.getDeletedProjects());
     }

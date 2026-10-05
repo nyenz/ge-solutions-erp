@@ -28,6 +28,8 @@ public class DataInitializer implements CommandLineRunner {
             runSchemaMigrations();
             markTimeZoneChangeOnce();
             seedRootUser();
+            adminResetOnce();
+            warnIfMoreThanOneAdmin();
             statusTemplateService.seedDefaultStatusesIfEmpty();
             seedScenarioDataOnce();
                         seedDefaultExpensePresets();
@@ -47,6 +49,42 @@ public class DataInitializer implements CommandLineRunner {
     // stays the same because SystemAdminController calls it after a full wipe.
     public void seedScenarioDataOnce() {
         scenarioSeeder.seedOnce();
+    }
+
+    // fix181: OWNER RECOVERY without email. Set ADMIN_RESET_ONCE=true in the Render dashboard and restart: the Admin's key
+    // becomes ADMIN_DEFAULT_PASSWORD (must be changed at sign-in) ONCE. Remove the setting afterwards; removing it re-arms it.
+    private void adminResetOnce() {
+        String flag = System.getenv("ADMIN_RESET_ONCE");
+        boolean wanted = flag != null && flag.trim().equalsIgnoreCase("true");
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE IF NOT EXISTS app_flags (name VARCHAR(60) PRIMARY KEY, set_at TIMESTAMP)");
+            if (!wanted) { st.execute("DELETE FROM app_flags WHERE name = 'ADMIN_RESET_USED'"); return; }
+            try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM app_flags WHERE name = 'ADMIN_RESET_USED'")) {
+                if (rs.next() && rs.getInt(1) > 0) return;
+            }
+            String pw = (adminDefaultPassword != null && !adminDefaultPassword.isBlank()) ? adminDefaultPassword : "TestPassword123";
+            try (java.sql.PreparedStatement ps = c.prepareStatement("UPDATE users SET password = ?, must_change_password = true, is_active = true, session_version = COALESCE(session_version, 0) + 1 WHERE is_root = true")) {
+                ps.setString(1, passwordEncoder.encode(pw));
+                ps.executeUpdate();
+            }
+            st.execute("INSERT INTO app_flags (name, set_at) VALUES ('ADMIN_RESET_USED', CURRENT_TIMESTAMP)");
+            auditService.logAction("RECOVERY_USED", "The Admin key was reset by the ADMIN_RESET_ONCE setting. Remove that setting from the Render dashboard now.");
+            System.out.println(">>> [RECOVERY] Admin key reset by ADMIN_RESET_ONCE. Remove the setting now.");
+        } catch (Exception e) {
+            System.err.println(">>> [RECOVERY] admin reset skipped: " + e.getMessage());
+        }
+    }
+
+    // fix181: there must be exactly ONE Admin (the designer). Loud warning in the log if not.
+    private void warnIfMoreThanOneAdmin() {
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement();
+             java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM users WHERE role = 'ROLE_ADMIN' OR is_root = true")) {
+            if (rs.next() && rs.getInt(1) > 1) {
+                System.err.println("!!! [RANKS] WARNING: " + rs.getInt(1) + " Admin/root accounts exist. There must be exactly ONE Admin.");
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [RANKS] admin count skipped: " + e.getMessage());
+        }
     }
 
     // fix181: the server moved to Uganda time. ONE audit line marks where that happened, so a reader knows that

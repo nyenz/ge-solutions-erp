@@ -22,8 +22,8 @@ import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
+import { roleFlags, manageableRanks, rankLabel, rankOf } from '../../utils/roles';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
-const RANKS = ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER', 'ROLE_SECRETARY'];
 
 /* Every option here is wired to real CSS in index.css -- see the note at the
    top of context/PreferencesProvider.jsx for what each one moves. */
@@ -56,7 +56,10 @@ const PREF_SECTIONS = ['Display', 'Interaction', 'Notifications'].map(name => ({
 const SettingsPage = () => {
   const { user, updateSession } = useAuth();
   const { prefs, setPref, resetPrefs } = usePreferences();
-  const isRoot = !!user?.isRoot;
+  // fix181: Staff and Archive for Director and Admin; Danger Zone (wipe) for the Admin only
+  const flags = roleFlags(user);
+  const isOwner = flags.isOwnerLevel;
+  const RANKS = manageableRanks(user);
   /* One tab is on screen at a time now (Report Studio dataset-tile spec),
      so the old per-panel appOpen/secOpen/govOpen/dangerOpen/delOpen quintet
      collapses into a single tab key plus one collapse toggle for whichever
@@ -81,17 +84,17 @@ const SettingsPage = () => {
   const [wiping, setWiping] = useState(false);
   const [deleted, setDeleted] = useState([]); const [delLoading, setDelLoading] = useState(false);
   const loadOps = useCallback(async () => {
-    if (!isRoot) return;
+    if (!isOwner) return;
     setOpsLoading(true);
     try { setOps(await settingsService.getAllOperators()); } catch (e) { toast(e.message, 'error'); }
     finally { setOpsLoading(false); }
-  }, [isRoot, toast]);
+  }, [isOwner, toast]);
   const loadDeleted = useCallback(async () => {
-    if (!isRoot) return;
+    if (!isOwner) return;
     setDelLoading(true);
     try { setDeleted(await landService.getDeletedProjects()); } catch { setDeleted([]); }
     finally { setDelLoading(false); }
-  }, [isRoot]);
+  }, [isOwner]);
   useEffect(() => { loadOps(); loadDeleted(); }, [loadOps, loadDeleted]);
   const changePw = async () => {
     setSavingPw(true);
@@ -117,7 +120,9 @@ const SettingsPage = () => {
     catch (e) { toast(e.message, 'error'); }
     finally { setWiping(false); setWipeText(''); }
   };
-  const rankClass = (r) => r === 'ROLE_ADMIN' ? styles.rankAdmin : r === 'ROLE_MANAGER' ? styles.rankManager : r === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankAdmin;
+  const rankClass = (r) => r === 'ROLE_ADMIN' ? styles.rankAdmin : r === 'ROLE_DIRECTOR' ? styles.rankDirector : r === 'ROLE_MANAGER' ? styles.rankManager : r === 'ROLE_SECRETARY' ? styles.rankSecretary : styles.rankEmployee;
+  // a person can be managed here only when they rank below the one signed in (the server checks this too)
+  const canManageOp = (op) => !op.root && rankOf(op.role) < flags.rank && op.username !== user?.username;
 
   /* fix121: the dock -- same shape as Report Studio's dataset tile row
      (label + Space Mono count, solid orange when selected). Governance,
@@ -126,9 +131,9 @@ const SettingsPage = () => {
   const TABS = [
     { key: 'appearance', label: 'APPEARANCE', icon: FiSliders, accent: 'orange', count: PREF_GROUPS.length },
     { key: 'security', label: 'SECURITY', icon: FiKey, accent: 'cyan', count: null },
-    ...(isRoot ? [{ key: 'governance', label: 'STAFF', icon: FiShield, accent: 'violet', count: ops.length }] : []),
-    ...(isRoot ? [{ key: 'danger', label: 'DANGER ZONE', icon: FiAlertTriangle, accent: 'red', count: null }] : []),
-    ...(isRoot ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'slate', count: deleted.length }] : []),
+    ...(isOwner ? [{ key: 'governance', label: 'STAFF', icon: FiShield, accent: 'violet', count: ops.length }] : []),
+    ...(flags.canWipe ? [{ key: 'danger', label: 'DANGER ZONE', icon: FiAlertTriangle, accent: 'red', count: null }] : []),
+    ...(isOwner ? [{ key: 'deleted', label: 'ARCHIVE', icon: FiArchive, accent: 'slate', count: deleted.length }] : []),
   ];
   const activeTab = TABS.find(t => t.key === tab) || TABS[0];
   const selectTab = (key) => { setTab(key); setPanelOpen(true); };
@@ -250,7 +255,7 @@ const SettingsPage = () => {
               </>
             )}
 
-            {tab === 'governance' && isRoot && (
+            {tab === 'governance' && isOwner && (
               <>
                 <div className={styles.ledgerActions}>
                   <button type="button" className={styles.addOpBtn} onClick={() => setAddOpen(true)}><FiUserPlus aria-hidden="true" /> PROVISION OPERATOR</button>
@@ -267,29 +272,29 @@ const SettingsPage = () => {
                       <div className={styles.opHeader}>
                         <div className={styles.opAvatar}>{(op.username || '?').charAt(0).toUpperCase()}<span className={`${styles.statusDot} ${op.active ? styles.dotGreen : styles.dotRed}`} /></div>
                         <div className={styles.opInfo}>
-                          <strong>{op.username}{op.root ? ' (ROOT)' : ''}</strong>
-                          <span className={rankClass(op.role)}>{(op.role || '').replace('ROLE_', '')}</span>
+                          <strong>{op.username}{op.root ? ' (ADMIN)' : ''}</strong>
+                          <span className={rankClass(op.role)}>{rankLabel(op.role).toUpperCase()}</span>
                         </div>
                         <div className={styles.opActions}>
                           <div className={styles.rankMenuWrapper}>
-                            <button type="button" className={styles.rankBtn} disabled={op.root} onClick={() => setRankMenu(rankMenu === op.username ? null : op.username)} aria-label="Change rank"><FiShield aria-hidden="true" /></button>
+                            <button type="button" className={styles.rankBtn} disabled={!canManageOp(op)} onClick={() => setRankMenu(rankMenu === op.username ? null : op.username)} aria-label="Change rank"><FiShield aria-hidden="true" /></button>
                             {rankMenu === op.username && (
                               <div className={styles.rankMenu}>
                                 {RANKS.map(rk => (
                                   <div key={rk} className={`${styles.rankMenuItem} ${op.role === rk ? styles.rankMenuItemActive : ''}`}
                                     onClick={async () => { setRankMenu(null); try { await settingsService.updateOperatorRole(op.username, rk); toast('Rank updated.', 'success'); loadOps(); } catch (e) { toast(e.message, 'error'); } }}>
-                                    {rk.replace('ROLE_', '')}
+                                    {rankLabel(rk).toUpperCase()}
                                   </div>
                                 ))}
                               </div>
                             )}
                           </div>
-                          <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} disabled={op.root}
+                          <button type="button" className={`${styles.killSwitchBtn} ${op.active ? styles.killSwitchActive : styles.killSwitchInactive}`} disabled={!canManageOp(op)}
                             onClick={async () => { try { await settingsService.toggleOperator(op.username, !op.active); toast(op.active ? 'Operator suspended.' : 'Operator activated.', 'warn'); loadOps(); } catch (e) { toast(e.message, 'error'); } }}
                             aria-label={op.active ? 'Suspend operator' : 'Activate operator'}>
                             <FiPower aria-hidden="true" />
                           </button>
-                          <button type="button" className={styles.resetTrigger} disabled={op.root}
+                          <button type="button" className={styles.resetTrigger} disabled={!canManageOp(op)}
                             onClick={async () => { try { const key = await settingsService.resetOperatorKey(op.username); setReveal({ username: op.username, key }); } catch (e) { toast(e.message, 'error'); } }}
                             aria-label="Reset security key">
                             <FiRotateCcw aria-hidden="true" />
@@ -303,7 +308,7 @@ const SettingsPage = () => {
               </>
             )}
 
-            {tab === 'danger' && isRoot && (
+            {tab === 'danger' && flags.canWipe && (
               <>
                 <div className={styles.dangerAlert}><FiAlertTriangle aria-hidden="true" /><span>This deletes every project, client, payment and expense on the whole system. There is no undo. Operator accounts and your own login are not touched.</span></div>
                 <div className={styles.wipeField}>
@@ -315,7 +320,7 @@ const SettingsPage = () => {
               </>
             )}
 
-            {tab === 'deleted' && isRoot && (
+            {tab === 'deleted' && isOwner && (
               <>
                 {delLoading && <LoadingState label="SYNCING DELETED PLOTS..." tone="bare" />}
                 {!delLoading && deleted.length === 0 && <p className={styles.hint}>NO DELETED PLOTS.</p>}

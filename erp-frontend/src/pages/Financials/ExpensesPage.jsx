@@ -5,6 +5,7 @@
 // Director analysis block that used to hang off the ANALYSIS toggle here now
 // lives on the Report Hub (Reports/ExpenseAnalysis.jsx) -- this page is purely
 // "log cash going out, and fix it within 24h".
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     FiTrendingDown, FiPlus, FiRefreshCw, FiEdit2, FiTrash2,
@@ -44,7 +45,7 @@ const hoursLeft = (createdAt) => {
 const ExpensesPage = () => {
     const recentTableRef = useTableScrollHandoff();
     const { user } = useAuth();
-    const isDirector = user?.isRoot || user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_DIRECTOR';
+    const isDirector = roleFlags(user).isOwnerLevel;
 
     const { toasts, toast, dismissToast } = useToasts();
     const { confirmState, confirm, handleAnswer } = useConfirm();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { roleFlags } from '../../utils/roles';
 import ReactDOM from 'react-dom';
 import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
@@ -46,7 +47,7 @@ export default function RecoveryPortal() {
   const reqRef = useRef(0);
   const cacheRef = useRef({});
   const { user } = useAuth();
-  const canManage = user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(user?.role);
+  const canManage = roleFlags(user).isManager;
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
   // fix170: a plain tab click asks for the queue ONLY; counts / tags / stats come on first open, REFRESH and after a call.
   const load = useCallback((silent, forceMeta) => {

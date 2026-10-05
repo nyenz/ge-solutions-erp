@@ -955,7 +955,7 @@ public class LandService {
     // mis-click is recoverable via restoreProject() below.
 
     @Transactional
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public void nuclearDelete(UUID id, String reason) {
         // fix166: deleting a project needs a written reason, and an already-deleted project cannot be "deleted" again.
         String why = reason == null ? "" : reason.trim();
@@ -973,7 +973,7 @@ public class LandService {
         projectRepository.save(project);
 
         auditService.logActionAfterCommit("RECORD_DELETED",
-            "Root user [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
+            "Operator [" + getCurrentOperator() + "] deleted plot: " + plotNo + ". Reason: " + why);
         /* fix71: CRITICAL was a severity the frontend rendered and the backend
            never emitted. Deleting a plot is exactly what it is for. emitRaw,
            not emit: emit de-duplicates on (type, entityId) forever, so a plot
@@ -986,7 +986,7 @@ public class LandService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public void restoreProject(UUID id) {
         LandProject project = projectRepository.findById(id).orElseThrow();
         String plotNo = plotLabel(project);
@@ -996,14 +996,14 @@ public class LandService {
         projectRepository.save(project);
 
         auditService.logActionAfterCommit("RECORD_RESTORED",
-            "Root user [" + getCurrentOperator() + "] restored plot: " + plotNo);
+            "Operator [" + getCurrentOperator() + "] restored plot: " + plotNo);
         notificationService.emitRaw("PROJECT_RESTORED", "POSITIVE",
             "Plot " + plotNo + " restored by " + getCurrentOperator() + ".",
             "PROJECT", project.getId(), "ROLE_DIRECTOR");
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize("hasRole('ROLE_ADMIN') and principal.root")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")   // fix181: Admin and Director (the owner)
     public List<LandProject> getDeletedProjects() {
         return projectRepository.findAllDeleted();
     }

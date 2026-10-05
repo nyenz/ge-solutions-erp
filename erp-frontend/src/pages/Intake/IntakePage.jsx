@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/pages/Intake/IntakePage.jsx
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -63,8 +64,7 @@ export default function IntakePage() {
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
     // fix180: only Admin, Manager and Director can add a status (Secretary is data entry only; the server checks too)
-    const role = String(user?.role || '').toUpperCase();
-    const canAddStatus = !!user?.isRoot || ['ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_MANAGER'].includes(role);
+    const canAddStatus = roleFlags(user).canAddStatus;
     const topRef = useRef(null);
     const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);

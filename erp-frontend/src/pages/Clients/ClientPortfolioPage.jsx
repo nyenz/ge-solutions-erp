@@ -7,6 +7,7 @@
 // section: who is this person, what do they owe as a household, which of
 // their projects (solo or joint) make up that number, how healthy is each
 // payment, and what has staff said to them.
+import { roleFlags } from '../../utils/roles';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -68,10 +69,9 @@ const ClientPortfolioPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const role = String(user?.role || '').toUpperCase();
-  const isDirector = !!user?.isRoot || role === 'ROLE_ADMIN' || role === 'ROLE_DIRECTOR';
+  const isDirector = roleFlags(user).isOwnerLevel;
   // Same bar Digital Folder uses for record edits: director or manager.
-  const canEdit = isDirector || role === 'ROLE_MANAGER';
+  const canEdit = roleFlags(user).isManager;
 
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);

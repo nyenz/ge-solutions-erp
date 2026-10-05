@@ -1,4 +1,5 @@
 // PATH: erp-frontend/src/App.jsx
+import { roleFlags } from './utils/roles';
 import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
@@ -27,8 +28,9 @@ const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSe
     const { user, token } = useAuth();
     if (!token || !user) return <Navigate to="/login" replace />;
     if (user.mustChangePassword && !isSettings) return <Navigate to="/settings" replace />;
-    if (adminOnly && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR')) return <Navigate to="/dashboard" replace />;
-    if (managerPlus && !(user.isRoot || user.role === 'ROLE_ADMIN' || user.role === 'ROLE_DIRECTOR' || user.role === 'ROLE_MANAGER')) return <Navigate to="/dashboard" replace />;
+    const f = roleFlags(user);   // fix181: one rank helper for every page
+    if (adminOnly && !f.isOwnerLevel) return <Navigate to="/dashboard" replace />;
+    if (managerPlus && !f.isManager) return <Navigate to="/dashboard" replace />;
     return children;
 };
 

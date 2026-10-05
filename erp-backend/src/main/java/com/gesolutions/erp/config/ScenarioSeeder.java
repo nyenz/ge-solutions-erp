@@ -74,7 +74,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ScenarioSeeder {
 
-    public static final int VERSION = 5;   // fix180: project types, clients + owners, status lists per type, new title fields
+    public static final int VERSION = 6;   // fix181: one Admin only (demo.admin became demo.director2); v5 fix180 types
     private static final int BELL_DAYS = 45;
     private static final String DEMO_LIKE = "demo.%";
 
@@ -561,11 +561,11 @@ public class ScenarioSeeder {
         // --- soft delete / restore
         if (s.deletedAgo >= 0) {
             LocalDateTime t = at(s.deletedAgo, s.key + "D");
-            audit("RECORD_DELETED", "Root user [" + ScenarioData.ADMIN + "] deleted plot: " + lbl, ScenarioData.ADMIN, t);
+            audit("RECORD_DELETED", "Operator [" + ScenarioData.ADMIN + "] deleted plot: " + lbl, ScenarioData.ADMIN, t);
             bell("PROJECT_DELETED", "CRITICAL", "Plot " + lbl + " deleted by " + ScenarioData.ADMIN + ". Restore it from Settings -> Archive.", "PROJECT", pid, "ROLE_DIRECTOR", t);
             if (s.restoredAgo >= 0) {
                 LocalDateTime r = at(s.restoredAgo, s.key + "U");
-                audit("RECORD_RESTORED", "Root user [" + ScenarioData.ADMIN + "] restored plot: " + lbl, ScenarioData.ADMIN, r);
+                audit("RECORD_RESTORED", "Operator [" + ScenarioData.ADMIN + "] restored plot: " + lbl, ScenarioData.ADMIN, r);
                 bell("PROJECT_RESTORED", "POSITIVE", "Plot " + lbl + " restored by " + ScenarioData.ADMIN + ".", "PROJECT", pid, "ROLE_DIRECTOR", r);
             }
         }

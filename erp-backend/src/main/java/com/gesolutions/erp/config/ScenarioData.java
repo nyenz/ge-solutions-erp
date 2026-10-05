@@ -41,7 +41,8 @@ final class ScenarioData {
     private ScenarioData() { }
 
     // ---------------------------------------------------------------- staff
-    static final String ADMIN = "demo.admin";
+    // fix181: there is only ONE Admin (admin_root, the designer). The second owner-level demo account is a Director.
+    static final String ADMIN = "demo.director2";
     static final String DIRECTOR = "demo.director";
     static final String MGR1 = "demo.manager1";
     static final String MGR2 = "demo.manager2";
@@ -75,7 +76,7 @@ final class ScenarioData {
 
     static List<Staff> staff() {
         List<Staff> s = new ArrayList<>();
-        s.add(new Staff(ADMIN, "ROLE_ADMIN", true, false, 400, 0, 0, 0));
+        s.add(new Staff(ADMIN, "ROLE_DIRECTOR", true, false, 400, 0, 0, 0));
         s.add(new Staff(DIRECTOR, "ROLE_DIRECTOR", true, false, 400, 0, 0, 0));
         s.add(new Staff(MGR1, "ROLE_MANAGER", true, false, 380, 0, 0, 0));
         s.add(new Staff(MGR2, "ROLE_MANAGER", true, false, 210, 60, 0, 0));
