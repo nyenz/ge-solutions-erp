@@ -87,6 +87,36 @@ public class ClientViewTest {
         assertNull(row.get("lastPaymentAt"));
     }
 
+    /** fix181 (9.10): the numbers the Reports CLIENTS dataset reads straight from the client ledger rows. */
+    @Test
+    public void ledgerRowNumbersAddUpForReports() {
+        as("ROLE_DIRECTOR");
+        Client c = client();
+        // in receivables: 100,000 fees accrued, 400,000 paid of which 50,000 was storage money (11.2: storage money is
+        // only ever paid while a project is in receivables)
+        LandProject recv = project(c, 1_000_000, 400_000, false);
+        recv.setIsReceivable(true);
+        recv.setStorageFeesAccumulated(BigDecimal.valueOf(100_000));
+        recv.setStorageFeesPaid(BigDecimal.valueOf(50_000));
+        projects.save(recv);
+        project(c, 600_000, 600_000, false);                          // a normal project, fully paid
+        project(c, 0, 0, true);                                       // Pending: in no figure
+        PaymentRecord r = landService.recordPayment(recv.getId(), BigDecimal.valueOf(10_000), "x", null, "TITLE");
+        landService.reversePayment(recv.getId(), r.getId(), "Typed on the wrong project");
+
+        Map<String, Object> row = view.ledger().stream().filter(m -> c.getId().equals(m.get("id"))).findFirst().orElseThrow();
+        assertEquals(2, row.get("plotCount"), "the Pending project is not counted");
+        BigDecimal owed = (BigDecimal) row.get("owed"), paid = (BigDecimal) row.get("paid"), billed = (BigDecimal) row.get("billed");
+        assertEquals(0, billed.compareTo(owed.add(paid)), "billed = owed + paid for the client");
+        for (Object o : (List<?>) row.get("plots")) {
+            Map<?, ?> pr = (Map<?, ?>) o;
+            BigDecimal b = (BigDecimal) pr.get("billed"), ow = (BigDecimal) pr.get("owed"), pd = (BigDecimal) pr.get("paid");
+            assertEquals(0, b.compareTo(ow.add(pd)), "billed = owed + paid for project " + pr.get("index"));
+        }
+        assertNull(row.get("lastPaymentAt"), "the reversed payment is not a last payment");
+        assertNotNull(row.get("missedCallDays30"));
+    }
+
     @Test
     public void oneProjectNeverCancelsAnothersDebt() {
         as("ROLE_DIRECTOR");

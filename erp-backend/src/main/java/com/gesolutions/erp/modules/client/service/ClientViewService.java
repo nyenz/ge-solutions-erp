@@ -149,6 +149,8 @@ public class ClientViewService {
         m.put("daysSinceContact", days(c.getLastContactedAt(), now));
         m.put("lastTag", ns.isEmpty() ? null : ns.get(0).getTag());
         m.put("lastTone", ns.isEmpty() ? null : ns.get(0).getTone());
+        // fix181 (9.6): missed calls in the last 30 days, counted per day (the Recovery rule), for the reports
+        m.put("missedCallDays30", recovery.miss30(ns, now));
     }
 
     // ── CLIENT LEDGER ───────────────────────────────────────────────────────

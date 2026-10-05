@@ -751,7 +751,8 @@ public class ScenarioSeeder {
             audit("RECEIVABLE_TRIGGER", "Operator [" + admin + "] manually moved plot " + lbl + " to RECEIVABLE. Original debt frozen at: UGX " + debt, admin, start);
         }
         if (s.startOverride) {
-            audit("RECEIVABLE_START_OVERRIDDEN", "Operator [" + ScenarioData.ADMIN + "] set receivable start date to " + start.toLocalDate() + " for plot: " + lbl, ScenarioData.ADMIN, at(s.entry(), s.key + "V"));
+            // fix181 (10.2): the demo writes the same code as production (RECEIVABLE_SETTINGS)
+            audit("RECEIVABLE_SETTINGS", "Operator [" + ScenarioData.ADMIN + "] updated receivable settings on #" + index + " (receivables start: " + start.toLocalDate() + ") for plot: " + lbl, ScenarioData.ADMIN, at(s.entry(), s.key + "V"));
         }
         if (s.customRate) {
             audit("RECEIVABLE_SETTINGS", "Operator [" + admin + "] updated receivable settings on #" + index + " (monthly rate: default -> UGX " + s.rate

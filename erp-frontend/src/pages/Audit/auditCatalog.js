@@ -42,6 +42,14 @@ export const ACTION_GROUPS = [
             { code: 'EDIT_MODE_OPENED',  label: 'Edit mode opened',       severity: 'low'  },
             { code: 'PROBLEM_FLAG',      label: 'Problem flag toggled',   severity: 'med'  },
             { code: 'CLIENT_ARCHIVE',    label: 'Client archived',        severity: 'high' },
+            // fix181 (10.2, 10.10)
+            { code: 'PENDING_CREATED',   label: 'Pending project entered (Employee)', severity: 'med' },
+            { code: 'PENDING_UPDATED',   label: 'Pending project edited',  severity: 'low'  },
+            { code: 'PROJECT_GRADUATED', label: 'Pending project started (prices set)', severity: 'med' },
+            { code: 'PROJECT_PENDING_REJECTED', label: 'Pending project rejected', severity: 'high' },
+            { code: 'OWNERS_CHANGED',    label: 'Owners changed',         severity: 'med'  },
+            { code: 'CLIENT_UPDATED',    label: 'Client details edited',  severity: 'med'  },
+            { code: 'CLIENT_NIN_CORRECTED', label: 'Client NIN corrected', severity: 'high' },
         ],
     },
     {
@@ -55,8 +63,15 @@ export const ACTION_GROUPS = [
             { code: 'FEES_WAIVED',               label: 'Fees waived',             severity: 'high' },
             { code: 'FEES_CAPITALIZED',          label: 'Fees capitalised',        severity: 'med'  },
             { code: 'STORAGE_FEE_APPLIED',       label: 'Storage fee applied',     severity: 'low'  },
-            { code: 'STORAGE_FEES_ADJUSTED',     label: 'Storage fees adjusted',   severity: 'high' },
-            { code: 'STORAGE_RATE_CHANGED',      label: 'Storage rate changed',    severity: 'high' },
+            // fix181 (10.2): written by the server but missing from this list before
+            { code: 'PAYMENT_REVERSED',          label: 'Payment reversed',        severity: 'high' },
+            { code: 'COST_CHANGED',              label: 'Total cost changed',      severity: 'high' },
+            { code: 'FEES_REDUCED',              label: 'Storage fees reduced',    severity: 'high' },
+            { code: 'STORAGE_FEE_RESUMED',       label: 'Storage fees resumed',    severity: 'med'  },
+            { code: 'BOOKS_MISMATCH',            label: 'Books check found a difference', severity: 'high' },
+            // written only by the old demo seeder or old rows (the real code is RECEIVABLE_SETTINGS); kept so old lines read well
+            { code: 'STORAGE_FEES_ADJUSTED',     label: 'Storage fees adjusted (old)', severity: 'high' },
+            { code: 'STORAGE_RATE_CHANGED',      label: 'Storage rate changed (old)',  severity: 'high' },
         ],
     },
     {
@@ -68,8 +83,10 @@ export const ACTION_GROUPS = [
             { code: 'RECEIVABLE_TRIGGER',            label: 'Receivable trigger fired',  severity: 'low'  },
             { code: 'RECEIVABLE_SET_ASIDE',          label: 'Receivable set aside',      severity: 'high' },
             { code: 'RECEIVABLE_SETTINGS',           label: 'Receivable settings',       severity: 'high' },
-            { code: 'RECEIVABLE_START_OVERRIDDEN',   label: 'Receivable start override', severity: 'high' },
-            { code: 'ROOT_RECOVERY_TRIGGERED',       label: 'Root recovery triggered',   severity: 'high' },
+            // written only by the old demo seeder or old rows (the real code is RECEIVABLE_SETTINGS)
+            { code: 'RECEIVABLE_START_OVERRIDDEN',   label: 'Receivable start override (old)', severity: 'high' },
+            { code: 'STORAGE_JOB_FAILED',            label: 'Nightly storage-fee job failed', severity: 'high' },
+            { code: 'AUTO_RECEIVABLE_FAILED',        label: 'Nightly receivables job failed', severity: 'high' },
         ],
     },
     {
@@ -100,9 +117,13 @@ export const ACTION_GROUPS = [
             { code: 'STAGE_TEMPLATE_UPDATED',          label: 'Template status updated (old)', severity: 'med' },
             { code: 'STAGE_TEMPLATE_REMOVED',          label: 'Template status removed (old)', severity: 'high' },
             { code: 'TITLE_RELEASED',                  label: 'Title released',         severity: 'med'  },
+            { code: 'TITLE_RELEASE_UNDONE',            label: 'Title release undone',   severity: 'high' },
+            { code: 'TITLE_REVERTED',                  label: 'Title reverted',         severity: 'high' },
+            { code: 'TITLE_FIELDS_CHANGED',            label: 'Title details changed',  severity: 'med'  },
             { code: 'BULK_TITLE_PRODUCED',             label: 'Bulk titles produced',   severity: 'med'  },
-            { code: 'NEGOTIATION_DEADLINE_SET',        label: 'Deadline set',           severity: 'low'  },
-            { code: 'NEGOTIATION_DEADLINE_CLEARED',    label: 'Deadline cleared',       severity: 'low'  },
+            // written only by the old demo seeder or old rows (the real code is RECEIVABLE_SETTINGS)
+            { code: 'NEGOTIATION_DEADLINE_SET',        label: 'Deadline set (old)',     severity: 'low'  },
+            { code: 'NEGOTIATION_DEADLINE_CLEARED',    label: 'Deadline cleared (old)', severity: 'low'  },
         ],
     },
     {
@@ -123,12 +144,23 @@ export const ACTION_GROUPS = [
             { code: 'DOCUMENT_DELETED',  label: 'Document deleted',  severity: 'high' },
             { code: 'DOCUMENT_CATEGORY_ADDED', label: 'Document category added', severity: 'low' },
             { code: 'REPORT_EXPORT',     label: 'Report exported',   severity: 'low'  },
+            { code: 'AUDIT_EXPORT',      label: 'Audit trail exported', severity: 'med' },
         ],
     },
     {
         group: 'ACCESS & STAFF',
         actions: [
             { code: 'LOGIN_SUCCESS',            label: 'Sign in',              severity: 'low'  },
+            { code: 'LOGIN_FAILED',             label: 'Wrong sign-in',        severity: 'med'  },
+            { code: 'LOGIN_BLOCKED',            label: 'Sign-in paused (too many tries)', severity: 'high' },
+            { code: 'ACCESS_DENIED',            label: 'Access refused',       severity: 'med'  },
+            { code: 'RECOVERY_REQUESTED',       label: 'Key recovery requested', severity: 'high' },
+            { code: 'RECOVERY_USED',            label: 'Admin key recovery used', severity: 'high' },
+            { code: 'ROOT_RECOVERY_TRIGGERED',  label: 'Root recovery triggered (old)', severity: 'high' },
+            { code: 'DATA_WIPED',               label: 'All business data wiped', severity: 'high' },
+            { code: 'WIPE_REFUSED',             label: 'Wipe refused',         severity: 'high' },
+            { code: 'TIMEZONE_CHANGED',         label: 'Server time zone changed', severity: 'med' },
+            { code: 'NOTIFICATIONS_CLEANED',    label: 'Old alerts cleaned up', severity: 'low' },
             { code: 'OPERATOR_PROVISIONED',     label: 'Operator provisioned', severity: 'high' },
             { code: 'OPERATOR_STATUS_CHANGE',   label: 'Operator suspended / activated', severity: 'high' },
             { code: 'RANK_ADJUSTMENT',          label: 'Rank changed',         severity: 'high' },
@@ -160,6 +192,20 @@ export const friendlyAction = (code) => {
 };
 
 export const severityOf = (code) => (INDEX[code]?.severity) || 'low';
+
+/** fix181 (10.1, 10.8): the codes of one group (the Audit filter and Report Studio send these lists to the server). */
+export const codesOfGroup = (group) => (ACTION_GROUPS.find(g => g.group === group)?.actions || []).map(a => a.code);
+
+/* fix181 (10.8, 13.0f): the explicit code lists of the COMPANY reports (one source of truth). */
+export const REPORT_CODES = {
+    DELETIONS_RESTORES: ['RECORD_DELETED', 'RECORD_RESTORED', 'DOCUMENT_DELETED', 'NOTE_DELETED', 'EXPENSE_DELETED',
+        'RECOVERY_NOTE_DELETED', 'PAYMENT_REVERSED', 'PROJECT_PENDING_REJECTED'],
+    STORAGE_OVERRIDES: ['RECEIVABLE_SETTINGS', 'FEES_REDUCED', 'FEES_WAIVED', 'FEES_CAPITALIZED', 'STORAGE_FEE_RESUMED',
+        'RECEIVABLE_SET_ASIDE', 'STORAGE_FEES_ADJUSTED', 'STORAGE_RATE_CHANGED', 'RECEIVABLE_START_OVERRIDDEN'],
+    STATUS_MOVES: ['STATUS_OVERRIDE', 'PROJECT_STATUS_CHANGED', 'PROJECT_STATUS_COST_UPDATED', 'PROJECT_STATUS_REMOVED',
+        'STAGE_OVERRIDE', 'PROJECT_STAGE_STATUS_CHANGED', 'PROJECT_STAGE_COST_UPDATED', 'PROJECT_STAGE_REMOVED'],
+    LOGINS: ['LOGIN_SUCCESS'],
+};
 
 
 /* fix160: colour by GROUP. Six basic colours, one per family of actions:

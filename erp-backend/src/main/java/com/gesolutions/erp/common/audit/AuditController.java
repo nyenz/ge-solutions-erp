@@ -11,69 +11,68 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 /**
- * GOLDEN SEED ERP - SYSTEM FORENSICS TERMINAL
- * 
- * Physically manages the interrogation of the Audit Ledger.
- * SECURITY UPDATE: Access extended to ROLE_ADMIN (Tier 2) for operational oversight.
+ * GOLDEN SEED ERP - AUDIT TRAIL (read only).
+ * fix181 (10.11): Admin and Director only (the old class gate also named Manager, which every method overrode).
  */
 @RestController
 @RequestMapping("/api/v1/admin/audit")
 @RequiredArgsConstructor
-// Base Gate: Must be at least a Manager to hit the API, but specific methods are tighter
-@PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+@PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
 public class AuditController {
 
     private final AuditLogRepository auditLogRepository;
+    private final AuditSearchService auditSearchService;
+    private final AuditService auditService;
 
-    /**
-     * PILLAR 7: MASTER AUDIT STREAM
-     * Returns the raw chronological footprint of all system activities.
-     * ACCESS: Locked to ADMIN and ROOT. Standard Managers cannot see this.
-     */
+    /** Newest first, at most 200 rows a page (10.7), id as the second sort key (10.5). */
     @GetMapping("/stream")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Page<AuditLog>> getRawStream(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        
-        return ResponseEntity.ok(auditLogRepository.findAll(
-            PageRequest.of(page, size, Sort.by("timestamp").descending())
-        ));
+        return ResponseEntity.ok(auditSearchService.search(new AuditSearchService.Filter(null, null, null, null, null, false), page, size));
     }
 
     /**
-     * THE TRUTH MACHINE (Search Hub)
-     * Filters footprints by Operator, Action Type, or Date Range.
-     * ACCESS: Locked to ADMIN and ROOT.
+     * fix181 (10.13): filter by person, by ONE code (`action`, old callers) or a LIST of codes (`actions`, wins when both
+     * are given), by time (start inclusive, end exclusive) and by a word in the text. `excludeSystem` leaves out the
+     * automatic jobs (per-person reports, 10.8).
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<Page<AuditLog>> searchForensics(
             @RequestParam(required = false) String operator,
             @RequestParam(required = false) String action,
+            @RequestParam(required = false) List<String> actions,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
             @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "false") boolean excludeSystem,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
+        List<String> codes = (actions != null && !actions.isEmpty()) ? actions
+                : (action == null || action.isBlank() ? null : List.of(action.trim()));
+        return ResponseEntity.ok(auditSearchService.search(
+                new AuditSearchService.Filter(operator, codes, start, end, keyword, excludeSystem), page, size));
+    }
 
-        // Blank strings arrive from the UI as "" rather than absent, and an
-        // empty LIKE '%%' would quietly match everything while looking like a
-        // filter. Normalise to null so the IS NULL branch is taken.
-        String op  = (operator == null || operator.isBlank()) ? null : operator.trim();
-        String act = (action   == null || action.isBlank())   ? null : action.trim();
-        String kw  = (keyword  == null || keyword.isBlank())  ? null : keyword.trim();
+    /** fix181 (10.3): the OPERATOR filter list, from the audit trail itself (works for the Director, shows SYSTEM). */
+    @GetMapping("/operators")
+    public ResponseEntity<List<String>> operators() {
+        return ResponseEntity.ok(auditSearchService.operators());
+    }
 
-        // A caller asking for 100000 rows is a denial of service, accidental or
-        // otherwise. The UI's largest page is 200.
-        int safeSize = Math.min(Math.max(size, 1), 200);
-
-        return ResponseEntity.ok(auditLogRepository.findWithFilters(
-            op, act, start, end, kw,
-            PageRequest.of(page, safeSize, Sort.by("timestamp").descending())
-        ));
+    /** fix181 (10.6c): an export of the audit trail leaves its own line (who, which filters, how many rows). */
+    @PostMapping("/export-log")
+    public ResponseEntity<Void> exportLog(@RequestBody(required = false) Map<String, Object> body) {
+        Object filters = body == null ? null : body.get("filters");
+        Object rows = body == null ? null : body.get("rows");
+        String f = filters == null ? "none" : String.valueOf(filters);
+        if (f.length() > 500) f = f.substring(0, 500);
+        auditService.logAction("AUDIT_EXPORT", "Audit trail exported to CSV. Rows: " + rows + ". Filters: " + f + ".");
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -89,8 +88,8 @@ public class AuditController {
             @RequestParam(defaultValue = "50") int size) {
         
         return ResponseEntity.ok(auditLogRepository.findByDetailsContainingIgnoreCase(
-            keyword, 
-            PageRequest.of(page, size, Sort.by("timestamp").descending())
+            keyword,
+            PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by("timestamp").descending())
         ));
     }
 }

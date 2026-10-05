@@ -161,6 +161,10 @@ public class DataInitializer implements CommandLineRunner {
             "CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, category VARCHAR(150) NOT NULL, amount NUMERIC(15,2) NOT NULL, note TEXT, recorded_by VARCHAR(100), created_at TIMESTAMP NOT NULL DEFAULT now(), edited_at TIMESTAMP, edited_by VARCHAR(100))",
             "CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)",
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category)",
+            // fix181 (10.11c): every Audit page load sorts by time and filters by person and action
+            "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs (timestamp DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_operator ON audit_logs (performed_by)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs (action)",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
             "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS district VARCHAR(100)",
