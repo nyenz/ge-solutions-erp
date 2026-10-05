@@ -1,69 +1,44 @@
 // PATH: erp-frontend/src/services/auditService.js
-
-// VITAL FIX: Import the pre-configured 'api' instance.
-// It already carries the correct cloud URL and the JWT token automatically.
-// We no longer need to manually attach the Authorization header in every call.
 import api from '../api/axios';
+import { errorText } from '../utils/errorText';
 
 /**
- * GOLDEN SEED INDUSTRIAL AUDIT SERVICE
- * Physically manages the acquisition of forensic footprints.
+ * GOLDEN SEED ERP - AUDIT TRAIL SERVICE
+ * fix181 (10.5): a failure keeps its HTTP status and a plain sentence, so the page can tell "nothing found" from
+ * "could not load" (expired sign-in, no access, server down).
+ * fix181 (10.13): `actions` is a LIST of codes, sent as actions=A&actions=B (no [] brackets, which Spring would not read).
  */
+const fail = (error) => {
+    const e = new Error(errorText(error));
+    e.status = error?.response?.status || null;
+    throw e;
+};
+
 const auditService = {
+    /** filters: { operator, actions: [codes], keyword, start, end (exclusive), excludeSystem } */
+    searchForensics: (filters = {}, page = 0, size = 50) =>
+        api.get('/admin/audit/search', {
+            params: {
+                operator: filters.operator || undefined,
+                actions: filters.actions && filters.actions.length ? filters.actions : undefined,
+                keyword: filters.keyword || undefined,
+                start: filters.start || undefined,
+                end: filters.end || undefined,
+                excludeSystem: filters.excludeSystem || undefined,
+                page,
+                size,
+            },
+            paramsSerializer: { indexes: null },
+        }).then(r => r.data).catch(fail),
 
-    /**
-     * THE TRUTH MACHINE (Search Hub)
-     * Fetches logs based on Operator, Action type, or Timeline range.
-     */
-    searchForensics: async (filters = {}, page = 0, size = 50) => {
-        try {
-            const response = await api.get('/admin/audit/search', {
-                params: {
-                    operator: filters.operator || null,
-                    action: filters.action || null,
-                    // fix71: keyword travels WITH the other filters now. It used
-                    // to force a different endpoint that understood nothing else,
-                    // so searching silently discarded operator, action and dates.
-                    keyword: filters.keyword || null,
-                    start: filters.start || null,
-                    end: filters.end || null,
-                    page: page,
-                    size: size
-                }
-            });
-            return response.data;
-        } catch {
-            throw new Error("FORENSIC_SIGNAL_LOST: ARCHIVE ACCESS DENIED");
-        }
-    },
+    /** Every name in the audit trail (SYSTEM included); works for the Director too (10.3). */
+    getOperators: () => api.get('/admin/audit/operators').then(r => r.data || []).catch(fail),
 
-    /**
-     * ASSET INVESTIGATION (Keyword Drill-down)
-     */
-    investigateKeyword: async (keyword, page = 0) => {
-        try {
-            const response = await api.get('/admin/audit/investigate', {
-                params: { keyword, page, size: 50 }
-            });
-            return response.data;
-        } catch {
-            throw new Error("INVESTIGATION_FAULT: SIGNAL_UNREACHABLE");
-        }
-    },
+    /** One AUDIT_EXPORT line: who exported, which filters, how many rows (10.6c). Best effort. */
+    logExport: (filters, rows) => api.post('/admin/audit/export-log', { filters, rows }).catch(() => {}),
 
-    /**
-     * RAW TIMELINE STREAM
-     */
-    getRawStream: async (page = 0, size = 200) => {
-        try {
-            const response = await api.get('/admin/audit/stream', {
-                params: { page, size }
-            });
-            return response.data;
-        } catch {
-            throw new Error("STREAM_ERROR: DATABASE_SYNC_FAILED");
-        }
-    }
+    getRawStream: (page = 0, size = 200) =>
+        api.get('/admin/audit/stream', { params: { page, size } }).then(r => r.data).catch(fail),
 };
 
 export default auditService;
