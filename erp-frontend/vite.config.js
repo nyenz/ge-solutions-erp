@@ -12,9 +12,19 @@ export default defineConfig(({ command, mode }) => {
   return {
   plugins: [react()],
   build: {
-    // The bundle is >500kB (it's a large ERP). This only silences the
-    // "chunk larger than 500 kB" WARNING; it does not affect behaviour.
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // fix182 (speed): React and the router change rarely, so they get their own long-cached file; a site update
+        // then only re-downloads the pages that changed.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(id)) return 'react';
+          if (id.includes('node_modules/axios')) return 'net';
+          return undefined;
+        },
+      },
+    },
   },
   };
 })

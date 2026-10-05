@@ -35,8 +35,8 @@
          import { LoadingState, LoadingRow, EmptyState }
              from '../../components/common/LoadingState';
        ================================================================= */
-    --panel-surface:     linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-    --panel-surface-alt: #16292b;
+    --panel-surface:     linear-gradient(160deg, var(--sf-1) 0%, var(--sf-2) 100%);
+    --panel-surface-alt: var(--sf-deep);
     --panel-edge:        rgba(238, 140, 58, 0.28);
     --text-on-dark:      rgba(244, 242, 239, 0.82); /* 8.56:1 on #1c3335 */
     --text-on-dark-soft: rgba(244, 242, 239, 0.72); /* 6.98:1 on #1c3335 */
@@ -141,7 +141,7 @@ input[type="number"] {
 }
 
 ::-webkit-scrollbar-track {
-    background: #1a2e30;
+    background: var(--scroll-track, #1a2e30);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -357,14 +357,88 @@ input[type="search"]::-webkit-search-results-decoration {
     --bg-rgb: 244, 242, 239;
 }
 
-/* PAGE THEME -- background and chrome only. Panels stay dark navy in
-   both themes: that palette is still hard-coded per page, and a half
-   inverted app is worse than a consistent one. Tokenising the panel
-   colours is the next step, and then this selector grows. */
+/* ===== THEME TOKENS (fix182) =========================================
+   Every panel colour in the CSS modules reads one of these (written by
+   scripts/tokenize-theme.mjs, each with the old colour as its fallback):
+     --sf-*    panel surfaces (gradients, head bars, docks, wells)
+     --ink-rgb the colour of text, hairlines and soft washes ON a panel,
+               as "r, g, b" so a page can write rgba(var(--ink-rgb), 0.06)
+     --tx-*    the light accent text colours made for navy panels
+   CREAM and SLATE keep the navy panels (the values below). LIGHT
+   (data-theme="bright") turns the panels light and the ink navy.
+   New CSS: never hard-code #1c3335 / #fff text on a panel -- use these.
+   ================================================================== */
+:root {
+    --sf-1: #1c3335;
+    --sf-2: #213E40;
+    --sf-head: #162a2c;
+    --sf-deep: #16292b;
+    --sf-navy: #1a2e30;
+    --sf-raise-1: #3a5a5c;
+    --sf-raise-2: #2a4a4c;
+    --sf-dock: #4d5c5a;
+    --sf-black: #0a0a0a;
+    --sf-readout: #28383a;
+    --sf-navy-rgb: 26, 46, 48;
+    --well: 0, 0, 0;
+    --ink-rgb: 255, 255, 255;
+    --ink-solid: #ffffff;
+    --tx-red: #fca5a5;
+    --tx-red-soft: #fecaca;
+    --tx-cyan: #67e8f9;
+    --tx-green: #34d399;
+    --tx-yellow: #fcd34d;
+    --tx-amber: #fbbf24;
+    --tx-orange: #ffb46b;
+    --tx-accent: #EE8C3A;
+    --scroll-track: #1a2e30;
+}
+
+/* PAGE THEME. CREAM (light) = the original. SLATE (dark) = dark page
+   background and chrome, navy panels. LIGHT (bright) = light page AND
+   light panels: white cards, warm stone head bars, navy text. */
 :root[data-theme="dark"] {
     --bg-base: #16292b;
     --bg-rgb: 22, 41, 43;
     --text-on-light: #F4F2EF;
+}
+:root[data-theme="bright"] {
+    --bg-base: #ebe7e0;
+    --bg-rgb: 235, 231, 224;
+    --sf-1: #ffffff;
+    --sf-2: #f8f5f0;
+    --sf-head: #efe8dc;
+    --sf-deep: #f3eee6;
+    --sf-navy: #ebe4d8;
+    --sf-raise-1: #ffffff;
+    --sf-raise-2: #faf7f2;
+    --sf-dock: #ddd5c7;
+    --sf-black: #f6f1e9;
+    --sf-readout: #f1ece3;
+    --sf-navy-rgb: 236, 229, 218;
+    --well: 140, 112, 72;
+    --ink-rgb: 26, 46, 48;
+    --ink-solid: #1a2e30;
+    --tx-red: #b91c1c;
+    --tx-red-soft: #991b1b;
+    --tx-cyan: #0e7490;
+    --tx-green: #047857;
+    --tx-yellow: #a16207;
+    --tx-amber: #b45309;
+    --tx-orange: #c2410c;
+    --tx-accent: #c96a1e;
+    --scroll-track: #e2dbcf;
+    --text-on-dark: rgba(26, 46, 48, 0.86);
+    --text-on-dark-soft: rgba(26, 46, 48, 0.68);
+    --text-light: #1a2e30;
+    --panel-edge: rgba(238, 140, 58, 0.34);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+}
+:root[data-theme="bright"] body { color: #1a2e30; }
+/* light panels need a real shadow to sit off the page */
+:root[data-theme="bright"] #root [class*="Panel"]:not([class*="Head"]):not([class*="panelInner"]),
+:root[data-theme="bright"] #root [class*="Card"]:not([class*="Head"]):not([class*="Title"]) {
+    box-shadow: 0 1px 2px rgba(26, 46, 48, 0.06), 0 8px 24px rgba(26, 46, 48, 0.08);
 }
 
 /* UI SIZE -- the app is laid out in px and clamp(), not rem, so a root
@@ -397,11 +471,59 @@ input[type="search"]::-webkit-search-results-decoration {
 
 /* HIGH CONTRAST -- stronger row lines in TABLES only (Ledger, Client Ledger, Portfolio, Payments, Expenses, Reports,
    Folder). The hint in Settings says the same (fix181, 15.1f). */
-:root[data-contrast="high"] table tbody td { border-bottom-color: rgba(255, 255, 255, 0.22) !important; }
-:root[data-contrast="high"] table tbody tr:hover { background: rgba(255, 255, 255, 0.10) !important; }
+:root[data-contrast="high"] table tbody td { border-bottom-color: rgba(var(--ink-rgb), 0.22) !important; }
+:root[data-contrast="high"] table tbody tr:hover { background: rgba(var(--ink-rgb), 0.10) !important; }
 
 /* fix181 (15.1c): pinch-zoom is allowed again; an iPhone zooms in on any box under 16px when it is tapped, so on touch
    screens every input is at least 16px. */
 @media (pointer: coarse) {
     input, select, textarea { font-size: max(16px, 1em) !important; }
 }
+
+/* ===== CHECKBOXES (fix182) =========================================
+   "NO BROWSER DEFAULT STYLING": every checkbox in the app is the same
+   white box with an orange edge; ticked = solid orange with a navy
+   tick. A page may size it (width/height) but never re-colour it. */
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    accent-color: #EE8C3A;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    display: inline-grid;
+    place-content: center;
+    vertical-align: middle;
+    background: #ffffff;
+    border: 1.5px solid rgba(238, 140, 58, 0.55);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+input[type="checkbox"]::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    background: #1a2e30;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    transform: scale(0);
+    transition: transform 0.15s ease-out;
+}
+input[type="checkbox"]:checked { background: #EE8C3A; border-color: #EE8C3A; }
+input[type="checkbox"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:hover { border-color: #EE8C3A; box-shadow: 0 0 0 2px rgba(238, 140, 58, 0.15); }
+input[type="checkbox"]:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; }
+input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== LINKS (fix182) =============================================
+   No browser-blue underlined links: a plain link inherits its text
+   colour and gets the orange on hover.
+   :where() keeps these at zero specificity, so any page's own link
+   class still wins. */
+:where(a) { color: inherit; text-decoration: none; }
+:where(a:hover) { color: var(--tx-accent, #EE8C3A); }
+:where(a:focus-visible) { outline: 2px solid #EE8C3A; outline-offset: 2px; border-radius: 2px; }
+
+/* ===== TEXT SELECTION ============================================== */
+::selection { background: rgba(238, 140, 58, 0.35); color: inherit; }

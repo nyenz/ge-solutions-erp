@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import pendingService from '../../services/pendingService';
 import { errorText } from '../../utils/errorText';
+import { LoadingState, EmptyState } from '../../components/common/LoadingState';
 import styles from './Pending.module.css';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
@@ -29,17 +30,19 @@ export default function MyEntriesPage() {
 
     return (
         <div className={styles.page}>
-            <div className={styles.head}>
-                <h1 className={styles.title}>MY ENTRIES</h1>
-                <span className={styles.sub}>Projects you entered. The office adds the prices and starts them.</span>
-            </div>
-            {error && <div className={styles.error} role="alert">{error} <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>Retry</button></div>}
-            {rows === null && <div className={styles.muted}>Loading...</div>}
-            {rows && rows.length === 0 && !error && <div className={styles.card}>You have no entries yet. Use NEW PROJECT to enter one.</div>}
+            <header className={styles.head}>
+                <div className={styles.headLeft}>
+                    <h1 className={styles.title}>My Entries</h1>
+                    <span className={styles.sub}>Projects you entered. The office adds the prices and starts them.</span>
+                </div>
+            </header>
+            {error && <div className={styles.error} role="alert">{error} <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div>}
+            {rows === null && <LoadingState label="LOADING YOUR ENTRIES..." size="page" />}
+            {rows && rows.length === 0 && !error && <EmptyState label="NO ENTRIES YET">Use NEW PROJECT to enter one.</EmptyState>}
             {rows && rows.map(r => {
                 const clickable = r.pending && !r.rejected;
                 return (
-                    <div key={r.id} className={`${styles.card} ${clickable ? styles.rowLink : ''}`}
+                    <div key={r.id} className={`${styles.card} ${styles.cardBody} ${clickable ? styles.rowLink : ''}`}
                         role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined}
                         onClick={() => open(r)} onKeyDown={e => { if (e.key === 'Enter') open(r); }}>
                         <div className={styles.row}>

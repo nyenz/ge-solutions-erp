@@ -1,0 +1,20 @@
+/* PATH: erp-frontend/src/components/common/PaymentHealth.module.css
+   fix182: the payment-recency legend had no colour of its own, so on the Clients page it inherited the panel's white
+   text and vanished on the cream page. It is now a small glass chip with page-text colour (navy on CREAM / LIGHT,
+   cream on SLATE), the same small caps as the other legends. */
+.legend {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px;
+    background: rgba(var(--bg-rgb, 244, 242, 239), 0.72);
+    border: 1px solid rgba(238, 140, 58, 0.25);
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    font-family: 'DM Sans', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
+    letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
+    color: var(--text-on-light, #1a2e30);
+}
+.bar {
+    display: inline-block; width: clamp(70px, 8vw, 110px); height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #22c55e 0%, #eab308 23%, #f97316 50%, #ef4444 100%);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}

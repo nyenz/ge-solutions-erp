@@ -15,12 +15,12 @@ div.warnBox {
     border-color: rgba(245, 158, 11, 0.3);
     margin-bottom: 0;
 }
-div.warnBox strong { color: #fff; font-weight: 900; }
+div.warnBox strong { color: var(--ink-solid); font-weight: 900; }
 
 /* DISCARD & LEAVE: same secondary button, red on hover */
 button.leaveBtn:hover {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.5);
-    color: #fca5a5;
+    color: var(--tx-red, #fca5a5);
 }
 button.leaveBtn:focus-visible { outline-color: #ef4444; }

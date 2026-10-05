@@ -12,7 +12,7 @@
   --radius: 10px;
   max-width: 1400px; width: 100%; margin: 0 auto;
   padding: clamp(12px,2vh,22px) clamp(12px,2vw,24px) 28px;
-  font-family: 'Inter', sans-serif; color: #fff;
+  font-family: 'Inter', sans-serif; color: var(--ink-solid);
   display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
   box-sizing: border-box;
 }
@@ -34,7 +34,7 @@
 .backBtn, .editBtn, .cancelBtn, .saveBtn {
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;
   padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: 6px;
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--sf-navy-rgb), 0.75); color: rgba(var(--ink-rgb), 0.85);
   cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .backBtn:hover, .editBtn:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--orange); border-color: var(--orange); }
@@ -44,7 +44,7 @@
 .cancelBtn:hover:not(:disabled) { background: rgba(239,68,68,0.14); border-color: var(--red); color: var(--red); }
 .saveBtn:disabled, .cancelBtn:disabled { opacity: 0.5; cursor: wait; }
 
-.errorBanner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px; margin: -4px 0 12px; }
+.errorBanner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: var(--tx-red, #fca5a5); font-size: 11px; font-weight: 700; border-radius: 6px; padding: 8px 12px; margin: -4px 0 12px; }
 
 /* -- PANEL -- panels are now the shared CollapsibleSection + CornerDecor
    components (see IDENTITY / PROJECT PORTFOLIO / etc in the JSX) instead
@@ -56,15 +56,15 @@
    Only the small corner badge this page adds stays local. -- */
 .panelCornerBadge {
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
-  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(var(--ink-rgb), 0.55); background: rgba(var(--ink-rgb), 0.06); border: 1px solid rgba(var(--ink-rgb), 0.14);
   border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }
 
 /* -- IDENTITY GRID -- */
 .specGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: clamp(10px,1.4vw,18px); }
 .specItem { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.specLabel { font-size: clamp(8px,0.85vw,10px); font-weight: 900; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 5px; }
-.specValue { font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: #fff; overflow-wrap: anywhere; }
+.specLabel { font-size: clamp(8px,0.85vw,10px); font-weight: 900; color: rgba(var(--ink-rgb), 0.5); text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 5px; }
+.specValue { font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: var(--ink-solid); overflow-wrap: anywhere; }
 .specMono { font-family: 'Space Mono', monospace; font-size: clamp(11px,1.1vw,13px); font-weight: 700; color: var(--orange); }
 .specPhone { font-size: clamp(14px,1.6vw,18px); font-weight: 800; letter-spacing: 0.5px; }
 .editInput {
@@ -92,7 +92,7 @@
   gap: clamp(10px, 1.4vw, 16px);
 }
 .statCard {
-  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
   border: 1.5px solid var(--orange-border);
   border-radius: var(--radius);
   padding: clamp(12px, 1.5vw, 18px);
@@ -107,12 +107,12 @@
   font-family: 'Inter', sans-serif;
   font-size: var(--stat-label);
   font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 .statCard strong {
   font-family: 'Space Mono', monospace;
   font-size: var(--stat-value);
-  font-weight: 700; color: #fff; word-break: break-all;
+  font-weight: 700; color: var(--ink-solid); word-break: break-all;
 }
 .statTextValue { font-size: var(--stat-value-sm); }
 /* fix149: every card rests on orange; hover swaps the border to the card's font colour.
@@ -126,14 +126,14 @@
 .statCyan:hover  { border-color: #06b6d4; }
 .statCyan  label, .statCyan  strong { color: #06b6d4; }
 .statAmber:hover { border-color: #EE8C3A; }
-.statAmber label, .statAmber strong { color: #EE8C3A; }
+.statAmber label, .statAmber strong { color: var(--tx-accent, #EE8C3A); }
 .statWhite:hover { border-color: #fff; }
-.statWhite label, .statWhite strong { color: #fff; }
+.statWhite label, .statWhite strong { color: var(--ink-solid); }
 .statNote {
   font-family: 'Inter', sans-serif;
   font-size: var(--stat-note);
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-  color: rgba(255,255,255,0.35);
+  color: rgba(var(--ink-rgb), 0.35);
 }
 
 /* -- TABLE -- */
@@ -141,26 +141,26 @@
 .tableScroll::-webkit-scrollbar { display: none; }
 .ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 680px; }
 .ledgerTable thead th {
-  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  background: var(--sf-head, #162a2c); color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
   border-bottom: 3px solid var(--orange); white-space: nowrap;
 }
 .ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
 .ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
 .sortable { cursor: pointer; transition: background 0.18s, color 0.18s; }
-.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), #162a2c; color: #fff; }
-.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; color: #fff; font-size: clamp(10px,1.05vw,12px); }
+.sortable:hover { background: linear-gradient(rgba(238,140,58,0.12), rgba(238,140,58,0.12)), var(--sf-head, #162a2c); color: var(--ink-solid); }
+.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: middle; color: var(--ink-solid); font-size: clamp(10px,1.05vw,12px); }
 .ledgerTable tbody tr.row { cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
-.ledgerTable tbody tr.row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
-.ledgerTable tbody tr.rowStatic td { color: rgba(255,255,255,0.9); }
+.ledgerTable tbody tr.row:hover { background: rgba(var(--ink-rgb), 0.04); border-left-color: var(--orange); }
+.ledgerTable tbody tr.rowStatic td { color: rgba(var(--ink-rgb), 0.9); }
 .mono { font-family: 'Space Mono', monospace; }
-.moneyRed { color: #fca5a5; font-weight: 700; }
-.moneyGreen { color: #6ee7b7; font-weight: 700; }
-.openLink { font-size: 10px; font-weight: 900; letter-spacing: 1px; color: rgba(255,255,255,0.35); white-space: nowrap; }
+.moneyRed { color: var(--tx-red, #fca5a5); font-weight: 700; }
+.moneyGreen { color: var(--tx-green, #6ee7b7); font-weight: 700; }
+.openLink { font-size: 10px; font-weight: 900; letter-spacing: 1px; color: rgba(var(--ink-rgb), 0.35); white-space: nowrap; }
 .row:hover .openLink { color: var(--orange); }
 
 .groupRow td {
-  background: rgba(0,0,0,0.22); border-bottom: 1px solid rgba(238,140,58,0.28);
+  background: rgba(var(--well), 0.22); border-bottom: 1px solid rgba(238,140,58,0.28);
   font-size: clamp(8px,0.9vw,10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--orange);
   padding: clamp(6px,0.9vw,9px) clamp(10px,1.5vw,16px);
 }
@@ -168,27 +168,27 @@
 /* one-word ownership / status / call-tone tags -- colored text, no chip
    background, so they never visually compete with the money figures */
 .tag { font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
-.tagNeutral { color: rgba(255,255,255,0.6); }
-.tagJoint { color: #67e8f9; }
-.tagGood { color: #34d399; }
+.tagNeutral { color: rgba(var(--ink-rgb), 0.6); }
+.tagJoint { color: var(--tx-cyan, #67e8f9); }
+.tagGood { color: var(--tx-green, #34d399); }
 .tagWarn { color: var(--orange); }
-.tagBad { color: #f87171; }
+.tagBad { color: var(--tx-red, #f87171); }
 
-.coLine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.45); }
-.coLine svg { color: rgba(255,255,255,0.45); font-size: 11px; flex-shrink: 0; }
-.coChip { background: none; border: none; padding: 0; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1px; color: #67e8f9; transition: color 0.2s; }
-.coChip:hover { color: #ffffff; }
+.coLine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; font-size: 10px; font-weight: 700; color: rgba(var(--ink-rgb), 0.45); }
+.coLine svg { color: rgba(var(--ink-rgb), 0.45); font-size: 11px; flex-shrink: 0; }
+.coChip { background: none; border: none; padding: 0; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 900; letter-spacing: 1px; color: var(--tx-cyan, #67e8f9); transition: color 0.2s; }
+.coChip:hover { color: var(--ink-solid); }
 .coChip:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* percentage-paid column: thin bar + numeric readout, same idiom as the
    Client Ledger's recovery-velocity bar so the two pages agree visually */
 .pctWrap { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
-.pctBar { height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.pctBar { height: 5px; background: rgba(var(--ink-rgb), 0.1); border-radius: 3px; overflow: hidden; }
 .pctFill { height: 100%; border-radius: 3px; background: currentColor; }
-.pctLabel { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); }
+.pctLabel { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 800; color: rgba(var(--ink-rgb), 0.7); }
 
 /* payment-health legend dots */
-.healthCell { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.75); }
+.healthCell { display: flex; align-items: center; gap: 8px; color: rgba(var(--ink-rgb), 0.75); }
 .legendDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .dotGreen { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
 .dotAmber { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
@@ -197,10 +197,10 @@
 
 /* -- CALL LOG -- */
 .noteList { display: flex; flex-direction: column; gap: 10px; }
-.noteRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 14px; }
-.noteDate { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.45); }
-.noteAuthor { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
-.noteText { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
+.noteRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; background: rgba(var(--well), 0.15); border: 1px solid rgba(var(--ink-rgb), 0.06); border-radius: 8px; padding: 10px 14px; }
+.noteDate { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; color: rgba(var(--ink-rgb), 0.45); }
+.noteAuthor { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.45); }
+.noteText { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; font-weight: 500; color: rgba(var(--ink-rgb), 0.85); }
 
 /* -- EMPTY / LOADING -- */
 /* CONTRAST RULE: these render on .container, which is transparent -- i.e.
@@ -208,19 +208,19 @@
    card, and their text must be cream, never white-on-cream. */
 .noRecordsBig {
   padding: 60px 20px; text-align: center; font-weight: 800; letter-spacing: 1px;
-  background: linear-gradient(160deg,#1c3335 0%,#213E40 100%);
+  background: linear-gradient(160deg,var(--sf-1, #1c3335) 0%,var(--sf-2, #213E40) 100%);
   border: 1.5px solid var(--orange-border); border-radius: var(--radius);
-  color: rgba(244,242,239,0.72);
+  color: rgba(var(--ink-rgb), 0.72);
 }
 /* .noRecords sits INSIDE a dark panel already -- a card here would be a card
    in a card, so only the text colour moves (white 40% -> cream 68%). */
-.noRecords { text-align: center; padding: 24px !important; color: rgba(244,242,239,0.68); font-weight: 700; letter-spacing: 0.5px; }
+.noRecords { text-align: center; padding: 24px !important; color: rgba(var(--ink-rgb), 0.68); font-weight: 700; letter-spacing: 0.5px; }
 .errorState {
   display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
   padding: 60px 20px; text-align: center; font-weight: 800; letter-spacing: 1px;
-  background: linear-gradient(160deg,#1c3335 0%,#213E40 100%);
+  background: linear-gradient(160deg,var(--sf-1, #1c3335) 0%,var(--sf-2, #213E40) 100%);
   border: 1.5px solid rgba(239,68,68,0.35); border-radius: var(--radius);
-  color: #fca5a5; /* 7.4:1 once it is on navy instead of cream */
+  color: var(--tx-red, #fca5a5); /* 7.4:1 once it is on navy instead of cream */
 }
 .retryBtn { background: none; border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: inherit; transition: background 0.15s ease; }
 .retryBtn:hover { background: rgba(239,68,68,0.12); }

@@ -11,30 +11,47 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * GOLDEN SEED -- SCENARIO DATASET v4 (fix167; pure data, no Spring, no database).
+ * GOLDEN SEED -- SCENARIO DATASET v7 (fix182; pure data, no Spring, no database).
  *
  * EVERY situation the app knows is seeded AT LEAST TWICE (two different people, places and amounts), so each
  * screen, filter and report has more than one row to show. Every date is "days ago", so the data is always fresh.
  * ScenarioSeeder turns this into rows; selfCheck() proves the money adds up BEFORE anything touches the database.
  *
+ * fix182 (v7) brings the data in line with the app as it is now (fix180 / fix181):
+ *   - ALL EIGHT project types, each with its own status list and the right Title Details rule
+ *     (Fresh Survey, Subdivision, Legacy Titles, Transfer of Title, Boundary Opening, Topographic Survey with the
+ *     title switch on and off, Resurvey, Special Projects);
+ *   - CLIENTS (who pay and are called) apart from OWNERS (on the title): a son paying for his parents, a buyer paying
+ *     to take over a seller's title, two siblings paying for one estate;
+ *   - NEIGHBORS on boundary work, subdivisions and disputes;
+ *   - SUBDIVISIONS whose plots were TRANSFERRED to new Transfer of Title projects (parent + plot number);
+ *   - Pending entries waiting, waiting too long, started, and REJECTED with a reason.
+ *
  * Situations (each x2 or more):
- *   New Folder ....... walk-in (no statuses), deposit only, statuses ticked AT INTAKE + later, custom statuses, refused by
- *                      the land board, ready for titling (paid / part paid), never paid, prepaid, stale, reverted title
- *   Folder -> titled . released (with hand-over note), paid not released, part paid, critical (<25%), title produced
- *                      in bulk (details pending), manual status override, hand-over UNDONE
- *   New Title ........ paid + released, part paid, no payment, FREEHOLD / MAILO / LEASEHOLD / CUSTOMARY, 351 days silent
- *   Legacy Title ..... paid + released, owing, legacy receivable, joint owners
- *   Receivables ...... at intake, part payments incl. STORAGE-FEE payments, joint owners paying separately, paused now,
- *                      pause ended (paused days not charged), deadline in 3 days, custom rate, rate 0 (no fee),
- *                      late-entry start date, joint + silent, auto-flagged at 365 days, PROBLEM, commercial,
- *                      fees REDUCED after negotiation, payment REVERSED
- *   Exits ............ paid off, fees waived (some fees already paid), fees added to cost, set aside (fees kept)
- *   Flags ............ PROBLEM on folder / titled / receivable, PROBLEM flagged then CLEARED
- *   Soft delete ...... deleted recently, deleted long ago, deleted then restored
- *   Owners ........... solo, joint (2), joint (3), one person on 3 projects (x2 people), shared phone, two phone
- *                      numbers, foreign number, very long name, no email / no address
- *   Recovery ......... NEW, CONTACTED, MISSED, SITE VISIT (4 missed days), LOCKED (2 good calls), LOCKED (recent payment),
- *                      callable again
+ *   Fresh Survey ...... walk-in (no statuses), deposit only, statuses ticked AT INTAKE + later, custom statuses, refused by
+ *                       the land board, ready for titling (paid / part paid), never paid, prepaid, stale, finished with no
+ *                       title, son pays for his parents (client is not the owner)
+ *   Resurvey .......... released (with hand-over note), paid not released, part paid, critical (<25%), title produced
+ *                       in bulk (details pending), manual status override, hand-over UNDONE, two siblings pay for an estate
+ *   Transfer of Title . paid + released, part paid, no payment, FREEHOLD / MAILO / LEASEHOLD / CUSTOMARY, 351 days silent,
+ *                       buyer pays to take over the seller's title, plots TRANSFERRED out of a subdivision
+ *   Legacy Titles ..... paid + released, owing, legacy receivable, joint owners
+ *   Subdivision ....... mother title finished with plots transferred, subdivision in progress with neighbors
+ *   Boundary Opening .. done and handed back, in the field with neighbors (one variant flagged PROBLEM)
+ *   Topographic ....... no title (switch off) finished, title switched on and owing, title taken off again (reverted)
+ *   Special Projects .. corporate job paid by progressive invoices, finished and fully paid
+ *   Receivables ....... at intake, part payments incl. STORAGE-FEE payments, joint clients paying separately, paused now,
+ *                       pause ended (paused days not charged), deadline in 3 days, custom rate, rate 0 (no fee),
+ *                       late-entry start date, joint + silent, auto-flagged at 365 days, PROBLEM, commercial,
+ *                       fees REDUCED after negotiation, payment REVERSED
+ *   Exits ............. paid off, fees waived (some fees already paid), fees added to cost, set aside (fees kept)
+ *   Flags ............. PROBLEM on folder / titled / receivable, PROBLEM flagged then CLEARED
+ *   Soft delete ....... deleted recently, deleted long ago, deleted then restored
+ *   People ............ solo, joint (2), joint (3), one person on 3 projects (x2 people), shared phone, two phone
+ *                       numbers, foreign number, very long name, no email / no address, 14+ people with no project
+ *   Pending ........... waiting 1-2 days, waiting too long (stale alert), started recently (first-month delay), rejected
+ *   Recovery .......... NEW, CONTACTED, MISSED, SITE VISIT (4 missed days), LOCKED (2 good calls), LOCKED (recent payment),
+ *                       callable again
  */
 final class ScenarioData {
 
@@ -126,7 +143,14 @@ final class ScenarioData {
         "SEBUNYA", "NAGGAYI", "OCHIENG", "TUMUHIMBISE", "KIWANUKA", "NABUKENYA", "OLUKA", "MUHWEZI", "NAKAYIZA", "ENYAKU",
         "BUSINGE", "NAKIMULI", "OKIDI", "TUHAISE", "KAJUMBA", "NAMUGGA", "OPOLOT", "ABAASA", "WALUSIMBI", "NAKAWUNDE",
         "OKIROR", "KYARIMPA", "SEGAWA", "NAMPIIMA", "OCHOLA", "BESIGYE", "KISAKYE", "NABASIRYE", "OTIM", "KIRUNDA",
-        "NAKANJAKO", "OBONYO", "ATUHAIRE", "SSENTONGO", "NANTEZA", "OKUMU", "KYOMUGISHA", "MAYANJA", "NAKIBUUKA", "EGESA"
+        "NAKANJAKO", "OBONYO", "ATUHAIRE", "SSENTONGO", "NANTEZA", "OKUMU", "KYOMUGISHA", "MAYANJA", "NAKIBUUKA", "EGESA",
+        // fix182 (v7): more people for the new project types, client/owner pairs and the people with no project
+        "KAWOOYA", "NAMBOOZE", "ODEKE", "AKANKUNDA", "SSEMWOGERERE", "NALUBEGA", "OKELLO-LAKO", "TUMWINE", "NAKAYENGA", "BAKKABULINDI",
+        "AYO", "NAMAYEGA", "MUSOKE", "KATUSIIME", "OLOYA", "NAKANDI", "BIGIRWA", "NASSUNA", "ECHAKU", "KYAKUWAIRE",
+        "MPAGI", "NAMULONDO", "OBOTE", "AINOMUGISHA", "SSEKITOLEKO", "NABULIME", "OGWAL", "KUSIIMA", "KALULE", "NAKITENDE",
+        "ADRAKU", "NAMIGADDE", "LUBWAMA", "ASIIMIRE", "OKELLO-OPIO", "NANYONGA", "TIBAIJUKA", "NANKABIRWA", "OKOT", "KAGGWA",
+        "NANGOBI", "OPENY", "KYOBE", "ARINDA", "NAKALANZI", "SSERUNJOGI", "AJOK", "NAMWASE", "MUTYABA", "KIIZA",
+        "NABATANZI-KAWEESI", "OCAYA", "BUKENYA", "NAMPEERA", "ODONG", "TUKAMUSHABA", "NAJJUKA", "KIGOZI", "ACHENG", "WALAKIRA"
     };
     static final int JOINT_LONG = 138;   // OKELLO-OBURA CHRISTOPHER EMMANUEL (joint owner)
     static final int VERY_LONG = 139;    // NAMUKASA-NAKAWUKI BERNADETTE MARY-ANN
@@ -141,7 +165,9 @@ final class ScenarioData {
         "JANET", "KENNETH", "LYDIA", "NOAH", "OLIVIA", "PHILLIP", "QUEEN", "RAYMOND", "SYLVIA", "TIMOTHY",
         "URSULA", "VICTOR", "WINNIE", "YASIN", "ZAINAB", "ABEL", "BRENDA", "CALVIN", "DORCAS", "ELIJAH",
         "FAITH", "GERALD", "HOPE", "IRIS", "JONAH", "KEVIN", "LEAH", "MARK", "NORAH", "OSCAR",
-        "PRISCILLA", "RACHEL", "SOLOMON", "TRACY", "UMAR", "VIOLA", "WILSON", "YVONNE", "ZACK", "ANNA"
+        "PRISCILLA", "RACHEL", "SOLOMON", "TRACY", "UMAR", "VIOLA", "WILSON", "YVONNE", "ZACK", "ANNA",
+        "BEATRICE", "CEDRIC", "DAPHNE", "EVELYN", "FRANCIS", "GEORGE", "HARRIET", "INNOCENT", "JACKLINE", "KENNEDY",
+        "LAWRENCE", "MAUREEN", "NICHOLAS", "OLIVER", "PAMELA", "QUINTO", "ROSEMARY", "STEPHEN", "TEDDY", "VALENTINE"
     };
     private static final String[] TOWNS = {
         "Nansana, Wakiso", "Bweyogerere, Wakiso", "Pece, Gulu", "Kayabwe, Mpigi", "Rukungiri Municipality", "Hoima City",
@@ -276,6 +302,14 @@ final class ScenarioData {
         Reduce(int ago, long amount, String why) { this.ago = ago; this.amount = amount; this.why = why; }
     }
 
+    /** fix182: someone whose land borders the project (no NIN, never called by Recovery). */
+    static final class Neighbor {
+        final String name;
+        final String side;
+        final String plot;
+        Neighbor(String name, String side, String plot) { this.name = name; this.side = side; this.plot = plot; }
+    }
+
     static final class Spec {
         final String key;
         final String mode;      // FOLDER, TITLE, LEGACY
@@ -328,6 +362,18 @@ final class ScenarioData {
         // fix181 (8.9): entered by the Employee, waiting for prices (no cost, no payments) / started (graduated) N days ago
         boolean pending = false;
         int graduatedAgo = -1;
+        // fix182 (v7): rejected by the office N days ago (with the reason the Employee reads)
+        int rejectedAgo = -1;
+        String rejectWhy;
+        // fix182 (v7): the project type when it is not the one the old mode implies, the CLIENTS when they are not the
+        // owners, NEIGHBORS, SUBDIVISION plots and links, the Topographic title switch
+        com.gesolutions.erp.modules.land.model.ProjectType ptype;
+        String[] clientKeys;
+        final List<Neighbor> neighbors = new ArrayList<>();
+        int subdivisions = 0;
+        String parentKey;
+        int parentNo = 0;
+        boolean titleSwitch = false;
 
         Spec(String key, String mode, String[] owners) {
             this.key = key;
@@ -384,6 +430,14 @@ final class ScenarioData {
         Spec pending() { pending = true; cost = 0; intakeBy = EMPLOYEE; noStatuses = true; return this; }
         Spec graduated(int ago) { graduatedAgo = ago; return this; }
         Spec restored(int deletedAgo, int restoredAgo) { this.deletedAgo = deletedAgo; this.restoredAgo = restoredAgo; return this; }
+        Spec rejected(int ago, String why) { rejectedAgo = ago; rejectWhy = why; return this; }
+        Spec type(com.gesolutions.erp.modules.land.model.ProjectType t) { ptype = t; return this; }
+        /** fix182: who pays and is called, when that is not the owners (fix180: Clients panel) */
+        Spec clients(String... keys) { clientKeys = keys; return this; }
+        Spec neighbor(String name, String side, String plot) { neighbors.add(new Neighbor(name, side, plot)); return this; }
+        Spec subdivisions(int n) { subdivisions = n; return this; }
+        Spec transferOf(String parent, int plotNo) { parentKey = parent; parentNo = plotNo; return this; }
+        Spec titleSwitch() { titleSwitch = true; return this; }
         Spec note(int ago, String by, String text) { notes.add(new Note(ago, by, text, null)); return this; }
         Spec ownerNote(int ago, String by, String ownerKey, String text) { notes.add(new Note(ago, by, text, ownerKey)); return this; }
         Spec intakeNote(String text) { notes.add(new Note(-1, null, text, null)); return this; }
@@ -396,11 +450,18 @@ final class ScenarioData {
         boolean statusesAttached() { return !noStatuses; }   // fix180: every project type has statuses
         /** fix180: the project type this spec is entered as. */
         com.gesolutions.erp.modules.land.model.ProjectType type() {
+            if (ptype != null) return ptype;
             if (legacy()) return com.gesolutions.erp.modules.land.model.ProjectType.LEGACY_TITLES;
             if (!isFolder()) return com.gesolutions.erp.modules.land.model.ProjectType.TRANSFER_OF_TITLE;
             return hasTitle() ? com.gesolutions.erp.modules.land.model.ProjectType.RESURVEY : com.gesolutions.erp.modules.land.model.ProjectType.FRESH_SURVEY;
         }
-        boolean hasTitle() { return !isFolder() || done >= STEPS || pendingTitle; }
+        boolean hasTitle() {
+            if (ptype != null) return plot != null || pendingTitle;   // fix182: an explicit type has its title only when given
+            return !isFolder() || done >= STEPS || pendingTitle;
+        }
+        /** fix182: the people who pay (the clients); the owners when no separate clients are named. */
+        String[] billing() { return clientKeys != null ? clientKeys : owners; }
+        boolean rejectedNow() { return pending && rejectedAgo >= 0; }
         boolean legacy() { return "LEGACY".equals(mode); }
         int ticksAtIntake() { return intakeTicks >= 0 ? Math.min(intakeTicks, done) : Math.min(1, done); }
         boolean problemNow() { return problemAgo >= 0 && problemClearedAgo < 0; }
@@ -472,6 +533,8 @@ final class ScenarioData {
     private static Spec folder(String key, String... o) { return new Spec(key, "FOLDER", o); }
     private static Spec newTitle(String key, String... o) { return new Spec(key, "TITLE", o); }
     private static Spec legacy(String key, String... o) { return new Spec(key, "LEGACY", o); }
+    /** fix182: a project of any type that moves through its status list step by step (the folder way). */
+    private static Spec typed(String key, com.gesolutions.erp.modules.land.model.ProjectType t, String... o) { return new Spec(key, "FOLDER", o).type(t); }
 
     private static final String[][] LOCS = {
         {"WAKISO", "KYADONDO", "NANSANA MUNICIPALITY", "NANSANA EAST", "KYEBANDO"},
@@ -525,6 +588,12 @@ final class ScenarioData {
         List<Spec> l = new ArrayList<>();
         Pool pool = new Pool();
         final String M1 = MGR1, M2 = MGR2, AD = ADMIN, DR = DIRECTOR, S1 = SEC1, S2 = SEC2;
+        final com.gesolutions.erp.modules.land.model.ProjectType FRESH = com.gesolutions.erp.modules.land.model.ProjectType.FRESH_SURVEY,
+                SUB = com.gesolutions.erp.modules.land.model.ProjectType.SUBDIVISION,
+                BOUND = com.gesolutions.erp.modules.land.model.ProjectType.BOUNDARY_OPENING,
+                TOPO = com.gesolutions.erp.modules.land.model.ProjectType.TOPOGRAPHIC_SURVEY,
+                RESV = com.gesolutions.erp.modules.land.model.ProjectType.RESURVEY,
+                SPEC = com.gesolutions.erp.modules.land.model.ProjectType.SPECIAL_PROJECTS;
         // people reused on purpose (one person, three projects; joint owners; the two shared-phone couples)
         final String multiA = keyOf(59), multiB = keyOf(58);   // each owns 3 projects
         final String coupleA1 = keyOf(3), coupleA2 = keyOf(4); // shared phone
@@ -551,14 +620,16 @@ final class ScenarioData {
                 .cost(4600000 + k).times(80 + d, 79 + d).deposit(1150000).payBy(50 + d, 1150000, AD, coupleA2).rcpt().ticks(1, 3)
                 .intakeNote("Spouses; both must sign the deed plan.")
                 .ownerNote(1 + v, S1, coupleA2, "Called. Will sign the deed plan on Friday.")
-                .docs(78 + d, AF).doc(40 + d, SP, "boundary-site-photo-" + (v + 1) + ".jpg", "image/jpeg", M1));
+                .docs(78 + d, AF).doc(40 + d, SP, "boundary-site-photo-" + (v + 1) + ".jpg", "image/jpeg", M1)
+                .neighbor("SSEWANYANA JOSEPH", "NORTH", "PLOT " + (210 + v)).neighbor("NAKIGANDA ROSE", "EAST", null));
             l.add(folder("f_custom_statuses" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
                 .cost(5600000 + k).times(95 + d, 94 + d).deposit(1680000).pay(60 + d, 1120000, M2).rcpt().ticks(1, 2)
                 .custom("Neighbour Consent Letters", 150000, true).custom("Boundary Re-opening", 450000, false)
                 .note(30 + d, M2, "Neighbour disputes the eastern boundary. Two extra statuses added.").docs(30 + d, CL, SP));
             l.add(folder("f_board_refused" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
                 .cost(4900000 + k).times(190 + d, 188 + d).deposit(1960000).pay(140 + d, 980000, AD).rcpt().ticks(1, 3)
-                .note(25 + d, M1, "District Land Board refused: boundary mismatch on the deed plan. Surveyor to correct and resubmit."));
+                .note(25 + d, M1, "District Land Board refused: boundary mismatch on the deed plan. Surveyor to correct and resubmit.")
+                .neighbor("OKWERA PATRICK", "SOUTH-WEST", "PLOT " + (330 + v)));
             l.add(folder("f_ready_paid" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.4 acre")
                 .cost(4300000 + k).times(230 + d, 229 + d).deposit(1290000 + k).pay(190 + d, 1290000, AD).rcpt().pay(45 + d, 1720000, M1).rcpt().ticks(2, 5).override(4, 50 + d)
                 .note(9, M1, "Back from the Land Board with approval. Waiting for registration.").docs(220, AF, DPL).docs(15, FL));
@@ -572,7 +643,7 @@ final class ScenarioData {
             l.add(folder("f_stale" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1.2 acres")
                 .cost(4400000 + k).times(310 + d, 309 + d).deposit(880000).pay(295 + d, 440000, M1).rcpt().ticks(1, 1)
                 .note(200, M1, "Client travelling; promised to return in the dry season."));
-            l.add(folder("f_title_reverted" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.6 acre")
+            l.add(typed("f_title_reverted" + s, TOPO, pool.take()).titleSwitch().loc(LOCS[li++ % LOCS.length], "0.6 acre")
                 .cost(4100000 + k).times(170 + d, 168 + d).deposit(1230000).pay(80 + d, 1230000, M1).rcpt().ticks(2, 5)
                 .reverted(6 + d, "99" + (10 + v))
                 .note(6 + d, DR, "Title details were typed on the wrong project; taken off again. The real title is still at the Land Board."));
@@ -728,7 +799,8 @@ final class ScenarioData {
             l.add(newTitle("p_problem_titled" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
                 .cost(5700000 + k).times(130 + d, 128 + d).deposit(1710000).pay(70 + d, 1140000, AD).rcpt()
                 .title(plot(), "BUSIRO BLOCK 90", "LRV 4069 FOLIO " + (16 + v), 135)
-                .problem(8 + d, "Title deed shows a different plot size from the survey."));
+                .problem(8 + d, "Title deed shows a different plot size from the survey.")
+                .neighbor("KASOZI DEO", "WEST", "PLOT " + (440 + v)));
             l.add(newTitle("p_problem_cleared" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
                 .cost(4400000 + k).times(160 + d, 158 + d).deposit(1320000).pay(50 + d, 880000, M2).rcpt()
                 .title(plot(), "BUSIRO BLOCK 91", "LRV 4069 FOLIO " + (60 + v), 165)
@@ -752,11 +824,89 @@ final class ScenarioData {
             l.add(folder("o_long_name" + s, v == 0 ? veryLong : pool.take()).loc(LOCS[li++ % LOCS.length], "0.25 acre")
                 .cost(3200000 + k).times(20 + d, 19 + d).deposit(800000).ticks(1, 1));
 
+            // ============ fix182 (v7): SUBDIVISION, with plots TRANSFERRED out to new projects ============
+            String mother = pool.take(), plotBuyer = pool.take();
+            l.add(typed("s_mother_transfers" + s, SUB, mother).loc(LOCS[li++ % LOCS.length], "5 acres")
+                .cost(8500000 + k).times(400 + d, 398 + d).deposit(2550000).pay(300 + d, 3000000, AD).rcpt().pay(200 + d, 2950000 + k, M1).rcpt()
+                .ticks(1, 6).subdivisions(6 + v * 4).title(plot(), "KYADONDO BLOCK 301", "LRV 4400 FOLIO " + (3 + v), 210 + d)
+                .neighbor("MUKIIBI ERIAS", "NORTH", "PLOT " + (500 + v)).neighbor("NAMATA GORRET", "SOUTH", "PLOT " + (510 + v))
+                .note(205 + d, M1, "Mother title cut into plots. Buyers are being transferred one plot at a time."));
+            l.add(newTitle("s_plot1_transferred" + s, mother).transferOf("s_mother_transfers" + s, 1).loc(LOCS[(li - 1) % LOCS.length], "0.5 acre")
+                .cost(1800000 + k).times(120 + d, 118 + d).deposit(900000).pay(40 + d, 900000 + k, M2).rcpt()
+                .title(plot(), "KYADONDO BLOCK 301", "LRV 4401 FOLIO " + (11 + v), 100 + d).released(10 + d)
+                .intakeNote("Plot 1 of the subdivision, transferred into the owner's own name."));
+            l.add(newTitle("s_plot2_transferred" + s, mother).clients(plotBuyer).transferOf("s_mother_transfers" + s, 2).loc(LOCS[(li - 1) % LOCS.length], "0.5 acre")
+                .cost(1800000 + k).times(60 + d, 58 + d).deposit(600000)
+                .title(plot(), "KYADONDO BLOCK 301", "LRV 4401 FOLIO " + (21 + v), 55 + d)
+                .intakeNote("Plot 2 of the subdivision. The buyer pays; the plot is still in the seller's name until the transfer is registered."));
+            String subFather = pool.take(), subSon = pool.take();
+            l.add(typed("s_in_progress" + s, SUB, subFather).clients(subSon).loc(LOCS[li++ % LOCS.length], "8 acres")
+                .cost(6400000 + k).times(70 + d, 68 + d).deposit(1600000).payBy(30 + d, 800000, M2, subSon).rcpt().ticks(2, 3)
+                .subdivisions(12 + v * 8).title(plot(), "BUSIRO BLOCK 402", "LRV 4410 FOLIO " + (7 + v), 900)
+                .neighbor("KATEREGGA MOSES", "EAST", "PLOT " + (620 + v)).neighbor("NAKANWAGI JANE", "WEST", null).neighbor("KIBIRIGE HENRY", "NORTH-WEST", "PLOT " + (640 + v))
+                .intakeNote("The son manages the family land and pays; the title is in his father's name."));
+
+            // ============ fix182 (v7): BOUNDARY OPENING ============
+            l.add(typed("b_done_returned" + s, BOUND, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
+                .cost(1500000 + k).times(90 + d, 89 + d).deposit(750000).pay(40 + d, 750000 + k, M1).rcpt().ticks(1, 6)
+                .title(plot(), "MAWOKOTA BLOCK 12", "LRV 3500 FOLIO " + (4 + v), 3000).released(20 + d)
+                .neighbor("LUKYAMUZI PAUL", "NORTH", "PLOT " + (700 + v)).neighbor("ATIM SARAH", "SOUTH", "PLOT " + (710 + v))
+                .note(25 + d, M1, "Boundaries opened and pegged with both neighbours present. Survey report handed over."));
+            Spec inField = typed("b_in_field" + s, BOUND, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+                .cost(1200000 + k).times(25 + d, 24 + d).deposit(400000).ticks(1, 2)
+                .title(plot(), "KYADONDO BLOCK 77", "LRV 2999 FOLIO " + (30 + v), 5000)
+                .neighbor("OBIA CHARLES", "EAST", "PLOT " + (760 + v)).neighbor("NALWANGA ESTHER", "WEST", null).neighbor("MUWONGE FRED", "SOUTH", "PLOT " + (770 + v));
+            if (v == 0) inField.problem(5, "The neighbour on the east side removed two boundary marks; an LC1 meeting has been called.");
+            l.add(inField);
+
+            // ============ fix182 (v7): TOPOGRAPHIC SURVEY (title switch off / on) ============
+            l.add(typed("g_topo_report_only" + s, TOPO, pool.take()).loc(LOCS[li++ % LOCS.length], "3 acres")
+                .cost(2200000 + k).times(60 + d, 59 + d).deposit(1100000).pay(15 + d, 1100000 + k, M2).rcpt().ticks(1, 6)
+                .note(14 + d, M2, "Contour plan delivered to the architect. No title involved."));
+            l.add(typed("g_topo_with_title" + s, TOPO, pool.take()).titleSwitch().loc(LOCS[li++ % LOCS.length], "1 acre")
+                .cost(2600000 + k).times(45 + d, 44 + d).deposit(650000).ticks(1, 3)
+                .title(plot(), "BUSIRO BLOCK 15", "LRV 3333 FOLIO " + (8 + v), 2500)
+                .intakeNote("Site levels for a building plan; the client asked for the title details on file."));
+
+            // ============ fix182 (v7): SPECIAL PROJECTS ============
+            String corpRep = pool.take(), corpLand1 = pool.take(), corpLand2 = pool.take();
+            l.add(typed("sp_corporate" + s, SPEC, corpLand1, corpLand2).clients(corpRep).loc(LOCS[li++ % LOCS.length], "40 acres")
+                .cost(45000000 + k * 10).times(180 + d, 178 + d).deposit(9000000).pay(120 + d, 9000000, DR).rcpt().pay(45 + d, 6000000, AD).rcpt()
+                .ticks(1, 4).custom("Environmental Impact Note", 1500000, false)
+                .note(44 + d, DR, "Progressive invoice 3 of 5 sent to the company. The representative pays for the two landowners.")
+                .docs(176 + d, AF).docs(100 + d, CL));
+            l.add(typed("sp_finished" + s, SPEC, pool.take()).loc(LOCS[li++ % LOCS.length], "12 acres")
+                .cost(12000000 + k).times(200 + d, 198 + d).deposit(3000000).pay(120 + d, 4500000, DR).rcpt().pay(30 + d, 4500000 + k, DR).rcpt()
+                .ticks(1, 6).note(29 + d, DR, "Final report and final invoice accepted. Job closed."));
+
+            // ============ fix182 (v7): CLIENTS WHO ARE NOT THE OWNERS ============
+            String father = pool.take(), mum = pool.take(), son = pool.take();
+            l.add(folder("c_son_pays" + s, father, mum).clients(son).loc(LOCS[li++ % LOCS.length], "1 acre")
+                .cost(3900000 + k).times(50 + d, 49 + d).deposit(1300000).pay(20 + d, 650000, S2).rcpt().ticks(1, 2)
+                .ownerNote(3 + v, S1, son, "Son confirms his parents will come to the land office to sign."));
+            String seller = pool.take(), buyer = pool.take();
+            l.add(newTitle("c_buyer_takes_over" + s, seller).clients(buyer).tenure("MAILO").loc(LOCS[li++ % LOCS.length], "0.25 acre")
+                .cost(2700000 + k).times(35 + d, 34 + d).deposit(1350000)
+                .title(plot(), "KYADONDO BLOCK 88", "LRV 4122 FOLIO " + (40 + v), 4000)
+                .intakeNote("The buyer pays; the title stays in the seller's name until the transfer is registered."));
+            String estate = pool.take(), sib1 = pool.take(), sib2 = pool.take();
+            l.add(typed("c_siblings_estate" + s, RESV, estate).clients(sib1, sib2).loc(LOCS[li++ % LOCS.length], "2 acres")
+                .cost(4800000 + k).times(160 + d, 158 + d).deposit(1200000).payBy(90 + d, 1200000, M1, sib2).rcpt().payBy(30 + d, 600000, M2, sib1).rcpt()
+                .ticks(1, 4).title(plot(), "BUDDU BLOCK 19", "LRV 2870 FOLIO " + (6 + v), 6000)
+                .intakeNote("Late father's land. Two of the children share the cost and pay separately."));
+            l.add(typed("f_finished_no_title" + s, FRESH, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+                .cost(3000000 + k).times(260 + d, 258 + d).deposit(1500000).pay(100 + d, 1500000 + k, M1).rcpt().ticks(1, 6)
+                .note(12 + d, M1, "Every status done. Fresh Survey keeps no title details; the title is collected at the land office."));
+
             // ============ fix181 (8.9): PENDING (Employee field entries) and RECENTLY STARTED ============
-            l.add(folder("p_pending_new" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+            l.add(folder("p_pending_new" + s, pool.take()).type(v == 0 ? FRESH : TOPO).loc(LOCS[li++ % LOCS.length], "0.5 acre")
                 .times(1 + v, 1 + v).pending());                       // waiting 1-2 days
             l.add(folder("p_pending_stale" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
                 .times(5 + d, 5 + d).pending());                       // waiting more than 3 days (PENDING_STALE)
+            l.add(folder("p_pending_rejected" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
+                .times(9 + d, 9 + d).pending().rejected(4 + d, v == 0
+                    ? "Entered twice: the same plot was already entered the day before."
+                    : "Wrong village and no National ID for the client. Please enter it again with the card."));
             l.add(folder("g_started_recently" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.75 acre")
                 .cost(3400000 + k).times(18 + d, 18 + d).by(EMPLOYEE).graduated(8 + d).ticks(1, 1));   // inside the 1-month Recovery delay
         }
@@ -787,10 +937,11 @@ final class ScenarioData {
     static final String NTH = "not going through";
     static final String WRN = "wrong number";
 
-    /** Calls go to the owners of the projects at the given keys, so each recovery state shows on 2+ real cards. */
+    /** Calls go to the CLIENTS (fix180: the people who pay) of the projects at the given keys, so each recovery state
+     *  shows on 2+ real cards. */
     static List<Call> calls() {
         Map<String, String> owner = new HashMap<>();
-        for (Spec s : projects()) owner.put(s.key, s.owners[0]);
+        for (Spec s : projects()) owner.put(s.key, s.billing()[0]);
         List<Call> c = new ArrayList<>();
         final String M1 = MGR1, M2 = MGR2, S1 = SEC1, S2 = SEC2, DR = DIRECTOR, SU = SUSPENDED;
         for (String s : new String[] {"_a", "_b"}) {
@@ -821,6 +972,11 @@ final class ScenarioData {
             // callable again (lock ended)
             c.add(new Call(owner.get("f_recv_at_intake" + s), ANS, 45, S1, "Relocating; will call back."));
             c.add(new Call(owner.get("f_recv_at_intake" + s), ANS, 32, S1, "Settling in; asked for a payment plan."));
+            // fix182 (v7): the client who is not the owner is the one called
+            c.add(new Call(owner.get("c_son_pays" + s), ANS, 2, S1, "Son will bring the next instalment after payday."));
+            c.add(new Call(owner.get("c_buyer_takes_over" + s), NOP, 7, S2, null));
+            c.add(new Call(owner.get("sp_corporate" + s), ANS, 25, DR, "Finance office confirmed invoice 3 is being processed."));
+            c.add(new Call(owner.get("sp_corporate" + s), ANS, 9, DR, "Payment approved; cheque to be written this week."));
         }
         return c;
     }
@@ -828,7 +984,7 @@ final class ScenarioData {
     /** People whose reliability meter is set by hand (everyone else is computed from their calls). */
     static Map<String, Double> reliabilityOverrides() {
         Map<String, String> owner = new HashMap<>();
-        for (Spec s : projects()) owner.put(s.key, s.owners[0]);
+        for (Spec s : projects()) owner.put(s.key, s.billing()[0]);
         Map<String, Double> m = new HashMap<>();
         m.put(owner.get("r_joint_silent_a"), 45.0);
         m.put(owner.get("r_joint_silent_b"), 40.0);
@@ -918,6 +1074,9 @@ final class ScenarioData {
         Set<String> staff = new HashSet<>();
         for (String s : staffNames()) staff.add(s);
         staff.add(ROOT);
+        Map<String, Spec> byProjectKey = new HashMap<>();
+        for (Spec s : projects()) byProjectKey.put(s.key, s);
+        Set<String> transferredPlots = new HashSet<>();
         for (Spec s : projects()) {
             String at = "[" + s.key + "] ";
             if (!keys.add(s.key)) throw new IllegalStateException(at + "duplicate project key");
@@ -927,6 +1086,32 @@ final class ScenarioData {
                 if (o == null || !byKey.containsKey(o)) throw new IllegalStateException(at + "unknown owner " + o);
                 if (!ownerSet.add(o)) throw new IllegalStateException(at + "same owner twice " + o);
             }
+            // fix182: the clients pay and are called; payments name a client
+            Set<String> clientSet = new HashSet<>();
+            for (String c : s.billing()) {
+                if (c == null || !byKey.containsKey(c)) throw new IllegalStateException(at + "unknown client " + c);
+                if (!clientSet.add(c)) throw new IllegalStateException(at + "same client twice " + c);
+            }
+            Set<String> people = new HashSet<>(ownerSet);
+            people.addAll(clientSet);
+            // fix182: Title Details follow the project type (ProjectType.TitleMode)
+            var mode = s.type().getTitleMode();
+            if (mode == com.gesolutions.erp.modules.land.model.ProjectType.TitleMode.NEVER && s.hasTitle()) throw new IllegalStateException(at + s.type() + " never has title details");
+            if (mode == com.gesolutions.erp.modules.land.model.ProjectType.TitleMode.ALWAYS && !s.hasTitle() && !s.pending) throw new IllegalStateException(at + s.type() + " always has title details");
+            if (mode == com.gesolutions.erp.modules.land.model.ProjectType.TitleMode.OPTIONAL && s.hasTitle() && !s.titleSwitch) throw new IllegalStateException(at + "a title on an OPTIONAL type needs the switch on");
+            if (s.revertAgo >= 0 && mode == com.gesolutions.erp.modules.land.model.ProjectType.TitleMode.ALWAYS) throw new IllegalStateException(at + "REMOVE TITLE DETAILS is refused on " + s.type());
+            if (s.subdivisions > 0 && s.type() != com.gesolutions.erp.modules.land.model.ProjectType.SUBDIVISION) throw new IllegalStateException(at + "only a Subdivision has plots");
+            if (s.type() == com.gesolutions.erp.modules.land.model.ProjectType.SUBDIVISION && !s.pending && (s.subdivisions < 1 || s.subdivisions > 1000)) throw new IllegalStateException(at + "a Subdivision needs 1-1000 plots");
+            if (s.parentKey != null) {
+                Spec parent = byProjectKey.get(s.parentKey);
+                if (parent == null || parent.type() != com.gesolutions.erp.modules.land.model.ProjectType.SUBDIVISION) throw new IllegalStateException(at + "transferred from something that is not a Subdivision");
+                if (s.type() != com.gesolutions.erp.modules.land.model.ProjectType.TRANSFER_OF_TITLE) throw new IllegalStateException(at + "a transferred plot is a Transfer of Title");
+                if (s.parentNo < 1 || s.parentNo > parent.subdivisions) throw new IllegalStateException(at + "plot " + s.parentNo + " is not one of the subdivision's plots");
+                if (!transferredPlots.add(s.parentKey + "#" + s.parentNo)) throw new IllegalStateException(at + "plot " + s.parentNo + " transferred twice (ALREADY_TRANSFERRED)");
+                if (s.entry() > parent.entry()) throw new IllegalStateException(at + "transferred before its subdivision was entered");
+            }
+            if (s.rejectedAgo >= 0 && (!s.pending || s.rejectedAgo > s.entry())) throw new IllegalStateException(at + "only a Pending entry is rejected, after it was entered");
+            if (s.rejectedAgo >= 0 && (s.rejectWhy == null || s.rejectWhy.trim().length() < 5)) throw new IllegalStateException(at + "a rejection needs a reason of 5+ characters");
             if (s.cost <= 0 && !s.pending) throw new IllegalStateException(at + "cost missing");
             if (s.pending && (!s.pays.isEmpty() || s.cost != 0)) throw new IllegalStateException(at + "a Pending project has no price and no payments");
             if (s.graduatedAgo > s.entry()) throw new IllegalStateException(at + "started before it was entered");
@@ -936,22 +1121,22 @@ final class ScenarioData {
                 if (p.amount <= 0) throw new IllegalStateException(at + "bad payment amount");
                 if (p.by != null && !staff.contains(p.by)) throw new IllegalStateException(at + "unknown payer staff " + p.by);
                 if (s.payAgo(p) > s.entry()) throw new IllegalStateException(at + "payment older than intake");
-                if (p.payer != null && !ownerSet.contains(p.payer)) throw new IllegalStateException(at + "payer is not an owner " + p.payer);
-                if (p.payer == null && p.ago >= 0 && s.owners.length > 1) throw new IllegalStateException(at + "joint owners: say which owner paid");
+                if (p.payer != null && !clientSet.contains(p.payer)) throw new IllegalStateException(at + "payer is not a client " + p.payer);
+                if (p.payer == null && p.ago >= 0 && s.billing().length > 1) throw new IllegalStateException(at + "joint clients: say which client paid");
                 if (p.storage && !s.paidWhileReceivable(p)) throw new IllegalStateException(at + "storage payment outside receivables");
                 if (p.reversed() && (p.reversedAgo > p.ago || p.ago < 0)) throw new IllegalStateException(at + "reversal before its payment");
                 if (p.reversed() && (p.reverseBy == null || !staff.contains(p.reverseBy))) throw new IllegalStateException(at + "reversal staff unknown");
             }
             for (Note n : s.notes) {
                 if (n.by != null && !staff.contains(n.by)) throw new IllegalStateException(at + "unknown note author " + n.by);
-                if (n.ownerKey != null && !ownerSet.contains(n.ownerKey)) throw new IllegalStateException(at + "owner note for a non-owner " + n.ownerKey);
+                if (n.ownerKey != null && !people.contains(n.ownerKey)) throw new IllegalStateException(at + "call note for someone not on the project " + n.ownerKey);
             }
             if (s.hasTitle() && !s.pendingTitle) {
                 if (s.plot == null || s.block == null || s.volumeFolio == null) throw new IllegalStateException(at + "title details missing");
                 if (!plots.add(s.plot)) throw new IllegalStateException(at + "duplicate plot " + s.plot);
             }
             if (s.revertAgo >= 0 && (s.hasTitle() || !s.isFolder())) throw new IllegalStateException(at + "a reverted project is a folder without title");
-            if (s.isFolder() && s.done >= STEPS && !s.hasTitle()) throw new IllegalStateException(at + "all statuses done but no title");
+            if (s.ptype == null && s.isFolder() && s.done >= STEPS && !s.hasTitle()) throw new IllegalStateException(at + "all statuses done but no title");
             if (s.pendingTitle && s.done < 6) throw new IllegalStateException(at + "pending title needs all statuses done");
             if (s.intakeTicks > s.done) throw new IllegalStateException(at + "more statuses ticked at intake than in total");
             if (s.releasedAgo >= 0) {

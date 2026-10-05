@@ -11,6 +11,7 @@ const STOPS = [
     [60, [239, 68, 68]],    // red    #ef4444
 ];
 export const NEW_COLOR = '#94a3b8';
+export const SETTLED_COLOR = 'rgb(34, 197, 94)';   // fix182: nothing owed
 
 export function paymentColor(days) {
     if (days === null || days === undefined || Number.isNaN(Number(days))) return 'rgb(239, 68, 68)';

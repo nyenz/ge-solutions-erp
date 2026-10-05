@@ -5,7 +5,7 @@
     --orange-dim:    rgba(238, 140, 58, 0.18);
     --orange-border: rgba(238, 140, 58, 0.28);
     --navy:          #1a2e30;
-    --panel-bg:      linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --panel-bg:      linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
     --panel-border:  rgba(238, 140, 58, 0.2);
     --red:           #ef4444;
     --green:         #4ade80;
@@ -27,7 +27,7 @@
     margin: 0 auto;
     padding: clamp(8px, 2vw, 18px) clamp(8px, 2vw, 18px) clamp(28px, 4.5vw, 52px);
     font-family: 'DM Sans', sans-serif;
-    color: #fff;
+    color: var(--ink-solid);
     animation: hubBoot 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
 
@@ -40,10 +40,10 @@
 .toastContainer { position: fixed; bottom: clamp(20px,3vh,36px); right: clamp(14px,2vw,26px); z-index: 99999; display: flex; flex-direction: column-reverse; gap: clamp(6px,0.8vw,10px); max-width: clamp(280px,90vw,400px); pointer-events: none; }
 .toast { display: flex; align-items: flex-start; gap: clamp(8px,1vw,12px); padding: clamp(11px,1.3vw,15px) clamp(13px,1.6vw,18px); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.5); pointer-events: all; animation: toastIn 0.3s cubic-bezier(0.18,0.89,0.32,1.28) both; }
 @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: #fff; }
-.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: #fff; }
-.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: #fff; }
-.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: #fff; }
+.toast_success { background: rgba(16,185,129,0.92);  border-left: 4px solid #059669; color: var(--ink-solid); }
+.toast_error   { background: rgba(239,68,68,0.92);   border-left: 4px solid #b91c1c; color: var(--ink-solid); }
+.toast_warn    { background: rgba(245,158,11,0.92);  border-left: 4px solid #b45309; color: var(--ink-solid); }
+.toast_info    { background: rgba(6,182,212,0.92);   border-left: 4px solid #0369a1; color: var(--ink-solid); }
 .toastIcon  { font-size: clamp(13px,1.5vw,17px); flex-shrink: 0; margin-top: 1px; }
 .toastMsg   { font-family: 'Space Mono', monospace; font-size: clamp(9px,1vw,11px); font-weight: 700; line-height: 1.4; flex: 1; min-width: 0; word-break: break-word; }
 .toastClose { background: transparent; border: none; color: inherit; opacity: 0.6; cursor: pointer; padding: 2px; font-size: clamp(12px,1.3vw,15px); flex-shrink: 0; }
@@ -100,7 +100,7 @@
 .reportList { display: flex; flex-direction: column; }
 
 /* ── REPORT ROW WRAPPER ── */
-.reportRowWrap { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.reportRowWrap { border-bottom: 1px solid rgba(var(--ink-rgb), 0.05); }
 .reportRowWrap:last-child { border-bottom: none; }
 
 /* ── CLICKABLE HEADER ROW ── */
@@ -115,7 +115,7 @@
     outline: none;
     transition: background 0.18s;
 }
-.reportRow:hover { background: rgba(255,255,255,0.035); }
+.reportRow:hover { background: rgba(var(--ink-rgb), 0.035); }
 .reportRow:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
 .reportRowActive { background: rgba(238,140,58,0.06); border-left: 3px solid var(--orange); }
 
@@ -125,8 +125,8 @@
     border-radius: var(--radius-sm); display: flex; align-items: center;
     justify-content: center; color: var(--orange); font-size: clamp(12px,1.3vw,15px); flex-shrink: 0;
 }
-.rptTitle { font-family: 'Space Mono', monospace; font-weight: 900; color: #fff; font-size: var(--fs-title); letter-spacing: 0.5px; }
-.rowChevron { color: rgba(255,255,255,0.3); font-size: clamp(14px,1.6vw,18px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s; flex-shrink: 0; justify-self: end; }
+.rptTitle { font-family: 'Space Mono', monospace; font-weight: 900; color: var(--ink-solid); font-size: var(--fs-title); letter-spacing: 0.5px; }
+.rowChevron { color: rgba(var(--ink-rgb), 0.3); font-size: clamp(14px,1.6vw,18px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s; flex-shrink: 0; justify-self: end; }
 .reportRow:hover .rowChevron { color: var(--orange); }
 
 /* ── FORENSIC DRAWER ── */
@@ -136,8 +136,8 @@
 
 /* Pure black forensic drawer -- matches AuditPage traceDetails exactly */
 .detailBox {
-    background: #0a0a0a;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    background: var(--sf-black, #0a0a0a);
+    border-top: 1px solid rgba(var(--ink-rgb), 0.08);
     border-left: clamp(3px,0.4vw,4px) solid var(--orange);
     padding: clamp(14px,1.8vw,20px) clamp(16px,2vw,22px);
     page-break-inside: avoid;
@@ -152,7 +152,7 @@
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(8px,0.82vw,10px);
     font-weight: 900;
-    color: #4ade80;
+    color: var(--tx-green, #4ade80);
     letter-spacing: 2px;
     margin-bottom: clamp(10px,1.3vw,14px);
     text-transform: uppercase;
@@ -164,7 +164,7 @@
     font-family: 'DM Sans', sans-serif;
     font-size: clamp(11px,1.1vw,13px);
     font-weight: 700;
-    color: rgba(255,255,255,0.65);
+    color: rgba(var(--ink-rgb), 0.65);
     line-height: 1.65;
 }
 
@@ -187,7 +187,7 @@
     font-family: 'Space Mono', monospace;
     font-size: clamp(10px,1.05vw,12px);
     font-weight: 900;
-    color: #ffffff;
+    color: var(--ink-solid);
     line-height: 1.6;
     word-break: break-word;
 }
@@ -197,7 +197,7 @@
     display: flex;
     justify-content: flex-start;
     padding-top: clamp(10px,1.3vw,14px);
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(var(--ink-rgb), 0.08);
 }
 
 /* Large, beautiful download button */
@@ -233,7 +233,7 @@
 .exportSpinner {
     width: 14px; height: 14px;
     border: 2px solid rgba(26,46,48,0.3);
-    border-top-color: #1a2e30;
+    border-top-color: var(--sf-navy, #1a2e30);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
@@ -247,8 +247,8 @@
 }
 .lockIcon { color: #ef4444; font-size: clamp(20px,2.5vw,28px); flex-shrink: 0; animation: lockPulse 2s infinite; }
 @keyframes lockPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
-.warningText strong { display: block; font-family: 'DM Sans', sans-serif; color: #fca5a5; font-size: var(--fs-drawer); font-weight: 900; letter-spacing: 1px; margin-bottom: clamp(2px,0.3vw,4px); text-transform: uppercase; }
-.warningText p { font-family: 'DM Sans', sans-serif; color: rgba(255,255,255,0.65); font-size: var(--fs-label); font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.warningText strong { display: block; font-family: 'DM Sans', sans-serif; color: var(--tx-red, #fca5a5); font-size: var(--fs-drawer); font-weight: 900; letter-spacing: 1px; margin-bottom: clamp(2px,0.3vw,4px); text-transform: uppercase; }
+.warningText p { font-family: 'DM Sans', sans-serif; color: rgba(var(--ink-rgb), 0.65); font-size: var(--fs-label); font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
@@ -324,13 +324,13 @@
 .libLabel {
   font-family: 'DM Sans', sans-serif; font-weight: 900;
   font-size: clamp(8px,0.85vw,10px); letter-spacing: 2px; text-transform: uppercase;
-  color: rgba(255,255,255,0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 .libList { display: flex; flex-direction: column; gap: 6px; }
 .libList .reportRowWrap {
   border-bottom: none;
   background: #fff;
-  border: 1.5px solid rgba(255,255,255,0.14);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.14);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -343,7 +343,7 @@
 .libList .iconFrame { background: rgba(238,140,58,0.12); }
 /* the forensic detail drawer stays black on purpose -- it is the one object
    in the library that should look like a vault opening. */
-.libList .detailBox { border-top: 1px solid rgba(255,255,255,0.08); }
+.libList .detailBox { border-top: 1px solid rgba(var(--ink-rgb), 0.08); }
 
 
 /* fix75 -- one-click CSV pillars as compact chips (filter-button spec on the
@@ -355,12 +355,12 @@
   font-size: clamp(8px,0.85vw,10px);
   padding: clamp(7px,0.95vw,10px) clamp(10px,1.4vw,16px);
   border-radius: 6px;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.85);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.18);
+  background: rgba(var(--ink-rgb), 0.06);
+  color: rgba(var(--ink-rgb), 0.85);
   cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
 }
-.libChip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: #EE8C3A; border-color: #EE8C3A; }
+.libChip:hover:not(:disabled) { background: rgba(238,140,58,0.12); color: var(--tx-accent, #EE8C3A); border-color: #EE8C3A; }
 .libChip:disabled { opacity: 0.45; cursor: wait; }
 
 

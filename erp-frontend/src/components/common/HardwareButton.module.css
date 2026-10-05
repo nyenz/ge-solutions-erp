@@ -22,9 +22,9 @@
 .primary { background: var(--orange, #EE8C3A); color: #fff; box-shadow: 0 4px 12px rgba(238,140,58,0.3); }
 
 .glass {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1.5px solid rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(var(--ink-rgb), 0.1);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.2);
+    color: var(--ink-solid);
 }
 
 .danger {
@@ -37,7 +37,7 @@
 .primary:hover { background: #d97a2b; box-shadow: 0 4px 12px rgba(238,140,58,0.3); }
 
 .glass:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(var(--ink-rgb), 0.15);
     border-color: var(--orange);
 }
 
@@ -51,7 +51,7 @@
 .hoverGlow {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at center, rgba(255,255,255,0.2), transparent 70%);
+    background: radial-gradient(circle at center, rgba(var(--ink-rgb), 0.2), transparent 70%);
     opacity: 0;
     transition: 0.3s;
 }

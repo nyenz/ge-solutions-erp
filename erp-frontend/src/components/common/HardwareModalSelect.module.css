@@ -57,7 +57,7 @@
 .chevron {
     flex-shrink: 0;
     font-size: 14px;
-    color: var(--orange, #EE8C3A);
+    color: var(--orange, var(--tx-accent, #EE8C3A));
     transition: transform 0.3s;
 }
 .triggerOpen .chevron { transform: rotate(180deg); }

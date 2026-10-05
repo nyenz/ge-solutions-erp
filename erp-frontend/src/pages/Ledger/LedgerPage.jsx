@@ -7,6 +7,7 @@ import {
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
 } from 'react-icons/fi';
 import landService from '../../services/landService';
+import { cached, remember } from '../../utils/pageCache';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import { FiRefreshCw } from 'react-icons/fi';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
@@ -36,7 +37,7 @@ const matchesSearch = (proj, term, statuses) => {
 const PAGE_SIZE = 15;
 // fix169: the WHOLE ledger is loaded (200 rows per request, every page) and then filtered, sorted and paged
 // here in the browser. Before, only one server page of 15 rows was fetched and the filters ran on those 15.
-const LOAD_SIZE = 200;
+const LOAD_SIZE = 500;   // fix182: the server's largest page, so one call usually brings everything
 // fix169: ONE rule for CRITICAL, used by the filter AND by the red tag on each row (they used to disagree:
 // receivables showed the tag but were left out of the filter).
 // fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)
@@ -47,7 +48,7 @@ const isCriticalProject = (p) => (typeof p.critical === 'boolean' ? p.critical :
 // as CRITICAL (the server rule is LandProject.isTitleFullyPaid); still not a receivable
 const isTitleFullyPaid = (p) => ((p.totalCost || 0) > 0 && titlePaidOf(p) >= p.totalCost) || !!p.landTitle?.isReleased;
 const ageDays = (p) => (p.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(p.createdAt).getTime()) / 86400000)) : null);
-const PaymentDot = ({ proj }) => <PaymentHealthDot days={proj.daysSincePayment} />;
+const PaymentDot = ({ proj }) => <PaymentHealthDot days={proj.daysSincePayment} settled={proj.owedNow != null && Number(proj.owedNow) === 0 && Number(proj.totalCost) > 0} />;
 const Pins = ({ pos }) => (
     <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
         {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
@@ -182,56 +183,59 @@ function useDirectionalScrollHandoff(scrollRef) {
 
 const LedgerPage = () => {
     const navigate = useNavigate();
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // fix182 (speed): a return visit draws the last list at once and refreshes it quietly (utils/pageCache.js)
+    const [projects, setProjects] = useState(() => cached('ledger') || []);
+    const [loading, setLoading] = useState(() => !cached('ledger'));
     const [loadError, setLoadError] = useState(false);
-    const [page, setPage] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
     const [ledgerParams] = useSearchParams();
     const [activeFilter, setActiveFilter] = useState(() => (ledgerParams.get('tab') || 'ALL').toUpperCase());
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
+    // fix169: a new search / filter / sort always starts from the first page of results.
+    // fix182: worked out while drawing (the page number belongs to one search/filter/sort) instead of an effect.
+    const filterKey = searchTerm + '|' + activeFilter + '|' + sortConfig.key + '|' + sortConfig.direction;
+    const [pageAt, setPageAt] = useState({ key: filterKey, page: 0 });
+    const page = pageAt.key === filterKey ? pageAt.page : 0;
+    const setPage = (next) => setPageAt(prev => {
+        const cur = prev.key === filterKey ? prev.page : 0;
+        return { key: filterKey, page: typeof next === 'function' ? next(cur) : next };
+    });
     const tableScrollRef = useRef(null);
     useDirectionalScrollHandoff(tableScrollRef);
 
-    const fetchLedger = useCallback(async (attempt = 0) => {
-        setLoading(true); setLoadError(false);
-        try {
-            // fix169: walk every server page so filters / search / sort see ALL projects, not 15 of them.
-            const all = [];
-            const seen = new Set();
-            for (let p = 0; p < 60; p += 1) {
-                const data = await landService.getGlobalLedger(p, LOAD_SIZE);
-                const rows = (data && data.content) || [];
-                rows.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); all.push(r); } });
-                if (rows.length < LOAD_SIZE || (data && data.last)) break;
+    const fetchLedger = useCallback(async () => {
+        // one quiet retry after 5 seconds (the free server may still be waking up), then the error row
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+                // fix169: walk every server page so filters / search / sort see ALL projects, not 15 of them.
+                const all = [];
+                const seen = new Set();
+                for (let p = 0; p < 60; p += 1) {
+                    const data = await landService.getGlobalLedger(p, LOAD_SIZE);
+                    const rows = (data && data.content) || [];
+                    rows.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); all.push(r); } });
+                    if (rows.length < LOAD_SIZE || (data && data.last)) break;
+                }
+                setProjects(remember('ledger', all)); setLoading(false); setLoadError(false);
+                return;
+            } catch {
+                if (attempt === 0) await new Promise(r => setTimeout(r, 5000));
             }
-            setProjects(all); setLoading(false);
-        } catch {
-            if (attempt < 1) { setTimeout(() => fetchLedger(attempt + 1), 5000); return; }
-            setLoadError(true); setLoading(false);
         }
+        setLoadError(true); setLoading(false);
     }, []);
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);
-    // fix169: a new search / filter / sort always starts from the first page of results
-    useEffect(() => { setPage(0); }, [searchTerm, activeFilter, sortConfig]);
+    useEffect(() => { Promise.resolve().then(fetchLedger); }, [fetchLedger]);
+    // REFRESH / RETRY: the spinner only when nothing is on screen yet
+    const reload = () => { if (!projects.length) setLoading(true); setLoadError(false); fetchLedger(); };
 
-    // STATUSES COLUMN (fix47): one bulk call hydrates each row's status list -- exactly the statuses
-    // (template + custom) saved from the Intake page. On failure shows "---".
-    const [statusMap, setStatusMap] = useState({});
-    useEffect(() => {
-        const ids = projects.map(p => p.id).filter(Boolean);
-        if (!ids.length) { setStatusMap({}); return; }
-        const chunks = [];
-        for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
-        Promise.all(chunks.map(c => landService.getStatusesBulk(c)))
-            .then(lists => {
-                const list = lists.flat();
-                const m = {};
-                (list || []).forEach(s => { (m[s.projectId] = m[s.projectId] || []).push(s); });
-                setStatusMap(m);
-            })
-            .catch(() => setStatusMap({}));
+    // STATUSES COLUMN (fix47): each row's status list -- exactly the statuses (template + custom) saved from the
+    // Intake page. fix182: the ledger answer already carries them (LandService.getGlobalLedger), so the second
+    // "statuses-bulk" round trip that used to follow every load is gone.
+    const statusMap = useMemo(() => {
+        const m = {};
+        projects.forEach(p => { if (p && p.id) m[p.id] = p.statuses || []; });
+        return m;
     }, [projects]);
 
     const processedData = useMemo(() => {
@@ -292,7 +296,7 @@ const LedgerPage = () => {
                 </div>
                 <HeaderActions>
                     <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Reload this page of the ledger" onClick={() => fetchLedger()} />
+                        tip="Reload the ledger" onClick={reload} />
                 </HeaderActions>
             </header>
 
@@ -365,7 +369,7 @@ const LedgerPage = () => {
                             {!loading && loadError && (
                                 <tr><td colSpan={9} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> LEDGER SYNC FAULT —{' '}
-                                    <button className={styles.retryBtn} onClick={() => fetchLedger()}>RETRY</button>
+                                    <button className={styles.retryBtn} onClick={reload}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && processedData.length === 0 && (
@@ -377,7 +381,9 @@ const LedgerPage = () => {
                             {!loading && !loadError && pageData.map((proj, i) => {
                                 const isReceivable = proj.isReceivable;
                                 const storageFees = Number(proj.storageFeesAccumulated || 0);
-                                const debt = isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0);
+                                // fix182: owed comes from the server's one money rule (LandProject.owedNow, never below 0)
+                                const debt = proj.owedNow != null ? Number(proj.owedNow)
+                                    : Math.max(0, isReceivable ? (proj.totalCost || 0) + storageFees - (proj.amountPaid || 0) : (proj.totalCost || 0) - (proj.amountPaid || 0));
                                 const pct = proj.totalCost > 0 ? Math.min((titlePaidOf(proj) / proj.totalCost) * 100, 100) : 0;
                                 const isCritical = isCriticalProject(proj);
                                 const people = clientsOf(proj);

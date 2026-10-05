@@ -21,6 +21,8 @@ import styles from './HardwareDatePicker.module.css';
  *   className -- put on the visible field, so each page keeps its own field styling
  *   block     -- true = field fills its parent's width (forms); false = shrink to fit (filter rows)
  *   ariaLabel -- accessible name
+ *   min / max -- 'yyyy-mm-dd' limits like the native input (days outside are greyed and cannot be picked; fix182)
+ *   id        -- put on the visible field so a <label htmlFor> still points at it
  */
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -42,7 +44,7 @@ const todayParts = () => {
     return { y: t.getFullYear(), m: t.getMonth(), d: t.getDate() };
 };
 
-const HardwareDatePicker = ({ value = '', onChange, className = '', block = false, ariaLabel = 'Date', placeholder = 'dd/mm/yyyy' }) => {
+const HardwareDatePicker = ({ value = '', onChange, className = '', block = false, ariaLabel = 'Date', placeholder = 'dd/mm/yyyy', min = '', max = '', id }) => {
     const [open, setOpen] = useState(false);
     const [view, setView] = useState(() => {
         const p = parse(value) || todayParts();
@@ -95,7 +97,8 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
         };
     }, [open]);
 
-    const pick = (v) => { onChange(v); setOpen(false); };
+    const outOfRange = (v) => (!!min && v < min) || (!!max && v > max);
+    const pick = (v) => { if (v && outOfRange(v)) return; onChange(v); setOpen(false); };
     const shiftMonth = (n) => setView((v) => {
         const d = new Date(v.y, v.m + n, 1);
         return { y: d.getFullYear(), m: d.getMonth() };
@@ -115,6 +118,7 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
         <div className={`${styles.wrap} ${block ? styles.wrapBlock : ''}`} ref={wrapRef}>
             <input
                 ref={inputRef}
+                id={id}
                 type="text"
                 readOnly
                 size={10}
@@ -149,11 +153,13 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
                         {cells.map((c) => {
                             const isSel = !!sel && sel.y === c.y && sel.m === c.m && sel.d === c.d;
                             const isNow = now.y === c.y && now.m === c.m && now.d === c.d;
+                            const off = outOfRange(toValue(c.y, c.m, c.d));
                             return (
                                 <button
                                     type="button"
                                     key={c.y + '-' + c.m + '-' + c.d}
-                                    className={`${styles.day} ${c.out ? styles.dayOut : ''} ${isNow ? styles.dayNow : ''} ${isSel ? styles.daySel : ''}`}
+                                    className={`${styles.day} ${c.out ? styles.dayOut : ''} ${isNow ? styles.dayNow : ''} ${isSel ? styles.daySel : ''} ${off ? styles.dayOff : ''}`}
+                                    disabled={off}
                                     onClick={() => pick(toValue(c.y, c.m, c.d))}
                                     aria-label={c.d + ' ' + MONTHS[c.m] + ' ' + c.y}
                                     aria-pressed={isSel}
@@ -166,7 +172,7 @@ const HardwareDatePicker = ({ value = '', onChange, className = '', block = fals
 
                     <div className={styles.foot}>
                         <button type="button" className={styles.footBtn} onClick={() => pick('')}>Clear</button>
-                        <button type="button" className={`${styles.footBtn} ${styles.footBtnHot}`} onClick={() => pick(toValue(now.y, now.m, now.d))}>Today</button>
+                        <button type="button" className={`${styles.footBtn} ${styles.footBtnHot}`} disabled={outOfRange(toValue(now.y, now.m, now.d))} onClick={() => pick(toValue(now.y, now.m, now.d))}>Today</button>
                     </div>
                 </div>, portalRoot())}
         </div>

@@ -467,6 +467,19 @@ public class LandProject {
         return lastPaymentDate == null ? null : Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(lastPaymentDate.toLocalDate(), java.time.LocalDate.now()));
     }
 
+    /** fix182: the money rules sent to the pages, so no page has to work owed / billed / title paid out by hand. */
+    @com.fasterxml.jackson.annotation.JsonProperty("owedNow")
+    public BigDecimal getOwedNowJson() { return owedNow(); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("billed")
+    public BigDecimal getBilledJson() { return billed(); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("titlePaid")
+    public BigDecimal getTitlePaidJson() { return titlePaid(); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("keptFees")
+    public BigDecimal getKeptFeesJson() { return keptFees(); }
+
     /** fix181 (11.3): the hand-over rule as text for the page (null = can be handed over). */
     @com.fasterxml.jackson.annotation.JsonProperty("releaseBlocker")
     public String getReleaseBlockerText() {

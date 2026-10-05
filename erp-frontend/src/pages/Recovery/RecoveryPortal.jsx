@@ -53,6 +53,7 @@ export default function RecoveryPortal() {
   const [syncing, setSyncing] = useState(false);
   const reqRef = useRef(0);
   const cacheRef = useRef({});
+  const pendingOpen = useRef(null);   // the client to open once its tab has loaded (declared before load uses it)
   const { user } = useAuth();
   const canManage = roleFlags(user).isManager;
   const toast = useCallback((msg, type) => { const id = Date.now() + Math.random(); setToasts((p) => [...p, { id, msg, type: type || 'info' }]); setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000); }, []);
@@ -116,7 +117,6 @@ export default function RecoveryPortal() {
     return () => clearTimeout(t);
   }, [search]);
   const open = (c) => { setSel(c); setPicked(null); setText(''); recoveryService.getNotes(c.id).then((r) => setNotes(r.data || [])); };
-  const pendingOpen = useRef(null);
   const jump = (co) => {
     const target = co.state === 'LOCKED' ? 'LOCKED' : co.state === 'SITE' ? 'SITE' : 'ALL';
     pendingOpen.current = co.id;

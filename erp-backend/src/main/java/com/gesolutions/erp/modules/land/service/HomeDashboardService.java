@@ -9,6 +9,7 @@ import com.gesolutions.erp.modules.client.service.RecoveryStateService;
 import com.gesolutions.erp.modules.finance.repository.ExpenseRepository;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.model.PaymentRecord;
+import com.gesolutions.erp.modules.land.model.ProjectType;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import lombok.RequiredArgsConstructor;
@@ -105,15 +106,23 @@ public class HomeDashboardService {
             for (LandProject p : live) {
                 if (p.releaseBlocker() != null) continue;
                 if (list.size() >= 10) break;
-                list.add(Map.of("id", p.getId(), "index", String.valueOf(p.getProjectIndex())));
+                // fix182: the type and the first client, so the Dashboard chip says what it is
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("id", p.getId());
+                r.put("index", String.valueOf(p.getProjectIndex()));
+                r.put("type", ProjectType.of(p).getLabel());
+                var parties = p.billingParties();
+                r.put("client", parties == null || parties.isEmpty() ? null : parties.iterator().next().getFullName());
+                list.add(r);
             }
             out.put("releaseReady", Map.of("count", wc.get("releaseReady"), "first", list));
         }
         if (blocks.contains("money")) out.put("money", money(live, now));
         if (blocks.contains("periods")) {
             Map<String, Object> per = new LinkedHashMap<>();
-            per.put("WEEK", period(now.minusDays(7), now, "LAST 7 DAYS"));
-            per.put("MONTH", period(now.minusDays(30), now, "LAST 30 DAYS"));
+            List<PaymentRecord> lines = paymentRepository.findAll();   // fix182: read once for both windows
+            per.put("WEEK", period(lines, now.minusDays(7), now, "LAST 7 DAYS"));
+            per.put("MONTH", period(lines, now.minusDays(30), now, "LAST 30 DAYS"));
             out.put("periods", per);
         }
         if (blocks.contains("waitingForYou")) {
@@ -202,12 +211,12 @@ public class HomeDashboardService {
     }
 
     /** 20.6: money in and out for a window; transactions = payment lines in it, a reversed pair counted as none. */
-    private Map<String, Object> period(LocalDateTime from, LocalDateTime to, String label) {
+    private Map<String, Object> period(List<PaymentRecord> lines, LocalDateTime from, LocalDateTime to, String label) {
         BigDecimal in = paymentRepository.sumAllPaymentsSince(from);
         BigDecimal out = expenseRepository.sumBetween(from, to);
         Set<String> reversedIds = new HashSet<>();
         List<PaymentRecord> window = new ArrayList<>();
-        for (PaymentRecord r : paymentRepository.findAll()) {
+        for (PaymentRecord r : lines) {
             if (r.getNotes() != null && r.getNotes().startsWith("[REVERSAL OF ")) {
                 int e = r.getNotes().indexOf(']');
                 if (e > 13) reversedIds.add(r.getNotes().substring(13, e).trim());

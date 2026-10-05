@@ -20,7 +20,7 @@
 
 /* --- DARK VARIANT (LITERAL PROTOTYPE GRADIENT) --- */
 .dark {
-    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, var(--navy) 100%);
+    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--navy) 100%);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 

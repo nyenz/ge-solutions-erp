@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -146,6 +146,13 @@ Same order in `Role.java` (server) and `utils/roles.js` (pages) -- keep the two 
 
 ### DATA WIPE (fix181, owner choice B)
 - Admin only; needs the typed phrase AND the Admin's own key (wrong = WIPE_REFUSED line). Deletes all business data and uploaded files; KEEPS all staff accounts, the audit trail, document types and appearance choices. The page then shows a result box (what was deleted, files deleted / not deleted). The demo data comes back only when `GE_SOLUTIONS_SEED_DEMO_DATA` is true.
+
+### THEMES, SPEED AND CHECKS (fix182)
+- **Page theme** has three values: `light` = CREAM, `dark` = SLATE (both keep navy panels), `bright` = LIGHT (light panels, navy text). Every panel colour in the CSS modules reads a theme token from `index.css`: `--sf-*` (surfaces: `--sf-1/--sf-2` panel gradient, `--sf-head` head bars, `--sf-dock`, `--sf-raise-1/2`, ...), `--ink-rgb` (text / hairlines / washes ON a panel, written `rgba(var(--ink-rgb), 0.06)`, and `--ink-solid`), `--tx-*` (the light accent text colours: `--tx-red`, `--tx-green`, `--tx-cyan`, `--tx-orange`, `--tx-accent` ...). NEW CSS MUST USE THESE, never `#1c3335` or `#fff` text on a panel. `scripts/tokenize-theme.mjs` did the rewrite (defaults = the old colours) and can be re-run on a new file.
+- **No browser defaults:** checkboxes are themed globally in index.css; plain links inherit their colour; every date field is `HardwareDatePicker` (now takes `min`, `max`, `id`); dropdowns are HardwareSelect / HardwareModalSelect.
+- **Speed:** pages are loaded on demand (`lazyPage` in App.jsx) and prefetched after sign-in; ONE Shell (header, bell, sidebar) stays mounted for all signed-in pages (`ShellLayout`); list pages keep their last answer in `utils/pageCache.js` (cleared at sign-in) and refresh quietly; the PDF library loads only on export. Server: JSON is gzipped and owners/clients/titles load in batches (`hibernate.default_batch_fetch_size=100`). Ledger statuses come with the ledger answer (no second call). Hashed `/assets` are cached for a year (render.yaml headers, nginx.conf).
+- **Money on pages:** `LandProject` now also sends `owedNow`, `billed`, `titlePaid`, `keptFees`; pages read these instead of adding amounts up.
+- **Build check:** `npm run build` runs `scripts/check-jsx-refs.mjs` first; an `Fi*` icon used but not imported stops the build (that was the "FiUser is not defined" crash on New Project).
 
 ### APPEARANCE AND THE ZOOM CHECK (fix181)
 - Choices are kept per person on the device (`goldenseed.prefs.v1.<username>`), with a device default for the login page; a damaged value falls back to the default; another open tab follows a change. A tiny script in `index.html` applies them before the first paint (keep it in step with `context/prefsStore.js`). The Start page choice is checked against the current rank.
@@ -1210,7 +1217,10 @@ This is the ONE place Cloudinary is described (Sections 4 and 5 point here). It 
 
 **Collecting set-aside fees (fix173).** A project that was SET ASIDE and still carries kept fees (`storage_fees_accumulated` > 0, not receivable) accepts a STORAGE payment through the same payment window (button COLLECT SET-ASIDE FEES on the Folder page; manager, admin, director; receipt and payer rules unchanged). Rules in `LandService.recordPayment`: amount <= kept fees; billing stays stopped; the paid amount is added to `amount_paid` AND to `total_cost`, and taken off `storage_fees_accumulated` (`storage_fees_paid` stays 0), so "owed = total_cost - amount_paid" is unchanged and only the kept fees go down. When they reach 0 the hand-over block clears. Reversing such a payment lowers `amount_paid` only: the fee stays inside `total_cost`, so the client owes it again as part of the cost (same as reversing a fee payment made before the project left receivables).
 
-## 19. SEED DATA (DATASET v4, fix167)
+## 19. SEED DATA (DATASET v7, fix182)
+
+**fix182 (v7):** rebuilt to match the app as it is now. Flag row `id = 7`; v7 purges the v6 rows first. 154 projects, 200 people (CMS4 NINs; ~30 have no project), same staff and expenses. New on top of the v6 money situations: ALL EIGHT project types (Subdivision with plots TRANSFERRED into Transfer of Title projects via `parent_project_id` / `parent_subdivision_no`; Boundary Opening done and in the field, one flagged PROBLEM; Topographic with the title switch off, on, and title removed; Special Projects corporate + finished; Fresh Survey finished with no title), CLIENTS who are not the OWNERS (`Spec.clients(...)`: son pays for parents, buyer pays for a seller's title, two siblings pay for an estate; payments and Recovery calls always name a CLIENT), NEIGHBORS (`Spec.neighbor(...)`, table `project_neighbors`), and a REJECTED Pending entry per variant. `selfCheck()` now also refuses: a title on a NEVER type, no title on an ALWAYS type (Pending excepted), a title on Topographic without the switch, REMOVE TITLE on an ALWAYS type, a transfer from a non-Subdivision / a plot number outside the count / a plot transferred twice / a transfer entered before its subdivision, a payer who is not a client, a rejection without a 5+ character reason. Explicit types use `typed(key, ProjectType, owners...)` (statuses move the folder way).
+
 
 **Where it lives.** `config/ScenarioData.java` (pure data, no Spring), `config/ScenarioSeeder.java` (removes old seeds, loads v3), `config/DataInitializer.java` (`seedScenarioDataOnce()` only calls `scenarioSeeder.seedOnce()`). It runs once per database: flag row `id = 3` in `scenario_seed_flag`. To load it again, delete that row or use the wipe endpoint. The purge is one transaction and the load is a second one, so a failed load rolls back and retries on the next start.
 

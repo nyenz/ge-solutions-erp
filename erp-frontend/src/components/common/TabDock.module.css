@@ -13,7 +13,7 @@
 .tabDock {
     flex: 0 1 auto; min-width: 0; max-width: 100%;
     display: flex; align-items: center;
-    background: #4d5c5a;
+    background: var(--sf-dock, #4d5c5a);
     border: none; border-radius: 8px;
     padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
     /* Many filters on a narrow screen: the tray scrolls sideways instead of
@@ -32,7 +32,7 @@
     letter-spacing: 1.5px; text-transform: uppercase;
     padding: 8px 12px; border-radius: 6px; outline: none;
     border: 1.5px solid transparent; background: transparent;
-    color: rgba(255, 255, 255, 0.92);
+    color: rgba(var(--ink-rgb), 0.92);
     transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .tab[data-accent="red"],    .tabOn[data-accent="red"]    { --accent: #ef4444; --accent-glow: rgba(239, 68, 68, 0.32); }
@@ -46,7 +46,7 @@
     background: var(--accent); border-color: var(--accent);
     box-shadow: 0 4px 16px var(--accent-glow);
 }
-.tabOn[data-accent="red"] { color: #fff; }
+.tabOn[data-accent="red"] { color: var(--ink-solid); }
 .tab:focus-visible, .tabOn:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: -2px; }
 .tabCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
 

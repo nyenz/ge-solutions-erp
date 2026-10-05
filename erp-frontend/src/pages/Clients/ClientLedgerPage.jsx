@@ -8,6 +8,7 @@ import {
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
+import { cached, remember } from '../../utils/pageCache';
 import recoveryService from '../../services/recoveryService';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import { FiRefreshCw } from 'react-icons/fi';
@@ -29,7 +30,7 @@ const matchesSearch = (c, term) => {
 
 // fix181 (5.2): the dot is the shared one (utils/paymentHealth): server day count, one gradient, NEW for a new project
 const PAGE_SIZE = 15;
-const PaymentDot = ({ c }) => <PaymentHealthDot days={c.daysSincePayment} isNew={!!c.newProjectOnly} startsOn={c.recoveryStartsOn} />;
+const PaymentDot = ({ c }) => <PaymentHealthDot days={c.daysSincePayment} isNew={!!c.newProjectOnly} startsOn={c.recoveryStartsOn} settled={!!c.paidUp} />;
 const Pins = ({ pos }) => (
     <div className={pos === 'top' ? styles.pinsTop : styles.pinsBottom} aria-hidden="true">
         {[...Array(4)].map((_, i) => <div key={i} className={styles.pin} />)}
@@ -132,30 +133,43 @@ const ClientLedgerPage = () => {
     const { user } = useAuth();
     const isDirector = roleFlags(user).isOwnerLevel;
 
-    const [rows, setRows] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // fix182 (speed): a return visit draws the last list at once and refreshes it quietly (utils/pageCache.js)
+    const [rows, setRows] = useState(() => cached('clients') || []);
+    const [loading, setLoading] = useState(() => !cached('clients'));
     const [loadError, setLoadError] = useState(false);
     const [loadCode, setLoadCode] = useState('');
-    const [page, setPage] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+    // a new search / filter / sort starts from the first page (worked out while drawing, not in an effect)
+    const filterKey = searchTerm + '|' + activeFilter + '|' + sortConfig.key + '|' + sortConfig.direction;
+    const [pageAt, setPageAt] = useState({ key: filterKey, page: 0 });
+    const page = pageAt.key === filterKey ? pageAt.page : 0;
+    const setPage = (next) => setPageAt(prev => {
+        const cur = prev.key === filterKey ? prev.page : 0;
+        return { key: filterKey, page: typeof next === 'function' ? next(cur) : next };
+    });
     const tableScrollRef = useRef(null);
     useDirectionalScrollHandoff(tableScrollRef);
 
-    const load = useCallback(async (attempt = 0) => {
-        setLoading(true); setLoadError(false);
-        try {
-            const data = await recoveryService.getClientLedger();
-            setRows(data || []); setLoading(false); setLoadCode('');
-        } catch (err) {
-            if (attempt < 1) { setTimeout(() => load(attempt + 1), 5000); return; }
-            setLoadError(true); setLoading(false);
-            setLoadCode(err && err.response ? 'HTTP ' + err.response.status : 'NETWORK');
+    const load = useCallback(async () => {
+        let lastErr = null;
+        // one quiet retry after 5 seconds (the free server may still be waking up), then the error row
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+                const data = await recoveryService.getClientLedger();
+                setRows(remember('clients', data || [])); setLoading(false); setLoadError(false); setLoadCode('');
+                return;
+            } catch (err) {
+                lastErr = err;
+                if (attempt === 0) await new Promise(r => setTimeout(r, 5000));
+            }
         }
+        setLoadError(true); setLoading(false);
+        setLoadCode(lastErr && lastErr.response ? 'HTTP ' + lastErr.response.status : 'NETWORK');
     }, []);
-    useEffect(() => { load(); }, [load]);
-    useEffect(() => { setPage(0); }, [searchTerm, activeFilter, sortConfig]);
+    useEffect(() => { Promise.resolve().then(load); }, [load]);
+    const reload = () => { if (!rows.length) setLoading(true); setLoadError(false); load(); };
 
     const processedData = useMemo(() => {
         let filtered = rows.filter(c => matchesSearch(c, searchTerm));
@@ -215,7 +229,7 @@ const ClientLedgerPage = () => {
                 </div>
                 <HeaderActions>
                     <HeaderButton icon={FiRefreshCw} label="REFRESH" busy={loading}
-                        tip="Reload every client and their totals" onClick={() => load()} />
+                        tip="Reload every client and their totals" onClick={reload} />
                 </HeaderActions>
             </header>
 
@@ -275,7 +289,7 @@ const ClientLedgerPage = () => {
                             {!loading && loadError && (
                                 <tr><td colSpan={cols} className={styles.errorCell}>
                                     <FiAlertTriangle aria-hidden="true" /> CLIENT SYNC FAULT{loadCode ? ` (${loadCode})` : ''} —{' '}
-                                    <button className={styles.retryBtn} onClick={() => load()}>RETRY</button>
+                                    <button className={styles.retryBtn} onClick={reload}>RETRY</button>
                                 </td></tr>
                             )}
                             {!loading && !loadError && pageData.length === 0 && (

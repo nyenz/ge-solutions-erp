@@ -9,7 +9,7 @@
 /* the visible field: each page styles it through the className it passes in */
 .field { cursor: pointer; text-overflow: ellipsis; padding-right: 30px !important; box-sizing: border-box; }
 .wrapBlock .field { width: 100%; }
-.fieldIcon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #EE8C3A; font-size: 14px; pointer-events: none; }
+.fieldIcon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--tx-accent, #EE8C3A); font-size: 14px; pointer-events: none; }
 
 .pop {
     position: fixed;
@@ -82,3 +82,6 @@
 .footBtn:hover { background: rgba(26, 46, 48, 0.06); color: #3d5254; }
 .footBtnHot { color: #b8651d; }
 .footBtnHot:hover { background: rgba(238, 140, 58, 0.12); color: #8f4509; }
+/* fix182: a day outside min / max */
+.dayOff, .dayOff:hover { color: rgba(26, 46, 48, 0.18); background: transparent; border-color: transparent; cursor: not-allowed; text-decoration: line-through; }
+.footBtn:disabled { opacity: 0.4; cursor: not-allowed; }

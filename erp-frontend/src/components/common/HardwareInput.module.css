@@ -7,11 +7,11 @@
 
 /* --- LABELS --- */
 .labelRow { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.label { color: #FFFFFF !important; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
+.label { color: var(--ink-solid) !important; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
 .requiredMark { color: #ef4444; margin-left: 4px; }
 
-.pinBtn { background: transparent; border: none; color: rgba(255, 255, 255, 0.3); font-size: 14px; cursor: pointer; padding: 2px; transition: 0.3s; }
-.pinBtn:hover { color: rgba(255, 255, 255, 0.8); transform: translateY(-2px); }
+.pinBtn { background: transparent; border: none; color: rgba(var(--ink-rgb), 0.3); font-size: 14px; cursor: pointer; padding: 2px; transition: 0.3s; }
+.pinBtn:hover { color: rgba(var(--ink-rgb), 0.8); transform: translateY(-2px); }
 .pinnedActive { color: var(--orange); opacity: 1; filter: drop-shadow(0 0 5px rgba(238, 140, 58, 0.6)); }
 
 /* --- INPUT CONTAINER --- */

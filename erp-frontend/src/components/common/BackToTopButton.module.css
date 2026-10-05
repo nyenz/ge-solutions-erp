@@ -12,7 +12,7 @@
   background: transparent;
   border: none;
   box-shadow: none;
-  color: #EE8C3A;
+  color: var(--tx-accent, #EE8C3A);
   font-size: clamp(18px, 2.2vw, 24px);
   cursor: pointer;
   opacity: 0;
@@ -22,5 +22,5 @@
   text-shadow: 0 0 8px rgba(238, 140, 58, 0.35);
 }
 .backToTop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
-.backToTop:hover { color: #ffffff; text-shadow: 0 0 8px #EE8C3A, 0 0 15px #EE8C3A; }
+.backToTop:hover { color: var(--ink-solid); text-shadow: 0 0 8px #EE8C3A, 0 0 15px #EE8C3A; }
 .backToTop:focus-visible { outline: 2px solid #EE8C3A; outline-offset: 2px; border-radius: 6px; }

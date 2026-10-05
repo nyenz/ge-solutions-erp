@@ -6,7 +6,7 @@
     --radius: 10px;
     max-width:1400px; width:100%; margin:0 auto;
     padding:clamp(12px,2vh,22px) clamp(12px,2vw,24px) 16px;
-    font-family:'Inter',sans-serif; color:#fff;
+    font-family:'Inter',sans-serif; color:var(--ink-solid);
     display:flex; flex-direction:column;
 }
 /* Page title -- scrolls away */
@@ -81,7 +81,7 @@
    position:relative on its .tablePanel). */
 .tablePanel{
     position:relative;
-    background:linear-gradient(160deg,#1c3335 0%,#213E40 100%);border:1.5px solid rgba(238,140,58,0.28);border-radius:var(--radius);padding:0;isolation:isolate;
+    background:linear-gradient(160deg,var(--sf-1, #1c3335) 0%,var(--sf-2, #213E40) 100%);border:1.5px solid rgba(238,140,58,0.28);border-radius:var(--radius);padding:0;isolation:isolate;
 }
 /* Corner brackets: bottom corners only (matches the mockup's
    .cornerAccent) -- an L-shaped bracket with a small glowing white dot
@@ -118,7 +118,7 @@
    the approved design mockup). */
 .ledgerTable thead th{
     position:sticky;top:0;z-index:5;
-    background:#162a2c;color:var(--orange);
+    background:var(--sf-head, #162a2c);color:var(--orange);
     font-size:var(--fs-th);font-weight:900;letter-spacing:2px;text-transform:uppercase;
     text-align:left;padding:clamp(11px,1.5vw,18px) clamp(12px,1.8vw,20px);
     border-bottom:3px solid #EE8C3A;white-space:nowrap;user-select:none;
@@ -127,16 +127,16 @@
 .ledgerTable thead th:first-child{border-radius:var(--radius) 0 0 0;}
 .ledgerTable thead th:last-child{border-radius:0 var(--radius) 0 0;}
 .sortable{cursor:pointer;transition:background .18s,color .18s;}
-.sortable:hover{background:linear-gradient(rgba(238,140,58,0.12),rgba(238,140,58,0.12)),#162a2c;color:#fff;}
-.ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;color:#fff;font-size:var(--fs-td);}
-.ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(255,255,255,0.5);}
+.sortable:hover{background:linear-gradient(rgba(238,140,58,0.12),rgba(238,140,58,0.12)),var(--sf-head, #162a2c);color:var(--ink-solid);}
+.ledgerTable tbody td{padding:12px 14px;border-bottom:1px solid rgba(var(--ink-rgb), 0.06);vertical-align:top;color:var(--ink-solid);font-size:var(--fs-td);}
+.ledgerTable tbody td.rowNum{font-family:'Space Mono',monospace;color:rgba(var(--ink-rgb), 0.5);}
 .ledgerTable tbody tr{cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
-.ledgerTable tbody tr:hover{background:rgba(255,255,255,0.04);border-left-color:#EE8C3A;}
+.ledgerTable tbody tr:hover{background:rgba(var(--ink-rgb), 0.04);border-left-color:#EE8C3A;}
 /* status column (fix47) */
 .statusCell{min-width:130px;}
-.statusName{font-weight:800;color:#fff;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
+.statusName{font-weight:800;color:var(--ink-solid);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
 .statusDots{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
-.statusDot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;}
+.statusDot{width:7px;height:7px;border-radius:50%;background:rgba(var(--ink-rgb), 0.18);flex-shrink:0;}
 .statusDotDone{background:var(--green);box-shadow:0 0 4px var(--green);}
 .statusDotCurrent{background:var(--orange);box-shadow:0 0 4px var(--orange);}
 .rowReceivable{background:rgba(239,68,68,0.05);}
@@ -145,40 +145,40 @@
 .rowProblem{background:rgba(239,68,68,0.10);}
 .problemTag{align-self:flex-start;display:inline-block;padding:1px clamp(5px,0.6vw,8px);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius-sm,6px);background:rgba(239,68,68,0.12);color:#ef4444;font-family:'Inter',sans-serif;font-weight:900;font-size:clamp(8px,0.8vw,10px);letter-spacing:1px;text-transform:uppercase;}
 .indexRow{display:flex;align-items:flex-start;gap:6px;}
-.indexRow strong{font-family:'Space Mono',monospace;color:#fff;}
+.indexRow strong{font-family:'Space Mono',monospace;color:var(--ink-solid);}
 .stack{display:flex;flex-direction:column;gap:2px;}
-.stackSub{font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);font-family:'Space Mono',monospace;}
-.ownerName{font-weight:800;color:#fff;}
-.ownerPhone{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.7);}
+.stackSub{font-size:10px;font-weight:600;color:rgba(var(--ink-rgb), 0.55);font-family:'Space Mono',monospace;}
+.ownerName{font-weight:800;color:var(--ink-solid);}
+.ownerPhone{font-family:'Space Mono',monospace;font-size:11px;color:rgba(var(--ink-rgb), 0.7);}
 .statusGroup{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
 .tagReceivable,.tagPaid,.tagStandard,.tagCritical{background:none;border:none;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;padding:0;}
-.tagReceivable{color:#fca5a5;}
-.tagPaid{color:#34d399;}
-.tagStandard{color:rgba(255,255,255,0.6);}
+.tagReceivable{color:var(--tx-red, #fca5a5);}
+.tagPaid{color:var(--tx-green, #34d399);}
+.tagStandard{color:rgba(var(--ink-rgb), 0.6);}
 .tagCritical{color:#ef4444;}
 .moneyCell{min-width:150px;}
 .moneyRow{display:flex;justify-content:space-between;gap:8px;}
-.debtLabel{color:rgba(255,255,255,0.5);font-size:10px;font-weight:800;}
-.debtAmount{font-family:'Space Mono',monospace;color:#fca5a5;font-weight:700;}
+.debtLabel{color:rgba(var(--ink-rgb), 0.5);font-size:10px;font-weight:800;}
+.debtAmount{font-family:'Space Mono',monospace;color:var(--tx-red, #fca5a5);font-weight:700;}
 .debtCritical{font-family:'Space Mono',monospace;color:#ef4444;font-weight:900;}
 .feesLine{font-size:0.7rem;color:#ef4444;margin-bottom:4px;}
-.velocityBar{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;margin-top:6px;overflow:hidden;}
+.velocityBar{height:5px;background:rgba(var(--ink-rgb), 0.1);border-radius:3px;margin-top:6px;overflow:hidden;}
 .velocityFill{height:100%;background:var(--orange);border-radius:3px;}
 .velocityFillCritical{background:var(--red);}
-.pctLabel{font-size:9px;color:rgba(255,255,255,0.5);font-weight:700;}
+.pctLabel{font-size:9px;color:rgba(var(--ink-rgb), 0.5);font-weight:700;}
 /* CONTRAST RULE: these sit on the navy .tablePanel. White at 50% alpha was
    2.26:1 against it -- under the 4.5:1 floor. Cream at 72% reads 6.98:1. */
-.loadingCell,.errorCell,.emptyCell{text-align:center;padding:30px !important;color:rgba(244,242,239,0.72);font-weight:800;letter-spacing:1px;}
+.loadingCell,.errorCell,.emptyCell{text-align:center;padding:30px !important;color:rgba(var(--ink-rgb), 0.72);font-weight:800;letter-spacing:1px;}
 .retryBtn{background:none;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:800;}
 .pagination{display:flex;justify-content:space-between;align-items:center;padding:10px 4px 2px;}
-.pageBtn{background:rgba(26,46,48,0.75);border:1.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);padding:7px 14px;border-radius:6px;font-weight:900;font-size:10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:all .2s;}
-.pageBtn:hover:not(:disabled){background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.22);color:#fff;}
+.pageBtn{background:rgba(var(--sf-navy-rgb), 0.75);border:1.5px solid rgba(var(--ink-rgb), 0.18);color:rgba(var(--ink-rgb), 0.85);padding:7px 14px;border-radius:6px;font-weight:900;font-size:10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:all .2s;}
+.pageBtn:hover:not(:disabled){background:rgba(var(--ink-rgb), 0.07);border-color:rgba(var(--ink-rgb), 0.22);color:var(--ink-solid);}
 .pageBtn:disabled{opacity:0.4;cursor:not-allowed;}
-.pageIndicator{color:rgba(255,255,255,0.6);font-size:10px;font-weight:800;letter-spacing:1px;}
+.pageIndicator{color:rgba(var(--ink-rgb), 0.6);font-size:10px;font-weight:800;letter-spacing:1px;}
 .recordCount{color:var(--orange);}
 
-.tagProcessing{color:#EE8C3A;}
-.tagActive{color:#34d399;}
+.tagProcessing{color:var(--tx-accent, #EE8C3A);}
+.tagActive{color:var(--tx-green, #34d399);}
 
 /* fix87: dots show how close the folder is to finishing */
 .statusDotPart { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
