@@ -58,6 +58,7 @@ const PaymentsPage = () => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [books, setBooks] = useState(null);
+    const openBooks = params.get('books') === '1';   // fix181 (17.10): the BOOKS_MISMATCH alert opens the check
 
     const set = useCallback((patch, keepPage) => {
         const next = new URLSearchParams(params);
@@ -110,6 +111,13 @@ const PaymentsPage = () => {
         try { setBooks((await api.get('/recovery/payments/books-check')).data); }
         catch (e) { setBooks({ ok: false, error: errorText(e), differences: [] }); }
     };
+
+    useEffect(() => {
+        if (!openBooks) return undefined;
+        let alive = true;
+        api.get('/recovery/payments/books-check').then(r => { if (alive) setBooks(r.data); }).catch(() => {});
+        return () => { alive = false; };
+    }, [openBooks]);
 
     const rows = (data && data.rows) || [];
     const total = (data && data.total) || 0;

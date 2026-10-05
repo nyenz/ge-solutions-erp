@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiShield, FiLock, FiPower, FiKey, FiTrash2, FiUserPlus, FiAlertTriangle, FiInfo, FiCheckSquare, FiAlertCircle, FiX, FiRotateCcw, FiEye, FiEyeOff, FiSliders, FiMonitor, FiChevronDown, FiArchive } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePreferences } from '../../context/usePreferences';
 import settingsService from '../../services/settingsService';
@@ -64,7 +65,10 @@ const SettingsPage = () => {
      so the old per-panel appOpen/secOpen/govOpen/dangerOpen/delOpen quintet
      collapses into a single tab key plus one collapse toggle for whichever
      card is currently showing. */
-  const [tab, setTab] = useState('appearance');
+  // fix181 (17.10, 21.9): links can open a tab (/settings?tab=staff, ?tab=appearance)
+  const [settingsParams] = useSearchParams();
+  const TAB_ALIASES = { staff: 'governance', appearance: 'appearance', security: 'security', archive: 'deleted', danger: 'danger' };
+  const [tab, setTab] = useState(() => TAB_ALIASES[(settingsParams.get('tab') || '').toLowerCase()] || 'appearance');
   const [panelOpen, setPanelOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
   const toast = useCallback((message, type = 'info') => {

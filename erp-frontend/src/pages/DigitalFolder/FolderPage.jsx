@@ -418,7 +418,7 @@ const FolderPage = () => {
     // re-opened the payment window every time the page reloaded its data).
     useEffect(() => {
         const hash = window.location.hash.replace('#', '');
-        if (hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
+        if (hash === 'payment' || hash === 'payments' || hash === 'finance' || hash === 'financials' || hash.startsWith('payment-')) {
             setActiveTab('FINANCIALS');
             setTimeout(() => {
                 if (hash.startsWith('payment-')) { const el = document.getElementById(hash); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add(styles.highlightRow); setTimeout(() => el.classList.remove(styles.highlightRow), 3000); } }
@@ -565,7 +565,7 @@ const FolderPage = () => {
         try {
             await folderPortalService.toggleProblem(id, note, true);
             setProblemModal({ open: false, note: '' });
-            await loadFolderData(); toast('Flagged as PROBLEM. Staff have been notified.', 'warn');
+            await loadFolderData(); toast('Flagged as PROBLEM. The office has been notified.', 'warn');
         } catch (err) { setProbErr(errText(err)); }
         finally { setProbBusy(false); }
     };
@@ -1437,7 +1437,7 @@ const FolderPage = () => {
                 </div>
             </HardwareModal>
             <HardwareModal isOpen={problemModal.open} lockBackdrop onClose={closeProblemModal} title={'FLAG PROBLEM - ' + plotName}>
-                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies staff. While flagged, the title cannot be handed over. What you write goes into the notes and the audit trail.</div>
+                <div className={`${modalStyles.modalInfoBox} ${modalStyles.modalInfoBoxDanger}`}>This flags the plot as a <strong>PROBLEM</strong> and notifies the office (clearing it later is reported to the Director). While flagged, the title cannot be handed over. What you write goes into the notes and the audit trail.</div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>WHAT IS THE PROBLEM? (REQUIRED)</label>
                     <textarea className={`${modalStyles.modalTextarea} ${styles.probBox}`} value={problemModal.note} maxLength={500} autoFocus placeholder="e.g. Owner name on the deed plan does not match the ID..." aria-label="Problem description" onChange={e => { setProblemModal(m => ({ ...m, note: e.target.value })); if (probErr) setProbErr(''); }} />
                     <span className={styles.probCount}>{problemModal.note.length}/500</span></div>

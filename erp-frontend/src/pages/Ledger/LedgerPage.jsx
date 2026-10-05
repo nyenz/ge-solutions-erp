@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
     FiChevronLeft, FiChevronRight, FiArrowUp, FiArrowDown, FiAlertTriangle, FiX
@@ -187,7 +187,9 @@ const LedgerPage = () => {
     const [loadError, setLoadError] = useState(false);
     const [page, setPage] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilter, setActiveFilter] = useState('ALL');
+    // fix181 (17.10, 17.20): a link can open a tab (/land/projects?tab=PENDING)
+    const [ledgerParams] = useSearchParams();
+    const [activeFilter, setActiveFilter] = useState(() => (ledgerParams.get('tab') || 'ALL').toUpperCase());
     const [sortConfig, setSortConfig] = useState({ key: 'plotNumber', direction: 'asc' });
     const tableScrollRef = useRef(null);
     useDirectionalScrollHandoff(tableScrollRef);

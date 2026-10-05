@@ -152,7 +152,9 @@ export const describe = (n) => {
         .replace(/_/g, ' ')
         .toLowerCase()
         .replace(/^./, c => c.toUpperCase());
-    return { ...FALLBACK, label: pretty, severity: n?.severity || FALLBACK.severity };
+    // fix181 (17.19b): an unknown type keeps the group the server sends (not always a red SYSTEM signal)
+    const group = n?.category && Object.values(GROUPS).includes(n.category) ? n.category : FALLBACK.group;
+    return { ...FALLBACK, group, label: pretty, severity: n?.severity || FALLBACK.severity };
 };
 
 /**
