@@ -39,6 +39,7 @@ public class DashboardController {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;
+    private final com.gesolutions.erp.modules.client.service.RecoveryStateService recoveryState;
     private final ExpenseRepository expenseRepository;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
@@ -72,29 +73,9 @@ public class DashboardController {
         // Client IDs, deduped across every plot they co-own, each independently
         // eligible under their own cooldown/monthly-count state -- matching
         // RecoveryNoteController locked()/qualifies() rule exactly (live /recovery/stats).
-        long staleCalls = allPlots.stream()
-                .filter(p -> {
-                    java.math.BigDecimal bal = p.isReceivable()
-                            ? p.receivableTotalOwed() : p.activeTotalOwed();
-                    return bal.compareTo(java.math.BigDecimal.ZERO) > 0;
-                })
-                .flatMap(p -> p.billingParties() == null
-                        ? java.util.stream.Stream.<com.gesolutions.erp.modules.client.model.Client>empty()
-                        : p.billingParties().stream())
-                .filter(owner -> owner != null && owner.getId() != null)
-                .collect(Collectors.toMap(
-                        com.gesolutions.erp.modules.client.model.Client::getId,
-                        owner -> owner,
-                        (keepFirst, ignored) -> keepFirst))
-                .values().stream()
-                .filter(owner -> {
-                    java.time.LocalDateTime monthStart = java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay();
-                    if (recoveryNoteRepository.countByClientAndCountsAsAttemptTrueAndCreatedAtAfter(owner, monthStart) >= 2) return false;
-                    java.time.LocalDateTime lastContact = owner.getLastContactedAt();
-                    if (lastContact != null && lastContact.isAfter(java.time.LocalDateTime.now().minusDays(14))) return false;
-                    return true;
-                })
-                .count();
+        // fix181 (4.3): the SAME rule as the Recovery page "due now" (it used a calendar-month count + 14-day gap here,
+        // so the two numbers could disagree)
+        long staleCalls = recoveryState.dueNow(recoveryState.load(), LocalDateTime.now());
 
         // fix181 (2.3, 11.3): the same hand-over rule as authorizeRelease (no zero-price, no storage money as title money,
         // no kept fees, no PROBLEM flag, title record needed)

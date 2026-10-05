@@ -5,6 +5,7 @@ import com.gesolutions.erp.modules.client.repository.ClientRepository;
 
 import com.gesolutions.erp.common.audit.AuditService;
 import com.gesolutions.erp.modules.client.model.Client;
+import com.gesolutions.erp.modules.client.service.RecoveryStateService;
 import com.gesolutions.erp.modules.notification.service.NotificationService;
 import com.gesolutions.erp.modules.land.model.LandProject;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
@@ -27,6 +28,7 @@ public class ReceivableSchedulerService {
     private final NotificationService notificationService;
     private final ClientRepository clientRepo;
     private final RecoveryNoteRepository recoveryNoteRepository;
+    private final RecoveryStateService recoveryState;
                     
     private static final BigDecimal DEFAULT_MONTHLY_FEE = LandProject.DEFAULT_MONTHLY_STORAGE_FEE;   // fix173: one shared default
 
@@ -146,32 +148,22 @@ public class ReceivableSchedulerService {
     @Scheduled(cron = "0 0 7 * * *")
     @Transactional
     public void unlockSweep() {
+        // fix181 (4.3): the lock rule comes from the shared Recovery service (this file had its own copy, and read every
+        // project once per client). One read of notes and projects for the whole sweep.
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         java.time.LocalDateTime yesterday = now.minusDays(1);
-        for (com.gesolutions.erp.modules.client.model.Client c : clientRepo.findAll()) {
-            boolean lockedYesterday = lockedAt(c, yesterday) != null;
-            boolean lockedToday = lockedAt(c, now) != null;
+        RecoveryStateService.Snapshot snap = recoveryState.load();
+        for (java.util.UUID clientId : snap.projects().keySet()) {
+            var ps = snap.projectsOf(clientId);
+            var ns = snap.notesOf(clientId);
+            boolean lockedYesterday = recoveryState.lockedUntil(ps, ns, yesterday) != null;
+            boolean lockedToday = recoveryState.lockedUntil(ps, ns, now) != null;
             if (lockedYesterday && !lockedToday) {
+                Client c = clientRepo.findById(clientId).orElse(null);
+                if (c == null) continue;
                 // fix181 (17.2): one type, one row for each of Secretary and Manager (UNLOCK_M is retired)
                 notificationService.emitToAudience("UNLOCK", c.getFullName() + " is callable again.", "CLIENT", c.getId(), now.toLocalDate());
             }
         }
-    }
-    private java.time.LocalDate lockedAt(com.gesolutions.erp.modules.client.model.Client c, java.time.LocalDateTime now) {
-        java.time.LocalDate unlock = null;
-        java.time.LocalDateTime pay = null;
-        for (LandProject p : projectRepository.findAll()) {
-            if (p.billingParties() == null) continue;
-            boolean mine = p.billingParties().stream().anyMatch(o -> o != null && o.getId() != null && o.getId().equals(c.getId()));
-            if (!mine) continue;
-            if (p.getLastPaymentDate() != null && (pay == null || p.getLastPaymentDate().isAfter(pay))) pay = p.getLastPaymentDate();
-        }
-        if (pay != null && pay.plusDays(30).isAfter(now)) unlock = pay.plusDays(30).toLocalDate();
-        java.time.LocalDateTime second = null; int count = 0;
-        for (com.gesolutions.erp.modules.client.model.RecoveryNote n : recoveryNoteRepository.findByClientOrderByCreatedAtDesc(c)) {
-            if ("POSITIVE".equals(n.getTone()) && n.isCountsAsAttempt() && n.getCreatedAt().isAfter(now.minusDays(30))) { count++; if (count == 2) second = n.getCreatedAt(); }
-        }
-        if (second != null) { java.time.LocalDate u2 = second.plusDays(30).toLocalDate(); if (unlock == null || u2.isAfter(unlock)) unlock = u2; }
-        return unlock;
     }
 }

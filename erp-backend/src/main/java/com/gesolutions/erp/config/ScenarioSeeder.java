@@ -824,8 +824,9 @@ public class ScenarioSeeder {
                         bell("UNLOCK_M", "INFO", client.getFullName() + " is callable again.", "CLIENT", client.getId(), "ROLE_MANAGER", unlock);
                     }
                 }
-                if (!positive && miss30 == 2 && good30 == 0) {
-                    bell("SITE_VISIT_AUTO", "WARN", client.getFullName() + " missed twice with no answer in 30 days. Plan a site visit.", "CLIENT", client.getId(), "ROLE_MANAGER", t);
+                int siteN = com.gesolutions.erp.modules.client.service.RecoveryStateService.SITE_VISIT_MISS_THRESHOLD;
+                if (!positive && miss30 == siteN && good30 == 0) {
+                    bell("SITE_VISIT_AUTO", "WARN", client.getFullName() + " missed " + siteN + " calls (on different days) with no answer in 30 days. Plan a site visit.", "CLIENT", client.getId(), "ROLE_MANAGER", t);
                 }
             }
         }

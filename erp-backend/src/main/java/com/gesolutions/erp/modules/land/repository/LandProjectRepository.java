@@ -72,6 +72,7 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
            "AND p.deleted = false AND p.pending = false " +
            "AND p.amountPaid < p.totalCost " +
            "AND p.landTitle.createdAt < :cutoff " +
+           "AND (p.graduatedAt IS NULL OR p.graduatedAt < :cutoff) " +   // fix181 (4.4): the clock starts at the LATER of the two
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
     List<LandProject> findAutoReceivableCandidates(LocalDateTime cutoff);
 
@@ -79,6 +80,14 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     @Query("SELECT DISTINCT p FROM LandProject p JOIN p.proprietors c WHERE c.id IN :ownerIds AND p.id <> :projectId AND p.deleted = false")
     List<LandProject> findRelatedByOwners(@org.springframework.data.repository.query.Param("ownerIds") java.util.Collection<UUID> ownerIds,
                                           @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
+    /**
+     * fix181 (4.3): one client's live projects where they are a billing party (a client of the project, or an owner of
+     * an old project that has no clients). Replaces reading every project to find one client's.
+     */
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN p.clients c LEFT JOIN p.proprietors o "
+         + "WHERE p.deleted = false AND p.pending = false AND (c.id = :clientId OR (o.id = :clientId AND p.clients IS EMPTY))")
+    List<LandProject> findByBillingClient(@org.springframework.data.repository.query.Param("clientId") UUID clientId);
 
     // fix180: the Transfer of Title projects made from one subdivision project's plots (deleted ones left out)
     @Query("SELECT p FROM LandProject p WHERE p.parentProjectId = :parentId AND p.deleted = false")

@@ -33,7 +33,7 @@ import java.util.Set;
  *   Soft delete ...... deleted recently, deleted long ago, deleted then restored
  *   Owners ........... solo, joint (2), joint (3), one person on 3 projects (x2 people), shared phone, two phone
  *                      numbers, foreign number, very long name, no email / no address
- *   Recovery ......... NEW, CONTACTED, MISSED, SITE VISIT, LOCKED (2 good calls), LOCKED (recent payment),
+ *   Recovery ......... NEW, CONTACTED, MISSED, SITE VISIT (4 missed days), LOCKED (2 good calls), LOCKED (recent payment),
  *                      callable again
  */
 final class ScenarioData {
@@ -784,14 +784,18 @@ final class ScenarioData {
             c.add(new Call(owner.get("t_partial" + s), ANS, 3, S1, "Will bring the balance next week."));
             c.add(new Call(owner.get("f_mid_statuses" + s), ANS, 1, S1, "Will sign the deed plan on Friday."));
             c.add(new Call(owner.get("r_paused_now" + s), ANS, 82, DR, "Family bereavement. Asked to pause storage fees."));
-            // MISSED (last call bad, fewer than two misses in 30 days)
+            // MISSED (last call bad, at most 3 missed days in 30 days, so not yet a site visit)
             c.add(new Call(owner.get("n_partial" + s), ANS, 52, SU, "Asked for the status timeline."));
             c.add(new Call(owner.get("n_partial" + s), NOP, 6, S2, null));
             c.add(new Call(owner.get("f_never_paid" + s), WRN, 15, S1, "Number belongs to someone else."));
             c.add(new Call(owner.get("r_pause_ended" + s), NOP, 2, S2, null));
-            // SITE VISIT (two misses, no good call in 30 days)
+            // SITE VISIT (fix181: 4 missed calls on 4 different days in 30 days, no good call)
+            c.add(new Call(owner.get("r_joint_silent" + s), NOP, 26, S1, null));
             c.add(new Call(owner.get("r_joint_silent" + s), NOP, 18, S1, null));
             c.add(new Call(owner.get("r_joint_silent" + s), NTH, 9, S2, null));
+            c.add(new Call(owner.get("r_joint_silent" + s), NOP, 4, S2, null));
+            c.add(new Call(owner.get("f_stale" + s), NOP, 22, M1, null));
+            c.add(new Call(owner.get("f_stale" + s), NTH, 14, M1, null));
             c.add(new Call(owner.get("f_stale" + s), NTH, 8, M1, null));
             c.add(new Call(owner.get("f_stale" + s), NOP, 3, M1, null));
             // LOCKED by two good calls
