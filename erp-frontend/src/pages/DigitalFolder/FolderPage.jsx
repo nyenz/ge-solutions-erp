@@ -360,6 +360,8 @@ const FolderPage = () => {
     const [noteErr, setNoteErr] = useState(''); const [noteBusy, setNoteBusy] = useState(false);
     const [payModal, setPayModal] = useState({ open: false });
     const [payAmount, setPayAmount] = useState(''); const [payNotes, setPayNotes] = useState('');
+    // fix181 (16.12b): one id per payment; a retry after a slow network sends the same id and the server refuses a second save
+    const payRequestId = useRef(null);
     const [payType, setPayType] = useState('TITLE'); const [paying, setPaying] = useState(false);
     const [payerId, setPayerId] = useState('');
     const [payReceipt, setPayReceipt] = useState(null);
@@ -732,10 +734,12 @@ const FolderPage = () => {
         if (!payReceipt.size) { setPayErr('THE RECEIPT FILE IS EMPTY. SCAN OR PHOTOGRAPH IT AGAIN.'); return; }
         if (payReceipt.size > 10 * 1024 * 1024) { setPayErr('THE RECEIPT IS OVER 10 MB. USE A SMALLER SCAN.'); return; }
         setPaying(true); setPayErr('');
+        if (!payRequestId.current) payRequestId.current = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
         try {
             const stamp = todayISO();
             const receiptName = 'Receipt - ' + (payType === 'STORAGE' ? 'Storage Fee' : 'Title Payment') + ' - UGX ' + amt + ' - ' + stamp + '.' + fileExt(payReceipt.name);
-            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType);
+            await recoveryService.recordPayment(id, amt, payNotes.trim(), new File([payReceipt], receiptName, { type: payReceipt.type }), payerId || null, payType, payRequestId.current);
+            payRequestId.current = null;
             setPayModal({ open: false }); setPayAmount(''); setPayNotes(''); setPayType('TITLE'); setPayReceipt(null);
             await loadFolderData();
             toast('Payment recorded. Receipt filed under Payment Receipts.', 'success', 4500);

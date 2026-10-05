@@ -14,8 +14,10 @@ getQueues: (q) => api.get('/recovery/queues', { params: q ? { q } : {} }),
   deleteNote: (noteId) => api.delete('/recovery/notes/' + noteId),
   // fix165: a payment is sent TOGETHER with its receipt file; the server refuses it without one.
   // fix167: also WHO paid (payerId) and what for (allocation TITLE or STORAGE)
-  recordPayment: (projectId, amount, notes, receipt, payerId, allocation) => {
+  // fix181: clientRequestId = one id per payment window; a retried send with the same id is refused by the server
+  recordPayment: (projectId, amount, notes, receipt, payerId, allocation, clientRequestId) => {
     const fd = new FormData();
+    if (clientRequestId) fd.append('clientRequestId', clientRequestId);
     fd.append('amount', String(amount));
     if (notes) fd.append('notes', notes);
     if (payerId) fd.append('payerId', payerId);

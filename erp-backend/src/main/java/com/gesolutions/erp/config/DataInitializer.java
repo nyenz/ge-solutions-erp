@@ -159,6 +159,24 @@ public class DataInitializer implements CommandLineRunner {
             "UPDATE land_projects SET project_type = CASE WHEN is_legacy THEN 'LEGACY_TITLES' ELSE 'FRESH_SURVEY' END WHERE project_type IS NULL",
             "UPDATE land_projects SET title_details_enabled = FALSE WHERE title_details_enabled IS NULL",
             "INSERT INTO project_clients (project_id, client_id) SELECT pp.project_id, pp.client_id FROM project_proprietors pp WHERE NOT EXISTS (SELECT 1 FROM project_clients pc WHERE pc.project_id = pp.project_id)",
+            // fix181 (8.9, 20.9, 14.7a, 16.12): new project columns. Old projects are never Pending.
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS pending BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS graduated_at TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS created_by_id UUID",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS created_by VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS created_at TIMESTAMP",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_reason TEXT",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100)",
+            "ALTER TABLE land_projects ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0",
+            "UPDATE land_projects SET version = 0 WHERE version IS NULL",
+            "UPDATE land_projects SET pending = FALSE WHERE pending IS NULL",
+            // created_at for old rows: the entry date, else the title's created date, else the start date; never invented
+            "UPDATE land_projects p SET created_at = COALESCE(CAST(p.entry_date AS TIMESTAMP), (SELECT t.created_at FROM land_titles t WHERE t.id = p.title_id), CAST(p.project_start_date AS TIMESTAMP)) WHERE p.created_at IS NULL",
+            // fix181 (11.6, 16.0): the day a payment was PAID. Back-fill = its timestamp, except an undated intake deposit (stays NULL).
+            "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS paid_on TIMESTAMP",
+            "ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS client_request_id VARCHAR(64)",
+            "CREATE INDEX IF NOT EXISTS idx_payment_client_request ON payment_records (client_request_id)",
+            "UPDATE payment_records SET paid_on = timestamp WHERE paid_on IS NULL AND NOT (payment_type = 'INITIAL_DEPOSIT' AND (notes IS NULL OR notes NOT LIKE '%paid on%'))",
             "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check",
             roleCheckSql()
         };

@@ -141,12 +141,27 @@ public class LandService {
     @Transactional
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation) {
+        return recordPayment(projectId, amount, notes, payerId, allocation, null);
+    }
+
+    // fix181 (16.12): the project row is LOCKED while the payment is checked and saved, so two people paying at the same
+    // moment are done one after the other (both used to pass the overpayment check, and one total could be lost).
+    // clientRequestId: a payment window sends the same id on a retry; the second request is refused.
+    @Transactional
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public PaymentRecord recordPayment(UUID projectId, BigDecimal amount, String notes, UUID payerId, String allocation,
+                                       String clientRequestId) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("PAYMENT_FAULT: Amount must be greater than zero.");
         }
+        String requestId = clientRequestId == null || clientRequestId.isBlank() ? null
+                : clientRequestId.trim().substring(0, Math.min(64, clientRequestId.trim().length()));
 
-        LandProject project = projectRepository.findById(projectId)
+        LandProject project = projectRepository.findByIdForUpdate(projectId)
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
+        if (requestId != null && paymentRecordRepository.existsByClientRequestIdAndRecordedBy(requestId, getCurrentOperator())) {
+            throw new BusinessException("DUPLICATE_PAYMENT: This payment was already recorded.");
+        }
         // fix165: no money can be recorded against a deleted project, and no fractions of a shilling.
         if (project.isDeleted()) {
             throw new BusinessException("PAYMENT_BLOCKED: This project is deleted. Restore it first.");
@@ -208,7 +223,8 @@ public class LandService {
         } else if ("STORAGE".equals(kind)) {
             project.setStorageFeesPaid(project.storagePaidSafe().add(amount));
         }
-        project.setLastPaymentDate(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        project.setLastPaymentDate(now);
 
         BigDecimal balanceAfter = project.isReceivable()
                 ? project.receivableTotalOwed()
@@ -220,6 +236,9 @@ public class LandService {
                 .paymentType(paymentType)
                 .recordedBy(operator)
                 .notes(notes)
+                .timestamp(now)
+                .paidOn(now)                      // fix181: a normal payment is paid when it is entered
+                .clientRequestId(requestId)
                 .balanceAfter(balanceAfter)
                 .allocation(kind)
                 .payerClientId(payer != null ? payer.getId() : null)
@@ -273,6 +292,13 @@ public class LandService {
     @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
                                          UUID payerId, String allocation) throws Exception {
+        recordPaymentWithReceipt(projectId, amount, notes, receipt, payerId, allocation, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    public void recordPaymentWithReceipt(UUID projectId, BigDecimal amount, String notes, MultipartFile receipt,
+                                         UUID payerId, String allocation, String clientRequestId) throws Exception {
         if (receipt == null || receipt.isEmpty()) {
             throw new BusinessException("RECEIPT_REQUIRED: A payment cannot be saved without its receipt. Attach the receipt scan (PDF, JPG, PNG or WEBP).");
         }
@@ -280,7 +306,7 @@ public class LandService {
             throw new BusinessException("RECEIPT_TOO_LARGE: The receipt must be under 10 MB.");
         }
         requireScanFiles(new MultipartFile[] { receipt });
-        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation);
+        PaymentRecord record = recordPayment(projectId, amount, notes, payerId, allocation, clientRequestId);
         List<ProjectDocument> filed = addScansToProject(projectId, new MultipartFile[] { receipt }, "PAYMENT_RECEIPT", null);
         if (!filed.isEmpty()) {
             record.setReceiptDocumentId(filed.get(0).getId());
@@ -557,7 +583,8 @@ public class LandService {
                     .allocation("TITLE")
                     .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid
                     .payerName(titlePayer != null ? titlePayer.getFullName() : null)
-                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())   // fix172: the date it was really paid
+                    .timestamp(LocalDateTime.now())   // fix181 (16.0b): always the real entry time
+                    .paidOn(paidAt)                   // fix181 (11.6): the day paid; NULL when the operator gave no date
                     .build();
             paymentRecordRepository.save(initialRecord);
             saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more
@@ -576,7 +603,8 @@ public class LandService {
                     .allocation("STORAGE")
                     .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid
                     .payerName(feesPayer != null ? feesPayer.getFullName() : null)
-                    .timestamp(paidAt != null ? paidAt : LocalDateTime.now())
+                    .timestamp(LocalDateTime.now())   // fix181 (16.0b)
+                    .paidOn(paidAt)
                     .build();
             paymentRecordRepository.save(feesRecord);
             if (paidAt != null) {
@@ -970,6 +998,8 @@ public class LandService {
 
         project.setDeleted(true);
         project.setDeletedAt(LocalDateTime.now());
+        project.setDeletedReason(why);                // fix181 (14.7a)
+        project.setDeletedBy(getCurrentOperator());
         projectRepository.save(project);
 
         auditService.logActionAfterCommit("RECORD_DELETED",
@@ -993,6 +1023,8 @@ public class LandService {
 
         project.setDeleted(false);
         project.setDeletedAt(null);
+        project.setDeletedReason(null);
+        project.setDeletedBy(null);
         projectRepository.save(project);
 
         auditService.logActionAfterCommit("RECORD_RESTORED",
@@ -1364,7 +1396,7 @@ public class LandService {
         if (why.length() < 5) {
             throw new BusinessException("REASON_REQUIRED: Write why this payment is being reversed (at least 5 characters).");
         }
-        LandProject project = projectRepository.findById(projectId)
+        LandProject project = projectRepository.findByIdForUpdate(projectId)   // fix181 (16.12a): row lock
                 .orElseThrow(() -> new BusinessException("PLOT_NOT_FOUND"));
         if (project.isDeleted()) {
             throw new BusinessException("REVERSAL_BLOCKED: This project is deleted. Restore it first.");
@@ -1403,6 +1435,7 @@ public class LandService {
                 .projectId(projectId)
                 .amountPaid(original.getAmountPaid().negate())
                 .paymentType("REVERSAL")
+                .paidOn(LocalDateTime.now())   // fix181 (16.0a): a reversal has its own date, so the month it was made nets out
                 .recordedBy(getCurrentOperator())
                 .notes(marker + " " + why)
                 .balanceAfter(balanceAfter)
@@ -1516,7 +1549,7 @@ public class LandService {
 
     @Transactional(readOnly = true)
     public Page<LandProject> getGlobalLedger(Pageable pageable) {
-        Page<LandProject> page = projectRepository.findAll(pageable);
+        Page<LandProject> page = projectRepository.findAllIncludingPending(pageable);   // fix181 (8.9): the Pending tab reads this
         // fix170: ONE query for every status on the page (it was one query per project)
         List<UUID> ids = new ArrayList<>();
         for (LandProject p : page.getContent()) ids.add(p.getId());

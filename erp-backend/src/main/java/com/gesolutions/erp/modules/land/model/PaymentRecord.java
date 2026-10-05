@@ -10,7 +10,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "payment_records", indexes = {
     @Index(name = "idx_payment_project", columnList = "project_id"),
-    @Index(name = "idx_payment_timestamp", columnList = "timestamp")
+    @Index(name = "idx_payment_timestamp", columnList = "timestamp"),
+    @Index(name = "idx_payment_client_request", columnList = "client_request_id")
 })
 @Getter
 @Setter
@@ -61,4 +62,17 @@ public class PaymentRecord {
 
     @Column(name = "receipt_document_id")
     private UUID receiptDocumentId;
+
+    /**
+     * fix181 (11.6, 16.0): the day the money was PAID. `timestamp` is when the line was typed in.
+     * NULL only for an undated intake deposit (paid before the project was entered, day unknown).
+     * A reversal has its own date (when it was made), so money-by-period nets to zero.
+     * "Last payment", the Dashboard and Reports read this, never `timestamp`.
+     */
+    @Column(name = "paid_on")
+    private LocalDateTime paidOn;
+
+    /** fix181 (16.12b): one-time id sent by the payment window, so a retried request is not saved twice. */
+    @Column(name = "client_request_id", length = 64)
+    private String clientRequestId;
 }

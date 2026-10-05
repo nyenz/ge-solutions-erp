@@ -417,6 +417,8 @@ public class ScenarioSeeder {
                 .projectIndex(index)
                 .projectStartDate(now.toLocalDate().minusDays(s.startAgo))
                 .entryDate(now.toLocalDate().minusDays(entry))
+                .createdAt(now.minusDays(entry))   // fix181 (20.9)
+                .createdBy(staff)
                 .district(s.district).county(s.county).subCounty(s.subCounty).parish(s.parish).village(s.village).area(s.area)
                 .totalCost(BigDecimal.valueOf(totalCost))
                 .amountPaid(BigDecimal.valueOf(s.paid()))
@@ -433,7 +435,9 @@ public class ScenarioSeeder {
                 .storagePaused(s.activePause())
                 .storagePausedAt(s.activePause() ? at(s.pauseAgo, s.key + "Z") : null)
                 .deleted(s.deletedAgo >= 0 && s.restoredAgo < 0)
-                .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null);
+                .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null)
+                .deletedBy(s.deletedAgo >= 0 && s.restoredAgo < 0 ? ScenarioData.ADMIN : null)   // fix181 (14.7a)
+                .deletedReason(s.deletedAgo >= 0 && s.restoredAgo < 0 ? "Entered twice by mistake (demo)" : null);
         if (s.recvAgo >= 0) {
             b.originalDebt(BigDecimal.valueOf(debt))
              .storageFeesAccumulated(BigDecimal.valueOf(s.storedFees()))
@@ -687,7 +691,7 @@ public class ScenarioSeeder {
                 receipt = addDocument(pid, index, ScenarioData.PR, fname, photo ? "image/jpeg" : "application/pdf", by, t.plusMinutes(4));
             }
             PaymentRecord saved = paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(p.amount))
-                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).balanceAfter(BigDecimal.valueOf(after))
+                    .paymentType(type).recordedBy(by).notes(notes).timestamp(t).paidOn(t).balanceAfter(BigDecimal.valueOf(after))
                     .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName())
                     .receiptDocumentId(receipt != null ? receipt.getId() : null).build());
             if (p.ago >= 0) {
@@ -704,7 +708,7 @@ public class ScenarioSeeder {
                 LocalDateTime rt = at(p.reversedAgo, s.key + "REV" + p.amount);
                 paymentRepository.save(PaymentRecord.builder().projectId(pid).amountPaid(BigDecimal.valueOf(-p.amount))
                         .paymentType("REVERSAL").recordedBy(p.reverseBy).notes("[REVERSAL OF " + saved.getId() + "] " + p.reverseWhy)
-                        .timestamp(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
+                        .timestamp(rt).paidOn(rt).balanceAfter(BigDecimal.valueOf(after + p.amount))
                         .allocation(p.storage ? "STORAGE" : "TITLE").payerClientId(payer.getId()).payerName(payer.getFullName()).build());
                 audit("PAYMENT_REVERSED", "Operator [" + p.reverseBy + "] reversed UGX " + p.amount + " on " + lbl + ". Reason: " + p.reverseWhy, p.reverseBy, rt);
             }

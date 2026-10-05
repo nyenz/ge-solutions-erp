@@ -15,6 +15,9 @@ public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UU
 
     List<PaymentRecord> findByProjectIdOrderByTimestampDesc(UUID projectId);
 
+    // fix181 (16.12b): was this payment window's request already saved by this person?
+    boolean existsByClientRequestIdAndRecordedBy(String clientRequestId, String recordedBy);
+
     Optional<PaymentRecord> findTopByProjectIdInOrderByTimestampDesc(List<UUID> projectIds);
 
     @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM PaymentRecord p WHERE p.projectId = :projectId")

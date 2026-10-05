@@ -242,8 +242,9 @@ public class LandController {
                                                @RequestParam(required = false) String notes,
                                                @RequestParam(value = "payerId", required = false) UUID payerId,
                                                @RequestParam(value = "allocation", required = false) String allocation,
-                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt) throws Exception {
-        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation);
+                                               @RequestParam(value = "receipt", required = false) MultipartFile receipt,
+                                               @RequestParam(value = "clientRequestId", required = false) String clientRequestId) throws Exception {
+        landService.recordPaymentWithReceipt(id, amount, notes, receipt, payerId, allocation, clientRequestId);
         return ResponseEntity.ok().build();
     }
 

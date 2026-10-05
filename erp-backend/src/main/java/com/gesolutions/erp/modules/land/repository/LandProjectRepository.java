@@ -25,14 +25,34 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one
     // project at a time (hundreds of tiny queries per request) -- Recovery, Dashboard, Reports and Client Ledger all pay that.
     // fix180: the clients (who Recovery calls) come in the same query too
-    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.clients LEFT JOIN FETCH p.landTitle WHERE p.deleted = false")
+    // fix181 (8.9): Pending projects are left out HERE, once, so no money figure, Recovery list or nightly job sees them.
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.clients LEFT JOIN FETCH p.landTitle WHERE p.deleted = false AND p.pending = false")
     List<LandProject> findAll();
 
     @Override
     @NonNull
     @EntityGraph(attributePaths = {"proprietors", "clients", "landTitle"})
-    @Query("SELECT p FROM LandProject p WHERE p.deleted = false")
+    @Query("SELECT p FROM LandProject p WHERE p.deleted = false AND p.pending = false")
     Page<LandProject> findAll(@NonNull Pageable pageable);
+
+    /**
+     * fix181 (8.9): the same lists WITH Pending projects. Use ONLY for the ledger endpoint (the Pending tab shows them
+     * there), the Pending count and the Employee's MY ENTRIES. Never for money, Recovery or a job.
+     */
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN FETCH p.proprietors LEFT JOIN FETCH p.clients LEFT JOIN FETCH p.landTitle WHERE p.deleted = false")
+    List<LandProject> findAllIncludingPending();
+
+    @EntityGraph(attributePaths = {"proprietors", "clients", "landTitle"})
+    @Query("SELECT p FROM LandProject p WHERE p.deleted = false")
+    Page<LandProject> findAllIncludingPending(Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM LandProject p WHERE p.deleted = false AND p.pending = true")
+    long countPending();
+
+    /** fix181 (16.12a): the project row, locked for writing until this transaction ends (payments and reversals). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM LandProject p WHERE p.id = :id")
+    Optional<LandProject> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
 
     @Override
     @NonNull
@@ -49,7 +69,7 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     // Fixed: require BOTH registration date AND last payment date to be older than cutoff
     // This prevents newly registered plots with no initial payment from being instantly flagged
     @Query("SELECT p FROM LandProject p WHERE p.isReceivable = false " +
-           "AND p.deleted = false " +
+           "AND p.deleted = false AND p.pending = false " +
            "AND p.amountPaid < p.totalCost " +
            "AND p.landTitle.createdAt < :cutoff " +
            "AND (p.lastPaymentDate IS NULL OR p.lastPaymentDate < :cutoff)")
@@ -65,14 +85,14 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     List<LandProject> findTransfersOf(@org.springframework.data.repository.query.Param("parentId") UUID parentId);
 
     // All plots currently in receivable
-    @Query("SELECT p FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false")
+    @Query("SELECT p FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false AND p.pending = false")
     List<LandProject> findAllReceivablePlots();
 
     // Count receivable plots
-    @Query("SELECT COUNT(p) FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false")
+    @Query("SELECT COUNT(p) FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false AND p.pending = false")
     long countReceivablePlots();
 
     // Sum all storage fees across all receivable plots
-    @Query("SELECT COALESCE(SUM(p.storageFeesAccumulated), 0) FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false")
+    @Query("SELECT COALESCE(SUM(p.storageFeesAccumulated), 0) FROM LandProject p WHERE p.isReceivable = true AND p.deleted = false AND p.pending = false")
     java.math.BigDecimal sumAllStorageFees();
 }

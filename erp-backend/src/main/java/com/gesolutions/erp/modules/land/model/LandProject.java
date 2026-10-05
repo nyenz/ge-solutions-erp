@@ -281,6 +281,53 @@ public class LandProject {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // fix181 (14.7a): why and by whom it was deleted (before, the reason was only inside the audit text)
+    @Column(name = "deleted_reason", columnDefinition = "TEXT")
+    private String deletedReason;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
+    /**
+     * fix181 (8.9): PENDING = entered from the field (by an Employee) and not yet priced and accepted by the office.
+     * A Pending project is left out of every money figure, Recovery and the nightly jobs: the plain findAll() of
+     * LandProjectRepository skips it. Old rows are never Pending (default false).
+     */
+    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("pending")
+    @Column(name = "pending", nullable = false, columnDefinition = "boolean default false")
+    private boolean pending = false;
+
+    // fix181 (8.9, 4.4): when a Pending project was accepted (graduated); null for projects that were never Pending
+    @Column(name = "graduated_at")
+    private LocalDateTime graduatedAt;
+
+    // fix181 (8.9): who entered the project (the account id, and the username as it was then); null on old rows
+    @Column(name = "created_by_id")
+    private UUID createdById;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
+
+    /**
+     * fix181 (20.9): the moment the record was saved, set once by the server. Old rows were back-filled from the
+     * entry date, else the title's created date, else the start date (left empty when none is known).
+     */
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    /** fix181 (16.12a): second safety against two people saving the same project at once (the first is the row lock). */
+    @Version
+    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0")
+    private Long version = 0L;
+
+    @PrePersist
+    void fix181OnCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
+
     public void addProprietor(Client client) {
         if (this.proprietors == null) this.proprietors = new HashSet<>();
         if (client != null) this.proprietors.add(client);
