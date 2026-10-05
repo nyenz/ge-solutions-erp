@@ -4,7 +4,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 FiGrid, FiPlusSquare, FiLayers, FiPhoneCall,
-    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers
+    FiSettings, FiBarChart2, FiShield, FiDollarSign, FiTrendingDown, FiUsers, FiInbox
 } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
 import { Tooltip } from '../common/Tooltip';
@@ -22,11 +22,13 @@ const Sidebar = ({ isCollapsed, onToggle, onLockedClick }) => {
     const hasManagerAccess   = flags.isManager;
 
     const navItems = [
-        { path: '/dashboard',     label: 'DASHBOARD',   icon: <FiGrid         aria-hidden="true" />, access: true,                hint: 'Company-wide numbers at a glance' },
+        // fix181 (8.7c): the Employee sees only NEW PROJECT, MY ENTRIES and SETTINGS
+        { path: '/dashboard',     label: 'DASHBOARD',   icon: <FiGrid         aria-hidden="true" />, access: flags.isStaff,       hint: 'Company-wide numbers at a glance' },
         { path: '/land/new',      label: 'NEW PROJECT', icon: <FiPlusSquare   aria-hidden="true" />, access: true,                hint: 'Start a new folder, title, or legacy title' },
-        { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: true,                hint: 'Every project, searchable by status, client and debt' },
-        { path: '/recovery',      label: 'RECOVERY',    icon: <FiPhoneCall    aria-hidden="true" />, access: true,                hint: 'Who to call about money owed, and who is due today' },
-        { path: '/clients',       label: 'CLIENTS',     icon: <FiUsers        aria-hidden="true" />, access: true,                hint: 'Client register and full dossiers' },
+        { path: '/my-entries',    label: 'MY ENTRIES',  icon: <FiInbox        aria-hidden="true" />, access: flags.isEmployee,    hint: 'The projects you entered, and what the office did with them' },
+        { path: '/land/projects', label: 'LEDGER',      icon: <FiLayers       aria-hidden="true" />, access: flags.isStaff,       hint: 'Every project, searchable by status, client and debt' },
+        { path: '/recovery',      label: 'RECOVERY',    icon: <FiPhoneCall    aria-hidden="true" />, access: flags.isStaff,       hint: 'Who to call about money owed, and who is due today' },
+        { path: '/clients',       label: 'CLIENTS',     icon: <FiUsers        aria-hidden="true" />, access: flags.isStaff,       hint: 'Client register and full dossiers' },
         { path: '/payments',      label: 'PAYMENTS',    icon: <FiDollarSign   aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Every payment received, across all projects' },
         { path: '/financials',    label: 'EXPENSES',    icon: <FiTrendingDown aria-hidden="true" />, access: hasManagerAccess,    hint: "The company's own costs -- not project costs" },
         { path: '/reports',       label: 'REPORTS',     icon: <FiBarChart2    aria-hidden="true" />, access: hasHighLevelAccess,  hint: 'Exportable reports across the whole company' },

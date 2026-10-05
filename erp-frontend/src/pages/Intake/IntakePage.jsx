@@ -16,6 +16,7 @@ import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import BackToTopButton from '../../components/common/BackToTopButton';
 import landService from '../../services/landService';
+import pendingService from '../../services/pendingService';
 import { normalizePhones } from '../../utils/phone';
 import statusTemplateService from '../../services/statusTemplateService';
 import { useAuth } from '../../hooks/useAuth';
@@ -65,6 +66,8 @@ export default function IntakePage() {
     const { user } = useAuth();
     // fix180: only Admin, Manager and Director can add a status (Secretary is data entry only; the server checks too)
     const canAddStatus = roleFlags(user).canAddStatus;
+    // fix181 (8.7e): the Employee enters field data only -- no money section; the project is saved as PENDING
+    const isEmployee = roleFlags(user).isEmployee;
     const topRef = useRef(null);
     const fileInputRef = useRef(null);
     const [saving, setSaving] = useState(false);
@@ -121,7 +124,7 @@ export default function IntakePage() {
     // fix173: blank = follow the system default (nothing is stored on the project); a typed rate is that project's own rate
     const [monthlyStorageFee, setMonthlyStorageFee] = useState('');
     const [systemFee, setSystemFee] = useState(0);
-    useEffect(() => { landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, []);
+    useEffect(() => { if (!isEmployee) landService.getStorageFeeDefault().then(setSystemFee).catch(() => {}); }, [isEmployee]);
     const [fileQueue, setFileQueue] = useState([]);
     // fix174: document types = the Folder page classifications (PAYMENT_RECEIPT is filed by the payment window, never at intake)
     const [docCats, setDocCats] = useState([]);
@@ -403,6 +406,7 @@ export default function IntakePage() {
             if (!(Number(areaHectares) > 0)) { toast('Area (hectares) is required and must be more than 0.', 'error'); return false; }
             if (!titleIssueDate) { toast('Title Date is required.', 'error'); return false; }
         }
+        if (isEmployee) return true;   // fix181: no money on a field entry; the office adds it
         if (!(Number(totalCost) > 0)) { toast('Total Cost must be greater than 0.', 'error'); return false; }
         if (initialPayment === '' || initialPayment === null || Number(initialPayment) < 0) { toast('Initial Payment is required (0 or more).', 'error'); return false; }
         // fix171: the same checks the server makes, so the message shows before anything is sent
@@ -493,7 +497,15 @@ export default function IntakePage() {
             const ninOf = (idx) => (idx !== '' && clients[idx]) ? clients[idx].nationalId.trim().toUpperCase() : '';
             if ((Number(initialPayment) || 0) > 0 && ninOf(titlePayerIdx)) payload.initialPaymentPayerNin = ninOf(titlePayerIdx);
             if (isLegacy && (Number(initialStorageFeePaid) || 0) > 0 && ninOf(feesPayerIdx)) payload.initialStorageFeePaidPayerNin = ninOf(feesPayerIdx);
-            await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            if (isEmployee) {
+                // fix181 (8.7e): never send a money field; the server refuses them from an Employee anyway
+                ['totalCost', 'initialPayment', 'isStartAsReceivable', 'initialStorageFee', 'initialStorageFeePaid', 'monthlyStorageFee',
+                    'lastPaidDate', 'receivablesSince', 'initialPaymentPayerNin', 'initialStorageFeePaidPayerNin'].forEach(k => { delete payload[k]; });
+                payload.selectedStatuses = payload.selectedStatuses.filter(s => !s.isCustom).map(s => ({ ...s, cost: undefined }));
+                await pendingService.create(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            } else {
+                await landService.createAtomicEntry(payload, fileQueue.map(q => q.file), fileQueue.map(q => q.category));
+            }
             dirtyRef.current = false; setDirty(false);
             return true;
         } catch (err) {
@@ -505,9 +517,9 @@ export default function IntakePage() {
     const handleSubmit = async () => {
         const ok = await doSave();
         if (ok) {
-            toast('Project registered successfully!', 'success');
-            // fix180: a transfer goes back to the subdivision it came from
-            setTimeout(() => navigate(transferFrom ? '/folder/' + transferFrom.id : '/land/projects'), 1200);
+            toast(isEmployee ? 'Saved as PENDING. The office will add the prices.' : 'Project registered successfully!', 'success');
+            // fix180: a transfer goes back to the subdivision it came from; fix181: the Employee goes to MY ENTRIES
+            setTimeout(() => navigate(isEmployee ? '/my-entries' : (transferFrom ? '/folder/' + transferFrom.id : '/land/projects')), 1200);
         }
     };
 
@@ -552,7 +564,8 @@ export default function IntakePage() {
     const nIndex = ++n, nClients = ++n, nOwners = ++n;
     const nTitle = isTitleSectionVisible ? ++n : null;
     const nLocation = ++n, nNeighbors = ++n, nStatuses = ++n;
-    const nFinancials = ++n, nDocuments = ++n, nNotes = ++n;
+    const nFinancials = isEmployee ? null : ++n;
+    const nDocuments = ++n, nNotes = ++n;
     // one Client / Owner row (same fields for both panels)
     const personRow = (o, idx, onChange, onRemove, canRemove, what) => (
         <div key={idx} className={styles.ownerRow}>
@@ -838,6 +851,7 @@ export default function IntakePage() {
                     )}
                 </CollapsibleSection>
 
+                {!isEmployee && (
                 <CollapsibleSection icon={<FiDollarSign />} title={`${nFinancials}. Financials`}>
                     <div className={styles.grid2}>
                         <div className={styles.field}>
@@ -913,6 +927,7 @@ export default function IntakePage() {
                         <div className={`${styles.finRow} ${styles.total}`}><span>Amount Owed</span><span>{amountOwed}</span></div>
                     </div>
                 </CollapsibleSection>
+                )}
 
                 <div className={styles.splitRow}>
                     <CollapsibleSection icon={<FiUploadCloud />} title={`${nDocuments}. Documents`}>

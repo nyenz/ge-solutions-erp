@@ -49,6 +49,10 @@ const LOAD_SIZE = 200;
 // fix171: progress and CRITICAL count only the money paid toward the TITLE work (paid storage fees are not part of the cost)
 const titlePaidOf = (p) => Math.max(0, (p.amountPaid || 0) - (p.storageFeesPaid || 0));
 const isCriticalProject = (p) => (p.totalCost || 0) > 0 && (titlePaidOf(p) / p.totalCost) < 0.25;
+// fix181 (2.3): PAID = the title work is fully paid (never a project with no price), using the same title-money helper
+// as CRITICAL (the server rule is LandProject.isTitleFullyPaid); still not a receivable
+const isTitleFullyPaid = (p) => ((p.totalCost || 0) > 0 && titlePaidOf(p) >= p.totalCost) || !!p.landTitle?.isReleased;
+const ageDays = (p) => (p.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(p.createdAt).getTime()) / 86400000)) : null);
 const PaymentDot = ({ proj }) => {
     const badge = getPaymentBadge(proj);
     return (<span title={BADGE_LABELS[badge]} aria-label={BADGE_LABELS[badge]}
@@ -242,10 +246,16 @@ const LedgerPage = () => {
 
     const processedData = useMemo(() => {
         let filtered = projects.filter(p => matchesSearch(p, searchTerm, statusMap[p.id]));
+        // fix181 (2.1): ONE rule first -- Pending projects show ONLY in the PENDING tab (oldest first, 12.3)
+        if (activeFilter === 'PENDING') {
+            return filtered.filter(p => !!p.pending)
+                .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+        }
+        filtered = filtered.filter(p => !p.pending);
         if (activeFilter === 'BACKLOG')     filtered = filtered.filter(p => !p.landTitle);
         if (activeFilter === 'TITLED')      filtered = filtered.filter(p => !!p.landTitle && !p.isLegacy);
         if (activeFilter === 'LEGACY')      filtered = filtered.filter(p => p.isLegacy);
-        if (activeFilter === 'PAID')        filtered = filtered.filter(p => (p.amountPaid >= p.totalCost || p.landTitle?.isReleased) && !p.isReceivable);
+        if (activeFilter === 'PAID')        filtered = filtered.filter(p => isTitleFullyPaid(p) && !p.isReceivable);
         if (activeFilter === 'RECEIVABLES') filtered = filtered.filter(p => p.isReceivable);
         if (activeFilter === 'CRITICAL')    filtered = filtered.filter(isCriticalProject);
         if (activeFilter === 'PROBLEM')     filtered = filtered.filter(p => !!p.problem);
@@ -274,6 +284,7 @@ const LedgerPage = () => {
         { key: 'TITLED', label: 'TITLED', accent: 'green' }, { key: 'LEGACY', label: 'LEGACY', accent: 'cyan' },
         { key: 'RECEIVABLES', label: 'RECEIVABLES', accent: 'red' }, { key: 'CRITICAL', label: 'CRITICAL', accent: 'red' },
         { key: 'PAID', label: 'PAID', accent: 'green' }, { key: 'PROBLEM', label: 'PROBLEM', accent: 'red' },
+        { key: 'PENDING', label: 'PENDING ' + projects.filter(p => p.pending).length, accent: 'yellow' },   // fix181 (2.1)
     ];
 
     return (
@@ -388,8 +399,8 @@ const LedgerPage = () => {
                                 const curStatusIdx = statuses.findIndex(s => !s.done);
                                 const curStatus = curStatusIdx >= 0 ? statuses[curStatusIdx] : null;
                                 return (
-                                    <tr key={proj.id} onClick={() => navigate(`/folder/${proj.id}`)}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/folder/${proj.id}`); } }}
+                                    <tr key={proj.id} onClick={() => navigate(proj.pending ? `/pending/${proj.id}` : `/folder/${proj.id}`)}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(proj.pending ? `/pending/${proj.id}` : `/folder/${proj.id}`); } }}
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
@@ -400,6 +411,7 @@ const LedgerPage = () => {
                                                 <div className={styles.stack}>
                                                     <strong>#{proj.projectIndex || '---'}</strong>
                                                     <span className={styles.stackSub} title="Project type">{projectTypeOf(proj).label.toUpperCase()}</span>
+                                                    {proj.pending && <span className={styles.stackSub} title="Waiting for prices">PENDING {ageDays(proj) != null ? '- ' + ageDays(proj) + ' DAY(S)' : ''}</span>}
                                                     {proj.problem && <span className={styles.problemTag}>PROBLEM</span>}
                                                     {nins.length ? nins.map((nn, i) => <span key={i} className={styles.stackSub}>{nn}</span>) : <span className={styles.stackSub}>---</span>}
                                                 </div>

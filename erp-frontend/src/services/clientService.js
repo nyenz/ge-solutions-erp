@@ -20,6 +20,9 @@ const clientService = {
     // only (name/phone/email/address). NIN and money figures are not sent
     // here -- see ClientController.updateClient for why.
     updateClient: (id, payload) => api.put('/clients/' + id, payload).then((response) => response.data),
+
+    // fix181 (8.10b): correct a mistyped National ID (only while every project of that client is Pending)
+    correctNin: (id, nationalId) => api.put('/clients/' + id + '/nin', { nationalId }).then((response) => response.data),
 };
 
 export default clientService;

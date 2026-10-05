@@ -453,6 +453,8 @@ const FolderPage = () => {
         try {
             const data = await landService.getDeepBinder(id);
             if (!data) throw new Error('NULL_SIGNAL');
+            // fix181 (8.5): a Pending project has no money yet; it is handled on its own page (START / REJECT)
+            if (data.project && data.project.pending && !data.project.deleted) { navigate('/pending/' + id, { replace: true }); return; }
             setBinder(data); setPayments(data.payments || []); setLoadError(false);
             if (!isEditing) {
                 const t = data.project?.landTitle;
