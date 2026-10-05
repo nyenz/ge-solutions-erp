@@ -77,7 +77,7 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
     List<LandProject> findAutoReceivableCandidates(LocalDateTime cutoff);
 
     // fix167: other live (not deleted) projects that share at least one owner -- the Related Projects list
-    @Query("SELECT DISTINCT p FROM LandProject p JOIN p.proprietors c WHERE c.id IN :ownerIds AND p.id <> :projectId AND p.deleted = false")
+    @Query("SELECT DISTINCT p FROM LandProject p JOIN p.proprietors c WHERE c.id IN :ownerIds AND p.id <> :projectId AND p.deleted = false AND p.pending = false")   // fix181 (3.7)
     List<LandProject> findRelatedByOwners(@org.springframework.data.repository.query.Param("ownerIds") java.util.Collection<UUID> ownerIds,
                                           @org.springframework.data.repository.query.Param("projectId") UUID projectId);
 

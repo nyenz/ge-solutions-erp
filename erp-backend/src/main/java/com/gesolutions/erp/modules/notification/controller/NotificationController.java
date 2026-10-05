@@ -22,9 +22,11 @@ public class NotificationController {
 
     // fix181 (17.0b): the Employee has no bell (answer empty, not 403); nobody sees alerts older than notify_since
     private static boolean noBell(User u) { return u == null || u.getRole() == null || u.getRole() == com.gesolutions.erp.modules.auth.model.Role.ROLE_EMPLOYEE; }
+    private static LocalDateTime since(User u) {
+        return u.getNotifySince() != null ? u.getNotifySince() : LocalDateTime.of(2000, 1, 1, 0, 0);
+    }
     private List<Notification> mine(User u) {
-        LocalDateTime since = u.getNotifySince() != null ? u.getNotifySince() : LocalDateTime.of(2000, 1, 1, 0, 0);
-        return notifRepo.findForRole(u.getRole().name(), since);
+        return notifRepo.findForRolePage(u.getRole().name(), since(u), org.springframework.data.domain.PageRequest.of(0, MAX_ROWS));
     }
     // fix181 (17.14): the person who caused the alert reads "by you" instead of their own name
     private static String textFor(Notification n, User u) {
@@ -73,12 +75,8 @@ public class NotificationController {
         if (noBell(u)) return Map.of("unread", 0L);
         // Same N+1 as list() -- and this one runs on a timer for every signed-in
         // user, so it was the more expensive of the two.
-        Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream()
-                .map(NotificationRead::getNotificationId)
-                .collect(Collectors.toSet());
-        long c = mine(u).stream()
-            .filter(n -> !readIds.contains(n.getId())).count();
-        return Map.of("unread", c);
+        // fix181 (14.8): one COUNT query (the badge and the list now agree on the same alerts)
+        return Map.of("unread", notifRepo.countUnread(u.getRole().name(), since(u), u.getId()));
     }
     @PostMapping("/{id}/read")
     public Map<String, Object> read(@PathVariable UUID id, Authentication auth) {
@@ -96,7 +94,7 @@ public class NotificationController {
                 .map(NotificationRead::getNotificationId)
                 .collect(Collectors.toSet());
         List<NotificationRead> toSave = new ArrayList<>();
-        for (Notification n : mine(u)) {
+        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u))) {
             if (!readIds.contains(n.getId())) {
                 toSave.add(NotificationRead.builder()
                     .notificationId(n.getId()).userId(u.getId()).readAt(LocalDateTime.now()).build());

@@ -75,6 +75,8 @@ const Header = ({ onToggle }) => {
 
     const isRoot = user?.isRoot;
     const displayRole = roleFlags(user).chip;   // fix181: ADMIN (the designer), DIRECTOR (the owner), ...
+    // fix181 (8.4a, 14.6c): the Employee has no bell; nothing is polled for them (every poll would be refused)
+    const noBell = roleFlags(user).isEmployee;
     const initials = user?.username?.charAt(0).toUpperCase() || 'A';
 
     /* fix131: pullList can run silently, and sync now keeps the list itself
@@ -88,13 +90,14 @@ const Header = ({ onToggle }) => {
     }, []);
 
     const sync = useCallback(async () => {
+        if (noBell) return;
         // fix170: the three checks run together instead of one after another
         await Promise.all([
             recoveryService.getTaskCount().then((n) => setStaleCount(n ?? 0)).catch(() => { /* offline */ }),
             recoveryService.getUnreadCount().then((n) => setUnread(n ?? 0)).catch(() => { /* offline */ }),
             pullList(true),
         ]);
-    }, [pullList]);
+    }, [pullList, noBell]);
 
     /* Poll interval comes from the user's own setting. 0 means manual only:
        the timer is never created, so a phone on metered data can opt out. */
@@ -212,7 +215,7 @@ const Header = ({ onToggle }) => {
             </div>
 
             <div className={styles.headerRight}>
-                <div className={styles.notifWrap} ref={dropRef}>
+                {!noBell && (<div className={styles.notifWrap} ref={dropRef}>
                     <button
                         type="button"
                         className={`${styles.notificationGroup} ${badge > 0 ? styles.activeSensor : ''}`}
@@ -394,7 +397,7 @@ const Header = ({ onToggle }) => {
                             </button>
                         </div>
                     )}
-                </div>
+                </div>)}
 
                 <div className={styles.userCard} aria-label={`Logged in as ${user?.username}, ${displayRole}`}>
                     <div className={styles.avatar} aria-hidden="true">{initials}</div>

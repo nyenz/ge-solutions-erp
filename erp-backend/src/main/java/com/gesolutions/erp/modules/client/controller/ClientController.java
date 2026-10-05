@@ -79,6 +79,8 @@ public class ClientController {
             throw new com.gesolutions.erp.common.exception.BusinessException("CLIENT_EDIT_BLOCKED: A Secretary can change a client only while every project of that client is Pending. Ask a Manager.");
         }
 
+        // fix181 (13.6a): what each field was before, for the audit line
+        String before = "name " + c.getFullName() + ", phone " + c.getPhoneNumber() + ", email " + c.getEmail() + ", address " + c.getHomeAddress();
         if (body.containsKey("fullName") && body.get("fullName") != null && !body.get("fullName").isBlank()) {
             c.setFullName(body.get("fullName").trim());
         }
@@ -94,7 +96,10 @@ public class ClientController {
             c.setHomeAddress(addr == null || addr.isBlank() ? null : addr.trim());
         }
         clientRepository.save(c);
-        auditService.logActionAfterCommit("CLIENT_UPDATED", "Client details of " + c.getFullName() + " (NIN " + c.getNationalId() + ") were changed.");
+        String after = "name " + c.getFullName() + ", phone " + c.getPhoneNumber() + ", email " + c.getEmail() + ", address " + c.getHomeAddress();
+        if (!before.equals(after)) {
+            auditService.logActionAfterCommit("CLIENT_UPDATED", "Client " + c.getId() + " (NIN " + c.getNationalId() + ") changed. Old: " + before + " -> New: " + after);
+        }
 
         Map<String, Object> out = new HashMap<>();
         out.put("id", c.getId());
@@ -130,7 +135,7 @@ public class ClientController {
         String old = c.getNationalId();
         c.setNationalId(nin);
         clientRepository.save(c);
-        auditService.logActionAfterCommit("NIN_CORRECTED", "National ID of " + c.getFullName() + " corrected from " + old + " to " + nin + ".");
+        auditService.logActionAfterCommit("CLIENT_NIN_CORRECTED", "National ID of " + c.getFullName() + " corrected from " + old + " to " + nin + ".");
         return ResponseEntity.ok(Map.of("id", c.getId(), "nationalId", nin));
     }
 

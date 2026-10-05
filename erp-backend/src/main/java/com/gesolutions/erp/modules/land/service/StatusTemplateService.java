@@ -320,7 +320,13 @@ public class StatusTemplateService {
     public void bulkDeleteTemplateStatuses(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return;
         List<StatusTemplate> toDelete = templateRepository.findAllById(ids);
-        if (!toDelete.isEmpty()) templateRepository.deleteAllInBatch(toDelete);
+        if (!toDelete.isEmpty()) {
+            templateRepository.deleteAllInBatch(toDelete);
+            // fix181 (13.6b): a bulk removal is written too (one line: the names, the type, the count)
+            auditService.logActionAfterCommit("STATUS_TEMPLATE_REMOVED", "Operator [" + com.gesolutions.erp.common.audit.AuditService.currentOperator()
+                    + "] removed " + toDelete.size() + " status(es) from the " + toDelete.get(0).getProjectType() + " list: "
+                    + toDelete.stream().map(StatusTemplate::getStatusName).collect(java.util.stream.Collectors.joining(", ")));
+        }
     }
 
     /** One project type's master list goes back to the fixed default list (custom statuses on that type are switched off). */

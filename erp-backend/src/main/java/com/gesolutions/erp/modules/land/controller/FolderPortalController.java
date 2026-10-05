@@ -182,7 +182,7 @@ public class FolderPortalController {
     // fix167: the page says what it WANTS (flag=true to flag, flag=false to clear). Before, two people clicking at the
     // same time made the second click silently clear the first person's flag. Who flagged it, when and why is stored.
     @PostMapping("/toggle-problem")
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")   // fix181 (3.2): Secretary raises and clears too
     @Transactional
     public Map<String, Object> toggleProblem(@PathVariable UUID id,
                                              @RequestParam(value = "note", required = false) String note,
@@ -196,6 +196,9 @@ public class FolderPortalController {
             throw new BusinessException(want
                     ? "ALREADY_FLAGGED: Someone else flagged this plot as a PROBLEM a moment ago. Reload the page."
                     : "ALREADY_CLEARED: Someone else cleared this PROBLEM flag a moment ago. Reload the page.");
+        }
+        if (note != null && note.trim().length() > 500) {   // fix181 (3.2d): the same limit as the page
+            throw new BusinessException("NOTE_TOO_LONG: Keep the reason under 500 characters.");
         }
         if (note == null || note.trim().length() < 5) {
             throw new BusinessException(p.isProblem()

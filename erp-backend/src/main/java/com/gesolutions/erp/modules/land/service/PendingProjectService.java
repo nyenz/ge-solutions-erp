@@ -140,6 +140,9 @@ public class PendingProjectService {
         request.setCostChangeReason(null);
         request.setExpectedTotalCost(null);
         LandProject saved = landService.doUpdateProjectFull(id, request);
+        // fix181 (13.6c): who changed a Pending project (sections only, never a price)
+        auditService.logActionAfterCommit("PENDING_UPDATED", "Operator [" + me.getUsername() + "] edited Pending project #"
+                + saved.getProjectIndex() + " (people, title details, location).");
         return toDto(saved, true);
     }
 
