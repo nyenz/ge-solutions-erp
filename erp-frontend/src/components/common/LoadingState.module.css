@@ -124,11 +124,11 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-    .skelHud, .skelHeader, .skelLine, .skelRowBar { animation: none; }
+    .skelHud, .skelHeader, .skelLine, .skelRowBar { animation-duration: 2.8s; }
 }
 
-/* Respect the OS "reduce motion" setting -- the spinner stops turning but
-   stays visible, so the state still reads as "busy". */
+/* Respect the OS "reduce motion" setting -- the spinner turns slowly instead of
+   stopping, so the state still reads as "busy" (fix181, 15.1e). */
 @media (prefers-reduced-motion: reduce) {
-    .spinner, .spinnerSm { animation: none; opacity: 0.85; }
+    .spinner, .spinnerSm { animation-duration: 2.4s; }
 }

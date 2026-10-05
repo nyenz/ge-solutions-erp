@@ -377,13 +377,31 @@ input[type="search"]::-webkit-search-results-decoration {
 :root[data-motion="reduced"] *,
 :root[data-motion="reduced"] *::before,
 :root[data-motion="reduced"] *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
 }
+/* fix181 (15.1e): slides and fades stop, but a loading spinner or skeleton keeps a slow loop, otherwise a page that is
+   still loading looks dead and people click again. Spinner/skeleton classes keep their name inside the CSS-module
+   name (_spinner_x1y2z), so they are matched by name. */
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i]):not([class*="spin" i] *),
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i])::before,
+:root[data-motion="reduced"] *:not([class*="spin" i]):not([class*="skel" i])::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+}
+:root[data-motion="reduced"] [class*="spin" i],
+:root[data-motion="reduced"] [class*="spin" i] svg,
+:root[data-motion="reduced"] [class*="skel" i] {
+    animation-duration: 2.4s !important;
+}
 
-/* HIGH CONTRAST -- stronger row rules and panel edges. Helps most on the
-   cheap office monitors, which is where it was asked for. */
+/* HIGH CONTRAST -- stronger row lines in TABLES only (Ledger, Client Ledger, Portfolio, Payments, Expenses, Reports,
+   Folder). The hint in Settings says the same (fix181, 15.1f). */
 :root[data-contrast="high"] table tbody td { border-bottom-color: rgba(255, 255, 255, 0.22) !important; }
 :root[data-contrast="high"] table tbody tr:hover { background: rgba(255, 255, 255, 0.10) !important; }
+
+/* fix181 (15.1c): pinch-zoom is allowed again; an iPhone zooms in on any box under 16px when it is tapped, so on touch
+   screens every input is at least 16px. */
+@media (pointer: coarse) {
+    input, select, textarea { font-size: max(16px, 1em) !important; }
+}

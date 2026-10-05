@@ -68,6 +68,8 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('gs_token', authData.token);
             localStorage.setItem('gs_user', JSON.stringify(authData.user));
             markActivity(true);
+            // the appearance choices are per person (15.1i): tell PreferencesProvider who is here now
+            window.dispatchEvent(new Event('gs-user-changed'));
         }
     }, []);
 

@@ -9,6 +9,19 @@ export const DEFAULT_PREFS = {
     tips: 'normal',      // normal | slow | off
     contrast: 'normal',  // normal | high
     notifPoll: '300',    // 300 | 900 | 0 (seconds) -- bell auto-refresh, 0 = manual only
+    landing: 'dashboard',// dashboard | ledger | recovery | clients -- start page (fix181, 14.0a); Employee has none
+};
+
+// fix181 (15.1j): the only values each setting may hold; a damaged or hand-edited value falls back to the default.
+export const PREF_ALLOWED = {
+    theme: ['light', 'dark'],
+    uiScale: ['90', '100', '110', '125'],
+    statSize: ['small', 'standard', 'large'],
+    motion: ['full', 'reduced'],
+    tips: ['normal', 'slow', 'off'],
+    contrast: ['normal', 'high'],
+    notifPoll: ['300', '900', '0'],
+    landing: ['dashboard', 'ledger', 'recovery', 'clients'],
 };
 
 export const PreferencesContext = createContext({

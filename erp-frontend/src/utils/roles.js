@@ -56,3 +56,24 @@ export function roleFlags(user) {
         chip: isAdmin ? 'ADMIN' : (RANKS[role] ? RANKS[role].chip : 'STAFF'),
     };
 }
+
+// fix181 (14.0a): the start pages a person may pick (every rank from Secretary up may open all four). The Employee has
+// no choice and always starts at New Project. The saved value is checked again at sign-in, because devices are shared.
+export const LANDING_PATHS = {
+    dashboard: '/dashboard',
+    ledger:    '/land/projects',
+    recovery:  '/recovery',
+    clients:   '/clients',
+};
+export const LANDING_OPTIONS = [
+    { value: 'dashboard', label: 'HOME' },
+    { value: 'ledger', label: 'LEDGER' },
+    { value: 'recovery', label: 'RECOVERY' },
+    { value: 'clients', label: 'CLIENTS' },
+];
+export const landingPathFor = (user, saved) => {
+    const f = roleFlags(user);
+    if (f.isEmployee) return '/land/new';
+    if (!f.isStaff) return '/login';
+    return LANDING_PATHS[saved] || '/dashboard';
+};

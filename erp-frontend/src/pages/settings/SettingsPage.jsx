@@ -24,7 +24,7 @@ import CornerDecor from '../../components/ui/CornerDecor';
 import styles from './SettingsPage.module.css';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
-import { roleFlags, manageableRanks, rankLabel, rankOf } from '../../utils/roles';
+import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS } from '../../utils/roles';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 
 /* Every option here is wired to real CSS in index.css -- see the note at the
@@ -34,15 +34,18 @@ const PREF_GROUPS = [
     options: [{ value: 'light', label: 'CREAM' }, { value: 'dark', label: 'SLATE' }] },
   { key: 'uiScale', group: 'Display', label: 'Interface size', hint: 'Scales the whole app, not just text.',
     options: [{ value: '90', label: '90%' }, { value: '100', label: '100%' }, { value: '110', label: '110%' }, { value: '125', label: '125%' }] },
-  { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Payments, Expenses and the dossier.',
+  { key: 'statSize', group: 'Display', label: 'Summary box size', hint: 'The figures at the top of Recovery, Client Portfolio, Payments, Expenses and Audit.',
     options: [{ value: 'small', label: 'SMALL' }, { value: 'standard', label: 'STANDARD' }, { value: 'large', label: 'LARGE' }] },
   { key: 'tips', group: 'Interaction', label: 'Hover explainers', hint: 'How long before they appear, or turn them off.',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'off', label: 'OFF' }] },
   { key: 'motion', group: 'Interaction', label: 'Animation', hint: 'Turn off movement and fades across the app.',
     options: [{ value: 'full', label: 'ON' }, { value: 'reduced', label: 'REDUCED' }] },
-  { key: 'contrast', group: 'Interaction', label: 'Table contrast', hint: 'Stronger row lines for low-quality monitors.',
+  { key: 'contrast', group: 'Interaction', label: 'Table contrast', hint: 'Stronger row lines in tables (Ledger, Clients, Payments, Expenses, Reports, Folder).',
     options: [{ value: 'normal', label: 'NORMAL' }, { value: 'high', label: 'HIGH' }] },
-  { key: 'notifPoll', group: 'Notifications', label: 'Notification refresh', hint: 'How often the bell checks for new signals in the background.',
+  // fix181 (14.0a): the start page after sign-in; only pages this rank may open, none for Employee (always New Project)
+  { key: 'landing', group: 'Interaction', label: 'Start page', hint: 'Where signing in takes you. Saved for you only.',
+    options: LANDING_OPTIONS, staffOnly: true },
+  { key: 'notifPoll', group: 'Notifications', label: 'Notification refresh', hint: 'How often the bell and the red "due for a call" number refresh. Paused while this tab is hidden. MANUAL refreshes when you open the bell.',
     options: [{ value: '300', label: '5 MIN' }, { value: '900', label: '15 MIN' }, { value: '0', label: 'MANUAL' }] },
 ];
 
@@ -50,10 +53,10 @@ const PREF_GROUPS = [
    renders as three separated cards instead of one long flat
    list -- same data, grouped once instead of re-diffed against
    the previous row every render. */
-const PREF_SECTIONS = ['Display', 'Interaction', 'Notifications'].map(name => ({
+const prefSections = (flags) => ['Display', 'Interaction', 'Notifications'].map(name => ({
   name,
-  items: PREF_GROUPS.filter(g => g.group === name),
-}));
+  items: PREF_GROUPS.filter(g => g.group === name && (!g.staffOnly || flags.isStaff)),
+})).filter(sec => sec.items.length > 0);
 
 const SettingsPage = () => {
   const { user, updateSession } = useAuth();
@@ -202,13 +205,13 @@ const SettingsPage = () => {
 
             {tab === 'appearance' && (
               <>
-                <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device, not on your account -- the office shares logins across a desktop and two phones, and "this screen is too small to read" is a fact about the screen.</span></div>
+                <div className={styles.securityAlert}><FiMonitor aria-hidden="true" /><span>These are saved on this device for you only. Someone else signing in here keeps their own choices.</span></div>
                 {/* fix127: three lighter cream cards (Report Catalogue's own
                     #f2ede4 tone) instead of one long dark list -- each
                     section groups its own rows so Appearance reads as
                     organised clusters, not seven settings in a row. */}
                 <div className={styles.prefSectionsGrid}>
-                  {PREF_SECTIONS.map(section => (
+                  {prefSections(flags).map(section => (
                     <div key={section.name} className={styles.prefGroupBox}>
                       <div className={styles.prefGroupLabel}>{section.name}</div>
                       {section.items.map(group => (

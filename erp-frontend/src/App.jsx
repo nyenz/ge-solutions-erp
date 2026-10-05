@@ -1,5 +1,5 @@
 // PATH: erp-frontend/src/App.jsx
-import { roleFlags } from './utils/roles';
+import { roleFlags, landingPathFor } from './utils/roles';
 import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
@@ -8,7 +8,7 @@ import { useAuth } from './hooks/useAuth';
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
 import RouteErrorScreen from './components/common/RouteErrorScreen';
-import { readPrefs } from './context/PreferencesProvider';
+import { readPrefsFor } from './context/prefsStore';
 
 import LoginPage      from './pages/login/LoginPage';
 import Dashboard      from './pages/Dashboard/Dashboard';
@@ -39,25 +39,12 @@ const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSe
     return children;
 };
 
-/* fix71 -- WHERE SIGNING IN DROPS YOU.
-   Settings -> Data & Start. Only pages with no role gate are offered, so this
-   can never land somebody on a route their rank would bounce them out of:
-   Payments and Reports are adminOnly and are deliberately not in the list.
-   readPrefs() is a plain localStorage read, not a hook, because these two are
-   route elements that render before any provider below them. */
-const LANDING = {
-    dashboard: '/dashboard',
-    ledger:    '/land/projects',
-    recovery:  '/recovery',
-    clients:   '/clients',
-};
-
-// fix181 (14.0a): the saved start page must be one the CURRENT person may open (devices are shared);
-// the Employee always starts at New Project
+/* fix181 (14.0a, 15.1i): WHERE SIGNING IN DROPS YOU. The Start page choice is kept per person on the device and is
+   checked against the CURRENT person's rank (devices are shared); the Employee always starts at New Project.
+   readPrefsFor() is a plain localStorage read, not a hook, because these are route elements. */
 const landingPath = (user) => {
-    if (roleFlags(user).isEmployee) return '/land/new';
-    try { return LANDING[readPrefs().landing] || '/dashboard'; }
-    catch { return '/dashboard'; }
+    try { return landingPathFor(user, readPrefsFor(user?.username).landing); }
+    catch { return landingPathFor(user, null); }
 };
 
 const LoginRoute = () => {

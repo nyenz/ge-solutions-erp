@@ -57,5 +57,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .spin { animation: none; }
+    .spin { animation-duration: 2.4s; }
 }
