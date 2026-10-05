@@ -40,6 +40,7 @@ public class DashboardController {
     private final AuditLogRepository auditLogRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final com.gesolutions.erp.modules.client.service.RecoveryStateService recoveryState;
+    private final com.gesolutions.erp.modules.land.service.HomeDashboardService homeDashboardService;
     private final ExpenseRepository expenseRepository;
     private final com.gesolutions.erp.modules.client.repository.RecoveryNoteRepository recoveryNoteRepository;
 
@@ -165,6 +166,17 @@ public class DashboardController {
      * time-windowed -- they always reflect the current live state,
      * regardless of which period was requested.
      */
+    /**
+     * fix181 (20.1): THE home page answer -- only the blocks of the caller's rank (HomeDashboardService.dashboardBlocks).
+     * Money is never sent to Manager or Secretary. /summary stays for one release, then goes (Step 5).
+     */
+    @GetMapping("/home")
+    public Map<String, Object> home() {
+        String name = SecurityContextHolder.getContext().getAuthentication().getName();
+        User u = userRepository.findByUsername(name).orElseThrow();
+        return homeDashboardService.home(u.isRoot() ? Role.ROLE_ADMIN : u.getRole());
+    }
+
     @GetMapping("/director")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
     public ResponseEntity<DirectorDashboardDTO> getDirectorDashboard(

@@ -32,6 +32,12 @@ public interface AuditLogRepository extends Repository<AuditLog, UUID> {
 
     long count();
 
+    // fix181 (12.5c, 20.6): counts by SQL (the Dashboard used to load the whole table into memory)
+    long countByTimestampAfter(java.time.LocalDateTime after);
+    long countByActionInAndTimestampAfter(java.util.Collection<String> actions, java.time.LocalDateTime after);
+    @Query("SELECT a FROM AuditLog a WHERE a.action NOT IN :hidden ORDER BY a.timestamp DESC")
+    List<AuditLog> findRecentExcept(@org.springframework.data.repository.query.Param("hidden") java.util.Collection<String> hidden, Pageable page);
+
     /**
      * MULTI-AXIS FORENSIC SEARCH (Hardened Version)
      * 

@@ -34,10 +34,10 @@ public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, UU
          + "WHERE p.id = r.projectId AND p.deleted = false AND r.paidOn IS NOT NULL AND r.paidOn >= :since")
     BigDecimal sumAllPaymentsSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
 
-    @Query(value = "SELECT DATE_TRUNC('month', r.paid_on) as month, SUM(r.amount_paid) as total " +
+    @Query(value = "SELECT DATE_TRUNC('month', r.paid_on) as pay_month, SUM(r.amount_paid) as total " +
                    "FROM payment_records r JOIN land_projects p ON p.id = r.project_id " +
                    "WHERE p.deleted = false AND r.paid_on IS NOT NULL AND r.paid_on >= :since " +
-                   "GROUP BY DATE_TRUNC('month', r.paid_on) ORDER BY month ASC", nativeQuery = true)
+                   "GROUP BY DATE_TRUNC('month', r.paid_on) ORDER BY pay_month ASC", nativeQuery = true)
     List<Object[]> monthlyRevenueSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
 
     /** Undated intake deposits (no paid_on) of live projects: [count, sum]. */
