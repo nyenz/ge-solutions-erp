@@ -881,6 +881,17 @@ const FolderPage = () => {
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <SavingOverlay visible={committing && !uploadDraft} />
             <div className={styles.printDossierHeader} aria-hidden="true">
+                {/* fix181 (3.3f): company and plot name on top, index, printed date and the state badges (from the project, not the open tab) */}
+                <div className={styles.printDossierTitle}>GE SOLUTIONS - PROJECT DOSSIER</div>
+                <div className={styles.printDossierTitle}>{plotName}</div>
+                <div className={styles.printDossierMeta}>
+                    <span><strong>INDEX:</strong> #{project.projectIndex}</span>
+                    <span><strong>PRINTED:</strong> {new Date().toLocaleDateString()}</span>
+                    {project.problem && <span><strong>PROBLEM</strong></span>}
+                    {project.landTitle?.isReleased && <span><strong>RELEASED</strong></span>}
+                    {project.isReceivable && <span><strong>IN RECEIVABLES</strong></span>}
+                    {project.pending && <span><strong>PENDING</strong></span>}
+                </div>
                 <div className={styles.printDossierMeta}>
                     <span><strong>PLOT NUMBER:</strong> {project.landTitle?.plotNumber || '#' + project.projectIndex}</span>
                     <span><strong>TYPE:</strong> {pType.label}</span>
@@ -888,12 +899,6 @@ const FolderPage = () => {
                     {project.district && <span><strong>DISTRICT:</strong> {project.district}</span>}
                     <span><strong>STATUS:</strong> {project.status}</span>
                 </div>
-            </div>
-            <div className={styles.printStatement} aria-hidden="true">
-                <h3>PAYMENT STATEMENT - PROJECT #{project.projectIndex}</h3>
-                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
-                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
-                <p>TOTAL PAID: UGX {fmt(amountPaid)} | STORAGE FEES: UGX {fmt(storageFees)} | BALANCE OWED: UGX {fmt(amountOwed)}</p>
             </div>
             <header className={styles.terminalHeader}>
                 <div className={styles.idPlate}>
@@ -966,6 +971,8 @@ const FolderPage = () => {
                     <span><strong>HANDED OVER</strong>{project.landTitle.releasedAt ? ' on ' + fmtDateTime(project.landTitle.releasedAt) : ''}{project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : ''}{project.landTitle.releaseNote ? ': ' + project.landTitle.releaseNote : ''}. The record is locked.</span></div>)}
                 {activeTab === 'OVERVIEW' && !project.landTitle && pType.titleMode === 'ALWAYS' && !isEditing && (<div className={`${styles.infoStrip} ${styles.infoStripWarn}`} role="status"><FiInfo aria-hidden="true" />
                     <span>A {pType.label} project keeps Title Details, and they are not saved yet. {canEdit ? 'Press EDIT to enter them.' : 'A manager needs to enter them.'}</span></div>)}
+                {/* fix181 (3.3b): one print section per tab; display:contents keeps the screen layout unchanged */}
+                <div data-print-section="OVERVIEW" style={{ display: 'contents' }}>
                 <section className={styles.hwPanel} aria-label="Plot Details" style={activeTab !== 'OVERVIEW' ? { display: 'none' } : {}}>
                     <DrawerHeader label="PLOT DETAILS" isOpen={drawers.overview} onClick={() => toggleDrawer('overview')} icon={FiMap} />
                     <div className={`${styles.panelBody} ${drawers.overview ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -1048,7 +1055,15 @@ const FolderPage = () => {
                         <span className={styles.inputHint}>TRANSFER opens New Project as a Transfer of Title for that plot. The new project is linked back here.</span>
                     </div></div>
                 </section>)}
-                <div className={styles.financialsStack} style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
+                </div>
+                <div className={styles.financialsStack} data-print-section="FINANCIALS" style={activeTab !== 'FINANCIALS' ? { display: 'none' } : {}}>
+                    <div className={styles.printStatement} aria-hidden="true">
+                <h3>PAYMENT STATEMENT - PROJECT #{project.projectIndex}</h3>
+                <table><thead><tr><th>DATE</th><th>TYPE</th><th>FOR</th><th>PAID BY</th><th>AMOUNT (UGX)</th><th>RECORDED BY</th></tr></thead>
+                    <tbody>{payments.map((p, i) => (<tr key={p.id || i}><td>{fmtDate(p.timestamp)}</td><td>{TYPE_LABELS[p.paymentType] || p.paymentType}</td><td>{p.allocation === 'STORAGE' ? 'STORAGE FEES' : 'TITLE'}</td><td>{p.payerName || '---'}</td><td>{fmt(p.amountPaid)}</td><td>{p.recordedBy}</td></tr>))}</tbody></table>
+                <p>TOTAL PAID: UGX {fmt(amountPaid)} | STORAGE FEES: UGX {fmt(storageFees)} | BALANCE OWED: UGX {fmt(amountOwed)}</p>
+            </div>
+
                     <section className={styles.hwPanel} aria-label="Balance Summary">
                         <DrawerHeader label="BALANCE SUMMARY" isOpen={drawers.balance} onClick={() => toggleDrawer('balance')} icon={FiCreditCard} />
                         <div className={`${styles.panelBody} ${drawers.balance ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
@@ -1180,6 +1195,7 @@ const FolderPage = () => {
                         </div></div>
                     </section>
                 </div>
+                <div data-print-section="PEOPLE" style={{ display: 'contents' }}>
                 {[['clients', 'CLIENTS', 'Client', clients.length ? clients : owners, FiUsers], ['owners', 'OWNERS', 'Owner', owners, FiUsers]].map(([list, title, what, people, Icon]) => (
                 <section key={list} className={styles.hwPanel} aria-label={title} style={activeTab !== 'PEOPLE' ? { display: 'none' } : {}}>
                     <DrawerHeader label={title} isOpen={drawers[list]} onClick={() => toggleDrawer(list)} icon={Icon} count={people.length} />
@@ -1266,7 +1282,8 @@ const FolderPage = () => {
                                 </div>)))}
                     </div></div>
                 </section>
-                <section className={styles.hwPanel} aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
+                </div>
+                <section className={styles.hwPanel} data-print-section="DOCUMENTS" aria-label="Documents" style={activeTab !== 'DOCUMENTS' ? { display: 'none' } : {}}>
                     <DrawerHeader label="DOCUMENTS" isOpen={drawers.docs} onClick={() => toggleDrawer('docs')} icon={FiUploadCloud} count={docCount} />
                     <div className={`${styles.panelBody} ${drawers.docs ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
                         <CornerDecor hideTop />
@@ -1289,7 +1306,7 @@ const FolderPage = () => {
                             </>)}
                     </div></div>
                 </section>
-                <div className={styles.tabWrap} style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
+                <div className={styles.tabWrap} data-print-section="NOTES" style={activeTab !== 'NOTES' ? { display: 'none' } : {}}>
                     <section className={styles.hwPanel} aria-label="Notes">
                         <DrawerHeader label="NOTES" isOpen={drawers.notes} onClick={() => toggleDrawer('notes')} icon={FiInfo} count={noteCount} />
                         <div className={`${styles.panelBody} ${drawers.notes ? styles.bodyOpen : styles.bodyClosed}`}><div className={styles.panelInner}>
