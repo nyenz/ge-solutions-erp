@@ -49,6 +49,30 @@ public class MoneyRulesTest {
     @Autowired private PaymentRecordRepository payments;
     @Autowired private ClientRepository clients;
     @Autowired private BooksCheckService booksCheck;
+    @Autowired private PaymentQueryService paymentQuery;
+
+    /** fix181 (16.13): the Payments list -- purpose, reversed pairs net to 0, deleted projects never in totals. */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void paymentListShowsPurposeAndNetsReversals() {
+        LandProject p = project();
+        PaymentRecord a = landService.recordPayment(p.getId(), new BigDecimal("300000"), "x", null, "TITLE");
+        landService.reversePayment(p.getId(), a.getId(), "Wrong amount typed");
+        landService.recordPayment(p.getId(), new BigDecimal("200000"), "y", null, "TITLE");
+        var f = new PaymentQueryService.Filter(null, null, "ALL", null, String.valueOf(p.getProjectIndex()), false, false, "date", "desc");
+        var rows = paymentQuery.rows(f);
+        assertEquals(3, rows.size());
+        assertTrue(rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.get("reversed"))));
+        assertTrue(rows.stream().anyMatch(r -> "REVERSAL".equals(r.get("kind")) && r.get("reversalOf") != null));
+        var t = paymentQuery.totals(f);
+        assertEquals(0, ((BigDecimal) t.get("net")).compareTo(new BigDecimal("200000")));
+        assertEquals(0, ((BigDecimal) t.get("reversed")).compareTo(new BigDecimal("300000")));
+        p.setDeleted(true);
+        projects.save(p);
+        assertEquals(0, ((Number) paymentQuery.totals(f).get("rowCount")).intValue(), "a deleted project's lines are in no total");
+        var withDeleted = new PaymentQueryService.Filter(null, null, "ALL", null, String.valueOf(p.getProjectIndex()), true, false, "date", "desc");
+        assertEquals(3, paymentQuery.rows(withDeleted).size(), "the switch shows them (tagged DELETED)");
+    }
 
     private LandProject project() {
         String tag = UUID.randomUUID().toString().substring(0, 8);

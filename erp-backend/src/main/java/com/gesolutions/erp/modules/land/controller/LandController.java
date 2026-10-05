@@ -228,9 +228,21 @@ public class LandController {
     // fix167: the old receivable endpoints (/receivable, /exit-receivable, /exit-receivable-capitalize) are gone.
     // They skipped every rule (no reason, no checks). Use /land/portal/{id}/receivable/... (FolderPortalController).
 
+    // fix181 (16.11): a small answer per payment line (not the raw record)
     @GetMapping("/projects/{id}/payments")
-    public ResponseEntity<List<PaymentRecord>> getPaymentHistory(@PathVariable UUID id) {
-        return ResponseEntity.ok(landService.getProjectPayments(id));
+    public ResponseEntity<List<java.util.Map<String, Object>>> getPaymentHistory(@PathVariable UUID id) {
+        List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (PaymentRecord r : landService.getProjectPayments(id)) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", r.getId()); m.put("amountPaid", r.getAmountPaid()); m.put("paymentType", r.getPaymentType());
+            m.put("allocation", r.getAllocation() == null ? "TITLE" : r.getAllocation()); m.put("paidOn", r.getPaidOn());
+            m.put("timestamp", r.getTimestamp()); m.put("recordedBy", r.getRecordedBy()); m.put("payerName", r.getPayerName());
+            m.put("payerClientId", r.getPayerClientId()); m.put("balanceAfter", r.getBalanceAfter());
+            m.put("hasReceipt", r.getReceiptDocumentId() != null); m.put("receiptDocumentId", r.getReceiptDocumentId());
+            m.put("notes", r.getNotes());
+            out.add(m);
+        }
+        return ResponseEntity.ok(out);
     }
 
     // fix165: the ONLY way to record a payment is with its receipt file (multipart). The old no-receipt form is gone.

@@ -381,3 +381,13 @@
 .tableScroll { max-height: calc(100vh - 220px); min-height: 280px; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; -ms-overflow-style: none; }
 .tableScroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .ledgerTable th { z-index: 5; box-shadow: 0 1px 0 #EE8C3A; }
+
+/* fix181 (16.x): books check box, error row with retry, small text buttons, the row you came back to */
+.booksOk, .booksBad { position: relative; border-radius: 8px; padding: 10px 36px 10px 12px; margin: 0 0 12px; font-size: 0.85rem; line-height: 1.5; }
+.booksOk { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.5); color: #bbf7d0; }
+.booksBad { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.5); color: #fecaca; }
+.booksOk .clearBtn, .booksBad .clearBtn { position: absolute; top: 8px; right: 8px; }
+.retryBtn { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.06em; }
+.retryBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.linkBtn { background: none; border: 0; padding: 0; color: #67e8f9; cursor: pointer; font-size: 0.72rem; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; }
+.rowHighlight { outline: 1px solid #EE8C3A; outline-offset: -1px; }
