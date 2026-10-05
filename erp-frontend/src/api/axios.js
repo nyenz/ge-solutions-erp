@@ -10,33 +10,67 @@ const api = axios.create({
     timeout: 60000,
 });
 
-// ── IDLE TIMEOUT: log out after 30 minutes of no API activity ──
+// ── IDLE TIMEOUT: sign out after 30 minutes with no real input ──
+// fix181 (14.2, 15.2a): the clock is ONE time kept in localStorage and shared by every tab, so a busy tab keeps the
+// whole browser signed in and an idle tab no longer signs a busy person out. Only real input (click, key, touch,
+// scroll, mouse movement) moves it; API calls never do (the bell polls would otherwise keep a session open all night).
 const IDLE_MINUTES = 30;
-let idleTimer = null;
+const ACTIVITY_KEY = 'gs_last_activity';
+let lastWrite = 0;
 
-function resetIdleTimer() {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-        const token = localStorage.getItem('gs_token');
-        if (token) {
-            console.warn('[GS-ERP] Idle timeout -- logging out.');
-            // fix181: remove only the sign-in, never the saved appearance choices (localStorage.clear() wiped them)
-            try { api.post('/auth/logout').catch(() => {}); } catch { /* ignore */ }
-            localStorage.removeItem('gs_token');
-            localStorage.removeItem('gs_user');
-            window.location.href = '/login?reason=idle_timeout';
-        }
-    }, IDLE_MINUTES * 60 * 1000);
+export function markActivity(force = false) {
+    const t = Date.now();
+    if (!force && t - lastWrite < 15000) return;   // at most once every 15 seconds
+    lastWrite = t;
+    try { localStorage.setItem(ACTIVITY_KEY, String(t)); } catch { /* storage blocked */ }
+    hideIdleWarning();
 }
 
-// Timer resets on every API call via the request interceptor below.
-// fix167: ...and on every click or key press, so someone typing a long edit is not logged out (losing it)
-// just because the page has not talked to the server for 30 minutes.
+function lastActivity() {
+    try { return Number(localStorage.getItem(ACTIVITY_KEY)) || Date.now(); } catch { return Date.now(); }
+}
+
+let warnBox = null;
+function hideIdleWarning() { if (warnBox) { warnBox.remove(); warnBox = null; } }
+function showIdleWarning() {
+    if (warnBox || typeof document === 'undefined') return;
+    warnBox = document.createElement('div');
+    warnBox.setAttribute('role', 'alertdialog');
+    warnBox.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;background:#0f172a;color:#f8fafc;'
+        + 'border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;font:14px system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.4);'
+        + 'display:flex;gap:14px;align-items:center;max-width:calc(100vw - 32px)';
+    const text = document.createElement('span');
+    text.textContent = 'You will be signed out in 1 minute. Stay signed in?';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Stay signed in';
+    btn.style.cssText = 'background:#f59e0b;color:#111827;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer';
+    btn.onclick = () => markActivity(true);
+    warnBox.append(text, btn);
+    document.body.appendChild(warnBox);
+}
+
+function idleLogout() {
+    hideIdleWarning();
+    console.warn('[GS-ERP] Idle timeout -- logging out.');
+    // remove only the sign-in, never the saved appearance choices (localStorage.clear() wiped them)
+    try { api.post('/auth/logout').catch(() => {}); } catch { /* ignore */ }
+    localStorage.removeItem('gs_token');
+    localStorage.removeItem('gs_user');
+    window.location.href = '/login?reason=idle_timeout';
+}
+
 if (typeof window !== 'undefined') {
-    let lastPoke = 0;
-    const poke = () => { const t = Date.now(); if (t - lastPoke > 15000) { lastPoke = t; resetIdleTimer(); } };
-    window.addEventListener('click', poke, { passive: true });
-    window.addEventListener('keydown', poke, { passive: true });
+    const poke = () => markActivity();
+    ['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(ev => window.addEventListener(ev, poke, { passive: true, capture: true }));
+    if (!localStorage.getItem(ACTIVITY_KEY)) markActivity(true);
+    setInterval(() => {
+        if (!localStorage.getItem('gs_token')) { hideIdleWarning(); return; }
+        const idleMs = Date.now() - lastActivity();
+        if (idleMs >= IDLE_MINUTES * 60 * 1000) idleLogout();
+        else if (idleMs >= (IDLE_MINUTES - 1) * 60 * 1000) showIdleWarning();
+        else hideIdleWarning();
+    }, 10000);
 }
 
 // REQUEST INTERCEPTOR: attach token + reset idle clock on every call
@@ -46,7 +80,6 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-        resetIdleTimer(); // any API call resets the 30-min clock
         return config;
     },
     (error) => Promise.reject(error)

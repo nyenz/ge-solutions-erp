@@ -58,7 +58,7 @@ const settingsService = {
      */
     updateOperatorRole: async (username, newRole) => {
         try {
-            await api.patch(`/staff/${username}/role`, null, {
+            await api.patch(`/staff/${encodeURIComponent(username)}/role`, null, {
                 params: { newRole }
             });
             return true;
@@ -73,7 +73,7 @@ const settingsService = {
      */
     toggleOperator: async (username, isActive) => {
         try {
-            await api.patch(`/staff/${username}/toggle`, null, {
+            await api.patch(`/staff/${encodeURIComponent(username)}/toggle`, null, {
                 params: { active: isActive }
             });
             return true;
