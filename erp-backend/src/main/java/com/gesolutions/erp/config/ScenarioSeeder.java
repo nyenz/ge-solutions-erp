@@ -26,6 +26,8 @@ import com.gesolutions.erp.modules.land.repository.FollowUpRepository;
 import com.gesolutions.erp.modules.land.repository.LandProjectRepository;
 import com.gesolutions.erp.modules.land.repository.PaymentRecordRepository;
 import com.gesolutions.erp.modules.land.repository.ProjectDocumentRepository;
+import com.gesolutions.erp.modules.land.repository.ProjectNeighborRepository;
+import com.gesolutions.erp.modules.land.model.ProjectNeighbor;
 import com.gesolutions.erp.modules.land.repository.ProjectStatusRepository;
 import com.gesolutions.erp.modules.land.service.DocumentCategoryService;
 import com.gesolutions.erp.modules.land.service.ProjectIndexService;
@@ -74,7 +76,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ScenarioSeeder {
 
-    public static final int VERSION = 6;   // fix181: one Admin only (demo.admin became demo.director2); v5 fix180 types
+    public static final int VERSION = 7;   // fix182: all 8 types, clients apart from owners, neighbors, subdivisions, rejected entries; v6 fix181 one Admin; v5 fix180 types
     private static final int BELL_DAYS = 45;
     private static final String DEMO_LIKE = "demo.%";
 
@@ -88,6 +90,7 @@ public class ScenarioSeeder {
     private final ProjectStatusRepository statusRepository;
     private final PaymentRecordRepository paymentRepository;
     private final ProjectDocumentRepository documentRepository;
+    private final ProjectNeighborRepository neighborRepository;   // fix182
     private final FollowUpRepository followUpRepository;
     private final DocumentCategoryRepository categoryRepository;
     private final DocumentCategoryService categoryService;
@@ -105,6 +108,7 @@ public class ScenarioSeeder {
     private final Map<String, User> users = new LinkedHashMap<>();
     private final Map<String, Client> clients = new LinkedHashMap<>();
     private final Map<String, String> categoryLabels = new HashMap<>();
+    private final Map<String, UUID> projectIds = new HashMap<>();   // fix182: spec key -> saved id (subdivision links)
 
     // =====================================================================
     // entry point
@@ -278,6 +282,7 @@ public class ScenarioSeeder {
         bell.clear();
         users.clear();
         clients.clear();
+        projectIds.clear();
 
         seedCategories();
         seedStaff();
@@ -391,7 +396,8 @@ public class ScenarioSeeder {
         // --- title
         LandTitle title = null;
         if (s.hasTitle()) {
-            int createdAgo = s.isFolder() ? s.issuedAgo : entry;
+            // a title the client already had (issued before we got the job) is on file from the day it was entered
+            int createdAgo = s.isFolder() ? Math.min(s.issuedAgo, entry) : entry;
             title = LandTitle.builder()
                     .tenure(s.tenure)
                     .plotNumber(s.pendingTitle ? null : s.plot)
@@ -445,10 +451,19 @@ public class ScenarioSeeder {
                 .problemNote(s.problemNow() ? s.problemNote : null)
                 .storagePaused(s.activePause())
                 .storagePausedAt(s.activePause() ? at(s.pauseAgo, s.key + "Z") : null)
-                .deleted(s.deletedAgo >= 0 && s.restoredAgo < 0)
-                .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null)
-                .deletedBy(s.deletedAgo >= 0 && s.restoredAgo < 0 ? ScenarioData.ADMIN : null)   // fix181 (14.7a)
-                .deletedReason(s.deletedAgo >= 0 && s.restoredAgo < 0 ? "Entered twice by mistake (demo)" : null);
+                .subdivisionCount(s.subdivisions > 0 ? s.subdivisions : null)                    // fix182
+                .parentProjectId(s.parentKey != null ? projectIds.get(s.parentKey) : null)
+                .parentSubdivisionNo(s.parentKey != null ? s.parentNo : null)
+                .titleDetailsEnabled(s.titleSwitch);
+        if (s.rejectedNow()) {
+            // fix181 (12.3): a rejected Pending entry is soft-deleted with the reason the Employee reads in MY ENTRIES
+            b.deleted(true).deletedAt(at(s.rejectedAgo, s.key + "RJ")).deletedBy(ScenarioData.SEC1).deletedReason(s.rejectWhy);
+        } else {
+            b.deleted(s.deletedAgo >= 0 && s.restoredAgo < 0)
+             .deletedAt(s.deletedAgo >= 0 && s.restoredAgo < 0 ? at(s.deletedAgo, s.key + "D") : null)
+             .deletedBy(s.deletedAgo >= 0 && s.restoredAgo < 0 ? ScenarioData.ADMIN : null)   // fix181 (14.7a)
+             .deletedReason(s.deletedAgo >= 0 && s.restoredAgo < 0 ? "Entered twice by mistake (demo)" : null);
+        }
         if (s.recvAgo >= 0) {
             b.originalDebt(BigDecimal.valueOf(debt))
              .storageFeesAccumulated(BigDecimal.valueOf(s.storedFees()))
@@ -465,23 +480,39 @@ public class ScenarioSeeder {
         if (s.activePause() && s.deadlineIn != null) b.negotiationDeadline(now.toLocalDate().plusDays(s.deadlineIn).atTime(23, 59, 59));
 
         Set<Client> owners = new HashSet<>();
-        StringBuilder ownerNames = new StringBuilder();
-        for (String o : s.owners) {
-            owners.add(clients.get(o));
-            if (ownerNames.length() > 0) ownerNames.append(" & ");
-            ownerNames.append(clients.get(o).getFullName());
-        }
+        for (String o : s.owners) owners.add(clients.get(o));
+        Set<Client> payers = new HashSet<>();
+        for (String c : s.billing()) payers.add(clients.get(c));
         b.proprietors(owners);
-        b.clients(new HashSet<>(owners));   // fix180: in the demo data the clients are the owners
+        b.clients(payers);   // fix182: the clients (who pay, who Recovery calls) are not always the owners
         LandProject saved = projectRepository.save(b.build());
         UUID pid = saved.getId();
+        projectIds.put(s.key, pid);
         String lbl = label(s, index);
-        String owner1 = clients.get(s.owners[0]).getFullName();
+        String owner1 = clients.get(s.billing()[0]).getFullName();
 
         // --- audit: identity + intake
-        for (String o : s.owners) {
+        Set<String> everyone = new java.util.LinkedHashSet<>(java.util.Arrays.asList(s.billing()));
+        everyone.addAll(java.util.Arrays.asList(s.owners));
+        for (String o : everyone) {
             Client c = clients.get(o);
             audit("CLIENT_ARCHIVE", "New identity registered via NIN: " + c.getFullName() + " (" + c.getNationalId() + ")", staff, entryAt.minusMinutes(2));
+        }
+
+        // --- fix182: neighbors (no NIN, never called)
+        int nOrder = 0;
+        for (ScenarioData.Neighbor nb : s.neighbors) {
+            neighborRepository.save(ProjectNeighbor.builder().projectId(pid).fullName(nb.name).side(nb.side).plotNumber(nb.plot)
+                    .phone(ScenarioData.phone(900 + Math.abs((s.key + nb.name).hashCode()) % 900)).displayOrder(nOrder++).createdAt(entryAt).build());
+        }
+        // --- fix182: a plot transferred out of a subdivision
+        if (s.parentKey != null) {
+            audit("NOTE_ADDED", "Operator [" + staff + "] opened project #" + index + " as the TRANSFER of plot " + s.parentNo + " of a subdivision.", staff, entryAt.plusMinutes(2));
+        }
+        // --- fix181 (12.3): rejected Pending entry
+        if (s.rejectedNow()) {
+            audit("PROJECT_PENDING_REJECTED", "Operator [" + ScenarioData.SEC1 + "] rejected Pending project #" + index + " (entered by " + staff + "). Reason: " + s.rejectWhy,
+                    ScenarioData.SEC1, at(s.rejectedAgo, s.key + "RJ"));
         }
         boolean employeeEntry = ScenarioData.EMPLOYEE.equals(staff);
         audit(employeeEntry ? "PENDING_CREATED" : "INTAKE", "Operator [" + staff + "] " + (employeeEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
@@ -599,7 +630,7 @@ public class ScenarioSeeder {
     }
 
     private String releaseNote(ScenarioData.Spec s) {
-        return "Collected in person by " + clients.get(s.owners[0]).getFullName() + "; National ID checked against the card.";
+        return "Collected in person by " + clients.get(s.billing()[0]).getFullName() + "; National ID checked against the card.";
     }
 
     private static String slug(String v) {
@@ -667,7 +698,7 @@ public class ScenarioSeeder {
                 who = staff;
             } else if (done) {
                 int ago;
-                if (doneN >= n && s.issuedAgo >= 0) ago = span - (k + 1) * (span - s.issuedAgo) / doneN;
+                if (doneN >= n && s.issuedAgo >= 0 && s.issuedAgo < span) ago = span - (k + 1) * (span - s.issuedAgo) / doneN;
                 else ago = span - (k + 1) * span / (doneN + 2);
                 doneAt = at(Math.max(0, Math.min(span - 1, ago)), s.key + "S" + k);
                 who = crew[k % 3];
@@ -705,7 +736,7 @@ public class ScenarioSeeder {
             long after = Math.max(0, costEff + fees - running);
             LocalDateTime t = at(ago, s.key + p.amount + p.ago);
             String notes = p.note != null ? p.note : "Payment received";
-            Client payer = clients.get(p.payer != null ? p.payer : s.owners[0]);
+            Client payer = clients.get(p.payer != null ? p.payer : s.billing()[0]);
             String kind = p.storage ? "Storage Fee" : "Title Payment";
             ProjectDocument receipt = null;
             if (p.receipt || p.ago >= 0) {
