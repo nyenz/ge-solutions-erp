@@ -6,11 +6,6 @@ let storageFeeDefaultPromise = null;
 
 const landService = {
 
-    getDashboardSummary: async () => {
-        const response = await api.get('/dashboard/summary');
-        return response.data;
-    },
-
     getDeepBinder: async (projectId) => {
         const response = await api.get(`/land/projects/${projectId}/deep`);
         return response.data;
@@ -128,12 +123,6 @@ const landService = {
     // fix163: take a saved title off the project (fix180: Topographic Survey and older projects only)
     revertTitle: async (projectId, reason) => {
         await api.patch(`/land/projects/${projectId}/revert-title`, null, { params: { reason } });
-    },
-
-    // PHASE 7: Director's Dashboard -- period is 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
-    getDirectorDashboard: async (period = 'WEEK') => {
-        const response = await api.get('/dashboard/director', { params: { period } });
-        return response.data;
     },
 
     // INTAKE: preview the next project index (001A format) before saving

@@ -74,22 +74,4 @@ public class AuditController {
         auditService.logAction("AUDIT_EXPORT", "Audit trail exported to CSV. Rows: " + rows + ". Filters: " + f + ".");
         return ResponseEntity.noContent().build();
     }
-
-    /**
-     * ASSET INVESTIGATION
-     * Physically searches the details text for specific Plot Numbers or Box Numbers.
-     * ACCESS: Locked to ADMIN and ROOT.
-     */
-    @GetMapping("/investigate")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")
-    public ResponseEntity<Page<AuditLog>> investigateKeyword(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
-        
-        return ResponseEntity.ok(auditLogRepository.findByDetailsContainingIgnoreCase(
-            keyword,
-            PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by("timestamp").descending())
-        ));
-    }
 }

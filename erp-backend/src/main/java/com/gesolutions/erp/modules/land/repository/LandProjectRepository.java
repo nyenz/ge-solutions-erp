@@ -17,9 +17,8 @@ import java.util.UUID;
 public interface LandProjectRepository extends JpaRepository<LandProject, UUID> {
 
     // STAGE 3: covers every plain projectRepository.findAll() call across the
-    // codebase (RecoveryController, DashboardController, ReportService) in one
-    // place -- soft-deleted plots simply stop showing up anywhere that lists
-    // "all" projects, with no other file needing to change.
+    // codebase in one place -- soft-deleted plots (and, since fix181, Pending
+    // projects) simply stop showing up anywhere that lists "all" projects.
     @Override
     @NonNull
     // fix170: owners + title come in the SAME query. Both are EAGER, and a plain JPQL query loads EAGER links one

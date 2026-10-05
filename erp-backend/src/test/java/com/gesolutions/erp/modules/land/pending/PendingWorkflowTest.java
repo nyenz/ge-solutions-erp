@@ -165,8 +165,8 @@ public class PendingWorkflowTest {
         claims.put("sv", emp.getSessionVersion());
         String token = "Bearer " + jwt.generateToken(claims, new ApplicationConfig.CustomUserPrincipal(emp));
         UUID any = UUID.randomUUID();
-        for (String url : List.of("/api/v1/land/ledger", "/api/v1/recovery/queue", "/api/v1/dashboard/summary",
-                "/api/v1/reports/debt-ledger", "/api/v1/recovery/payments/all", "/api/v1/land/projects/" + any + "/deep",
+        for (String url : List.of("/api/v1/land/ledger", "/api/v1/recovery/queue", "/api/v1/dashboard/home",
+                "/api/v1/admin/audit/search", "/api/v1/recovery/payments/list", "/api/v1/land/projects/" + any + "/deep",
                 "/api/v1/land/portal/" + any + "/receivable", "/api/v1/land/portal/" + any + "/portfolio", "/api/v1/finance/expenses/recent",
                 "/api/v1/recovery/clients/ledger", "/api/v1/land/storage-fee-default")) {
             int code = mvc.perform(get(url).header("Authorization", token)).andReturn().getResponse().getStatus();

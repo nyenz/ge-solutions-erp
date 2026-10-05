@@ -252,11 +252,6 @@ public class ReceivableSchedulerService {
                 + PendingProjectService.STALE_DAYS + " days for prices.", "SYSTEM", jobId("pending-stale"));
     }
 
-    // old promise/cooldown loops stay disabled (dead code; removed with the other deletions in Step 5)
-    public void dailyNotificationSweep() {
-        return;
-    }
-
     // ── CALLABLE AGAIN (07:00) ──────────────────────────────────────────────
     @Scheduled(cron = "0 0 7 * * *", zone = ZONE)
     public void unlockSweep() {

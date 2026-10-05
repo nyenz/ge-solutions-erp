@@ -36,22 +36,6 @@ public class PaymentController {
         return ResponseEntity.ok(m);
     }
 
-    /**
-     * fix181 (12.4): the old list (Reports still read it). The rows now come from PaymentQueryService: the client who
-     * PAID, the purpose, the project index (it always exists), the receipt; one read instead of one per row. At most
-     * MAX rows per call; Reports loop through the pages with /list.
-     */
-    @GetMapping("/all")
-    public ResponseEntity<List<Map<String, Object>>> getAllPayments(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "500") int size) {
-        var f = new PaymentQueryService.Filter(null, null, "ALL", null, null, false, false, "date", "desc");
-        List<Map<String, Object>> rows = queryService.rows(f);
-        int s = Math.min(Math.max(size, 1), 500), pg = Math.max(page, 0);
-        int from = Math.min(pg * s, rows.size());
-        return ResponseEntity.ok(rows.subList(from, Math.min(from + s, rows.size())));
-    }
-
     /** fix181 (16.7): one page of the list with the filters, sorted and paged on the server. */
     @GetMapping("/list")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_DIRECTOR')")

@@ -38,33 +38,6 @@ public interface AuditLogRepository extends Repository<AuditLog, UUID> {
     @Query("SELECT a FROM AuditLog a WHERE a.action NOT IN :hidden ORDER BY a.timestamp DESC")
     List<AuditLog> findRecentExcept(@org.springframework.data.repository.query.Param("hidden") java.util.Collection<String> hidden, Pageable page);
 
-    /**
-     * MULTI-AXIS FORENSIC SEARCH (Hardened Version)
-     * 
-     * FIXED: Explicit cast to text and timestamp to resolve the 
-     * 'could not determine data type' PostgreSQL error.
-     * Includes support for RECOVERY_MISSION_COMPLETE (Call Logs).
-     */
-    @Query("SELECT a FROM AuditLog a WHERE " +
-           "(cast(:operator as text) IS NULL OR a.performedBy = cast(:operator as text)) AND " +
-           "(cast(:action as text) IS NULL OR a.action = cast(:action as text)) AND " +
-           "(cast(:start as timestamp) IS NULL OR a.timestamp >= :start) AND " +
-           "(cast(:end as timestamp) IS NULL OR a.timestamp <= :end) AND " +
-           "(cast(:keyword as text) IS NULL OR " +
-           "   LOWER(a.details) LIKE LOWER(CONCAT('%', cast(:keyword as text), '%')) OR " +
-           "   LOWER(a.performedBy) LIKE LOWER(CONCAT('%', cast(:keyword as text), '%')))")
-    Page<AuditLog> findWithFilters(
-            @Param("operator") String operator,
-            @Param("action") String action,
-            @Param("start") LocalDateTime startDate,
-            @Param("end") LocalDateTime endDate,
-            @Param("keyword") String keyword,
-            Pageable pageable
-    );
-
-    /**
-     * KEYWORD INVESTIGATION
-     * Full-text search across the 'details' block for Plots/IDs/Notes.
-     */
-    Page<AuditLog> findByDetailsContainingIgnoreCase(String keyword, Pageable pageable);
+    // fix181 (10.13, 10.7): searching is done by AuditSearchService (a read-only criteria query with a list of codes);
+    // the old one-code search and the keyword-only /investigate query were removed.
 }

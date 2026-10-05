@@ -197,10 +197,6 @@ export const relativeTime = (iso) => {
     return new Date(iso).toLocaleDateString();
 };
 
-export const FILTERS = [
-    { key: 'ALL',    label: 'ALL' },
-    { key: 'UNREAD', label: 'UNREAD' },
-    ...Object.values(GROUPS).map(g => ({ key: g, label: g })),
-];
+// fix181 (21.9): the old FILTERS list was removed; the bell builds its own group chips from GROUPS.
 
 export default CATALOG;

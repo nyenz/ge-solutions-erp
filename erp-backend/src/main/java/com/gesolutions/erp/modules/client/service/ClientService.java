@@ -30,25 +30,6 @@ public class ClientService {
     private final com.gesolutions.erp.modules.notification.service.NotificationService notificationService;
 
     /**
-     * DISCOVERY: GET STALE CALL LIST
-     * Returns all proprietors who haven't been contacted in 14 days 
-     * and have not exceeded their 2-call monthly limit.
-     */
-    @Transactional(readOnly = true)
-    public List<Client> getStaleRecoveryList() {
-        return clientRepository.findStaleClientsForRecovery();
-    }
-
-    /**
-     * SENSOR: NOTIFICATION COUNT
-     * Powers the header bell icon.
-     */
-    @Transactional(readOnly = true)
-    public long getRecoveryTaskCount() {
-        return clientRepository.countTotalStaleClients();
-    }
-
-    /**
      * RECOVERY ACTION: LOG CONTACT
      * physically increments the counter and resets the 14-day clock.
      * Enforces the Monthly Reset "Handbrake".
