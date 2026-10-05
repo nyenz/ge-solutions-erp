@@ -117,7 +117,7 @@ export default function IntakePage() {
     const [initialPayment, setInitialPayment] = useState(0);
     const [initialStorageFee, setInitialStorageFee] = useState(0);
     const [initialStorageFeePaid, setInitialStorageFeePaid] = useState(0);   // fix171
-    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172: optional, empty = paid today
+    const [lastPaidDate, setLastPaidDate] = useState('');           // fix172/181: optional, empty = date not known (the client stays callable)
     const [receivablesSince, setReceivablesSince] = useState('');   // fix172: optional, Legacy Title only
     const [titlePayerIdx, setTitlePayerIdx] = useState('');         // fix172: which client (row number) paid the initial payment
     const [feesPayerIdx, setFeesPayerIdx] = useState('');           // fix172: which client paid the storage fees
@@ -556,7 +556,9 @@ export default function IntakePage() {
         setTitlePayerIdx(shift); setFeesPayerIdx(shift);
     };
     const removeOwner = (idx) => { setOwnersLinked(false); setOwners(p => p.filter((_, i) => i !== idx)); markDirty(); };
-    const ownerLabels = clients.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'CLIENT ' + (i + 1)));
+    // fix181 (1.1): the phone number too, so two clients with the same name can be told apart
+    const ownerLabels = clients.map((o, i) => (i + 1) + '. ' + (o.fullName.trim() ? o.fullName.trim().toUpperCase() : 'CLIENT ' + (i + 1))
+        + (o.phone && o.phone.trim() ? ' (' + o.phone.trim() + ')' : ''));
     const pickOwner = (setter) => (label) => { setter(ownerLabels.indexOf(label)); markDirty(); };
     const titlePaidNow = (Number(initialPayment) || 0) > 0;
     const feesPaidEntered = isLegacy && (Number(initialStorageFeePaid) || 0) > 0;
@@ -644,6 +646,7 @@ export default function IntakePage() {
                     {transferFrom && (
                         <div className={styles.transferBanner} role="status">
                             <FiLink aria-hidden="true" /> Transfer of plot {transferFrom.plot} of subdivision #{transferFrom.index}. Clients and Owners were copied; Title Details and Neighbors start blank.
+                            {' '}<button type="button" className={styles.clearLink} onClick={() => navigate('/folder/' + transferFrom.id)}>Back to original project</button>
                         </div>
                     )}
                     {projectType === 'TOPOGRAPHIC_SURVEY' && (
@@ -875,8 +878,9 @@ export default function IntakePage() {
                             <div className={styles.field}>
                                 <label className={styles.label}>Date Last Paid</label>
                                 <HardwareDatePicker block className={styles.input} value={lastPaidDate} ariaLabel="Date last paid" onChange={v => { setLastPaidDate(v); markDirty(); }} />
+                                <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(localISO()); markDirty(); }}>Today</button>
                                 {lastPaidDate && <button type="button" className={styles.clearLink} onClick={() => { setLastPaidDate(''); markDirty(); }}>Clear date</button>}
-                                <p className={styles.hint}>Optional. The day the client last paid. Left empty it counts as paid today, which locks recovery calls for 30 days.</p>
+                                <p className={styles.hint}>Leave empty if you do not know the date. If the client paid today, pick today.</p>
                             </div>
                         </div>
                     )}

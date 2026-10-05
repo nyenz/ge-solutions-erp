@@ -314,7 +314,7 @@ const ExpensesPage = () => {
             >
                 <p className={styles.panelHint}>
                     <FiInfo size={12} aria-hidden="true" />
-                    You can edit your own entries for {EDIT_WINDOW_HOURS} hours. After that they lock.
+                    Any Manager, Director or Admin can correct an entry for {EDIT_WINDOW_HOURS} hours after it is logged. After that it locks.
                 </p>
                 <div className={styles.tableScroll} ref={recentTableRef}>
                     <table className={styles.ledgerTable}>
@@ -417,6 +417,7 @@ const ExpensesPage = () => {
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
                     <input
                         type="number"
+                        min="0"
                         inputMode="decimal"
                         className={styles.amountInput}
                         placeholder="0"
@@ -495,6 +496,7 @@ const ExpensesPage = () => {
                     <label className={modalStyles.modalLabel}>AMOUNT (UGX)</label>
                     <input
                         type="number"
+                        min="0"
                         inputMode="decimal"
                         className={styles.amountInput}
                         value={editAmount}

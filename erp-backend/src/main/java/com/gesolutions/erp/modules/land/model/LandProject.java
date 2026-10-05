@@ -433,6 +433,46 @@ public class LandProject {
         return null;
     }
 
+    /** fix181 (5.5): what this project bills: the cost, plus the storage fees while it is in receivables. */
+    public BigDecimal billed() {
+        BigDecimal cost = totalCost != null ? totalCost : BigDecimal.ZERO;
+        BigDecimal fees = storageFeesAccumulated != null ? storageFeesAccumulated : BigDecimal.ZERO;
+        return isReceivable() ? cost.add(fees) : cost;
+    }
+
+    /** fix181 (5.5): money paid toward billed() (all money in receivables, title money otherwise). */
+    public BigDecimal paidTowardBilled() {
+        return isReceivable() ? (amountPaid != null ? amountPaid : BigDecimal.ZERO) : titlePaid();
+    }
+
+    /** fix181 (5.5, 5.7): owed = billed - paid, never below 0 (one project can never cancel another's debt). */
+    public BigDecimal owedNow() {
+        return billed().subtract(paidTowardBilled()).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * fix181 (5.4): THE "critical" rule, one definition for the Ledger, the Folder and the client pages: priced, not handed
+     * over, and less than 25% of the title money paid. Receivable projects ARE critical (owner default).
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("critical")
+    public boolean isCritical() {
+        if (totalCost == null || totalCost.signum() <= 0) return false;
+        if (landTitle != null && landTitle.isReleased()) return false;
+        return titlePaid().multiply(BigDecimal.valueOf(4)).compareTo(totalCost) < 0;
+    }
+
+    /** fix181 (11.9): whole days since the last payment, counted on the server (null = no payment date). */
+    @com.fasterxml.jackson.annotation.JsonProperty("daysSincePayment")
+    public Long getDaysSincePayment() {
+        return lastPaymentDate == null ? null : Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(lastPaymentDate.toLocalDate(), java.time.LocalDate.now()));
+    }
+
+    /** fix181 (11.3): the hand-over rule as text for the page (null = can be handed over). */
+    @com.fasterxml.jackson.annotation.JsonProperty("releaseBlocker")
+    public String getReleaseBlockerText() {
+        return releaseBlocker();
+    }
+
     /** Title money owed outside receivables. fix181 (3.6): = titleOwed() (title money only, clamped at 0). */
     public BigDecimal activeTotalOwed() {
         return titleOwed();

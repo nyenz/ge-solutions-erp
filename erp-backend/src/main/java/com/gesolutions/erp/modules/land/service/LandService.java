@@ -713,8 +713,12 @@ public class LandService {
                     .timestamp(LocalDateTime.now())   // fix181 (16.0b): always the real entry time
                     .paidOn(paidAt)                   // fix181 (11.6): the day paid; NULL when the operator gave no date
                     .build());
-            saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more
-            projectRepository.save(saved);
+            // fix181 (1.2): only a DATED deposit sets the last payment date. An empty date means "not known": the client
+            // stays callable (it used to count as "paid today" and hid them from Recovery for 30 days).
+            if (paidAt != null) {
+                saved.setLastPaymentDate(paidAt);
+                projectRepository.save(saved);
+            }
         }
         if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {
             // deliberately NOT setting lastPaymentDate without a date: this money was paid before the project was entered,

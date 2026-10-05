@@ -867,7 +867,8 @@ const FolderPage = () => {
     const arrearsEdit = (Number(buffer?.totalCost) || 0) - (Number(buffer?.initialPayment) || 0);
     const costChanged = isEditing && (Number(buffer?.totalCost) || 0) !== (Number(project.totalCost) || 0);
     const paidPct = totalValue > 0 ? amountPaid / totalValue : 1;
-    const isCritical = !isReceivable && !isReleased && totalValue > 0 && paidPct < 0.25;   // same rule as the Ledger
+    // fix181 (5.4): ONE rule, decided on the server (LandProject.isCritical) -- the Ledger and the client pages use it too
+    const isCritical = typeof project.critical === 'boolean' ? project.critical : (!isReceivable && !isReleased && totalValue > 0 && paidPct < 0.25);
     const fullyPaid = totalValue > 0 && amountOwed <= 0;
     const effectiveRate = project.storageFeeOverride !== null && project.storageFeeOverride !== undefined ? Number(project.storageFeeOverride) : defaultRate;
     const pausedUntil = project.negotiationDeadline ? fmtDate(project.negotiationDeadline) : '';
@@ -907,7 +908,7 @@ const FolderPage = () => {
                             : <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="The title details are saved.">TITLED</span>}
                         {isReceivable ? <span className={`${styles.textBadge} ${styles.badgeRecv}`} title="In receivables: storage fees are added every 30 days.">IN RECEIVABLES</span>
                             : fullyPaid ? <span className={`${styles.textBadge} ${styles.badgeTitled}`} title="Nothing is owed on this project.">FULLY PAID</span>
-                            : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the total cost has been paid (same rule as the Ledger).">CRITICAL</span>
+                            : isCritical ? <span className={`${styles.textBadge} ${styles.badgeCritical}`} title="Less than 25% of the title money has been paid (the same rule on every page).">CRITICAL</span>
                             : totalValue > 0 ? <span className={`${styles.textBadge} ${styles.badgeActive}`} title={'UGX ' + fmt(amountOwed) + ' still owed.'}>ACTIVE</span> : null}
                         {isReleased && <span className={`${styles.textBadge} ${styles.badgeReleased}`} title={'Handed over' + (project.landTitle.releasedAt ? ' on ' + fmtDate(project.landTitle.releasedAt) : '') + (project.landTitle.releasedBy ? ' by ' + project.landTitle.releasedBy : '') + '.'}>RELEASED</span>}
                         {isLegacyProject && <span className={`${styles.textBadge} ${styles.badgeLegacy}`} title="Entered as a Legacy Titles project (an old title brought into the system).">LEGACY</span>}
@@ -927,10 +928,10 @@ const FolderPage = () => {
                                     onClick={() => openReasonModal({ kind: 'UNDO_RELEASE', title: 'UNDO HAND-OVER', confirmLabel: 'UNDO HAND-OVER',
                                         info: 'This marks the title as NOT handed over again and unlocks the record (status goes back to ' + (isReceivable ? 'RECEIVABLE' : 'ACTIVE') + '). Use it only if the hand-over was recorded by mistake.' })}><FiUnlock aria-hidden="true" /> UNDO</button>
                               </>)
-                            : <button type="button" className={styles.releaseBtn} disabled={amountOwed > 0 || !!project.problem || keptFees > 0}
+                            : <button type="button" className={styles.releaseBtn} disabled={project.releaseBlocker !== undefined ? !!project.releaseBlocker : (amountOwed > 0 || !!project.problem || keptFees > 0)}
                                 onClick={() => openReasonModal({ kind: 'RELEASE', title: 'HAND OVER TITLE', confirmLabel: 'HAND OVER',
                                     info: 'Confirm the client has received the title deed for ' + plotName + '. The record is then locked (a director can UNDO it). Write who collected it and how they were identified.' })}
-                                title={amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
+                                title={project.releaseBlocker ? 'Cannot hand over yet: ' + project.releaseBlocker : amountOwed > 0 ? 'Cannot hand over yet: UGX ' + fmt(amountOwed) + ' is still owed.' : project.problem ? 'Cannot hand over while this plot is flagged as a PROBLEM. Clear the flag first.' : keptFees > 0 ? 'Cannot hand over: UGX ' + fmt(keptFees) + ' of set-aside storage fees must be paid, waived or added to the cost first.' : 'Record that the client has received the title deed (note required).'}><FiCheckCircle aria-hidden="true" /> HAND OVER TITLE</button>)}
                         {canMoney && !isDeleted && project.landTitle && !isReleased && !isLegacyProject && !isReceivable && pType.titleMode !== 'ALWAYS' && (
                             <button type="button" className={styles.ghostBtn} title="Take the saved Title Details off this project (reason required)."
                                 onClick={() => openReasonModal({ kind: 'REVERT_TITLE', title: 'REMOVE TITLE DETAILS', confirmLabel: 'REMOVE TITLE DETAILS',

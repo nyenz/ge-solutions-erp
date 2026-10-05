@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { roleFlags } from '../../utils/roles';
+import { useSearchParams } from 'react-router-dom';
+import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
 import ReactDOM from 'react-dom';
 import { FiSearch, FiX, FiPhone, FiPhoneCall, FiMapPin, FiClock, FiChevronDown, FiUser, FiFolderPlus, FiRefreshCw } from 'react-icons/fi';
 import recoveryService from '../../services/recoveryService';
@@ -22,6 +24,10 @@ const TABS = [
 ];
 function fmtD(s) { if (!s) return 'NEVER'; const d = new Date(s); const p = (x) => String(x).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); }
 export default function RecoveryPortal() {
+  // fix181 (6.10, 4.3): /recovery?client=<id> opens that client's card, or says why the client is not listed
+  const [searchParams] = useSearchParams();
+  const wantClient = searchParams.get('client');
+  const [clientMsg, setClientMsg] = useState('');
   const [tab, setTab] = useState('ALL');
   const [counts, setCounts] = useState(null);
   const [stats, setStats] = useState(null);
@@ -78,6 +84,23 @@ export default function RecoveryPortal() {
       }).catch(() => { if (myReq !== reqRef.current) return; setLoading(false); setSyncing(false); toast('Could not load recovery queue.', 'error'); });
   }, [tab, toast]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!wantClient) return undefined;
+    let alive = true;
+    recoveryService.getClientDossier(wantClient).then((d) => {
+      if (!alive || !d) return;
+      const st = d.recoveryState;
+      if (!st) {
+        setClientMsg((d.name || 'This client') + ' is not on the Recovery list: nothing that counts is owed (paid up, only Pending projects, or a project in its first month).');
+        return;
+      }
+      setClientMsg('');
+      setTab(st === 'SITE' ? 'SITE' : st === 'LOCKED' ? 'LOCKED' : 'ALL');
+      setOpenId(d.id);
+      setSearch(d.name || '');
+    }).catch(() => { if (alive) setClientMsg('That client could not be found.'); });
+    return () => { alive = false; };
+  }, [wantClient]);
   // fix170: a tab already opened this visit shows at once; a tab never opened shows the loading panel, never the old tab's cards
   useEffect(() => {
     const cached = cacheRef.current[tab];
@@ -146,11 +169,8 @@ export default function RecoveryPortal() {
         />
       </div>
       </div>
-      <div className={styles.dotLegend} aria-label="Payment dot legend">
-        <span><i className={styles.payDotGreen} /> Recent payment</span>
-        <span><i className={styles.payDotYellow} /> Payment 2-4 weeks ago</span>
-        <span><i className={styles.payDotRed} /> No recent payment</span>
-      </div>
+      <div className={styles.dotLegend}><PaymentHealthLegend /></div>
+      {clientMsg && <div className={styles.dotLegend} role="status">{clientMsg}</div>}
       {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? (
         <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
@@ -166,7 +186,7 @@ export default function RecoveryPortal() {
                   </span>
                   <span className={styles.headerRight}>
                     <span className={`${styles.callPos} ${styles['qp_' + tab]}`}>{c.position ? tab + ' #' + c.position + '/' + c.queueTotal : tab}</span>
-                    <span className={c.payBadge === 'GREEN' ? styles.payDotGreen : c.payBadge === 'YELLOW' ? styles.payDotYellow : styles.payDotRed} title={c.payBadge === 'GREEN' ? 'Recent payment' : c.payBadge === 'YELLOW' ? 'Payment 2-4 weeks ago' : 'No recent payment'} />
+                    <PaymentHealthDot days={c.daysSincePayment} />
                     {c.lastTag && (<span className={c.lastTone === 'POSITIVE' ? styles.chipPos : c.lastTone === 'NEGATIVE' ? styles.chipNeg : styles.chipNone}>{c.lastTag}</span>)}
                     {c.problem && <span className={styles.chipNeg} title="One of this client's plots is flagged as a PROBLEM. Open the folder to read what it is before calling.">PROBLEM</span>}
                     {c.dayMiss > 0 && <span className={styles.dayChip}>day {c.dayMiss}/30</span>}

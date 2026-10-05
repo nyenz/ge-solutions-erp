@@ -93,6 +93,21 @@ public class ExpenseService {
     // -- LOGGING ------------------------------------------------------
 
     @Transactional
+    /**
+     * fix181 (7.2): "fuel", "Fuel" and "FUEL" are ONE category. A typed name takes the spelling of a preset or of an
+     * earlier expense that matches it ignoring capitals and extra spaces, so the totals per category do not split.
+     */
+    String canonicalCategory(String category) {
+        String typed = category == null ? "" : category.trim().replaceAll("\\s+", " ");
+        for (var p : presetRepository.findAll()) {
+            if (p.getName() != null && p.getName().trim().equalsIgnoreCase(typed)) return p.getName().trim();
+        }
+        for (String c : expenseRepository.findDistinctCategories()) {
+            if (c != null && c.trim().replaceAll("\\s+", " ").equalsIgnoreCase(typed)) return c;
+        }
+        return typed;
+    }
+
     public Expense createExpense(String category, BigDecimal amount, String note, String spentBy) {
         if (category == null || category.isBlank()) {
             throw new BusinessException("CATEGORY_REQUIRED: Pick a category for this expense.");
@@ -104,7 +119,7 @@ public class ExpenseService {
         String cleanSpentBy = (spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null;
 
         Expense expense = Expense.builder()
-                .category(category.trim())
+                .category(canonicalCategory(category))
                 .amount(amount)
                 .note(note)
                 .recordedBy(getCurrentOperator())
@@ -152,7 +167,7 @@ public class ExpenseService {
         String oldCategory = expense.getCategory();
         BigDecimal oldAmount = expense.getAmount();
 
-        expense.setCategory(category.trim());
+        expense.setCategory(canonicalCategory(category));
         expense.setAmount(amount);
         expense.setNote(note);
         expense.setSpentBy((spentBy != null && !spentBy.isBlank()) ? spentBy.trim() : null);

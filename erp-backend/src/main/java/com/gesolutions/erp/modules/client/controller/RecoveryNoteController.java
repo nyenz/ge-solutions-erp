@@ -37,6 +37,7 @@ public class RecoveryNoteController {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final RecoveryStateService recoveryState;
+    private final com.gesolutions.erp.modules.client.service.ClientViewService clientViewService;
     private static final String[][] TAGS = {
         {"answered call",   "POSITIVE", "true"},
         {"not picking up",  "NEGATIVE", "true"},
@@ -110,6 +111,7 @@ public class RecoveryNoteController {
         m.put("placeText", placeText.toString().trim());
         m.put("lastContactedAt", c.getLastContactedAt());
         m.put("payBadge", payBadge(ps));
+        m.put("daysSincePayment", pay == null ? null : Math.max(0, ChronoUnit.DAYS.between(pay.toLocalDate(), now.toLocalDate())));   // fix181 (2.2, 11.9)
         m.put("state", st); m.put("unlock", unlock == null ? null : unlock.toString());
         m.put("dayMiss", (st.equals("MISSED") || st.equals("SITE")) ? dayMiss(ns, now) : 0);
         m.put("calls30", succ30(ns, now)); m.put("miss30", miss30(ns, now));
@@ -333,149 +335,17 @@ public class RecoveryNoteController {
             + " for " + delFor + ", written by " + delWho + " on " + delWhen);
         return ResponseEntity.ok(Map.of("ok", true));
     }
+// fix181 (Sections 5, 6, 11): both pages are built by ClientViewService (shared rules, one pass, money only for
+// Director and Admin, Pending left out)
 @GetMapping("/clients/ledger")
 @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public java.util.List<java.util.Map<String, Object>> clientLedger() {
-java.util.Map<java.util.UUID, java.util.List<com.gesolutions.erp.modules.land.model.LandProject>> pm = new java.util.HashMap<>();
-for (com.gesolutions.erp.modules.land.model.LandProject p : projectRepo.findAll()) {
-if (p.billingParties() == null) continue;
-for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) {
-if (o == null || o.getId() == null) continue;
-pm.computeIfAbsent(o.getId(), k -> new java.util.ArrayList<>()).add(p);
+    return clientViewService.ledger();
 }
-}
-java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
-// fix181 (4.3): the same Recovery state the Recovery page shows, for every client in one pass
-RecoveryStateService.Snapshot rsnap = new RecoveryStateService.Snapshot(recoveryState.notesByClient(), pm);
-LocalDateTime rnow = LocalDateTime.now();
-for (com.gesolutions.erp.modules.client.model.Client c : clientRepo.findAll()) {
-java.util.List<com.gesolutions.erp.modules.land.model.LandProject> ps = pm.getOrDefault(c.getId(), java.util.List.of());
-java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-m.put("id", c.getId());
-m.put("name", c.getFullName());
-m.put("nin", c.getNationalId());
-m.put("phone", c.getPhoneNumber());
-m.put("email", c.getEmail());
-m.put("reliability", c.getReliabilityScore());
-m.put("lastContact", c.getLastContactedAt() == null ? null : c.getLastContactedAt().toString());
-java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
-java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
-java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
-java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
-java.util.List<java.util.UUID> pids = new java.util.ArrayList<>();
-for (com.gesolutions.erp.modules.land.model.LandProject p : ps) {
-java.math.BigDecimal o = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
-owed = owed.add(o);
-paid = paid.add(p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid());
-storage = storage.add(p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated());
-java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
-row.put("projectId", p.getId());
-row.put("index", p.getProjectIndex());
-row.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
-row.put("district", p.getDistrict());
-row.put("subCounty", p.getSubCounty());
-row.put("receivable", p.isReceivable());
-row.put("titled", p.getLandTitle() != null);
-row.put("legacy", p.isLegacy());
-row.put("owed", o);
-row.put("keptFees", p.keptFees());   // fix181 (11.3)
-row.put("titleFullyPaid", p.isTitleFullyPaid());
-plots.add(row);
-pids.add(p.getId());
-}
-m.put("plots", plots);
-m.put("plotCount", ps.size());
-m.put("keptFees", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::keptFees).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
-m.put("recoveryState", recoveryState.clientState(rsnap, c.getId(), rnow));
-java.time.LocalDateTime lastPaymentAt = pids.isEmpty() ? null
-    : paymentRepo.findTopByProjectIdInOrderByTimestampDesc(pids).map(PaymentRecord::getTimestamp).orElse(null);
-m.put("lastPaymentAt", lastPaymentAt == null ? null : lastPaymentAt.toString());
-m.put("owed", owed);
-m.put("paid", paid);
-m.put("storage", storage);
-m.put("storagePaid", ps.stream().map(com.gesolutions.erp.modules.land.model.LandProject::storagePaidSafe).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
-java.util.List<com.gesolutions.erp.modules.client.model.RecoveryNote> ns = noteRepo.findByClientOrderByCreatedAtDesc(c);
-m.put("lastTag", ns.isEmpty() ? null : ns.get(0).getTag());
-m.put("lastTone", ns.isEmpty() ? null : ns.get(0).getTone());
-out.add(m);
-}
-out.sort((a, b) -> String.valueOf(a.get("name")).compareToIgnoreCase(String.valueOf(b.get("name"))));
-return out;
-}
+
 @GetMapping("/clients/{id}/dossier")
 @PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public java.util.Map<String, Object> clientDossier(@PathVariable UUID id) {
-java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
-com.gesolutions.erp.modules.client.model.Client c = clientRepo.findById(id).orElseThrow(() -> new RuntimeException("Client not found"));
-out.put("id", c.getId());
-out.put("name", c.getFullName());
-out.put("nin", c.getNationalId());
-out.put("phone", c.getPhoneNumber());
-out.put("email", c.getEmail());
-out.put("address", c.getHomeAddress());
-out.put("reliability", c.getReliabilityScore());
-out.put("lastContact", c.getLastContactedAt() == null ? null : c.getLastContactedAt().toString());
-out.put("monthlyContacts", c.getMonthlyContactCount());
-java.util.List<java.util.Map<String, Object>> plots = new java.util.ArrayList<>();
-java.math.BigDecimal owed = java.math.BigDecimal.ZERO;
-java.math.BigDecimal paid = java.math.BigDecimal.ZERO;
-java.math.BigDecimal storage = java.math.BigDecimal.ZERO;
-// fix181 (4.3): only this client's projects (it used to read every project)
-java.util.List<com.gesolutions.erp.modules.land.model.LandProject> mineList = projectRepo.findByBillingClient(id);
-LocalDateTime dnow = LocalDateTime.now();
-out.put("recoveryState", recoveryState.qualifies(mineList, dnow)
-        ? recoveryState.state(mineList, noteRepo.findByClientOrderByCreatedAtDesc(c), dnow) : null);
-for (com.gesolutions.erp.modules.land.model.LandProject p : mineList) {
-if (p.billingParties() == null) continue;
-boolean mine = false;
-for (com.gesolutions.erp.modules.client.model.Client o : p.billingParties()) { if (o != null && id.equals(o.getId())) { mine = true; break; } }
-if (!mine) continue;
-java.math.BigDecimal o1 = p.isReceivable() ? p.receivableTotalOwed() : p.activeTotalOwed();
-java.math.BigDecimal p1 = p.getAmountPaid() == null ? java.math.BigDecimal.ZERO : p.getAmountPaid();
-java.math.BigDecimal s1 = p.getStorageFeesAccumulated() == null ? java.math.BigDecimal.ZERO : p.getStorageFeesAccumulated();
-owed = owed.add(o1); paid = paid.add(p1); storage = storage.add(s1);
-java.util.Map<String, Object> pm = new java.util.LinkedHashMap<>();
-pm.put("projectId", p.getId());
-pm.put("index", p.getProjectIndex());
-pm.put("plot", p.getLandTitle() == null ? null : p.getLandTitle().getPlotNumber());
-pm.put("district", p.getDistrict());
-pm.put("subCounty", p.getSubCounty());
-pm.put("receivable", p.isReceivable());
-pm.put("titled", p.getLandTitle() != null);
-pm.put("legacy", p.isLegacy());
-pm.put("owed", o1); pm.put("paid", p1); pm.put("storage", s1);
-pm.put("keptFees", p.keptFees());   // fix181 (11.3)
-pm.put("lastPayment", p.getLastPaymentDate() == null ? null : p.getLastPaymentDate().toString());
-java.util.Set<com.gesolutions.erp.modules.client.model.Client> owners = p.billingParties();
-pm.put("ownershipType", owners != null && owners.size() > 1 ? "JOINT" : "SOLO");
-java.util.List<java.util.Map<String, Object>> coOwners = new java.util.ArrayList<>();
-if (owners != null) {
-for (com.gesolutions.erp.modules.client.model.Client co : owners) {
-if (co == null || co.getId() == null || id.equals(co.getId())) continue;
-java.util.Map<String, Object> cm = new java.util.LinkedHashMap<>();
-cm.put("clientId", co.getId());
-cm.put("fullName", co.getFullName());
-coOwners.add(cm);
-}
-}
-pm.put("coOwners", coOwners);
-plots.add(pm);
-}
-out.put("plots", plots);
-java.util.Map<String, Object> totals = new java.util.LinkedHashMap<>();
-totals.put("owed", owed); totals.put("paid", paid); totals.put("storage", storage);
-out.put("totals", totals);
-java.util.List<java.util.Map<String, Object>> notes = new java.util.ArrayList<>();
-for (com.gesolutions.erp.modules.client.model.RecoveryNote n : noteRepo.findByClientOrderByCreatedAtDesc(c)) {
-java.util.Map<String, Object> nm2 = new java.util.LinkedHashMap<>();
-nm2.put("id", n.getId()); nm2.put("tag", n.getTag()); nm2.put("tone", n.getTone()); nm2.put("text", n.getText());
-nm2.put("author", n.getAuthor() == null ? null : n.getAuthor().getUsername());
-nm2.put("createdAt", n.getCreatedAt() == null ? null : n.getCreatedAt().toString());
-notes.add(nm2);
-}
-out.put("notes", notes);
-return out;
+    return clientViewService.dossier(id);
 }
 }
