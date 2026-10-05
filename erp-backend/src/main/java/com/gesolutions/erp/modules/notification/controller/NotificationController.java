@@ -18,6 +18,8 @@ public class NotificationController {
     private final NotificationRepository notifRepo;
     private final NotificationReadRepository readRepo;
     private final UserRepository userRepo;
+    private final com.gesolutions.erp.modules.client.service.RecoveryStateService recoveryState;
+    private final com.gesolutions.erp.modules.land.service.WorkCountsService workCountsService;
     private User me(Authentication auth) { return userRepo.findByUsername(auth.getName()).orElse(null); }
 
     // fix181 (17.0b): the Employee has no bell (answer empty, not 403); nobody sees alerts older than notify_since
@@ -69,6 +71,37 @@ public class NotificationController {
         }
         return out;
     }
+    /**
+     * fix181 (17.6): ONE call per bell tick (it used to be three): unread (total and per group), clients due for a call,
+     * and the server time. The full list is fetched only when the bell is opened. The Employee gets an empty answer.
+     */
+    @GetMapping("/summary")
+    public Map<String, Object> summary(Authentication auth) {
+        User u = me(auth);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("serverTime", LocalDateTime.now());
+        if (noBell(u)) { m.put("unread", 0L); m.put("unreadByGroup", Map.of()); m.put("dueNow", 0L); return m; }
+        Set<UUID> readIds = readRepo.findByUserId(u.getId()).stream().map(NotificationRead::getNotificationId).collect(Collectors.toSet());
+        Map<String, Long> byGroup = new LinkedHashMap<>();
+        long total = 0;
+        for (Notification n : notifRepo.findForRole(u.getRole().name(), since(u))) {
+            if (readIds.contains(n.getId())) continue;
+            total++;
+            byGroup.merge(n.getCategory() == null ? "SYSTEM" : n.getCategory(), 1L, Long::sum);
+        }
+        m.put("unread", total);
+        m.put("unreadByGroup", byGroup);
+        m.put("dueNow", recoveryState.dueNowCached());
+        return m;
+    }
+
+    /** fix181 (8.4, 17.6): the live work counts (Secretary and above). */
+    @GetMapping("/work-counts")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ROLE_SECRETARY','ROLE_MANAGER','ROLE_ADMIN','ROLE_DIRECTOR')")
+    public Map<String, Object> workCounts() {
+        return workCountsService.counts();
+    }
+
     @GetMapping("/unread-count")
     public Map<String, Long> unread(Authentication auth) {
         User u = me(auth);

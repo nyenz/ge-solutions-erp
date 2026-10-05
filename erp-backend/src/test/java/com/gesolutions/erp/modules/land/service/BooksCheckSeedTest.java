@@ -35,6 +35,24 @@ public class BooksCheckSeedTest {
 
     @Autowired private BooksCheckService booksCheck;
     @Autowired private LandProjectRepository projects;
+    @Autowired private WorkCountsService workCounts;
+
+    /** fix181 (17.6): the work counts equal what the Ledger filters show for the same data. */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void workCountsMatchTheLedgerRules() {
+        Map<String, Object> c = workCounts.counts();
+        long pending = projects.findAllIncludingPending().stream().filter(LandProject::isPending).count();
+        assertEquals(pending, ((Map<String, Object>) c.get("pending")).get("count"));
+        assertTrue(pending >= 4, "the demo data has 4 Pending projects");
+        long ready = projects.findAll().stream().filter(p -> p.releaseBlocker() == null).count();
+        assertEquals(ready, c.get("releaseReady"));
+        long problems = projects.findAll().stream().filter(LandProject::isProblem).count();
+        assertEquals(problems, c.get("problems"));
+        long totalByType = ((Map<String, Map<String, Long>>) c.get("byType")).values().stream()
+                .flatMap(m -> m.values().stream()).mapToLong(Long::longValue).sum();
+        assertEquals(projects.findAllIncludingPending().size(), totalByType, "every live project is counted once");
+    }
 
     @Test
     public void seededBooksAddUp() {

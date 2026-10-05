@@ -202,6 +202,19 @@ public class RecoveryStateService {
         return best;
     }
 
+    // fix181 (17.17): "due now" is asked by every bell poll of every device; the answer is kept for 60 seconds
+    private volatile long dueCacheAt = 0;
+    private volatile long dueCacheValue = 0;
+
+    public long dueNowCached() {
+        long now = System.currentTimeMillis();
+        if (now - dueCacheAt > 60_000L) {
+            dueCacheValue = dueNow(load(), LocalDateTime.now());
+            dueCacheAt = now;
+        }
+        return dueCacheValue;
+    }
+
     /** Clients a caller should phone now (NEW, CONTACTED or MISSED): the Recovery "due now" and the Dashboard tile. */
     public long dueNow(Snapshot s, LocalDateTime now) {
         return clientStates(s, now).values().stream()
