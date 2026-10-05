@@ -81,10 +81,10 @@
 | Repo | GitHub (currently PUBLIC -- David will switch it to private before real data goes in): github.com/nyenz/ge-solutions-erp |
 
 **URLs:**
-- Backend: https://ge-solutions-api.onrender.com (the app calls it at /api/v1)
+- Backend: https://ge-solutions.onrender.com (the app calls it at /api/v1). Render service `ge-solutions`, Singapore, same region as the Neon database. (The old Oregon service `ge-solutions-api` was retired in October 2026.)
 - Frontend: https://golden-seed.onrender.com
 
-**Database:** Host: ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech | Name: neondb | User: neondb_owner
+**Database:** Neon project `ge-solutions-cloud` (AWS Asia Pacific 1, Singapore). Host: shown in Neon > Connect | Name: neondb | User: neondb_owner. (The old US East address `ep-wispy-cell-an2afrm4...us-east-1` belonged to the retired Oregon service.)
 
 ---
 

@@ -1,33 +1,16 @@
 # PATH: render.yaml
+# Render Blueprint. It manages ONLY the website (golden-seed).
+#
+# The server is the Render service `ge-solutions` (Docker, Singapore, next to the Neon database
+# `ge-solutions-cloud`). It was set up by hand in the Render dashboard, so it is NOT listed here: a Blueprint entry
+# with the same name could make Render create a second copy. Its settings live in the dashboard
+# (ge-solutions > Environment): SPRING_DATASOURCE_URL (Neon > Connect, the JDBC form), SPRING_DATASOURCE_USERNAME,
+# SPRING_DATASOURCE_PASSWORD, GE_SOLUTIONS_JWT_SECRET, ADMIN_DEFAULT_PASSWORD, GE_SOLUTIONS_SEED_DEMO_DATA and
+# JAVA_OPTS (-Xms128m -Xmx384m -XX:+UseContainerSupport -Duser.timezone=Africa/Kampala).
+# Build: Dockerfile erp-backend/Dockerfile, docker context = repository root. Health check: /api/v1/auth/health.
+#
+# The old Oregon server `ge-solutions-api` was retired in October 2026 and removed from this file.
 services:
-  - type: web
-    name: ge-solutions-api
-    env: docker
-    repo: https://github.com/nyenz/ge-solutions-erp
-    dockerContext: .
-    dockerfilePath: erp-backend/Dockerfile
-    plan: free
-    region: oregon
-    # VITAL FIX: Must match the exact path in AuthController.
-    # AuthController is mapped to /api/v1/auth, so the health
-    # endpoint full path is /api/v1/auth/health — not /api/v1/health.
-    healthCheckPath: /api/v1/auth/health
-    envVars:
-      - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://ep-wispy-cell-an2afrm4.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
-      # fix181: secrets live ONLY in the Render dashboard (Environment tab). sync: false = Render asks for the value
-      # there and never reads it from this file. The old password that was written here is in git history: rotate it.
-      - key: SPRING_DATASOURCE_USERNAME
-        sync: false
-      - key: SPRING_DATASOURCE_PASSWORD
-        sync: false
-      - key: GE_SOLUTIONS_JWT_SECRET
-        sync: false
-      - key: ADMIN_DEFAULT_PASSWORD
-        sync: false
-      - key: JAVA_OPTS
-        value: "-Xms128m -Xmx384m -XX:+UseContainerSupport -Duser.timezone=Africa/Kampala"
-
   - type: web
     name: golden-seed
     env: static
@@ -41,4 +24,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://ge-solutions-api.onrender.com/api/v1
+        value: https://ge-solutions.onrender.com/api/v1
