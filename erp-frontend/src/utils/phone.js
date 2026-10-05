@@ -7,7 +7,7 @@
 
 const MAX_NUMBERS = 3;
 const MAX_LENGTH = 50; // clients.phone_number column size
-const SPLIT = /[\/,;\n\r]+/;
+const SPLIT = /[/,;\n\r]+/;
 const HELP = 'Use 10 digits like 0772 123 456, or +256 772 123 456.';
 
 // 6+ of the same digit in a row, or a run of 7+ counting up / down.

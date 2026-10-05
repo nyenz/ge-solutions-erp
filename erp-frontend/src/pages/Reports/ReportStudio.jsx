@@ -5,7 +5,6 @@
 // chart, table and downloads can never disagree.
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FiSearch, FiX, FiChevronDown, FiAlertCircle } from 'react-icons/fi';
-import { jsPDF } from 'jspdf';
 import { Chart } from '../../components/common/Charts';
 import {
   DATASETS, datasetsFor, fieldsFor, fieldByKey, applyFilters,
@@ -28,8 +27,6 @@ const SEARCH_HINT = {
   EXPENSES: 'Item, category, project...',
   COMPANY: 'Any row across the company...',
 };
-
-const fldByLabel = (dataset, label) => (dataset?.fields || []).find(f => f.label === label);
 
 const periodRange = (period, fromArg, toArg) => {
   const now = new Date();
@@ -62,7 +59,6 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
   const dataset = DATASETS[datasetKey] || available[0];
   const [rows, setRows] = useState([]);
-  const [counts, setCounts] = useState({});
   const countsRef = useRef({});
   const cacheRef = useRef({});
   const [loading, setLoading] = useState(false);
@@ -80,7 +76,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const [appliedId, setAppliedId] = useState(null);
   const [chartMode, setChartMode] = useState('NONE');
   const [recent, setRecent] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; }
+    try { return JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
   });
   const [colOpen, setColOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -122,7 +118,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       cacheRef.current[key] = list;
       setRows(list);
       setLoadNote((data && data.note) || '');
-    } catch (e) {
+    } catch {
       cacheRef.current[key] = [];
       setRows([]);
       setError('Could not load ' + ds.label.toLowerCase() + '. You may not have access, or the connection dropped.');
@@ -133,7 +129,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   useEffect(() => { load(datasetKey); }, [datasetKey, load]);
   useEffect(() => {
     let alive = true;
-    const put = (k, v) => { countsRef.current[k] = v; setCounts(c => ({ ...c, [k]: v })); };
+    const put = (k, v) => { countsRef.current[k] = v; };
     available.forEach(ds => {
       if (ds.key === datasetKey || cacheRef.current[ds.key]) return;
       ds.load().then(data => {
@@ -144,12 +140,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       }).catch(() => { if (alive) { cacheRef.current[ds.key] = []; put(ds.key, 0); } });
     });
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, datasetKey]);
   useEffect(() => {
     if (countsRef.current[datasetKey] !== rows.length) {
       countsRef.current[datasetKey] = rows.length;
-      setCounts(c => ({ ...c, [datasetKey]: rows.length }));
     }
   }, [datasetKey, rows.length]);
   const firstRun = useRef(true);
@@ -185,7 +179,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     }
   }, [datasetKey, canSeeMoney]);
 
-  const entityTypes = ENTITIES[datasetKey] || [];
+  const entityTypes = useMemo(() => ENTITIES[datasetKey] || [], [datasetKey]);
   const entityValues = (type) => {
     const t = entityTypes.find(x => x.type === type);
     if (!t) return [];
@@ -240,7 +234,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     setChartMode(def.chart || 'NONE');
     const next = [def.id].concat(recent.filter(x => x !== def.id)).slice(0, 6);
     setRecent(next);
-    try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch (e) { /* private mode */ }
+    try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* private mode */ }
   };
   const periodHuman = () => {
     const labels = { TODAY: 'today', 'THIS WEEK': 'this week', 'LAST WEEK': 'last week', 'THIS MONTH': 'this month', 'LAST MONTH': 'last month', 'THIS QUARTER': 'this quarter', 'THIS YEAR': 'this year', 'LAST YEAR': 'last year', 'ALL TIME': 'since records began' };
@@ -434,9 +428,11 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
       y += 12;
     });
   };
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const def = appliedDef;
     if (!def || !tableCols.length) return;
+    // fix182 (speed): the PDF library (~400 KB) is only downloaded when someone actually exports a PDF
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
     const pw = doc.internal.pageSize.getWidth();
     doc.setFillColor(22, 42, 44);
@@ -455,7 +451,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
     const finish = (png) => {
       let y = 96;
       if (png) {
-        try { doc.addImage(png, 'PNG', 30, y, 500, 190); } catch (e) { /* chart image best-effort */ }
+        try { doc.addImage(png, 'PNG', 30, y, 500, 190); } catch { /* chart image best-effort */ }
         y += 200;
       }
       pdfTablePages(doc, tableCols, sortedAll);
@@ -480,7 +476,7 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
         img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
         return;
       }
-    } catch (e) { /* fall through to text-only PDF */ }
+    } catch { /* fall through to text-only PDF */ }
     finish(null);
   };
 

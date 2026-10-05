@@ -62,6 +62,7 @@ const TabDock = ({ items, value, onChange, mode = 'filter', label, end = null, c
 
 // fix147: accent of the ACTIVE pill, for tinting the panel below it.
 // 'orange' (or no accent) -> undefined, so the panel keeps its normal look.
+// eslint-disable-next-line react-refresh/only-export-components -- a tiny helper that belongs with the dock
 export const accentOf = (items, value) => {
     const a = (items.find((i) => i.key === value) || {}).accent;
     return a && a !== 'orange' ? a : undefined;

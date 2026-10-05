@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AuthContext } from './AuthContext';
 import api, { markActivity } from '../api/axios';
+import { forget as forgetPageCache } from '../utils/pageCache';
 
 // fix181 (14.2d): the username inside the token (the "sub" claim); null when it cannot be read
 const tokenUser = (t) => {
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = useCallback((authData) => {
         if (authData?.token && authData?.user) {
+            forgetPageCache();   // fix182: never show one person's cached lists to the next
             setToken(authData.token);
             setUser(authData.user);
             localStorage.setItem('gs_token', authData.token);

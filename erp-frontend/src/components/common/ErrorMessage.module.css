@@ -116,9 +116,9 @@
 [data-theme="dark"] .error {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.35);
-    color: #fca5a5;
+    color: var(--tx-red, #fca5a5);
 }
-.dark .error .title { color: #fca5a5; }
+.dark .error .title { color: var(--tx-red, #fca5a5); }
 .dark .error .msg   { color: rgba(255,200,200,0.75); }
 
 /* ── WARN (amber/orange) ── */
@@ -191,31 +191,31 @@
 /* ── DARK PANEL OVERRIDES ── */
 /* When ErrorMessage sits inside a dark navy panel, flip to light-on-dark */
 .panelDark.error   { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.4); }
-.panelDark.error .title { color: #fca5a5; }
+.panelDark.error .title { color: var(--tx-red, #fca5a5); }
 .panelDark.error .msg   { color: rgba(255,200,200,0.7); }
 .panelDark.error .iconBox { color: #ef4444; }
-.panelDark.error .retryBtn { color: #fca5a5; }
+.panelDark.error .retryBtn { color: var(--tx-red, #fca5a5); }
 
 .panelDark.warn   { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); }
-.panelDark.warn .title { color: #fcd34d; }
+.panelDark.warn .title { color: var(--tx-yellow, #fcd34d); }
 .panelDark.warn .msg   { color: rgba(255,220,150,0.7); }
 .panelDark.warn .iconBox { color: #f59e0b; }
-.panelDark.warn .retryBtn { color: #fcd34d; }
+.panelDark.warn .retryBtn { color: var(--tx-yellow, #fcd34d); }
 
 .panelDark.info   { background: rgba(6,182,212,0.10); border-color: rgba(6,182,212,0.35); }
-.panelDark.info .title { color: #67e8f9; }
+.panelDark.info .title { color: var(--tx-cyan, #67e8f9); }
 .panelDark.info .msg   { color: rgba(150,240,255,0.65); }
 .panelDark.info .iconBox { color: #06b6d4; }
 
 .panelDark.success { background: rgba(16,185,129,0.10); border-color: rgba(16,185,129,0.35); }
-.panelDark.success .title { color: #6ee7b7; }
+.panelDark.success .title { color: var(--tx-green, #6ee7b7); }
 .panelDark.success .msg   { color: rgba(150,255,210,0.65); }
 .panelDark.success .iconBox { color: #10b981; }
 
-.panelDark.empty  { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
-.panelDark.empty .title { color: rgba(255,255,255,0.4); }
-.panelDark.empty .msg   { color: rgba(255,255,255,0.28); }
-.panelDark.empty .iconBox { color: rgba(255,255,255,0.25); }
+.panelDark.empty  { background: rgba(var(--ink-rgb), 0.04); border-color: rgba(var(--ink-rgb), 0.10); }
+.panelDark.empty .title { color: rgba(var(--ink-rgb), 0.4); }
+.panelDark.empty .msg   { color: rgba(var(--ink-rgb), 0.28); }
+.panelDark.empty .iconBox { color: rgba(var(--ink-rgb), 0.25); }
 
 .panelDark.lock   { background: rgba(99,102,241,0.10); border-color: rgba(99,102,241,0.3); }
 .panelDark.lock .title { color: #a5b4fc; }

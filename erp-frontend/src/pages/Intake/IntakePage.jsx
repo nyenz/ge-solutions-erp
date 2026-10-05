@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
-    FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
+    FiUser, FiUsers, FiMap, FiCheckSquare, FiFileText, FiDollarSign, FiUploadCloud,
     FiPlus, FiTrash2, FiSave, FiHash, FiFolderPlus, FiFilePlus, FiArchive,
     FiEdit3, FiBookmark, FiX, FiCopy, FiRefreshCw, FiCalendar, FiGrid, FiLink
 } from 'react-icons/fi';
@@ -59,7 +59,7 @@ const monthsSince = (iso) => {
 const PRESET_STORAGE_KEY = 'geSolutions.intake.statusPresets';
 const INDEX_CACHE_KEY = 'geSolutions.intake.nextIndexPreview';
 const loadPresets = () => { try { const r = localStorage.getItem(PRESET_STORAGE_KEY); return r ? JSON.parse(r) : []; } catch { return []; } };
-const savePresets = (p) => { try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(p)); } catch {} };
+const savePresets = (p) => { try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(p)); } catch { /* storage blocked */ } };
 
 export default function IntakePage() {
     const navigate = useNavigate();
@@ -154,7 +154,7 @@ export default function IntakePage() {
             } else {
                 ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = f.url; });
             }
-        } catch (err) { /* keep the portrait default */ }
+        } catch { /* keep the portrait default */ }
         ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
         setPreviewFile({ ...f, isPdf, ratio });
     };
@@ -172,7 +172,6 @@ export default function IntakePage() {
         const rank = (k) => { if (k === '__NONE__') return 9999; const x = docCats.findIndex(c => c.code === k); return x < 0 ? 9000 : x; };
         return [...g.entries()].sort((p, q) => rank(p[0]) - rank(q[0]));
     })();
-    const catCodeOf = (label) => { const c = catChoices.find(x => x.label === label); return c ? c.code : ''; };
     const [notes, setNotes] = useState('');
     const [dirty, setDirty] = useState(false);
     const dirtyRef = useRef(false);
@@ -228,15 +227,15 @@ export default function IntakePage() {
 
     useEffect(() => {
         let cancelled = false;
-        try { const c = localStorage.getItem(INDEX_CACHE_KEY); if (c) setNextIndex(c); } catch {}
+        try { const c = localStorage.getItem(INDEX_CACHE_KEY); if (c) setNextIndex(c); } catch { /* storage blocked */ }
         const load = (attempt) => {
             landService.getNextIndex().then(idx => {
                 if (cancelled) return;
-                if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} }
+                if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } }
             }).catch(() => {
                 if (cancelled) return;
                 if (attempt < 2) { setTimeout(() => load(attempt + 1), 2500); return; }
-                let cached = null; try { cached = localStorage.getItem(INDEX_CACHE_KEY); } catch {}
+                let cached = null; try { cached = localStorage.getItem(INDEX_CACHE_KEY); } catch { /* storage blocked */ }
                 if (!cached) toast('Could not load the next index. Refresh to try again.', 'error');
             });
         };
@@ -537,7 +536,7 @@ export default function IntakePage() {
         setLastPaidDate(''); setReceivablesSince(''); setTitlePayerIdx(''); setFeesPayerIdx('');   // fix172
         setNotes(''); setFileQueue(q => { q.forEach(x => URL.revokeObjectURL(x.url)); return []; });
         loadTypeStatuses(projectType);
-        landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch {} } }).catch(() => {});
+        landService.getNextIndex().then(idx => { if (idx) { setNextIndex(idx); try { localStorage.setItem(INDEX_CACHE_KEY, idx); } catch { /* storage blocked */ } } }).catch(() => {});
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 

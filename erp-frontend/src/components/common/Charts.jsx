@@ -253,15 +253,16 @@ export const DonutChart = ({ rows, format = String, size = 210 }) => {
     if (!total) return <Empty label="NOTHING POSITIVE TO SHARE OUT" />;
 
     const R = size / 2, RING = size * 0.19, r = R - RING / 2;
-    let angle = -Math.PI / 2;
+    // each slice starts where the ones before it end (worked out from the values, no running variable)
+    const startOf = (i) => -Math.PI / 2 + slices.slice(0, i).reduce((a, x) => a + (x.value / total) * Math.PI * 2, 0);
 
     const arcs = slices.map((s, i) => {
         const sweep = (s.value / total) * Math.PI * 2;
-        const x1 = R + r * Math.cos(angle);
-        const y1 = R + r * Math.sin(angle);
-        angle += sweep;
-        const x2 = R + r * Math.cos(angle);
-        const y2 = R + r * Math.sin(angle);
+        const a0 = startOf(i), a1 = a0 + sweep;
+        const x1 = R + r * Math.cos(a0);
+        const y1 = R + r * Math.sin(a0);
+        const x2 = R + r * Math.cos(a1);
+        const y2 = R + r * Math.sin(a1);
         return {
             ...s,
             colour: colourAt(i),
@@ -348,6 +349,7 @@ export const StackedRows = ({ rows, format = String }) => {
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- the list the chart picker shows
 export const CHART_TYPES = [
     { key: 'bars',   label: 'BARS'    },
     { key: 'column', label: 'COLUMNS' },

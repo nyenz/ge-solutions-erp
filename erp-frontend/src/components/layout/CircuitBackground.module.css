@@ -51,7 +51,7 @@
 /* --- GLOW STYLING --- */
 .lineGlow {
     fill: none;
-    stroke: #EE8C3A; /* Literal Orange Glow */
+    stroke: var(--tx-accent, #EE8C3A); /* Literal Orange Glow */
     stroke-linecap: round;
     stroke-linejoin: round;
     pointer-events: none;

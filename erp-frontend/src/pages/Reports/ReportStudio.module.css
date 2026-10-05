@@ -5,7 +5,7 @@
    white controls with ink text, orange for active/hover, Intake chip spec. */
 .studio { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 16px); }
 .scopePanel, .catPanel, .viewerPanel {
-  border: 1.5px solid rgba(255, 255, 255, 0.10);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.10);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   overflow: visible;
@@ -15,7 +15,7 @@
    same gradient body and the same wake-up hover -- border warms to
    orange and the shadow deepens, telling you the whole card is live. */
 .scopePanel, .catPanel {
-  background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+  background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--sf-2, #213E40) 100%);
   border-color: rgba(238, 140, 58, 0.2);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
@@ -25,7 +25,7 @@
 }
 .panelHeadRow {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  background: #162a2c; border-bottom: 1.5px solid #EE8C3A;
+  background: var(--sf-head, #162a2c); border-bottom: 1.5px solid #EE8C3A;
   border-radius: 11px 11px 0 0; padding: 10px 14px;
   width: 100%; box-sizing: border-box; text-align: left;
   transition: border-bottom-color 0.25s ease, border-radius 0.25s ease;
@@ -53,9 +53,9 @@
   padding: 9px 12px;
   gap: 8px;
 }
-.scopeTitle { font-family: 'Cinzel', serif; color: #EE8C3A; font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.scopeTitle { font-family: 'Cinzel', serif; color: var(--tx-accent, #EE8C3A); font-size: clamp(10px, 1.1vw, 13px); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .scopePanel .scopeTitle { font-size: clamp(10px, 1.3vw, 13px); }
-.badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.65); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 20px; padding: 4px 12px; }
+.badge { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1px; color: rgba(var(--ink-rgb), 0.65); background: rgba(var(--ink-rgb), 0.07); border: 1px solid rgba(var(--ink-rgb), 0.16); border-radius: 20px; padding: 4px 12px; }
 .scopeBody { padding: clamp(12px, 1.6vw, 18px); display: flex; flex-direction: column; gap: clamp(10px, 1.3vw, 14px); animation: panelExpand 0.2s ease-out; }
 .catBody { animation: panelExpand 0.2s ease-out; }
 @keyframes panelExpand {
@@ -65,7 +65,7 @@
 .sourceRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .sourcePanel {
   flex: 0 0 auto; display: flex; align-items: center;
-  background: #4d5c5a;
+  background: var(--sf-dock, #4d5c5a);
   border: none; border-radius: 8px;
   padding: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
 }
@@ -78,10 +78,10 @@
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900;
   letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px; border-radius: 6px;
-  border: 1.5px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.85); transition: all 0.2s ease;
+  border: 1.5px solid rgba(var(--ink-rgb), 0.2); background: rgba(var(--ink-rgb), 0.08);
+  color: rgba(var(--ink-rgb), 0.85); transition: all 0.2s ease;
 }
-.chip:hover:not(:disabled) { border-color: #EE8C3A; color: #EE8C3A; background: rgba(238,140,58,0.12); }
+.chip:hover:not(:disabled) { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); background: rgba(238,140,58,0.12); }
 .chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .tileRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tile {
@@ -90,9 +90,9 @@
   letter-spacing: 1.5px; text-transform: uppercase;
   padding: 8px 12px; border-radius: 6px; outline: none;
   border: 1.5px solid transparent; background: transparent;
-  color: rgba(255,255,255,0.92); transition: color 0.2s ease;
+  color: rgba(var(--ink-rgb), 0.92); transition: color 0.2s ease;
 }
-.tile:hover { color: #EE8C3A; }
+.tile:hover { color: var(--tx-accent, #EE8C3A); }
 .tileActive {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 0.95vw, 11px); font-weight: 900;
@@ -102,12 +102,12 @@
   box-shadow: 0 4px 16px rgba(238,140,58,0.3);
 }
 .tileCount { font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 9px); opacity: 0.75; }
-.hint { display: flex; align-items: center; gap: 7px; margin: 0; font-size: clamp(10px, 1vw, 11.5px); font-weight: 600; color: rgba(255,255,255,0.66); }
-.hint svg { color: #EE8C3A; flex-shrink: 0; }
+.hint { display: flex; align-items: center; gap: 7px; margin: 0; font-size: clamp(10px, 1vw, 11.5px); font-weight: 600; color: rgba(var(--ink-rgb), 0.66); }
+.hint svg { color: var(--tx-accent, #EE8C3A); flex-shrink: 0; }
 .error { display: flex; align-items: center; gap: 8px; background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 8px 12px; }
 .scopeRow { display: flex; flex-wrap: wrap; gap: clamp(12px, 1.8vw, 24px); align-items: flex-start; }
 .scopeField { display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
-.miniLabel { font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+.miniLabel { font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.6); }
 .entWrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chipE { display: inline-flex; align-items: center; gap: 8px; background: #EE8C3A; color: #1a2e30; border-radius: 6px; padding: 9px 12px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
 .chipE button { background: transparent; border: none; cursor: pointer; color: #1a2e30; font-size: 12px; font-weight: 900; display: flex; }
@@ -120,7 +120,7 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .pickBtn:hover { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
-.pickBtn svg { color: #EE8C3A; transition: transform 0.2s; flex-shrink: 0; }
+.pickBtn svg { color: var(--tx-accent, #EE8C3A); transition: transform 0.2s; flex-shrink: 0; }
 .pickIconOpen { transform: rotate(180deg); }
 .pickList {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
@@ -148,18 +148,18 @@
 }
 .pickCheck:last-child { border-bottom: none; }
 .pickCheck:hover { background: #EE8C3A; color: #fff; }
-.pickCheck:hover input { accent-color: #fff; }
+.pickCheck:hover input { border-color: #fff; }
 .pickCheckOn { background: #fdf3e7; color: #b45309; }
-.pickCheck input { accent-color: #EE8C3A; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.pickCheck input { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
 .perChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .perChipsDim { opacity: 0.45; pointer-events: none; }
 .pchip {
   cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;
-  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.85); transition: all 0.2s ease; white-space: nowrap;
+  border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
+  color: rgba(var(--ink-rgb), 0.85); transition: all 0.2s ease; white-space: nowrap;
 }
-.pchip:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.pchip:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
 .pchipOn {
   cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 12px;
@@ -168,31 +168,31 @@
 }
 .customRange { display: flex; align-items: center; gap: 8px; }
 .customRange input { height: 36px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #1a2e30; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; }
-.customRange span { color: rgba(255,255,255,0.6); font-weight: 900; font-size: 10px; }
-.snapHint { color: #EE8C3A; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
+.customRange span { color: rgba(var(--ink-rgb), 0.6); font-weight: 900; font-size: 10px; }
+.snapHint { color: var(--tx-accent, #EE8C3A); font-size: 9px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
 .sortRow { display: flex; gap: 6px; align-items: center; }
-.dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: #EE8C3A; font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+.dirBtn { height: 38px; width: 38px; flex: 0 0 38px; border-radius: 6px; border: 1.5px solid #dfd9d1; background: #fff; color: var(--tx-accent, #EE8C3A); font-size: 15px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
 .dirBtn:hover { border-color: #EE8C3A; }
 .searchBox {
   box-sizing: border-box; position: relative; display: flex; align-items: center; height: 36px; width: clamp(200px, 22vw, 260px); background: #fff; border: 1.5px solid #dfd9d1; border-radius: 6px; margin-left: auto;
 }
 .searchBox:focus-within { border-color: #EE8C3A; box-shadow: 0 0 0 3px rgba(238,140,58,0.14); }
 .searchIcon {
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #EE8C3A; pointer-events: none;
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--tx-accent, #EE8C3A); pointer-events: none;
 }
 .searchBox input {
   flex: 1; width: 100%; height: 34px; border: none; outline: none; background: transparent; padding: 0 12px 0 40px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: #1a2e30; line-height: 34px;
 }
 .searchClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: rgba(26,46,48,0.45); display: flex; padding: 4px; }
 .searchClear:hover { color: #1a2e30; }
-.tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(0,0,0,0.16); border-bottom: 1px solid rgba(255,255,255,0.08); }
+.tabRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: rgba(var(--well), 0.16); border-bottom: 1px solid rgba(var(--ink-rgb), 0.08); }
 .gtab {
   cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
-  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.8); transition: all 0.2s;
+  border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
+  color: rgba(var(--ink-rgb), 0.8); transition: all 0.2s;
 }
-.gtab:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.gtab:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
 .gtabOn {
   cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
@@ -244,7 +244,7 @@
 .ungrouped, .groupBody { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(26,46,48,0.14); background: #fff; }
 .groupLabel { padding: 2px 4px; }
 .groupLabel span { font-size: 9px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #5b6f70; transition: color 0.18s ease; }
-.groupLabel span:hover { color: #EE8C3A; }
+.groupLabel span:hover { color: var(--tx-accent, #EE8C3A); }
 /* the row itself carries the left rail, so an expanded readout can
    share it, and the hairline divider between records. */
 .row { border-left: 3px solid transparent; border-bottom: 1.5px solid rgba(26,46,48,0.16); transition: border-left-color 0.16s ease; }
@@ -274,9 +274,9 @@
 .row .rowHead:hover .name,
 .row .rowHead:hover .rows,
 .row .rowHead:hover .tag,
-.row .rowHead:hover .chev { color: #fff; }
+.row .rowHead:hover .chev { color: var(--ink-solid); }
 .row.rowOpen .rowHead .desc,
-.row .rowHead:hover .desc { color: rgba(255,255,255,0.85); }
+.row .rowHead:hover .desc { color: rgba(var(--ink-rgb), 0.85); }
 .rowHead:focus-visible { outline: 2px solid #EE8C3A; outline-offset: -2px; }
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .name { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; color: #5b6f70; transition: color 0.15s ease; }
@@ -285,7 +285,7 @@
 .rows { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
 .tag { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 1px; color: rgba(26,46,48,0.4); white-space: nowrap; transition: color 0.15s ease; }
 .chev { color: rgba(26,46,48,0.35); font-size: 12px; flex-shrink: 0; transition: transform 0.2s ease, color 0.15s ease; }
-.row.rowOpen .chev { transform: rotate(180deg); color: #EE8C3A; }
+.row.rowOpen .chev { transform: rotate(180deg); color: var(--tx-accent, #EE8C3A); }
 .appliedTag { font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #a8551c; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
 /* fix120: the default row's permanent wash + rail is removed -- it
    made the default view look "active"/selected at all times, even
@@ -295,7 +295,7 @@
    own title is the only thing marking it as the default. */
 /* readout sits flush against the row's own left rail with zero extra
    margin -- the rail stops exactly where the readout stops. */
-.readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: #28383a; }
+.readout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0; background: var(--sf-readout, #28383a); }
 .readoutText { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(242,237,228,0.85); }
 /* real HeaderButton .primary spec: ~34px tall, recolor-only hover (no
    lift/transform), disabled/applied reuses the same colors at 0.5
@@ -315,19 +315,19 @@
 .pvChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pvChip {
   font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
-  letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.78);
-  border: 1px solid rgba(255,255,255,0.22); border-radius: 4px; padding: 3px 8px;
-  background: rgba(255,255,255,0.06); white-space: nowrap;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.78);
+  border: 1px solid rgba(var(--ink-rgb), 0.22); border-radius: 4px; padding: 3px 8px;
+  background: rgba(var(--ink-rgb), 0.06); white-space: nowrap;
 }
 .pvBtns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .chartChips { display: flex; gap: 6px; flex-wrap: wrap; }
 .cchip {
   cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px;
-  border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.8); transition: all 0.2s;
+  border-radius: 6px; border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--ink-rgb), 0.06);
+  color: rgba(var(--ink-rgb), 0.8); transition: all 0.2s;
 }
-.cchip:hover { border-color: #EE8C3A; color: #EE8C3A; }
+.cchip:hover { border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A); }
 .cchipOn { background: #EE8C3A; border-color: #EE8C3A; color: #1a2e30; }
 .chartBox {
   --accent: #EE8C3A; --surface: #ffffff; --surface-3: #efe9e2; --surface-edge: #dfd9d1;
@@ -338,32 +338,32 @@
 .pvScroll::-webkit-scrollbar { height: 8px; }
 .pvScroll::-webkit-scrollbar-thumb { background: rgba(238,140,58,0.45); border-radius: 4px; }
 .pvTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
-.pvTable th { position: sticky; top: 0; z-index: 2; background: #162a2c; color: #EE8C3A; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: 9px 12px; white-space: nowrap; }
+.pvTable th { position: sticky; top: 0; z-index: 2; background: var(--sf-head, #162a2c); color: var(--tx-accent, #EE8C3A); font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: 9px 12px; white-space: nowrap; }
 .pvTable td { padding: 8px 12px; border-bottom: 1px solid #f1eeea; color: #1a2e30; font-size: clamp(10px, 1.05vw, 12px); font-weight: 600; white-space: nowrap; }
 .pvTable tbody tr:nth-child(even) td { background: #fbf9f7; }
 .pvTable tbody tr:hover td { background: rgba(238,140,58,0.22); }
 .pvTable th:first-child, .pvTable td:first-child { position: sticky; left: 0; z-index: 3; }
-.pvTable th:first-child { background: #162a2c; }
+.pvTable th:first-child { background: var(--sf-head, #162a2c); }
 .pvTable td:first-child { background: #fff; font-family: 'Space Mono', monospace; font-weight: 700; border-right: 1px solid #dfd9d1; }
 .pvTable tbody tr:nth-child(even) td:first-child { background: #fbf9f7; }
 .pvTable tbody tr:hover td:first-child { background: rgba(238,140,58,0.22); }
-.pvNote { color: rgba(255,255,255,0.62); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7; }
+.pvNote { color: rgba(var(--ink-rgb), 0.62); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1.7; }
 .appliedLine { color: rgba(26,46,48,0.62); font-size: clamp(9px, 0.95vw, 11px); font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
-.appliedLine b { color: #EE8C3A; }
+.appliedLine b { color: var(--tx-accent, #EE8C3A); }
 .useBtnDark {
   flex-shrink: 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: clamp(8px, 0.85vw, 10px);
   font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 14px;
-  border-radius: 6px; border: 1.5px solid #EE8C3A; background: #162a2c; color: #EE8C3A; transition: all 0.2s;
+  border-radius: 6px; border: 1.5px solid #EE8C3A; background: var(--sf-head, #162a2c); color: var(--tx-accent, #EE8C3A); transition: all 0.2s;
 }
-.useBtnDark:hover:not(:disabled) { background: #213E40; transform: translateY(-1px); }
+.useBtnDark:hover:not(:disabled) { background: var(--sf-2, #213E40); transform: translateY(-1px); }
 .useBtnDark:disabled { opacity: 0.45; cursor: not-allowed; }
-.approachNote { background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: rgba(255,255,255,0.72); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 10px); line-height: 1.6; }
+.approachNote { background: rgba(var(--well), 0.28); border: 1px solid rgba(var(--ink-rgb), 0.1); border-radius: 6px; padding: 8px 12px; color: rgba(var(--ink-rgb), 0.72); font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.8vw, 10px); line-height: 1.6; }
 .pvChipDd {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
   font-family: 'Space Mono', monospace; font-size: clamp(8px, 0.85vw, 10px); font-weight: 700;
-  letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.78);
-  border: 1px solid rgba(255,255,255,0.22); border-radius: 4px; padding: 3px 6px 3px 8px;
-  background: rgba(255,255,255,0.06);
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.78);
+  border: 1px solid rgba(var(--ink-rgb), 0.22); border-radius: 4px; padding: 3px 6px 3px 8px;
+  background: rgba(var(--ink-rgb), 0.06);
 }
 .chartDdBtn {
   display: flex; align-items: center; gap: 4px; cursor: pointer; height: 22px; padding: 0 8px;
@@ -380,7 +380,7 @@
 .entInput, .searchBox { box-sizing: border-box; height: 36px; width: clamp(200px, 22vw, 260px); }
 .viewerEmpty {
   border: 2px dashed rgba(26, 46, 48, 0.28); border-radius: 10px;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(var(--ink-rgb), 0.35);
   padding: clamp(24px, 4vw, 40px) 16px;
   display: flex; align-items: center; justify-content: center; text-align: center;
   font-family: 'Inter', sans-serif; font-size: clamp(9px, 1vw, 11px); font-weight: 900;
@@ -396,12 +396,12 @@
    of its own, because the entire row is already the click target
    (role="button" on .panelHeadRow itself). */
 .headToggle {
-  margin-left: auto; display: inline-flex; align-items: center; flex-shrink: 0; color: rgba(255, 255, 255, 0.4); font-size: 14px; transition: color 0.2s ease;
+  margin-left: auto; display: inline-flex; align-items: center; flex-shrink: 0; color: rgba(var(--ink-rgb), 0.4); font-size: 14px; transition: color 0.2s ease;
 }
 .headToggle svg {
   transition: transform 0.2s ease;
 }
-.headToggle .pickIconOpen { color: #EE8C3A; }
+.headToggle .pickIconOpen { color: var(--tx-accent, #EE8C3A); }
 .catPanel .searchBox { margin-left: auto; }
 .catPanel .headToggle { margin-left: 10px; }
 /* Collapsed, the head row IS the whole visible panel -- it should read as
@@ -411,7 +411,7 @@
 /* Matches Intake's CollapsibleSection: hovering the head turns the title
    white -- the only hover feedback the head row gives. */
 .scopePanel .panelHeadRow:hover .scopeTitle,
-.catPanel .panelHeadRow:hover .scopeTitle { color: #fff; }
+.catPanel .panelHeadRow:hover .scopeTitle { color: var(--ink-solid); }
 .panelClosed { display: none; }
 .scopePanel, .catPanel { position: relative; }
 @media (max-width: 900px) {

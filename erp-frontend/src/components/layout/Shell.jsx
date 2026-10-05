@@ -1,9 +1,8 @@
 // PATH: erp-frontend/src/components/layout/Shell.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import styles from './Shell.module.css';
-import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
@@ -12,14 +11,20 @@ import { useLocation } from 'react-router-dom';
  * Passes onToggle to both Header (hamburger) and Sidebar (auto-close on mobile).
  */
 const Shell = ({ children }) => {
-    const [isCollapsed, setIsCollapsed] = useState(false);
     const location = useLocation();
+    // fix48: the sidebar starts contracted on the Ledger (it needs the width)
+    const [isCollapsed, setIsCollapsed] = useState(() => location.pathname.includes('/land/projects'));
+    const scrollRef = useRef(null);
 
-    // fix48: auto-contract sidebar on Ledger
+    // fix182: the Shell now stays on screen between pages (one header, one bell, one sidebar for the whole visit), so a
+    // new page starts at the top and the Ledger still contracts the sidebar when you arrive on it.
+    const [lastPath, setLastPath] = useState(location.pathname);
+    if (lastPath !== location.pathname) {
+        setLastPath(location.pathname);
+        if (location.pathname.includes('/land/projects') && !isCollapsed) setIsCollapsed(true);
+    }
     useEffect(() => {
-        if (location.pathname.includes('/land/projects')) {
-            setIsCollapsed(true);
-        }
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }, [location.pathname]);
 
 
@@ -51,7 +56,7 @@ const Shell = ({ children }) => {
                 />
 
                 <main className={styles.mainContent} onClick={handleContentClick}>
-                    <div className={styles.scrollArea}>
+                    <div className={styles.scrollArea} ref={scrollRef}>
                         {children}
                     </div>
                 </main>

@@ -27,9 +27,9 @@
     /* Header sits outside every page's .container, so it can't inherit
        their page-scoped tokens -- these are the same literal values the
        rest of the app already uses. */
-    --panel-bg: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
-    --panel-header: #162a2c;
-    --panel-edge: rgba(255, 255, 255, 0.10);
+    --panel-bg: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
+    --panel-header: var(--sf-head, #162a2c);
+    --panel-edge: rgba(var(--ink-rgb), 0.10);
     --accent: var(--orange);
     --accent-ink: var(--text-on-light, #1a2e30);
     --accent-soft: rgba(238, 140, 58, 0.14);
@@ -38,9 +38,9 @@
     --warn-soft: rgba(245, 158, 11, 0.12);
     --bad: #ef4444;
     --info: #06b6d4;
-    --on-panel: var(--text-on-dark, rgba(244, 242, 239, 0.82));
-    --on-panel-soft: var(--text-on-dark-soft, rgba(244, 242, 239, 0.72));
-    --on-panel-faint: rgba(244, 242, 239, 0.45);
+    --on-panel: var(--text-on-dark, rgba(var(--ink-rgb), 0.82));
+    --on-panel-soft: var(--text-on-dark-soft, rgba(var(--ink-rgb), 0.72));
+    --on-panel-faint: rgba(var(--ink-rgb), 0.45);
 }
 
 /* ── BAR ──────────────────────────────────────────────────────────── */
@@ -56,7 +56,7 @@
     gap: 12px;
     min-height: 64px;
     padding: 8px 18px;
-    background: linear-gradient(115deg, #14262a 0%, #1c3335 42%, #24454a 78%, #2b5157 100%);
+    background: linear-gradient(115deg, var(--sf-head, #14262a) 0%, var(--sf-1, #1c3335) 42%, var(--sf-2, #24454a) 78%, var(--sf-raise-2, #2b5157) 100%);
     border-bottom: 1.5px solid rgba(238, 140, 58, 0.35);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
@@ -85,22 +85,22 @@
 .sidebarToggle {
     width:  clamp(34px, 4vw, 42px);
     height: clamp(34px, 4vw, 42px);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: rgba(var(--ink-rgb), 0.05);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.1);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: border-color 0.25s, background 0.25s, color 0.25s;
-    color: #fff;
+    color: var(--ink-solid);
     font-size: clamp(17px, 2vw, 22px);
     flex-shrink: 0;
 }
 .sidebarToggle:hover {
     border-color: #EE8C3A;
     background: rgba(238, 140, 58, 0.1);
-    color: #EE8C3A;
+    color: var(--tx-accent, #EE8C3A);
 }
 .sidebarToggle:focus-visible {
     outline: 2px solid #EE8C3A;
@@ -159,7 +159,7 @@
 /* Cinzel 700 — brand name, per typography standard */
 .brandName {
     font-family: 'Cinzel', serif;
-    color: #EE8C3A;
+    color: var(--tx-accent, #EE8C3A);
     font-size: clamp(13px, 1.4vw, 20px);
     font-weight: 700;
     letter-spacing: 2px;
@@ -181,8 +181,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    background: rgba(var(--ink-rgb), 0.03);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.08);
     border-radius: 8px;
     cursor: pointer;
     transition: border-color 0.25s, background 0.25s;
@@ -210,7 +210,7 @@
 
 .bellIcon {
     font-size: clamp(16px, 1.9vw, 20px);
-    color: #EE8C3A;
+    color: var(--tx-accent, #EE8C3A);
     opacity: 0.85;
     flex-shrink: 0;
 }
@@ -230,7 +230,7 @@
     margin-left: -5px;
     padding: 0 3px;
     border-radius: 9px;
-    border: 2px solid #162a2c;
+    border: 2px solid var(--sf-head, #162a2c);
     color: #0f1f20;
     font-family: 'Space Mono', monospace;
     font-size: 8.5px;
@@ -247,10 +247,10 @@
     display: flex;
     align-items: center;
     gap: clamp(8px, 1vw, 12px);
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(var(--well), 0.25);
     padding: clamp(4px, 0.5vw, 7px) clamp(10px, 1.4vw, 18px);
     border-radius: 10px;
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.1);
 }
 
 /* Avatar square — orange fill, navy text, always legible */
@@ -279,7 +279,7 @@
 /* DM Sans 800 — UI label per standard */
 .userName {
     font-family: 'DM Sans', sans-serif;
-    color: #fff;
+    color: var(--ink-solid);
     font-size: clamp(10px, 1.1vw, 13px);
     font-weight: 800;
     line-height: 1;
@@ -291,7 +291,7 @@
     display: inline-flex;
     align-items: center;
     font-family: 'Space Mono', monospace;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(var(--ink-rgb), 0.45);
     font-size: clamp(7px, 0.78vw, 9px);
     font-weight: 900;
     text-transform: uppercase;
@@ -387,7 +387,7 @@
 .notifHero {
     flex-shrink: 0;
     padding: clamp(8px, 1vw, 10px);
-    background: linear-gradient(135deg, #3a5a5c 0%, #1c3335 65%, #16292b 100%);
+    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-1, #1c3335) 65%, var(--sf-deep, #16292b) 100%);
     border-bottom: 2px solid var(--a);
     transition: border-color 0.2s ease;
 }
@@ -406,11 +406,11 @@
     height: 7px;
     border-radius: 4px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(var(--ink-rgb), 0.14);
 }
 .notifMeterSeg { display: block; height: 100%; transition: width 0.4s ease, opacity 0.2s ease; }
 
-.notifMode { display: inline-flex; flex-shrink: 0; background: rgba(0, 0, 0, 0.28); border-radius: 6px; padding: 2px; }
+.notifMode { display: inline-flex; flex-shrink: 0; background: rgba(var(--well), 0.28); border-radius: 6px; padding: 2px; }
 .notifModeBtn, .notifModeOn {
     -webkit-appearance: none; appearance: none;
     border: 0; border-radius: 4px;
@@ -422,8 +422,8 @@
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease;
 }
-.notifModeBtn { background: transparent; color: rgba(255, 255, 255, 0.7); }
-.notifModeBtn:hover { color: #EE8C3A; }
+.notifModeBtn { background: transparent; color: rgba(var(--ink-rgb), 0.7); }
+.notifModeBtn:hover { color: var(--tx-accent, #EE8C3A); }
 .notifModeOn { background: #EE8C3A; color: #1a2e30; }
 
 .notifTool {
@@ -434,7 +434,7 @@
     background: transparent;
     border: 1.5px solid rgba(238, 140, 58, 0.6);
     border-radius: 6px;
-    color: #EE8C3A;
+    color: var(--tx-accent, #EE8C3A);
     font-size: 14px;
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -456,7 +456,7 @@
     display: flex; gap: 3px;
     margin-top: clamp(6px, 0.8vw, 8px);
     padding: 3px;
-    background: #4d5c5a;
+    background: var(--sf-dock, #4d5c5a);
     border-radius: 7px;
     overflow: hidden;
 }
@@ -475,8 +475,8 @@
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
 }
-.notifChip { flex: 0 1 auto; background: transparent; color: #fff; }
-.notifChip:hover { background: rgba(255, 255, 255, 0.1); }
+.notifChip { flex: 0 1 auto; background: transparent; color: var(--ink-solid); }
+.notifChip:hover { background: rgba(var(--ink-rgb), 0.1); }
 .notifChip[data-empty='true'] { opacity: 0.5; }
 .notifChipOn { flex: 1 1 0; background: var(--a); color: #1a2e30; }
 .notifChipDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
@@ -512,7 +512,7 @@
     position: sticky; top: 0; z-index: 1;
     padding: 3px 12px;
     background: #3f5654;
-    color: #fff;
+    color: var(--ink-solid);
     font-family: 'Space Mono', monospace;
     font-size: clamp(8px, 0.85vw, 9px);
     font-weight: 700;
@@ -615,8 +615,8 @@
     padding: 9px;
     border: 0;
     border-top: 2px solid var(--a);
-    background: #162a2c;
-    color: #ffffff;
+    background: var(--sf-head, #162a2c);
+    color: var(--ink-solid);
     font-family: 'Space Mono', monospace;
     font-size: clamp(8px, 0.9vw, 10px);
     font-weight: 700;
@@ -625,7 +625,7 @@
     cursor: pointer;
     transition: color 0.2s ease, border-color 0.2s ease;
 }
-.notifFoot:hover { color: #EE8C3A; }
+.notifFoot:hover { color: var(--tx-accent, #EE8C3A); }
 
 @media (max-width: 480px) {
     .notifDrop {
@@ -649,4 +649,4 @@
 .signOutRow { display: flex; gap: 10px; justify-content: flex-end; }
 .signOutYes, .signOutNo { border-radius: 6px; padding: 8px 14px; font-weight: 800; cursor: pointer; border: 1px solid transparent; }
 .signOutYes { background: #ef4444; color: #fff; }
-.signOutNo { background: transparent; color: #e2e8f0; border-color: rgba(255, 255, 255, 0.3); }
+.signOutNo { background: transparent; color: #e2e8f0; border-color: rgba(var(--ink-rgb), 0.3); }

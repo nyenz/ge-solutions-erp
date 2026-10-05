@@ -13,6 +13,7 @@ import { FiSearch, FiX, FiUser, FiRefreshCw, FiLayers, FiArrowUp, FiArrowDown, F
 import api from '../../api/axios';
 import HardwarePanel from '../../components/ui/HardwarePanel';
 import BackToTopButton from '../../components/common/BackToTopButton';
+import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import { HeaderActions, HeaderButton } from '../../components/common/HeaderButton';
 import styles from './PaymentsPage.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -97,8 +98,8 @@ const PaymentsPage = () => {
     const sortIcon = (field) => {
         if (sort !== field) return <span className={styles.sortArrowInactive}> &#8597;</span>;
         return dir === 'asc'
-            ? <FiArrowUp style={{ display: 'inline', marginLeft: 3, fontSize: 10, color: '#fff' }} />
-            : <FiArrowDown style={{ display: 'inline', marginLeft: 3, fontSize: 10, color: '#fff' }} />;
+            ? <FiArrowUp style={{ display: 'inline', marginLeft: 3, fontSize: 10, color: 'currentColor' }} />
+            : <FiArrowDown style={{ display: 'inline', marginLeft: 3, fontSize: 10, color: 'currentColor' }} />;
     };
 
     const openRow = (pay) => {
@@ -150,18 +151,18 @@ const PaymentsPage = () => {
 
             <div className={styles.summaryRow}>
                 <div className={`${styles.sumCard} ${styles.sumGreen}`}>
-                    <label style={{ color: '#22c55e' }}>TITLE COLLECTED</label>
-                    <strong style={{ color: '#22c55e' }}>UGX {fmt(totals && totals.titleNet)}</strong>
+                    <label>TITLE COLLECTED</label>
+                    <strong>UGX {fmt(totals && totals.titleNet)}</strong>
                     <span>net of reversals</span>
                 </div>
-                <div className={`${styles.sumCard} ${styles.sumWhite}`}>
-                    <label style={{ color: '#eab308' }}>STORAGE FEES COLLECTED</label>
-                    <strong style={{ color: '#eab308' }}>UGX {fmt(totals && totals.storageNet)}</strong>
+                <div className={`${styles.sumCard} ${styles.sumYellow}`}>
+                    <label>STORAGE FEES COLLECTED</label>
+                    <strong>UGX {fmt(totals && totals.storageNet)}</strong>
                     <span>net of reversals</span>
                 </div>
                 <div className={`${styles.sumCard} ${styles.sumRed}`}>
-                    <label style={{ color: '#ef4444' }}>REVERSED</label>
-                    <strong style={{ color: '#ef4444' }}>UGX {fmt(totals && totals.reversed)}</strong>
+                    <label>REVERSED</label>
+                    <strong>UGX {fmt(totals && totals.reversed)}</strong>
                     <span>taken back</span>
                 </div>
                 <div className={`${styles.sumCard} ${styles.sumWhite}`}>
@@ -188,12 +189,25 @@ const PaymentsPage = () => {
                     </div>
                     <TabDock className={styles.dockSlot} items={TABS} value={tab} onChange={v => set({ tab: v === 'ALL' ? '' : v })} label="Filter payments" />
                 </div>
+                {/* fix182: the Audit page's date fields (themed calendar, never the browser's) and themed check toggles */}
+                <div className={styles.filterRow}>
+                    <label className={styles.dateField}>
+                        <span>FROM</span>
+                        <HardwareDatePicker value={from} max={to || undefined} ariaLabel="From date" onChange={v => set({ from: v })} />
+                    </label>
+                    <label className={styles.dateField}>
+                        <span>TO</span>
+                        <HardwareDatePicker value={to} min={from || undefined} ariaLabel="To date" onChange={v => set({ to: v })} />
+                    </label>
+                    <label className={`${styles.checkToggle} ${missingReceipt ? styles.checkToggleOn : ''}`}>
+                        <input type="checkbox" checked={missingReceipt} onChange={e => set({ noreceipt: e.target.checked })} /> Missing receipt
+                    </label>
+                    <label className={`${styles.checkToggle} ${includeDeleted ? styles.checkToggleOn : ''}`}>
+                        <input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects
+                    </label>
+                </div>
                 <div className={styles.legendRow}>
-                    <label className={styles.legendItem}>From <input type="date" value={from} onChange={e => set({ from: e.target.value })} /></label>
-                    <label className={styles.legendItem}>To <input type="date" value={to} onChange={e => set({ to: e.target.value })} /></label>
-                    <label className={styles.legendItem}><input type="checkbox" checked={missingReceipt} onChange={e => set({ noreceipt: e.target.checked })} /> Missing receipt</label>
-                    <label className={styles.legendItem}><input type="checkbox" checked={includeDeleted} onChange={e => set({ deleted: e.target.checked })} /> Include deleted projects (never in totals)</label>
-                    <span className={styles.legendItem}>A line can be in two tabs (for example an opening deposit that paid the title).</span>
+                    <span className={styles.legendItem}>Deleted projects are never in the totals. A line can be in two tabs (for example an opening deposit that paid the title).</span>
                 </div>
             </div>
 

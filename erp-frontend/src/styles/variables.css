@@ -5,7 +5,7 @@
     --navy: #213E40;
     --orange: #EE8C3A;
     --beige: #D0D1BD;
-    --text-light: #F4F2EF;
+    --text-light: var(--ink-solid);
     --text-dark: #213E40;
 
     /* RE-MAPPING FOR APP-WIDE CONSISTENCY */

@@ -3,7 +3,7 @@
     --orange: #EE8C3A;
     --orange-dim: rgba(238, 140, 58, 0.18);
     position: relative;
-    background: linear-gradient(135deg, #3a5a5c 0%, #2a4a4c 50%, #213E40 100%);
+    background: linear-gradient(135deg, var(--sf-raise-1, #3a5a5c) 0%, var(--sf-raise-2, #2a4a4c) 50%, var(--sf-2, #213E40) 100%);
     border: 1px solid rgba(238, 140, 58, 0.2);
     border-radius: 10px;
     overflow: visible;
@@ -23,7 +23,7 @@
     justify-content: space-between;
     gap: clamp(6px, 1vw, 12px);
     padding: clamp(8px, 1.1vw, 12px) clamp(10px, 1.4vw, 16px);
-    background: #162a2c;
+    background: var(--sf-head, #162a2c);
     border: none;
     border-bottom: 1.5px solid transparent; /* thin separator, hidden when closed */
     border-radius: 9px;
@@ -63,7 +63,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.header:hover .title { color: #fff; }
+.header:hover .title { color: var(--ink-solid); }
 
 .headerRight {
     display: flex;
@@ -73,7 +73,7 @@
 }
 
 .chevron {
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(var(--ink-rgb), 0.4);
     font-size: 14px;
     transition: transform 0.2s ease, color 0.2s ease;
     flex-shrink: 0;

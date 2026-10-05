@@ -478,7 +478,7 @@ const FolderPage = () => {
                 setFieldErrors({});
             }
         } catch { setLoadError(true); } finally { setLoading(false); }
-    }, [id, isEditing]);
+    }, [id, isEditing, navigate]);
     useEffect(() => { loadFolderData(); loadPortfolio(); }, [loadFolderData, loadPortfolio]);
     // fix167: the Recovery calls are loaded AND shown. fix180: Recovery calls the CLIENTS, so these are the clients' calls.
     useEffect(() => {
@@ -777,7 +777,7 @@ const FolderPage = () => {
         const ext = fileExt(clean);
         const mime = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
         let name = fileName;
-        if (!name) { try { name = decodeURIComponent(clean.split(/[\\/]/).pop() || 'Document'); } catch (e) { name = 'Document'; } }
+        if (!name) { try { name = decodeURIComponent(clean.split(/[\\/]/).pop() || 'Document'); } catch { name = 'Document'; } }
         try {
             const r = await fetch(url, { headers: isHttp ? {} : { Authorization: 'Bearer ' + localStorage.getItem('gs_token') } });
             if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -801,12 +801,12 @@ const FolderPage = () => {
                 } else {
                     ratio = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = rej; im.src = href; });
                 }
-            } catch (err) { /* keep the portrait default */ }
+            } catch { /* keep the portrait default */ }
             ratio = Math.min(4, Math.max(0.25, ratio || 0.707));
             if (docUrlRef.current) URL.revokeObjectURL(docUrlRef.current);
             docUrlRef.current = href;
             setDocPreview({ name, url: href, isPdf, ratio });
-        } catch (err) { window.open(url, '_blank'); }
+        } catch { window.open(url, '_blank'); }
     };
     const sg = useMemo(() => (key) => predictionService.getSuggestions(key) || [], []);
 
@@ -1406,9 +1406,9 @@ const FolderPage = () => {
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>AMOUNT RECEIVED (UGX)</label>
                     <input type="text" inputMode="numeric" className={modalStyles.modalInput} placeholder={'e.g. ' + fmt(payType === 'STORAGE' ? feesUnpaid : workOwed)} value={payAmount ? Number(payAmount).toLocaleString() : ''} onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); if (payErr) setPayErr(''); }} /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel} htmlFor="pay-date">DATE PAID</label>
-                    <input id="pay-date" type="date" className={modalStyles.modalInput} value={payDate} max={localISO()}
-                        min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={e => { setPayDate(e.target.value); if (payErr) setPayErr(''); }} />
-                    <small style={{ opacity: 0.7 }}>Leave as today if the money came today.</small></div>
+                    <HardwareDatePicker id="pay-date" block className={modalStyles.modalInput} value={payDate} max={localISO()} ariaLabel="Date paid"
+                        min={localISO(new Date(Date.now() - 60 * 24 * 3600 * 1000))} onChange={v => { setPayDate(v); if (payErr) setPayErr(''); }} />
+                    <small className={modalStyles.modalHint}>Leave as today if the money came today.</small></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>NOTES (optional)</label>
                     <textarea className={modalStyles.modalTextarea} value={payNotes} maxLength={500} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. Mobile money, ref 5521..." /></div>
                 <div className={modalStyles.modalField}><label className={modalStyles.modalLabel}>PAYMENT RECEIPT (REQUIRED)</label>

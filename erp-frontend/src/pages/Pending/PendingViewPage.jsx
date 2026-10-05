@@ -11,6 +11,10 @@ import { errorText } from '../../utils/errorText';
 import pendingService from '../../services/pendingService';
 import landService from '../../services/landService';
 import clientService from '../../services/clientService';
+import HardwareDatePicker from '../../components/common/HardwareDatePicker';
+import HardwareModalSelect from '../../components/common/HardwareModalSelect';
+import { LoadingState } from '../../components/common/LoadingState';
+import { FiUploadCloud } from 'react-icons/fi';
 import styles from './Pending.module.css';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
@@ -22,20 +26,30 @@ function Item({ label, value }) {
     return (<div><div className={styles.label}>{label}</div><div className={styles.value}>{value}</div></div>);
 }
 
+// fix182: one card shape for the whole page (the Settings workstation card)
+function Card({ title, children, className = '' }) {
+    return (
+        <section className={`${styles.card} ${className}`} aria-label={title}>
+            <div className={styles.cardHead}><h2 className={styles.cardTitle}>{title}</h2></div>
+            <div className={styles.cardBody}>{children}</div>
+        </section>
+    );
+}
+
 function People({ title, people }) {
     if (!people || people.length === 0) return null;
     return (
-        <div className={styles.card}>
-            <div className={styles.label}>{title}</div>
+        <Card title={title}>
             <ul className={styles.list}>
                 {people.map(p => (
-                    <li key={p.id || p.fullName}>
+                    <li key={p.id || p.fullName} className={styles.person}>
                         <span className={styles.value}>{p.fullName}</span>
-                        <span className={styles.muted}> {p.phone ? '- ' + p.phone : ''} {p.nationalId ? '- NIN ' + p.nationalId : ''}</span>
+                        {p.phone && <span className={`${styles.muted} ${styles.mono}`}>{p.phone}</span>}
+                        {p.nationalId && <span className={`${styles.muted} ${styles.mono}`}>NIN {p.nationalId}</span>}
                     </li>
                 ))}
             </ul>
-        </div>
+        </Card>
     );
 }
 
@@ -105,22 +119,27 @@ export default function PendingViewPage() {
         run(async () => { await pendingService.reject(id, rejectWhy.trim()); navigate('/land/projects'); }, 'Entry rejected.');
     };
 
-    if (error && !p) return (<div className={styles.page}><div className={styles.error} role="alert">{error}</div>
-        <button type="button" className={styles.btn} onClick={load}>Retry</button></div>);
-    if (!p) return <div className={styles.page}><div className={styles.muted}>Loading...</div></div>;
+    if (error && !p) return (<div className={styles.page}><div className={styles.error} role="alert">{error}
+        <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div></div>);
+    if (!p) return <div className={styles.page}><LoadingState label="LOADING ENTRY..." size="page" /></div>;
+
+    const payerOptions = [{ value: '', label: 'Choose the client' }].concat((p.clients || []).map(c => ({ value: c.nationalId, label: c.fullName })));
+    const catOptions = cats.map(c => ({ value: c.code, label: c.label }));
 
     return (
         <div className={styles.page}>
-            <div className={styles.head}>
-                <h1 className={styles.title}>PROJECT #{p.projectIndex} <span className={`${styles.badge} ${styles.badgePending}`}>PENDING</span></h1>
-                <span className={styles.sub}>{(p.projectType || '').replace(/_/g, ' ')} - entered {day(p.enteredAt)} by {p.enteredBy}{p.ageDays != null ? ' (' + p.ageDays + ' day(s) ago)' : ''}</span>
-            </div>
+            <header className={styles.head}>
+                <div className={styles.headLeft}>
+                    <h1 className={styles.title}>Project #{p.projectIndex} <span className={`${styles.badge} ${styles.badgePending}`}>PENDING</span></h1>
+                    <span className={styles.sub}>{(p.projectType || '').replace(/_/g, ' ')} - entered {day(p.enteredAt)} by {p.enteredBy}{p.ageDays != null ? ' (' + p.ageDays + ' day(s) ago)' : ''}</span>
+                </div>
+            </header>
 
             {office && <div className={styles.banner}>Waiting for prices. Check every name and National ID, fill in the prices and start this project.</div>}
             {error && <div className={styles.error} role="alert">{error}</div>}
             {msg && <div className={styles.ok}>{msg}</div>}
 
-            <div className={styles.card}>
+            <Card title="Plot details">
                 <div className={styles.grid}>
                     <Item label="District" value={p.district} /><Item label="County" value={p.county} />
                     <Item label="Sub-county" value={p.subCounty} /><Item label="Parish" value={p.parish} />
@@ -132,22 +151,20 @@ export default function PendingViewPage() {
                     <Item label="Title date" value={day(p.titleIssueDate)} />
                     <Item label="Subdivisions" value={p.subdivisionCount} />
                 </div>
-            </div>
+            </Card>
 
             <People title="Clients" people={p.clients} />
             <People title="Owners" people={p.owners} />
             {p.neighbors && p.neighbors.length > 0 && (
-                <div className={styles.card}>
-                    <div className={styles.label}>Neighbors</div>
-                    <ul className={styles.list}>{p.neighbors.map((n, i) => (<li key={i}><span className={styles.value}>{n.fullName}</span>
-                        <span className={styles.muted}> {n.side ? '- ' + n.side : ''} {n.phone ? '- ' + n.phone : ''}</span></li>))}</ul>
-                </div>
+                <Card title="Neighbors">
+                    <ul className={styles.list}>{p.neighbors.map((n, i) => (<li key={i} className={styles.person}><span className={styles.value}>{n.fullName}</span>
+                        {n.side && <span className={styles.muted}>{n.side}</span>}{n.phone && <span className={`${styles.muted} ${styles.mono}`}>{n.phone}</span>}</li>))}</ul>
+                </Card>
             )}
 
             {!office && (
                 <>
-                    <div className={styles.card}>
-                        <div className={styles.label}>Add a note</div>
+                    <Card title="Add a note">
                         <div className={styles.form}>
                             <textarea className={styles.textarea} value={note} maxLength={1000} onChange={e => setNote(e.target.value)} aria-label="Note" />
                             <div className={styles.actions}>
@@ -155,42 +172,44 @@ export default function PendingViewPage() {
                                     onClick={() => run(async () => { await pendingService.addNote(id, note.trim()); setNote(''); }, 'Note saved.')}>SAVE NOTE</button>
                             </div>
                         </div>
-                    </div>
-                    <div className={styles.card}>
-                        <div className={styles.label}>Add scans (PDF, JPG, PNG, WEBP)</div>
+                    </Card>
+                    <Card title="Add scans">
                         <div className={styles.form}>
-                            <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setFiles(Array.from(e.target.files || []))} aria-label="Scans" />
-                            <select className={styles.input} value={cat} onChange={e => setCat(e.target.value)} aria-label="Document type">
-                                {cats.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                            </select>
+                            <label className={styles.dropzone}>
+                                <FiUploadCloud className={styles.dropzoneIcon} aria-hidden="true" />
+                                {files.length ? files.length + ' file(s) chosen - click to choose again' : 'Click to choose scans (PDF, JPG, PNG, WEBP)'}
+                                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setFiles(Array.from(e.target.files || []))} aria-label="Scans" />
+                            </label>
+                            {files.length > 0 && <div className={styles.fileList}>{files.map(f => <span key={f.name} className={styles.fileChip}>{f.name}</span>)}</div>}
+                            <label className={styles.field}><span className={styles.label}>Document type</span>
+                                <HardwareModalSelect value={cat} options={catOptions} onChange={setCat} placeholder="Choose a type" ariaLabel="Document type" /></label>
                             <div className={styles.actions}>
                                 <button type="button" className={styles.btn} disabled={busy || files.length === 0}
                                     onClick={() => run(async () => { await pendingService.addDocuments(id, files, files.map(() => cat)); setFiles([]); }, 'Scans saved.')}>UPLOAD</button>
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 </>
             )}
 
             {office && (
                 <>
-                    <div className={styles.card}>
-                        <div className={styles.label}>Correct a National ID (only while every project of that client is Pending)</div>
+                    <Card title="Correct a National ID">
+                        <span className={styles.muted}>Only while every project of that client is Pending.</span>
                         <ul className={styles.list}>
                             {(p.clients || []).concat((p.owners || []).filter(o => !(p.clients || []).some(c => c.id === o.id))).map(c => (
-                                <li key={c.id} className={styles.row}>
+                                <li key={c.id} className={styles.ninRow}>
                                     <span className={styles.value}>{c.fullName}</span>
-                                    <input className={styles.input} style={{ maxWidth: 220 }} value={ninEdit[c.id] ?? c.nationalId ?? ''} aria-label={'National ID of ' + c.fullName}
+                                    <input className={`${styles.input} ${styles.mono}`} value={ninEdit[c.id] ?? c.nationalId ?? ''} aria-label={'National ID of ' + c.fullName}
                                         onChange={e => setNinEdit({ ...ninEdit, [c.id]: e.target.value.toUpperCase() })} />
                                     <button type="button" className={`${styles.btn} ${styles.btnGhost}`} disabled={busy || !ninEdit[c.id] || ninEdit[c.id] === c.nationalId}
                                         onClick={() => run(() => clientService.correctNin(c.id, ninEdit[c.id]), 'National ID corrected.')}>SAVE NIN</button>
                                 </li>
                             ))}
                         </ul>
-                    </div>
+                    </Card>
 
-                    <div className={styles.card}>
-                        <div className={styles.label}>Start this project</div>
+                    <Card title="Start this project">
                         <div className={styles.form}>
                             <label className={styles.field}><span className={styles.label}>Total cost (UGX)</span>
                                 <input className={styles.input} inputMode="numeric" value={cost ? Number(digits(cost)).toLocaleString() : ''} onChange={e => setCost(digits(e.target.value))} /></label>
@@ -198,30 +217,27 @@ export default function PendingViewPage() {
                                 <input className={styles.input} inputMode="numeric" value={deposit ? Number(digits(deposit)).toLocaleString() : ''} onChange={e => setDeposit(digits(e.target.value))} /></label>
                             {Number(digits(deposit)) > 0 && (p.clients || []).length > 1 && (
                                 <label className={styles.field}><span className={styles.label}>Which client paid?</span>
-                                    <select className={styles.input} value={payerNin} onChange={e => setPayerNin(e.target.value)}>
-                                        <option value="">Choose the client</option>
-                                        {(p.clients || []).map(c => <option key={c.id} value={c.nationalId}>{c.fullName}</option>)}
-                                    </select></label>
+                                    <HardwareModalSelect value={payerNin} options={payerOptions} onChange={setPayerNin} placeholder="Choose the client" ariaLabel="Client who paid" /></label>
                             )}
                             {Number(digits(deposit)) > 0 && (
                                 <label className={styles.field}><span className={styles.label}>Date it was paid (leave empty if not known)</span>
-                                    <input type="date" className={styles.input} value={paidDate} max={localISO()} onChange={e => setPaidDate(e.target.value)} /></label>
+                                    <HardwareDatePicker block value={paidDate} max={localISO()} onChange={setPaidDate} ariaLabel="Date it was paid" /></label>
                             )}
                             <div className={styles.actions}>
                                 <button type="button" className={styles.btn} disabled={busy} onClick={start}>START PROJECT</button>
                             </div>
                         </div>
-                    </div>
+                    </Card>
 
-                    <div className={styles.card}>
-                        <div className={styles.label}>Reject this entry (a mistake or a duplicate)</div>
+                    <Card title="Reject this entry">
+                        <span className={styles.muted}>A mistake or a duplicate. The person who entered it reads the reason for 30 days.</span>
                         <div className={styles.form}>
                             <textarea className={styles.textarea} value={rejectWhy} maxLength={500} onChange={e => setRejectWhy(e.target.value)} placeholder="Why? The person who entered it will read this." aria-label="Reason for rejecting" />
                             <div className={styles.actions}>
                                 <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={reject}>REJECT ENTRY</button>
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 </>
             )}
         </div>

@@ -8,7 +8,7 @@
     --orange-dim:    rgba(238, 140, 58, 0.18);
     --orange-border: rgba(238, 140, 58, 0.28);
     --navy:          #1a2e30;
-    --panel-bg:      linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+    --panel-bg:      linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
     --gap-md:        clamp(5px, 0.8vw, 8px);
     --radius:        12px;
     --radius-sm:     6px;
@@ -29,7 +29,7 @@
     flex-direction: column;
     padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);
     font-family: 'DM Sans', sans-serif;
-    color: #fff;
+    color: var(--ink-solid);
     animation: terminalBoot 0.7s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
 @keyframes terminalBoot {
@@ -57,7 +57,7 @@
 .diagItem {
     display: flex; align-items: center; gap: clamp(4px, 0.5vw, 7px); white-space: nowrap;
     padding: clamp(3px, 0.4vw, 6px) clamp(6px, 0.9vw, 12px);
-    background: var(--navy); color: #fff;
+    background: var(--navy); color: var(--ink-solid);
     border: 1px solid var(--orange-border); border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif; font-size: var(--stat-label); font-weight: 900;
     letter-spacing: 0.5px; text-transform: uppercase;
@@ -127,8 +127,8 @@
 .resetBtn {
     flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: clamp(4px, 0.6vw, 6px);
     height: clamp(34px, 4vw, 40px); padding: 0 clamp(10px, 1.3vw, 16px);
-    background: rgba(26, 46, 48, 0.75); color: rgba(255, 255, 255, 0.85);
-    border: 1.5px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius-sm);
+    background: rgba(var(--sf-navy-rgb), 0.75); color: rgba(var(--ink-rgb), 0.85);
+    border: 1.5px solid rgba(var(--ink-rgb), 0.18); border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif; font-size: clamp(9px, 0.9vw, 11px); font-weight: 900;
     letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; cursor: pointer;
     transition: all 0.2s ease;
@@ -167,7 +167,7 @@
 .logRow:last-child { border-bottom: none; }
 .logRow:nth-child(even) { background: rgba(26, 46, 48, 0.09); }
 .logRow:hover { background: rgba(238, 140, 58, 0.26); }
-.logRow:focus-visible { outline: 2px solid #1a2e30; outline-offset: -2px; }
+.logRow:focus-visible { outline: 2px solid var(--sf-navy, #1a2e30); outline-offset: -2px; }
 
 .logMain {
     display: grid; align-items: start;
@@ -194,33 +194,33 @@
 .logRow:hover .inspectIcon { color: #1a2e30; }
 
 /* OPEN ROW (fix157): head is the dark navy (#1a2e30); the extension below is the Report Catalogue readout grey (#28383a) */
-.logRow.expanded, .logRow.expanded:hover { background: #1a2e30; }
-.logRow.expanded .clockPair { color: #fff; }
+.logRow.expanded, .logRow.expanded:hover { background: var(--sf-navy, #1a2e30); }
+.logRow.expanded .clockPair { color: var(--ink-solid); }
 .logRow.expanded .clockPair svg { color: #f2ede4; }
-.logRow.expanded .timeMark small { color: #fff; opacity: 0.65; }
-.logRow.expanded .iconChassis { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #f2ede4; }
-.logRow.expanded .actionMeta strong { color: #fff; }
-.logRow.expanded .actionMeta span { color: rgba(255, 255, 255, 0.6); }
-.logRow.expanded .targetMark p { color: #fff; }
+.logRow.expanded .timeMark small { color: var(--ink-solid); opacity: 0.65; }
+.logRow.expanded .iconChassis { background: rgba(var(--ink-rgb), 0.08); border-color: rgba(var(--ink-rgb), 0.2); color: #f2ede4; }
+.logRow.expanded .actionMeta strong { color: var(--ink-solid); }
+.logRow.expanded .actionMeta span { color: rgba(var(--ink-rgb), 0.6); }
+.logRow.expanded .targetMark p { color: var(--ink-solid); }
 .logRow.expanded .inspectIcon { color: #f2ede4; transform: rotate(180deg); }
 
-.traceDetails { overflow: hidden; background: #28383a; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.traceDetails { overflow: hidden; background: var(--sf-readout, #28383a); transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .traceClosed { max-height: 0; }
 .traceOpen { max-height: clamp(200px, 30vw, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
 .rawBox { margin: 0; padding: clamp(4px, 0.6vw, 8px) clamp(12px, 1.5vw, 18px) clamp(12px, 1.5vw, 16px); }
 /* fix156: readout is the catalogue grey; label takes the action colour, text is app orange */
 .rawHeader { display: flex; align-items: center; gap: clamp(7px, 0.9vw, 10px); margin-bottom: clamp(8px, 1.1vw, 12px); font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--rail); }
-.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: #EE8C3A; }
+.rawOutput { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Mono', monospace; font-size: clamp(10px, 1.05vw, 12px); line-height: 1.6; color: var(--tx-accent, #EE8C3A); }
 
 /* ---- PAGINATION ---- */
-.pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(10px, 1.2vw, 14px) clamp(22px, 2.4vw, 30px) clamp(14px, 1.6vw, 18px); background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 10px 10px; }
-.pgBtn { display: flex; align-items: center; gap: clamp(5px, 0.6vw, 8px); padding: clamp(6px, 0.8vw, 9px) clamp(11px, 1.4vw, 16px); background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.14); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: var(--fs-btn); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; color: rgba(255, 255, 255, 0.8); cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s; }
+.pagination { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: clamp(10px, 1.2vw, 14px) clamp(22px, 2.4vw, 30px) clamp(14px, 1.6vw, 18px); background: rgba(var(--well), 0.25); border-top: 1px solid rgba(var(--ink-rgb), 0.08); border-radius: 0 0 10px 10px; }
+.pgBtn { display: flex; align-items: center; gap: clamp(5px, 0.6vw, 8px); padding: clamp(6px, 0.8vw, 9px) clamp(11px, 1.4vw, 16px); background: transparent; border: 1.5px solid rgba(var(--ink-rgb), 0.14); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: var(--fs-btn); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; color: rgba(var(--ink-rgb), 0.8); cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s; }
 .pgBtn:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); background: rgba(238, 140, 58, 0.08); }
 .pgBtn:disabled { opacity: 0.25; cursor: not-allowed; }
 .pgBtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.pageLabel { font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: rgba(255, 255, 255, 0.45); }
+.pageLabel { font-family: 'Space Mono', monospace; font-size: var(--fs-label); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.45); }
 
-.emptySignal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; margin: 8px; padding: clamp(28px, 5vw, 50px) 20px; background: rgba(255, 255, 255, 0.02); border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 8px; font-family: 'Space Mono', monospace; font-size: var(--fs-meta); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: center; color: rgba(244, 242, 239, 0.72); }
+.emptySignal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; margin: 8px; padding: clamp(28px, 5vw, 50px) 20px; background: rgba(var(--ink-rgb), 0.02); border: 1px dashed rgba(var(--ink-rgb), 0.12); border-radius: 8px; font-family: 'Space Mono', monospace; font-size: var(--fs-meta); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: center; color: rgba(var(--ink-rgb), 0.72); }
 
 /* ---- RESPONSIVE ---- */
 @media (max-width: 1000px) {

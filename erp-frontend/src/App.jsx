@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/App.jsx
 import { roleFlags, landingPathFor } from './utils/roles';
-import React from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
 import { useAuth } from './hooks/useAuth';
@@ -8,23 +8,75 @@ import { useAuth } from './hooks/useAuth';
 import CircuitBackground from './components/layout/CircuitBackground';
 import Shell from './components/layout/Shell';
 import RouteErrorScreen from './components/common/RouteErrorScreen';
+import { LoadingState } from './components/common/LoadingState';
 import { readPrefsFor } from './context/prefsStore';
 
 import LoginPage      from './pages/login/LoginPage';
-import Dashboard      from './pages/Dashboard/Dashboard';
-import IntakePage     from './pages/Intake/IntakePage';
-import LedgerPage     from './pages/Ledger/LedgerPage';
-import FolderPage     from './pages/DigitalFolder/FolderPage';
-import RecoveryPortal from './pages/Recovery/RecoveryPortal';
-import ClientLedgerPage from './pages/Clients/ClientLedgerPage';
-import ClientPortfolioPage from './pages/Clients/ClientPortfolioPage';
-import PaymentsPage   from './pages/Payments/PaymentsPage';
-import ExpensesPage    from './pages/Financials/ExpensesPage';
-import ReportHub      from './pages/Reports/ReportHub';
-import AuditPage      from './pages/Audit/AuditPage';
-import SettingsPage   from './pages/settings/SettingsPage';
-import MyEntriesPage  from './pages/Pending/MyEntriesPage';
-import PendingViewPage from './pages/Pending/PendingViewPage';
+
+/* fix182 (speed): every page is its own file, downloaded when it is first opened, so the first screen no longer waits
+   for the whole app (1.2 MB). After sign-in the other pages are fetched quietly in the background, so moving between
+   them stays instant. A page file that no longer exists (the site was updated while this tab was open) reloads the tab
+   once instead of showing the fault screen. */
+const RELOAD_KEY = 'gs_chunk_reload_at';
+function lazyPage(load) {
+    const safeLoad = () => load().catch((err) => {
+        let last = 0;
+        try { last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0; } catch { /* storage blocked */ }
+        if (Date.now() - last > 15000) {
+            try { sessionStorage.setItem(RELOAD_KEY, String(Date.now())); } catch { /* storage blocked */ }
+            window.location.reload();
+            return new Promise(() => {});
+        }
+        throw err;
+    });
+    const Page = React.lazy(safeLoad);
+    Page.preload = safeLoad;
+    return Page;
+}
+
+const Dashboard           = lazyPage(() => import('./pages/Dashboard/Dashboard'));
+const IntakePage          = lazyPage(() => import('./pages/Intake/IntakePage'));
+const LedgerPage          = lazyPage(() => import('./pages/Ledger/LedgerPage'));
+const FolderPage          = lazyPage(() => import('./pages/DigitalFolder/FolderPage'));
+const RecoveryPortal      = lazyPage(() => import('./pages/Recovery/RecoveryPortal'));
+const ClientLedgerPage    = lazyPage(() => import('./pages/Clients/ClientLedgerPage'));
+const ClientPortfolioPage = lazyPage(() => import('./pages/Clients/ClientPortfolioPage'));
+const PaymentsPage        = lazyPage(() => import('./pages/Payments/PaymentsPage'));
+const ExpensesPage        = lazyPage(() => import('./pages/Financials/ExpensesPage'));
+const ReportHub           = lazyPage(() => import('./pages/Reports/ReportHub'));
+const AuditPage           = lazyPage(() => import('./pages/Audit/AuditPage'));
+const SettingsPage        = lazyPage(() => import('./pages/settings/SettingsPage'));
+const MyEntriesPage       = lazyPage(() => import('./pages/Pending/MyEntriesPage'));
+const PendingViewPage     = lazyPage(() => import('./pages/Pending/PendingViewPage'));
+const ALL_PAGES = [Dashboard, LedgerPage, FolderPage, IntakePage, RecoveryPortal, ClientLedgerPage, ClientPortfolioPage,
+    PaymentsPage, ExpensesPage, SettingsPage, ReportHub, AuditPage, MyEntriesPage, PendingViewPage];
+
+/** fix182: ONE frame (header, bell, sidebar) for every signed-in page. It stays mounted while you move between pages,
+    so the bell and sidebar are not rebuilt and re-fetched on every click; only the page inside changes. */
+const ShellLayout = () => {
+    const { user, token } = useAuth();
+    if (!token || !user) return <Navigate to="/login" replace />;
+    return (
+        <Shell><Suspense fallback={<LoadingState label="OPENING..." size="page" />}><Outlet /></Suspense></Shell>
+    );
+};
+
+/** Fetches the other page files once the browser is idle after sign-in (one at a time, never during real work). */
+function usePrefetchPages(signedIn) {
+    useEffect(() => {
+        if (!signedIn) return undefined;
+        let cancelled = false;
+        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+        const queue = ALL_PAGES.slice();
+        const next = () => {
+            if (cancelled || queue.length === 0) return;
+            const P = queue.shift();
+            P.preload().catch(() => {}).finally(() => idle(next));
+        };
+        const t = setTimeout(() => idle(next), 1500);
+        return () => { cancelled = true; clearTimeout(t); };
+    }, [signedIn]);
+}
 
 const ProtectedRoute = ({ children, adminOnly = false, managerPlus = false, isSettings = false, employeeOk = false }) => {
     const { user, token } = useAuth();
@@ -66,6 +118,8 @@ const FallbackRoute = () => {
 };
 
 const AppLayout = () => {
+    const { user, token } = useAuth();
+    usePrefetchPages(!!(user && token));
     return (
         <>
             <CircuitBackground />
@@ -83,20 +137,25 @@ const router = createBrowserRouter([
         children: [
             { index: true, element: <FallbackRoute /> },
             { path: "login", element: <LoginRoute /> },
-            { path: "dashboard", element: <ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute> },
-            { path: "land/new", element: <ProtectedRoute employeeOk><Shell><IntakePage /></Shell></ProtectedRoute> },
-            { path: "my-entries", element: <ProtectedRoute employeeOk><Shell><MyEntriesPage /></Shell></ProtectedRoute> },
-            { path: "pending/:id", element: <ProtectedRoute employeeOk><Shell><PendingViewPage /></Shell></ProtectedRoute> },
-            { path: "land/projects", element: <ProtectedRoute><Shell><LedgerPage /></Shell></ProtectedRoute> },
-            { path: "folder/:id", element: <ProtectedRoute><Shell><FolderPage /></Shell></ProtectedRoute> },
-            { path: "recovery", element: <ProtectedRoute><Shell><RecoveryPortal /></Shell></ProtectedRoute> },
-            { path: "clients", element: <ProtectedRoute><Shell><ClientLedgerPage /></Shell></ProtectedRoute> },
-            { path: "client/:id", element: <ProtectedRoute><Shell><ClientPortfolioPage /></Shell></ProtectedRoute> },
-            { path: "payments", element: <ProtectedRoute adminOnly><Shell><PaymentsPage /></Shell></ProtectedRoute> },
-            { path: "financials", element: <ProtectedRoute managerPlus><Shell><ExpensesPage /></Shell></ProtectedRoute> },
-            { path: "reports", element: <ProtectedRoute adminOnly><Shell><ReportHub /></Shell></ProtectedRoute> },
-            { path: "audit", element: <ProtectedRoute adminOnly><Shell><AuditPage /></Shell></ProtectedRoute> },
-            { path: "settings", element: <ProtectedRoute isSettings><Shell><SettingsPage /></Shell></ProtectedRoute> },
+            {
+                element: <ShellLayout />,
+                children: [
+                    { path: "dashboard", element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
+                    { path: "land/new", element: <ProtectedRoute employeeOk><IntakePage /></ProtectedRoute> },
+                    { path: "my-entries", element: <ProtectedRoute employeeOk><MyEntriesPage /></ProtectedRoute> },
+                    { path: "pending/:id", element: <ProtectedRoute employeeOk><PendingViewPage /></ProtectedRoute> },
+                    { path: "land/projects", element: <ProtectedRoute><LedgerPage /></ProtectedRoute> },
+                    { path: "folder/:id", element: <ProtectedRoute><FolderPage /></ProtectedRoute> },
+                    { path: "recovery", element: <ProtectedRoute><RecoveryPortal /></ProtectedRoute> },
+                    { path: "clients", element: <ProtectedRoute><ClientLedgerPage /></ProtectedRoute> },
+                    { path: "client/:id", element: <ProtectedRoute><ClientPortfolioPage /></ProtectedRoute> },
+                    { path: "payments", element: <ProtectedRoute adminOnly><PaymentsPage /></ProtectedRoute> },
+                    { path: "financials", element: <ProtectedRoute managerPlus><ExpensesPage /></ProtectedRoute> },
+                    { path: "reports", element: <ProtectedRoute adminOnly><ReportHub /></ProtectedRoute> },
+                    { path: "audit", element: <ProtectedRoute adminOnly><AuditPage /></ProtectedRoute> },
+                    { path: "settings", element: <ProtectedRoute isSettings><SettingsPage /></ProtectedRoute> },
+                ]
+            },
             { path: "*", element: <FallbackRoute /> }
         ]
     }

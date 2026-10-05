@@ -13,7 +13,7 @@
   --radius: 10px; --radius-sm: 6px;
   max-width: 1400px; width: 100%; margin: 0 auto;
   padding: clamp(12px,2vh,22px) clamp(12px,2vw,24px) 28px;
-  font-family: 'Inter', sans-serif; color: #fff;
+  font-family: 'Inter', sans-serif; color: var(--ink-solid);
   display: flex; flex-direction: column; gap: clamp(7px,1.1vw,14px);
   box-sizing: border-box;
 }
@@ -38,7 +38,7 @@
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   text-transform: uppercase; letter-spacing: 1.5px;
   padding: clamp(6px,0.9vw,9px) clamp(10px,1.4vw,16px); border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(26,46,48,0.75); color: rgba(255,255,255,0.85);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.18); background: rgba(var(--sf-navy-rgb), 0.75); color: rgba(var(--ink-rgb), 0.85);
   cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .ghostBtn:hover, .presetBtn:hover, .presetBtnOther:hover {
@@ -58,7 +58,7 @@
 /* -- PANEL CORNER BADGE -- the dossier's, unchanged -- */
 .panelCornerBadge {
   font-family: 'Inter', sans-serif; font-size: clamp(8px,0.85vw,10px); font-weight: 900; letter-spacing: 1px;
-  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(var(--ink-rgb), 0.55); background: rgba(var(--ink-rgb), 0.06); border: 1px solid rgba(var(--ink-rgb), 0.14);
   border-radius: 20px; padding: 4px 12px; text-transform: uppercase; flex-shrink: 0;
 }
 
@@ -69,7 +69,7 @@
   gap: clamp(10px, 1.4vw, 16px);
 }
 .statCard {
-  background: linear-gradient(160deg, #1c3335 0%, #213E40 100%);
+  background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
   border: 1.5px solid var(--orange-border);
   border-radius: var(--radius);
   padding: clamp(12px, 1.5vw, 18px);
@@ -77,26 +77,26 @@
 }
 .statCard label {
   font-family: 'Inter', sans-serif; font-size: var(--stat-label);
-  font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);
+  font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.5);
 }
 .statCard strong {
   font-family: 'Space Mono', monospace; font-size: var(--stat-value);
-  font-weight: 700; color: #fff; word-break: break-all;
+  font-weight: 700; color: var(--ink-solid); word-break: break-all;
 }
 .statNote {
   font-family: 'Inter', sans-serif; font-size: var(--stat-note);
-  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
+  font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(var(--ink-rgb), 0.35);
 }
 /* fix149: every card rests on orange; hover swaps the border to the card's font colour */
 .statCard { border-color: #EE8C3A; transition: border-color 0.2s ease; }
 .statAmber:hover { border-color: #EE8C3A; }
-.statAmber label, .statAmber strong { color: #EE8C3A; }
+.statAmber label, .statAmber strong { color: var(--tx-accent, #EE8C3A); }
 .statGreen:hover { border-color: #22c55e; }
 .statGreen label, .statGreen strong { color: #22c55e; }
 .statCyan:hover { border-color: #06b6d4; }
 .statCyan label, .statCyan strong { color: #06b6d4; }
 .statWhite:hover { border-color: #fff; }
-.statWhite label, .statWhite strong { color: #fff; }
+.statWhite label, .statWhite strong { color: var(--ink-solid); }
 
 /* -- PRESET ROW -- was a grid of 84px slabs, which made "log an expense"
    the visually heaviest thing in the app. They are buttons now, flowing in
@@ -108,7 +108,7 @@
 .panelHint {
   display: flex; align-items: center; gap: 7px; margin: 0;
   font-family: 'Inter', sans-serif; font-size: clamp(10px,1vw,11px); font-weight: 600; line-height: 1.4;
-  color: rgba(244,242,239,0.62);
+  color: rgba(var(--ink-rgb), 0.62);
 }
 .panelHint svg { color: var(--orange); flex-shrink: 0; }
 
@@ -125,28 +125,28 @@
 .tableScroll::-webkit-scrollbar { display: none; }
 .ledgerTable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 680px; }
 .ledgerTable thead th {
-  background: #162a2c; color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
+  background: var(--sf-head, #162a2c); color: var(--orange); font-size: clamp(8px,0.85vw,10px); font-weight: 900;
   letter-spacing: 2px; text-transform: uppercase; text-align: left; padding: clamp(9px,1.3vw,14px) clamp(10px,1.5vw,16px);
   border-bottom: 3px solid var(--orange); white-space: nowrap;
 }
 .ledgerTable thead th:first-child { border-radius: 6px 0 0 0; }
 .ledgerTable thead th:last-child { border-radius: 0 6px 0 0; }
-.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; color: #fff; font-size: clamp(10px,1.05vw,12px); }
+.ledgerTable tbody td { padding: clamp(9px,1.2vw,13px) clamp(10px,1.5vw,16px); border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: middle; color: var(--ink-solid); font-size: clamp(10px,1.05vw,12px); }
 .ledgerTable tbody tr.row { transition: background 0.15s; border-left: 3px solid transparent; }
-.ledgerTable tbody tr.row:hover { background: rgba(255,255,255,0.04); border-left-color: var(--orange); }
+.ledgerTable tbody tr.row:hover { background: rgba(var(--ink-rgb), 0.04); border-left-color: var(--orange); }
 .mono { font-family: 'Space Mono', monospace; }
-.dateCell { white-space: nowrap; color: rgba(255,255,255,0.6); font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); }
-.moneyCell { font-family: 'Space Mono', monospace; font-weight: 700; white-space: nowrap; color: #fca5a5; }
-.metaCell { color: rgba(255,255,255,0.7); white-space: nowrap; }
-.notesCell { color: rgba(255,255,255,0.55); font-style: italic; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dateCell { white-space: nowrap; color: rgba(var(--ink-rgb), 0.6); font-family: 'Space Mono', monospace; font-size: clamp(9px,0.95vw,11px); }
+.moneyCell { font-family: 'Space Mono', monospace; font-weight: 700; white-space: nowrap; color: var(--tx-red, #fca5a5); }
+.metaCell { color: rgba(var(--ink-rgb), 0.7); white-space: nowrap; }
+.notesCell { color: rgba(var(--ink-rgb), 0.55); font-style: italic; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notesCell span { display: inline-block; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-.noNote { color: rgba(244,242,239,0.45); font-style: normal; }
+.noNote { color: rgba(var(--ink-rgb), 0.45); font-style: normal; }
 
 /* .emptyCell sits INSIDE a dark panel already -- a card here would be a card
    in a card, so only the text colour is set (cream, never white-on-cream). */
 .emptyCell {
   text-align: center; padding: clamp(20px,4vw,40px) 16px;
-  font-family: 'Space Mono', monospace; color: rgba(244,242,239,0.68);
+  font-family: 'Space Mono', monospace; color: rgba(var(--ink-rgb), 0.68);
   font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
 }
 
@@ -156,12 +156,12 @@
 .editedBadge { margin-left: 8px; font-size: 9px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--amber); cursor: help; }
 .spentByTag {
   display: block; margin-top: 3px;
-  color: rgba(244,242,239,0.66); font-size: 9px; font-weight: 800;
+  color: rgba(var(--ink-rgb), 0.66); font-size: 9px; font-weight: 800;
   letter-spacing: 1px; text-transform: uppercase; white-space: normal; cursor: help;
 }
 .lockedTag {
   display: inline-flex; align-items: center; gap: 4px;
-  color: rgba(244,242,239,0.62); font-size: 9px; font-weight: 800;
+  color: rgba(var(--ink-rgb), 0.62); font-size: 9px; font-weight: 800;
   letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
 }
 
@@ -185,8 +185,8 @@
 /* -- AMOUNT INPUT (triggers native numeric keypad on mobile) -- */
 .amountInput {
   width: 100%; height: 56px; font-size: 28px; font-weight: 900; text-align: center;
-  border-radius: var(--radius-sm); border: 1.5px solid rgba(255,255,255,0.15);
-  background: rgba(0,0,0,0.25); color: #fff; font-family: 'Space Mono', monospace;
+  border-radius: var(--radius-sm); border: 1.5px solid rgba(var(--ink-rgb), 0.15);
+  background: rgba(var(--well), 0.25); color: var(--ink-solid); font-family: 'Space Mono', monospace;
   box-sizing: border-box;
 }
 .amountInput:focus { outline: none; border-color: var(--orange); }
@@ -207,7 +207,7 @@
 }
 .presetRow .presetBtnOther { border-style: dashed; }
 .presetRow .presetBtn:hover, .presetRow .presetBtnOther:hover {
-  background: rgba(238,140,58,0.16); border-color: #EE8C3A; color: #EE8C3A;
+  background: rgba(238,140,58,0.16); border-color: #EE8C3A; color: var(--tx-accent, #EE8C3A);
 }
 
 /* RECENT ENTRIES: the table lives on a cream card (header row stays navy + orange) */

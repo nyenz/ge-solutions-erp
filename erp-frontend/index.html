@@ -12,7 +12,7 @@
     <script>
       (function () {
         try {
-          var A = { theme: ['light', 'dark'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
+          var A = { theme: ['light', 'dark', 'bright'], uiScale: ['90', '100', '110', '125'], motion: ['full', 'reduced'],
                     tips: ['normal', 'slow', 'off'], contrast: ['normal', 'high'] };
           var D = { theme: 'light', uiScale: '100', motion: 'full', tips: 'normal', contrast: 'normal' };
           var ls = window.localStorage, u = null, p = null;
@@ -30,7 +30,7 @@
           r.setAttribute('data-contrast', v.contrast);
           r.style.setProperty('--ui-scale', String(Number(v.uiScale) / 100));
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', v.theme === 'dark' ? '#16292b' : '#1a2e30');
+          if (m) m.setAttribute('content', v.theme === 'dark' ? '#16292b' : v.theme === 'bright' ? '#f8f5f0' : '#1a2e30');
         } catch (e) { /* storage blocked: the defaults in index.css apply */ }
       })();
     </script>
