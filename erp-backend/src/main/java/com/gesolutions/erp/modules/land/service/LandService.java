@@ -392,6 +392,15 @@ public class LandService {
     // inside addScansToProject, which rolls the whole intake back.
     @Transactional(rollbackFor = Exception.class)
     public LandProject atomicIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories) throws Exception {
+        return doIntake(request, scans, categories, false);
+    }
+
+    /**
+     * fix181 (8.7e, 12.1): pendingEntry = an Employee's field entry. It is saved as PENDING with no price and no payment
+     * (the caller, PendingProjectService, has already refused every money field), and the office is told with
+     * PENDING_CREATED instead of NEW_INTAKE. The pending flag never comes from the browser.
+     */
+    LandProject doIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories, boolean pendingEntry) throws Exception {
         if (categories != null && scans != null) {
             for (int i = 0; i < scans.length; i++) {
                 String c = i < categories.size() ? categories.get(i) : null;
@@ -428,6 +437,160 @@ public class LandService {
         }
         String projectIndex = projectIndexService.generateNextIndex();
 
+        // fix181 (12.2): the intake money is checked by ONE method, shared with graduatePending
+        IntakeMoney money = checkIntakeMoney(request);
+        BigDecimal initialPayment = money.initialPayment();
+        BigDecimal outstanding = money.outstanding();
+        boolean startAsReceivable = money.startAsReceivable();
+        BigDecimal initialFees = money.initialFees();
+        BigDecimal initialFeesPaid = money.initialFeesPaid();
+        LocalDate receivablesSince = money.receivablesSince();
+        int backlogMonths = money.backlogMonths();
+        BigDecimal backlogFees = money.backlogFees();
+
+        LandTitle title = null;
+        if (hasTitleFields) {
+            // Title Details are fully required on the page once shown -- mirrored here, since this service validates
+            // DTOs imperatively rather than via @Valid/bean-validation. fix180: Area (hectares) is required too.
+            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
+                throw new BusinessException("PLOT_NUMBER_REQUIRED: Plot Number is required in Title Details.");
+            }
+            if (request.getBlock() == null || request.getBlock().isBlank()) {
+                throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
+            }
+            requireAreaHectares(request.getAreaHectares());
+            if (request.getTitleIssueDate() == null) {
+                throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
+            }
+            title = LandTitle.builder()
+                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
+                    .plotNumber(request.getPlotNumber())
+                    .block(request.getBlock())
+                    .areaHectares(request.getAreaHectares())
+                    .volume(blankToNull(request.getVolume()))
+                    .folio(blankToNull(request.getFolio()))
+                    // Date Started is editable again on the intake form (staff can
+                    // backdate a project entered a few days after fieldwork began),
+                    // so this trusts the client value when present and only falls
+                    // back to today when it's missing. Entry Date (LandProject,
+                    // below) is the one that stays server-set and non-editable.
+                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                    .titleIssueDate(request.getTitleIssueDate())
+                    .build();
+        }
+
+        LandProject.LandProjectBuilder builder = LandProject.builder()
+                .landTitle(title)
+                .projectIndex(projectIndex)
+                // ENTRY DATE: automatic, server-set, never from the request.
+                .entryDate(LocalDate.now())
+                // DATE STARTED: editable on the intake form, defaults to today
+                // on the client -- this was previously never wired up here at
+                // all, so every project's start date landed NULL regardless of
+                // what the form showed.
+                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
+                .district(request.getDistrict())
+                .county(request.getCounty())
+                .subCounty(request.getSubCounty())
+                .parish(request.getParish())
+                .village(request.getVillage())
+                .area(request.getArea())
+                .totalCost(BigDecimal.ZERO)                        // fix181: the money is set by applyIntakeMoney below
+                .amountPaid(BigDecimal.ZERO)
+                .projectType(type.name())                          // fix180
+                .titleDetailsEnabled(titleSwitchedOn)
+                .subdivisionCount(subdivisionCount)
+                .parentProjectId(parent != null ? parent.getId() : null)
+                .parentSubdivisionNo(parent != null ? request.getParentSubdivisionNo() : null)
+                .isLegacy(isLegacyType);
+
+        LandProject project = builder.build();
+        applyIntakeMoney(project, money);
+        project.setPending(pendingEntry);
+        // fix181 (8.9): who entered it (account id + username as it was then)
+        project.setCreatedBy(getCurrentOperator());
+
+        // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
+        // are a copy of the clients; an old page that sends only owners has those owners as its clients.
+        List<LandEntryRequest.OwnerRequest> clientRows = request.getClients() != null && !request.getClients().isEmpty()
+                ? request.getClients() : (request.getOwners() != null ? request.getOwners() : List.of());
+        List<LandEntryRequest.OwnerRequest> ownerRows = request.getOwners() != null && !request.getOwners().isEmpty()
+                ? request.getOwners() : clientRows;
+        if (clientRows.isEmpty()) {
+            throw new BusinessException("CLIENT_REQUIRED: Add at least one client.");
+        }
+        // fix172: the clients by NIN, so the client who paid the intake money can be named
+        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
+        for (LandEntryRequest.OwnerRequest o : clientRows) {
+            Client c = personFromRow(o, "Client");
+            project.addClient(c);
+            ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
+        }
+        for (LandEntryRequest.OwnerRequest o : ownerRows) {
+            project.addProprietor(personFromRow(o, "Owner"));
+        }
+
+        // fix172 / fix181 (12.2): who paid, the payment lines and the last payment date -- one shared method
+        LandProject saved = projectRepository.save(project);
+        String fix172Note = recordIntakeMoney(saved, money, ownersByNin, request);
+
+        // fix180: every project type has its own status list, so every project gets its statuses
+        if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
+            statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
+        }
+        saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
+
+        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
+
+        if (request.getNotes() != null) {
+            for (LandEntryRequest.NoteRequest noteReq : request.getNotes()) {
+                if (noteReq.getContent() != null && !noteReq.getContent().trim().isEmpty()) {
+                    FollowUpLog entry = FollowUpLog.builder()
+                            .projectId(saved.getId())
+                            .notes("INTAKE NOTE: " + noteReq.getContent())
+                            .recordedBy(getCurrentOperator())
+                            .build();
+                    followUpRepository.save(entry);
+                }
+            }
+        }
+
+        String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
+        String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
+                + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
+        if (pendingEntry) {
+            notificationService.emitToAudience("PENDING_CREATED", "New Pending project " + projectIndex + " entered by "
+                    + getCurrentOperator() + ". It waits for prices.", "PROJECT", saved.getId());
+        } else {
+            notificationService.emitToAudience("NEW_INTAKE", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId());
+        }
+        auditService.logActionAfterCommit(pendingEntry ? "PENDING_CREATED" : "INTAKE",
+            "Operator [" + getCurrentOperator() + "] " + (pendingEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
+            + plotOrIndex + receivableNote + fix172Note);
+
+        if (startAsReceivable) {
+            auditService.logActionAfterCommit("RECEIVABLE_TRIGGER",
+                "Operator [" + getCurrentOperator() + "] flagged plot "
+                + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
+                + ". Storage fees: UGX " + initialFees.add(backlogFees)
+                + (backlogMonths > 0 ? " (incl. UGX " + backlogFees + " backlog for " + backlogMonths + " month(s) since " + receivablesSince + ")" : "")
+                + " (UGX " + initialFeesPaid + " already paid).");
+        }
+
+        return saved;
+    }
+
+    // ─── INTAKE MONEY (fix181, 12.2) ─────────────────────────────────────────
+    // ONE set of rules for the money typed at intake, used by atomicIntake AND by graduatePending (a Pending project gets
+    // its prices later), so the two can never drift apart.
+
+    /** The intake money after every check. */
+    record IntakeMoney(BigDecimal totalCost, BigDecimal initialPayment, BigDecimal outstanding, boolean startAsReceivable,
+                       BigDecimal initialFees, BigDecimal initialFeesPaid, LocalDate receivablesSince, int backlogMonths,
+                       BigDecimal backlogFees, LocalDateTime receivableClock, LocalDate lastPaidDate, LocalDateTime paidAt,
+                       BigDecimal monthlyFeeOverride) {}
+
+    IntakeMoney checkIntakeMoney(LandEntryRequest request) {
         BigDecimal initialPayment = request.getInitialPayment() != null
                 ? request.getInitialPayment() : BigDecimal.ZERO;
         BigDecimal totalCost = request.getTotalCost() != null
@@ -494,119 +657,50 @@ public class LandService {
             throw new com.gesolutions.erp.common.exception.BusinessException("STORAGE_NOT_APPLICABLE: Storage fees only exist on a project in receivables. "
                     + "This title work is already fully paid, so clear the storage fee boxes.");
         }
+        BigDecimal override = request.getMonthlyStorageFee() != null && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0
+                ? request.getMonthlyStorageFee() : null;
+        return new IntakeMoney(totalCost, initialPayment, outstanding, startAsReceivable, initialFees, initialFeesPaid,
+                receivablesSince, backlogMonths, backlogFees, receivableClock, lastPaidDate, paidAt, override);
+    }
 
-        LandTitle title = null;
-        if (hasTitleFields) {
-            // Title Details are fully required on the page once shown -- mirrored here, since this service validates
-            // DTOs imperatively rather than via @Valid/bean-validation. fix180: Area (hectares) is required too.
-            if (request.getPlotNumber() == null || request.getPlotNumber().isBlank()) {
-                throw new BusinessException("PLOT_NUMBER_REQUIRED: Plot Number is required in Title Details.");
-            }
-            if (request.getBlock() == null || request.getBlock().isBlank()) {
-                throw new BusinessException("BLOCK_REQUIRED: Block is required in Title Details.");
-            }
-            requireAreaHectares(request.getAreaHectares());
-            if (request.getTitleIssueDate() == null) {
-                throw new BusinessException("TITLE_DATE_REQUIRED: Title Date is required in Title Details.");
-            }
-            title = LandTitle.builder()
-                    .tenure(request.getTenure() != null && !request.getTenure().isBlank() ? request.getTenure() : "FREEHOLD")
-                    .plotNumber(request.getPlotNumber())
-                    .block(request.getBlock())
-                    .areaHectares(request.getAreaHectares())
-                    .volume(blankToNull(request.getVolume()))
-                    .folio(blankToNull(request.getFolio()))
-                    // Date Started is editable again on the intake form (staff can
-                    // backdate a project entered a few days after fieldwork began),
-                    // so this trusts the client value when present and only falls
-                    // back to today when it's missing. Entry Date (LandProject,
-                    // below) is the one that stays server-set and non-editable.
-                    .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
-                    .titleIssueDate(request.getTitleIssueDate())
-                    .build();
+    /** Puts the checked money on the project (cost, amount paid, status, receivable fields). */
+    void applyIntakeMoney(LandProject project, IntakeMoney m) {
+        project.setTotalCost(m.totalCost());
+        project.setAmountPaid(m.initialPayment().add(m.initialFeesPaid()));   // fix171: title money + storage-fee money
+        project.setCurrentStatusIndex(m.startAsReceivable() ? 5 : (project.getCurrentStatusIndex() != null ? project.getCurrentStatusIndex() : 1));
+        project.setStatus(m.startAsReceivable() ? "RECEIVABLE" : "ACTIVE");
+        if (m.startAsReceivable() && m.outstanding().compareTo(BigDecimal.ZERO) > 0) {
+            project.setReceivable(true);
+            project.setReceivableStartDate(m.receivableClock());          // fix172: the In Receivables Since date, or now
+            project.setReceivableMonthsBilled(m.backlogMonths());         // fix172: billed now, so the nightly job must not bill them again
+            project.setOriginalDebt(m.outstanding());
+            project.setStorageFeesAccumulated(m.initialFees().add(m.backlogFees()));   // fix172: typed fee + the backlog months
+            project.setStorageFeesPaid(m.initialFeesPaid());              // fix171
+            if (m.monthlyFeeOverride() != null) project.setStorageFeeOverride(m.monthlyFeeOverride());
         }
+    }
 
-        LandProject.LandProjectBuilder builder = LandProject.builder()
-                .landTitle(title)
-                .projectIndex(projectIndex)
-                // ENTRY DATE: automatic, server-set, never from the request.
-                .entryDate(LocalDate.now())
-                // DATE STARTED: editable on the intake form, defaults to today
-                // on the client -- this was previously never wired up here at
-                // all, so every project's start date landed NULL regardless of
-                // what the form showed.
-                .projectStartDate(request.getProjectStartDate() != null ? request.getProjectStartDate() : LocalDate.now())
-                .district(request.getDistrict())
-                .county(request.getCounty())
-                .subCounty(request.getSubCounty())
-                .parish(request.getParish())
-                .village(request.getVillage())
-                .area(request.getArea())
-                .totalCost(totalCost)
-                .amountPaid(initialPayment.add(initialFeesPaid))   // fix171: title money + storage-fee money (fees paid is 0 unless receivable)
-                .projectType(type.name())                          // fix180
-                .titleDetailsEnabled(titleSwitchedOn)
-                .subdivisionCount(subdivisionCount)
-                .parentProjectId(parent != null ? parent.getId() : null)
-                .parentSubdivisionNo(parent != null ? request.getParentSubdivisionNo() : null)
-                .isLegacy(isLegacyType)
-                .currentStatusIndex(startAsReceivable ? 5 : 1)
-                .status(startAsReceivable ? "RECEIVABLE" : "ACTIVE");
+    /**
+     * Who paid (fix172), the INITIAL_DEPOSIT payment lines (fix171: title and storage on their own lines) and the last
+     * payment date. Returns the text added to the audit line.
+     */
+    String recordIntakeMoney(LandProject saved, IntakeMoney m, java.util.Map<String, Client> clientsByNin, LandEntryRequest request) {
+        BigDecimal initialPayment = m.initialPayment();
+        BigDecimal initialFeesPaid = m.initialFeesPaid();
+        LocalDateTime paidAt = m.paidAt();
+        LocalDate lastPaidDate = m.lastPaidDate();
+        Client titlePayer = fix172ResolvePayer(clientsByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
+        Client feesPayer = fix172ResolvePayer(clientsByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
+        StringBuilder note = new StringBuilder();
+        if (titlePayer != null) note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
+        if (feesPayer != null) note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
+        if (lastPaidDate != null) note.append(" | Date last paid ").append(lastPaidDate);
+        if (m.receivablesSince() != null) note.append(" | In receivables since ").append(m.receivablesSince())
+                .append(" (").append(m.backlogMonths()).append(" month(s) of fees billed at intake)");
 
-        if (startAsReceivable && outstanding.compareTo(BigDecimal.ZERO) > 0) {
-            builder.isReceivable(true)
-                   .receivableStartDate(receivableClock)   // fix172: the In Receivables Since date, or now
-                   .receivableMonthsBilled(backlogMonths)   // fix172: those months are billed below, so the nightly job must not bill them again
-                   .originalDebt(outstanding)
-                   .storageFeesAccumulated(initialFees.add(backlogFees))   // fix172: typed fee + the backlog months
-                   .storageFeesPaid(initialFeesPaid);   // fix171
-            if (request.getMonthlyStorageFee() != null
-                    && request.getMonthlyStorageFee().compareTo(BigDecimal.ZERO) > 0) {
-                builder.storageFeeOverride(request.getMonthlyStorageFee());
-            }
-        }
-
-        LandProject project = builder.build();
-
-        // fix180: CLIENTS first (they pay, Recovery calls them), then OWNERS (the people on the title). Owners left empty
-        // are a copy of the clients; an old page that sends only owners has those owners as its clients.
-        List<LandEntryRequest.OwnerRequest> clientRows = request.getClients() != null && !request.getClients().isEmpty()
-                ? request.getClients() : (request.getOwners() != null ? request.getOwners() : List.of());
-        List<LandEntryRequest.OwnerRequest> ownerRows = request.getOwners() != null && !request.getOwners().isEmpty()
-                ? request.getOwners() : clientRows;
-        if (clientRows.isEmpty()) {
-            throw new BusinessException("CLIENT_REQUIRED: Add at least one client.");
-        }
-        // fix172: the clients by NIN, so the client who paid the intake money can be named
-        java.util.Map<String, Client> ownersByNin = new java.util.LinkedHashMap<>();
-        for (LandEntryRequest.OwnerRequest o : clientRows) {
-            Client c = personFromRow(o, "Client");
-            project.addClient(c);
-            ownersByNin.put(o.getNationalId().trim().toUpperCase(), c);   // fix172
-        }
-        for (LandEntryRequest.OwnerRequest o : ownerRows) {
-            project.addProprietor(personFromRow(o, "Owner"));
-        }
-
-        // fix172: WHO paid the money entered at intake. Same rule as a normal payment: a single client is the payer,
-        // joint clients must say which one paid. Checked before anything is saved.
-        Client titlePayer = fix172ResolvePayer(ownersByNin, request.getInitialPaymentPayerNin(), initialPayment, "initial payment");
-        Client feesPayer = fix172ResolvePayer(ownersByNin, request.getInitialStorageFeePaidPayerNin(), initialFeesPaid, "storage fees already paid");
-        StringBuilder fix172Note = new StringBuilder();
-        if (titlePayer != null) fix172Note.append(" | Initial payment paid by ").append(titlePayer.getFullName());
-        if (feesPayer != null) fix172Note.append(" | Storage fees paid by ").append(feesPayer.getFullName());
-        if (lastPaidDate != null) fix172Note.append(" | Date last paid ").append(lastPaidDate);
-        if (receivablesSince != null) fix172Note.append(" | In receivables since ").append(receivablesSince)
-                .append(" (").append(backlogMonths).append(" month(s) of fees billed at intake)");
-
-        LandProject saved = projectRepository.save(project);
-
-        // Record initial payment if any
-        // fix171: the balance shown on the history lines includes the storage fees, and the money that was paid
-        // toward fees gets its OWN line (allocation STORAGE) so the folder, payments page and reports can tell them apart.
-        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : outstanding;
+        BigDecimal balanceAtIntake = saved.isReceivable() ? saved.receivableTotalOwed() : m.outstanding();
         if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {
-            PaymentRecord initialRecord = PaymentRecord.builder()
+            paymentRecordRepository.save(PaymentRecord.builder()
                     .projectId(saved.getId())
                     .amountPaid(initialPayment)
                     .paymentType("INITIAL_DEPOSIT")
@@ -614,19 +708,18 @@ public class LandService {
                     .notes(paidAt != null ? "Initial deposit at intake (paid on " + lastPaidDate + ")" : "Initial deposit at intake")
                     .balanceAfter(balanceAtIntake)
                     .allocation("TITLE")
-                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which owner paid
+                    .payerClientId(titlePayer != null ? titlePayer.getId() : null)   // fix172: which client paid
                     .payerName(titlePayer != null ? titlePayer.getFullName() : null)
                     .timestamp(LocalDateTime.now())   // fix181 (16.0b): always the real entry time
                     .paidOn(paidAt)                   // fix181 (11.6): the day paid; NULL when the operator gave no date
-                    .build();
-            paymentRecordRepository.save(initialRecord);
+                    .build());
             saved.setLastPaymentDate(paidAt != null ? paidAt : LocalDateTime.now());   // fix172: not always today any more
             projectRepository.save(saved);
         }
         if (initialFeesPaid.compareTo(BigDecimal.ZERO) > 0) {
-            // deliberately NOT setting lastPaymentDate: this money was paid before the project was entered, on an
-            // unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.
-            PaymentRecord feesRecord = PaymentRecord.builder()
+            // deliberately NOT setting lastPaymentDate without a date: this money was paid before the project was entered,
+            // on an unknown date, so it must not turn the recovery badge green or lock the client from calls for 30 days.
+            paymentRecordRepository.save(PaymentRecord.builder()
                     .projectId(saved.getId())
                     .amountPaid(initialFeesPaid)
                     .paymentType("INITIAL_DEPOSIT")
@@ -634,58 +727,17 @@ public class LandService {
                     .notes(paidAt != null ? "Storage fees already paid before entry (paid on " + lastPaidDate + ")" : "Storage fees already paid before entry (recorded at intake)")
                     .balanceAfter(balanceAtIntake)
                     .allocation("STORAGE")
-                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)   // fix172: which owner paid
+                    .payerClientId(feesPayer != null ? feesPayer.getId() : null)
                     .payerName(feesPayer != null ? feesPayer.getFullName() : null)
-                    .timestamp(LocalDateTime.now())   // fix181 (16.0b)
+                    .timestamp(LocalDateTime.now())
                     .paidOn(paidAt)
-                    .build();
-            paymentRecordRepository.save(feesRecord);
+                    .build());
             if (paidAt != null) {
-                // fix172: only when the operator gave a date. No date = still unknown = the recovery badge stays untouched.
                 saved.setLastPaymentDate(paidAt);
                 projectRepository.save(saved);
             }
         }
-
-        // fix180: every project type has its own status list, so every project gets its statuses
-        if (request.getSelectedStatuses() != null && !request.getSelectedStatuses().isEmpty()) {
-            statusTemplateService.attachStatusesToProject(saved.getId(), request.getSelectedStatuses());
-        }
-        saveNeighbors(saved.getId(), request.getNeighbors());   // fix180
-
-        if (scans != null) addScansToProject(saved.getId(), scans, null, categories);   // fix174: file each document under its type
-
-        if (request.getNotes() != null) {
-            for (LandEntryRequest.NoteRequest noteReq : request.getNotes()) {
-                if (noteReq.getContent() != null && !noteReq.getContent().trim().isEmpty()) {
-                    FollowUpLog entry = FollowUpLog.builder()
-                            .projectId(saved.getId())
-                            .notes("INTAKE NOTE: " + noteReq.getContent())
-                            .recordedBy(getCurrentOperator())
-                            .build();
-                    followUpRepository.save(entry);
-                }
-            }
-        }
-
-        String plotOrIndex = title != null ? title.getPlotNumber() : "project #" + projectIndex;
-        String receivableNote = (startAsReceivable ? " [ENTERED AS RECEIVABLE]" : "") + " [" + type.getLabel() + "]"
-                + (parent != null ? " [TRANSFER OF SUBDIVISION PLOT " + request.getParentSubdivisionNo() + " OF PROJECT #" + parent.getProjectIndex() + "]" : "");
-        notificationService.emitToAudience("NEW_INTAKE", "New project " + projectIndex + " registered by " + getCurrentOperator() + ".", "PROJECT", saved.getId());
-        auditService.logActionAfterCommit("INTAKE",
-            "Operator [" + getCurrentOperator() + "] ingested binder: "
-            + plotOrIndex + receivableNote + fix172Note);
-
-        if (startAsReceivable) {
-            auditService.logActionAfterCommit("RECEIVABLE_TRIGGER",
-                "Operator [" + getCurrentOperator() + "] flagged plot "
-                + plotOrIndex + " as RECEIVABLE at intake. Title debt: UGX " + outstanding
-                + ". Storage fees: UGX " + initialFees.add(backlogFees)
-                + (backlogMonths > 0 ? " (incl. UGX " + backlogFees + " backlog for " + backlogMonths + " month(s) since " + receivablesSince + ")" : "")
-                + " (UGX " + initialFeesPaid + " already paid).");
-        }
-
-        return saved;
+        return note.toString();
     }
 
     // ─── FULL UPDATE ──────────────────────────────────────────────────────────
@@ -796,6 +848,17 @@ public class LandService {
 
     @Transactional(rollbackFor = Exception.class)
     public LandProject updateProjectFull(UUID projectId, LandEntryRequest request) {
+        LandProject p = projectRepository.findByIdForUpdate(projectId)
+                .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
+        // fix181 (12.2): a Pending project gets its prices through START PROJECT (graduatePending), never through this edit
+        if (p.isPending()) {
+            throw new BusinessException("PENDING_PROJECT: This project is Pending. Use START PROJECT to add the prices.");
+        }
+        return doUpdateProjectFull(projectId, request);
+    }
+
+    /** The edit itself (people, title details, location, subdivisions, cost with its reason). Callers check who may do it. */
+    LandProject doUpdateProjectFull(UUID projectId, LandEntryRequest request) {
         LandProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException("ARCHIVE_FAULT"));
         LandTitle title = project.getLandTitle();
@@ -1305,10 +1368,10 @@ public class LandService {
         // This method only ever had the id, not the entity, so the label has to
         // be looked up -- and must not be allowed to fail the upload if the
         // row has gone missing underneath us.
-        String docPlotLabel = projectRepository.findById(projectId)
-                .map(this::plotLabel)
-                .orElse("plot " + projectId);
-        notificationService.emitToAudience("DOC_UPLOADED",
+        LandProject docProjectRow = projectRepository.findById(projectId).orElse(null);
+        String docPlotLabel = docProjectRow != null ? plotLabel(docProjectRow) : "plot " + projectId;
+        // fix181 (17.7): documents on a Pending project send no alert (only PENDING_CREATED and the daily reminder do)
+        if (docProjectRow == null || !docProjectRow.isPending()) notificationService.emitToAudience("DOC_UPLOADED",
             scans.length + " document(s) attached to " + docPlotLabel
             + " by " + getCurrentOperator() + ".",
             "PROJECT", projectId);

@@ -24,6 +24,7 @@ public class DocumentCategoryController {
     private final DocumentCategoryService documentCategoryService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_EMPLOYEE')")   // fix181: the Employee files scans too
     public ResponseEntity<List<DocumentCategory>> list() {
         return ResponseEntity.ok(documentCategoryService.list());
     }

@@ -22,8 +22,10 @@ public final class NotificationTypes {
      * EVERY_TIME: written each time. ONCE_PER_ENTITY: never again for the same thing and role.
      * ONCE_PER_DAY: at most once a day per thing and role. ONCE_PER_EVENT_DATE: once per thing + a date the caller gives
      * (for example the day a project went into receivables), so a second, later event is not silenced.
+     * GROUP_30_MIN (17.7): a second one for the same thing and role within 30 minutes adds its count to the first row
+     * ("5 document(s) attached ...") instead of a new row.
      */
-    public enum Repeat { EVERY_TIME, ONCE_PER_ENTITY, ONCE_PER_DAY, ONCE_PER_EVENT_DATE }
+    public enum Repeat { EVERY_TIME, ONCE_PER_ENTITY, ONCE_PER_DAY, ONCE_PER_EVENT_DATE, GROUP_30_MIN }
 
     public record Type(String code, Group group, String severity, Repeat repeat, List<String> audience) {}
 
@@ -46,6 +48,7 @@ public final class NotificationTypes {
         add("FEES_REDUCED",          Group.MONEY, "WARN",     Repeat.EVERY_TIME, DIR);
         add("RECEIVABLE_EXIT",       Group.MONEY, "POSITIVE", Repeat.EVERY_TIME, DIR);
         add("STORAGE_FEE_APPLIED",   Group.MONEY, "INFO",     Repeat.ONCE_PER_DAY, DIR);
+        add("STORAGE_FEE_RESUMED",   Group.MONEY, "WARN",     Repeat.EVERY_TIME, DIR);   // 17.15b
         add("EXPENSE_LOGGED",        Group.MONEY, "INFO",     Repeat.EVERY_TIME, DIR);
         add("EXPENSE_EDITED",        Group.MONEY, "WARN",     Repeat.EVERY_TIME, DIR);
         add("EXPENSE_DELETED",       Group.MONEY, "WARN",     Repeat.EVERY_TIME, DIR);
@@ -54,7 +57,7 @@ public final class NotificationTypes {
         add("PENDING_CREATED",       Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, SEC, MGR);
         add("NEW_INTAKE",            Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR);
         add("STATUS_ADVANCED",       Group.PIPELINE, "POSITIVE", Repeat.EVERY_TIME, MGR);
-        add("DOC_UPLOADED",          Group.PIPELINE, "INFO",     Repeat.EVERY_TIME, MGR);
+        add("DOC_UPLOADED",          Group.PIPELINE, "INFO",     Repeat.GROUP_30_MIN, MGR);   // 17.7: grouped
         add("TITLE_COMPLETED",       Group.PIPELINE, "POSITIVE", Repeat.EVERY_TIME, DIR);
         add("TITLE_RELEASE_UNDONE",  Group.PIPELINE, "WARN",     Repeat.EVERY_TIME, DIR);
         add("PROBLEM_FLAGGED",       Group.PIPELINE, "CRITICAL", Repeat.EVERY_TIME, SEC, MGR, DIR);
@@ -62,7 +65,8 @@ public final class NotificationTypes {
         add("PROJECT_DELETED",       Group.PIPELINE, "CRITICAL", Repeat.EVERY_TIME, DIR, ADM);
         add("PROJECT_RESTORED",      Group.PIPELINE, "POSITIVE", Repeat.EVERY_TIME, DIR);
         add("AUTO_RECEIVABLE_365",   Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, DIR);
-        add("PENDING_STALE",         Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, SEC, MGR);
+        add("PENDING_STALE",         Group.PIPELINE, "WARN",     Repeat.ONCE_PER_DAY, SEC, MGR);
+        add("PROJECT_GRADUATED",     Group.PIPELINE, "INFO",     Repeat.ONCE_PER_ENTITY, MGR, DIR);   // 17.15a
         add("NEGOTIATION_DEADLINE",  Group.PIPELINE, "WARN",     Repeat.ONCE_PER_EVENT_DATE, MGR);
         // RECOVERY
         add("LOCKED",                Group.RECOVERY, "INFO", Repeat.EVERY_TIME, SEC, MGR);

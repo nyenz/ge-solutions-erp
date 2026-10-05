@@ -23,6 +23,8 @@ import java.time.format.DateTimeFormatter;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
+// fix181 (8.7f): a class gate too, so a new report method without its own gate is never open to everyone
+@org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DIRECTOR')")
 public class ReportController {
 
     private final ReportService reportService;

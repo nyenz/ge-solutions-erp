@@ -85,6 +85,7 @@ public class ReceivableSchedulerService {
             try { applyMonthlyStorageFees(); } catch (Exception e) { System.err.println(">>> [JOBS] fees catch-up: " + e.getMessage()); }
             try { autoFlagStaleAsReceivable(); } catch (Exception e) { System.err.println(">>> [JOBS] 365 catch-up: " + e.getMessage()); }
             try { unlockSweep(); } catch (Exception e) { System.err.println(">>> [JOBS] unlock catch-up: " + e.getMessage()); }
+            try { pendingStaleCheck(); } catch (Exception e) { System.err.println(">>> [JOBS] pending catch-up: " + e.getMessage()); }
         }, "jobs-catch-up");
         t.setDaemon(true);
         t.start();
@@ -130,12 +131,22 @@ public class ReceivableSchedulerService {
         }
         if (plot.getNegotiationDeadline() != null) {
             if (plot.getStoragePausedAt() == null) { plot.setStoragePausedAt(now); projectRepository.save(plot); }
-            if (now.isBefore(plot.getNegotiationDeadline())) return BigDecimal.ZERO; // still paused
+            if (now.isBefore(plot.getNegotiationDeadline())) {
+                // fix181 (17.15c): the Manager hears once when a negotiation deadline is 3 days away
+                if (plot.getNegotiationDeadline().isBefore(now.plusDays(3))) {
+                    notificationService.emitToAudience("NEGOTIATION_DEADLINE", "Negotiation deadline for " + ownerLabel(plot)
+                            + " is on " + plot.getNegotiationDeadline().toLocalDate() + ".", "PROJECT", plot.getId(),
+                            plot.getNegotiationDeadline().toLocalDate());
+                }
+                return BigDecimal.ZERO; // still paused
+            }
             LocalDateTime ended = plot.getNegotiationDeadline();
             plot.endStoragePause(ended);
             projectRepository.save(plot);
             auditService.logActionAfterCommit("STORAGE_FEE_RESUMED", "SYSTEM: Storage-fee pause ended on " + ended.toLocalDate()
                     + " for " + ownerLabel(plot) + ". Billing restarts; the paused days are not charged.");
+            notificationService.emitToAudience("STORAGE_FEE_RESUMED", "Storage fees are running again for " + ownerLabel(plot)
+                    + ": the pause ended on " + ended.toLocalDate() + ".", "PROJECT", plot.getId());   // fix181 (17.15b)
         }
 
         long daysSinceReceivable = ChronoUnit.DAYS.between(plot.getReceivableStartDate(), now);
@@ -227,6 +238,18 @@ public class ReceivableSchedulerService {
             + " auto-flagged as RECEIVABLE after 365 days of no payment. "
             + "Debt frozen at: UGX " + outstanding);
         return plot;
+    }
+
+    // ── PENDING WAITING TOO LONG (08:00) ────────────────────────────────────
+    /** fix181 (17.8): one reminder a day while any Pending project has waited more than 3 days for its prices. */
+    @Scheduled(cron = "0 0 8 * * *", zone = ZONE)
+    public void pendingStaleCheck() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(PendingProjectService.STALE_DAYS);
+        long n = projectRepository.findAllIncludingPending().stream()
+                .filter(p -> p.isPending() && p.getCreatedAt() != null && p.getCreatedAt().isBefore(cutoff)).count();
+        if (n == 0) return;
+        notificationService.emitToAudience("PENDING_STALE", n + " Pending project(s) have waited more than "
+                + PendingProjectService.STALE_DAYS + " days for prices.", "SYSTEM", jobId("pending-stale"));
     }
 
     // old promise/cooldown loops stay disabled (dead code; removed with the other deletions in Step 5)

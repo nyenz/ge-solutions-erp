@@ -112,6 +112,8 @@ export const CATALOG = {
     PENDING_STALE:         { label: 'Pending project waiting', group: GROUPS.PIPELINE, icon: FiClock,     severity: 'WARN' },
     TITLE_RELEASE_UNDONE:  { label: 'Hand-over undone',      group: GROUPS.PIPELINE, icon: FiRotateCcw,   severity: 'WARN' },
     PROBLEM_CLEARED:       { label: 'Problem cleared',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'POSITIVE' },
+    PROJECT_GRADUATED:     { label: 'Project started',       group: GROUPS.PIPELINE, icon: FiCheckCircle, severity: 'INFO' },
+    STORAGE_FEE_RESUMED:   { label: 'Storage fees running again', group: GROUPS.MONEY, icon: FiArchive,   severity: 'WARN' },
 
     /* ── recovery ───────────────────────────────────────────────── */
     LOCKED:                { label: 'Client resting',        group: GROUPS.RECOVERY, icon: FiLock,        severity: 'INFO' },

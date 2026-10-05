@@ -427,6 +427,9 @@ public class ScenarioSeeder {
                 .entryDate(now.toLocalDate().minusDays(entry))
                 .createdAt(now.minusDays(entry))   // fix181 (20.9)
                 .createdBy(staff)
+                .createdById(users.get(staff) != null ? users.get(staff).getId() : null)
+                .pending(s.pending)                                                             // fix181 (8.9)
+                .graduatedAt(s.graduatedAgo >= 0 ? at(s.graduatedAgo, s.key + "G") : null)
                 .district(s.district).county(s.county).subCounty(s.subCounty).parish(s.parish).village(s.village).area(s.area)
                 .totalCost(BigDecimal.valueOf(totalCost))
                 .amountPaid(BigDecimal.valueOf(s.paid()))
@@ -480,9 +483,21 @@ public class ScenarioSeeder {
             Client c = clients.get(o);
             audit("CLIENT_ARCHIVE", "New identity registered via NIN: " + c.getFullName() + " (" + c.getNationalId() + ")", staff, entryAt.minusMinutes(2));
         }
-        audit("INTAKE", "Operator [" + staff + "] ingested binder: " + (s.hasTitle() && !s.pendingTitle && !s.isFolder() ? s.plot : "project #" + index)
+        boolean employeeEntry = ScenarioData.EMPLOYEE.equals(staff);
+        audit(employeeEntry ? "PENDING_CREATED" : "INTAKE", "Operator [" + staff + "] " + (employeeEntry ? "entered a PENDING project (no prices yet): " : "ingested binder: ")
+                + (s.hasTitle() && !s.pendingTitle && !s.isFolder() ? s.plot : "project #" + index)
                 + (s.recvAtIntake ? " [ENTERED AS RECEIVABLE]" : ""), staff, entryAt);
-        bell("NEW_INTAKE", "INFO", "New project " + index + " registered by " + staff + ".", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        if (employeeEntry) {
+            bell("PENDING_CREATED", "INFO", "New Pending project " + index + " entered by " + staff + ". It waits for prices.", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        } else {
+            bell("NEW_INTAKE", "INFO", "New project " + index + " registered by " + staff + ".", "PROJECT", pid, "ROLE_MANAGER", entryAt);
+        }
+        if (s.graduatedAgo >= 0) {
+            LocalDateTime g = at(s.graduatedAgo, s.key + "G");
+            audit("PROJECT_GRADUATED", "Operator [" + ScenarioData.SEC1 + "] priced and started Pending project #" + index
+                    + " (entered by " + staff + "). Total cost UGX " + money(s.cost), ScenarioData.SEC1, g);
+            bell("PROJECT_GRADUATED", "INFO", "Project " + index + " has been priced and started.", "PROJECT", pid, "ROLE_MANAGER", g);
+        }
         if (s.recvAtIntake) {
             audit("RECEIVABLE_TRIGGER", "Operator [" + staff + "] flagged plot " + lbl + " as RECEIVABLE at intake. Debt: UGX " + money(debt), staff, entryAt.plusMinutes(1));
         }

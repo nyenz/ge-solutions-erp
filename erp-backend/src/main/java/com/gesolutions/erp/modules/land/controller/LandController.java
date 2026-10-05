@@ -38,7 +38,7 @@ public class LandController {
     // FIX: previously @PostMapping(unlock-log) + @GetMapping(next-index) were
     // stacked on ONE method, so /next-index never registered (404) and the
     // Index field always failed. One mapping per method now.
-    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ROLE_MANAGER', 'ROLE_SECRETARY', 'ROLE_ADMIN', 'ROLE_DIRECTOR', 'ROLE_EMPLOYEE')")   // fix181: shown on New Project
     @GetMapping("/next-index")
     public ResponseEntity<String> previewNextIndex() {
         return ResponseEntity.ok(landService.previewNextIndex());

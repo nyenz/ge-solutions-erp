@@ -18,6 +18,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/land/portal/{id}")
 @RequiredArgsConstructor
+// fix181 (8.7f, 8.8): the money views of a project (/receivable, /portfolio) had no gate at all; the Employee never gets them
+@org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ROLE_MANAGER','ROLE_SECRETARY','ROLE_ADMIN','ROLE_DIRECTOR')")
 public class FolderPortalController {
 
     private final LandProjectRepository projectRepository;

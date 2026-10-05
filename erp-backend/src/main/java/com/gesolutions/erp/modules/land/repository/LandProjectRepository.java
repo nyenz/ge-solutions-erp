@@ -89,6 +89,15 @@ public interface LandProjectRepository extends JpaRepository<LandProject, UUID> 
          + "WHERE p.deleted = false AND p.pending = false AND (c.id = :clientId OR (o.id = :clientId AND p.clients IS EMPTY))")
     List<LandProject> findByBillingClient(@org.springframework.data.repository.query.Param("clientId") UUID clientId);
 
+    /** fix181 (8.10b, 11.1b): every live project (Pending included) where this person is a client or an owner. */
+    @Query("SELECT DISTINCT p FROM LandProject p LEFT JOIN p.clients c LEFT JOIN p.proprietors o "
+         + "WHERE p.deleted = false AND (c.id = :clientId OR o.id = :clientId)")
+    List<LandProject> findAllOfPersonIncludingPending(@org.springframework.data.repository.query.Param("clientId") UUID clientId);
+
+    /** fix181 (8.7d, 12.3): the projects an Employee entered (deleted = rejected ones too), newest first. */
+    @Query("SELECT p FROM LandProject p WHERE p.createdById = :userId ORDER BY p.createdAt DESC")
+    List<LandProject> findByCreatedById(@org.springframework.data.repository.query.Param("userId") UUID userId);
+
     // fix180: the Transfer of Title projects made from one subdivision project's plots (deleted ones left out)
     @Query("SELECT p FROM LandProject p WHERE p.parentProjectId = :parentId AND p.deleted = false")
     List<LandProject> findTransfersOf(@org.springframework.data.repository.query.Param("parentId") UUID parentId);

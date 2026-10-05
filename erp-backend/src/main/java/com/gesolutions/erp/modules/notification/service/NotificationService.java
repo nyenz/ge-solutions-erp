@@ -84,6 +84,15 @@ public class NotificationService {
                 String key = t.repeat() == NotificationTypes.Repeat.ONCE_PER_EVENT_DATE && entityId != null
                         ? entityId + "|" + (eventDate != null ? eventDate : when.toLocalDate()) : null;
                 for (String role : t.audience()) {
+                    if (t.repeat() == NotificationTypes.Repeat.GROUP_30_MIN && entityId != null) {
+                        var recent = repo.findFirstByTypeAndEntityIdAndTargetRoleAndCreatedAtAfterOrderByCreatedAtDesc(type, entityId, role, when.minusMinutes(30));
+                        if (recent.isPresent()) {
+                            Notification r = recent.get();
+                            r.setMessage(grouped(r.getMessage(), message));
+                            repo.save(r);
+                            continue;
+                        }
+                    }
                     if (isRepeat(t, entityId, key, role, when)) continue;
                     Notification n = repo.save(Notification.builder().type(type).severity(t.severity())
                             .message(message == null ? "" : message).entityType(entityType).entityId(entityId)
@@ -106,7 +115,19 @@ public class NotificationService {
             case ONCE_PER_ENTITY -> repo.existsByTypeAndEntityIdAndTargetRole(t.code(), entityId, role);
             case ONCE_PER_DAY -> repo.existsByTypeAndEntityIdAndTargetRoleAndCreatedAtAfter(t.code(), entityId, role, when.toLocalDate().atStartOfDay());
             case ONCE_PER_EVENT_DATE -> repo.existsByTypeAndDedupeKeyAndTargetRole(t.code(), key, role);
+            case GROUP_30_MIN -> false;
         };
+    }
+
+    /** "3 document(s) attached to X by Y." + "2 document(s) ..." -> "5 document(s) attached to X by Y." */
+    static String grouped(String old, String add) {
+        try {
+            int a = Integer.parseInt(old.trim().split("\\s+")[0]);
+            int b = Integer.parseInt(add.trim().split("\\s+")[0]);
+            return (a + b) + old.trim().substring(old.trim().indexOf(' '));
+        } catch (Exception e) {
+            return add;
+        }
     }
 
     /** The signed-in username, or null for the nightly jobs and other system work. */

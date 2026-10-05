@@ -138,6 +138,12 @@ public class ClientService {
             String existingName = existing.get().getFullName() == null ? "" : existing.get().getFullName().trim();
             String typedName = fullName == null ? "" : fullName.trim();
             if (!existingName.equalsIgnoreCase(typedName)) {
+                // fix181 (8.10a): an Employee never reads another person's name back from a NIN
+                var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                boolean employee = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+                if (employee) {
+                    throw new BusinessException("NIN_CONFLICT: This National ID is already registered under a different name. Check the NIN, or ask a Secretary.");
+                }
                 throw new BusinessException("NIN_NAME_MISMATCH: This NIN is already registered to '"
                         + existingName + "', but you entered '" + typedName
                         + "'. Confirm this is the same person before continuing, or check the NIN for a typo.");

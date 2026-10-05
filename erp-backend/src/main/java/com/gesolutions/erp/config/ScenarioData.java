@@ -50,6 +50,7 @@ final class ScenarioData {
     static final String SEC2 = "demo.secretary2";
     static final String SUSPENDED = "demo.suspended";
     static final String NEWHIRE = "demo.newhire";
+    static final String EMPLOYEE = "demo.employee";     // fix181 (8.9): field entry only, Pending projects
     static final String ROOT = "admin_root";
 
     static final class Staff {
@@ -84,6 +85,7 @@ final class ScenarioData {
         s.add(new Staff(SEC2, "ROLE_SECRETARY", true, false, 120, 0, 0, 20));
         s.add(new Staff(SUSPENDED, "ROLE_SECRETARY", false, false, 250, 0, 40, 0));
         s.add(new Staff(NEWHIRE, "ROLE_SECRETARY", true, true, 3, 0, 0, 0));
+        s.add(new Staff(EMPLOYEE, "ROLE_EMPLOYEE", true, false, 60, 0, 0, 0));
         return s;
     }
 
@@ -323,6 +325,9 @@ final class ScenarioData {
         String clearNote;
         int deletedAgo = -1;
         int restoredAgo = -1;
+        // fix181 (8.9): entered by the Employee, waiting for prices (no cost, no payments) / started (graduated) N days ago
+        boolean pending = false;
+        int graduatedAgo = -1;
 
         Spec(String key, String mode, String[] owners) {
             this.key = key;
@@ -376,6 +381,8 @@ final class ScenarioData {
         Spec problem(int ago, String note) { problemAgo = ago; problemNote = note; return this; }
         Spec problemCleared(int flagAgo, int clearAgo, String note, String clear) { problemAgo = flagAgo; problemNote = note; problemClearedAgo = clearAgo; clearNote = clear; return this; }
         Spec deleted(int ago) { deletedAgo = ago; return this; }
+        Spec pending() { pending = true; cost = 0; intakeBy = EMPLOYEE; noStatuses = true; return this; }
+        Spec graduated(int ago) { graduatedAgo = ago; return this; }
         Spec restored(int deletedAgo, int restoredAgo) { this.deletedAgo = deletedAgo; this.restoredAgo = restoredAgo; return this; }
         Spec note(int ago, String by, String text) { notes.add(new Note(ago, by, text, null)); return this; }
         Spec ownerNote(int ago, String by, String ownerKey, String text) { notes.add(new Note(ago, by, text, ownerKey)); return this; }
@@ -744,6 +751,14 @@ final class ScenarioData {
                 .title(plot(), "MUKONO BLOCK 31", "LRV 4072 FOLIO " + (19 + v), 225));
             l.add(folder("o_long_name" + s, v == 0 ? veryLong : pool.take()).loc(LOCS[li++ % LOCS.length], "0.25 acre")
                 .cost(3200000 + k).times(20 + d, 19 + d).deposit(800000).ticks(1, 1));
+
+            // ============ fix181 (8.9): PENDING (Employee field entries) and RECENTLY STARTED ============
+            l.add(folder("p_pending_new" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.5 acre")
+                .times(1 + v, 1 + v).pending());                       // waiting 1-2 days
+            l.add(folder("p_pending_stale" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "1 acre")
+                .times(5 + d, 5 + d).pending());                       // waiting more than 3 days (PENDING_STALE)
+            l.add(folder("g_started_recently" + s, pool.take()).loc(LOCS[li++ % LOCS.length], "0.75 acre")
+                .cost(3400000 + k).times(18 + d, 18 + d).by(EMPLOYEE).graduated(8 + d).ticks(1, 1));   // inside the 1-month Recovery delay
         }
 
         // oldest first so project indexes (001A, 002A ...) follow real chronology
@@ -912,7 +927,9 @@ final class ScenarioData {
                 if (o == null || !byKey.containsKey(o)) throw new IllegalStateException(at + "unknown owner " + o);
                 if (!ownerSet.add(o)) throw new IllegalStateException(at + "same owner twice " + o);
             }
-            if (s.cost <= 0) throw new IllegalStateException(at + "cost missing");
+            if (s.cost <= 0 && !s.pending) throw new IllegalStateException(at + "cost missing");
+            if (s.pending && (!s.pays.isEmpty() || s.cost != 0)) throw new IllegalStateException(at + "a Pending project has no price and no payments");
+            if (s.graduatedAgo > s.entry()) throw new IllegalStateException(at + "started before it was entered");
             if (s.entry() > s.startAgo && !s.legacy() && s.startAgo != 0) throw new IllegalStateException(at + "entry date earlier than start date");
             if (!staff.contains(s.intakeBy)) throw new IllegalStateException(at + "unknown intake staff");
             for (Pay p : s.pays) {

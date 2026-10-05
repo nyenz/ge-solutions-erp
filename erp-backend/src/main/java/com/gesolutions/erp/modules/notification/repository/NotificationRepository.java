@@ -15,4 +15,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     boolean existsByTypeAndEntityIdAndTargetRole(String type, UUID entityId, String targetRole);
     boolean existsByTypeAndEntityIdAndTargetRoleAndCreatedAtAfter(String type, UUID entityId, String targetRole, LocalDateTime after);
     boolean existsByTypeAndDedupeKeyAndTargetRole(String type, String dedupeKey, String targetRole);
+    // fix181 (17.7): the newest row of a type for one thing and role since a time (for grouping)
+    java.util.Optional<Notification> findFirstByTypeAndEntityIdAndTargetRoleAndCreatedAtAfterOrderByCreatedAtDesc(String type, UUID entityId, String targetRole, LocalDateTime after);
 }
