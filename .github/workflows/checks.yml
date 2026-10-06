@@ -24,14 +24,39 @@ jobs:
       run:
         working-directory: erp-backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
       - name: Run the server tests
-        run: mvn -B -ntp test
+        run: mvn -B -ntp test 2>&1 | tee mvn.log
+      # fix193: when a test fails, the reason is written onto the pull request itself (as red notes), so nobody
+      # has to open the long log to see WHICH test failed and WHY.
+      - name: Show which tests failed
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, re, xml.etree.ElementTree as ET
+          notes = []
+          for f in sorted(glob.glob('target/surefire-reports/TEST-*.xml')):
+              try: root = ET.parse(f).getroot()
+              except Exception: continue
+              for case in root.iter('testcase'):
+                  for kind in ('failure', 'error'):
+                      for bad in case.findall(kind):
+                          text = ((bad.get('message') or '') + ' | ' + (bad.text or '')).strip()
+                          notes.append((case.get('classname', '').split('.')[-1] + '.' + case.get('name', ''), text[:900]))
+          if not notes:
+              lines = [l.rstrip() for l in open('mvn.log', errors='replace') if l.startswith('[ERROR]')]
+              for i in range(0, min(len(lines), 40), 8):
+                  notes.append(('Build error', ' | '.join(lines[i:i + 8])[:1800]))
+          esc = lambda t: t.replace('%', '%25').replace('\r', ' ').replace('\n', '%0A')
+          for title, text in notes[:9]:
+              print('::error title=' + esc(title)[:120].replace(',', ' ').replace('::', ' ') + '::' + esc(text))
+          print(len(notes), 'problem(s) found')
+          PY
 
   frontend:
     name: Page checks (lint, tests, build)
@@ -41,8 +66,8 @@ jobs:
       run:
         working-directory: erp-frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
