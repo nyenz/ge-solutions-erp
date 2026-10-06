@@ -26,6 +26,7 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { roleFlags, manageableRanks, rankLabel, rankOf, LANDING_OPTIONS, RANKS as RANK_INFO } from '../../utils/roles';
 import { errorText } from '../../utils/errorText';
 import useScrollEdges from '../../hooks/useScrollEdges';
+import { useTabThumb, useSwapMotion } from '../../hooks/useTabMotion';
 const TOAST_ICONS = { success: <FiCheckSquare aria-hidden="true" />, error: <FiAlertCircle aria-hidden="true" />, warn: <FiAlertTriangle aria-hidden="true" />, info: <FiInfo aria-hidden="true" /> };
 
 /* Every option here is wired to real CSS in index.css -- see the note at the
@@ -230,6 +231,8 @@ const SettingsPage = () => {
   const activeTab = TABS.find(t => t.key === tab) || TABS[0];
   // fix183: the tab bar scrolls sideways on a narrow screen (it used to run off the edge: "D...")
   const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab.key });
+  const thumbRowRef = useTabThumb(activeTab.key);   // fix192: the pill slides to the picked tab
+  const swapRef = useSwapMotion(activeTab.key);     // fix192: the card fades in gently when the tab changes
   const selectTab = (key) => { setTab(key); setPanelOpen(true); };
   // fix181 (14.6d): the subtitle names only what this person can see
   const subtitle = locked ? 'Choose your own key to unlock the system'
@@ -258,7 +261,8 @@ const SettingsPage = () => {
         {/* ── TAB DOCK ── fix181 (15.6e): real tabs for screen readers */}
         <div className={styles.dockRow}>
           <div className={styles.tabDock} ref={tabRailRef}>
-            <div className={styles.tabRow} role="tablist" aria-label="Settings sections">
+            <div className={styles.tabRow} role="tablist" aria-label="Settings sections" ref={thumbRowRef} data-thumb-row>
+              <span data-thumb aria-hidden="true" />
               {TABS.map(t => (
                 <button
                   key={t.key} type="button" role="tab" id={`settings-tab-${t.key}`}
@@ -278,7 +282,7 @@ const SettingsPage = () => {
         </div>
 
         {/* ── ACTIVE CARD -- one gradient panel, recolored per section ── */}
-        <div className={styles.workstationCard} data-accent={activeTab.accent} role="tabpanel" id="settings-panel" aria-labelledby={`settings-tab-${activeTab.key}`}>
+        <div className={styles.workstationCard} data-accent={activeTab.accent} role="tabpanel" id="settings-panel" aria-labelledby={`settings-tab-${activeTab.key}`} ref={swapRef}>
           <CornerDecor hideTop />
           <div
             className={panelOpen ? `${styles.panelHeadRow} ${styles.panelHeadRowOpen}` : styles.panelHeadRow}

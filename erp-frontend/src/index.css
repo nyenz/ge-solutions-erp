@@ -452,6 +452,32 @@ input[type="search"]::-webkit-search-results-decoration {
     box-shadow: 0 1px 2px rgba(26, 46, 48, 0.06), 0 8px 24px rgba(26, 46, 48, 0.08);
 }
 
+/* fix192: THE SLIDING PILL of a tab / filter bar (hooks/useTabMotion.js). The pill is one small box that moves behind
+   the buttons; the picked button itself goes see-through once the pill is in place. Colours = the tab accents. */
+[data-thumb-row] { position: relative; }
+[data-thumb-row] > button { position: relative; z-index: 1; }
+[data-thumb] {
+    --thumb-bg: #EE8C3A; --thumb-glow: rgba(238, 140, 58, 0.32);
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+    width: var(--thumb-w, 0px); height: var(--thumb-h, 0px);
+    transform: translate(var(--thumb-x, 0px), var(--thumb-y, 0px));
+    border-radius: 6px; background: var(--thumb-bg); box-shadow: 0 4px 16px var(--thumb-glow);
+    opacity: 0;
+}
+[data-thumb][data-accent="red"]    { --thumb-bg: #ef4444; --thumb-glow: rgba(239, 68, 68, 0.32); }
+[data-thumb][data-accent="green"]  { --thumb-bg: #34d399; --thumb-glow: rgba(52, 211, 153, 0.32); }
+[data-thumb][data-accent="yellow"] { --thumb-bg: #eab308; --thumb-glow: rgba(234, 179, 8, 0.32); }
+[data-thumb][data-accent="cyan"]   { --thumb-bg: #22d3ee; --thumb-glow: rgba(34, 211, 238, 0.32); }
+[data-thumb-ready] > [data-thumb] {
+    opacity: 1;
+    transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.28s cubic-bezier(0.3, 0.7, 0.2, 1),
+                height 0.2s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+[data-thumb-ready] > button[aria-selected="true"],
+[data-thumb-ready] > button[aria-pressed="true"] {
+    background: transparent !important; border-color: transparent !important; box-shadow: none !important;
+}
+
 /* UI SIZE -- the app is laid out in px and clamp(), not rem, so a root
    font-size would move almost nothing. zoom moves all of it, and #root
    is the right place because the tooltip portal lives inside it. */

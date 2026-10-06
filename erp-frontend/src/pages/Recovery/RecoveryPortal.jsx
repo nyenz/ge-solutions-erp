@@ -16,6 +16,7 @@ import styles from './RecoveryPortal.module.css';
 import { LoadingState } from '../../components/common/LoadingState';
 import modalStyles from '../../components/common/HardwareModal.module.css';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import { useSwapMotion } from '../../hooks/useTabMotion';
 const TABS = [
   { key: 'ALL', label: 'ALL DUE' },
   { key: 'CONTACTED', label: 'CONTACTED', accent: 'green' },
@@ -30,6 +31,7 @@ export default function RecoveryPortal() {
   const wantClient = searchParams.get('client');
   const [clientMsg, setClientMsg] = useState('');
   const [tab, setTab] = useState('ALL');
+  const swapRef = useSwapMotion(tab);   // fix192: the list fades in gently when the tab changes
   const [counts, setCounts] = useState(null);
   const [stats, setStats] = useState(null);
   const [rows, setRows] = useState([]);
@@ -175,7 +177,7 @@ export default function RecoveryPortal() {
       {(loading && rows.length === 0) || (syncing && rowsTab !== tab) ? (
         <LoadingState label="SYNCING RECOVERY QUEUE..." />
       ) : (
-        <div className={`${styles.list} ${loading || syncing ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)}>
+        <div className={`${styles.list} ${loading || syncing ? styles.refreshing : ''}`} data-tab-accent={accentOf(TABS, tab)} ref={swapRef}>
           {rowsF.map((c) => {
             const isOpen = openId === c.id;
             return (

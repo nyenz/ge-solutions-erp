@@ -16,6 +16,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import { useSwapMotion } from '../../hooks/useTabMotion';
 import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 
 const matchesSearch = (c, term) => {
@@ -53,6 +54,7 @@ const ClientLedgerPage = () => {
     const [loadCode, setLoadCode] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL');
+    const swapRef = useSwapMotion(activeFilter);   // fix192: the list fades in gently when the tab changes
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
     // a new search / filter / sort starts from the first page (worked out while drawing, not in an effect)
     const filterKey = searchTerm + '|' + activeFilter + '|' + sortConfig.key + '|' + sortConfig.direction;
@@ -164,7 +166,7 @@ const ClientLedgerPage = () => {
             {/* Table panel -- NOT sticky itself, scrolls away with the page.
                 Only the table's own header row (inside .tableScroll) stays
                 pinned, and only to ITS OWN scroll container. */}
-            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)}>
+            <div className={styles.tablePanel} data-tab-accent={accentOf(FILTERS, activeFilter)} ref={swapRef}>
                 {/* fix148: no top pins -- bottom pins + bottom corners only */}
                 <div className={styles.decorBl} aria-hidden="true" />
                 <div className={styles.decorBr} aria-hidden="true" />

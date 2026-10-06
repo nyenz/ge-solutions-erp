@@ -2,6 +2,7 @@
 import React from 'react';
 import styles from './TabDock.module.css';
 import useScrollEdges from '../../hooks/useScrollEdges';
+import { useTabThumb } from '../../hooks/useTabMotion';
 
 /**
  * TabDock -- THE tab / filter control for the whole app.
@@ -27,6 +28,7 @@ const TabDock = ({ items, value, onChange, mode = 'filter', label, end = null, c
     // fix183: the tray scrolls sideways by touch AND mouse wheel, fades the edge that has more pills, and brings the
     // picked pill into view (hooks/useScrollEdges.js + the [data-rail] rules in index.css).
     const railRef = useScrollEdges({ wheel: true, activeKey: value });
+    const rowRef = useTabThumb(value);   // fix192: the orange pill slides to the picked tab
     return (
         <div className={`${styles.dockRow} ${className}`}>
             <div className={styles.tabDock} ref={railRef}>
@@ -34,7 +36,9 @@ const TabDock = ({ items, value, onChange, mode = 'filter', label, end = null, c
                     className={styles.tabRow}
                     role={isTab ? 'tablist' : 'group'}
                     aria-label={label}
+                    ref={rowRef} data-thumb-row
                 >
+                    <span data-thumb aria-hidden="true" />
                     {items.map(({ key, label: text, count, icon: Icon, accent = 'orange', title }) => {
                         const on = value === key;
                         return (

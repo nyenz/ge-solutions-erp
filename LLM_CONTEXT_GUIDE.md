@@ -1,5 +1,5 @@
 # GE SOLUTIONS ERP -- FULL LLM CONTEXT GUIDE
-# Last updated: October 2026 (fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
+# Last updated: October 2026 (fix192: gentle movement on tab and filter bars (sliding pill + content fade); David's answers written into docs/APP_REVIEW.md; fix191: GitHub checks -- server tests and page checks run by themselves on every pull request; fix190: first fixes from the review -- report periods on the device calendar, no double save on New Project, popups with typed text do not close on a tap outside; fix189: full app review written to docs/APP_REVIEW.md (document only); fix188: data entry helpers (themed suggestions from past entries); fix187: hosting cost plan re-done (text only, the move is still PENDING); fix186: gentle photo shrink before upload; fix185: "WAITING FOR ..." line, no stage above Invoice / Contract, attach a document when a stage is ticked (page side only); fix184: STAGE vs STATUS words on every page (the code/database rename is still TO DO); fix183: phone and layout pass -- sideways rails, pinned table column, real screen height, finger-sized buttons, "nyenz" mark; fix182: LIGHT theme + theme tokens, Dashboard redesign, speed pass, seed data v7; fix181: five ranks + Employee/Pending, one set of money rules, shared Recovery rules, alerts, audit, Settings/Login rework; fix180: eight project types, Clients + Owners + Neighbors, Stage renamed Status, seed data v5)
 
 > ##############################################################
 > ## STANDING REMINDER -- HOSTING MOVE IS PENDING (READ FIRST) ##
@@ -192,6 +192,22 @@ David does not want quality loss on IDs, receipts and deed plans. So the shrink 
   - *Light* (pictures inside the PDF are re-saved at 300 dpi): Ghostscript can do it. Typical saving on phone-scanned PDFs: about 30-60%, with a small quality loss. Never use it on a digitally SIGNED PDF (the signature breaks).
   - Where: on the server, after the upload is saved, keeping the original unless the new file is clearly smaller (same idea as rule 5). It needs the tool inside the server's Docker image.
   - Rough storage effect, using the plan of about 70 GB: if about half of the files are PDFs (35 GB), lossless saves about 2-7 GB and light saves about 10-20 GB. These are estimates; the real mix of PDFs and photos is not known yet.
+
+### GENTLE MOVEMENT ON TABS AND FILTERS (fix192)
+
+- David's rule: nothing in the app should JUMP when a small, gentle movement can show what changed. Keep it subtle
+  (0.2 to 0.3 seconds, a few pixels). Never slow the person down, never move the layout.
+- `hooks/useTabMotion.js`:
+  - `useTabThumb(activeKey)` -> a ref for the ROW that holds the tab buttons. The row gets `data-thumb-row` and a first
+    child `<span data-thumb aria-hidden="true" />`. That span is the orange pill; it SLIDES to the picked button
+    (found by `aria-selected` / `aria-pressed`). Styles: the `[data-thumb]` block in `index.css`. The pill takes its
+    colour from the button's `data-accent`. Until it is measured the button keeps its own background.
+  - `useSwapMotion(activeKey)` -> a ref for the content under the tabs. On a tab change it fades in and rises 6px
+    (0.22 s). Nothing is re-made, so typed text and scroll are kept.
+- Used by: `TabDock` (Ledger, Clients, Payments, Recovery), Settings tabs, Folder tabs. A NEW tab or filter bar must use
+  `TabDock`, or both hooks, so it moves the same way.
+- Both do nothing when Settings > Appearance > ANIMATION is reduced, or the device asks for reduced motion.
+- David's answers to the review questions (Q1-Q10) are in `docs/APP_REVIEW.md` section 5. Read them before server work.
 
 ### GITHUB CHECKS (fix191)
 

@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import useScrollEdges from '../../hooks/useScrollEdges';
+import { useTabThumb, useSwapMotion } from '../../hooks/useTabMotion';
 import { prepareUploads, anyToShrink } from '../../utils/imageShrink';
 import SuggestInput from '../../components/common/SuggestInput';
 import useEntryMemory from '../../hooks/useEntryMemory';
@@ -376,6 +377,8 @@ const FolderPage = () => {
         return (h.includes('finance') || h.includes('payment')) ? 'FINANCIALS' : 'OVERVIEW';
     });
     const tabRailRef = useScrollEdges({ wheel: true, activeKey: activeTab });   // fix183: sideways tab bar
+    const thumbRowRef = useTabThumb(activeTab);   // fix192: the pill slides to the picked tab
+    const swapRef = useSwapMotion(activeTab);     // fix192: the tab's content fades in gently
     const [liveStages, setLiveStages] = useState(null);   // fix185: the stage list as the checklist has it now (null = not loaded yet)
     const TABS = ['OVERVIEW', 'FINANCIALS', 'PEOPLE', 'DOCUMENTS', 'NOTES'];
     const TAB_ACCENTS = { OVERVIEW: 'orange', FINANCIALS: 'cyan', PEOPLE: 'violet', DOCUMENTS: 'slate', NOTES: 'red' };
@@ -997,7 +1000,8 @@ const FolderPage = () => {
                 <span>This project is DELETED{project.deletedAt ? ' (since ' + fmtDate(project.deletedAt) + ')' : ''}. It is hidden from every list and nothing on it can be changed. The root user can restore it from Settings &gt; Archive.</span></div>)}
             <div className={styles.tabBar} role="tablist" aria-label="Record sections">
                 <div className={styles.tabDock} ref={tabRailRef}>
-                    <div className={styles.tabRow}>
+                    <div className={styles.tabRow} ref={thumbRowRef} data-thumb-row>
+                        <span data-thumb aria-hidden="true" />
                         {TABS.map(tab => (<button type="button" key={tab} role="tab" aria-selected={activeTab === tab}
                             data-accent={TAB_ACCENTS[tab]}
                             className={activeTab === tab ? styles.tabOn : styles.tab} onClick={() => setActiveTab(tab)} title={'Show ' + tab.toLowerCase()}>
@@ -1006,7 +1010,7 @@ const FolderPage = () => {
                     </div>
                 </div>
             </div>
-            <main className={styles.workstationBody} role="tabpanel">
+            <main className={styles.workstationBody} role="tabpanel" ref={swapRef}>
                 {activeTab === 'OVERVIEW' && project.problem && (<div className={`${styles.infoStrip} ${styles.infoStripBad}`} role="status"><FiAlertTriangle aria-hidden="true" />
                     <span><strong>PROBLEM</strong>{project.problemBy ? ' flagged by ' + project.problemBy : ''}{project.problemAt ? ' on ' + fmtDateTime(project.problemAt) : ''}: {project.problemNote || 'see the notes.'}</span></div>)}
                 {activeTab === 'OVERVIEW' && isReleased && (<div className={`${styles.infoStrip} ${styles.infoStripInfo}`} role="status"><FiCheckCircle aria-hidden="true" />
