@@ -401,6 +401,9 @@ public class LandService {
      * PENDING_CREATED instead of NEW_INTAKE. The pending flag never comes from the browser.
      */
     LandProject doIntake(LandEntryRequest request, MultipartFile[] scans, List<String> categories, boolean pendingEntry) throws Exception {
+        // fix195 (review S03): files sent WITH a new project pass the same check as files added later in the folder
+        // (PDF / JPG / PNG / WEBP, never empty). It runs first, before an index number is used or anything is saved.
+        if (scans != null && scans.length > 0) requireScanFiles(scans);
         if (categories != null && scans != null) {
             for (int i = 0; i < scans.length; i++) {
                 String c = i < categories.size() ? categories.get(i) : null;

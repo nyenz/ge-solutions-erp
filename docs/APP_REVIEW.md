@@ -1,6 +1,6 @@
 # APP REVIEW -- GOLDEN SEED ERP
 
-Written: 6 October 2026 (fix189). Last change: fix194. Written in simple English on purpose.
+Written: 6 October 2026 (fix189). Last change: fix195. Written in simple English on purpose.
 
 This is a full check of the whole app after fix183 to fix188.
 It lists what is wrong, what was fixed, what is still to do, and the questions only David can answer.
@@ -47,7 +47,7 @@ IDs: **P** = found in the pages (frontend). **S** = found in the server (backend
 |---|---|---|---|---|---|
 | S01 | Server: saving a project entry (`LandService` person rows, `PendingProjectService`) | An **Employee** who types a National ID and name that match a client already in the system gets that client's phone, email and home address back in the answer. The Employee's entry can also **replace** that client's phone, email and address. A Secretary is blocked from doing this on the client page, so the lowest rank can do more than a higher one. **FIXED in fix194.** | high | likely | code |
 | S02 | Server: file storage (`CloudinaryStorageServiceImpl`) | Every uploaded file (title scan, receipt, ID copy) is stored as a **public link**. Anyone who has the link can open the file without signing in, for ever, even after the staff account is switched off or the project is deleted. | high | sure | code |
-| S03 | Server: New Project and Pending uploads | The file-type check is **skipped** for files uploaded with a new project. Any kind of file is accepted, up to 50 MB each. (The Folder upload does check.) | high | sure | code |
+| S03 | Server: New Project and Pending uploads | The file-type check is **skipped** for files uploaded with a new project. Any kind of file is accepted, up to 50 MB each. (The Folder upload does check.) **FIXED in fix195.** | high | sure | code |
 | S04 | Server: `application.properties` | The repo holds **fallback values** for the token secret, the database password and the first admin password. If a setting is missing on the host, the server starts quietly with those known values. (The values are not repeated here.) | high if a setting is missing | sure about code; Render not seen | code |
 | S05 | Server: file storage settings | If the Cloudinary settings are missing, uploads are **thrown away silently**: the page says "saved" but nothing is stored. This includes payment receipts. These settings are not in the go-live checklist. | high if not set | sure about code; Render not seen | code |
 | P01 | Reports page, the WHEN buttons | Report periods are **one day early** in Uganda. "LAST MONTH" in October gives 31 Aug to 29 Sep. "THIS MONTH" starts on 30 Sep. Money totals, CSV and PDF are all affected. Cause: the dates are changed to London time before use. **FIXED in fix190.** | high | sure | reports-phone.jpg |
@@ -190,6 +190,7 @@ this matters before real client data goes in.
 | fix192 | Gentle movement on every tab and filter bar: the orange pill slides to the picked tab and the content fades in. David's answers to Q1-Q10 written into section 5. |
 | fix193 | Q3 = B: the Secretary can tick and untick any stage (no EDIT button needed) and can correct a client's phone number (EDIT PHONE on the client page). Fixes P09 and S19. First server change checked by GitHub. |
 | fix194 | S01: an Employee no longer gets back, and can no longer replace, the phone, email and address of a client the office already has. S12: a contact change made through a project edit now writes an audit line with the old and new values. |
+| fix195 | S03: files sent with a New Project (office or Employee) must be PDF, JPG, PNG or WEBP and not empty, the same check as in the folder. |
 
 ---
 
@@ -214,7 +215,6 @@ Ranked: most important first. Size: **small** = under an hour, **medium** = a fe
 
 | Rank | Item | Size |
 |---|---|---|
-| 2 | S03 file-type check on new-project uploads | small |
 | 3 | S04 + S05 refuse to start with fallback secrets or without storage settings (when not in demo mode) | small |
 | 4 | Invoice number + contract number: stored, unique, needed together with the prices to leave Pending, correctable by every rank but Employee, audited (David's Task C) | big |
 | 5 | Deep rename Stage / Status in server code, tables and endpoints, with a safe migration (David's Task B) | big |
