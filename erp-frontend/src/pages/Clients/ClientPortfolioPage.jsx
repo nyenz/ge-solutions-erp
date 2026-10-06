@@ -278,7 +278,7 @@ const ClientPortfolioPage = () => {
         <div className={styles.tableScroll} ref={projectTableRef}>
           <table className={styles.ledgerTable}>
             <thead><tr>
-              <th onClick={() => handleSort('index')} className={styles.sortable} aria-sort={sortConfig.key === 'index' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderSortIcon('index')}</th>
+              <th onClick={() => handleSort('index')} className={`${styles.sortable} gsStickyCol`} aria-sort={sortConfig.key === 'index' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderSortIcon('index')}</th>
               <th onClick={() => handleSort('district')} className={styles.sortable} aria-sort={sortConfig.key === 'district' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>District {renderSortIcon('district')}</th>
               <th>Ownership</th><th>Status</th>
               {isDirector && <th onClick={() => handleSort('owed')} className={styles.sortable} aria-sort={sortConfig.key === 'owed' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Owed (UGX) {renderSortIcon('owed')}</th>}
@@ -297,7 +297,7 @@ const ClientPortfolioPage = () => {
                         <tr key={p.projectId || g.key + i} className={styles.row} onClick={() => navigate('/folder/' + p.projectId)} tabIndex={0}
                           title="Click to open folder"
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/folder/' + p.projectId); } }}>
-                          <td><IndexCell p={p} /></td>
+                          <td className="gsStickyCol"><IndexCell p={p} /></td>
                           <td>{p.district || '---'}</td>
                           <td>
                             <span className={`${styles.tag} ${isJoint(p) ? styles.tagJoint : styles.tagNeutral}`}>{isJoint(p) ? 'JOINT' : 'SOLO'}</span>
@@ -358,7 +358,7 @@ const ClientPortfolioPage = () => {
           <div className={styles.tableScroll} ref={healthTableRef}>
             <table className={styles.ledgerTable}>
               <thead><tr>
-                <th onClick={() => handleHealthSort('index')} className={styles.sortable} aria-sort={healthSort.key === 'index' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderHealthSortIcon('index')}</th>
+                <th onClick={() => handleHealthSort('index')} className={`${styles.sortable} gsStickyCol`} aria-sort={healthSort.key === 'index' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Index {renderHealthSortIcon('index')}</th>
                 <th onClick={() => handleHealthSort('paid')} className={styles.sortable} aria-sort={healthSort.key === 'paid' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Paid (UGX) {renderHealthSortIcon('paid')}</th>
                 <th onClick={() => handleHealthSort('storage')} className={styles.sortable} aria-sort={healthSort.key === 'storage' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Storage (UGX) {renderHealthSortIcon('storage')}</th>
                 <th onClick={() => handleHealthSort('lastPayment')} className={styles.sortable} aria-sort={healthSort.key === 'lastPayment' ? (healthSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>Last payment {renderHealthSortIcon('lastPayment')}</th>
@@ -370,7 +370,7 @@ const ClientPortfolioPage = () => {
                     // fix181 (5.2, 6.6): the shared gradient and the server's day count
                     const isNew = !!p.recoveryStartsOn && p.daysSincePayment == null;
                     return (<tr key={p.projectId || i} className={styles.rowStatic}>
-                      <td><IndexCell p={p} /></td>
+                      <td className="gsStickyCol"><IndexCell p={p} /></td>
                       <td><span className={styles.mono}>{fmt(p.paid)}</span></td>
                       <td><span className={styles.mono}>{fmt(p.storage)}</span></td>
                       <td><span className={styles.mono}>{p.lastPayment ? String(p.lastPayment).slice(0, 10) : 'NEVER'}</span></td>
@@ -393,7 +393,7 @@ const ClientPortfolioPage = () => {
               <article key={p.projectId} className={styles.noteRow}>
                 <span className={styles.mono}>#{p.index}</span>
                 {isJoint(p) && <span className={styles.noteAuthor}>paid by this client: UGX {fmt(p.paidByThisClient)}</span>}
-                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                <ul className={styles.payList}>
                   {p.payments.map(pay => (
                     <li key={pay.id} style={{ textDecoration: pay.reversed ? 'line-through' : 'none' }}>
                       <span className={styles.mono}>UGX {fmt(pay.amount)}</span> {pay.allocation === 'STORAGE' ? '(storage fees)' : ''}

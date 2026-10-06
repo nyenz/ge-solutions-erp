@@ -90,8 +90,11 @@ body {
     margin: 0;
     font-family: 'Inter', -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background: var(--navy); /* Fallback color before Circuit Background loads */
+    /* fix183: the body takes the PAGE colour of the theme. It used to be navy, and on a phone that navy showed as a
+       teal strip under the app whenever the browser's own bars or the keyboard changed the screen height. */
+    background: var(--bg-base, #F4F2EF);
     min-height: 100vh;   /* body is outside the zoomed #root: the plain screen size is right here */
+    min-height: 100dvh;
     width: 100vw;
     overflow: hidden; /* THE HANDBRAKE: Keeps card away from edges */
     color: var(--text-light);
@@ -357,6 +360,14 @@ input[type="search"]::-webkit-search-results-decoration {
     --bg-rgb: 244, 242, 239;
 }
 
+/* fix183: on a phone "100vh" is the screen WITHOUT the browser's address bar, so the app was a little taller (or, with
+   the bar at the bottom, shorter) than what you can really see: the foot of the sidebar was cut off and a strip of
+   the body colour showed above the keyboard. "dvh" is the height you can see right now; it follows the address bar
+   and (with interactive-widget=resizes-content in index.html) the keyboard. Old browsers keep the line above. */
+@supports (height: 100dvh) {
+    :root { --app-vh: calc(100dvh / var(--ui-scale, 1)); }
+}
+
 /* ===== THEME TOKENS (fix182) =========================================
    Every panel colour in the CSS modules reads one of these (written by
    scripts/tokenize-theme.mjs, each with the old colour as its fallback):
@@ -527,3 +538,80 @@ input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ===== TEXT SELECTION ============================================== */
 ::selection { background: rgba(238, 140, 58, 0.35); color: inherit; }
+
+/* ===== SIDEWAYS SCROLLING (fix183) ====================================
+   ONE look for everything that scrolls left and right: tab bars, filter
+   bars, legends and wide tables. The scrollbar stays hidden; instead the
+   edge that has more to show FADES, so people can see the row goes on.
+   The marks (data-rail, data-more-left, data-more-right, data-scroll-x)
+   are written by hooks/useScrollEdges.js and hooks/useTableScrollHandoff.js.
+   Do not hand-roll overflow-x on a new tab bar: give it the hook.
+   ================================================================== */
+[data-rail] {
+    overflow-x: auto; overflow-y: hidden;
+    max-width: 100%; min-width: 0; flex-shrink: 1 !important;
+    scrollbar-width: none; -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
+[data-rail]::-webkit-scrollbar { display: none; width: 0; height: 0; }
+[data-rail] > * { flex-wrap: nowrap !important; flex-shrink: 0; }
+[data-rail] button, [data-rail] a { flex-shrink: 0; white-space: nowrap; }
+
+[data-more-right]:not([data-more-left]) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+            mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+}
+[data-more-left]:not([data-more-right]) {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+            mask-image: linear-gradient(to left, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+}
+[data-more-left][data-more-right] {
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.12), #000 36px, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+            mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.12), #000 36px, #000 calc(100% - 36px), rgba(0, 0, 0, 0.12));
+}
+/* a table fades less (the cells must stay readable) and over a shorter distance */
+[data-scroll-x="table"][data-more-right]:not([data-more-left]) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), rgba(0, 0, 0, 0.3));
+            mask-image: linear-gradient(to right, #000 calc(100% - 22px), rgba(0, 0, 0, 0.3));
+}
+[data-scroll-x="table"][data-more-left]:not([data-more-right]) { -webkit-mask-image: none; mask-image: none; }
+[data-scroll-x="table"][data-more-left][data-more-right] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), rgba(0, 0, 0, 0.3));
+            mask-image: linear-gradient(to right, #000 calc(100% - 22px), rgba(0, 0, 0, 0.3));
+}
+
+/* PINNED FIRST COLUMN ON A PHONE (fix183). A wide table scrolls sideways; the column that says WHICH row it is
+   (project index, client name) stays in place, so "FULLY PAID, UGX 0" is never shown without its project.
+   Put the plain class gsStickyCol on that <th> and on its <td>. --sticky-bg is the solid colour behind the cell
+   (a see-through cell would let the other columns show through); a table on a cream card sets its own. */
+@media (max-width: 768px) {
+    th.gsStickyCol, td.gsStickyCol { position: sticky; left: 0; }
+    th.gsStickyCol { z-index: 7 !important; }
+    td.gsStickyCol {
+        z-index: 3;
+        background-color: var(--sticky-bg, var(--sf-1, #1c3335));
+        box-shadow: 1px 0 0 rgba(var(--ink-rgb), 0.12);   /* one hairline, no glow */
+    }
+    tr:hover > td.gsStickyCol { background-image: linear-gradient(rgba(var(--ink-rgb), 0.04), rgba(var(--ink-rgb), 0.04)); }
+    tr[class*="rowProblem"] > td.gsStickyCol { background-image: linear-gradient(rgba(239, 68, 68, 0.10), rgba(239, 68, 68, 0.10)); }
+    tr[class*="rowReceivable"] > td.gsStickyCol { background-image: linear-gradient(rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.05)); }
+    tr[class*="rowCritical"] > td.gsStickyCol { background-image: linear-gradient(rgba(239, 68, 68, 0.07), rgba(239, 68, 68, 0.07)); }
+    /* the plain row counter gives its room to the real columns on a phone */
+    th.gsHidePhone, td.gsHidePhone { display: none; }
+}
+
+/* ===== FINGER-SIZED BUTTONS ON TOUCH SCREENS (fix183) =================
+   Many buttons were 24px tall on a phone (SAVE and CANCEL on New Project,
+   ADD CLIENT, the Settings choices, the paperclip on a stage). On a touch
+   screen every real button is now at least 36px tall, and a button that is
+   only an icon is at least 36px wide too. Words that merely ACT as a link
+   inside a line of text (chips, tags, "receipt", calendar days) are left
+   alone so lists and tables do not grow. A mouse screen is not changed.
+   ================================================================== */
+@media (pointer: coarse) {
+    #root button:not([class*="link" i]):not([class*="chip" i]):not([class*="tag" i]):not([class*="day" i]):not([class*="cell" i]):not([class*="dot" i]):not([class*="crumb" i]),
+    #root a[class*="btn" i]:not([class*="link" i]) {
+        min-height: 36px;
+    }
+    #root button:has(> svg:only-child):not([class*="link" i]):not([class*="chip" i]):not([class*="tag" i]) { min-width: 36px; }
+}

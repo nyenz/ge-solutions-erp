@@ -1,6 +1,6 @@
 // PATH: erp-frontend/src/pages/Ledger/LedgerPage.jsx
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     FiLayers, FiSearch, FiMapPin, FiUser, FiCreditCard,
@@ -14,6 +14,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './LedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 import { projectTypeOf } from '../../constants/projectTypes';
 
 // fix180: the clients (who pay, whom Recovery calls) are the people shown on the ledger; old rows fall back to the owners
@@ -55,131 +56,8 @@ const Pins = ({ pos }) => (
     </div>
 );
 
-// -- SCROLL PARENT DISCOVERY (fix37) ------------------------------------
-// The app's real scrolling element is Shell's .scrollArea (overflow-y:
-// auto) -- the outer .shell is height:100vh with overflow:hidden, so
-// document/window never actually scrolls at all. The old fix36 code used
-// document.scrollingElement, which meant its "page scroll" branch was
-// always a no-op -- this is why scrolling up used to dead-end once the
-// table hit its own top. Walking up from the table to find the nearest
-// real scrolling ancestor fixes that, and keeps working no matter how
-// deeply the page is nested, on any screen size, without hardcoding a
-// class name.
-function findScrollParent(el) {
-    let node = el ? el.parentElement : null;
-    while (node && node !== document.body && node !== document.documentElement) {
-        const overflowY = window.getComputedStyle(node).overflowY;
-        if (overflowY === 'auto' || overflowY === 'scroll') return node;
-        node = node.parentElement;
-    }
-    return document.scrollingElement || document.documentElement;
-}
-
-// -- DIRECTIONAL SCROLL HANDOFF (fix41) ---------------------------------
-// Reverted to match the approved design mockup exactly:
-//   - scrolling DOWN -> the PAGE scrolls first; the table only takes
-//                         over once the page has hit its own bottom edge.
-//   - scrolling UP   -> the TABLE scrolls first (inverse); the page only
-//                         takes over once the table has hit its own top
-//                         edge.
-// (findScrollParent above is still used instead of the mockup's plain
-// document.scrollingElement -- the mockup is a bare HTML page where the
-// document itself really does scroll, but inside the real app the page
-// scrolls inside Shell's .scrollArea, so that's the element this needs
-// to drive for the behavior to actually match the mockup.)
-// This is done in JS (not left to native scroll-chaining) because a fast
-// flick/fling handed off mid-gesture by the browser's own chaining can
-// dump un-damped momentum onto the page and skip past the toolbar --
-// `overscroll-behavior: contain` on .tableScroll (see CSS) blocks that
-// native handoff so every bit of table<->page scrolling goes through
-// this clamped routing instead, identically across browsers and screen
-// sizes.
-function useDirectionalScrollHandoff(scrollRef) {
-    useEffect(() => {
-        const tableScroll = scrollRef.current;
-        if (!tableScroll) return undefined;
-        const pageScroll = findScrollParent(tableScroll);
-
-        // small buffer so sub-pixel rounding (common on mobile/high-DPI
-        // screens) can never leave a scroller "stuck" a few px short of
-        // its true edge
-        const EDGE_TOLERANCE = 2;
-
-        const pageAtTop = () => pageScroll.scrollTop <= EDGE_TOLERANCE;
-        const pageAtBottom = () =>
-            pageScroll.scrollTop + pageScroll.clientHeight >= pageScroll.scrollHeight - EDGE_TOLERANCE;
-        const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
-        const tableAtBottom = () =>
-            tableScroll.scrollTop + tableScroll.clientHeight >= tableScroll.scrollHeight - EDGE_TOLERANCE;
-
-        // deltaY units differ across browsers: deltaMode 0 = pixels
-        // (Chrome/Safari, ~100-120px per notch), 1 = lines (Firefox,
-        // ~3/tick), 2 = pages. Normalize to pixels so the same physical
-        // scroll produces the same jump size everywhere.
-        const normalizeWheelDelta = (e) => {
-            const LINE_HEIGHT = 16;
-            if (e.deltaMode === 1) return e.deltaY * LINE_HEIGHT;
-            if (e.deltaMode === 2) return e.deltaY * window.innerHeight;
-            return e.deltaY;
-        };
-
-        // Even with units normalized, a fast flick/fling (or a
-        // high-precision touchpad) can still report one huge deltaY in a
-        // single event -- capping the max px moved per event keeps every
-        // programmatic step roughly the same size as a normal native step.
-        const MAX_STEP_PX = 120;
-        const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);
-
-        // deltaY convention: positive = scrolling down, negative = up
-        const routeDelta = (deltaY, e) => {
-            if (deltaY > 0) {
-                // scrolling down: PAGE has priority until it bottoms out
-                if (!pageAtBottom()) {
-                    pageScroll.scrollTop += clampStep(deltaY);
-                    e.preventDefault();
-                    return;
-                }
-                if (tableAtBottom()) return; // nothing left to scroll anywhere
-                tableScroll.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            } else if (deltaY < 0) {
-                // scrolling up: TABLE has priority (inverse) until it
-                // hits its own top edge -- only then hand off to the page
-                if (!tableAtTop()) {
-                    tableScroll.scrollTop += clampStep(deltaY);
-                    e.preventDefault();
-                    return;
-                }
-                if (pageAtTop()) return; // nothing left to scroll anywhere
-                pageScroll.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            }
-        };
-
-        const handleWheel = (e) => routeDelta(normalizeWheelDelta(e), e);
-        tableScroll.addEventListener('wheel', handleWheel, { passive: false });
-
-        let touchLastY = 0;
-        const handleTouchStart = (e) => { touchLastY = e.touches[0].clientY; };
-        const handleTouchMove = (e) => {
-            const currentY = e.touches[0].clientY;
-            // finger moving UP the screen means content scrolls DOWN --
-            // same sign convention as wheel's deltaY. Touch deltas are
-            // already in CSS pixels, no unit normalization needed.
-            const deltaY = touchLastY - currentY;
-            touchLastY = currentY;
-            routeDelta(deltaY, e);
-        };
-        tableScroll.addEventListener('touchstart', handleTouchStart, { passive: true });
-        tableScroll.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-        return () => {
-            tableScroll.removeEventListener('wheel', handleWheel);
-            tableScroll.removeEventListener('touchstart', handleTouchStart);
-            tableScroll.removeEventListener('touchmove', handleTouchMove);
-        };
-    }, [scrollRef]);
-}
+// fix183: the table scroll rule (page first going down, table first going up, sideways by touch) is the shared hook
+// hooks/useTableScrollHandoff.js. This page used to carry its own copy.
 
 const LedgerPage = () => {
     const navigate = useNavigate();
@@ -201,8 +79,7 @@ const LedgerPage = () => {
         const cur = prev.key === filterKey ? prev.page : 0;
         return { key: filterKey, page: typeof next === 'function' ? next(cur) : next };
     });
-    const tableScrollRef = useRef(null);
-    useDirectionalScrollHandoff(tableScrollRef);
+    const tableScrollRef = useTableScrollHandoff();
 
     const fetchLedger = useCallback(async () => {
         // one quiet retry after 5 seconds (the free server may still be waking up), then the error row
@@ -344,8 +221,8 @@ const LedgerPage = () => {
                     <table className={styles.ledgerTable} aria-label="Project ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
-                                <th className={styles.rowNum}>#</th>
-                                <th onClick={() => handleSort('plotNumber')} className={styles.sortable}
+                                <th className={`${styles.rowNum} gsHidePhone`}>#</th>
+                                <th onClick={() => handleSort('plotNumber')} className={`${styles.sortable} gsStickyCol`}
                                     aria-sort={sortConfig.key === 'plotNumber' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiMapPin aria-hidden="true" /> INDEX {renderSortIcon('plotNumber')}
                                 </th>
@@ -399,8 +276,8 @@ const LedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Record: ${proj.projectIndex || proj.landTitle?.plotNumber}`}
                                         className={proj.problem ? styles.rowProblem : isReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
-                                        <td className={styles.plotCell}>
+                                        <td className={`${styles.rowNum} gsHidePhone`}>{page * PAGE_SIZE + i + 1}</td>
+                                        <td className={`${styles.plotCell} gsStickyCol`}>
                                             <div className={styles.indexRow}>
                                                 <PaymentDot proj={proj} />
                                                 <div className={styles.stack}>

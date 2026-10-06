@@ -1,6 +1,7 @@
 // PATH: erp-frontend/src/components/common/TabDock.jsx
 import React from 'react';
 import styles from './TabDock.module.css';
+import useScrollEdges from '../../hooks/useScrollEdges';
 
 /**
  * TabDock -- THE tab / filter control for the whole app.
@@ -23,9 +24,12 @@ import styles from './TabDock.module.css';
  */
 const TabDock = ({ items, value, onChange, mode = 'filter', label, end = null, className = '' }) => {
     const isTab = mode === 'tab';
+    // fix183: the tray scrolls sideways by touch AND mouse wheel, fades the edge that has more pills, and brings the
+    // picked pill into view (hooks/useScrollEdges.js + the [data-rail] rules in index.css).
+    const railRef = useScrollEdges({ wheel: true, activeKey: value });
     return (
         <div className={`${styles.dockRow} ${className}`}>
-            <div className={styles.tabDock}>
+            <div className={styles.tabDock} ref={railRef}>
                 <div
                     className={styles.tabRow}
                     role={isTab ? 'tablist' : 'group'}

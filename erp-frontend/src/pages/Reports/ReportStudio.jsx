@@ -14,6 +14,7 @@ import { CATALOGUE, ENTITIES, GROUPS, DEFAULTS } from './reportsCatalog';
 import CornerDecor from '../../components/ui/CornerDecor';
 import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import styles from './ReportStudio.module.css';
+import useScrollEdges from '../../hooks/useScrollEdges';
 
 const PERIODS = ['TODAY','THIS WEEK','LAST WEEK','THIS MONTH','LAST MONTH','THIS QUARTER','THIS YEAR','LAST YEAR','ALL TIME','CUSTOM'];
 const CHART_MAP = { BAR: 'bars', COLUMN: 'column', LINE: 'line', AREA: 'line', DONUT: 'donut' };
@@ -57,6 +58,7 @@ const periodRange = (period, fromArg, toArg) => {
 const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   const available = useMemo(() => datasetsFor(canSeeMoney), [canSeeMoney]);
   const [datasetKey, setDatasetKey] = useState(available[0]?.key || 'PROJECTS');
+  const sourceRailRef = useScrollEdges({ wheel: true, activeKey: datasetKey });   // fix183: sideways dataset bar
   const dataset = DATASETS[datasetKey] || available[0];
   const [rows, setRows] = useState([]);
   const countsRef = useRef({});
@@ -483,10 +485,10 @@ const ReportStudio = ({ canSeeMoney = false, reloadToken = 0 }) => {
   return (
     <div className={styles.studio}>
       <div className={styles.sourceRow}>
-        <div className={styles.sourcePanel}>
+        <div className={styles.sourcePanel} ref={sourceRailRef}>
           <div className={styles.tileRow}>
             {available.map(ds => (
-              <button key={ds.key} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
+              <button key={ds.key} type="button" aria-pressed={ds.key === datasetKey} className={ds.key === datasetKey ? styles.tileActive : styles.tile} onClick={() => setDatasetKey(ds.key)}>
                 {ds.label}
                 <span className={styles.tileCount}>{ds.key === datasetKey && loading ? '...' : scopedCount(ds.key)}</span>
               </button>

@@ -250,3 +250,11 @@
 /* fix146: same table scroll behaviour as the Project Ledger */
 .tableScroll { max-height: calc(var(--app-vh) - 220px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .ledgerTable thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 var(--orange); }
+
+/* fix183 (phone pass): the index column stays in place while the table is pulled sideways (index.css gsStickyCol);
+   status words on one row keep a gap ("FOLDER CRITICAL", not "FOLDERCRITICAL"); the who-paid list uses the page's
+   small text size instead of the browser's default list size. */
+.tableScroll { --sticky-bg: var(--sf-raise-2, #2a4a4c); }
+.tag { display: inline-block; margin-right: 8px; }
+.payList { margin: 6px 0 0; padding-left: 18px; flex: 1 1 100%; font-size: clamp(11px, 1.1vw, 13px); line-height: 1.6; color: rgba(var(--ink-rgb), 0.85); }
+.payList li { overflow-wrap: anywhere; }

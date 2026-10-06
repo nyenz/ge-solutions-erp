@@ -99,3 +99,20 @@
     .header { padding: 9px 11px; }
     .body { padding: 9px 11px 11px; }
 }
+
+/* ===== fix183: the head bar on narrow screens ============================
+   Order in the bar: title, the panel's own buttons, chevron (the chevron comes second in the HTML so it can stay on
+   line one on a wide screen). When title + buttons do not fit on one line the buttons drop to a second line, and the title wraps
+   instead of being cut with "...". Kept at the end of the file: last rule wins. */
+.header { flex-wrap: wrap; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+.headerLeft { flex: 1 1 auto; }
+.chevron { order: 3; margin-left: auto; }
+.headerRight { order: 2; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
+@media (max-width: 768px) {
+    .title { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.35; }
+    /* the chevron is pinned to the top right corner, so the title and the buttons can wrap freely beside it */
+    .header { position: relative; padding-right: 40px; }
+    .chevron { position: absolute; right: 12px; top: 11px; margin: 0; }
+    .headerLeft { flex: 1 1 auto; min-width: min(100%, 8em); }
+    .headerRight { justify-content: flex-start; }
+}

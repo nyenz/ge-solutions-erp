@@ -1,7 +1,7 @@
 // PATH: erp-frontend/src/pages/Clients/ClientLedgerPage.jsx
 import { roleFlags } from '../../utils/roles';
 import { PaymentHealthDot, PaymentHealthLegend } from '../../components/common/PaymentHealth';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers, FiSearch, FiPhone, FiUser, FiCreditCard, FiLayers,
@@ -16,6 +16,7 @@ import { HeaderActions, HeaderButton } from '../../components/common/HeaderButto
 import styles from './ClientLedgerPage.module.css';
 import { LoadingRow } from '../../components/common/LoadingState';
 import TabDock, { accentOf } from '../../components/common/TabDock';
+import useTableScrollHandoff from '../../hooks/useTableScrollHandoff';
 
 const matchesSearch = (c, term) => {
     if (!term) return true;
@@ -37,96 +38,8 @@ const Pins = ({ pos }) => (
     </div>
 );
 
-// -- SCROLL PARENT DISCOVERY -- identical to Project Ledger: the app's
-// real scrolling element is Shell's .scrollArea, so walk up from the
-// table to find the nearest ancestor that actually scrolls.
-function findScrollParent(el) {
-    let node = el ? el.parentElement : null;
-    while (node && node !== document.body && node !== document.documentElement) {
-        const overflowY = window.getComputedStyle(node).overflowY;
-        if (overflowY === 'auto' || overflowY === 'scroll') return node;
-        node = node.parentElement;
-    }
-    return document.scrollingElement || document.documentElement;
-}
-
-// -- DIRECTIONAL SCROLL HANDOFF -- identical behavior to Project Ledger:
-//   - scrolling DOWN -> the PAGE scrolls first; the table only takes
-//                        over once the page has hit its own bottom edge.
-//   - scrolling UP   -> the TABLE scrolls first (inverse); the page only
-//                        takes over once the table has hit its own top
-//                        edge.
-// Done in JS (not native scroll-chaining) so a fast flick can't dump
-// un-damped momentum onto the page -- overscroll-behavior:contain on
-// .tableScroll (CSS) blocks native handoff so this clamped routing owns
-// 100% of the table<->page transition, identically across browsers.
-function useDirectionalScrollHandoff(scrollRef) {
-    useEffect(() => {
-        const tableScroll = scrollRef.current;
-        if (!tableScroll) return undefined;
-        const pageScroll = findScrollParent(tableScroll);
-
-        const EDGE_TOLERANCE = 2;
-        const pageAtTop = () => pageScroll.scrollTop <= EDGE_TOLERANCE;
-        const pageAtBottom = () =>
-            pageScroll.scrollTop + pageScroll.clientHeight >= pageScroll.scrollHeight - EDGE_TOLERANCE;
-        const tableAtTop = () => tableScroll.scrollTop <= EDGE_TOLERANCE;
-        const tableAtBottom = () =>
-            tableScroll.scrollTop + tableScroll.clientHeight >= tableScroll.scrollHeight - EDGE_TOLERANCE;
-
-        const normalizeWheelDelta = (e) => {
-            const LINE_HEIGHT = 16;
-            if (e.deltaMode === 1) return e.deltaY * LINE_HEIGHT;
-            if (e.deltaMode === 2) return e.deltaY * window.innerHeight;
-            return e.deltaY;
-        };
-
-        const MAX_STEP_PX = 120;
-        const clampStep = (px) => Math.sign(px) * Math.min(Math.abs(px), MAX_STEP_PX);
-
-        const routeDelta = (deltaY, e) => {
-            if (deltaY > 0) {
-                if (!pageAtBottom()) {
-                    pageScroll.scrollTop += clampStep(deltaY);
-                    e.preventDefault();
-                    return;
-                }
-                if (tableAtBottom()) return;
-                tableScroll.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            } else if (deltaY < 0) {
-                if (!tableAtTop()) {
-                    tableScroll.scrollTop += clampStep(deltaY);
-                    e.preventDefault();
-                    return;
-                }
-                if (pageAtTop()) return;
-                pageScroll.scrollTop += clampStep(deltaY);
-                e.preventDefault();
-            }
-        };
-
-        const handleWheel = (e) => routeDelta(normalizeWheelDelta(e), e);
-        tableScroll.addEventListener('wheel', handleWheel, { passive: false });
-
-        let touchLastY = 0;
-        const handleTouchStart = (e) => { touchLastY = e.touches[0].clientY; };
-        const handleTouchMove = (e) => {
-            const currentY = e.touches[0].clientY;
-            const deltaY = touchLastY - currentY;
-            touchLastY = currentY;
-            routeDelta(deltaY, e);
-        };
-        tableScroll.addEventListener('touchstart', handleTouchStart, { passive: true });
-        tableScroll.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-        return () => {
-            tableScroll.removeEventListener('wheel', handleWheel);
-            tableScroll.removeEventListener('touchstart', handleTouchStart);
-            tableScroll.removeEventListener('touchmove', handleTouchMove);
-        };
-    }, [scrollRef]);
-}
+// fix183: the table scroll rule (page first going down, table first going up, sideways by touch) is the shared hook
+// hooks/useTableScrollHandoff.js. This page used to carry its own copy.
 
 const ClientLedgerPage = () => {
     const navigate = useNavigate();
@@ -149,8 +62,7 @@ const ClientLedgerPage = () => {
         const cur = prev.key === filterKey ? prev.page : 0;
         return { key: filterKey, page: typeof next === 'function' ? next(cur) : next };
     });
-    const tableScrollRef = useRef(null);
-    useDirectionalScrollHandoff(tableScrollRef);
+    const tableScrollRef = useTableScrollHandoff();
 
     const load = useCallback(async () => {
         let lastErr = null;
@@ -260,8 +172,8 @@ const ClientLedgerPage = () => {
                     <table className={styles.ledgerTable} aria-label="Client ledger" aria-rowcount={processedData.length}>
                         <thead>
                             <tr>
-                                <th className={styles.rowNum}>#</th>
-                                <th onClick={() => handleSort('name')} className={styles.sortable}
+                                <th className={`${styles.rowNum} gsHidePhone`}>#</th>
+                                <th onClick={() => handleSort('name')} className={`${styles.sortable} gsStickyCol`}
                                     aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                                     <FiUser aria-hidden="true" /> CLIENT {renderSortIcon('name')}
                                 </th>
@@ -317,8 +229,8 @@ const ClientLedgerPage = () => {
                                         tabIndex={0} role="row"
                                         aria-label={`Client: ${c.name}`}
                                         className={hasReceivable ? styles.rowReceivable : isCritical ? styles.rowCritical : ''}>
-                                        <td className={styles.rowNum}>{page * PAGE_SIZE + i + 1}</td>
-                                        <td className={styles.plotCell}>
+                                        <td className={`${styles.rowNum} gsHidePhone`}>{page * PAGE_SIZE + i + 1}</td>
+                                        <td className={`${styles.plotCell} gsStickyCol`}>
                                             <div className={styles.indexRow}>
                                                 <PaymentDot c={c} />
                                                 <div className={styles.stack}>

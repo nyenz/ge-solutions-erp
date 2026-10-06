@@ -422,3 +422,53 @@
 :root[data-theme="bright"] .sumGreen label, :root[data-theme="bright"] .sumGreen strong { color: #047857; }
 :root[data-theme="bright"] .sumYellow label, :root[data-theme="bright"] .sumYellow strong { color: #a16207; }
 :root[data-theme="bright"] .sumRed label, :root[data-theme="bright"] .sumRed strong { color: #b91c1c; }
+
+/* ===== fix183: ONE table card for the three ledgers =====================
+   Payment Records now uses the Project Ledger card (LedgerPage.module.css):
+   the table goes edge to edge inside a navy card with bottom corner
+   brackets and pins, the header row is pinned to the table's own scroll
+   box, and the footer is PREV / RANGE / NEXT. The old padded HardwarePanel
+   and its PREVIOUS / NEXT text buttons are gone. Kept at the end of the
+   file on purpose: last rule wins. */
+.tablePanel {
+    position: relative;
+    background: linear-gradient(160deg, var(--sf-1, #1c3335) 0%, var(--sf-2, #213E40) 100%);
+    border: 1.5px solid var(--orange-border, rgba(238, 140, 58, 0.28));
+    border-radius: var(--radius, 10px); padding: 0; isolation: isolate;
+}
+.decorBl, .decorBr { position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--orange, #EE8C3A); opacity: .55; pointer-events: none; z-index: 20; }
+.decorBl::after, .decorBr::after { content: ''; position: absolute; width: 4px; height: 4px; background: rgba(255, 255, 255, 0.5); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
+.decorBl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+.decorBl::after { bottom: -2px; left: -2px; }
+.decorBr { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+.decorBr::after { bottom: -2px; right: -2px; }
+.pinsBottom { position: absolute; display: flex; gap: 7px; left: 50%; bottom: -3px; transform: translateX(-50%); pointer-events: none; z-index: 20; }
+.pin { width: 3px; height: 5px; background: var(--orange, #EE8C3A); border-radius: 1px; box-shadow: 0 0 5px rgba(238, 140, 58, .4); }
+.tablePanel .tableScroll { margin: 0; background: transparent; border-radius: var(--radius, 10px); transform: translateZ(0); }
+.tablePanel .ledgerTable { min-width: 760px; }
+.tablePanel .ledgerTable th { font-family: 'Inter', sans-serif; z-index: 5; }
+.tablePanel .ledgerTable th:first-child { border-radius: var(--radius, 10px) 0 0 0; }
+.tablePanel .ledgerTable th:last-child { border-radius: 0 var(--radius, 10px) 0 0; }
+.tablePanel .ledgerTable td { padding: 12px 14px; border-bottom: 1px solid rgba(var(--ink-rgb), 0.06); vertical-align: top; font-family: 'Inter', sans-serif; }
+.tablePanel .dataRow:hover { background: rgba(var(--ink-rgb), 0.04); }
+.tablePanel .thSortable:hover { background: linear-gradient(rgba(238, 140, 58, 0.12), rgba(238, 140, 58, 0.12)), var(--sf-head, #162a2c); }
+.pagination { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 4px 2px; }
+.pageBtn { background: rgba(var(--sf-navy-rgb), 0.75); border: 1.5px solid rgba(var(--ink-rgb), 0.18); color: rgba(var(--ink-rgb), 0.85); padding: 7px 14px; border-radius: 6px; font-weight: 900; font-size: 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; transition: all .2s; flex-shrink: 0; }
+.pageBtn:hover:not(:disabled) { background: rgba(var(--ink-rgb), 0.07); border-color: rgba(var(--ink-rgb), 0.22); color: var(--ink-solid); }
+.pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pageIndicator { color: rgba(var(--ink-rgb), 0.6); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-align: center; min-width: 0; }
+.recordCount { color: var(--orange, #EE8C3A); }
+@media (max-width: 768px) {
+    /* same header and cell sizes as the Ledger on a phone (they were shrunk to 7px here) */
+    .tablePanel .ledgerTable th { font-size: var(--fs-th); letter-spacing: 2px; }
+    .tablePanel .ledgerTable td { padding: 12px 14px; }
+}
+
+/* fix183: a figure is never broken in the middle ("UGX 271,730,00 / 0"). It may wrap after "UGX" when the card is
+   narrow. Names and notes in the table wrap instead of ending in "...". */
+.sumCard strong { word-break: normal; overflow-wrap: anywhere; }
+.tablePanel .ownerCell { white-space: normal; overflow: visible; text-overflow: clip; max-width: 220px; overflow-wrap: anywhere; }
+.tablePanel .notesCell { white-space: normal; overflow: visible; text-overflow: clip; max-width: 260px; min-width: 140px; }
+@media (max-width: 480px) {
+    .sumCard strong { font-size: clamp(13px, 3.9vw, 17px); }
+}
