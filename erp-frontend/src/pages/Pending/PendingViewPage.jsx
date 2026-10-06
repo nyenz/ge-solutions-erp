@@ -15,6 +15,7 @@ import HardwareDatePicker from '../../components/common/HardwareDatePicker';
 import HardwareModalSelect from '../../components/common/HardwareModalSelect';
 import { LoadingState } from '../../components/common/LoadingState';
 import { FiUploadCloud } from 'react-icons/fi';
+import { waitingFor } from '../../utils/projectStatus';
 import styles from './Pending.module.css';
 
 const day = (v) => (v ? String(v).slice(0, 10) : '');
@@ -123,6 +124,7 @@ export default function PendingViewPage() {
         <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={load}>RETRY</button></div></div>);
     if (!p) return <div className={styles.page}><LoadingState label="LOADING ENTRY..." size="page" /></div>;
 
+    const waiting = waitingFor({ pending: !!p.pending && !p.rejected, deleted: !!p.rejected });
     const payerOptions = [{ value: '', label: 'Choose the client' }].concat((p.clients || []).map(c => ({ value: c.nationalId, label: c.fullName })));
     const catOptions = cats.map(c => ({ value: c.code, label: c.label }));
 
@@ -132,6 +134,8 @@ export default function PendingViewPage() {
                 <div className={styles.headLeft}>
                     <h1 className={styles.title}>Project #{p.projectIndex} <span className={`${styles.badge} ${styles.badgePending}`}>PENDING</span></h1>
                     <span className={styles.sub}>{(p.projectType || '').replace(/_/g, ' ')} - entered {day(p.enteredAt)} by {p.enteredBy}{p.ageDays != null ? ' (' + p.ageDays + ' day(s) ago)' : ''}</span>
+                    {/* fix185: the same quiet "waiting for" line as the project folder */}
+                    {waiting && <span className={styles.waiting} title={waiting.tip}>{waiting.text}</span>}
                 </div>
             </header>
 
