@@ -88,6 +88,24 @@ public class PendingWorkflowTest {
         return r;
     }
 
+    /** fix195 (review S03): a file sent with a new project must be a real scan type and not empty. */
+    @Test
+    public void aNewProjectRefusesAFileThatIsNotAScan() throws Exception {
+        as(user("emp_", Role.ROLE_EMPLOYEE));
+        String nin = "CM" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
+        var exe = new org.springframework.mock.web.MockMultipartFile("scans", "setup.exe", "application/octet-stream", new byte[] { 1, 2, 3 });
+        BusinessException e = assertThrows(BusinessException.class, () -> pending.createPending(entry(nin),
+                new org.springframework.web.multipart.MultipartFile[] { exe }, new ArrayList<>(List.of("OTHER"))));
+        assertTrue(e.getMessage().startsWith("FILE_TYPE_BLOCKED"), e.getMessage());
+        var empty = new org.springframework.mock.web.MockMultipartFile("scans", "title.pdf", "application/pdf", new byte[0]);
+        e = assertThrows(BusinessException.class, () -> pending.createPending(entry(nin),
+                new org.springframework.web.multipart.MultipartFile[] { empty }, new ArrayList<>(List.of("OTHER"))));
+        assertTrue(e.getMessage().startsWith("FILE_EMPTY"), e.getMessage());
+        assertTrue(clients.findByNationalId(nin).isEmpty(), "nothing was saved");
+        // and with no file at all the entry is still accepted
+        assertNotNull(pending.createPending(entry(nin), new org.springframework.web.multipart.MultipartFile[0], null).getId());
+    }
+
     /** fix194 (review S01): an Employee never reads or replaces the contacts of a client the office already has. */
     @Test
     public void anEmployeeCannotReadOrChangeAnExistingClientsContacts() throws Exception {
